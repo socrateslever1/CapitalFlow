@@ -27,7 +27,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const params = legalService.prepareDocumentParams(agreement, loan, activeUser);
+            const params = legalService.prepareDocumentParams(loan, activeUser, agreement);
             const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
             if (!ownerId) {
                 console.error("ID do usuário inválido para geração de documento.");

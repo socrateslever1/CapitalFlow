@@ -39,6 +39,10 @@ export interface PFTransaction {
     account_name?: string; 
     card_name?: string;
     created_at?: string;
+    is_operation_transfer?: boolean;
+    total_installments?: number;
+    installment_number?: number;
+    operation_source_id?: string;
 }
 
 export interface PFDashboardStats {

@@ -1,0 +1,33 @@
+{
+  "name": "CapitalFlow - Gestão Financeira",
+  "short_name": "CapitalFlow",
+  "description": "Sistema Inteligente de Gestão de Capital e Crédito Privado",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5501/5501375.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5501/5501375.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business"],
+  "shortcuts": [
+    {
+      "name": "Novo Contrato",
+      "short_name": "Novo",
+      "url": "/?action=new_loan",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/1828/1828817.png", "sizes": "192x192" }]
+    }
+  ]
+}

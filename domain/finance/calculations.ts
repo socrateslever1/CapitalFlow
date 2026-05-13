@@ -1,0 +1,423 @@
+
+import { AgreementInstallment, Installment, Loan, LoanPolicy, LoanStatus } from "../../types";
+import { getDaysDiff as getDaysDiffHelper } from "../../utils/dateHelpers";
+import { financeDispatcher } from "./dispatch";
+import { CalculationResult } from "./modalities/types";
+
+const round = (num: number): number => Math.round((num + Number.EPSILON) * 100) / 100;
+
+const AGREEMENT_ACTIVE_STATUSES = new Set(["ACTIVE", "ATIVO"]);
+const AGREEMENT_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO"]);
+const LOAN_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO", "ARQUIVADO"]);
+export const ZERO_BALANCE_THRESHOLD = 0.5; // Ignora resíduos abaixo de 50 centavos
+
+export type ForgivenessMode = "NONE" | "FINE_ONLY" | "INTEREST_ONLY" | "BOTH";
+
+export interface RemainingBalance {
+  totalRemaining: number;
+  principalRemaining: number;
+  interestRemaining: number;
+  lateFeeRemaining: number;
+}
+
+export interface PaymentBuckets {
+  principal: number;
+  interest: number;
+  lateFee: number;
+  total: number;
+}
+
+export interface InstallmentPaymentPlan {
+  paidPrincipal: number;
+  paidInterest: number;
+  paidLateFee: number;
+  avGenerated: number;
+  forgivenLateFee: number;
+  totalDueBeforeForgiveness: number;
+  totalDueAfterForgiveness: number;
+  remainingAfterPayment: number;
+  finePart: number;
+  moraPart: number;
+}
+
+export const getDaysDiff = (dueDateStr: string): number => getDaysDiffHelper(dueDateStr);
+
+export const add30Days = (dateStr: string): string => {
+  const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
+  const date = new Date(y, m - 1, d, 12, 0, 0);
+  date.setDate(date.getDate() + 30);
+  return date.toISOString();
+};
+
+// --- FUNÇÕES DE STATUS (CORRIGIDAS) ---
+
+// Define o status lógico interno da parcela
+export const getInstallmentStatusLogic = (inst: Installment, parentLoanStatus?: string): LoanStatus => {
+  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
+  if (LOAN_PAID_STATUSES.has(pStatus)) return LoanStatus.PAID;
+
+  const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
+  
+  if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return LoanStatus.PAID;
+  
+  if (getDaysDiff(inst.dueDate) > 0) return LoanStatus.LATE;
+  if (inst.paidTotal > 0) return LoanStatus.PARTIAL;
+  return LoanStatus.PENDING;
+};
+
+// Define o texto de status que o usuário vê na interface
+export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: string): string => {
+  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
+  if (LOAN_PAID_STATUSES.has(pStatus)) return "Quitado";
+
+  const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
+  
+  if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return "Quitado";
+
+  const days = getDaysDiff(inst.dueDate);
+  if (days === 0) return "Vence Hoje";
+  if (days > 0) return `${days} dias vencidos`;
+  return "Em dia";
+};
+
+
+// --- FACHADA DE CÁLCULO DE DÍVIDA ---
+
+export const calculateTotalDue = (loan: Loan, inst: Installment): CalculationResult => {
+  const policy: LoanPolicy = loan.policiesSnapshot || {
+    interestRate: loan.interestRate,
+    finePercent: loan.finePercent,
+    dailyInterestPercent: loan.dailyInterestPercent
+  };
+  
+  const rawCalc = financeDispatcher.calculate(loan, inst, policy);
+  return rawCalc;
+};
+
+export const hasActiveAgreement = (loan: Loan): boolean => {
+  const status = String(loan?.activeAgreement?.status || "").toUpperCase().trim();
+  return !!loan?.activeAgreement && AGREEMENT_ACTIVE_STATUSES.has(status);
+};
+
+export const isLoanSettledByStatus = (loan: Partial<Loan> | null | undefined): boolean => {
+  const status = String(loan?.status || "").toUpperCase().trim();
+  return LOAN_PAID_STATUSES.has(status);
+};
+
+export const isAgreementSettledByStatus = (loan: Partial<Loan> | null | undefined): boolean => {
+  const status = String(loan?.activeAgreement?.status || "").toUpperCase().trim();
+  return !!loan?.activeAgreement && AGREEMENT_PAID_STATUSES.has(status);
+};
+
+export const isAgreementInstallmentPaid = (inst: Partial<AgreementInstallment> | null | undefined, parentLoanStatus?: string): boolean => {
+  if (!inst) return true;
+  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
+  if (LOAN_PAID_STATUSES.has(pStatus)) return true;
+  const status = String(inst.status || "").toUpperCase().trim();
+  const amount = Number(inst.amount || 0);
+  const paidAmount = Number(inst.paidAmount || 0);
+  const remaining = round(amount - paidAmount);
+  return AGREEMENT_PAID_STATUSES.has(status) || remaining <= ZERO_BALANCE_THRESHOLD;
+};
+
+export const isInstallmentSettled = (inst: Partial<Installment> | null | undefined, parentLoanStatus?: string): boolean => {
+  if (!inst) return true;
+  const status = String(inst.status || "").toUpperCase().trim();
+  const principal = Number(inst.principalRemaining || 0);
+  const interest = Number(inst.interestRemaining || 0);
+  const lateFee = Number(inst.lateFeeAccrued || 0);
+  return AGREEMENT_PAID_STATUSES.has(status) || round(principal + interest + lateFee) <= ZERO_BALANCE_THRESHOLD;
+};
+
+export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
+  if (!loan) {
+    return {
+      totalRemaining: 0,
+      principalRemaining: 0,
+      interestRemaining: 0,
+      lateFeeRemaining: 0,
+    };
+  }
+
+  if (isLoanSettledByStatus(loan) || isAgreementSettledByStatus(loan)) {
+    return {
+      totalRemaining: 0,
+      principalRemaining: 0,
+      interestRemaining: 0,
+      lateFeeRemaining: 0,
+    };
+  }
+
+  if (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments)) {
+    const agreement = loan.activeAgreement;
+    const pendingInstallments = agreement.installments.filter((inst) => !isAgreementInstallmentPaid(inst));
+    const totalRemaining = round(
+      pendingInstallments.reduce((acc, inst) => acc + Math.max(0, Number(inst.amount || 0) - Number(inst.paidAmount || 0)), 0)
+    );
+
+    // Tenta preservar a natureza da dívida baseada no débito original no momento da negociação
+    const totalOriginal = Math.max(1, agreement.totalDebtAtNegotiation || totalRemaining);
+    const negotiatedTotal = Math.max(1, agreement.negotiatedTotal || totalRemaining);
+    
+    // Calcula o saldo "virtual" sem o acordo para pegar a proporção
+    const virtualBalance = computeLoanRemainingBalance({ ...loan, activeAgreement: undefined });
+    
+    const pRatio = virtualBalance.principalRemaining / (virtualBalance.totalRemaining || 1);
+    const iRatio = virtualBalance.interestRemaining / (virtualBalance.totalRemaining || 1);
+    const lRatio = virtualBalance.lateFeeRemaining / (virtualBalance.totalRemaining || 1);
+
+    return {
+      totalRemaining,
+      principalRemaining: round(totalRemaining * pRatio),
+      interestRemaining: round(totalRemaining * iRatio),
+      lateFeeRemaining: round(totalRemaining * lRatio),
+    };
+  }
+
+  const installments = Array.isArray(loan.installments) ? loan.installments : [];
+  if (installments.length === 0) {
+    return {
+      totalRemaining: 0,
+      principalRemaining: 0,
+      interestRemaining: 0,
+      lateFeeRemaining: 0,
+    };
+  }
+
+  let principalRemaining = 0;
+  let interestRemaining = 0;
+  let lateFeeRemaining = 0;
+
+  for (const inst of installments) {
+    // Ignora parcelas que foram movidas para acordo ou canceladas
+    const status = String(inst.status || "").toUpperCase();
+    if (status === 'RENEGOCIADO' || status === 'CANCELADO' || status === 'PAID' || status === 'PAGO' || status === 'QUITADO') continue;
+
+    const debt = calculateTotalDue(loan, inst);
+    principalRemaining += Math.max(0, Number(debt.principal || 0));
+    interestRemaining += Math.max(0, Number(debt.interest || 0));
+    lateFeeRemaining += Math.max(0, Number(debt.lateFee || 0));
+  }
+
+  principalRemaining = round(principalRemaining);
+  interestRemaining = round(interestRemaining);
+  lateFeeRemaining = round(lateFeeRemaining);
+
+  return {
+    totalRemaining: round(principalRemaining + interestRemaining + lateFeeRemaining),
+    principalRemaining,
+    interestRemaining,
+    lateFeeRemaining,
+  };
+};
+
+export const resolveForgivenLateFee = (
+  calc: CalculationResult,
+  forgivenessMode: ForgivenessMode = "NONE"
+): { forgivenLateFee: number; finePart: number; moraPart: number } => {
+  const finePart = round(Number(calc.finePart ?? calc.lateFee ?? 0));
+  const moraPart = round(Number(calc.moraPart ?? 0));
+
+  let forgivenLateFee = 0;
+  if (forgivenessMode === "FINE_ONLY") forgivenLateFee = finePart;
+  if (forgivenessMode === "INTEREST_ONLY") forgivenLateFee = moraPart;
+  if (forgivenessMode === "BOTH") forgivenLateFee = round(finePart + moraPart);
+
+  return {
+    forgivenLateFee: round(Math.min(Number(calc.lateFee || 0), forgivenLateFee)),
+    finePart,
+    moraPart,
+  };
+};
+
+export const resolveInstallmentPaymentBuckets = (
+  loan: Loan,
+  installment: Installment,
+  forgivenessMode: ForgivenessMode = "NONE"
+): PaymentBuckets & { forgivenLateFee: number; finePart: number; moraPart: number; totalBeforeForgiveness: number } => {
+  const calc = calculateTotalDue(loan, installment);
+  const { forgivenLateFee, finePart, moraPart } = resolveForgivenLateFee(calc, forgivenessMode);
+
+  const principal = round(Number(calc.principal || 0));
+  const interest = round(Number(calc.interest || 0));
+  const lateFee = round(Math.max(0, Number(calc.lateFee || 0) - forgivenLateFee));
+  const total = round(principal + interest + lateFee);
+
+  return {
+    principal,
+    interest,
+    lateFee,
+    total,
+    forgivenLateFee,
+    finePart,
+    moraPart,
+    totalBeforeForgiveness: round(Number(calc.total || 0)),
+  };
+};
+
+export const allocatePaymentFromBuckets = (params: {
+  paymentAmount: number;
+  principal: number;
+  interest: number;
+  lateFee: number;
+}): PaymentResult & { totalDue: number; remainingAfterPayment: number } => {
+  const totalDue = round(
+    Math.max(0, Number(params.principal || 0)) +
+    Math.max(0, Number(params.interest || 0)) +
+    Math.max(0, Number(params.lateFee || 0))
+  );
+
+  let remaining = round(params.paymentAmount);
+
+  const payLateFee = Math.min(remaining, Math.max(0, Number(params.lateFee || 0)));
+  remaining = round(remaining - payLateFee);
+
+  const payInterest = Math.min(remaining, Math.max(0, Number(params.interest || 0)));
+  remaining = round(remaining - payInterest);
+
+  const payPrincipal = Math.min(remaining, Math.max(0, Number(params.principal || 0)));
+  remaining = round(remaining - payPrincipal);
+
+  return {
+    paidPrincipal: round(payPrincipal),
+    paidInterest: round(payInterest),
+    paidLateFee: round(payLateFee),
+    avGenerated: round(Math.max(0, remaining)),
+    totalDue,
+    remainingAfterPayment: round(
+      Math.max(0, totalDue - round(payPrincipal + payInterest + payLateFee))
+    ),
+  };
+};
+
+export const calculateInstallmentPaymentPlan = (params: {
+  loan: Loan;
+  installment: Installment;
+  paymentAmount: number;
+  forgivenessMode?: ForgivenessMode;
+}): InstallmentPaymentPlan => {
+  const buckets = resolveInstallmentPaymentBuckets(
+    params.loan,
+    params.installment,
+    params.forgivenessMode || "NONE"
+  );
+
+  const allocation = allocatePaymentFromBuckets({
+    paymentAmount: params.paymentAmount,
+    principal: buckets.principal,
+    interest: buckets.interest,
+    lateFee: buckets.lateFee,
+  });
+
+  return {
+    paidPrincipal: allocation.paidPrincipal,
+    paidInterest: allocation.paidInterest,
+    paidLateFee: allocation.paidLateFee,
+    avGenerated: allocation.avGenerated,
+    forgivenLateFee: buckets.forgivenLateFee,
+    totalDueBeforeForgiveness: buckets.totalBeforeForgiveness,
+    totalDueAfterForgiveness: buckets.total,
+    remainingAfterPayment: allocation.remainingAfterPayment,
+    finePart: buckets.finePart,
+    moraPart: buckets.moraPart,
+  };
+};
+
+
+// --- ALOCAÇÃO DE PAGAMENTO ---
+
+export interface PaymentResult {
+  paidPrincipal: number;
+  paidInterest: number;
+  paidLateFee: number;
+  avGenerated: number;
+}
+
+export const allocatePayment = (params: {
+  installment: Installment,
+  paymentAmount: number,
+  paymentPriority?: 'INTEREST_FIRST' | 'PRINCIPAL_FIRST'
+}): PaymentResult => {
+  const { installment, paymentAmount } = params;
+  const allocation = allocatePaymentFromBuckets({
+    paymentAmount,
+    principal: Number(installment.principalRemaining) || 0,
+    interest: Number(installment.interestRemaining) || 0,
+    lateFee: Number(installment.lateFeeAccrued) || 0,
+  });
+
+  return {
+    paidPrincipal: allocation.paidPrincipal,
+    paidInterest: allocation.paidInterest,
+    paidLateFee: allocation.paidLateFee,
+    avGenerated: allocation.avGenerated,
+  };
+};
+// --- RECONSTRUÇÃO DE ESTADO ---
+
+export const rebuildLoanStateFromLedger = (loan: Loan): Loan => {
+  if (loan.isArchived && (!loan.ledger || loan.ledger.length === 0)) return loan;
+
+  const rebuiltInstallments = loan.installments.map(inst => ({
+    ...inst,
+    principalRemaining: round(Number(inst.scheduledPrincipal) || Number(inst.amount) || 0), 
+    interestRemaining: round(Number(inst.scheduledInterest) || 0),
+    lateFeeAccrued: 0, avApplied: 0, paidPrincipal: 0, paidInterest: 0, 
+    paidLateFee: 0, paidTotal: 0, status: LoanStatus.PENDING, logs: [] as string[],
+    renewalCount: 0, paidDate: undefined as string | undefined
+  }));
+
+  const sortedLedger = [...(loan.ledger || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  sortedLedger.forEach(entry => {
+    const entryInstId = entry.installmentId ? String(entry.installmentId).trim() : null;
+    if (entryInstId) {
+      const inst = rebuiltInstallments.find(i => String(i.id).trim() === entryInstId);
+      if (inst) {
+        inst.paidPrincipal = round(inst.paidPrincipal + (Number(entry.principalDelta) || 0));
+        inst.paidInterest = round(inst.paidInterest + (Number(entry.interestDelta) || 0));
+        inst.paidLateFee = round(inst.paidLateFee + (Number(entry.lateFeeDelta) || 0));
+        inst.paidTotal = round(inst.paidTotal + (Number(entry.amount) || 0));
+        
+        const pDelta = Number(entry.principalDelta) || 0;
+        const iDelta = Number(entry.interestDelta) || 0;
+
+        inst.principalRemaining = Math.max(0, round(inst.principalRemaining - pDelta));
+        inst.interestRemaining = round(inst.interestRemaining - iDelta);
+        
+        if (['PAYMENT_PARTIAL', 'PAYMENT_INTEREST_ONLY', 'PAYMENT_FULL'].includes(entry.type || '')) {
+            if (iDelta > 0 && pDelta === 0) {
+                 inst.renewalCount = (inst.renewalCount || 0) + 1;
+            }
+        }
+        if (entry.notes) inst.logs?.push(entry.notes);
+      }
+    }
+  });
+
+  rebuiltInstallments.forEach(inst => {
+    // A lógica de status agora é chamada aqui, após o ledger ser processado
+    inst.status = getInstallmentStatusLogic(inst, loan.status);
+    if (inst.status === LoanStatus.PAID && !inst.paidDate) {
+       const instId = String(inst.id).trim();
+       const lastPayment = sortedLedger.filter(e => String(e.installmentId).trim() === instId).pop();
+       if (lastPayment) inst.paidDate = lastPayment.date;
+    }
+  });
+
+  return { ...loan, installments: rebuiltInstallments };
+};
+
+
+// --- ATUALIZAÇÃO EM LOTE ---
+
+export const refreshAllLateFees = (loans: Loan[]): Loan[] => {
+  return loans.map(loan => {
+    const rebuiltLoan = rebuildLoanStateFromLedger(loan);
+    const updatedInstallments = rebuiltLoan.installments.map(inst => {
+      const debt = calculateTotalDue(rebuiltLoan, inst);
+      return { ...inst, lateFeeAccrued: debt.lateFee };
+    });
+    return { ...rebuiltLoan, installments: updatedInstallments };
+  });
+};

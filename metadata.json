@@ -1,0 +1,10 @@
+{
+  "description": "CapitalFlow - Sistema de Gestão Financeira com IA e Notificações.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "name": "CapitalFlow",
+  "majorCapabilities": []
+}

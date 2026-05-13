@@ -1,0 +1,379 @@
+# Estrutura de páginas e módulos (extraída dos DEX)
+
+Mapeamento estrutural inferido por nomes de classes e layouts.
+
+- Classes do app identificadas: 4660
+- Activities: 169
+- Fragments: 41
+- Dialogs/DialogFragments: 45
+- Adapters: 137
+- Services (heurístico): 11
+- Receivers (heurístico): 11
+- Layouts XML encontrados: 588
+
+## Módulos de Activity (por pacote)
+- `activity.menu`: 21
+- `activity.configuracao`: 18
+- `activity.usuario`: 16
+- `activity.base`: 13
+- `activity.orcamentos`: 13
+- `activity.root`: 12
+- `activity.grafico`: 11
+- `activity.cartao_credito`: 8
+- `activity.conta`: 8
+- `activity.despesa`: 8
+- `activity.receita`: 7
+- `activity.ferramentas`: 5
+- `activity.relatorio`: 4
+- `activity.seguranca`: 4
+- `activity.transferencia`: 4
+- `activity.categoria`: 3
+- `activity.extrato`: 3
+- `activity.objetivo`: 3
+- `activity.ia`: 2
+- `activity.pricing`: 2
+- `activity.backup`: 1
+- `activity.fornulas`: 1
+- `activity.loja_recursos`: 1
+- `activity.tag_transacoes`: 1
+
+## Principais páginas (amostra de Activities)
+- `cicero.minhasfinancas.activity.AjudaActivity`
+- `cicero.minhasfinancas.activity.CalcularBoletoVencidoDialogFragmentActivity`
+- `cicero.minhasfinancas.activity.CalculatorActivity`
+- `cicero.minhasfinancas.activity.FuncionamentoGeralActivity`
+- `cicero.minhasfinancas.activity.GerenciarProfilesActivity`
+- `cicero.minhasfinancas.activity.IconPickerActivity`
+- `cicero.minhasfinancas.activity.LineChartDetailMonthActivity`
+- `cicero.minhasfinancas.activity.NovaTransacaoBaseActivity`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity`
+- `cicero.minhasfinancas.activity.ShowDialogFragmentActivity`
+- `cicero.minhasfinancas.activity.SplashActivity`
+- `cicero.minhasfinancas.activity.TransascoesBuscaGlobalActivity`
+- `cicero.minhasfinancas.activity.backup.BackupRestoreActivity`
+- `cicero.minhasfinancas.activity.base.BaseActivity`
+- `cicero.minhasfinancas.activity.base.BaseAddTransacaoActivity`
+- `cicero.minhasfinancas.activity.base.BaseCheckableActivity`
+- `cicero.minhasfinancas.activity.base.BaseDrawerActivity`
+- `cicero.minhasfinancas.activity.base.BaseGoogleSignActivity`
+- `cicero.minhasfinancas.activity.base.BaseMenuActivity`
+- `cicero.minhasfinancas.activity.base.BaseMoveTransacoesCategoriaActivity`
+- `cicero.minhasfinancas.activity.base.BaseRootActivity`
+- `cicero.minhasfinancas.activity.base.BaseSearchActivity`
+- `cicero.minhasfinancas.activity.base.BaseShareActivity`
+- `cicero.minhasfinancas.activity.base.BaseToolbarActivity`
+- `cicero.minhasfinancas.activity.base.TransacaoBaseActivity`
+- `cicero.minhasfinancas.activity.base.TransacaoBaseDetalhesActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.CartaoDetalhesActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.CartoesArquivadosActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.CartoesCreditoActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.ConfigurarOrdemCartoesActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.ExtratoCartaoActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.HistoricoFaturasActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.NovoCartaoCreditoActivity`
+- `cicero.minhasfinancas.activity.cartao_credito.SelecionarCartoesCreditoActivity`
+- `cicero.minhasfinancas.activity.categoria.BaseSelecionarCategoriasActivity`
+- `cicero.minhasfinancas.activity.categoria.SelecionarCategoriasDespesaActivity`
+- `cicero.minhasfinancas.activity.categoria.SelecionarCategoriasReceitaActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracaoBaseActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesBackupActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesCartoesCreditoActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesContasActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesCustomizarActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesDespesaActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesImportarSMSActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesMaisActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesReceitasActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesSegurancaActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfiguracoesWidgetsResumoActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfigurarCurrencyActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfigurarMenuTransacoesActivity`
+- `cicero.minhasfinancas.activity.configuracao.ConfigurarTiposImportacoesActivity`
+- `cicero.minhasfinancas.activity.configuracao.HelperConfiguracaoSegundoPlanoActivity`
+- `cicero.minhasfinancas.activity.configuracao.ProblemasSaldoActivity`
+- `cicero.minhasfinancas.activity.configuracao.ShowConfigurarModoViagemActivity`
+- `cicero.minhasfinancas.activity.conta.CategoriasContasActivity`
+- `cicero.minhasfinancas.activity.conta.ConfigurarOrdemContasActivity`
+- `cicero.minhasfinancas.activity.conta.ContaDetalhesCoolActivity`
+- `cicero.minhasfinancas.activity.conta.ContasActivity`
+- `cicero.minhasfinancas.activity.conta.ContasArquivadasActivity`
+- `cicero.minhasfinancas.activity.conta.ExtratoContaActivity`
+- `cicero.minhasfinancas.activity.conta.NovaContaActivity`
+- `cicero.minhasfinancas.activity.conta.SelecionarContasActivity`
+- `cicero.minhasfinancas.activity.despesa.CategoriasDespesasActivity`
+- `cicero.minhasfinancas.activity.despesa.DespesaDetalhesActivity`
+- `cicero.minhasfinancas.activity.despesa.DespesasActivity`
+- `cicero.minhasfinancas.activity.despesa.DespesasAlterarCategoriaActivity`
+- `cicero.minhasfinancas.activity.despesa.DespesasRelatorioActivity`
+- `cicero.minhasfinancas.activity.despesa.EstatisticasActivity`
+- `cicero.minhasfinancas.activity.despesa.NovaDespesaActivity`
+- `cicero.minhasfinancas.activity.despesa.SubcategoriasDespesaActivity`
+- `cicero.minhasfinancas.activity.extrato.ExtratoBaseActivity`
+- `cicero.minhasfinancas.activity.extrato.ExtratoGeralActivity`
+- `cicero.minhasfinancas.activity.extrato.ExtratoGeralPagerActivity`
+- `cicero.minhasfinancas.activity.ferramentas.CalcularInvestimentoActivity`
+- `cicero.minhasfinancas.activity.ferramentas.ConversorMoedasActivity`
+- `cicero.minhasfinancas.activity.ferramentas.HistoricoNotificacoesActivity`
+- `cicero.minhasfinancas.activity.ferramentas.ImportarOFXActivity`
+- `cicero.minhasfinancas.activity.ferramentas.ImportarOfxExternalActivity`
+- `cicero.minhasfinancas.activity.fornulas.NovaFormulaActivity`
+- `cicero.minhasfinancas.activity.grafico.CartoesCategoriasGraficoActivity`
+- `cicero.minhasfinancas.activity.grafico.ChartFinancasDiariasActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoCartoesAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoCategoriasContasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoCategoriasDespesasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoCategoriasReceitasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoEncargosDespesasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoReceitasDespesasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoSubcategoriasDespesasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficoSubcategoriasReceitasAnualActivity`
+- `cicero.minhasfinancas.activity.grafico.GraficosActivity`
+- `cicero.minhasfinancas.activity.ia.HistoricoRelatoriosInteligentesActivity`
+- `cicero.minhasfinancas.activity.ia.RelatorioInteligenteActivity`
+- `cicero.minhasfinancas.activity.loja_recursos.LojaItemInfoActivity`
+- `cicero.minhasfinancas.activity.menu.BaseResumoActivity`
+- `cicero.minhasfinancas.activity.menu.CalendarioActivity`
+- `cicero.minhasfinancas.activity.menu.CartoesCreditoActivity`
+- `cicero.minhasfinancas.activity.menu.CategoriasActivity`
+- `cicero.minhasfinancas.activity.menu.CompartilhamentosActivity`
+- `cicero.minhasfinancas.activity.menu.ConfiguracoesActivity`
+- `cicero.minhasfinancas.activity.menu.ContasActivity`
+- `cicero.minhasfinancas.activity.menu.DespesasActivity`
+- `cicero.minhasfinancas.activity.menu.ExtratoActivity`
+- `cicero.minhasfinancas.activity.menu.FerramentasActivity`
+- `cicero.minhasfinancas.activity.menu.GraficosActivity`
+- `cicero.minhasfinancas.activity.menu.ObjetivosActivity`
+- `cicero.minhasfinancas.activity.menu.OrcamentosActivity`
+- `cicero.minhasfinancas.activity.menu.ReceitasActivity`
+- `cicero.minhasfinancas.activity.menu.RelatorioActivity`
+- `cicero.minhasfinancas.activity.menu.ResumoChartActivity`
+- `cicero.minhasfinancas.activity.menu.ResumoSimpleActivity`
+- `cicero.minhasfinancas.activity.menu.SobreActivity`
+- `cicero.minhasfinancas.activity.menu.TagsActivity`
+- `cicero.minhasfinancas.activity.menu.TransacoesActivity`
+- `cicero.minhasfinancas.activity.menu.TransferenciasActivity`
+- `cicero.minhasfinancas.activity.objetivo.NovoObjetivoActivity`
+- `cicero.minhasfinancas.activity.objetivo.ObjetivoDetalhesActivity`
+- `cicero.minhasfinancas.activity.objetivo.ObjetivosActivity`
+- `cicero.minhasfinancas.activity.orcamentos.BaseDetalhesOrcamentoActivity`
+- `cicero.minhasfinancas.activity.orcamentos.BaseNovoOrcamentoActivity`
+- ... e mais 49 activities
+
+## Fragments (amostra)
+- `cicero.minhasfinancas.fragment.BaseActionModeFragment`
+- `cicero.minhasfinancas.fragment.BaseCheckableFragment`
+- `cicero.minhasfinancas.fragment.BaseMenuFragment`
+- `cicero.minhasfinancas.fragment.CalculatorFragment`
+- `cicero.minhasfinancas.fragment.CartoesCategoriaGraficoFragment`
+- `cicero.minhasfinancas.fragment.FiltroTransacoesFragment`
+- `cicero.minhasfinancas.fragment.menu.CalendarFragment`
+- `cicero.minhasfinancas.fragment.menu.CartaoCreditoFragment`
+- `cicero.minhasfinancas.fragment.menu.ConfiguracoesFragment`
+- `cicero.minhasfinancas.fragment.menu.ContasFragment`
+- `cicero.minhasfinancas.fragment.menu.DespesasFragment`
+- `cicero.minhasfinancas.fragment.menu.EstatisticasFragment`
+- `cicero.minhasfinancas.fragment.menu.ExtratoFragment`
+- `cicero.minhasfinancas.fragment.menu.GraficosFragment`
+- `cicero.minhasfinancas.fragment.menu.ObjetivosFragment`
+- `cicero.minhasfinancas.fragment.menu.ReceitasFragment`
+- `cicero.minhasfinancas.fragment.menu.RelatorioFragment`
+- `cicero.minhasfinancas.fragment.menu.ResumoFragment`
+- `cicero.minhasfinancas.fragment.menu.TagsTransacoesFragment`
+- `cicero.minhasfinancas.fragment.menu.TransferenciasFragment`
+- `cicero.minhasfinancas.fragment.menu.categoria.CategoriasBasePagerFragment`
+- `cicero.minhasfinancas.fragment.menu.categoria.CategoriasContaFragment`
+- `cicero.minhasfinancas.fragment.menu.categoria.CategoriasDespesasFragment`
+- `cicero.minhasfinancas.fragment.menu.categoria.CategoriasReceitaFragment`
+- `cicero.minhasfinancas.fragment.menu.graficos.DespesasGraficosFragment`
+- `cicero.minhasfinancas.fragment.menu.graficos.GraficosBaseFragment`
+- `cicero.minhasfinancas.fragment.menu.graficos.OutrosGraficosFragment`
+- `cicero.minhasfinancas.fragment.menu.graficos.ReceitasGraficosFragment`
+- `cicero.minhasfinancas.fragment.menu.orcamento.OrcamentoDespesasFragment`
+- `cicero.minhasfinancas.fragment.menu.orcamento.OrcamentoReceitasFragment`
+- `cicero.minhasfinancas.fragment.menu.orcamento.OrcamentoViewPagerFragment`
+- `cicero.minhasfinancas.fragment.menu.relatorio.BaseRelatorioFragment`
+- `cicero.minhasfinancas.fragment.menu.relatorio.RelatorioFiltroFragment`
+- `cicero.minhasfinancas.fragment.menu.relatorio.RelatorioFiltrosSalvosFragment`
+- `cicero.minhasfinancas.fragment.objetivos.ObjetivoDepositosPagerFragment`
+- `cicero.minhasfinancas.fragment.objetivos.ObjetivoDetalhesBasePagerFragment`
+- `cicero.minhasfinancas.fragment.objetivos.ObjetivoDetalhesPagerFragment`
+- `cicero.minhasfinancas.fragment.objetivos.ObjetivosAndamentoFragment`
+- `cicero.minhasfinancas.fragment.objetivos.ObjetivosBaseFragment`
+- `cicero.minhasfinancas.fragment.objetivos.ObjetivosRealizadosFragment`
+- `cicero.minhasfinancas.fragment.ofx.TransacoesOFXFragment`
+
+## Dialogs/DialogFragments (amostra)
+- `cicero.minhasfinancas.dialog.ColorPickerDialogFragment`
+- `cicero.minhasfinancas.dialog.ConfigurarRepeticaoDialog`
+- `cicero.minhasfinancas.dialog.CriarPontoRestauracaoDialog`
+- `cicero.minhasfinancas.dialog.DefinirAppSmsDialog`
+- `cicero.minhasfinancas.dialog.EditarDescricaoDialog`
+- `cicero.minhasfinancas.dialog.MaisDiasTesteDialog`
+- `cicero.minhasfinancas.dialog.NovoPerfilDialog`
+- `cicero.minhasfinancas.dialog.ParabensVersaoPremiumDialog`
+- `cicero.minhasfinancas.dialog.PlanoSyncDialog`
+- `cicero.minhasfinancas.dialog.RecursosVersaoPremiumDialog`
+- `cicero.minhasfinancas.dialog.SelecionarDiaDialog`
+- `cicero.minhasfinancas.dialog.StatusSyncDialog`
+- `cicero.minhasfinancas.dialog.base.AlertDialog`
+- `cicero.minhasfinancas.dialog.base.AttachViewDialog`
+- `cicero.minhasfinancas.dialog.base.BaseBottomSheetAttachmentDialog`
+- `cicero.minhasfinancas.dialog.base.ConfirmDialog`
+- `cicero.minhasfinancas.dialog.cartao_credito.DetalharTotaisCartoesDialog`
+- `cicero.minhasfinancas.dialog.cartao_credito.PagarFaturaDialog`
+- `cicero.minhasfinancas.dialog.cartao_credito.ParcelarFaturaDialog`
+- `cicero.minhasfinancas.dialog.cartao_credito.ReajustarFaturaDialog`
+- `cicero.minhasfinancas.dialog.conta.DetalharTotaisContasDialog`
+- `cicero.minhasfinancas.dialog.conta.ReajustarSaldoDialog`
+- `cicero.minhasfinancas.dialog.despesa.AnteciparParcelasDespesaDialog`
+- `cicero.minhasfinancas.dialog.despesa.CategoriaSubcategoriaDespesaDialog`
+- `cicero.minhasfinancas.dialog.despesa.CategoriasValorDespesaDialog`
+- `cicero.minhasfinancas.dialog.despesa.DespesaDebitoDialog`
+- `cicero.minhasfinancas.dialog.despesa.DespesaDivisaoDialog`
+- `cicero.minhasfinancas.dialog.despesa.DetalharTotaisDespesaDialog`
+- `cicero.minhasfinancas.dialog.despesa.EfetivacaoDespesaDialog`
+- `cicero.minhasfinancas.dialog.despesa.PagamentoParcialDespesaDialog`
+- `cicero.minhasfinancas.dialog.grafico.DetalharCartoesAnoDialog`
+- `cicero.minhasfinancas.dialog.grafico.DetalharCategoriasAnoDialog`
+- `cicero.minhasfinancas.dialog.grafico.DetalharReceitasDespesasAnoDialog`
+- `cicero.minhasfinancas.dialog.orcamento.DetalharTotaisOrcamentosDialog`
+- `cicero.minhasfinancas.dialog.orcamento.TransferirSaldoOrcamentoDialog`
+- `cicero.minhasfinancas.dialog.receita.CategoriaSubcategoriaReceitaDialog`
+- `cicero.minhasfinancas.dialog.receita.DetalharTotaisReceitasDialog`
+- `cicero.minhasfinancas.dialog.receita.EfetivacaoReceitaDialog`
+- `cicero.minhasfinancas.dialog.receita.RecebimentoParcialReceitaDialog`
+- `cicero.minhasfinancas.dialog.resumo.ConfigurarSaldoGraficoDialog`
+- `cicero.minhasfinancas.dialog.resumo.DetalharSaldoDialog`
+- `cicero.minhasfinancas.dialog.selecao.ContaDespesaDialog`
+- `cicero.minhasfinancas.dialog.selecao.ContaReceitaDialog`
+- `cicero.minhasfinancas.dialog.sonho.DepositarDialog`
+- `cicero.minhasfinancas.dialog.transferencia.DetalharTotaisTransferenciasDialog`
+
+## Layouts de UI (amostra)
+- `res/layout-land/activity_resources_store.xml`
+- `res/layout-land/barcode_capture.xml`
+- `res/layout-land/fragment_calculator.xml`
+- `res/layout-land/fragment_calendar.xml`
+- `res/layout-land/material_clock_period_toggle_land.xml`
+- `res/layout-land/material_timepicker.xml`
+- `res/layout-land/mtrl_picker_header_dialog.xml`
+- `res/layout-land/view_chart_categorias.xml`
+- `res/layout-land/view_chart_financas_diarias.xml`
+- `res/layout/abc_action_bar_title_item.xml`
+- `res/layout/abc_action_bar_up_container.xml`
+- `res/layout/abc_action_menu_item_layout.xml`
+- `res/layout/abc_action_menu_layout.xml`
+- `res/layout/abc_action_mode_bar.xml`
+- `res/layout/abc_action_mode_close_item_material.xml`
+- `res/layout/abc_activity_chooser_view.xml`
+- `res/layout/abc_activity_chooser_view_list_item.xml`
+- `res/layout/abc_alert_dialog_button_bar_material.xml`
+- `res/layout/abc_alert_dialog_material.xml`
+- `res/layout/abc_alert_dialog_title_material.xml`
+- `res/layout/abc_cascading_menu_item_layout.xml`
+- `res/layout/abc_dialog_title_material.xml`
+- `res/layout/abc_expanded_menu_layout.xml`
+- `res/layout/abc_list_menu_item_checkbox.xml`
+- `res/layout/abc_list_menu_item_icon.xml`
+- `res/layout/abc_list_menu_item_layout.xml`
+- `res/layout/abc_list_menu_item_radio.xml`
+- `res/layout/abc_popup_menu_header_item_layout.xml`
+- `res/layout/abc_popup_menu_item_layout.xml`
+- `res/layout/abc_screen_content_include.xml`
+- `res/layout/abc_screen_simple.xml`
+- `res/layout/abc_screen_simple_overlay_action_mode.xml`
+- `res/layout/abc_screen_toolbar.xml`
+- `res/layout/abc_search_dropdown_item_icons_2line.xml`
+- `res/layout/abc_search_view.xml`
+- `res/layout/abc_select_dialog_material.xml`
+- `res/layout/abc_tooltip.xml`
+- `res/layout/actions_main.xml`
+- `res/layout/activity_ajuda.xml`
+- `res/layout/activity_calcular_investimento.xml`
+- `res/layout/activity_cartao_detalhes.xml`
+- `res/layout/activity_cartoes.xml`
+- `res/layout/activity_cartoes_arquivadas.xml`
+- `res/layout/activity_categorias_anual.xml`
+- `res/layout/activity_categorias_despesa_anual.xml`
+- `res/layout/activity_categorias_receita_anual.xml`
+- `res/layout/activity_chart_financas_diarias.xml`
+- `res/layout/activity_comprar_perfil.xml`
+- `res/layout/activity_configuracao_menu_transacoes.xml`
+- `res/layout/activity_configuracao_ordem_cartoes.xml`
+- `res/layout/activity_configuracao_ordem_contas.xml`
+- `res/layout/activity_configuracoes.xml`
+- `res/layout/activity_configuracoes_widgets_resumo.xml`
+- `res/layout/activity_configurar_currency.xml`
+- `res/layout/activity_conta_detalhes_cool.xml`
+- `res/layout/activity_contas.xml`
+- `res/layout/activity_contas_arquivadas.xml`
+- `res/layout/activity_conversor_moedas.xml`
+- `res/layout/activity_despesa_detalhes.xml`
+- `res/layout/activity_despesas.xml`
+- `res/layout/activity_despesas_relatorio.xml`
+- `res/layout/activity_detalhes_orcamento.xml`
+- `res/layout/activity_drawer.xml`
+- `res/layout/activity_drawer_cartoes.xml`
+- `res/layout/activity_drawer_categorias.xml`
+- `res/layout/activity_drawer_contas.xml`
+- `res/layout/activity_drawer_graficos.xml`
+- `res/layout/activity_drawer_month_navigation.xml`
+- `res/layout/activity_drawer_orcamentos.xml`
+- `res/layout/activity_drawer_relatorios.xml`
+- `res/layout/activity_drawer_resumo.xml`
+- `res/layout/activity_drawer_resumo_simples.xml`
+- `res/layout/activity_drawer_tags.xml`
+- `res/layout/activity_drawer_transacoes.xml`
+- `res/layout/activity_extrato.xml`
+- `res/layout/activity_extrato_cartao.xml`
+- `res/layout/activity_extrato_conta.xml`
+- `res/layout/activity_extrato_geral.xml`
+- `res/layout/activity_extrato_geral_viewpager.xml`
+- `res/layout/activity_funcionamento_geral.xml`
+- `res/layout/activity_gerenciar_profiles.xml`
+- `res/layout/activity_grafico_cartoes_credito_anual.xml`
+- `res/layout/activity_grafico_despesas_encargos.xml`
+- `res/layout/activity_grafico_despesas_receitas_anual.xml`
+- `res/layout/activity_graficos.xml`
+- `res/layout/activity_helper_configuration_segundo_plano.xml`
+- `res/layout/activity_historico_faturas.xml`
+- `res/layout/activity_historico_notificacoes.xml`
+- `res/layout/activity_historico_relatorios_inteligentes.xml`
+- `res/layout/activity_icon_picker.xml`
+- `res/layout/activity_importar_ofx.xml`
+- `res/layout/activity_item_loja_info.xml`
+- `res/layout/activity_line_chart_detail_month.xml`
+- `res/layout/activity_mapa.xml`
+- `res/layout/activity_mover_transacoes_categoria.xml`
+- `res/layout/activity_nova_conta.xml`
+- `res/layout/activity_nova_despesa.xml`
+- `res/layout/activity_nova_formula.xml`
+- `res/layout/activity_nova_receita.xml`
+- `res/layout/activity_nova_transferencia.xml`
+- `res/layout/activity_novo_cartao_credito.xml`
+- `res/layout/activity_novo_objetivo.xml`
+- `res/layout/activity_novo_orcamento.xml`
+- `res/layout/activity_objetivo_detalhes.xml`
+- `res/layout/activity_objetivos.xml`
+- `res/layout/activity_orcamentos.xml`
+- `res/layout/activity_orcamentos_grafico.xml`
+- `res/layout/activity_pin.xml`
+- `res/layout/activity_planos_precos.xml`
+- `res/layout/activity_pontos_restauracao.xml`
+- `res/layout/activity_preference.xml`
+- `res/layout/activity_profile_pin.xml`
+- `res/layout/activity_receita_detalhes.xml`
+- `res/layout/activity_receitas.xml`
+- `res/layout/activity_receitas_relatorio.xml`
+- `res/layout/activity_relatorio_categorias.xml`
+- `res/layout/activity_relatorio_inteligente.xml`
+- `res/layout/activity_resources_store.xml`
+- `res/layout/activity_selecionar_cartoes_credito.xml`
+- `res/layout/activity_selecionar_categorias.xml`
+- ... e mais 468 layouts
+
+## Leitura prática da lógica de páginas
+- A navegação principal parece orientada a `activity.*` com módulos dedicados (ex.: cartão, conta, categoria, configuração).
+- Há separação de telas por domínio financeiro e componentes de suporte (`fragment`, `dialog`, `adapter`).
+- Sem decompilação de métodos, a lógica de negócio detalhada (regras/if/loops) não é recuperada integralmente; porém o desenho arquitetural de telas e módulos é observável.

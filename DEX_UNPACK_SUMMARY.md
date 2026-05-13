@@ -1,0 +1,119 @@
+# Descompactação de arquivos .dex (índice de classes)
+
+Relatório gerado por `scripts/extrair_classes_dex.py`.
+
+- Arquivos analisados: 6
+- Classes únicas totais: 50132
+
+## Classes por arquivo DEX
+- `classes.dex`: 11757 classes
+- `classes2.dex`: 456 classes
+- `classes3.dex`: 12262 classes
+- `classes4.dex`: 10985 classes
+- `classes5.dex`: 12686 classes
+- `classes6.dex`: 1986 classes
+
+## Top pacotes (prefixo de 3 níveis)
+- `com.google.android`: 14963
+- `com.google.firebase`: 3355
+- `com.google.common`: 2002
+- `cicero.minhasfinancas.activity`: 1910
+- `org.apache.commons`: 1485
+- `com.google.crypto`: 1439
+- `cicero.minhasfinancas.views`: 915
+- `org.apache.http`: 724
+- `io.ktor.client`: 587
+- `androidx.datastore.preferences`: 569
+- `com.facebook.stetho`: 515
+- `com.google.api`: 506
+- `io.grpc.internal`: 490
+- `com.google.protobuf`: 462
+- `cicero.minhasfinancas.fragment`: 415
+- `androidx.work.impl`: 407
+- `com.bumptech.glide`: 395
+- `cicero.minhasfinancas.dialog`: 385
+- `com.google.firestore`: 375
+- `androidx.privacysandbox.ads`: 362
+
+## Amostra de classes do app (`cicero.minhasfinancas`)
+- `cicero.minhasfinancas.App`
+- `cicero.minhasfinancas.BuildConfig`
+- `cicero.minhasfinancas.R`
+- `cicero.minhasfinancas.R$anim`
+- `cicero.minhasfinancas.R$animator`
+- `cicero.minhasfinancas.R$array`
+- `cicero.minhasfinancas.R$attr`
+- `cicero.minhasfinancas.R$bool`
+- `cicero.minhasfinancas.R$color`
+- `cicero.minhasfinancas.R$dimen`
+- `cicero.minhasfinancas.R$drawable`
+- `cicero.minhasfinancas.R$font`
+- `cicero.minhasfinancas.R$id`
+- `cicero.minhasfinancas.R$integer`
+- `cicero.minhasfinancas.R$interpolator`
+- `cicero.minhasfinancas.R$layout`
+- `cicero.minhasfinancas.R$menu`
+- `cicero.minhasfinancas.R$mipmap`
+- `cicero.minhasfinancas.R$plurals`
+- `cicero.minhasfinancas.R$raw`
+- `cicero.minhasfinancas.R$string`
+- `cicero.minhasfinancas.R$style`
+- `cicero.minhasfinancas.R$styleable`
+- `cicero.minhasfinancas.R$xml`
+- `cicero.minhasfinancas.activity.AjudaActivity`
+- `cicero.minhasfinancas.activity.AjudaActivity_`
+- `cicero.minhasfinancas.activity.AjudaActivity_$1`
+- `cicero.minhasfinancas.activity.AjudaActivity_$2`
+- `cicero.minhasfinancas.activity.AjudaActivity_$3`
+- `cicero.minhasfinancas.activity.AjudaActivity_$4`
+- `cicero.minhasfinancas.activity.AjudaActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.CalcularBoletoVencidoDialogFragmentActivity`
+- `cicero.minhasfinancas.activity.CalcularBoletoVencidoDialogFragmentActivity$1`
+- `cicero.minhasfinancas.activity.CalcularBoletoVencidoDialogFragmentActivity_`
+- `cicero.minhasfinancas.activity.CalcularBoletoVencidoDialogFragmentActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.CalculatorActivity`
+- `cicero.minhasfinancas.activity.CalculatorActivity$CalculatorResultEvent`
+- `cicero.minhasfinancas.activity.FuncionamentoGeralActivity`
+- `cicero.minhasfinancas.activity.FuncionamentoGeralActivity_`
+- `cicero.minhasfinancas.activity.FuncionamentoGeralActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.GerenciarProfilesActivity`
+- `cicero.minhasfinancas.activity.GerenciarProfilesActivity_`
+- `cicero.minhasfinancas.activity.GerenciarProfilesActivity_$1`
+- `cicero.minhasfinancas.activity.GerenciarProfilesActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.IconPickerActivity`
+- `cicero.minhasfinancas.activity.IconPickerActivity_`
+- `cicero.minhasfinancas.activity.IconPickerActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.LineChartDetailMonthActivity`
+- `cicero.minhasfinancas.activity.LineChartDetailMonthActivity$1`
+- `cicero.minhasfinancas.activity.LineChartDetailMonthActivity$2`
+- `cicero.minhasfinancas.activity.LineChartDetailMonthActivity_`
+- `cicero.minhasfinancas.activity.LineChartDetailMonthActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.NovaTransacaoBaseActivity`
+- `cicero.minhasfinancas.activity.NovaTransacaoBaseActivity$1`
+- `cicero.minhasfinancas.activity.NovaTransacaoBaseActivity$2`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity$CriarPontoRestauracaoEvent`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$1`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$2`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$3`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$4`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$5`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$6`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$7`
+- `cicero.minhasfinancas.activity.PontosRestauracaoActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.ShowDialogFragmentActivity`
+- `cicero.minhasfinancas.activity.ShowDialogFragmentActivity_`
+- `cicero.minhasfinancas.activity.ShowDialogFragmentActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.SplashActivity`
+- `cicero.minhasfinancas.activity.SplashActivity_`
+- `cicero.minhasfinancas.activity.SplashActivity_$1`
+- `cicero.minhasfinancas.activity.SplashActivity_$2`
+- `cicero.minhasfinancas.activity.SplashActivity_$3`
+- `cicero.minhasfinancas.activity.SplashActivity_$IntentBuilder_`
+- `cicero.minhasfinancas.activity.TransascoesBuscaGlobalActivity`
+- `cicero.minhasfinancas.activity.TransascoesBuscaGlobalActivity_`
+- `cicero.minhasfinancas.activity.TransascoesBuscaGlobalActivity_$1`
+- `cicero.minhasfinancas.activity.TransascoesBuscaGlobalActivity_$2`
+- `cicero.minhasfinancas.activity.TransascoesBuscaGlobalActivity_$IntentBuilder_`
+- ... e mais 4580 classes

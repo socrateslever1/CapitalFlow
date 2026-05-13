@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { calculateTotalDue, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
-import { todayDateOnlyUTC } from '../utils/dateHelpers';
+import { todayDateOnlyUTC, parseDateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
 

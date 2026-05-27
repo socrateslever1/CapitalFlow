@@ -151,12 +151,12 @@ export const contractsService = {
 
       // ✅ parcelas = profile_id (conforme seu schema)
       if (loan.installments?.length) {
-        const instPayload = loan.installments.map((inst) => ({
+        const instPayload = loan.installments.map((inst, index) => ({
           id: ensureUUID(inst.id),
           loan_id: loanId,
           profile_id: ownerId,
 
-          numero_parcela: inst.number || 1,
+          numero_parcela: (inst as any).number ?? (inst as any).numero_parcela ?? index + 1,
           data_vencimento: inst.dueDate,
           valor_parcela: safeFloat(inst.amount),
 
@@ -182,12 +182,12 @@ export const contractsService = {
       if (error) throw new Error(error.message);
 
       if (loan.installments?.length) {
-        const instPayload = loan.installments.map((inst) => ({
+        const instPayload = loan.installments.map((inst, index) => ({
           id: ensureUUID(inst.id),
           loan_id: loanId,
           profile_id: ownerId,
 
-          numero_parcela: inst.number || 1,
+          numero_parcela: (inst as any).number ?? (inst as any).numero_parcela ?? index + 1,
           data_vencimento: inst.dueDate,
           valor_parcela: safeFloat(inst.amount),
 

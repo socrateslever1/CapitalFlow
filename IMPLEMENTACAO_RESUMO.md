@@ -1,5 +1,15 @@
 # Implementações
 
+## 2026-05-27
+- **Objetivo:** Corrigir quebra de acordo para restaurar a dívida original sem recriar parcelas e sem violar a constraint `parcelas_unique_loan_numero`.
+- **Arquivos Alterados:**
+    - `/features/agreements/services/agreementService.ts`: Ajustada a quebra de acordo para reativar parcelas `RENEGOCIADO`, abater pagamentos feitos no acordo, restaurar status por saldo/vencimento (`PAID`, `ATRASADO`, `PENDENTE`) e atualizar o contrato para `PAID`, `ATRASADO` ou `ATIVO` com `acordo_ativo_id` limpo.
+    - `/services/adapters/dbAdapters.ts`: Adicionado mapeamento de `numero_parcela` para `number` nas parcelas carregadas do banco.
+    - `/services/contracts.service.ts`: Ajustado salvamento de parcelas para preservar `number`/`numero_parcela` e usar `index + 1` apenas como fallback.
+- **Arquivos Criados:** Nenhum.
+- **Riscos/Observações:** A correção não cria novas parcelas normais na quebra do acordo; apenas restaura as parcelas originais. Isso evita duplicidade por `loan_id + numero_parcela`.
+- **Escopo:** Apenas regra funcional de quebra de acordo, mapeamento de parcelas e persistência de número de parcela foram alterados. Nenhuma UI foi modificada.
+
 ## 2026-05-01 (Parte 1)
 - **Objetivo:** Finalizar funcionalidade de cobrança, corrigir erro de coluna no banco e ajustar layout da busca e visual do modal de aporte.
 - **Arquivos Alterados:**

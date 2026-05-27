@@ -52,6 +52,35 @@ function extractPreviousStatusFromLegacyNote(notes: any, fallback = "ATIVO") {
   return match?.[1] || fallback;
 }
 
+function getInstallmentBalance(inst: any): number {
+  return (
+    safeNumber(inst?.principal_remaining ?? inst?.principalRemaining, 0) +
+    safeNumber(inst?.interest_remaining ?? inst?.interestRemaining, 0) +
+    safeNumber(inst?.late_fee_accrued ?? inst?.lateFeeAccrued, 0)
+  );
+}
+
+function isInstallmentOverdue(inst: any): boolean {
+  const rawDueDate = inst?.data_vencimento ?? inst?.due_date ?? inst?.dueDate;
+  if (!rawDueDate) return false;
+  const dueDate = String(rawDueDate).slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  return dueDate < today;
+}
+
+function getRestoredInstallmentStatus(inst: any, principal: number, interest: number, lateFee: number): string {
+  if ((principal + interest + lateFee) <= 0.05) return "PAID";
+  return isInstallmentOverdue(inst) ? "ATRASADO" : "PENDENTE";
+}
+
+function getRestoredLoanStatus(installments: any[]): string {
+  const rows = installments || [];
+  if (rows.length === 0) return "ATIVO";
+  const openRows = rows.filter((inst) => getInstallmentBalance(inst) > 0.05);
+  if (openRows.length === 0) return "PAID";
+  return openRows.some(isInstallmentOverdue) ? "ATRASADO" : "ATIVO";
+}
+
 export const agreementService = {
 
   async createAgreement(
@@ -316,6 +345,8 @@ export const agreementService = {
           .order("loan_id", { ascending: true })
           .order("numero_parcela", { ascending: true });
 
+        const restoredInstallmentsByLoan = new Map<string, any[]>();
+
         for (const inst of originalInstallments || []) {
           const principalKey = inst.principal_remaining !== undefined ? 'principal_remaining' : 'principalRemaining';
           const interestKey = inst.interest_remaining !== undefined ? 'interest_remaining' : 'interestRemaining';
@@ -342,25 +373,40 @@ export const agreementService = {
             paidTotal += allocation.paidLateFee + allocation.paidInterest + allocation.paidPrincipal;
           }
 
-          const isPaid = (principal + interest + lateFee) <= 0.05;
+          principal = Math.max(0, principal);
+          interest = Math.max(0, interest);
+          lateFee = Math.max(0, lateFee);
+
+          const restoredStatus = getRestoredInstallmentStatus(inst, principal, interest, lateFee);
           await supabase.from("parcelas").update({
             [principalKey]: principal,
             [interestKey]: interest,
             [lateFeeKey]: lateFee,
             [paidTotalKey]: paidTotal,
-            status: isPaid ? "PAID" : "PENDENTE"
+            status: restoredStatus
           }).eq("id", inst.id);
+
+          const restoredInst = {
+            ...inst,
+            [principalKey]: principal,
+            [interestKey]: interest,
+            [lateFeeKey]: lateFee,
+            status: restoredStatus
+          };
+          const loanRows = restoredInstallmentsByLoan.get(inst.loan_id) || [];
+          loanRows.push(restoredInst);
+          restoredInstallmentsByLoan.set(inst.loan_id, loanRows);
         }
 
         await supabase.from("contratos").update({
-          status: "ATIVO",
+          status: getRestoredLoanStatus(restoredInstallmentsByLoan.get(agreement.loan_id) || []),
           acordo_ativo_id: null,
           is_archived: false
         }).eq("id", agreement.loan_id);
 
         for (const loan of legacyLoans) {
           await supabase.from("contratos").update({
-            status: extractPreviousStatusFromLegacyNote(loan.notes),
+            status: getRestoredLoanStatus(restoredInstallmentsByLoan.get(loan.id) || []) || extractPreviousStatusFromLegacyNote(loan.notes),
             acordo_ativo_id: null,
             is_archived: false
           }).eq("id", loan.id);
@@ -379,11 +425,6 @@ export const agreementService = {
         return;
       }
 
-      await supabase.from("contratos").update({ 
-        status: "ATIVO",
-        acordo_ativo_id: null
-      }).eq("id", agreement.loan_id);
-
       const { data: paidInstallments } = await supabase
         .from("acordo_parcelas")
         .select("paid_amount")
@@ -397,8 +438,9 @@ export const agreementService = {
         .select("*")
         .eq("loan_id", agreement.loan_id)
         .eq("status", "RENEGOCIADO")
-        .order("numero", { ascending: true });
+        .order("numero_parcela", { ascending: true });
 
+      const restoredInstallments: any[] = [];
       if (originalInstallments && originalInstallments.length > 0) {
         let remainingToAbate = totalPaidInAgreement;
         
@@ -446,21 +488,38 @@ export const agreementService = {
             }
           }
 
-          const isPaid = (principal + interest + lateFee) <= 0.05;
+          principal = Math.max(0, principal);
+          interest = Math.max(0, interest);
+          lateFee = Math.max(0, lateFee);
+
+          const restoredStatus = getRestoredInstallmentStatus(inst, principal, interest, lateFee);
 
           await supabase.from("parcelas").update({
             [principalKey]: principal,
             [interestKey]: interest,
             [lateFeeKey]: lateFee,
             [paidTotalKey]: paidTotal,
-            status: isPaid ? "PAID" : "PENDENTE"
+            status: restoredStatus
           }).eq("id", inst.id);
+
+          restoredInstallments.push({
+            ...inst,
+            [principalKey]: principal,
+            [interestKey]: interest,
+            [lateFeeKey]: lateFee,
+            status: restoredStatus
+          });
         }
       } else {
         await supabase.from("parcelas").update({ 
           status: "PENDENTE" 
         }).eq("loan_id", agreement.loan_id).eq("status", "RENEGOCIADO");
       }
+
+      await supabase.from("contratos").update({
+        status: getRestoredLoanStatus(restoredInstallments),
+        acordo_ativo_id: null
+      }).eq("id", agreement.loan_id);
 
       await supabase.from("transacoes").insert({
         id: generateUUID(),

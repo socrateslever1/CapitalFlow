@@ -88,6 +88,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
 
     return {
       id: asString(p.id),
+      number: asNumber(p.numero_parcela),
       dueDate: safeDateString(p.data_vencimento || p.due_date, 'dueDate'),
       amount: asNumber(p.valor_parcela || p.amount),
       scheduledPrincipal: asNumber(p.scheduled_principal),

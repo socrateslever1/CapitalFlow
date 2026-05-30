@@ -140,6 +140,13 @@ export const contractsService = {
       funding_cost: loan.fundingCost,
       funding_provider: loan.fundingProvider,
       funding_fee_percent: loan.fundingFeePercent,
+      funding_calculation_mode: loan.fundingCalculationMode,
+      funding_installments_count: loan.fundingInstallmentsCount,
+      funding_monthly_rate: loan.fundingMonthlyRate,
+      funding_installment_value: loan.fundingInstallmentValue,
+      customer_margin_percent: loan.customerMarginPercent,
+      customer_installment_value: loan.customerInstallmentValue,
+      customer_total_payable: loan.customerTotalPayable,
 
       policies_snapshot: loan.policiesSnapshot,
       cliente_foto_url: loan.clientAvatarUrl,
@@ -234,7 +241,7 @@ export const contractsService = {
   async saveNote(loanId: string, note: string) {
     const safeId = safeUUID(loanId);
     if (!safeId) throw new Error('ID inválido.');
-    
+
     try {
       const { syncService } = await import('./sync.service');
       await syncService.enqueueOperation({
@@ -294,12 +301,12 @@ export const contractsService = {
   async markAsBilled(loanId: string, currentCount: number = 0) {
     const safeId = safeUUID(loanId);
     if (!safeId) throw new Error('ID inválido.');
-    
+
     const now = new Date().toISOString();
     const updatedData = {
       id: safeId,
       last_billed_at: now,
-      billing_count: (currentCount || 0) + 1 
+      billing_count: (currentCount || 0) + 1
     };
 
     try {

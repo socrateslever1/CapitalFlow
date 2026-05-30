@@ -19,15 +19,15 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     loan, sources, isStealthMode, activeUser, onEdit, onMessage, onArchive,
     onRestore, onDelete, onNote, onPortalLink, onUploadPromissoria,
     onUploadDoc, onViewPromissoria, onViewDoc, onReviewSignal, onOpenComprovante,
-    onReverseTransaction, onRenegotiate, onActivate, onNewAporte, onAgreementPayment,
+    onReverseTransaction, onOpenReceipt, onRenegotiate, onActivate, onNewAporte, onAgreementPayment,
     onReverseAgreementPayment, onNavigate, onLegalDocument, onRefresh, allLoans,
     isExpanded: isExpandedProp, onToggleExpand
   } = props;
 
   const [isExpandedInternal, setIsExpandedInternal] = React.useState(false);
   const isAccordionControlled = props.setSelectedLoanId !== undefined;
-  const isExpanded = isExpandedProp !== undefined 
-    ? isExpandedProp 
+  const isExpanded = isExpandedProp !== undefined
+    ? isExpandedProp
     : (isAccordionControlled ? props.selectedLoanId === loan.id : isExpandedInternal);
 
   const cardRef = React.useRef<HTMLDivElement>(null);
@@ -35,7 +35,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   // O auto-scroll ocorre apenas na montagem inicial (ex: quando o usuário volta da tela de contrato)
   // para que o navegador recupere a posição. Ao clicar manualmente para expandir, não rola a tela para não dar "barata voa".
   const isInitialMount = React.useRef(true);
-  
+
   React.useEffect(() => {
     if (isExpanded && isInitialMount.current && cardRef.current) {
       setTimeout(() => {
@@ -46,7 +46,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   }, [isExpanded]);
   // Lógica de Negócio
   const computed = useLoanCardComputed(loan, sources, isStealthMode);
-  
+
   const {
     isLate, hasActiveAgreement, isFullyFinalized, iconStyle,
     orderedInstallments, totalDebt, activeAgreement, fixedTermStats,
@@ -71,7 +71,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     if (target.closest('button') || target.closest('a')) {
       return;
     }
-    
+
     // Se já estiver expandido, o clique no card não fecha (conforme pedido: "somente fechar o card clicando nele [no botão]")
     if (!isExpanded) {
       if (onToggleExpand) {
@@ -112,7 +112,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     >
       {/* Container Principal com Padding */}
       <div className="space-y-6">
-        <Header 
+        <Header
           loan={loan}
           debtorNameSafe={debtorNameSafe}
           isFullyFinalized={isFullyFinalized}
@@ -132,11 +132,11 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
 
         {isExpanded && (
           <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-            <QuickActions 
+            <QuickActions
               hasNotes={!!loan.notes}
-              onMessage={(e) => { 
-                e.stopPropagation(); 
-                onMessage(loan); 
+              onMessage={(e) => {
+                e.stopPropagation();
+                onMessage(loan);
                 // Cobrança automática ao enviar mensagem
                 if (isLate || daysUntilDue < 0) {
                   props.onMarkAsBilled?.(loan);
@@ -151,7 +151,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               onNavigate={handleNavigate}
             />
 
-            <Body 
+            <Body
               hasActiveAgreement={hasActiveAgreement}
               loan={loan}
               activeUser={activeUser}
@@ -177,15 +177,16 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
             />
 
             {loan.ledger && loan.ledger.length > 0 && (
-              <Ledger 
+              <Ledger
                 allLedger={loan.ledger}
                 loan={loan}
                 onReverseTransaction={onReverseTransaction}
+                onOpenReceipt={onOpenReceipt}
                 isStealthMode={isStealthMode}
               />
             )}
 
-            <Footer 
+            <Footer
               loan={loan}
               onArchive={() => onArchive(loan)}
               onRestore={() => onRestore(loan)}

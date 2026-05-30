@@ -8,11 +8,12 @@ interface LedgerProps {
     allLedger: LedgerEntry[];
     loan: Loan;
     onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
+    onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
     isStealthMode?: boolean;
 }
 
 export const Ledger: React.FC<LedgerProps> = ({
-    allLedger, loan, onReverseTransaction, isStealthMode
+    allLedger, loan, onReverseTransaction, onOpenReceipt, isStealthMode
 }) => {
     return (
         <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
@@ -23,7 +24,7 @@ export const Ledger: React.FC<LedgerProps> = ({
                     <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Extrato Recente</span>
                 </div>
             </div>
-            
+
             {/* Cabeçalho das Colunas */}
             <div className="grid grid-cols-12 px-4 py-2 bg-slate-900/30 text-[9px] font-bold text-slate-500 uppercase border-b border-slate-800/50">
                 <div className="col-span-7">Descrição / Data</div>
@@ -35,6 +36,7 @@ export const Ledger: React.FC<LedgerProps> = ({
                   ledger={allLedger}
                   loan={loan}
                   onReverseTransaction={onReverseTransaction}
+                  onOpenReceipt={onOpenReceipt}
                   isStealthMode={isStealthMode}
                 />
             </div>

@@ -51,7 +51,11 @@ export const agreementAdapter = (raw: any): Agreement => {
     installments,
     gracePeriod: asNumber(raw.grace_period),
     discount: asNumber(raw.discount),
-    downPayment: asNumber(raw.down_payment)
+    downPayment: asNumber(raw.down_payment),
+    calculationMode: asString(raw.calculation_mode) as any,
+    interestApplicationMode: asString(raw.interest_application_mode) as any,
+    interestBaseMode: asString(raw.interest_base_mode) as any,
+    installmentValue: asNumber(raw.installment_value)
   } as Agreement;
 };
 
@@ -119,7 +123,8 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     installmentId: t.installment_id,
     agreementId: t.agreement_id,
     notes: asString(t.notes),
-    category: asString(t.category) as any
+    category: asString(t.category) as any,
+    meta: t.meta || null
   }));
 
   const signals = rawSinais.map((s: any) => ({
@@ -135,7 +140,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
   let activeAgreement: Agreement | undefined = undefined;
   let pastAgreements: Agreement[] = [];
   const agreementsArr = asArray(l.acordos_inadimplencia);
-  
+
   if (agreementsArr.length > 0) {
     const mappedAgreements = agreementsArr
       .map(raw => {
@@ -153,7 +158,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
 
     // Identifica o acordo ativo (se houver)
     const activeIndex = mappedAgreements.findIndex(a => a.status === 'ACTIVE' || a.status === 'ATIVO');
-    
+
     if (activeIndex !== -1) {
       activeAgreement = mappedAgreements[activeIndex];
       pastAgreements = mappedAgreements.filter((_, idx) => idx !== activeIndex);
@@ -196,6 +201,13 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     fundingCost: asNumber(l.funding_cost),
     fundingProvider: asString(l.funding_provider),
     fundingFeePercent: asNumber(l.funding_fee_percent),
+    fundingCalculationMode: asString(l.funding_calculation_mode) as any,
+    fundingInstallmentsCount: asNumber(l.funding_installments_count),
+    fundingMonthlyRate: asNumber(l.funding_monthly_rate),
+    fundingInstallmentValue: asNumber(l.funding_installment_value),
+    customerMarginPercent: asNumber(l.customer_margin_percent),
+    customerInstallmentValue: asNumber(l.customer_installment_value),
+    customerTotalPayable: asNumber(l.customer_total_payable),
 
     billingCycle: asString(l.billing_cycle, 'MONTHLY') as LoanBillingModality,
     amortizationType: asString(l.amortization_type, 'JUROS') as any,

@@ -89,6 +89,72 @@ async function revalidateInstallment(instId: string) {
   return data as any;
 }
 
+async function applyPrincipalOverpaymentToLastInstallments(params: {
+  loanId: string;
+  profileId: string;
+  sourceId: string;
+  amount: number;
+  excludeInstallmentId: string;
+  idempotencyKey: string;
+}) {
+  let remaining = roundMoney(params.amount);
+  if (remaining <= ZERO_BALANCE_THRESHOLD) return 0;
+
+  const { data, error } = await supabase
+    .from('parcelas')
+    .select('id,numero_parcela,principal_remaining,paid_total,status')
+    .eq('loan_id', params.loanId)
+    .neq('id', params.excludeInstallmentId)
+    .not('status', 'in', '("PAID","PAGO","QUITADO","RENEGOCIADO","CANCELADO")')
+    .order('numero_parcela', { ascending: false });
+
+  if (error) throw new Error('Falha ao buscar parcela final para abatimento: ' + error.message);
+
+  let appliedTotal = 0;
+  for (const row of data || []) {
+    if (remaining <= ZERO_BALANCE_THRESHOLD) break;
+    const openPrincipal = Math.max(0, Number(row.principal_remaining || 0));
+    if (openPrincipal <= ZERO_BALANCE_THRESHOLD) continue;
+    const applied = Math.min(remaining, openPrincipal);
+    const nextPrincipal = roundMoney(openPrincipal - applied);
+    const nextPaid = roundMoney(Number(row.paid_total || 0) + applied);
+
+    const { error: updateError } = await supabase
+      .from('parcelas')
+      .update({
+        principal_remaining: nextPrincipal,
+        paid_total: nextPaid,
+        status: nextPrincipal <= ZERO_BALANCE_THRESHOLD ? 'PAID' : 'PARTIAL'
+      })
+      .eq('id', row.id);
+
+    if (updateError) throw updateError;
+    remaining = roundMoney(remaining - applied);
+    appliedTotal = roundMoney(appliedTotal + applied);
+  }
+
+  if (appliedTotal > ZERO_BALANCE_THRESHOLD) {
+    await supabase.rpc('adjust_source_balance', { p_source_id: params.sourceId, p_delta: appliedTotal });
+    await supabase.from('transacoes').insert({
+      id: generateUUID(),
+      loan_id: params.loanId,
+      profile_id: params.profileId,
+      source_id: params.sourceId,
+      date: new Date().toISOString(),
+      type: 'PAYMENT',
+      amount: appliedTotal,
+      principal_delta: appliedTotal,
+      interest_delta: 0,
+      late_fee_delta: 0,
+      category: 'PAGAMENTO',
+      idempotency_key: `${params.idempotencyKey}-OVERPAY`,
+      notes: 'Abatimento automatico de pagamento excedente na parcela final.'
+    });
+  }
+
+  return appliedTotal;
+}
+
 export const paymentsService = {
   async processPayment(params: {
     loan: Loan;
@@ -204,13 +270,10 @@ export const paymentsService = {
     let interestPaid = Number(amortization.paidInterest || 0);
     let lateFeePaid = Number(amortization.paidLateFee || 0);
     const forgivenLateFee = Number(amortization.forgivenLateFee || 0);
-    
+
     // ✅ TRATAMENTO DE EXCESSO: Se houver sobra (AV), amortiza no principal automaticamente
-    const avExtra = Number(amortization.avGenerated || 0);
-    if (avExtra > ZERO_BALANCE_THRESHOLD) {
-      principalPaid = roundMoney(principalPaid + avExtra);
-    }
-    
+    let avExtra = Number(amortization.avGenerated || 0);
+
     let totalPaid = principalPaid + interestPaid + lateFeePaid;
 
     const renewalBuckets = resolveRenewalBuckets(loan, installmentSnapshot);
@@ -218,7 +281,7 @@ export const paymentsService = {
     // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Mora -> Juros -> Principal)
     if (principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
       let remaining = amountToPay;
-      
+
       lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
       remaining = roundMoney(remaining - lateFeePaid);
 
@@ -229,14 +292,21 @@ export const paymentsService = {
       totalPaid = amountToPay;
     }
 
+    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
+    if (principalPaid > currentPrincipalOpen + ZERO_BALANCE_THRESHOLD) {
+      avExtra = roundMoney(avExtra + principalPaid - currentPrincipalOpen);
+      principalPaid = currentPrincipalOpen;
+      totalPaid = roundMoney(principalPaid + interestPaid + lateFeePaid);
+    }
+
     // ✅ DEFENSIVE FALLBACK: Se o motor de amortização falhou (retornou 0) mas há valor sendo pago
     if (totalPaid <= 0 && amountToPay > 0) {
       console.warn('[Payments] Amortização retornou ZERO. Ativando alocação defensiva...', { amountToPay, loanId: loan.id });
-      
+
       const interestRate = (Number((loan as any).interestRate) || 0) / 100;
       const headPrincipal = Number(loan.principal) || 0;
       const estimatedInterest = Math.round(headPrincipal * interestRate * 100) / 100;
-      
+
       if (estimatedInterest > 0) {
         interestPaid = Math.min(amountToPay, estimatedInterest);
         principalPaid = Math.max(0, amountToPay - interestPaid);
@@ -253,7 +323,7 @@ export const paymentsService = {
     // Formata data para YYYY-MM-DD (Evita erros de timestamp no Postgres DATE)
     const paymentDate = realDate || todayDateOnlyUTC();
     const paymentDateStr = paymentDate.toISOString().split('T')[0];
-    
+
     const sourceId = safeUUID((loan as any).sourceId);
     if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
 
@@ -294,6 +364,17 @@ export const paymentsService = {
 
     if (error) throw new Error('Falha na persistência: ' + error.message);
 
+    if (avExtra > ZERO_BALANCE_THRESHOLD) {
+      await applyPrincipalOverpaymentToLastInstallments({
+        loanId,
+        profileId: ownerId,
+        sourceId,
+        amount: avExtra,
+        excludeInstallmentId: instId,
+        idempotencyKey
+      });
+    }
+
     try {
       await supabase.from('payment_transactions').insert({
         installment_id: instId,
@@ -316,7 +397,7 @@ export const paymentsService = {
         due_date: nextDueDate,
       };
 
-      // ✅ FIX: Se a data está avançando e o contrato é Mensal/Giro (Modo de Renovação), 
+      // ✅ FIX: Se a data está avançando e o contrato é Mensal/Giro (Modo de Renovação),
       // precisamos repor os juros do próximo mês se o capital ainda existe.
       const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
       const hasPrincipalRemaining = Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
@@ -349,7 +430,7 @@ export const paymentsService = {
     const balance = loanEngine.computeRemainingBalance(loan);
     const remainingAfterPayment = Math.max(
       0,
-      Number(balance.totalRemaining || 0) - principalPaid - interestPaid - lateFeePaid - forgivenLateFee
+      Number(balance.totalRemaining || 0) - principalPaid - interestPaid - lateFeePaid - forgivenLateFee - avExtra
     );
 
     if (remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) finalType = 'FULL';

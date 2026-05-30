@@ -10,7 +10,7 @@ interface AgreementViewProps {
     loan: Loan;
     activeUser: any;
     onUpdate: () => void;
-    onPayment: (inst: AgreementInstallment) => void;
+    onPayment: (inst: AgreementInstallment, amount?: number) => void;
     onReversePayment?: (inst: AgreementInstallment) => void;
     isStealthMode?: boolean;
     onNavigate?: (path: string) => void;
@@ -20,6 +20,8 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
     const [isProcessing, setIsProcessing] = useState(false);
     const [confirmAction, setConfirmAction] = useState<'BREAK' | 'ACTIVATE' | 'PAY' | 'REVERSE' | null>(null);
     const [selectedInst, setSelectedInst] = useState<AgreementInstallment | null>(null);
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [showCustomAmount, setShowCustomAmount] = useState(false);
 
     const handleBreak = async () => {
         setIsProcessing(true);
@@ -54,17 +56,17 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             <div className="bg-rose-950/20 border border-rose-500/30 p-4 rounded-2xl text-center">
                 <p className="text-rose-500 font-black uppercase text-xs mb-1">Acordo Quebrado</p>
                 <p className="text-slate-400 text-[10px]">Este acordo foi cancelado. O contrato original está vigente.</p>
-                
+
                 {confirmAction === 'ACTIVATE' ? (
                     <div className="mt-3 flex items-center justify-center gap-2">
-                        <button 
+                        <button
                             onClick={handleActivate}
                             disabled={isProcessing}
                             className="bg-rose-500 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg hover:bg-rose-600 transition-all"
                         >
                             {isProcessing ? 'Processando...' : 'Confirmar Reativação'}
                         </button>
-                        <button 
+                        <button
                             onClick={() => setConfirmAction(null)}
                             className="text-slate-500 text-[9px] font-black uppercase px-3 py-1.5 hover:text-white transition-all"
                         >
@@ -72,7 +74,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                         </button>
                     </div>
                 ) : (
-                    <button 
+                    <button
                         onClick={() => setConfirmAction('ACTIVATE')}
                         className="mt-2 text-[9px] font-black uppercase text-rose-400 hover:text-white transition-colors"
                     >
@@ -89,17 +91,17 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                 <div className="flex justify-center mb-2"><CheckCircle2 className="text-emerald-500" size={24}/></div>
                 <p className="text-emerald-500 font-black uppercase text-xs mb-1">Acordo Quitado</p>
                 <p className="text-slate-400 text-[10px] mb-2">Todos os débitos foram regularizados.</p>
-                
+
                 {confirmAction === 'ACTIVATE' ? (
                     <div className="mt-2 flex items-center justify-center gap-2">
-                        <button 
+                        <button
                             onClick={handleActivate}
                             disabled={isProcessing}
                             className="bg-emerald-600 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg hover:bg-emerald-500 transition-all"
                         >
                             {isProcessing ? 'Processando...' : 'Confirmar Reabertura'}
                         </button>
-                        <button 
+                        <button
                             onClick={() => setConfirmAction(null)}
                             className="text-slate-500 text-[9px] font-black uppercase px-3 py-1.5 hover:text-white transition-all"
                         >
@@ -107,7 +109,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                         </button>
                     </div>
                 ) : (
-                    <button 
+                    <button
                         onClick={() => setConfirmAction('ACTIVATE')}
                         className="text-[9px] font-black uppercase text-emerald-400 hover:text-white transition-colors"
                     >
@@ -129,25 +131,25 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             </div>
 
             <div className="flex justify-end gap-2 mb-4">
-                <button onClick={(e) => { 
-                    e.stopPropagation(); 
+                <button onClick={(e) => {
+                    e.stopPropagation();
                     if (onNavigate) {
                         onNavigate(`/legal/editor/${loan.id}`);
                     }
                 }} className="p-2 text-indigo-300 hover:text-white hover:bg-indigo-600 rounded-lg border border-indigo-500/30 transition-all" title="Jurídico">
                     <Scale size={14}/>
                 </button>
-                
+
                 {confirmAction === 'BREAK' ? (
                     <div className="flex items-center gap-1">
-                        <button 
+                        <button
                             onClick={(e) => { e.stopPropagation(); handleBreak(); }}
                             disabled={isProcessing}
                             className="bg-rose-600 text-white text-[8px] font-black uppercase px-2 py-1.5 rounded-lg hover:bg-rose-500 transition-all"
                         >
                             {isProcessing ? '...' : 'Confirmar'}
                         </button>
-                        <button 
+                        <button
                             onClick={(e) => { e.stopPropagation(); setConfirmAction(null); }}
                             className="text-slate-500 text-[8px] font-black uppercase px-1 py-1.5 hover:text-white transition-all"
                         >
@@ -180,15 +182,18 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                     if (!isAPaid && isBPaid) return -1;
                     return (a?.number || 0) - (b?.number || 0);
                 }).map(inst => {
-                    const isPaid = inst?.status === 'PAID' || inst?.status === 'PAGO';
+                    const paidAmount = Number((inst as any)?.paidAmount ?? (inst as any)?.paid_amount ?? 0) || 0;
+                    const remainingAmount = Math.max(0, Number(inst.amount || 0) - paidAmount);
+                    const isPaid = inst?.status === 'PAID' || inst?.status === 'PAGO' || remainingAmount <= 0.05;
                     return (
                     <div id={inst.id} key={inst.id} className={`flex justify-between items-center px-3 py-2.5 rounded-lg border transition-all ${isPaid ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 'bg-slate-900/40 border-slate-800/50 hover:bg-slate-900/60'}`}>
                         <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-slate-500 w-4">{inst.number}</span>
                             <div>
                                 <p className={`text-[12px] font-bold ${isPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
-                                    {formatMoney(inst.amount, isStealthMode)}
+                                    {formatMoney(remainingAmount || inst.amount, isStealthMode)}
                                 </p>
+                                {paidAmount > 0 && !isPaid && <p className="text-[8px] text-amber-400 font-black uppercase">Parcial: {formatMoney(paidAmount, isStealthMode)}</p>}
                                 <p className="text-[9px] text-slate-500 font-medium">
                                     {new Date(inst.dueDate).toLocaleDateString('pt-BR')}
                                 </p>
@@ -196,12 +201,14 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                         </div>
                         <div className="text-right flex items-center gap-2">
                             {!isPaid ? (
-                                <button 
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         setSelectedInst(inst);
+                                        setPaymentAmount(String(remainingAmount || inst.amount));
+                                        setShowCustomAmount(false);
                                         setConfirmAction('PAY');
-                                    }} 
+                                    }}
                                     className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-md hover:bg-blue-600 hover:text-white transition-all"
                                 >
                                     Pagar
@@ -211,9 +218,9 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                     <span className="text-[9px] font-black text-emerald-500 uppercase flex items-center gap-1">
                                         <CheckCircle2 size={10}/> Pago
                                     </span>
-                                    <button 
-                                        onClick={(e) => { 
-                                            e.stopPropagation(); 
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             setSelectedInst(inst);
                                             setConfirmAction('REVERSE');
                                         }}
@@ -235,23 +242,54 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto ${confirmAction === 'PAY' ? 'bg-blue-500/20 text-blue-500' : 'bg-rose-500/20 text-rose-500'}`}>
                             {confirmAction === 'PAY' ? <DollarSign size={24}/> : <RefreshCcw size={24}/>}
                         </div>
-                        
+
                         <div className="text-center">
                             <h5 className="text-white font-black uppercase text-xs tracking-tight">
                                 {confirmAction === 'PAY' ? 'Confirmar Pagamento?' : 'Confirmar Estorno?'}
                             </h5>
                             <p className="text-slate-400 text-[10px] mt-1">
-                                {confirmAction === 'PAY' 
-                                    ? `Deseja marcar a parcela ${selectedInst.number} de ${formatMoney(selectedInst.amount, isStealthMode)} como paga?`
+                                {confirmAction === 'PAY'
+                                    ? `Informe se recebeu o total da parcela ${selectedInst.number} ou outro valor.`
                                     : `Deseja estornar o pagamento da parcela ${selectedInst.number}? A parcela voltará a ficar pendente.`
                                 }
                             </p>
                         </div>
 
+                        {confirmAction === 'PAY' && (
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => {
+                                        const alreadyPaid = Number((selectedInst as any).paidAmount ?? 0) || 0;
+                                        setPaymentAmount(String(Math.max(0, Number(selectedInst.amount || 0) - alreadyPaid)));
+                                        setShowCustomAmount(false);
+                                    }}
+                                    className="w-full py-2 rounded-xl text-[10px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
+                                >
+                                    Pagou tudo
+                                </button>
+                                <button
+                                    onClick={() => setShowCustomAmount(true)}
+                                    className="w-full py-2 rounded-xl text-[10px] font-black uppercase bg-slate-950 text-slate-300 border border-slate-700"
+                                >
+                                    Outro valor
+                                </button>
+                                {showCustomAmount && (
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={paymentAmount}
+                                        onChange={e => setPaymentAmount(e.target.value)}
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-bold outline-none"
+                                        autoFocus
+                                    />
+                                )}
+                            </div>
+                        )}
+
                         <div className="flex flex-col gap-2">
-                            <button 
+                            <button
                                 onClick={() => {
-                                    if (confirmAction === 'PAY') onPayment(selectedInst);
+                                    if (confirmAction === 'PAY') onPayment(selectedInst, Number(paymentAmount) || selectedInst.amount);
                                     else onReversePayment?.(selectedInst);
                                     setConfirmAction(null);
                                     setSelectedInst(null);
@@ -260,7 +298,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                             >
                                 Confirmar
                             </button>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setConfirmAction(null);
                                     setSelectedInst(null);

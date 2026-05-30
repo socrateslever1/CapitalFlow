@@ -20,7 +20,7 @@ import { Toaster } from 'sonner';
 import { notificationService } from './services/notification.service';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { isDev } from './utils/isDev';
-import { Agreement, AgreementInstallment, Loan } from './types';
+import { Agreement, AgreementInstallment, LedgerEntry, Loan } from './types';
 import { agreementService } from './features/agreements/services/agreementService';
 import { ModalProvider } from './contexts/ModalContext';
 import { ModalHost } from './components/modals/ModalHost';
@@ -137,7 +137,7 @@ export const App: React.FC = () => {
 
   // ✅ Prevenção de loop: evita que a página de contrato seja reaberta após fechar manual
   const processedPathRef = useRef('');
-  
+
   const isInvitePath =
     window.location.pathname === '/invite' || window.location.pathname === '/setup-password';
 
@@ -255,11 +255,11 @@ export const App: React.FC = () => {
   const isInitializing = !bootFinished || (!!activeProfileId && !activeUser && !loadError);
 
   if (isDev) {
-    console.log('[APP_STATE]', { 
-      bootFinished, 
-      activeProfileId: !!activeProfileId, 
-      activeUser: !!activeUser, 
-      loadError, 
+    console.log('[APP_STATE]', {
+      bootFinished,
+      activeProfileId: !!activeProfileId,
+      activeUser: !!activeUser,
+      loadError,
       authLoadError,
       isInitializing,
       path: window.location.pathname,
@@ -290,10 +290,10 @@ export const App: React.FC = () => {
 
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <Toaster 
-        theme="dark" 
-        position="top-right" 
-        expand={false} 
+      <Toaster
+        theme="dark"
+        position="top-right"
+        expand={false}
         visibleToasts={3}
         richColors
         closeButton
@@ -309,13 +309,13 @@ export const App: React.FC = () => {
         }}
         mobileOffset={{ bottom: '80px' }}
       />
-      {/* 
+      {/*
         AGENDA VIEW - REMOVIDA TEMPORARIAMENTE
         {activeTab === 'AGENDA' && (
-          <motion.div 
-            key="agenda-view" 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+          <motion.div
+            key="agenda-view"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <CalendarView
@@ -336,7 +336,7 @@ export const App: React.FC = () => {
           {window.location.pathname === '/setup-password' && <SetupPasswordPage />}
         </>
       ) : (
-        <ModalProvider 
+        <ModalProvider
           activeModal={ui?.activeModal}
           openModal={ui?.openModal}
           closeModal={ui?.closeModal}
@@ -412,7 +412,7 @@ export const App: React.FC = () => {
             activeModal={ui.activeModal}
           >
             {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
-            <div 
+            <div
               key="dashboard-view"
               className={activeTab === 'DASHBOARD' ? 'block' : 'hidden'}
             >
@@ -462,10 +462,10 @@ export const App: React.FC = () => {
 
               {/* Desativado temporariamente: TEAM
               {activeTab === 'TEAM' && !activeUser?.supervisor_id && (
-                <motion.div 
-                  key="team-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="team-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
                   <TeamPage
@@ -481,32 +481,32 @@ export const App: React.FC = () => {
               */}
 
               {activeTab === 'SOURCES' && (
-                <motion.div 
-                  key="sources-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="sources-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
-                  <SourcesContainer 
-                    loans={loans} 
-                    sources={sources} 
-                    ui={ui} 
-                    sourceCtrl={sourceCtrl} 
-                    loanCtrl={loanCtrl} 
-                    goBack={goBack} 
+                  <SourcesContainer
+                    loans={loans}
+                    sources={sources}
+                    ui={ui}
+                    sourceCtrl={sourceCtrl}
+                    loanCtrl={loanCtrl}
+                    goBack={goBack}
                     isStealthMode={ui.isStealthMode}
-                    activeUser={activeUser} 
+                    activeUser={activeUser}
                     onRefresh={() => fetchFullData(activeUser?.id || '')}
                   />
                 </motion.div>
               )}
 
               {activeTab === 'PROFILE' && activeUser && (
-                <motion.div 
-                  key="profile-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="profile-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
@@ -531,10 +531,10 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'LEGAL' && (
-                <motion.div 
-                  key="legal-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="legal-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
@@ -554,28 +554,28 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'REPORTS' && (
-                <motion.div 
-                  key="reports-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="reports-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
-                  <ReportsPage 
-                    loans={loans} 
-                    sources={sources} 
-                    activeUser={activeUser} 
-                    isStealthMode={ui.isStealthMode} 
+                  <ReportsPage
+                    loans={loans}
+                    sources={sources}
+                    activeUser={activeUser}
+                    isStealthMode={ui.isStealthMode}
                   />
                 </motion.div>
               )}
 
               {/* Desativado temporariamente: ACQUISITION
               {activeTab === 'ACQUISITION' && (
-                <motion.div 
-                  key="acq-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="acq-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
                   <CustomerAcquisitionPage activeUser={activeUser} goBack={goBack} isStealthMode={ui.isStealthMode} />
@@ -586,10 +586,10 @@ export const App: React.FC = () => {
               {/* Removido tab SUPPORT não autorizada */}
 
               {activeTab === 'SUPPORT' && activeUser && (
-                <motion.div 
-                  key="support-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="support-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
@@ -598,10 +598,10 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'SETTINGS' && (
-                <motion.div 
-                  key="settings-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="settings-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
@@ -617,7 +617,7 @@ export const App: React.FC = () => {
                   exit={{ opacity: 0, y: 5 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
-                  <ContractDetailsPage 
+                  <ContractDetailsPage
                     loanId={ui.selectedLoanId}
                     loans={loans}
                     sources={sources}
@@ -634,14 +634,14 @@ export const App: React.FC = () => {
                       fetchFullData(activeUser?.id || '');
                     }}
                     isProcessing={ui.isProcessingPayment}
-                    onOpenMessage={(l) => { 
-                      ui.setMessageModalLoan(l); 
+                    onOpenMessage={(l) => {
+                      ui.setMessageModalLoan(l);
                       ui.openModal('MESSAGE_HUB');
-                      
+
                       // Marca como cobrado se houver atraso detectado
-                      const hasLate = l.installments?.some(i => 
-                        i.status !== 'PAID' && 
-                        i.status !== 'PAGO' && 
+                      const hasLate = l.installments?.some(i =>
+                        i.status !== 'PAID' &&
+                        i.status !== 'PAGO' &&
                         new Date(i.dueDate) < new Date()
                       );
 
@@ -653,42 +653,57 @@ export const App: React.FC = () => {
                         });
                       }
                     }}
-                    onRenegotiate={(l) => { 
+                    onRenegotiate={(l) => {
                         const loans = Array.isArray(l) ? l : [l];
-                        ui.setRenegotiationModalLoans(loans); 
-                        ui.openModal('RENEGOTIATION', loans[0]); 
+                        ui.setRenegotiationModalLoans(loans);
+                        ui.openModal('RENEGOTIATION', loans[0]);
                     }}
                     onGenerateContract={(l) => loanCtrl.handleGenerateLink(l)}
                     onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
                     onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
-                    onArchive={(l) => loanCtrl.openConfirmation({ 
-                        type: 'ARCHIVE', 
-                        target: l, 
+                    onArchive={(l) => loanCtrl.openConfirmation({
+                        type: 'ARCHIVE',
+                        target: l,
                         showRefundOption: true,
                         title: 'Arquivar Contrato?',
                         message: 'O contrato sairá da lista ativa, mas poderá ser restaurado depois.'
                     })}
-                    onRestore={(l) => loanCtrl.openConfirmation({ 
-                        type: 'RESTORE', 
+                    onRestore={(l) => loanCtrl.openConfirmation({
+                        type: 'RESTORE',
                         target: l,
                         title: 'Restaurar Contrato?',
                         message: 'O contrato voltará para a lista de contratos ativos.'
                     })}
-                    onDelete={(l) => loanCtrl.openConfirmation({ 
-                        type: 'DELETE', 
-                        target: l, 
+                    onDelete={(l) => loanCtrl.openConfirmation({
+                        type: 'DELETE',
+                        target: l,
                         showRefundOption: true,
                         title: 'Excluir Permanentemente?',
                         message: 'Todos os dados, parcelas e histórico serão apagados para sempre.'
                     })}
                     onReverseTransaction={loanCtrl.openReverseTransaction}
+                    onOpenReceipt={(transaction: LedgerEntry, loan: Loan) => {
+                      ui.setShowReceipt({
+                        loan,
+                        inst: {
+                          id: transaction.installmentId || transaction.id,
+                          dueDate: transaction.date,
+                          amount: Number(transaction.amount || 0),
+                          status: 'PAID'
+                        },
+                        amountPaid: Math.abs(Number(transaction.amount || 0)),
+                        type: transaction.type || 'PAYMENT'
+                      });
+                      ui.openModal('RECEIPT');
+                    }}
                     onActivate={loanCtrl.handleActivateLoan}
-                    onAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => {
+                    onAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => {
                       if (!activeUser) return;
+                      const paidAmount = Number(amount ?? inst.amount) || 0;
                       try {
-                          await agreementService.processPayment(agreement, inst, inst.amount, loan.sourceId, activeUser);
+                          await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser);
                           showToast("Parcela do acordo recebida!", "success");
-                          ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: inst.amount, type: 'AGREEMENT_PAYMENT' });
+                          ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: paidAmount, type: 'AGREEMENT_PAYMENT' });
                           ui.openModal('RECEIPT');
                           fetchFullData(activeUser?.id || '');
                       } catch (e: any) {
@@ -713,15 +728,15 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'SIMULATOR' && (
-                <motion.div 
-                  key="sim-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="sim-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
-                  <SimulatorPanel 
-                    onClose={goBack} 
+                  <SimulatorPanel
+                    onClose={goBack}
                     activeUser={activeUser}
                     clients={clients}
                     sources={sources}
@@ -733,10 +748,10 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'AGENDA' && (
-                <motion.div 
-                  key="agenda-view" 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  key="agenda-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
@@ -778,8 +793,8 @@ export const App: React.FC = () => {
 
               {activeTab === 'FLOW' && activeUser && (
                 <motion.div key="flow-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1, ease: 'linear' }}>
-                  <FlowModal 
-                    loans={loans} 
+                  <FlowModal
+                    loans={loans}
                   />
                 </motion.div>
               )}
@@ -791,19 +806,19 @@ export const App: React.FC = () => {
 
         <div className="relative z-[9999]">
           <ModalHost />
-            
-            <input 
-              type="file" 
-              ref={ui?.promissoriaFileInputRef} 
-              className="hidden" 
-              accept="image/*,application/pdf" 
+
+            <input
+              type="file"
+              ref={ui?.promissoriaFileInputRef}
+              className="hidden"
+              accept="image/*,application/pdf"
               onChange={(e) => filesService.handlePromissoriaUpload(e.target.files?.[0] as File, activeUser, String(ui?.promissoriaUploadLoanId), showToast, fetchFullData)}
             />
-            <input 
-              type="file" 
-              ref={ui?.extraDocFileInputRef} 
-              className="hidden" 
-              accept="image/*,application/pdf" 
+            <input
+              type="file"
+              ref={ui?.extraDocFileInputRef}
+              className="hidden"
+              accept="image/*,application/pdf"
               onChange={(e) => filesService.handleExtraDocUpload(e.target.files?.[0] as File, activeUser, String(ui?.extraDocUploadLoanId), 'CONFISSAO', showToast, fetchFullData)}
             />
           </div>

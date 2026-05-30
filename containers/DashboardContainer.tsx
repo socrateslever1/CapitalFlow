@@ -33,16 +33,16 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   statusFilter, setStatusFilter, searchTerm, setSearchTerm, selectedStaffId, setSelectedStaffId,
   ui, loanCtrl, fileCtrl, showToast, onRefresh, onNavigate
 }) => {
-  
+
   // LÓGICA DE FILTRAGEM DE EQUIPE
   const scopeLoans = useMemo(() => {
     if (!activeUser) return [];
-    
+
     if (activeUser.accessLevel === 'ADMIN' || (activeUser as any).accessLevel === 1) {
       if (selectedStaffId === 'ALL') return loans;
       return loans.filter(l => l.operador_responsavel_id === selectedStaffId);
     }
-    
+
     return loans.filter(l => l.owner_id === activeUser.id || l.operador_responsavel_id === activeUser.id);
   }, [loans, selectedStaffId, activeUser]);
 
@@ -50,12 +50,13 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   const filteredLoans = useMemo(() => filterLoans(scopeLoans, searchTerm, statusFilter), [scopeLoans, searchTerm, statusFilter]);
   const stats = useMemo(() => buildDashboardStats(scopeLoans, sources, activeUser), [scopeLoans, sources, activeUser]);
 
-  const handleAgreementPayment = async (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => {
+  const handleAgreementPayment = async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => {
       if (!activeUser) return;
+      const paidAmount = Number(amount ?? inst.amount) || 0;
       try {
-          await agreementService.processPayment(agreement, inst, inst.amount, loan.sourceId, activeUser);
+          await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser);
           showToast("Parcela do acordo recebida!", "success");
-          ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: inst.amount, type: 'AGREEMENT_PAYMENT' });
+          ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: paidAmount, type: 'AGREEMENT_PAYMENT' });
           ui.openModal('RECEIPT');
           onRefresh();
       } catch (e: any) {
@@ -79,6 +80,21 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
       ui.openModal('NEW_APORTE');
   };
 
+  const handleOpenReceipt = (transaction: any, loan: Loan) => {
+      ui.setShowReceipt({
+          loan,
+          inst: {
+              id: transaction.installmentId || transaction.id,
+              dueDate: transaction.date,
+              amount: Number(transaction.amount || 0),
+              status: 'PAID'
+          },
+          amountPaid: Math.abs(Number(transaction.amount || 0)),
+          type: transaction.type || 'PAYMENT'
+      });
+      ui.openModal('RECEIPT');
+  };
+
   const handleMarkAsBilled = async (loan: Loan) => {
     try {
       await contractsService.markAsBilled(loan.id, loan.billing_count || 0);
@@ -90,11 +106,11 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   };
 
   return (
-    <DashboardPage 
+    <DashboardPage
         loans={loans}
-        sources={sources} 
+        sources={sources}
         filteredLoans={filteredLoans}
-        stats={stats} 
+        stats={stats}
         activeUser={activeUser} staffMembers={staffMembers} selectedStaffId={selectedStaffId} onStaffChange={setSelectedStaffId}
         mobileDashboardTab={mobileDashboardTab} setMobileDashboardTab={setMobileDashboardTab}
         statusFilter={statusFilter} setStatusFilter={setStatusFilter} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
@@ -114,10 +130,11 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         onReviewSignal={loanCtrl.handleReviewSignal}
         onOpenComprovante={fileCtrl.handleOpenComprovante}
         onReverseTransaction={loanCtrl.openReverseTransaction}
-        onRenegotiate={(l) => { 
+        onOpenReceipt={handleOpenReceipt}
+        onRenegotiate={(l) => {
             const loans = Array.isArray(l) ? l : [l];
-            ui.setRenegotiationModalLoans(loans); 
-            ui.openModal('RENEGOTIATION', loans); 
+            ui.setRenegotiationModalLoans(loans);
+            ui.openModal('RENEGOTIATION', loans);
         }}
         onActivate={loanCtrl.handleActivateLoan}
         onNewAporte={handleNewAporte}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, HandCoins, CheckCircle2, Undo2 } from 'lucide-react';
+import { FileText, Settings, HandCoins, CheckCircle2, Undo2 } from 'lucide-react';
 import { LedgerEntry, Loan } from '../../../types';
 import { humanizeAuditLog } from '../../../utils/auditHelpers';
 import { formatMoney } from '../../../utils/formatters';
@@ -9,6 +9,7 @@ interface LedgerListProps {
   ledger: LedgerEntry[];
   loan: Loan;
   onReverseTransaction: (t: LedgerEntry, l: Loan) => void;
+  onOpenReceipt?: (t: LedgerEntry, l: Loan) => void;
   isStealthMode?: boolean;
 }
 
@@ -16,8 +17,9 @@ const LedgerItem: React.FC<{
   t: LedgerEntry;
   loan: Loan;
   onReverse: (t: LedgerEntry, l: Loan) => void;
+  onOpenReceipt?: (t: LedgerEntry, l: Loan) => void;
   isStealth: boolean;
-}> = ({ t, loan, onReverse, isStealth }) => {
+}> = ({ t, loan, onReverse, onOpenReceipt, isStealth }) => {
   // Auditoria / edição manual
   const isAudit = t.category === 'AUDIT' || t.notes?.startsWith('{') || t.type === 'ESTORNO' || t.category === 'SISTEMA';
   const auditLines = isAudit ? humanizeAuditLog(t.notes || '') : null;
@@ -30,6 +32,7 @@ const LedgerItem: React.FC<{
       t.type === 'NOVO_APORTE');
 
   const isAgreementPayment = t.type === 'AGREEMENT_PAYMENT';
+  const canReceipt = String(t.type || '').includes('PAYMENT') && Number(t.amount || 0) > 0;
 
   // Ícone/Cor por tipo
   const badgeClass =
@@ -81,6 +84,18 @@ const LedgerItem: React.FC<{
         </div>
 
         <div className="flex justify-end">
+          {canReceipt && onOpenReceipt && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenReceipt(t, loan);
+              }}
+              className="p-1.5 bg-slate-800 text-emerald-400 rounded-lg hover:bg-emerald-600 hover:text-white transition-all mr-1"
+              title="Reimprimir comprovante"
+            >
+              <FileText size={12} />
+            </button>
+          )}
           {isReversible && !isAgreementPayment && (
             <button
               onClick={(e) => {
@@ -109,7 +124,7 @@ const LedgerItem: React.FC<{
   );
 };
 
-export const LedgerList: React.FC<LedgerListProps> = ({ ledger = [], loan, onReverseTransaction, isStealthMode }) => {
+export const LedgerList: React.FC<LedgerListProps> = ({ ledger = [], loan, onReverseTransaction, onOpenReceipt, isStealthMode }) => {
   return (
     <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
       {ledger && ledger.length > 0 ? (
@@ -119,6 +134,7 @@ export const LedgerList: React.FC<LedgerListProps> = ({ ledger = [], loan, onRev
             t={t}
             loan={loan}
             onReverse={onReverseTransaction}
+            onOpenReceipt={onOpenReceipt}
             isStealth={!!isStealthMode}
           />
         ))

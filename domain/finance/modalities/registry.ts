@@ -3,6 +3,7 @@ import { LoanBillingModality } from "../../../types";
 import { ModalityStrategy } from "./types";
 
 import { monthlyStrategy } from "./monthly/index";
+import { installmentFixedStrategy } from "./installmentFixed/index";
 import { dailyFreeStrategy } from "./dailyFree/index";
 import { dailyFixedTermStrategy } from "./dailyFixedTerm/index";
 
@@ -11,6 +12,7 @@ import { daily30Strategy, daily30CapitalStrategy } from "./daily30/index";
 // Mapeamento Oficial
 const strategies: Record<string, ModalityStrategy> = {
     'MONTHLY': monthlyStrategy,
+    'INSTALLMENT_FIXED': installmentFixedStrategy,
     'DAILY_FREE': dailyFreeStrategy,
     'DAILY_FIXED_TERM': dailyFixedTermStrategy,
     'DAILY_30_INTEREST': daily30Strategy,
@@ -20,7 +22,7 @@ const strategies: Record<string, ModalityStrategy> = {
 // Fallback Map para compatibilidade de dados legados (Migração segura)
 const legacyFallback: Record<string, ModalityStrategy> = {
     'DAILY_FIXED': dailyFreeStrategy,
-    'DAILY': monthlyStrategy 
+    'DAILY': monthlyStrategy
 };
 
 export const modalityRegistry = {
@@ -37,6 +39,6 @@ export const modalityRegistry = {
 
         // 3. Último caso, retorna mensal para não quebrar
         console.error(`[Modality] Modalidade desconhecida: ${billingCycle}. Usando MONTHLY como fallback.`);
-        return monthlyStrategy; 
+        return monthlyStrategy;
     }
 };

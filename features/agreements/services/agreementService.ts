@@ -52,6 +52,17 @@ function extractPreviousStatusFromLegacyNote(notes: any, fallback = "ATIVO") {
   return match?.[1] || fallback;
 }
 
+function buildPreviousContractMarker(status: any, billingCycle: any) {
+  const safeStatus = String(status || "ATIVO").replace(/[^A-Z_]/gi, "").toUpperCase() || "ATIVO";
+  const safeBilling = String(billingCycle || "MONTHLY").replace(/[^A-Z_]/gi, "").toUpperCase() || "MONTHLY";
+  return `[CONTRATO_ANTES_ACORDO:STATUS:${safeStatus};COBRANCA:${safeBilling}]`;
+}
+
+function extractPreviousBillingCycle(notes: any) {
+  const match = String(notes || "").match(/CONTRATO_ANTES_ACORDO:STATUS:[A-Z_]+;COBRANCA:([A-Z_]+)/i);
+  return match?.[1] || null;
+}
+
 function getInstallmentBalance(inst: any): number {
   return (
     safeNumber(inst?.principal_remaining ?? inst?.principalRemaining, 0) +
@@ -170,6 +181,16 @@ export const agreementService = {
       (agreementData as any).calculation_mode ??
       "BY_INSTALLMENTS";
 
+    const interestApplicationMode =
+      (agreementData as any).interestApplicationMode ??
+      (agreementData as any).interest_application_mode ??
+      null;
+
+    const interestBaseMode =
+      (agreementData as any).interestBaseMode ??
+      (agreementData as any).interest_base_mode ??
+      null;
+
     const installmentValue = safeNumber(
       (agreementData as any).installmentValue ??
       (agreementData as any).installment_value,
@@ -183,7 +204,7 @@ export const agreementService = {
 
     const { data: loanExists, error: loanCheckError } = await supabase
       .from("contratos")
-      .select("id")
+      .select("id, status, billing_cycle")
       .eq("id", safeLoanId)
       .maybeSingle();
 
@@ -204,6 +225,11 @@ export const agreementService = {
     if (previousAgreementError) {
       throw new Error("Erro ao criar acordo: falha ao inativar acordo anterior: " + previousAgreementError.message);
     }
+
+    const originalNotes = String((agreementData as any).notes ?? "");
+    const notesWithPreviousContract = originalNotes.includes("[CONTRATO_ANTES_ACORDO:")
+      ? originalNotes
+      : `${originalNotes ? `${originalNotes}\n` : ""}${buildPreviousContractMarker((loanExists as any)?.status, (loanExists as any)?.billing_cycle)}`;
 
     const { error: headerError } =
       await supabase.from("acordos_inadimplencia").insert({
@@ -226,11 +252,13 @@ export const agreementService = {
         principal_base: safeNumber((agreementData as any).principal_base, 0),
         interest_base: safeNumber((agreementData as any).interest_base, 0),
         late_fee_base: safeNumber((agreementData as any).late_fee_base, 0),
-        notes: (agreementData as any).notes ?? null,
+        notes: notesWithPreviousContract,
         grace_period: safeNumber((agreementData as any).gracePeriod, 0),
         discount: safeNumber((agreementData as any).discount, 0),
         down_payment: safeNumber((agreementData as any).downPayment, 0),
         calculation_mode: calculationMode,
+        interest_application_mode: interestApplicationMode,
+        interest_base_mode: interestBaseMode,
         installment_value: installmentValue,
         calculation_result: calculationResult,
         legal_document_id: (agreementData as any).legalDocumentId ?? null
@@ -276,14 +304,14 @@ export const agreementService = {
       throw new Error("Erro ao gerar parcelas do acordo: " + instError.message);
 
     // 1. Atualiza o status do contrato para EM_ACORDO
-    await supabase.from("contratos").update({ 
+    await supabase.from("contratos").update({
       status: "EM_ACORDO",
       acordo_ativo_id: agreementId
     }).eq("id", loanId);
 
     // 2. Congela as parcelas originais que estavam pendentes/atrasadas
-    await supabase.from("parcelas").update({ 
-      status: "RENEGOCIADO" 
+    await supabase.from("parcelas").update({
+      status: "RENEGOCIADO"
     }).eq("loan_id", loanId).in("status", ["PENDENTE", "ATRASADO", "PENDING", "LATE"]);
 
     // 3. Registra o evento de renegociação no extrato (ledger)
@@ -302,10 +330,10 @@ export const agreementService = {
 
   async breakAgreement(agreementId: string) {
     if (!agreementId) throw new Error("ID do acordo não fornecido.");
-    
+
     const { data: agreement, error: fetchError } = await supabase
       .from("acordos_inadimplencia")
-      .select("loan_id, profile_id")
+      .select("loan_id, profile_id, notes")
       .eq("id", agreementId)
       .maybeSingle();
 
@@ -398,10 +426,12 @@ export const agreementService = {
           restoredInstallmentsByLoan.set(inst.loan_id, loanRows);
         }
 
+        const previousBillingCycle = extractPreviousBillingCycle((agreement as any).notes);
         await supabase.from("contratos").update({
           status: getRestoredLoanStatus(restoredInstallmentsByLoan.get(agreement.loan_id) || []),
           acordo_ativo_id: null,
-          is_archived: false
+          is_archived: false,
+          ...(previousBillingCycle ? { billing_cycle: previousBillingCycle } : {})
         }).eq("id", agreement.loan_id);
 
         for (const loan of legacyLoans) {
@@ -430,7 +460,7 @@ export const agreementService = {
         .select("paid_amount")
         .eq("acordo_id", agreementId)
         .in("status", ["PAGO", "PAID", "QUITADO"]);
-      
+
       const totalPaidInAgreement = (paidInstallments || []).reduce((acc, curr) => acc + (Number(curr.paid_amount) || 0), 0);
 
       const { data: originalInstallments } = await supabase
@@ -443,7 +473,7 @@ export const agreementService = {
       const restoredInstallments: any[] = [];
       if (originalInstallments && originalInstallments.length > 0) {
         let remainingToAbate = totalPaidInAgreement;
-        
+
         for (const inst of originalInstallments) {
           const principalKey = inst.principal_remaining !== undefined ? 'principal_remaining' : 'principalRemaining';
           const interestKey = inst.interest_remaining !== undefined ? 'interest_remaining' : 'interestRemaining';
@@ -511,14 +541,16 @@ export const agreementService = {
           });
         }
       } else {
-        await supabase.from("parcelas").update({ 
-          status: "PENDENTE" 
+        await supabase.from("parcelas").update({
+          status: "PENDENTE"
         }).eq("loan_id", agreement.loan_id).eq("status", "RENEGOCIADO");
       }
 
+      const previousBillingCycle = extractPreviousBillingCycle((agreement as any).notes);
       await supabase.from("contratos").update({
         status: getRestoredLoanStatus(restoredInstallments),
-        acordo_ativo_id: null
+        acordo_ativo_id: null,
+        ...(previousBillingCycle ? { billing_cycle: previousBillingCycle } : {})
       }).eq("id", agreement.loan_id);
 
       await supabase.from("transacoes").insert({
@@ -561,13 +593,13 @@ export const agreementService = {
       .eq("id", agreementId);
 
     if (agreement) {
-      await supabase.from("contratos").update({ 
+      await supabase.from("contratos").update({
         status: "EM_ACORDO",
         acordo_ativo_id: agreementId
       }).eq("id", agreement.loan_id);
 
-      await supabase.from("parcelas").update({ 
-        status: "RENEGOCIADO" 
+      await supabase.from("parcelas").update({
+        status: "RENEGOCIADO"
       }).eq("loan_id", agreement.loan_id).in("status", ["PENDENTE", "ATRASADO", "PENDING", "LATE", "PAID", "PAGO"]);
 
       await supabase.from("transacoes").insert({
@@ -585,13 +617,18 @@ export const agreementService = {
   async processPayment(agreement: any, installment: any, amount: number, sourceId: string, activeUser: any) {
     const idempotencyKey = generateUUID();
     const paymentId = generateUUID();
+    const paymentAmount = Math.max(0, Number(amount) || 0);
+    const installmentAmount = Number(installment.amount ?? installment.valor ?? 0) || 0;
+    const previousPaid = Number(installment.paidAmount ?? installment.paid_amount ?? installment.valor_pago ?? 0) || 0;
+    const totalPaidForInstallment = previousPaid + paymentAmount;
+    const installmentStatus = totalPaidForInstallment + 0.05 >= installmentAmount ? 'PAGO' : 'PARCIAL';
 
     // 1. Registra na tabela de pagamentos de acordo (Audit Log)
     const { error: txAuditError } = await supabase.from('acordo_pagamentos').insert({
       id: paymentId,
       parcela_id: installment.id,
       acordo_id: agreement.id || agreement.acordo_id,
-      amount: amount,
+      amount: paymentAmount,
       paid_at: new Date().toISOString(),
       profile_id: activeUser.id
     });
@@ -605,11 +642,11 @@ export const agreementService = {
     const { error } = await supabase
       .from('acordo_parcelas')
       .update({
-        status: 'PAGO',
-        valor_pago: amount,
-        paid_amount: amount,
-        data_pagamento: new Date().toISOString(),
-        paid_at: new Date().toISOString()
+        status: installmentStatus,
+        valor_pago: totalPaidForInstallment,
+        paid_amount: totalPaidForInstallment,
+        data_pagamento: installmentStatus === 'PAGO' ? new Date().toISOString() : null,
+        paid_at: installmentStatus === 'PAGO' ? new Date().toISOString() : null
       })
       .eq('id', installment.id);
 
@@ -624,8 +661,8 @@ export const agreementService = {
         profile_id: activeUser.id,
         date: new Date().toISOString(),
         type: 'AGREEMENT_PAYMENT',
-        amount: amount,
-        principal_delta: amount,
+        amount: paymentAmount,
+        principal_delta: paymentAmount,
         interest_delta: 0,
         late_fee_delta: 0,
         source_id: sourceId,
@@ -641,6 +678,37 @@ export const agreementService = {
       });
 
       if (txError) throw new Error(`Falha ao registrar transação no ledger: ${txError.message}`);
+
+      const overpaid = Math.max(0, totalPaidForInstallment - installmentAmount);
+      if (overpaid > 0.05) {
+        const { data: openInstallments, error: openError } = await supabase
+          .from('acordo_parcelas')
+          .select('id,numero,amount,valor,paid_amount,valor_pago,status')
+          .eq('acordo_id', agreement.id || agreement.acordo_id)
+          .neq('id', installment.id)
+          .order('numero', { ascending: false });
+
+        if (openError) throw openError;
+
+        let remainingOverpaid = overpaid;
+        for (const target of openInstallments || []) {
+          if (remainingOverpaid <= 0.05) break;
+          const targetAmount = Number(target.amount ?? target.valor ?? 0) || 0;
+          const targetPaid = Number(target.paid_amount ?? target.valor_pago ?? 0) || 0;
+          const targetOpen = Math.max(0, targetAmount - targetPaid);
+          if (targetOpen <= 0.05) continue;
+          const applied = Math.min(remainingOverpaid, targetOpen);
+          const nextPaid = targetPaid + applied;
+          await supabase.from('acordo_parcelas').update({
+            paid_amount: nextPaid,
+            valor_pago: nextPaid,
+            status: nextPaid + 0.05 >= targetAmount ? 'PAGO' : 'PARCIAL',
+            paid_at: nextPaid + 0.05 >= targetAmount ? new Date().toISOString() : null,
+            data_pagamento: nextPaid + 0.05 >= targetAmount ? new Date().toISOString() : null
+          }).eq('id', target.id);
+          remainingOverpaid -= applied;
+        }
+      }
 
       // 4. Verifica se o acordo foi totalmente quitado
       const { data: refreshedInstallments, error: refreshError } = await supabase
@@ -663,9 +731,9 @@ export const agreementService = {
         await supabase.from('acordos_inadimplencia').update({ status: 'PAGO' }).eq('id', agreement.id || agreement.acordo_id);
         await supabase.from('contratos').update({ status: 'PAID', acordo_ativo_id: null }).eq('id', loanId);
       } else {
-        await supabase.from('contratos').update({ 
-          status: 'EM_ACORDO', 
-          acordo_ativo_id: agreement.id || agreement.acordo_id 
+        await supabase.from('contratos').update({
+          status: 'EM_ACORDO',
+          acordo_ativo_id: agreement.id || agreement.acordo_id
         }).eq('id', loanId);
       }
     }

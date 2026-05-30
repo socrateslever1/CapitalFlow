@@ -5,6 +5,8 @@ import { AgreementInstallment, AgreementType } from "../../../types";
 
 export type CalculationMode = 'BY_INSTALLMENTS' | 'BY_INSTALLMENT_VALUE' | 'BY_VALUE_AND_COUNT';
 export type CalculationResult = 'DISCOUNT' | 'SAME' | 'INCREASE';
+export type InterestApplicationMode = 'TOTAL_ONCE' | 'MONTHLY_SIMPLE';
+export type InterestBaseMode = 'TOTAL_DEBT' | 'CAPITAL_ONLY';
 
 interface AgreementSimulationParams {
     totalDebt: number;
@@ -18,10 +20,13 @@ interface AgreementSimulationParams {
     gracePeriod?: number;
     discount?: number;
     downPayment?: number;
+    baseDebtForAgreement?: number;
+    interestApplicationMode?: InterestApplicationMode;
+    interestBaseMode?: InterestBaseMode;
 }
 
-export const simulateAgreement = (params: AgreementSimulationParams): { 
-    installments: AgreementInstallment[], 
+export const simulateAgreement = (params: AgreementSimulationParams): {
+    installments: AgreementInstallment[],
     negotiatedTotal: number,
     calculationResult?: CalculationResult,
     diffAmount?: number
@@ -34,16 +39,19 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
     const gracePeriod = Number(params.gracePeriod) || 0;
     const discount = Number(params.discount) || 0;
     const downPayment = Number(params.downPayment) || 0;
-    const { 
-        type, 
+    const baseDebtForAgreement = Number(params.baseDebtForAgreement);
+    const effectiveDebt = Number.isFinite(baseDebtForAgreement) && baseDebtForAgreement > 0 ? baseDebtForAgreement : totalDebt;
+    const interestApplicationMode = params.interestApplicationMode || 'TOTAL_ONCE';
+    const {
+        type,
         calculationMode = 'BY_INSTALLMENTS',
-        firstDueDate, 
-        frequency, 
+        firstDueDate,
+        frequency,
     } = params;
-    
+
     const isValueAndCountMode = calculationMode === 'BY_VALUE_AND_COUNT';
-    const baseAmount = Math.max(0, totalDebt - (isValueAndCountMode ? 0 : discount) - downPayment);
-    
+    const baseAmount = Math.max(0, effectiveDebt - (isValueAndCountMode ? 0 : discount) - downPayment);
+
     let negotiatedTotal = baseAmount;
     let calculationResult: CalculationResult = 'SAME';
     let diffAmount = 0;
@@ -56,8 +64,10 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
             if (frequency === 'WEEKLY') monthsDuration = finalInstallmentsCount / 4.33;
             if (frequency === 'BIWEEKLY') monthsDuration = finalInstallmentsCount / 2.16;
             if (gracePeriod > 0) monthsDuration += (gracePeriod / 30);
-            
-            const totalRate = (interestRate / 100) * monthsDuration;
+
+            const totalRate = interestApplicationMode === 'MONTHLY_SIMPLE'
+                ? (interestRate / 100) * monthsDuration
+                : (interestRate / 100);
             negotiatedTotal = baseAmount * (1 + totalRate);
         }
         if (finalInstallmentsCount > 0) {
@@ -77,16 +87,18 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
         } else {
             let currentTotal = baseAmount;
             let tempCount = Math.ceil(baseAmount / finalInstallmentValue);
-            
+
             for(let k=0; k<5; k++) { // Loop de convergência para cálculo de juros
                 let months = tempCount;
                 if (frequency === 'WEEKLY') months /= 4.33;
                 if (frequency === 'BIWEEKLY') months /= 2.16;
                 if (gracePeriod > 0) months += (gracePeriod/30);
 
-                const totalRate = (interestRate / 100) * months;
+                const totalRate = interestApplicationMode === 'MONTHLY_SIMPLE'
+                    ? (interestRate / 100) * months
+                    : (interestRate / 100);
                 currentTotal = baseAmount * (1 + totalRate);
-                
+
                 const newCount = Math.ceil(currentTotal / finalInstallmentValue);
                 if (newCount === tempCount) break;
                 tempCount = newCount;
@@ -105,7 +117,7 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
     if (!isFinite(finalInstallmentsCount)) finalInstallmentsCount = 1;
 
     // Calculate Gain/Loss for all modes
-    const originalPayable = totalDebt - downPayment;
+    const originalPayable = effectiveDebt - downPayment;
     const diff = negotiatedTotal - originalPayable;
 
     if (Math.abs(diff) < 0.05) {
@@ -120,7 +132,7 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
     }
 
     const roundedInstallmentValue = isFinite(finalInstallmentValue) ? Math.round((finalInstallmentValue + Number.EPSILON) * 100) / 100 : 0;
-    
+
     let diffCents = 0;
     if (calculationMode !== 'BY_VALUE_AND_COUNT') {
         const totalInstallmentsSum = roundedInstallmentValue * finalInstallmentsCount;
@@ -168,8 +180,8 @@ export const simulateAgreement = (params: AgreementSimulationParams): {
       }
     }
 
-    return { 
-        installments, 
+    return {
+        installments,
         negotiatedTotal: isFinite(negotiatedTotal) ? parseFloat(negotiatedTotal.toFixed(2)) : 0,
         calculationResult,
         diffAmount: isFinite(diffAmount) ? parseFloat(diffAmount.toFixed(2)) : 0

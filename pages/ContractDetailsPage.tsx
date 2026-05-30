@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { 
-    ChevronLeft, DollarSign, Calendar, Clock, TrendingUp, AlertTriangle, 
-    CheckCircle2, Receipt, MessageSquare, ShieldCheck, Banknote, 
+import {
+    ChevronLeft, DollarSign, Calendar, Clock, TrendingUp, AlertTriangle,
+    CheckCircle2, Receipt, MessageSquare, ShieldCheck, Banknote,
     FileText, Download, RefreshCcw, Loader2, ChevronRight, User, FileEdit, History, X, ArrowLeft
 } from 'lucide-react';
 import { Loan, Installment, LedgerEntry, UserProfile, CapitalSource, Agreement, AgreementInstallment } from '../types';
@@ -22,8 +22,8 @@ interface ContractDetailsPageProps {
     onBack: () => void;
     onNavigate?: (path: string) => void;
     onPayment: (
-        forgivePenalty: ForgivenessMode, 
-        manualDate?: Date | null, 
+        forgivePenalty: ForgivenessMode,
+        manualDate?: Date | null,
         amountPaid?: number,
         realDate?: Date | null,
         interestHandling?: 'CAPITALIZE' | 'KEEP_PENDING',
@@ -40,7 +40,8 @@ interface ContractDetailsPageProps {
     onDelete: (loan: Loan) => void;
     onActivate: (loan: Loan) => void;
     onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
-    onAgreementPayment?: (loan: Loan, agreement: any, inst: any) => void;
+    onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
+    onAgreementPayment?: (loan: Loan, agreement: any, inst: any, amount?: number) => void;
     onReverseAgreementPayment?: (loan: Loan, agreement: any, inst: any) => void;
     onRefresh?: () => void;
     isStealthMode: boolean;
@@ -49,7 +50,7 @@ interface ContractDetailsPageProps {
 export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
     loanId, loans, sources, activeUser, onBack, onPayment, isProcessing,
     onOpenMessage, onRenegotiate, onGenerateContract, onExportExtrato,
-    onEdit, onArchive, onRestore, onDelete, onActivate, onReverseTransaction, 
+    onEdit, onArchive, onRestore, onDelete, onActivate, onReverseTransaction, onOpenReceipt,
     onAgreementPayment, onReverseAgreementPayment, onRefresh, isStealthMode, onNavigate
 }) => {
     const loan = useMemo(() => loans.find(l => l.id === loanId), [loans, loanId]);
@@ -77,7 +78,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         if (!loan) return null;
         const today = new Date();
         const installments = loan.installments || [];
-        
+
         const lateInstallments = installments.filter(inst => {
             const due = new Date(inst.dueDate);
             const isOpen = inst.status !== 'PAID' && inst.status !== 'PAGO' && inst.status !== 'QUITADO' && inst.status !== 'RENEGOCIADO';
@@ -106,19 +107,19 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         debtBreakdown,
         resolvedBillingCycle,
         subMode, setSubMode
-    } = usePaymentManagerState({ 
-        data, 
-        paymentType, 
-        setPaymentType, 
-        avAmount, 
-        setAvAmount 
+    } = usePaymentManagerState({
+        data,
+        paymentType,
+        setPaymentType,
+        avAmount,
+        setAvAmount
     });
 
     const groupedLedger: Record<string, LedgerEntry[]> = useMemo(() => {
         if (!loan.ledger) return {};
         const groups: Record<string, LedgerEntry[]> = {};
         const sorted = [...loan.ledger].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
+
         sorted.forEach(entry => {
             const date = new Date(entry.date);
             const dateKey = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
@@ -206,11 +207,11 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
     return (
         <div className="flex flex-col gap-3 animate-in fade-in duration-500 pb-24 md:pb-6">
-            
+
             {/* BOTAO VOLTAR DESTAQUE */}
             <div className="flex items-center">
-                <button 
-                    onClick={onBack} 
+                <button
+                    onClick={onBack}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-md hover:shadow-lg active:scale-95"
                 >
                     <ArrowLeft size={14} /> Fechar
@@ -221,8 +222,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
             <div className="bg-slate-950/90 backdrop-blur-md py-3 -mx-4 px-4 border-b border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full bg-gradient-to-br flex items-center justify-center text-white shrink-0 shadow-lg ${
-                        status === 'PAID' ? 'from-emerald-500 to-emerald-600 shadow-emerald-900/20' : 
-                        status === 'OVERDUE' ? 'from-rose-500 to-rose-600 shadow-rose-900/20' : 
+                        status === 'PAID' ? 'from-emerald-500 to-emerald-600 shadow-emerald-900/20' :
+                        status === 'OVERDUE' ? 'from-rose-500 to-rose-600 shadow-rose-900/20' :
                         'from-blue-500 to-blue-600 shadow-blue-900/20'
                     }`}>
                         <FileText size={16} />
@@ -262,22 +263,22 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
+
                 {/* COLUNA ESQUERDA: RESUMO + AÇÕES */}
                 <div className="space-y-6">
-                    
+
                     {/* SEÇÃO 1 — RESUMO FINANCEIRO */}
                     {loan.activeAgreement ? (
                         <div className="space-y-4">
                             <h3 className="text-xs font-black uppercase text-indigo-400 tracking-widest flex items-center gap-2">
                                 <History size={16} /> Acordo Ativo
                             </h3>
-                            <AgreementView 
+                            <AgreementView
                                 agreement={loan.activeAgreement}
                                 loan={loan}
                                 activeUser={activeUser}
                                 onUpdate={onRefresh || (() => {})}
-                                onPayment={(inst) => onAgreementPayment?.(loan, loan.activeAgreement!, inst)}
+                                onPayment={(inst, amount) => onAgreementPayment?.(loan, loan.activeAgreement!, inst, amount)}
                                 onReversePayment={(inst) => onReverseAgreementPayment?.(loan, loan.activeAgreement!, inst)}
                                 isStealthMode={isStealthMode}
                                 onNavigate={onNavigate}
@@ -288,7 +289,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                             <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
                                 <TrendingUp size={16} className="text-blue-500"/> Resumo Financeiro
                             </h3>
-                            
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Principal Restante</p>
@@ -386,7 +387,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 {loan.ledger?.length || 0} eventos
                             </span>
                         </div>
-                        
+
                         <div className="max-h-[260px] overflow-y-auto pr-2 custom-scrollbar space-y-4">
                             {Object.keys(groupedLedger).length > 0 ? (
                                 Object.entries(groupedLedger).map(([date, entries]) => (
@@ -411,20 +412,30 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div className="flex items-center gap-3">
                                                         <div className="text-right">
                                                             <p className={`text-[11px] font-black tabular-nums ${entry.amount >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                 {entry.amount >= 0 ? '+' : ''}{formatMoney(entry.amount, isStealthMode)}
                                                             </p>
                                                         </div>
-                                                        
+
+                                                        {entry.type?.includes('PAYMENT') && Number(entry.amount || 0) > 0 && onOpenReceipt && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onOpenReceipt(entry, loan); }}
+                                                                className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20"
+                                                                title="Reimprimir Comprovante"
+                                                            >
+                                                                <Receipt size={12} />
+                                                            </button>
+                                                        )}
+
                                                         {/* Apenas transações reversíveis (não auditoria/sistema/acordo) */}
-                                                        {entry.type !== 'ESTORNO' && 
-                                                         entry.type !== 'SYSTEM' && 
-                                                         entry.category !== 'AUDIT' && 
+                                                        {entry.type !== 'ESTORNO' &&
+                                                         entry.type !== 'SYSTEM' &&
+                                                         entry.category !== 'AUDIT' &&
                                                          !entry.type?.includes('AGREEMENT') && (
-                                                            <button 
+                                                            <button
                                                                 onClick={(e) => { e.stopPropagation(); onReverseTransaction(entry, loan); }}
                                                                 className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-lg border border-rose-500/20"
                                                                 title="Estornar Transação"
@@ -449,10 +460,10 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
                 {/* COLUNA DIREITA: PAGAMENTO */}
                 <div className="space-y-6">
-                    
+
                     {/* SEÇÃO 3 — REGISTRAR PAGAMENTO (AUTOMÁTICO POR MODALIDADE) */}
                     {(resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') ? (
-                        <FlexibleDailyScreen 
+                        <FlexibleDailyScreen
                             amount={avAmount}
                             setAmount={setAvAmount}
                             manualDateStr={manualDateStr}
@@ -468,7 +479,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                     ) : (
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[60px] rounded-full"></div>
-                        
+
                         <div className="relative z-10">
                             <div className="flex items-center justify-between mb-8">
                                 <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
@@ -483,13 +494,13 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
                             <div className="flex items-baseline gap-4 mb-8">
                                 <span className="text-4xl font-black text-blue-500">R$</span>
-                                <input 
-                                    type="text" 
-                                    inputMode="decimal" 
-                                    value={avAmount || ''} 
-                                    onChange={e => setAvAmount(e.target.value.replace(/[^0-9.,]/g, ''))} 
-                                    className="w-full bg-transparent text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter" 
-                                    placeholder="0,00" 
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={avAmount || ''}
+                                    onChange={e => setAvAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                    className="w-full bg-transparent text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter"
+                                    placeholder="0,00"
                                 />
                             </div>
 
@@ -507,7 +518,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                                     const val = safeParse(avAmount);
                                                     const totalDue = debtBreakdown.total;
                                                     const interestDue = totalInterestDue;
-                                                    
+
                                                     if (val >= totalDue - 0.05) return "Quitação total: O contrato será encerrado e arquivado.";
                                                     if (val >= interestDue - 0.05) {
                                                         const amort = val - interestDue;
@@ -528,19 +539,19 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                         <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Gestão de Perdão</label>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <button 
+                                        <button
                                             onClick={() => setForgivenessMode(forgivenessMode === 'FINE_ONLY' ? 'NONE' : 'FINE_ONLY')}
                                             className={`p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${forgivenessMode === 'FINE_ONLY' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                                         >
                                             Perdoar Multa
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => setForgivenessMode(forgivenessMode === 'INTEREST_ONLY' ? 'NONE' : 'INTEREST_ONLY')}
                                             className={`p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${forgivenessMode === 'INTEREST_ONLY' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                                         >
                                             Perdoar Mora
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => setForgivenessMode(forgivenessMode === 'BOTH' ? 'NONE' : 'BOTH')}
                                             className={`col-span-2 p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${forgivenessMode === 'BOTH' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                                         >
@@ -552,8 +563,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
                                     <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Data Recebimento</label>
-                                    <input 
-                                        type="date" 
+                                    <input
+                                        type="date"
                                         value={realPaymentDateStr}
                                         onChange={e => setRealPaymentDateStr(e.target.value)}
                                         className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
@@ -561,8 +572,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 </div>
                                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
                                     <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Próximo Vencimento</label>
-                                    <input 
-                                        type="date" 
+                                    <input
+                                        type="date"
                                         value={manualDateStr || ''}
                                         onChange={e => setManualDateStr(e.target.value)}
                                         className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
@@ -574,13 +585,13 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-8 space-y-3">
                                     <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Saldo de Juros Restante</label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <button 
+                                        <button
                                             onClick={() => setInterestHandling('KEEP_PENDING')}
                                             className={`p-3 rounded-xl border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                                         >
                                             Manter Pendente
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => setInterestHandling('CAPITALIZE')}
                                             className={`p-3 rounded-xl border text-[10px] font-black uppercase transition-all ${interestHandling === 'CAPITALIZE' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                                         >
@@ -590,9 +601,9 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 </div>
                             )}
 
-                            <button 
-                                onClick={handleConfirm} 
-                                disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} 
+                            <button
+                                onClick={handleConfirm}
+                                disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0}
                                 className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-sm shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isProcessing ? <Loader2 className="animate-spin" size={20}/> : <><CheckCircle2 size={20}/> Confirmar Recebimento</>}

@@ -12,7 +12,7 @@ export enum LoanStatus {
   PAID = 'PAID',
   LATE = 'LATE',
   PARTIAL = 'PARTIAL',
-  
+
   // Status de Contrato/Visualização
   ATIVO = 'ATIVO',
   PAGO = 'PAGO',
@@ -50,6 +50,7 @@ export type AppTab = 'DASHBOARD' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' |
 
 export type LoanBillingModality =
   | 'MONTHLY'
+  | 'INSTALLMENT_FIXED'
   | 'DAILY_FREE'
   | 'DAILY_FIXED_TERM'
   | 'DAILY'
@@ -171,6 +172,8 @@ export interface Agreement {
   downPayment?: number;
   legalDocumentId?: string;
   calculationMode?: 'BY_INSTALLMENTS' | 'BY_INSTALLMENT_VALUE' | 'BY_VALUE_AND_COUNT';
+  interestApplicationMode?: 'TOTAL_ONCE' | 'MONTHLY_SIMPLE';
+  interestBaseMode?: 'TOTAL_DEBT' | 'CAPITAL_ONLY';
   installmentValue?: number;
   calculationResult?: 'DISCOUNT' | 'SAME' | 'INCREASE';
 }
@@ -214,7 +217,7 @@ export interface Installment {
   logs?: string[];
 }
 
-export type LedgerEventType = 
+export type LedgerEventType =
   | 'PAYMENT'
   | 'CHARGE'
   | 'RENEGOTIATION_CREATED'
@@ -236,6 +239,7 @@ export interface LedgerEntry {
   notes?: string;
   category?: string;
   meta?: any;
+  receiptCode?: string;
 }
 
 /* =====================================================
@@ -285,6 +289,13 @@ export interface Loan {
   fundingCost?: number;
   fundingProvider?: string;
   fundingFeePercent?: number;
+  fundingCalculationMode?: 'TOTAL' | 'RATE';
+  fundingInstallmentsCount?: number;
+  fundingMonthlyRate?: number;
+  fundingInstallmentValue?: number;
+  customerMarginPercent?: number;
+  customerInstallmentValue?: number;
+  customerTotalPayable?: number;
   portalToken?: string;
   portalShortcode?: string;
   contato_whatsapp?: string;

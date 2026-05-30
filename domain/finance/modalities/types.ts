@@ -37,6 +37,11 @@ export interface InstallmentGenerationParams {
     startDate: string;
     fixedDuration?: string; // Para Daily Fixed
     initialData?: any; // Para migrações/edições que preservam IDs
+    fundingTotalPayable?: number;
+    fundingInstallmentsCount?: number;
+    fundingMonthlyRate?: number;
+    fundingCalculationMode?: 'TOTAL' | 'RATE';
+    customerMarginPercent?: number;
 }
 
 export interface InstallmentGenerationResult {
@@ -46,32 +51,32 @@ export interface InstallmentGenerationResult {
 
 // Configuração Visual do Card
 export interface CardConfig {
-    dueDateLabel: (inst: Installment, loan?: Loan) => string; 
-    statusLabel: (inst: Installment, daysDiff: number) => { text: string; color: string } | null; 
-    showProgress: boolean; 
+    dueDateLabel: (inst: Installment, loan?: Loan) => string;
+    statusLabel: (inst: Installment, daysDiff: number) => { text: string; color: string } | null;
+    showProgress: boolean;
 }
 
 // INTERFACE DO MÓDULO (STRATEGY PATTERN)
 export interface ModalityStrategy {
     key: LoanBillingModality | 'DAILY' | string;
-    
+
     // Core Financeiro
     calculate: (loan: Loan, inst: Installment, policy: LoanPolicy) => CalculationResult;
-    
+
     // Renovação com suporte a Data Manual
     renew: (
-        loan: Loan, 
-        inst: Installment, 
-        amountPaid: number, 
-        allocation: PaymentAllocation, 
-        today: Date, 
+        loan: Loan,
+        inst: Installment,
+        amountPaid: number,
+        allocation: PaymentAllocation,
+        today: Date,
         forgivePenalty: boolean,
         manualDate?: Date | null
     ) => RenewalResult;
-    
+
     // Fábrica de Parcelas
     generateInstallments: (params: InstallmentGenerationParams) => InstallmentGenerationResult;
-    
+
     // UI Configs
     card: CardConfig;
 }

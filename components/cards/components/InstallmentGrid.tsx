@@ -16,7 +16,7 @@ interface InstallmentGridProps {
     strategy: any;
     isDailyFree: boolean;
     isFixedTerm: boolean;
-    onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+    onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
     isStealthMode?: boolean;
     onNavigate?: () => void;
 }
@@ -47,7 +47,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
                 // Renderização Pura (UI - Compositor)
                 return (
-                    <InstallmentCard 
+                    <InstallmentCard
                         key={inst.id}
                         vm={viewModel}
                         loan={loan}

@@ -23,9 +23,10 @@ export interface LoanCardProps {
   onReviewSignal: (signalId: string, status: 'APROVADO' | 'NEGADO') => void;
   onOpenComprovante: (url: string) => void;
   onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
+  onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
   onRenegotiate: (loan: Loan) => void;
   onActivate: (loan: Loan) => void;
-  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
   onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onRefresh: () => void;
   onMarkAsBilled?: (loan: Loan) => void;

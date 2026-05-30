@@ -69,6 +69,19 @@ export interface LoanFormState {
   fundingTotalPayable?: string;
   fundingProvider?: string;
   fundingFeePercent?: string;
+  fundingCalculationMode?: 'TOTAL' | 'RATE';
+  fundingInstallmentsCount?: string;
+  fundingMonthlyRate?: string;
+  customerMarginPercent?: string;
+}
+
+function calculateFundingTotalFromRate(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
+  const n = Math.max(1, Math.floor(installmentsCount));
+  const i = monthlyRatePercent / 100;
+  const installment = i > 0
+    ? principal * (i / (1 - Math.pow(1 + i, -n)))
+    : principal / n;
+  return parseFloat((installment * n).toFixed(2));
 }
 
 // Added profileId to signature to satisfy Loan type requirement
@@ -87,12 +100,20 @@ export const mapFormToLoan = (
   // Cálculo do Custo de Captação (Cartão)
   let fundingTotalPayable = 0;
   let fundingCost = 0;
+  const fundingInstallmentsCount = Math.max(0, Math.floor(parseCurrency(form.fundingInstallmentsCount || '')));
+  const fundingMonthlyRate = parseCurrency(form.fundingMonthlyRate || '');
+  const customerMarginPercent = parseCurrency(form.customerMarginPercent || '');
+  const fundingCalculationMode = form.fundingCalculationMode || (form.fundingTotalPayable ? 'TOTAL' : 'RATE');
 
   if (form.fundingTotalPayable) {
     fundingTotalPayable = parseCurrency(form.fundingTotalPayable);
     if (fundingTotalPayable > principal) {
       fundingCost = fundingTotalPayable - principal;
     }
+  }
+  if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingCalculationMode === 'RATE' && fundingInstallmentsCount > 0) {
+    fundingTotalPayable = calculateFundingTotalFromRate(principal, fundingMonthlyRate, fundingInstallmentsCount);
+    fundingCost = Math.max(0, fundingTotalPayable - principal);
   }
 
   // --- GERAÇÃO VIA REGISTRY ---
@@ -103,6 +124,11 @@ export const mapFormToLoan = (
     rate,
     startDate: form.startDate,
     fixedDuration,
+    fundingTotalPayable,
+    fundingInstallmentsCount,
+    fundingMonthlyRate,
+    fundingCalculationMode,
+    customerMarginPercent,
     initialData: {
       ...initialData,
       skipWeekends: form.skipWeekends
@@ -140,6 +166,13 @@ export const mapFormToLoan = (
     fundingCost: fundingCost || undefined,
     fundingProvider: form.fundingProvider || undefined,
     fundingFeePercent: parseCurrency(form.fundingFeePercent || '') || undefined,
+    fundingCalculationMode,
+    fundingInstallmentsCount: fundingInstallmentsCount || undefined,
+    fundingMonthlyRate: fundingMonthlyRate || undefined,
+    fundingInstallmentValue: fundingInstallmentsCount > 0 && fundingTotalPayable > 0 ? parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2)) : undefined,
+    customerMarginPercent: form.billingCycle === 'INSTALLMENT_FIXED' ? customerMarginPercent : undefined,
+    customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
+    customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',

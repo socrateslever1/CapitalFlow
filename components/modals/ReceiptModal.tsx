@@ -1,15 +1,19 @@
 
-import React, { useMemo } from 'react';
-import { Receipt, Share2 } from 'lucide-react';
+import React, { useMemo, useRef } from 'react';
+import { Download, FileText, Printer, Receipt, Share2 } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { Modal } from '../ui/Modal';
 
 export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan: Loan, inst: Installment, amountPaid: number, type: string}, onClose: () => void, userName: string, userDoc?: string }) => {
+    const receiptRef = useRef<HTMLDivElement>(null);
     // Código de autenticação estável
     const authCode = useMemo(() => {
-        return `${data.inst.id.substring(0, 4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
-    }, [data.inst.id]);
-    
+        const seed = `${data.inst.id || data.loan.id}-${data.amountPaid}-${data.type}`;
+        let hash = 0;
+        for (let i = 0; i < seed.length; i++) hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+        return `${String(data.inst.id || data.loan.id).substring(0, 4).toUpperCase()}-${Math.abs(hash).toString(36).toUpperCase()}`;
+    }, [data.inst.id, data.loan.id, data.amountPaid, data.type]);
+
     const share = () => {
         const text = `*COMPROVANTE DE PAGAMENTO*\n` +
             `--------------------------------\n` +
@@ -27,12 +31,49 @@ export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan
         window.open(`https://wa.me/55${data.loan.debtorPhone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
+    const renderCanvas = async () => {
+        if (!receiptRef.current) return null;
+        const html2canvas = (await import('html2canvas')).default;
+        return html2canvas(receiptRef.current, { scale: 2, backgroundColor: '#fffdf5' });
+    };
+
+    const downloadPng = async () => {
+        const canvas = await renderCanvas();
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = `comprovante-${authCode}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+
+    const downloadPdf = async () => {
+        const canvas = await renderCanvas();
+        if (!canvas) return;
+        const { jsPDF } = await import('jspdf');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const img = canvas.toDataURL('image/png');
+        const width = 80;
+        const height = (canvas.height * width) / canvas.width;
+        pdf.addImage(img, 'PNG', 65, 12, width, height);
+        pdf.save(`comprovante-${authCode}.pdf`);
+    };
+
+    const printReceipt = () => {
+        const html = receiptRef.current?.outerHTML;
+        if (!html) return;
+        const win = window.open('', '_blank', 'width=420,height=720');
+        if (!win) return;
+        win.document.write(`<html><head><title>Comprovante</title><script src="https://cdn.tailwindcss.com"></script></head><body style="background:#fff;padding:20px;display:flex;justify-content:center">${html}</body></html>`);
+        win.document.close();
+        setTimeout(() => win.print(), 400);
+    };
+
     return (
         <Modal onClose={onClose} title="Comprovante Oficial">
             <div className="flex flex-col items-center">
                 {/* VIZUALIZAÇÃO DO CUPOM (Para Print) */}
-                <div className="bg-[#fffdf5] text-slate-900 w-full max-w-sm mx-auto p-6 rounded-none shadow-xl border-t-8 border-emerald-600 relative overflow-hidden mb-6 font-mono text-sm leading-relaxed" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>
-                    
+                <div ref={receiptRef} className="bg-[#fffdf5] text-slate-900 w-full max-w-sm mx-auto p-6 rounded-none shadow-xl border-t-8 border-emerald-600 relative overflow-hidden mb-6 font-mono text-sm leading-relaxed" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>
+
                     {/* Header Cupom */}
                     <div className="text-center border-b-2 border-dashed border-slate-300 pb-4 mb-4">
                         <div className="flex justify-center mb-2 text-emerald-600">
@@ -84,7 +125,11 @@ export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan
                     <button onClick={share} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20">
                         <Share2 size={18} /> Enviar no WhatsApp
                     </button>
-                    <p className="text-center text-xs text-slate-500 mt-2">Dica: Tire um print da área acima para enviar como imagem.</p>
+                    <div className="grid grid-cols-3 gap-2">
+                        <button onClick={downloadPng} className="py-3 bg-slate-900 text-slate-200 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all"><Download size={14}/> PNG</button>
+                        <button onClick={downloadPdf} className="py-3 bg-slate-900 text-slate-200 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all"><FileText size={14}/> PDF</button>
+                        <button onClick={printReceipt} className="py-3 bg-slate-900 text-slate-200 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all"><Printer size={14}/> Imprimir</button>
+                    </div>
                 </div>
             </div>
         </Modal>

@@ -11,7 +11,7 @@ interface BodyProps {
     activeUser: UserProfile | null;
     activeAgreement?: Agreement;
     onRefresh: () => void;
-    onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+    onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
     onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
     orderedInstallments: Installment[];
     fixedTermStats: any;
@@ -44,7 +44,7 @@ export const Body: React.FC<BodyProps> = ({
         const markers = [
             `[LEGADO_PARCELAMENTO:${shortId}`,
             `[UNIFICADO EM ${shortId}`,
-            `Contrato migrado para a unifica��o ${shortId}`,
+            `Contrato migrado para a unificação ${shortId}`,
             `Contrato unificado no parcelamento ${shortId}`
         ];
         return allLoans.filter(l =>
@@ -54,13 +54,13 @@ export const Body: React.FC<BodyProps> = ({
 
     return (
         <div className="space-y-6 pt-2">
-            {/* Seção de Resumo de Status (Visível apenas se expandido) */}
+            {/* SeÃ§Ã£o de Resumo de Status (VisÃ­vel apenas se expandido) */}
             <div className="flex flex-wrap items-center gap-2 pb-2">
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-900/50 rounded-lg border border-slate-800/50">
                    <Info size={10} className="text-slate-500" />
                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Status Detalhado</span>
                 </div>
-                
+
                 {isFullyFinalized ? (
                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg border border-emerald-500/20">
                         <CheckCircle2 size={10} className="shrink-0" />
@@ -69,7 +69,7 @@ export const Body: React.FC<BodyProps> = ({
                 ) : hasActiveAgreement ? (
                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20">
                         <Handshake size={10} className="shrink-0" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">Em Renegociação</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider">Em RenegociaÃ§Ã£o</span>
                     </div>
                 ) : (
                     (() => {
@@ -94,7 +94,7 @@ export const Body: React.FC<BodyProps> = ({
                 )}
             </div>
 
-            {/* Seção de Unificação */}
+            {/* SeÃ§Ã£o de UnificaÃ§Ã£o */}
             {unifiedChildren.length > 0 && (
                 <div className="space-y-3 bg-slate-900/40 p-4 rounded-[1.5rem] border border-slate-800/50">
                     <div className="flex items-center gap-3">
@@ -106,7 +106,7 @@ export const Body: React.FC<BodyProps> = ({
                             <span className="text-[8px] text-slate-500 font-bold uppercase tracking-tight">Este contrato absorveu {unifiedChildren.length} sub-registros</span>
                         </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 gap-2 mt-2">
                         {unifiedChildren.map(child => (
                             <div key={child.id} className="bg-slate-950/60 border border-slate-800/30 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 hover:border-indigo-500/30 transition-colors">
@@ -114,7 +114,7 @@ export const Body: React.FC<BodyProps> = ({
                                     <span className="text-[10px] font-black text-white uppercase truncate">{child.debtorName}</span>
                                     <div className="flex items-center gap-1.5 mt-0.5 opacity-60">
                                         <span className="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">ID: {child.id.slice(0, 8)}</span>
-                                        <span className="text-slate-800">•</span>
+                                        <span className="text-slate-800">â€¢</span>
                                         <span className="text-[8px] text-emerald-500/80 font-black tracking-tight">{formatMoney(child.principal, isStealthMode)}</span>
                                     </div>
                                 </div>
@@ -130,12 +130,12 @@ export const Body: React.FC<BodyProps> = ({
             {/* Se tem acordo ativo, o contrato SE TORNA O ACORDO VISUALMENTE */}
             {hasActiveAgreement ? (
                 <div className="pt-2">
-                    <AgreementView 
+                    <AgreementView
                         agreement={activeAgreement!}
                         loan={loan}
                         activeUser={activeUser}
                         onUpdate={onRefresh}
-                        onPayment={(inst) => onAgreementPayment(loan, activeAgreement!, inst)}
+                        onPayment={(inst, amount) => onAgreementPayment(loan, activeAgreement!, inst, amount)}
                         onReversePayment={(inst) => onReverseAgreementPayment?.(loan, activeAgreement!, inst)}
                         onNavigate={onLegalDocument}
                     />
@@ -149,7 +149,7 @@ export const Body: React.FC<BodyProps> = ({
                         </span>
                         <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-800 to-transparent"></div>
                     </div>
-                    
+
                     <InstallmentGrid
                         loan={loan}
                         orderedInstallments={orderedInstallments}

@@ -25,9 +25,9 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
   const [isUploading, setIsUploading] = useState(false);
   const [fixedDuration, setFixedDuration] = useState('30');
   const [skipWeekends, setSkipWeekends] = useState(false);
-  
+
   const [formData, setFormData] = useState<LoanFormState>(() => getInitialFormState(safeSourceId(sources)));
-  
+
   // NOVO: Estado para controlar o vencimento da 1ª parcela de forma manual/automática
   const [manualFirstDueDate, setManualFirstDueDate] = useState<string>('');
 
@@ -35,7 +35,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
   const [documentPhotos, setDocumentPhotos] = useState<string[]>([]);
   const [customDocuments, setCustomDocuments] = useState<LoanDocument[]>([]);
   const [showCamera, setShowCamera] = useState<{ active: boolean, type: 'guarantee' | 'document' }>({ active: false, type: 'guarantee' });
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,13 +43,13 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
   useEffect(() => {
     if (!initialData) {
         const start = parseDateOnlyUTC(formData.startDate);
-        let daysToAdd = formData.billingCycle === 'MONTHLY' ? 30 : 1;
+        let daysToAdd = formData.billingCycle === 'DAILY_FREE' || formData.billingCycle === 'DAILY_FIXED_TERM' ? 1 : 30;
         const suggested = toISODateOnlyUTC(addDaysUTC(start, daysToAdd, skipWeekends));
         setManualFirstDueDate(suggested);
     }
   }, [formData.startDate, formData.billingCycle, skipWeekends, initialData]);
 
-  const isDailyModality = formData.billingCycle !== 'MONTHLY';
+  const isDailyModality = formData.billingCycle === 'DAILY_FREE' || formData.billingCycle === 'DAILY_FIXED_TERM';
 
   // Initialization with Guards
   useEffect(() => {
@@ -73,22 +73,26 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
         startDate: safeIsoDateOnly(initialData.startDate),
         fundingTotalPayable: initialData.fundingTotalPayable != null ? String(initialData.fundingTotalPayable) : '',
         fundingProvider: initialData.fundingProvider || '',
-        fundingFeePercent: initialData.fundingFeePercent != null ? String(initialData.fundingFeePercent) : ''
+        fundingFeePercent: initialData.fundingFeePercent != null ? String(initialData.fundingFeePercent) : '',
+        fundingCalculationMode: initialData.fundingCalculationMode || (initialData.fundingTotalPayable ? 'TOTAL' : 'RATE'),
+        fundingInstallmentsCount: initialData.fundingInstallmentsCount != null ? String(initialData.fundingInstallmentsCount) : String(initialData.installments?.length || 1),
+        fundingMonthlyRate: initialData.fundingMonthlyRate != null ? String(initialData.fundingMonthlyRate) : '',
+        customerMarginPercent: initialData.customerMarginPercent != null ? String(initialData.customerMarginPercent) : '30'
       });
-      
+
       // Se estiver editando, carrega o vencimento real da parcela 1
       if (initialData.installments?.[0]) {
           setManualFirstDueDate(safeIsoDateOnly(initialData.installments[0].dueDate));
       }
-      
+
       setFixedDuration('30');
       setSkipWeekends(initialData.skipWeekends || false);
       setAttachments(initialData.attachments || []);
       setDocumentPhotos(initialData.documentPhotos || []);
       setCustomDocuments(initialData.customDocuments || []);
     } else {
-        setFormData(prev => ({ 
-            ...prev, 
+        setFormData(prev => ({
+            ...prev,
             sourceId: prev.sourceId || safeSourceId(sources),
             pixKey: userProfile?.pixKey || '',
             interestRate: userProfile?.defaultInterestRate ? String(userProfile.defaultInterestRate) : '30',
@@ -173,7 +177,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
           const contact = contacts[0];
           const name = contact.name && contact.name.length > 0 ? contact.name[0] : '';
           let number = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
-          
+
           const normalizedPhone = normalizeBrazilianPhone(number);
           setFormData((prev) => ({ ...prev, debtorName: name || prev.debtorName, debtorPhone: normalizedPhone }));
         }
@@ -205,8 +209,8 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
   };
 
   const toggleDocVisibility = (docId: string) => setCustomDocuments(docs => docs.map(d => d.id === docId ? { ...d, visibleToClient: !d.visibleToClient } : d));
-  
-  const removeDoc = (docId: string) => { 
+
+  const removeDoc = (docId: string) => {
       if(confirm('Remover este documento?')) {
           const target = customDocuments.find(d => d.id === docId);
           if (target && target.url.startsWith('blob:')) URL.revokeObjectURL(target.url);
@@ -217,7 +221,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const { isValid, error } = validateLoanForm(formData, sources, !!initialData);
-    
+
     if (!isValid) {
         alert(error);
         return;
@@ -234,21 +238,21 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
     setIsSubmitting(true);
     try {
         const loanPayload = mapFormToLoan(
-            formData, 
-            fixedDuration, 
-            initialData || null, 
-            attachments, 
-            documentPhotos, 
+            formData,
+            fixedDuration,
+            initialData || null,
+            attachments,
+            documentPhotos,
             customDocuments,
             userProfile?.id || ''
         );
         loanPayload.skipWeekends = skipWeekends;
-        
+
         // CORREÇÃO CRÍTICA: Aplica a data manual na primeira parcela
         if (loanPayload.installments?.[0] && manualFirstDueDate) {
             loanPayload.installments[0].dueDate = manualFirstDueDate;
         }
-        
+
         await onAdd(loanPayload);
     } catch (err: any) {
         console.error("Erro interno no formulário:", err);

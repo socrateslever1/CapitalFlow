@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Loan, LoanStatus } from "../../../types";
 import { Modal } from "../../../components/ui/Modal";
 import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent, TrendingUp } from "lucide-react";
-import { simulateAgreement, CalculationMode } from "../logic/calculations";
+import { simulateAgreement, CalculationMode, InterestApplicationMode, InterestBaseMode } from "../logic/calculations";
 import { formatMoney } from "../../../utils/formatters";
 import { agreementService } from "../services/agreementService";
 import { legalService } from "../../legal/services/legalService";
@@ -64,7 +64,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const [step, setStep] = useState(1);
     const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_COM_JUROS');
     const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_INSTALLMENTS');
-    
+
     const [installmentValue, setInstallmentValue] = useState<number | string>(0);
     const [installmentsCount, setInstallmentsCount] = useState<number | string>(1);
     const [interestRate, setInterestRate] = useState<number | string>(5);
@@ -74,7 +74,10 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
     const [firstDueDate, setFirstDueDate] = useState('');
     const [totalDebt, setTotalDebt] = useState(0);
-    
+    const [principalDebt, setPrincipalDebt] = useState(0);
+    const [interestApplicationMode, setInterestApplicationMode] = useState<InterestApplicationMode>('TOTAL_ONCE');
+    const [interestBaseMode, setInterestBaseMode] = useState<InterestBaseMode>('TOTAL_DEBT');
+
     const [simulation, setSimulation] = useState<any>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [frequency, setFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
@@ -82,7 +85,9 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     useEffect(() => {
         if (!loans || loans.length === 0) return;
         const debt = loans.reduce((total, loan) => total + (loan.installments || []).reduce((acc, i) => acc + (i.principalRemaining + i.interestRemaining + (i.lateFeeAccrued || 0)), 0), 0);
+        const principal = loans.reduce((total, loan) => total + (loan.installments || []).reduce((acc, i) => acc + (Number(i.principalRemaining) || 0), 0), 0);
         setTotalDebt(debt);
+        setPrincipalDebt(principal);
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         try {
@@ -94,9 +99,13 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
     const handleSimulate = () => {
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
+        const baseDebtForAgreement = interestBaseMode === 'CAPITAL_ONLY' ? principalDebt : totalDebt;
         const result = simulateAgreement({
             totalDebt, type: finalType, installmentsCount: installmentsCount as number, installmentValue: installmentValue as number, calculationMode,
-            interestRate: interestRate as number, firstDueDate, frequency, gracePeriod: gracePeriod as number, discount: discount as number, downPayment: downPayment as number
+            interestRate: interestRate as number, firstDueDate, frequency, gracePeriod: gracePeriod as number, discount: discount as number, downPayment: downPayment as number,
+            baseDebtForAgreement,
+            interestApplicationMode,
+            interestBaseMode
         });
         setSimulation(result);
         setStep(2);
@@ -122,6 +131,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 totalDebtAtNegotiation: totalDebt,
                 negotiatedTotal: simulation.negotiatedTotal,
                 interestRate: finalType === 'PARCELADO_COM_JUROS' ? (Number(interestRate) || 0) : 0,
+                principal_base: principalDebt,
                 installmentsCount: simulation.installments.length,
                 frequency,
                 startDate: new Date().toISOString(),
@@ -129,6 +139,8 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 discount: Number(discount) || 0,
                 downPayment: Number(downPayment) || 0,
                 calculation_mode: calculationMode,
+                interest_application_mode: interestApplicationMode,
+                interest_base_mode: interestBaseMode,
                 installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (Number(installmentValue) || 0) : (simulation.installments[0]?.amount || 0),
                 calculation_result: simulation.calculationResult,
                 notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(Number(downPayment) || 0)}, desconto de ${formatMoney(Number(discount) || 0)}.`
@@ -241,7 +253,13 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Periodicidade</label><select value={frequency} onChange={e => setFrequency(e.target.value as any)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="MONTHLY">Mensal</option><option value="BIWEEKLY">Quinzenal</option><option value="WEEKLY">Semanal</option></select></div>
                         </div>
 
-                        {calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Taxa de Juros (% ao mês)</label><input type="number" step="0.1" value={interestRate} onChange={e => setInterestRate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
+                        {calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && <div className="space-y-3">
+                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Taxa de Juros (%)</label><input type="number" step="0.1" value={interestRate} onChange={e => setInterestRate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Aplicar Juros</label><select value={interestApplicationMode} onChange={e => setInterestApplicationMode(e.target.value as InterestApplicationMode)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="TOTAL_ONCE">Total do acordo</option><option value="MONTHLY_SIMPLE">Ao mês pelo prazo</option></select></div>
+                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Base do Cálculo</label><select value={interestBaseMode} onChange={e => setInterestBaseMode(e.target.value as InterestBaseMode)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="TOTAL_DEBT">Dívida atual</option><option value="CAPITAL_ONLY">Somente capital</option></select></div>
+                            </div>
+                        </div>}
 
                         <div className="grid grid-cols-3 gap-4">
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Desconto (R$)</label><input type="number" value={discount} onChange={e => setDiscount(e.target.value)} disabled={calculationMode === 'BY_VALUE_AND_COUNT'} className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'opacity-50' : ''}`} /></div>
@@ -262,12 +280,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 <div>
                                     <p className="text-[10px] uppercase font-bold text-slate-500">Novo Total</p>
                                     <p className="text-2xl font-black text-white">{formatMoney(simulation.negotiatedTotal)}</p>
-                                    
+
                                     {/* Exibição de Ganhos/Perdas */}
                                     {simulation.calculationResult && (
                                         <div className={`mt-2 p-2 rounded-lg border flex items-center gap-2 animate-in fade-in slide-in-from-left duration-300 ${
-                                            simulation.calculationResult === 'DISCOUNT' 
-                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                            simulation.calculationResult === 'DISCOUNT'
+                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                                                 : simulation.calculationResult === 'INCREASE'
                                                 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                                                 : 'bg-slate-800 border-slate-700 text-slate-400'
@@ -299,7 +317,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                     <p className="text-xl font-bold text-blue-400">{simulation.installments.length}x {formatMoney(simulation.installments[0]?.amount || 0)}</p>
                                 </div>
                             </div>
-                            
+
                             <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-2">
                                 {simulation.installments.map((inst: any) => (
                                     <div key={inst.number} className="flex justify-between items-center bg-slate-900 p-2 rounded-lg text-xs">

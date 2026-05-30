@@ -22,7 +22,7 @@ interface LegalPageProps {
   loanCtrl: any;
   fileCtrl: any;
   onRefresh: () => void;
-  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
   onReviewSignal: (signalId: string, status: 'APROVADO' | 'NEGADO') => void;
   onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
   isStealthMode: boolean;
@@ -39,7 +39,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
 
   // FILTRO DEFINITIVO: Usa Engine de Domínio Central
   const legalLoans = props.loans.filter(l => loanEngine.isLegallyActionable(l));
-  
+
   // Estatísticas Rápidas do Setor
   const totalAgreements = legalLoans.length;
   const totalNegotiatedValue = legalLoans.reduce((acc, l) => acc + (l.activeAgreement?.negotiatedTotal || 0), 0);
@@ -70,7 +70,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                     </div>
                 </div>
             </div>
-            <button 
+            <button
                 onClick={() => setSubView('PROFILE')}
                 className="w-full md:w-auto px-6 py-3 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-slate-700"
             >
@@ -80,30 +80,30 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard 
+            <StatCard
                 variant="compact"
-                title="Acordos Ativos" 
-                value={totalAgreements.toString()} 
-                rawValue={totalAgreements} 
-                icon={<History size={20} />} 
+                title="Acordos Ativos"
+                value={totalAgreements.toString()}
+                rawValue={totalAgreements}
+                icon={<History size={20} />}
                 isStealthMode={props.isStealthMode}
                 indicatorColor="bg-indigo-500"
             />
-            <StatCard 
+            <StatCard
                 variant="compact"
-                title="Volume Negociado" 
-                value={formatMoney(totalNegotiatedValue, props.isStealthMode)} 
-                rawValue={totalNegotiatedValue} 
-                icon={<TrendingUp size={20} />} 
+                title="Volume Negociado"
+                value={formatMoney(totalNegotiatedValue, props.isStealthMode)}
+                rawValue={totalNegotiatedValue}
+                icon={<TrendingUp size={20} />}
                 isStealthMode={props.isStealthMode}
                 indicatorColor="bg-amber-500"
             />
-            <StatCard 
+            <StatCard
                 variant="compact"
-                title="Recuperado (Acordos)" 
-                value={formatMoney(totalReceivedAgreement, props.isStealthMode)} 
-                rawValue={totalReceivedAgreement} 
-                icon={<HandCoins size={20} />} 
+                title="Recuperado (Acordos)"
+                value={formatMoney(totalReceivedAgreement, props.isStealthMode)}
+                rawValue={totalReceivedAgreement}
+                icon={<HandCoins size={20} />}
                 isStealthMode={props.isStealthMode}
                 indicatorColor="bg-emerald-500"
             />
@@ -170,7 +170,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
             <h3 className="text-sm font-black uppercase text-white flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-slate-500"/> Acordos Ativos
             </h3>
-            
+
             {legalLoans.length === 0 ? (
                 <div className="text-center py-20 bg-slate-900/50 rounded-2xl border-2 border-dashed border-slate-800">
                     <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">

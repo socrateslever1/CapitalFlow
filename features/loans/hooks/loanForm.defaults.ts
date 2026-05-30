@@ -20,11 +20,15 @@ export const getInitialFormState = (defaultSourceId: string = ''): LoanFormState
         pixKey: '',
         principal: '',
         interestRate: '30',
-        finePercent: '2', 
+        finePercent: '2',
         dailyInterestPercent: '1',
         billingCycle: 'MONTHLY' as LoanBillingModality,
         notes: '',
         guaranteeDescription: '',
-        startDate: defaultDateStr
+        startDate: defaultDateStr,
+        fundingCalculationMode: 'TOTAL',
+        fundingInstallmentsCount: '1',
+        fundingMonthlyRate: '',
+        customerMarginPercent: '30'
     };
 };

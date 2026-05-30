@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { CapitalSource, UserProfile, SourceUIController } from '../../types';
 import { parseCurrency } from '../../utils/formatters';
 import { isUUID, safeUUID } from '../../utils/uuid';
+import { resolveProfitBalance } from '../../utils/profitBalance';
 
 export const useSourceController = (
   activeUser: UserProfile | null,
@@ -95,18 +96,26 @@ export const useSourceController = (
 
       // STAFF criando: fonte pertence ao DONO, mas pode restringir pelo operador_permitido_id
       const operadorPermitido = isStaff ? activeUser.id : (ui.sourceForm.operador_permitido_id || null);
+      const payload = {
+        id,
+        profile_id: ownerId,
+        name: ui.sourceForm.name,
+        type: ui.sourceForm.type,
+        balance: initialBalance,
+        logo_url: ui.sourceForm.logo_url || null,
+        operador_permitido_id: operadorPermitido,
+      };
 
-      const { error } = await supabase.from('fontes').insert([
-        {
-          id,
-          profile_id: ownerId, // ✅ fontes pertencem ao DONO
-          name: ui.sourceForm.name,
-          type: ui.sourceForm.type,
-          balance: initialBalance,
-          logo_url: ui.sourceForm.logo_url || null,
-          operador_permitido_id: operadorPermitido,
-        },
-      ]);
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const { syncService } = await import('../../services/sync.service');
+        await syncService.enqueueOperation({ table: 'fontes', operation: 'INSERT', data: payload, id });
+        setSources([...sources, payload as any]);
+        showToast('Fonte criada offline. Sera sincronizada ao reconectar.', 'success');
+        ui.closeModal();
+        return;
+      }
+
+      const { error } = await supabase.from('fontes').insert([payload]);
 
       if (error) {
         showToast('Erro ao criar fonte: ' + error.message, 'error');
@@ -146,6 +155,28 @@ export const useSourceController = (
       return;
     }
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const sourceId = safeUUID(ui.activeModal.payload.id);
+      if (!sourceId) {
+        showToast('Fonte invalida.', 'error');
+        return;
+      }
+      const { db } = await import('../../services/offline/adminOfflineStore');
+      const { syncService } = await import('../../services/sync.service');
+      const current = sources.find((s) => s.id === sourceId);
+      const nextBalance = (Number(current?.balance) || 0) + amount;
+      setSources(sources.map((s) => (s.id === sourceId ? { ...s, balance: nextBalance } : s)));
+      await db.fontes.update(sourceId, { balance: nextBalance });
+      await syncService.enqueueOperation({
+        table: '__rpc',
+        operation: 'RPC',
+        id: crypto.randomUUID(),
+        data: { fn: 'adjust_source_balance', args: { p_source_id: sourceId, p_delta: amount } }
+      });
+      showToast('Aporte registrado offline. Sera sincronizado ao reconectar.', 'success');
+      ui.closeModal();
+      return;
+    }
     const { error } = await supabase.rpc('adjust_source_balance', {
       p_source_id: safeUUID(ui.activeModal.payload.id),
       p_delta: amount,
@@ -155,7 +186,7 @@ export const useSourceController = (
       showToast('Erro ao adicionar fundos: ' + error.message, 'error');
     } else {
       showToast('Saldo atualizado com segurança!', 'success');
-      
+
       ui.closeModal();
       await fetchFullData(ownerId); // ✅ recarrega pelo DONO
     }
@@ -165,7 +196,7 @@ export const useSourceController = (
     if (!activeUser || !ui.editingSource) return;
 
     const newBalance = parseCurrency(ui.editingSource.balance);
-    
+
     if (activeUser.id === 'DEMO') {
       setSources(sources.map((s) => (s.id === ui.editingSource?.id ? { ...s, balance: newBalance } : s)));
       showToast('Saldo atualizado (Demo)', 'success');
@@ -180,9 +211,22 @@ export const useSourceController = (
     }
 
     try {
-      const { error } = await supabase.from('fontes').update({ 
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const { syncService } = await import('../../services/sync.service');
+        await syncService.enqueueOperation({
+          table: 'fontes',
+          operation: 'UPDATE',
+          data: { id: ui.editingSource.id, balance: newBalance, logo_url: ui.editingSource.logo_url },
+          id: ui.editingSource.id,
+        });
+        setSources(sources.map((s) => (s.id === ui.editingSource?.id ? { ...s, balance: newBalance, logo_url: ui.editingSource?.logo_url } : s)));
+        showToast('Saldo atualizado offline. Sera sincronizado ao reconectar.', 'success');
+        ui.setEditingSource(null);
+        return;
+      }
+      const { error } = await supabase.from('fontes').update({
         balance: newBalance,
-        logo_url: ui.editingSource.logo_url 
+        logo_url: ui.editingSource.logo_url
       }).eq('id', ui.editingSource.id);
       if (error) throw error;
 
@@ -204,17 +248,10 @@ export const useSourceController = (
       showToast('Informe um valor válido para resgatar.', 'error');
       return;
     }
-
-    const caixaLivreSource = sources.find(s => {
-      const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-      return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
-    });
-
+    const profitBalance = resolveProfitBalance(sources, activeUser);
+    const caixaLivreSource = profitBalance.primarySource as CapitalSource | null;
     const sourceBalance = Number(caixaLivreSource?.balance) || 0;
-    const profileBalance = Number(activeUser.interestBalance) || 0;
-    
-    // 🔥 ALINHAMENTO: Prioridade para a Fonte de Caixa Livre se ela existir
-    const availableBalance = caixaLivreSource ? sourceBalance : profileBalance;
+    const availableBalance = profitBalance.balance;
 
     if (amount > availableBalance) {
       showToast('Saldo de lucro insuficiente.', 'error');
@@ -258,6 +295,67 @@ export const useSourceController = (
 
     try {
       const useSourceWithdrawal = caixaLivreSource && sourceBalance >= amount;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const { db } = await import('../../services/offline/adminOfflineStore');
+        const { syncService } = await import('../../services/sync.service');
+        const nextSources = sources.map((s) => {
+          if (useSourceWithdrawal && caixaLivreSource && s.id === caixaLivreSource.id) return { ...s, balance: (Number(s.balance) || 0) - amount };
+          if (targetSourceId && s.id === targetSourceId) return { ...s, balance: (Number(s.balance) || 0) + amount };
+          return s;
+        });
+        setSources(nextSources);
+        if (useSourceWithdrawal && caixaLivreSource) {
+          await db.fontes.update(caixaLivreSource.id, { balance: sourceBalance - amount });
+        } else {
+          setActiveUser({ ...activeUser, interestBalance: (Number(activeUser.interestBalance) || 0) - amount });
+          await db.perfis.update(activeUser.id, { interest_balance: (Number(activeUser.interestBalance) || 0) - amount } as any);
+        }
+        if (targetSourceId) {
+          const target = sources.find((s) => s.id === targetSourceId);
+          await db.fontes.update(targetSourceId, { balance: (Number(target?.balance) || 0) + amount });
+        }
+
+        await syncService.enqueueOperation({
+          table: '__rpc',
+          operation: 'RPC',
+          id: crypto.randomUUID(),
+          data: useSourceWithdrawal && caixaLivreSource
+            ? {
+                fn: 'withdraw_profit_caixa_livre',
+                args: {
+                  p_amount: amount,
+                  p_profile_id: safeUUID(ownerId),
+                  p_source_id: safeUUID(caixaLivreSource.id),
+                  p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
+                }
+              }
+            : {
+                fn: 'profit_withdrawal_atomic',
+                args: {
+                  p_amount: amount,
+                  p_profile_id: safeUUID(ownerId),
+                  p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
+                }
+              }
+        });
+
+        await syncService.enqueueOperation({
+          table: 'transacoes_caixa',
+          operation: 'INSERT',
+          id: crypto.randomUUID(),
+          data: {
+            profile_id: ownerId,
+            tipo: 'WITHDRAWAL',
+            valor: amount,
+            descricao: `Resgate de Lucro${targetSourceId ? ' para fonte interna' : ' externo'}`,
+            data: new Date().toISOString()
+          }
+        });
+
+        showToast('Resgate registrado offline. Sera sincronizado ao reconectar.', 'success');
+        ui.closeModal();
+        return;
+      }
 
       if (useSourceWithdrawal && caixaLivreSource) {
         const { error } = await supabase.rpc('withdraw_profit_caixa_livre', {

@@ -18,6 +18,7 @@ import { useNavigationStack } from './hooks/useNavigationStack';
 import { Toaster } from 'sonner';
 
 import { notificationService } from './services/notification.service';
+import { pushSubscriptionService } from './services/pushSubscription.service';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { isDev } from './utils/isDev';
 import { Agreement, AgreementInstallment, LedgerEntry, Loan } from './types';
@@ -216,7 +217,11 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (activeUser && !isPublicView) {
-      notificationService.requestPermission();
+      notificationService.requestPermission().then((granted) => {
+        if (granted) {
+          void pushSubscriptionService.register(activeUser.id);
+        }
+      });
     }
   }, [activeUser, isPublicView]);
 

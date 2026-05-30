@@ -155,6 +155,81 @@ async function applyPrincipalOverpaymentToLastInstallments(params: {
   return appliedTotal;
 }
 
+async function persistOfflinePaymentSnapshot(params: {
+  loanId: string;
+  instId: string;
+  ownerId: string;
+  sourceId: string;
+  caixaLivreId: string | null;
+  idempotencyKey: string;
+  amountToPay: number;
+  principalPaid: number;
+  interestPaid: number;
+  lateFeePaid: number;
+  forgivenLateFee: number;
+  paymentDateStr: string;
+  installmentSnapshot: Installment;
+  rpcArgs: any;
+}) {
+  const { db } = await import('./offline/adminOfflineStore');
+  const { syncService } = await import('./sync.service');
+
+  const nextPrincipal = roundMoney(Number(params.installmentSnapshot.principalRemaining || 0) - params.principalPaid);
+  const nextInterest = roundMoney(Number(params.installmentSnapshot.interestRemaining || 0) - params.interestPaid);
+  const nextLateFee = roundMoney(Number(params.installmentSnapshot.lateFeeAccrued || 0) - params.lateFeePaid - params.forgivenLateFee);
+  const nextOpen = Math.max(0, nextPrincipal) + Math.max(0, nextInterest) + Math.max(0, nextLateFee);
+  const previousPaid = Number((params.installmentSnapshot as any).paidTotal ?? (params.installmentSnapshot as any).paid_total ?? 0) || 0;
+  const nextPaidTotal = roundMoney(previousPaid + params.principalPaid + params.interestPaid + params.lateFeePaid);
+
+  await db.parcelas.update(params.instId, {
+    principal_remaining: Math.max(0, nextPrincipal),
+    interest_remaining: Math.max(0, nextInterest),
+    late_fee_accrued: Math.max(0, nextLateFee),
+    paid_total: nextPaidTotal,
+    paid_date: params.paymentDateStr,
+    status: nextOpen <= ZERO_BALANCE_THRESHOLD ? 'PAID' : 'PARTIAL',
+  });
+
+  const source = await db.fontes.get(params.sourceId);
+  if (source && params.principalPaid > ZERO_BALANCE_THRESHOLD) {
+    await db.fontes.update(params.sourceId, { balance: roundMoney((Number((source as any).balance) || 0) + params.principalPaid) });
+  }
+
+  const profit = roundMoney(params.interestPaid + params.lateFeePaid);
+  if (params.caixaLivreId && profit > ZERO_BALANCE_THRESHOLD) {
+    const profitSource = await db.fontes.get(params.caixaLivreId);
+    if (profitSource) {
+      await db.fontes.update(params.caixaLivreId, { balance: roundMoney((Number((profitSource as any).balance) || 0) + profit) });
+    }
+  }
+
+  await db.transacoes.put({
+    id: generateUUID(),
+    loan_id: params.loanId,
+    profile_id: params.ownerId,
+    source_id: params.sourceId,
+    date: params.paymentDateStr,
+    type: 'PAYMENT',
+    amount: params.amountToPay,
+    principal_delta: params.principalPaid,
+    interest_delta: params.interestPaid,
+    late_fee_delta: params.lateFeePaid,
+    category: 'PAGAMENTO',
+    idempotency_key: params.idempotencyKey,
+    notes: 'Pagamento registrado offline, aguardando sincronizacao.',
+  });
+
+  await syncService.enqueueOperation({
+    table: '__rpc',
+    operation: 'RPC',
+    id: params.idempotencyKey,
+    data: { fn: 'process_payment_v3_selective', args: params.rpcArgs },
+    conflictTable: 'parcelas',
+    conflictId: params.instId,
+    baseUpdatedAt: (params.installmentSnapshot as any).updated_at || (params.installmentSnapshot as any).updatedAt || null,
+  });
+}
+
 export const paymentsService = {
   async processPayment(params: {
     loan: Loan;
@@ -205,14 +280,15 @@ export const paymentsService = {
     if (!loanId) throw new Error('Contrato inválido (loan.id).');
     if (!instId) throw new Error('Parcela inválida (inst.id).');
 
-    const instDb = await revalidateInstallment(instId);
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const instDb = isOffline ? null : await revalidateInstallment(instId);
     const statusDb = String(instDb?.status || '').toUpperCase();
     const remainingDb =
       Number(instDb?.principal_remaining || 0) +
       Number(instDb?.interest_remaining || 0) +
       Number(instDb?.late_fee_accrued || 0);
 
-    if (statusDb === 'PAID' || remainingDb <= ZERO_BALANCE_THRESHOLD) {
+    if (!isOffline && (statusDb === 'PAID' || remainingDb <= ZERO_BALANCE_THRESHOLD)) {
       throw new Error('Parcela já quitada (revalidado no banco). Atualize a tela.');
     }
 
@@ -225,6 +301,36 @@ export const paymentsService = {
       const sourceId = safeUUID((loan as any).sourceId);
       if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
 
+      if (isOffline) {
+        const { db } = await import('./offline/adminOfflineStore');
+        const { syncService } = await import('./sync.service');
+        await syncService.enqueueOperation({
+          table: '__rpc',
+          operation: 'RPC',
+          id: idempotencyKey,
+          data: {
+            fn: 'process_lend_more_atomic',
+            args: {
+              p_idempotency_key: idempotencyKey,
+              p_loan_id: loanId,
+              p_installment_id: instId,
+              p_profile_id: ownerId,
+              p_operator_id: safeUUID(activeUser.id),
+              p_source_id: sourceId,
+              p_amount: lendAmount,
+              p_notes: `Novo Aporte (+ R$ ${lendAmount.toFixed(2)})`,
+            }
+          },
+          conflictTable: 'parcelas',
+          conflictId: instId,
+          baseUpdatedAt: (inst as any).updated_at || (inst as any).updatedAt || null,
+        });
+        const source = await db.fontes.get(sourceId);
+        if (source) {
+          await db.fontes.update(sourceId, { balance: roundMoney((Number((source as any).balance) || 0) - lendAmount) });
+        }
+        return { amountToPay: lendAmount, paymentType: 'OFFLINE_PENDING' };
+      }
       const { error } = await supabase.rpc('process_lend_more_atomic', {
         p_idempotency_key: idempotencyKey,
         p_loan_id: loanId,
@@ -346,7 +452,7 @@ export const paymentsService = {
        }
     }
 
-    const { error } = await supabase.rpc('process_payment_v3_selective', {
+    const paymentRpcArgs = {
       p_idempotency_key: idempotencyKey,
       p_loan_id: loanId,
       p_installment_id: instId,
@@ -360,7 +466,34 @@ export const paymentsService = {
       p_capitalize_remaining: !!capitalizeRemaining,
       p_source_id: sourceId,
       p_caixa_livre_id: safeUUID(caixaLivreId),
-    });
+    };
+
+    if (isOffline) {
+      if (avExtra > ZERO_BALANCE_THRESHOLD) {
+        throw new Error('Pagamento offline com valor excedente ainda exige internet para abater parcelas futuras com seguranca.');
+      }
+
+      await persistOfflinePaymentSnapshot({
+        loanId,
+        instId,
+        ownerId,
+        sourceId,
+        caixaLivreId: safeUUID(caixaLivreId),
+        idempotencyKey,
+        amountToPay,
+        principalPaid,
+        interestPaid,
+        lateFeePaid,
+        forgivenLateFee,
+        paymentDateStr,
+        installmentSnapshot,
+        rpcArgs: paymentRpcArgs,
+      });
+
+      return { amountToPay, paymentType: 'OFFLINE_PENDING', amortization };
+    }
+
+    const { error } = await supabase.rpc('process_payment_v3_selective', paymentRpcArgs);
 
     if (error) throw new Error('Falha na persistência: ' + error.message);
 

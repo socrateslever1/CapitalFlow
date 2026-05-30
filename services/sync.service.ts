@@ -30,7 +30,38 @@ const ensureFreshAuth = async (forceRefresh = false) => {
   return data?.session || null;
 };
 
+const fetchRemoteUpdatedAt = async (table: string, targetId: string) => {
+  if (!table || !targetId || table === '__rpc') return null;
+  const { data, error } = await supabase
+    .from(table)
+    .select('updated_at')
+    .eq('id', targetId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as any)?.updated_at || null;
+};
+
+const hasRemoteConflict = async (item: any) => {
+  const baseUpdatedAt = item.baseUpdatedAt || item.data?.updated_at || item.data?.base_updated_at;
+  if (!baseUpdatedAt || !item.targetId || item.operation === 'INSERT') return false;
+
+  const remoteUpdatedAt = await fetchRemoteUpdatedAt(item.conflictTable || item.table, item.conflictId || item.targetId);
+  if (!remoteUpdatedAt) return false;
+
+  const remoteMs = new Date(remoteUpdatedAt).getTime();
+  const baseMs = new Date(baseUpdatedAt).getTime();
+  return Number.isFinite(remoteMs) && Number.isFinite(baseMs) && remoteMs > baseMs + 1000;
+};
+
 const runQueueMutation = async (item: any) => {
+  if (item.operation === 'RPC') {
+    return supabase.rpc(item.data?.fn, item.data?.args || {});
+  }
+
+  if (await hasRemoteConflict(item)) {
+    return { error: new Error('CONFLITO_OFFLINE: este registro foi alterado em outro dispositivo antes da sincronização.') };
+  }
+
   if (item.operation === 'UPDATE') {
     const { id: _id, ...updateData } = item.data || {};
     return supabase.from(item.table).update(updateData).eq('id', item.targetId);
@@ -65,9 +96,10 @@ export const syncService = {
    */
   async syncFullData(profileId: string, ownerId: string) {
     console.log('[SYNC] Iniciando sincronização completa...', { profileId, ownerId });
-    
+
     try {
       await ensureFreshAuth();
+      await this.processQueue();
 
       // 1. Buscar tudo em paralelo para velocidade
       let [clientsRes, sourcesRes, loansRes, staffRes] = await fetchRemoteSnapshot(ownerId);
@@ -177,7 +209,7 @@ export const syncService = {
         db.parcelas.where('loan_id').equals(l.id).toArray(),
         db.transacoes.where('loan_id').equals(l.id).toArray()
       ]);
-      
+
       // Mapeia para o formato do Frontend usando o adapter existente
       return mapLoanFromDB({ ...l, parcelas, transacoes }, clients);
     }));
@@ -195,15 +227,25 @@ export const syncService = {
    */
   async enqueueOperation(params: {
     table: string;
-    operation: 'INSERT' | 'UPDATE' | 'DELETE';
+    operation: 'INSERT' | 'UPDATE' | 'DELETE' | 'RPC';
     data: any;
     id: string;
+    baseUpdatedAt?: string | null;
+    conflictTable?: string;
+    conflictId?: string;
   }) {
     const { table, operation, data, id } = params;
-    
+
     // 1. Atualizar Dexie IMEDIATAMENTE (Optimistic)
     const tableInstance = (db as any)[table];
+    let baseUpdatedAt = params.baseUpdatedAt || data?.updated_at || data?.base_updated_at || null;
     if (tableInstance) {
+      if (!baseUpdatedAt) {
+        try {
+          const previous = await tableInstance.get(id);
+          baseUpdatedAt = previous?.updated_at || previous?.updatedAt || null;
+        } catch {}
+      }
       if (operation === 'DELETE') {
         await tableInstance.delete(id);
       } else if (operation === 'UPDATE') {
@@ -221,6 +263,9 @@ export const syncService = {
       operation,
       data,
       targetId: id,
+      baseUpdatedAt,
+      conflictTable: params.conflictTable || null,
+      conflictId: params.conflictId || null,
       status: 'PENDING',
       attempts: 0,
       maxAttempts: 7,
@@ -231,7 +276,7 @@ export const syncService = {
 
     // 3. Tentar processar a fila em background
     this.processQueue().catch(err => console.warn('[SYNC] Queue processing failed:', err));
-    
+
     return true;
   },
 
@@ -263,7 +308,7 @@ export const syncService = {
     for (const item of items) {
       try {
         let { error } = await runQueueMutation(item);
-        
+
         // Simulação de delay para evitar race conditions
         await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -281,10 +326,19 @@ export const syncService = {
       } catch (err: any) {
         const attempts = (item.attempts || 0) + 1;
         const maxAttempts = item.maxAttempts || 7;
-        
+
         console.error(`[SYNC] Falha na tentativa ${attempts}/${maxAttempts} para item ${item.id}:`, err);
 
-        if (attempts >= maxAttempts) {
+        const isConflict = String(err?.message || '').includes('CONFLITO_OFFLINE');
+
+        if (isConflict) {
+          await db.write_queue.update(item.id, {
+            status: 'CONFLICT',
+            attempts,
+            lastError: err?.message || String(err),
+            lastAttemptAt: new Date().toISOString()
+          });
+        } else if (attempts >= maxAttempts) {
           // Marca como DEAD se excedeu tentativas
           await db.write_queue.update(item.id, {
             status: 'DEAD',
@@ -305,7 +359,7 @@ export const syncService = {
             lastAttemptAt: new Date().toISOString()
           });
         }
-        
+
         // Para o processamento desta leva se houver erro de rede global
         if (!navigator.onLine) break;
       }

@@ -8,9 +8,10 @@ import { FlowModal } from './FlowModal';
 import { ReceiptModal } from './ReceiptModal';
 import { MessageHubModal } from './MessageHubModal';
 import { AIAssistantModal } from './AIAssistantModal';
-import { NoteWrapper } from './ModalWrappers'; 
+import { NoteWrapper } from './ModalWrappers';
 import { Copy, KeyRound, User, Camera, ShieldCheck, MapPin, Mail, Hash, Loader2 } from 'lucide-react';
 import { maskPhone, maskDocument, capitalizeName } from '../../utils/formatters';
+import { resolveProfitBalance } from '../../utils/profitBalance';
 
 export const ClientModals = () => {
     const { activeModal, closeModal, ui, clientCtrl } = useModal();
@@ -56,20 +57,20 @@ export const ClientModals = () => {
                </div>
 
                <input type="file" ref={ui.clientAvatarInputRef} className="hidden" accept="image/*" onChange={clientCtrl.handleAvatarUpload}/>
-               
+
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5">
                     <div className="sm:col-span-2">
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Nome Completo</label>
-                        <input 
-                            type="text" 
-                            className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" 
-                            value={clientForm.name || ''} 
-                            onChange={e => ui.setClientForm({...clientForm, name: e.target.value})} 
+                        <input
+                            type="text"
+                            className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700"
+                            value={clientForm.name || ''}
+                            onChange={e => ui.setClientForm({...clientForm, name: e.target.value})}
                             onBlur={e => ui.setClientForm({...clientForm, name: capitalizeName(e.target.value)})}
                             placeholder="Nome do cliente"
                         />
                     </div>
-                    
+
                     <div>
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">WhatsApp</label>
                         <div className="flex gap-2">
@@ -77,7 +78,7 @@ export const ClientModals = () => {
                             {canImportContacts && <button onClick={clientCtrl.handlePickContact} className="px-3 bg-blue-600/10 border border-blue-500/20 rounded-2xl text-blue-400 hover:bg-blue-600 hover:text-white transition-all"><User size={18}/></button>}
                         </div>
                     </div>
-                    
+
                     <div>
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">CPF / CNPJ</label>
                         <input type="text" className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.document || ''} onChange={e => ui.setClientForm({...clientForm, document: maskDocument(e.target.value)})} placeholder="000.000.000-00"/>
@@ -105,9 +106,9 @@ export const ClientModals = () => {
                    <textarea placeholder="Notas sobre o perfil..." className="w-full bg-slate-950/50 p-4 rounded-3xl border border-slate-800/80 text-white outline-none h-24 text-sm resize-none focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.notes || ''} onChange={e => ui.setClientForm({...clientForm, notes: e.target.value})} />
                </div>
 
-               <button 
-                onClick={clientCtrl.handleSaveClient} 
-                disabled={ui.isSaving} 
+               <button
+                onClick={clientCtrl.handleSaveClient}
+                disabled={ui.isSaving}
                 className="w-full py-4.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black rounded-2xl uppercase shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 text-xs tracking-widest disabled:opacity-50 transition-all active:scale-[0.98]"
                >
                    {ui.isSaving ? <Loader2 className="animate-spin" size={16}/> : <ShieldCheck size={16}/>}
@@ -158,7 +159,7 @@ export const FinanceModals = () => {
                                     <span className="text-[10px] font-black uppercase tracking-widest">Acesso Privado</span>
                                 </div>
                                 <p className="text-[10px] text-slate-400 leading-tight">Ao selecionar um colaborador, esta carteira só poderá ser usada por ele e pelo administrador.</p>
-                                <select 
+                                <select
                                     className="w-full bg-slate-900 border border-indigo-500/30 rounded-full p-3 text-xs text-white outline-none"
                                     value={ui.sourceForm.operador_permitido_id || ''}
                                     onChange={e => ui.setSourceForm({...ui.sourceForm, operador_permitido_id: e.target.value || null})}
@@ -196,38 +197,28 @@ export const FinanceModals = () => {
                             <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Disponível para Saque</p>
                             <p className="text-3xl font-black text-emerald-400 tracking-tight">
-                                R$ {
-                                    (() => {
-                                        const caixaLivreSource = (sources || []).find(s => {
-                                            const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-                                            return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
-                                        });
-                                        const sourceBalance = Number(caixaLivreSource?.balance) || 0;
-                                        const profileBalance = Number(activeUser?.interestBalance) || 0;
-                                        return (sourceBalance + profileBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                                    })()
-                                }
+                                R$ {resolveProfitBalance(sources || [], activeUser).balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </p>
                         </div>
 
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Valor do Resgate</label>
-                                <input 
-                                    type="text" 
-                                    inputMode="decimal" 
-                                    placeholder="R$ 0,00" 
-                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" 
-                                    value={ui.withdrawValue || ''} 
-                                    onChange={e => ui.setWithdrawValue(e.target.value.replace(/[^0-9.,]/g, ''))} 
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="R$ 0,00"
+                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700"
+                                    value={ui.withdrawValue || ''}
+                                    onChange={e => ui.setWithdrawValue(e.target.value.replace(/[^0-9.,]/g, ''))}
                                 />
                             </div>
 
                             <div>
                                 <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Destino do Capital</label>
-                                <select 
-                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all cursor-pointer appearance-none" 
-                                    value={ui.withdrawSourceId || ''} 
+                                <select
+                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all cursor-pointer appearance-none"
+                                    value={ui.withdrawSourceId || ''}
                                     onChange={e => ui.setWithdrawSourceId(e.target.value)}
                                 >
                                     <option value="">Selecione o destino...</option>
@@ -237,8 +228,8 @@ export const FinanceModals = () => {
                             </div>
                         </div>
 
-                        <button 
-                            onClick={sourceCtrl.handleWithdrawProfit} 
+                        <button
+                            onClick={sourceCtrl.handleWithdrawProfit}
                             className="w-full py-4.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black rounded-2xl uppercase shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.98] tracking-widest text-xs"
                         >
                             Confirmar Resgate

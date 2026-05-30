@@ -67,6 +67,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             filter: `profile_id=eq.${activeUser.id}` 
         }, (payload) => {
             if (payload.new.sender_user_id !== activeUser.id) {
+                const supportMessage = payload.new.content || payload.new.text || "Cliente enviou uma midia.";
                 notificationService.notify(
                     "Nova Mensagem de Suporte",
                     payload.new.content || payload.new.text || "Cliente enviou uma mídia.",
@@ -75,6 +76,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                         onOpenSupport?.();
                     }
                 );
+                addNotification?.({
+                    title: "Nova Mensagem de Suporte",
+                    message: supportMessage,
+                    type: 'info',
+                    item_type: 'suporte',
+                    item_id: payload.new.id,
+                    metadata: { loan_id: payload.new.loan_id }
+                });
                 fetchUnread();
             }
         })
@@ -87,7 +96,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [activeUser?.id]);
+  }, [activeUser?.id, addNotification, onOpenSupport]);
 
   // Highlight logic based on URL query parameters
   useEffect(() => {

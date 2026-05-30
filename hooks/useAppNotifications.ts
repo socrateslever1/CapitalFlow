@@ -4,6 +4,7 @@ import { Loan, LoanStatus, CapitalSource } from '../types';
 import { loanEngine, isLegallyActionable } from '../domain/loanEngine';
 import { getDaysDiff, isValidDate } from '../utils/dateHelpers';
 import { notificationService } from '../services/notification.service';
+import { notificationCenterService } from '../services/notificationCenter.service';
 import { getInstallmentStatusLogic } from '../domain/finance/calculations';
 import { playNotificationSound } from '../utils/notificationSound';
 
@@ -19,6 +20,7 @@ export interface InAppNotification {
   item_type?: string;
   item_id?: string;
   metadata?: any;
+  dbId?: string;
 }
 
 interface NotificationProps {
@@ -32,6 +34,15 @@ interface NotificationProps {
 }
 
 const MAX_VISIBLE_NOTIFICATIONS = 40;
+const typeByItem: Record<string, InAppNotification['type']> = {
+  pagamento: 'success',
+  documento: 'warning',
+  carteira: 'error',
+  suporte: 'info',
+  lead: 'info',
+  parcela: 'info',
+  acordo: 'warning',
+};
 
 export const useAppNotifications = ({
   loans,
@@ -48,7 +59,7 @@ export const useAppNotifications = ({
   const notifiedUnsignedLegal = useRef<Set<string>>(new Set());
   const lastUserId = useRef<string | null>(null);
   const notificationsRef = useRef<InAppNotification[]>([]);
-  const queueRef = useRef<Omit<InAppNotification, 'id' | 'createdAt'>[]>([]);
+  const queueRef = useRef<(Omit<InAppNotification, 'id' | 'createdAt'> & Partial<Pick<InAppNotification, 'id' | 'createdAt' | 'dbId'>>)[]>([]);
   const queueTimer = useRef<any>(null);
   const isQueueRunning = useRef(false);
   const [dismissedMap, setDismissedMap] = useState<Record<string, number>>(() => {
@@ -75,6 +86,19 @@ export const useAppNotifications = ({
     notificationsRef.current = notifications;
   }, [notifications]);
 
+  const mapDbNotification = useCallback((row: any): InAppNotification => ({
+    id: row.id,
+    dbId: row.id,
+    title: row.titulo || 'CapitalFlow',
+    message: row.mensagem || '',
+    type: typeByItem[String(row.item_type || '')] || 'info',
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    action_url: row.action_url || undefined,
+    item_type: row.item_type || undefined,
+    item_id: row.item_id || undefined,
+    metadata: row.metadata || undefined,
+  }), []);
+
   const buildFingerprint = (notif: Pick<InAppNotification, 'title' | 'message' | 'item_type' | 'item_id'>) =>
     [notif.item_type || 'none', notif.item_id || 'none', notif.title, notif.message].join('::');
 
@@ -95,11 +119,11 @@ export const useAppNotifications = ({
       );
 
       if (!existsInState) {
-        const createdAt = Date.now();
+        const createdAt = next.createdAt || Date.now();
         setNotifications((prev) => [
           {
             ...next,
-            id: `${createdAt}-${Math.random().toString(36).slice(2, 9)}`,
+            id: next.id || `${createdAt}-${Math.random().toString(36).slice(2, 9)}`,
             createdAt,
           },
           ...prev,
@@ -125,9 +149,26 @@ export const useAppNotifications = ({
     const duplicateInQueue = queueRef.current.some((n) => buildFingerprint(n) === fingerprint);
     if (duplicateInQueue) return;
 
-    queueRef.current.push(notif);
+    const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    queueRef.current.push({ ...notif, id: clientId, createdAt: Date.now() });
     flushQueue();
-  }, [dismissedMap, flushQueue]);
+    if (activeUser?.id && activeUser.id !== 'DEMO') {
+      void notificationCenterService.create({
+        profileId: activeUser.id,
+        title: notif.title,
+        message: notif.message,
+        actionUrl: notif.action_url || null,
+        itemType: notif.item_type || null,
+        itemId: notif.item_id || null,
+        metadata: notif.metadata || null,
+      }).then((dbId) => {
+        if (!dbId) return;
+        setNotifications((prev) => prev.map((item) => (
+          item.id === clientId ? { ...item, dbId } : item
+        )));
+      });
+    }
+  }, [activeUser?.id, dismissedMap, flushQueue]);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => {
@@ -138,6 +179,7 @@ export const useAppNotifications = ({
         setDismissedMap(newMap);
         localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
       }
+      void notificationCenterService.markAsRead(target?.dbId || target?.id || id);
       return prev.filter(n => n.id !== id);
     });
   }, [dismissedMap]);
@@ -151,6 +193,50 @@ export const useAppNotifications = ({
   useEffect(() => {
     loansRef.current = loans;
   }, [loans]);
+
+  useEffect(() => {
+    if (!activeUser?.id || disabled || activeUser.id === 'DEMO') return;
+
+    let cancelled = false;
+    notificationCenterService.listUnread(activeUser.id).then((rows) => {
+      if (cancelled) return;
+      const mapped = rows.map(mapDbNotification);
+      setNotifications((prev) => {
+        const next = [...mapped, ...prev];
+        const seen = new Set<string>();
+        return next.filter((item) => {
+          const key = buildFingerprint(item);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, MAX_VISIBLE_NOTIFICATIONS);
+      });
+    });
+
+    const channel = supabase
+      .channel(`notification-center-${activeUser.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificacoes',
+          filter: `profile_id=eq.${activeUser.id}`,
+        },
+        (payload) => {
+          const mapped = mapDbNotification(payload.new);
+          if (isDismissed(mapped.item_type, mapped.item_id)) return;
+          queueRef.current.push(mapped);
+          flushQueue();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [activeUser?.id, disabled, flushQueue, mapDbNotification, dismissedMap]);
 
   // 1. Monitoramento em Tempo Real (Eventos Críticos de Negócio)
   useEffect(() => {

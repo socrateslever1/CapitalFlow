@@ -85,7 +85,9 @@ export const usePaymentController = (
       ui.setAvAmount('');
 
       // 🔥 FORÇA SINCRONIZAÇÃO REAL
-      await fetchFullData(ownerId);
+      if (typeof navigator === 'undefined' || navigator.onLine) {
+        await fetchFullData(ownerId);
+      }
 
       ui.setShowReceipt({
         loan: context.loan,

@@ -10,10 +10,10 @@ export const DashboardLoanList: React.FC<any> = ({
   return (
     <>
       {groupedLoans.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 justify-items-center items-start">
+        <div className="columns-1 md:columns-2 xl:columns-3 gap-4">
           {groupedLoans.map((group: any) => {
             return (
-              <div key={group.id} className="w-full max-w-[420px]">
+              <div key={group.id} className="break-inside-avoid mb-4 w-full">
                 <ClientGroupCard
                   group={group}
                   passThroughProps={loanCardProps}

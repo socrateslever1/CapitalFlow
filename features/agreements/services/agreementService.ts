@@ -52,6 +52,11 @@ function extractPreviousStatusFromLegacyNote(notes: any, fallback = "ATIVO") {
   return match?.[1] || fallback;
 }
 
+function extractPreviousContractStatus(notes: any, fallback = "ATIVO") {
+  const match = String(notes || "").match(/CONTRATO_ANTES_ACORDO:STATUS:([A-Z_]+);COBRANCA:/i);
+  return match?.[1] || extractPreviousStatusFromLegacyNote(notes, fallback);
+}
+
 function buildPreviousContractMarker(status: any, billingCycle: any) {
   const safeStatus = String(status || "ATIVO").replace(/[^A-Z_]/gi, "").toUpperCase() || "ATIVO";
   const safeBilling = String(billingCycle || "MONTHLY").replace(/[^A-Z_]/gi, "").toUpperCase() || "MONTHLY";
@@ -61,6 +66,45 @@ function buildPreviousContractMarker(status: any, billingCycle: any) {
 function extractPreviousBillingCycle(notes: any) {
   const match = String(notes || "").match(/CONTRATO_ANTES_ACORDO:STATUS:[A-Z_]+;COBRANCA:([A-Z_]+)/i);
   return match?.[1] || null;
+}
+
+function resolvePreviousContractStatus(agreement: any, fallback = "ATIVO") {
+  return String(agreement?.previous_contract_status || "").trim() || extractPreviousContractStatus(agreement?.notes, fallback);
+}
+
+function resolvePreviousBillingCycle(agreement: any) {
+  return String(agreement?.previous_billing_cycle || "").trim() || extractPreviousBillingCycle(agreement?.notes);
+}
+
+async function getAgreementPaidAmount(agreementId: string): Promise<number> {
+  const { data: paymentRows, error: paymentsError } = await supabase
+    .from("acordo_pagamentos")
+    .select("amount")
+    .eq("acordo_id", agreementId);
+
+  if (paymentsError) {
+    console.warn("Falha ao somar acordo_pagamentos na quebra de acordo:", paymentsError);
+  }
+
+  const paidFromPayments = (paymentRows || []).reduce((acc, curr: any) => {
+    return acc + Math.max(0, safeNumber(curr?.amount, 0));
+  }, 0);
+
+  const { data: installments, error: installmentsError } = await supabase
+    .from("acordo_parcelas")
+    .select("paid_amount, valor_pago")
+    .eq("acordo_id", agreementId);
+
+  if (installmentsError) throw installmentsError;
+
+  const paidFromInstallments = (installments || []).reduce((acc, curr: any) => {
+    return acc + Math.max(
+      safeNumber(curr?.paid_amount, 0),
+      safeNumber(curr?.valor_pago, 0)
+    );
+  }, 0);
+
+  return Math.max(paidFromPayments, paidFromInstallments);
 }
 
 function getInstallmentBalance(inst: any): number {
@@ -256,6 +300,8 @@ export const agreementService = {
         grace_period: safeNumber((agreementData as any).gracePeriod, 0),
         discount: safeNumber((agreementData as any).discount, 0),
         down_payment: safeNumber((agreementData as any).downPayment, 0),
+        previous_contract_status: (loanExists as any)?.status || null,
+        previous_billing_cycle: (loanExists as any)?.billing_cycle || null,
         calculation_mode: calculationMode,
         interest_application_mode: interestApplicationMode,
         interest_base_mode: interestBaseMode,
@@ -333,7 +379,7 @@ export const agreementService = {
 
     const { data: agreement, error: fetchError } = await supabase
       .from("acordos_inadimplencia")
-      .select("loan_id, profile_id, notes")
+      .select("loan_id, profile_id, notes, previous_contract_status, previous_billing_cycle")
       .eq("id", agreementId)
       .maybeSingle();
 
@@ -356,13 +402,7 @@ export const agreementService = {
       if (legacyError) throw legacyError;
 
       if (legacyLoans && legacyLoans.length > 0) {
-        const { data: paidInstallments } = await supabase
-          .from("acordo_parcelas")
-          .select("paid_amount")
-          .eq("acordo_id", agreementId)
-          .in("status", ["PAGO", "PAID", "QUITADO"]);
-
-        let remainingToAbate = (paidInstallments || []).reduce((acc, curr) => acc + (Number(curr.paid_amount) || 0), 0);
+        let remainingToAbate = await getAgreementPaidAmount(agreementId);
         const legacyIds = [agreement.loan_id, ...legacyLoans.map((loan: any) => loan.id)];
 
         const { data: originalInstallments } = await supabase
@@ -426,17 +466,23 @@ export const agreementService = {
           restoredInstallmentsByLoan.set(inst.loan_id, loanRows);
         }
 
-        const previousBillingCycle = extractPreviousBillingCycle((agreement as any).notes);
+        const previousBillingCycle = resolvePreviousBillingCycle(agreement);
+        const restoredMainStatus = restoredInstallmentsByLoan.has(agreement.loan_id)
+          ? getRestoredLoanStatus(restoredInstallmentsByLoan.get(agreement.loan_id) || [])
+          : resolvePreviousContractStatus(agreement, "ATIVO");
         await supabase.from("contratos").update({
-          status: getRestoredLoanStatus(restoredInstallmentsByLoan.get(agreement.loan_id) || []),
+          status: restoredMainStatus,
           acordo_ativo_id: null,
           is_archived: false,
           ...(previousBillingCycle ? { billing_cycle: previousBillingCycle } : {})
         }).eq("id", agreement.loan_id);
 
         for (const loan of legacyLoans) {
+          const restoredLegacyStatus = restoredInstallmentsByLoan.has(loan.id)
+            ? getRestoredLoanStatus(restoredInstallmentsByLoan.get(loan.id) || [])
+            : extractPreviousStatusFromLegacyNote(loan.notes);
           await supabase.from("contratos").update({
-            status: getRestoredLoanStatus(restoredInstallmentsByLoan.get(loan.id) || []) || extractPreviousStatusFromLegacyNote(loan.notes),
+            status: restoredLegacyStatus,
             acordo_ativo_id: null,
             is_archived: false
           }).eq("id", loan.id);
@@ -455,13 +501,7 @@ export const agreementService = {
         return;
       }
 
-      const { data: paidInstallments } = await supabase
-        .from("acordo_parcelas")
-        .select("paid_amount")
-        .eq("acordo_id", agreementId)
-        .in("status", ["PAGO", "PAID", "QUITADO"]);
-
-      const totalPaidInAgreement = (paidInstallments || []).reduce((acc, curr) => acc + (Number(curr.paid_amount) || 0), 0);
+      const totalPaidInAgreement = await getAgreementPaidAmount(agreementId);
 
       const { data: originalInstallments } = await supabase
         .from("parcelas")
@@ -546,9 +586,12 @@ export const agreementService = {
         }).eq("loan_id", agreement.loan_id).eq("status", "RENEGOCIADO");
       }
 
-      const previousBillingCycle = extractPreviousBillingCycle((agreement as any).notes);
+      const previousBillingCycle = resolvePreviousBillingCycle(agreement);
+      const restoredStatus = restoredInstallments.length > 0
+        ? getRestoredLoanStatus(restoredInstallments)
+        : resolvePreviousContractStatus(agreement, "ATIVO");
       await supabase.from("contratos").update({
-        status: getRestoredLoanStatus(restoredInstallments),
+        status: restoredStatus,
         acordo_ativo_id: null,
         ...(previousBillingCycle ? { billing_cycle: previousBillingCycle } : {})
       }).eq("id", agreement.loan_id);

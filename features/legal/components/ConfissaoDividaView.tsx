@@ -48,12 +48,84 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
         { id: 'foro', label: 'Foro de Eleição', active: true, description: 'Define a comarca para resolução de conflitos.' },
         { id: 'multa', label: 'Multa Moratória', active: true, description: 'Estabelece multa de 10% sobre o saldo devedor.' },
     ]);
-    const [contractDurationDays, setContractDurationDays] = useState(30);
-    const [selectedTemplateId, setSelectedTemplateId] = useState('CONFISSAO_AUTO');
-
     const creditorName = activeUser?.fullName || activeUser?.businessName || activeUser?.name || '';
     const creditorDoc = activeUser?.document || '';
     const creditorFullAddress = `${activeUser?.address || ''}, ${activeUser?.addressNumber || ''} - ${activeUser?.neighborhood || ''}, ${activeUser?.city || ''}/${activeUser?.state || ''}`;
+
+    const isPaidStatus = (status: any) => {
+        const value = String(status || '').toUpperCase().trim();
+        return value === 'PAID' || value === 'PAGO' || value === 'QUITADO' || value === 'FINALIZADO';
+    };
+
+    const getInstallmentOpenAmount = (inst: any) => {
+        if (!inst || isPaidStatus(inst.status)) return 0;
+        const balance =
+            Number(inst.principalRemaining || inst.principal_remaining || 0) +
+            Number(inst.interestRemaining || inst.interest_remaining || 0) +
+            Number(inst.lateFeeAccrued || inst.late_fee_accrued || 0);
+
+        if (balance > 0.05) return balance;
+
+        const nominal = Number(inst.amount || inst.valor || inst.valor_parcela || 0);
+        const paid = Number(inst.paidAmount || inst.paid_amount || inst.paidTotal || inst.paid_total || 0);
+        return Math.max(0, nominal - paid);
+    };
+
+    const getInstallmentNominalAmount = (inst: any) => {
+        return Number(inst?.amount || inst?.valor || inst?.valor_parcela || 0);
+    };
+
+    const resolveDocumentInstallments = (loan: Loan) => {
+        const source = loan.activeAgreement?.installments?.length
+            ? loan.activeAgreement.installments
+            : loan.installments;
+
+        return (source || []).map((i: any, index: number) => {
+            const openAmount = getInstallmentOpenAmount(i);
+            const nominalAmount = getInstallmentNominalAmount(i);
+            return {
+                number: i.number || i.numero || index + 1,
+                dueDate: i.dueDate || i.due_date || i.data_vencimento,
+                amount: openAmount > 0.05 ? openAmount : nominalAmount,
+                id: i.id || '',
+                agreementId: loan.activeAgreement?.id || i.agreementId || i.acordo_id || '',
+                status: i.status || 'PENDING',
+                paidAmount: i.paidAmount || i.paid_amount || 0
+            };
+        });
+    };
+
+    const resolveLegalTotal = (loan: Loan) => {
+        if (loan.activeAgreement) {
+            const agreementInstallments = loan.activeAgreement.installments || [];
+            const openAgreementTotal = agreementInstallments.reduce((acc: number, inst: any) => acc + getInstallmentOpenAmount(inst), 0);
+            const nominalAgreementTotal = agreementInstallments.reduce((acc: number, inst: any) => acc + getInstallmentNominalAmount(inst), 0);
+            return openAgreementTotal > 0.05
+                ? openAgreementTotal
+                : Number(loan.activeAgreement.negotiatedTotal || nominalAgreementTotal || 0);
+        }
+
+        const openTotal = (loan.installments || []).reduce((acc, inst) => acc + getInstallmentOpenAmount(inst), 0);
+        const nominalTotal = (loan.installments || []).reduce((acc, inst) => acc + getInstallmentNominalAmount(inst), 0);
+        return openTotal > 0.05
+            ? openTotal
+            : Number(nominalTotal || loan.totalToReceive || loan.principal || 0);
+    };
+
+    const resolveContractDurationDays = (loan: Loan) => {
+        const firstDue = (loan.activeAgreement?.installments || loan.installments || [])[0]?.dueDate;
+        const start = new Date(loan.startDate || new Date().toISOString());
+        const end = firstDue ? new Date(firstDue) : null;
+        if (end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+            return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+        }
+        return 30;
+    };
+
+    const resolveTemplateId = (loan: Loan) => {
+        if (loan.activeAgreement) return 'RENEGOCIACAO';
+        return 'CONFISSAO_AUTO';
+    };
 
     const resolveDocumentToken = useCallback((doc?: Partial<LegalDocumentRecord> | null) => {
         return doc?.view_token || doc?.public_access_token || '';
@@ -115,9 +187,8 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
     const handleGenerate = useCallback(() => {
         if (!selectedLoan || !activeUser) return;
         
-        const finalAmount = selectedLoan.activeAgreement 
-            ? selectedLoan.activeAgreement.negotiatedTotal 
-            : selectedLoan.totalToReceive;
+        const legalTotal = resolveLegalTotal(selectedLoan);
+        const docInstallments = resolveDocumentInstallments(selectedLoan);
 
         const params = {
             loanId: selectedLoan.id,
@@ -127,16 +198,18 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
             debtorName: selectedLoan.debtorName.toUpperCase(),
             debtorDoc: selectedLoan.debtorDocument,
             debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
-            amount: finalAmount,
-            installments: selectedLoan.activeAgreement ? selectedLoan.activeAgreement.installments : selectedLoan.installments,
+            amount: selectedLoan.principal,
+            totalDebt: legalTotal,
+            installments: docInstallments,
             city: activeUser.city || 'Manaus',
             state: activeUser.state || 'AM',
             billingCycle: selectedLoan.billingCycle,
             amortizationType: selectedLoan.amortizationType,
             isAgreement: !!selectedLoan.activeAgreement,
+            agreementDate: selectedLoan.activeAgreement?.createdAt,
             clauses: clauses.reduce((acc, c) => ({ ...acc, [c.id]: c.active }), {}),
-            templateId: selectedTemplateId,
-            contractDurationDays: contractDurationDays,
+            templateId: resolveTemplateId(selectedLoan),
+            contractDurationDays: resolveContractDurationDays(selectedLoan),
             witnesses: [
                 availableWitnesses.find(w => w.id === selectedW1),
                 availableWitnesses.find(w => w.id === selectedW2)
@@ -148,7 +221,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
         
         const content = DocumentTemplates.confissaoDivida(params);
         setDocumentContent(content);
-    }, [selectedLoan, activeUser, creditorName, creditorDoc, creditorFullAddress, clauses, selectedW1, selectedW2, availableWitnesses, contractDurationDays, selectedTemplateId]);
+    }, [selectedLoan, activeUser, creditorName, creditorDoc, creditorFullAddress, clauses, selectedW1, selectedW2, availableWitnesses]);
 
     useEffect(() => {
         if (selectedLoan && !documentContent) {
@@ -160,7 +233,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
         if (selectedLoan) {
             handleGenerate();
         }
-    }, [selectedTemplateId, contractDurationDays, selectedW1, selectedW2, clauses, handleGenerate]);
+    }, [selectedW1, selectedW2, clauses, handleGenerate]);
 
     const handleSave = (content: string) => {
         setDocumentContent(content);
@@ -244,8 +317,8 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                 debtorDoc: selectedLoan.debtorDocument,
                 debtorPhone: selectedLoan.debtorPhone,
                 debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
-                amount: selectedLoan.activeAgreement ? selectedLoan.activeAgreement.negotiatedTotal : selectedLoan.totalToReceive,
-                totalDebt: selectedLoan.activeAgreement ? selectedLoan.activeAgreement.negotiatedTotal : selectedLoan.totalToReceive,
+                amount: selectedLoan.principal,
+                totalDebt: resolveLegalTotal(selectedLoan),
                 originDescription: `Operação de mútuo financeiro ID ${selectedLoan.id.substring(0,8)}.`,
                 city: activeUser.city || 'Manaus',
                 state: activeUser.state || 'AM',
@@ -255,18 +328,10 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                 witnesses: [w1, w2],
                 contractDate: selectedLoan.startDate,
                 agreementDate: new Date().toISOString(),
-                contractDurationDays: contractDurationDays,
-                installments: (selectedLoan.activeAgreement ? selectedLoan.activeAgreement.installments : selectedLoan.installments).map(i => ({
-                    number: i.number || 1,
-                    dueDate: i.dueDate,
-                    amount: i.amount,
-                    id: i.id || '',
-                    agreementId: '',
-                    status: 'PENDING',
-                    paidAmount: 0
-                })) as any[],
+                contractDurationDays: resolveContractDurationDays(selectedLoan),
+                installments: resolveDocumentInstallments(selectedLoan) as any[],
                 timestamp: new Date().toISOString(),
-                templateId: selectedTemplateId,
+                templateId: resolveTemplateId(selectedLoan),
                 customContent: documentContent
             };
 
@@ -567,74 +632,10 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                             </div>
                         </section>
 
-                        {/* STEP 3: ADDITIONAL CONFIG */}
+                        {/* STEP 3: WITNESSES */}
                         <section className="space-y-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-6 h-6 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-500 font-black text-[10px]">03</div>
-                                <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Configurações Adicionais</h3>
-                            </div>
-                            <div className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-2xl backdrop-blur-sm space-y-4">
-                                {(selectedTemplateId === 'CONFISSAO_AUTO' || selectedTemplateId === 'CONFISSAO_UNICO') && (
-                                    <div className="space-y-1 animate-in slide-in-from-top-1 duration-300">
-                                        <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest px-1">Duração do Contrato (Dias)</label>
-                                        <div className="flex items-center gap-2">
-                                            <input 
-                                                type="number" 
-                                                value={contractDurationDays}
-                                                onChange={e => {
-                                                    setContractDurationDays(Number(e.target.value));
-                                                }}
-                                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-indigo-500 transition-all"
-                                            />
-                                            <div className="flex flex-wrap gap-1">
-                                                {[30, 45, 60, 90].map(d => (
-                                                    <button 
-                                                        key={d}
-                                                        onClick={() => {
-                                                            setContractDurationDays(d);
-                                                        }}
-                                                        className={`px-2 py-1 rounded text-[7px] font-black border transition-all ${contractDurationDays === d ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
-                                                    >
-                                                        {d}D
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <p className="text-[7px] text-slate-600 px-1 mt-1">Geralmente 30 dias para contratos normais.</p>
-                                    </div>
-                                )}
-
-                                <div className="space-y-1">
-                                    <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest px-1">Modelo de Documento</label>
-                                    <select 
-                                        value={selectedTemplateId}
-                                        onChange={e => {
-                                            setSelectedTemplateId(e.target.value);
-                                        }}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-indigo-500 transition-all cursor-pointer"
-                                    >
-                                        <optgroup label="Confissão de Dívida">
-                                            <option value="CONFISSAO_AUTO">✨ Automático (Sugerido)</option>
-                                            <option value="CONFISSAO_UNICO">📄 Padrão (Pagamento Único)</option>
-                                            <option value="CONFISSAO_MENSAL">📅 Parcelado (Mensal)</option>
-                                            <option value="CONFISSAO_QUINZENAL">📅 Parcelado (Quinzenal)</option>
-                                            <option value="CONFISSAO_SEMANAL">📅 Parcelado (Semanal)</option>
-                                            <option value="CONFISSAO_DIARIO">📅 Parcelado (Diário)</option>
-                                        </optgroup>
-                                        <optgroup label="Outros">
-                                            <option value="RENEGOCIACAO">🤝 Termo de Renegociação</option>
-                                            <option value="GARANTIA">🛡️ Com Garantia Real</option>
-                                            <option value="AVALISTA">👥 Com Avalista / Fiador</option>
-                                        </optgroup>
-                                    </select>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* STEP 4: WITNESSES */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-6 h-6 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-500 font-black text-[10px]">04</div>
                                 <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Testemunhas</h3>
                             </div>
                             <div className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-2xl backdrop-blur-sm space-y-3">
@@ -665,7 +666,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                             </div>
                         </section>
 
-                        {/* STEP 5: ACTION */}
+                        {/* STEP 4: ACTION */}
                         <section className="pt-2">
                             <button 
                                 onClick={handleRegister}
@@ -677,11 +678,11 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                             </button>
                         </section>
 
-                        {/* STEP 6: SIGNATURE LINKS */}
+                        {/* STEP 5: SIGNATURE LINKS */}
                         {signingLinks && (
                             <section className="space-y-4 animate-in zoom-in duration-500">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-black text-[10px] shadow-lg shadow-emerald-900/10">06</div>
+                                    <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center text-white font-black text-[10px] shadow-lg shadow-emerald-900/10">05</div>
                                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Canais de Assinatura</h3>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -722,7 +723,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({ loans,
                             <section className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                    <div className="w-6 h-6 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-500 font-black text-[10px]">07</div>
+                                    <div className="w-6 h-6 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-500 font-black text-[10px]">06</div>
                                     <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Registros do Contrato</h3>
                                 </div>
                                 <div className="flex flex-wrap justify-end gap-2">

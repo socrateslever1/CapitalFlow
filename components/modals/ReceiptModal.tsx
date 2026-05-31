@@ -14,20 +14,48 @@ export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan
         return `${String(data.inst.id || data.loan.id).substring(0, 4).toUpperCase()}-${Math.abs(hash).toString(36).toUpperCase()}`;
     }, [data.inst.id, data.loan.id, data.amountPaid, data.type]);
 
-    const share = () => {
+    const share = async () => {
         const text = `*COMPROVANTE DE PAGAMENTO*\n` +
             `--------------------------------\n` +
-            `*Beneficiário:* ${userName}\n` +
-            `*Data:* ${new Date().toLocaleDateString()} às ${new Date().toLocaleTimeString()}\n` +
+            `*Beneficiario:* ${userName}\n` +
+            `*Data:* ${new Date().toLocaleDateString()} as ${new Date().toLocaleTimeString()}\n` +
             `--------------------------------\n` +
             `*Pagador:* ${data.loan.debtorName}\n` +
             `*CPF:* ${data.loan.debtorDocument}\n` +
-            `*Referente:* ${data.type === 'FULL' ? 'Quitação de Parcela' : 'Pagamento de Juros/Renovação'}\n` +
+            `*Referente:* ${data.type === 'FULL' ? 'Quitacao de Parcela' : 'Pagamento de Juros/Renovacao'}\n` +
             `--------------------------------\n` +
             `*VALOR PAGO:* R$ ${data.amountPaid.toFixed(2)}\n` +
             `--------------------------------\n` +
-            `Autenticação: ${authCode}\n\n` +
-            `Obrigado pela preferência!`;
+            `Autenticacao: ${authCode}\n\n` +
+            `Obrigado pela preferencia!`;
+
+        try {
+            const canvas = await renderCanvas();
+            const shareApi = navigator as Navigator & {
+                canShare?: (data: ShareData) => boolean;
+                share?: (data: ShareData) => Promise<void>;
+            };
+
+            if (canvas && shareApi.share) {
+                const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+                if (blob) {
+                    const file = new File([blob], `comprovante-${authCode}.png`, { type: 'image/png' });
+                    const payload: ShareData = {
+                        title: 'Comprovante de pagamento',
+                        text,
+                        files: [file],
+                    };
+
+                    if (!shareApi.canShare || shareApi.canShare(payload)) {
+                        await shareApi.share(payload);
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Falha ao compartilhar comprovante como arquivo, usando texto:', e);
+        }
+
         window.open(`https://wa.me/55${data.loan.debtorPhone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
     };
 

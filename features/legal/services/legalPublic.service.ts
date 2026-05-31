@@ -107,22 +107,14 @@ export const legalPublicService = {
    * Auditoria pública (somente leitura)
    */
   async getAuditByToken(token: string) {
-    const { data, error } = await supabase.rpc('get_documento_juridico_by_view_token', {
+    const { data: signatures, error } = await supabase.rpc('get_documento_assinaturas_by_view_token', {
       p_view_token: token,
     });
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      console.warn('Falha ao buscar assinaturas por RPC:', error.message);
       return { signatures: [] };
     }
-
-    const docId = data[0].id;
-    const safeDocId = safeUUID(docId);
-    if (!safeDocId) return { signatures: [] };
-
-    const { data: signatures } = await supabase
-      .from('assinaturas_documento')
-      .select('*')
-      .eq('document_id', safeDocId);
 
     return {
       signatures: (signatures || []).map((sig: any) => ({
@@ -157,10 +149,9 @@ export const legalPublicService = {
     const normalizedRole = normalizeSignatureRole(signerInfo.role);
     const requiredRoles = resolveRequiredRoles(doc.snapshot);
 
-    const { data: existingSignatures, error: signaturesError } = await supabase
-      .from('assinaturas_documento')
-      .select('*')
-      .eq('document_id', safeDocId);
+    const { data: existingSignatures, error: signaturesError } = await supabase.rpc('get_documento_assinaturas_by_view_token', {
+      p_view_token: token,
+    });
 
     if (signaturesError) {
       throw new Error('Falha ao verificar assinaturas existentes.');
@@ -184,24 +175,16 @@ export const legalPublicService = {
     }`;
     const signatureHash = await legalValidityService.calculateHash(signaturePayload);
 
-    const { error: insertError } = await supabase.from('assinaturas_documento').insert({
-      document_id: safeDocId,
-      profile_id: doc.profile_id,
-      nome: signerInfo.name.toUpperCase(),
-      cpf: signerInfo.doc,
-      aceitou: true,
-      ip: deviceInfo.ip,
-      signer_name: signerInfo.name.toUpperCase(),
-      signer_document: signerInfo.doc,
-      role: normalizedRole,
-      papel: normalizedRole,
-      assinatura_hash: signatureHash,
-      hash_assinado: signatureHash,
-      ip_origem: deviceInfo.ip,
-      user_agent: deviceInfo.userAgent,
-      signed_at: timestamp,
-      assinatura_imagem: signerInfo.signatureImage,
-      dispositivo_info: {
+    const { data: signResult, error: insertError } = await supabase.rpc('sign_documento_juridico_by_view_token', {
+      p_view_token: token,
+      p_papel: normalizedRole,
+      p_nome: signerInfo.name.toUpperCase(),
+      p_cpf: signerInfo.doc,
+      p_ip: deviceInfo.ip,
+      p_user_agent: deviceInfo.userAgent,
+      p_hash_assinado: signatureHash,
+      p_assinatura_imagem: signerInfo.signatureImage || null,
+      p_dispositivo_info: {
         ip: deviceInfo.ip,
         userAgent: deviceInfo.userAgent,
         platform: navigator.platform,
@@ -209,29 +192,9 @@ export const legalPublicService = {
       },
     });
 
-    if (insertError) {
-      throw new Error('Falha ao registrar assinatura.');
-    }
-
-    normalizedSignedRoles.add(normalizedRole);
-    const nextStatus =
-      requiredRoles.length > 0 && requiredRoles.every((item) => normalizedSignedRoles.has(item))
-        ? 'ASSINADO'
-        : 'EM_ASSINATURA';
-
-    const { error: updateError } = await supabase
-      .from('documentos_juridicos')
-      .update({
-        status_assinatura: nextStatus,
-        updated_at: timestamp,
-      })
-      .eq('id', safeDocId);
-
-    if (updateError) {
-      console.warn(
-        'Aviso: Falha ao atualizar status do documento, mas assinatura foi registrada:',
-        updateError.message
-      );
+    const rpcPayload = Array.isArray(signResult) ? signResult[0] : signResult;
+    if (insertError || rpcPayload?.success === false) {
+      throw new Error(rpcPayload?.message || insertError?.message || 'Falha ao registrar assinatura.');
     }
 
     return true;

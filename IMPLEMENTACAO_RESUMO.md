@@ -1,5 +1,18 @@
 # Implementações
 
+## 2026-05-31
+- **Objetivo:** Ajustar confissao de divida, assinatura publica e envio de comprovante conforme solicitacao.
+- **Arquivos Alterados:**
+    - `/features/legal/components/ConfissaoDividaView.tsx`: Removido o bloco de configuracoes adicionais da confissao; a geracao passou a detectar automaticamente contrato normal, parcelado e renegociado; o valor confessado passou a ser calculado pelo saldo/parcelas reais do contrato ou acordo ativo.
+    - `/features/legal/templates/ConfissaoDividaV2Template.ts`: Ajustado o texto gerado para explicitar composicao do valor confessado quando houver capital e encargos; contratos parcelados passam a declarar o compromisso de pagamento por ciclo.
+    - `/features/legal/services/legalPublic.service.ts`: A assinatura publica passou a usar RPCs de leitura/gravacao de assinaturas, evitando insert direto sujeito a RLS/colunas divergentes.
+    - `/components/modals/ReceiptModal.tsx`: O envio do comprovante passou a tentar compartilhar o PNG real via Web Share API; quando o navegador nao suporta arquivo, mantem o fallback de WhatsApp com texto.
+- **Arquivos Criados:**
+    - `/supabase/migrations/20260531_public_signature_rpc_and_receipt_files.sql`: Necessario para criar colunas de assinatura digital, RPC publica de leitura de assinaturas e RPC publica segura para gravar assinatura por token.
+- **Riscos/Observacoes:** A gravacao da assinatura depende da aplicacao da migration no Supabase. Compartilhamento de arquivo depende de suporte do navegador/dispositivo; fallback de texto permanece.
+- **Validacao:** `npm run build` executado com sucesso. `git diff --check` executado sem erros, apenas avisos LF/CRLF do Windows.
+- **Escopo:** Alteracoes limitadas a confissao de divida, assinatura publica, comprovante e migration necessaria. Nada fora do escopo foi alterado.
+
 ## 2026-05-27
 - **Objetivo:** Corrigir quebra de acordo para restaurar a dívida original sem recriar parcelas e sem violar a constraint `parcelas_unique_loan_numero`.
 - **Arquivos Alterados:**

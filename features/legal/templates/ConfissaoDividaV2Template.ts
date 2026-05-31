@@ -28,6 +28,15 @@ const translateBillingCycle = (cycle?: string): string => {
   return cycle;
 };
 
+const translateBillingCycleLower = (cycle?: string): string => {
+  const translated = translateBillingCycle(cycle).toLowerCase();
+  if (translated === "mensal") return "por mes";
+  if (translated === "semanal") return "por semana";
+  if (translated === "quinzenal") return "por quinzena";
+  if (translated.includes("rio")) return "por dia";
+  return translated;
+};
+
 export const generateConfissaoDividaV2HTML = (
   data: LegalDocumentParams & { templateId?: string },
   docId?: string,
@@ -77,6 +86,8 @@ export const generateConfissaoDividaV2HTML = (
   };
 
   const totalDebtNumber = Number(data.totalDebt || data.amount || 0);
+  const principalNumber = Number((data as any).principalAmount ?? data.amount ?? 0);
+  const interestIncludedNumber = Math.max(0, totalDebtNumber - principalNumber);
   const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).toUpperCase() : FILL;
 
   const multa = data.multaPercentual || 10;
@@ -107,7 +118,10 @@ export const generateConfissaoDividaV2HTML = (
   }
 
   const cicloTraduzido = translateBillingCycle(cycleToUse);
+  const cicloTextoCompromisso = translateBillingCycleLower(cycleToUse);
   const valorFormatado = Number(totalDebtNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const principalFormatado = Number(principalNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const jurosInclusosFormatado = Number(interestIncludedNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   const durationDays = data.contractDurationDays || 30;
 
   // Títulos
@@ -134,6 +148,7 @@ export const generateConfissaoDividaV2HTML = (
             no valor individual de <strong>R$ ${installmentValueFormatado} (${extensoValorParcela})</strong>, com periodicidade <strong>${cicloTraduzido}</strong>. 
             O vencimento da primeira parcela ocorrerá impreterivelmente em <strong>${primeiroVencimento}</strong>, e as demais seguirão o ciclo estabelecido até a quitação integral do saldo devedor de R$ ${valorFormatado}.
         </p>
+        <p class="indent">Assim, o(a) <strong>DEVEDOR(A)</strong> se compromete a pagar ao <strong>CREDOR</strong> o valor de <strong>R$ ${installmentValueFormatado}</strong> ${cicloTextoCompromisso}, ate a quitacao integral da divida confessada.</p>
     `;
   }
 
@@ -182,7 +197,9 @@ export const generateConfissaoDividaV2HTML = (
       ` : `
         <p class="indent">O(A) <strong>DEVEDOR(A)</strong>, por este instrumento, reconhece e confessa ser devedor(a) ao <strong>CREDOR</strong> da quantia líquida, certa e exigível de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, referente a transações comerciais/financeiras anteriormente realizadas e aqui consolidadas.</p>
       `}
-      <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
+      ${principalNumber > 0 && totalDebtNumber > principalNumber ? `
+        <p class="indent"><strong>COMPOSICAO DO VALOR CONFESSADO:</strong> o valor acima considera o capital/base de <strong>R$ ${principalFormatado}</strong> e encargos remuneratorios pactuados de <strong>R$ ${jurosInclusosFormatado}</strong>, formando o total confessado de <strong>R$ ${valorFormatado}</strong>.</p>
+      ` : ''}      <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
       <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O <strong>DEVEDOR</strong> renuncia expressamente a qualquer discussão sobre a origem da dívida, reconhecendo que o presente título preenche todos os requisitos legais para execução imediata.</p>
 
       <h2>CLÁUSULA SEGUNDA - DA FORMA E LOCAL DE PAGAMENTO</h2>

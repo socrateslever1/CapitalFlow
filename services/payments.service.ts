@@ -89,6 +89,63 @@ async function revalidateInstallment(instId: string) {
   return data as any;
 }
 
+async function revalidateLoanOpenBalance(loanId: string) {
+  const safeId = safeUUID(loanId);
+  if (!safeId) {
+    return {
+      totalRemaining: 0,
+      principalRemaining: 0,
+      interestRemaining: 0,
+      lateFeeRemaining: 0,
+      openInstallments: 0,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('parcelas')
+    .select('id,status,principal_remaining,interest_remaining,late_fee_accrued')
+    .eq('loan_id', safeId);
+
+  if (error) throw new Error('Falha ao revalidar saldo do contrato: ' + error.message);
+
+  let principalRemaining = 0;
+  let interestRemaining = 0;
+  let lateFeeRemaining = 0;
+  let openInstallments = 0;
+
+  for (const row of data || []) {
+    const status = String(row.status || '').toUpperCase();
+    const principal = Math.max(0, Number(row.principal_remaining || 0));
+    const interest = Math.max(0, Number(row.interest_remaining || 0));
+    const lateFee = Math.max(0, Number(row.late_fee_accrued || 0));
+    const total = roundMoney(principal + interest + lateFee);
+
+    if (
+      status === 'PAID' ||
+      status === 'PAGO' ||
+      status === 'QUITADO' ||
+      status === 'QUITADA' ||
+      status === 'FINALIZADO' ||
+      total <= ZERO_BALANCE_THRESHOLD
+    ) {
+      continue;
+    }
+
+    openInstallments += 1;
+    principalRemaining = roundMoney(principalRemaining + principal);
+    interestRemaining = roundMoney(interestRemaining + interest);
+    lateFeeRemaining = roundMoney(lateFeeRemaining + lateFee);
+  }
+
+  return {
+    totalRemaining: roundMoney(principalRemaining + interestRemaining + lateFeeRemaining),
+    principalRemaining,
+    interestRemaining,
+    lateFeeRemaining,
+    openInstallments,
+  };
+}
+
 async function applyPrincipalOverpaymentToLastInstallments(params: {
   loanId: string;
   profileId: string;
@@ -508,6 +565,8 @@ export const paymentsService = {
       });
     }
 
+    const balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
+
     try {
       await supabase.from('payment_transactions').insert({
         installment_id: instId,
@@ -523,7 +582,7 @@ export const paymentsService = {
       console.error('Erro ao gravar auditoria de pagamento:', auditErr);
     }
 
-    if (manualDate) {
+    if (manualDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
       const nextDueDate = manualDate.toISOString().split('T')[0];
       const updatePayload: any = {
         data_vencimento: nextDueDate,
@@ -533,7 +592,7 @@ export const paymentsService = {
       // ✅ FIX: Se a data está avançando e o contrato é Mensal/Giro (Modo de Renovação),
       // precisamos repor os juros do próximo mês se o capital ainda existe.
       const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
-      const hasPrincipalRemaining = Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
+      const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
       if (isMonthlyOrGiro && hasPrincipalRemaining) {
         // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
@@ -560,11 +619,8 @@ export const paymentsService = {
     }
 
     let finalType = 'CUSTOM';
-    const balance = loanEngine.computeRemainingBalance(loan);
-    const remainingAfterPayment = Math.max(
-      0,
-      Number(balance.totalRemaining || 0) - principalPaid - interestPaid - lateFeePaid - forgivenLateFee - avExtra
-    );
+    const finalBalance = await revalidateLoanOpenBalance(loanId);
+    const remainingAfterPayment = Number(finalBalance.totalRemaining || 0);
 
     if (remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) finalType = 'FULL';
     else if (principalPaid > 0) finalType = 'RENEW_AV';

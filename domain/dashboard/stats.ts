@@ -9,11 +9,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   // Reconstroi todos os contratos do ledger para garantir precisão total nos contadores
   const loans = loansRaw.map(l => rebuildLoanStateFromLedger(l));
 
-  // 🚀 FILTRO DE SEGURANÇA: Remove contratos de "teste" da contagem e cálculos
-  const filteredLoans = loans.filter(l => {
-    const name = (l.debtorName || '').toLowerCase();
-    return !name.includes('teste');
-  });
+  const filteredLoans = loans;
 
   // Classifica todos os empréstimos uma única vez
   const classifiedLoans = filteredLoans.map(l => ({

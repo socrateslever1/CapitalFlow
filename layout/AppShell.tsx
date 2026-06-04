@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, Megaphone, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
 import { HeaderBar } from './HeaderBar';
 import { BottomNav } from './BottomNav';
@@ -40,6 +41,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 }) => {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
+  const mainRef = useRef<HTMLElement | null>(null);
+  const location = useLocation();
   const { unreadCampaignCount } = useCampaignNotifications(activeUser);
 
   const totalUnread = unreadSupport + unreadCampaignCount;
@@ -123,6 +126,31 @@ export const AppShell: React.FC<AppShellProps> = ({
     return () => window.removeEventListener('popstate', handleHighlight);
   }, [activeTab]); // Re-run when tab changes as content might have loaded
 
+  useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const scrollTop = () => {
+      mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      document.scrollingElement?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    };
+
+    scrollTop();
+    const frameId = window.requestAnimationFrame(scrollTop);
+    const timeoutId = window.setTimeout(scrollTop, 80);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeTab, title, location.pathname, location.search]);
+
   return (
     <div className="h-screen w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden relative">
       <HeaderBar 
@@ -142,7 +170,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         addNotification={addNotification}
       />
 
-      <main className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden pb-28 md:pb-12">
+      <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden pb-28 md:pb-12">
         <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8">
           {children}
         </div>

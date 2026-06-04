@@ -358,6 +358,33 @@ export const allocatePayment = (params: {
 export const rebuildLoanStateFromLedger = (loan: Loan): Loan => {
   if (loan.isArchived && (!loan.ledger || loan.ledger.length === 0)) return loan;
 
+  const hasPersistedFinancialState = loan.installments.some(inst => {
+    const scheduledPrincipal = round(Number(inst.scheduledPrincipal) || Number(inst.amount) || 0);
+    const scheduledInterest = round(Number(inst.scheduledInterest) || 0);
+    const principalRemaining = round(Number(inst.principalRemaining) || 0);
+    const interestRemaining = round(Number(inst.interestRemaining) || 0);
+
+    return (
+      Number(inst.paidTotal || 0) > ZERO_BALANCE_THRESHOLD ||
+      Number(inst.paidPrincipal || 0) > ZERO_BALANCE_THRESHOLD ||
+      Number(inst.paidInterest || 0) > ZERO_BALANCE_THRESHOLD ||
+      Number(inst.paidLateFee || 0) > ZERO_BALANCE_THRESHOLD ||
+      Math.abs(principalRemaining - scheduledPrincipal) > ZERO_BALANCE_THRESHOLD ||
+      Math.abs(interestRemaining - scheduledInterest) > ZERO_BALANCE_THRESHOLD ||
+      Number(inst.lateFeeAccrued || 0) > ZERO_BALANCE_THRESHOLD
+    );
+  });
+
+  if (hasPersistedFinancialState) {
+    return {
+      ...loan,
+      installments: loan.installments.map(inst => ({
+        ...inst,
+        status: getInstallmentStatusLogic(inst, loan.status),
+      })),
+    };
+  }
+
   const rebuiltInstallments = loan.installments.map(inst => ({
     ...inst,
     principalRemaining: round(Number(inst.scheduledPrincipal) || Number(inst.amount) || 0), 

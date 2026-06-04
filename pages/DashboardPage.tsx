@@ -57,6 +57,7 @@ interface DashboardPageProps {
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
   onReverseAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onNavigate: (path: string) => void;
+  onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;
   onRefresh: () => void;
   ui: any;
   loanCtrl: any;
@@ -68,7 +69,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore,
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria,
   onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, onOpenReceipt, setWithdrawModal, showToast,
-  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onNavigate, onRefresh, ui, loanCtrl
+  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onNavigate, onOpenClient, onRefresh, ui, loanCtrl
 }) => {
 
   // Agrupa os empréstimos filtrados por cliente, respeitando a ordenação selecionada
@@ -120,6 +121,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                                       group={group}
                                       passThroughProps={loanCardProps}
                                       isStealthMode={isStealthMode}
+                                      onOpenClient={onOpenClient}
                                   />
                               </div>
                           );
@@ -325,6 +327,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </ResponsiveContainer>
                   </div>
               </div>
+
+              <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
           </aside>
       </div>
     </div>

@@ -29,34 +29,18 @@ export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan
             `Autenticacao: ${authCode}\n\n` +
             `Obrigado pela preferencia!`;
 
-        try {
-            const canvas = await renderCanvas();
+        const phone = data.loan.debtorPhone.replace(/\D/g, '');
+        const whatsappUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(text)}`;
+        const opened = window.open(whatsappUrl, '_blank');
+
+        if (!opened) {
             const shareApi = navigator as Navigator & {
-                canShare?: (data: ShareData) => boolean;
                 share?: (data: ShareData) => Promise<void>;
             };
-
-            if (canvas && shareApi.share) {
-                const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-                if (blob) {
-                    const file = new File([blob], `comprovante-${authCode}.png`, { type: 'image/png' });
-                    const payload: ShareData = {
-                        title: 'Comprovante de pagamento',
-                        text,
-                        files: [file],
-                    };
-
-                    if (!shareApi.canShare || shareApi.canShare(payload)) {
-                        await shareApi.share(payload);
-                        return;
-                    }
-                }
+            if (shareApi.share) {
+                await shareApi.share({ title: 'Comprovante de pagamento', text });
             }
-        } catch (e) {
-            console.warn('Falha ao compartilhar comprovante como arquivo, usando texto:', e);
         }
-
-        window.open(`https://wa.me/55${data.loan.debtorPhone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const renderCanvas = async () => {

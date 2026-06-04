@@ -26,12 +26,13 @@ interface DashboardContainerProps {
   showToast: any;
   onRefresh: () => void;
   onNavigate: (path: string) => void;
+  onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;
 }
 
 export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   loans, sources, activeUser, staffMembers, mobileDashboardTab, setMobileDashboardTab,
   statusFilter, setStatusFilter, searchTerm, setSearchTerm, selectedStaffId, setSelectedStaffId,
-  ui, loanCtrl, fileCtrl, showToast, onRefresh, onNavigate
+  ui, loanCtrl, fileCtrl, showToast, onRefresh, onNavigate, onOpenClient
 }) => {
 
   // LÓGICA DE FILTRAGEM DE EQUIPE
@@ -142,6 +143,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         onAgreementPayment={handleAgreementPayment}
         onReverseAgreementPayment={handleReverseAgreementPayment}
         onNavigate={onNavigate}
+        onOpenClient={onOpenClient}
         onRefresh={onRefresh}
         setWithdrawModal={() => ui.openModal('WITHDRAW')}
         showToast={showToast}

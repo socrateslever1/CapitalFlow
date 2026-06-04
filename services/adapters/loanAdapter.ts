@@ -30,6 +30,13 @@ function normalizeAgreementStatus(statusRaw: unknown): 'ACTIVE' | 'PAID' | 'BROK
   return 'ACTIVE';
 }
 
+function normalizeAgreementFrequency(frequencyRaw: unknown): 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' {
+  const s = asString(frequencyRaw).toUpperCase().trim();
+  if (['WEEKLY', 'SEMANAL'].includes(s)) return 'WEEKLY';
+  if (['BIWEEKLY', 'QUINZENAL'].includes(s)) return 'BIWEEKLY';
+  return 'MONTHLY';
+}
+
 /**
  * Normaliza status de parcela de acordo (banco) para padrão do frontend.
  */
@@ -85,7 +92,7 @@ export function agreementAdapter(rawAgreement: any, rawInstallments?: any[]): Ag
     negotiatedTotal: asNumber(a?.total_negociado ?? a?.negotiatedTotal ?? a?.total),
     totalDebtAtNegotiation: asNumber(a?.total_divida_base ?? a?.totalDebtAtNegotiation),
     installmentsCount: asNumber(a?.num_parcelas ?? a?.installmentsCount ?? installments.length),
-    frequency: asString(a?.periodicidade ?? a?.frequency) as any,
+    frequency: normalizeAgreementFrequency(a?.periodicidade ?? a?.frequency) as any,
     startDate: safeDateString(a?.created_at ?? a?.startDate ?? new Date().toISOString()),
     interestRate: asNumber(a?.juros_aplicado ?? a?.interestRate ?? 0),
     calculationMode: asString(a?.calculation_mode ?? a?.calculationMode) as any,

@@ -33,6 +33,26 @@ function normalizePeriodicidade(v: any): PeriodicidadeDB {
   return "MENSAL";
 }
 
+function addMonthsDateOnly(dateOnly: string, months: number): string {
+  const [year, month, day] = String(dateOnly).slice(0, 10).split("-").map(Number);
+  const base = new Date(Date.UTC(year || 1970, (month || 1) - 1, day || 1));
+  base.setUTCMonth(base.getUTCMonth() + months);
+  return base.toISOString().slice(0, 10);
+}
+
+function addDaysDateOnly(dateOnly: string, days: number): string {
+  const [year, month, day] = String(dateOnly).slice(0, 10).split("-").map(Number);
+  const base = new Date(Date.UTC(year || 1970, (month || 1) - 1, day || 1));
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+function getScheduledDueDate(firstDueDate: string, periodicidade: PeriodicidadeDB, index: number): string {
+  if (periodicidade === "SEMANAL") return addDaysDateOnly(firstDueDate, index * 7);
+  if (periodicidade === "QUINZENAL") return addDaysDateOnly(firstDueDate, index * 15);
+  return addMonthsDateOnly(firstDueDate, index);
+}
+
 function normalizeJurosModo(v: any, interestRate: number): JurosModoDB {
   const s = String(v ?? "").trim().toUpperCase();
   if (s === "PRO_RATA" || s === "FIXO" || s === "ZERO") return s;
@@ -655,6 +675,71 @@ export const agreementService = {
         notes: `Acordo reativado manualmente.`
       });
     }
+  },
+
+  async updateAgreementSchedule(agreementId: string, frequency: any, firstDueDate: string) {
+    if (!agreementId) throw new Error("ID do acordo nao fornecido.");
+
+    const periodicidade = normalizePeriodicidade(frequency);
+    const safeFirstDueDate = toISODateOnly(firstDueDate);
+
+    const { data: agreement, error: fetchError } = await supabase
+      .from("acordos_inadimplencia")
+      .select("id, loan_id, profile_id, status")
+      .eq("id", agreementId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!agreement) throw new Error("Acordo nao encontrado.");
+
+    const { data: installments, error: installmentsError } = await supabase
+      .from("acordo_parcelas")
+      .select("id, numero, status, amount, valor, paid_amount, valor_pago")
+      .eq("acordo_id", agreementId)
+      .order("numero", { ascending: true });
+
+    if (installmentsError) throw installmentsError;
+
+    const openInstallments = (installments || []).filter((inst: any) => {
+      const paid = safeNumber(inst?.paid_amount ?? inst?.valor_pago, 0);
+      const amount = safeNumber(inst?.amount ?? inst?.valor, 0);
+      const status = String(inst?.status || "").toUpperCase();
+      return !["PAGO", "PAID", "QUITADO", "QUITADA"].includes(status) && paid + 0.05 < amount;
+    });
+
+    const { error: headerError } = await supabase
+      .from("acordos_inadimplencia")
+      .update({
+        periodicidade,
+        first_due_date: safeFirstDueDate,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", agreementId);
+
+    if (headerError) throw headerError;
+
+    for (let index = 0; index < openInstallments.length; index += 1) {
+      const dueDate = getScheduledDueDate(safeFirstDueDate, periodicidade, index);
+      const { error: updateError } = await supabase
+        .from("acordo_parcelas")
+        .update({
+          due_date: dueDate,
+          data_vencimento: dueDate
+        })
+        .eq("id", openInstallments[index].id);
+
+      if (updateError) throw updateError;
+    }
+
+    await supabase.from("transacoes").insert({
+      id: generateUUID(),
+      loan_id: agreement.loan_id,
+      profile_id: agreement.profile_id,
+      date: new Date().toISOString(),
+      type: "AGREEMENT_SCHEDULE_UPDATED",
+      amount: 0,
+      notes: `Calendario do acordo atualizado para ${periodicidade}, primeira parcela aberta em ${safeFirstDueDate}.`
+    });
   },
 
   async processPayment(agreement: any, installment: any, amount: number, sourceId: string, activeUser: any) {

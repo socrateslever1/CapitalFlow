@@ -32,18 +32,6 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
 
   const cardRef = React.useRef<HTMLDivElement>(null);
 
-  // O auto-scroll ocorre apenas na montagem inicial (ex: quando o usuário volta da tela de contrato)
-  // para que o navegador recupere a posição. Ao clicar manualmente para expandir, não rola a tela para não dar "barata voa".
-  const isInitialMount = React.useRef(true);
-
-  React.useEffect(() => {
-    if (isExpanded && isInitialMount.current && cardRef.current) {
-      setTimeout(() => {
-        cardRef.current?.scrollIntoView({ behavior: 'auto', block: 'center' });
-      }, 100);
-    }
-    isInitialMount.current = false;
-  }, [isExpanded]);
   // Lógica de Negócio
   const computed = useLoanCardComputed(loan, sources, isStealthMode);
 
@@ -72,7 +60,11 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
       return;
     }
 
-    // Se já estiver expandido, o clique no card não fecha (conforme pedido: "somente fechar o card clicando nele [no botão]")
+    if (isExpanded) {
+      handleNavigate(e);
+      return;
+    }
+
     if (!isExpanded) {
       if (onToggleExpand) {
         onToggleExpand(e);

@@ -16,6 +16,12 @@ export const agreementAdapter = (raw: any): Agreement => {
   else if (['BROKEN', 'QUEBRADO', 'CANCELADO', 'INATIVO'].includes(dbStatus)) normalizedStatus = 'BROKEN';
   else if (['ATIVO', 'ACTIVE'].includes(dbStatus)) normalizedStatus = 'ACTIVE';
 
+  const rawFrequency = asString(raw.periodicidade, 'MONTHLY').trim().toUpperCase();
+  const normalizedFrequency =
+    ['WEEKLY', 'SEMANAL'].includes(rawFrequency) ? 'WEEKLY' :
+    ['BIWEEKLY', 'QUINZENAL'].includes(rawFrequency) ? 'BIWEEKLY' :
+    'MONTHLY';
+
   const installments = asArray(raw.acordo_parcelas)
     .map((p: any) => {
       const rawInstStatus = asString(p.status, 'PENDING').trim().toUpperCase();
@@ -44,7 +50,7 @@ export const agreementAdapter = (raw: any): Agreement => {
     negotiatedTotal: asNumber(raw.total_negociado),
     interestRate: asNumber(raw.juros_mensal_percent),
     installmentsCount: asNumber(raw.num_parcelas) || installments.length,
-    frequency: asString(raw.periodicidade, 'MONTHLY'),
+    frequency: normalizedFrequency,
     startDate: safeDateString(raw.created_at),
     status: normalizedStatus,
     createdAt: safeDateString(raw.created_at),

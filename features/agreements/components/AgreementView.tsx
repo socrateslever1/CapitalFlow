@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Agreement, AgreementInstallment, Loan } from "../../../types";
 import { formatMoney } from "../../../utils/formatters";
-import { Calendar, CheckCircle2, AlertTriangle, XCircle, DollarSign, History, Scale, ArrowLeft, RefreshCcw } from "lucide-react";
+import { Calendar, CheckCircle2, AlertTriangle, XCircle, DollarSign, History, Scale, ArrowLeft, RefreshCcw, Pencil, Save } from "lucide-react";
 import { agreementService } from "../services/agreementService";
 
 interface AgreementViewProps {
@@ -22,6 +22,28 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
     const [selectedInst, setSelectedInst] = useState<AgreementInstallment | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [showCustomAmount, setShowCustomAmount] = useState(false);
+    const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+    const [scheduleFrequency, setScheduleFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
+    const [firstOpenDueDate, setFirstOpenDueDate] = useState('');
+
+    const openInstallments = (agreement.installments || [])
+        .filter(inst => {
+            const paidAmount = Number((inst as any)?.paidAmount ?? (inst as any)?.paid_amount ?? 0) || 0;
+            const amount = Number(inst?.amount || 0) || 0;
+            const status = String(inst?.status || '').toUpperCase();
+            return !['PAID', 'PAGO', 'QUITADO', 'QUITADA'].includes(status) && paidAmount + 0.05 < amount;
+        })
+        .sort((a, b) => (a?.number || 0) - (b?.number || 0));
+
+    useEffect(() => {
+        const rawFrequency = String((agreement as any)?.frequency || '').toUpperCase();
+        const normalizedFrequency =
+            rawFrequency === 'WEEKLY' || rawFrequency === 'SEMANAL' ? 'WEEKLY' :
+            rawFrequency === 'BIWEEKLY' || rawFrequency === 'QUINZENAL' ? 'BIWEEKLY' :
+            'MONTHLY';
+        setScheduleFrequency(normalizedFrequency);
+        setFirstOpenDueDate(openInstallments[0]?.dueDate ? String(openInstallments[0].dueDate).slice(0, 10) : '');
+    }, [agreement?.id, agreement?.frequency, agreement?.installments?.length, openInstallments[0]?.dueDate]);
 
     const handleBreak = async () => {
         setIsProcessing(true);
@@ -44,6 +66,20 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             setConfirmAction(null);
         } catch (e) {
             console.error("Erro ao reativar acordo:", e);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleScheduleUpdate = async () => {
+        if (!firstOpenDueDate) return;
+        setIsProcessing(true);
+        try {
+            await agreementService.updateAgreementSchedule(agreement.id, scheduleFrequency, firstOpenDueDate);
+            setIsEditingSchedule(false);
+            onUpdate();
+        } catch (e) {
+            console.error("Erro ao atualizar acordo:", e);
         } finally {
             setIsProcessing(false);
         }
@@ -131,6 +167,16 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             </div>
 
             <div className="flex justify-end gap-2 mb-4">
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEditingSchedule(prev => !prev);
+                    }}
+                    className="p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg border border-slate-700 transition-all"
+                    title="Editar acordo"
+                >
+                    <Pencil size={14}/>
+                </button>
                 <button onClick={(e) => {
                     e.stopPropagation();
                     if (onNavigate) {
@@ -162,6 +208,49 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                     </button>
                 )}
             </div>
+
+            {isEditingSchedule && (
+                <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-3 mb-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Frequencia</span>
+                            <select
+                                value={scheduleFrequency}
+                                onChange={(e) => setScheduleFrequency(e.target.value as any)}
+                                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none"
+                            >
+                                <option value="WEEKLY">Semanal</option>
+                                <option value="BIWEEKLY">Quinzenal</option>
+                                <option value="MONTHLY">Mensal</option>
+                            </select>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Primeira aberta</span>
+                            <input
+                                type="date"
+                                value={firstOpenDueDate}
+                                onChange={(e) => setFirstOpenDueDate(e.target.value)}
+                                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none"
+                            />
+                        </label>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button
+                            onClick={() => setIsEditingSchedule(false)}
+                            className="text-[9px] font-black uppercase text-slate-500 hover:text-white px-3 py-1.5 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleScheduleUpdate}
+                            disabled={isProcessing || !firstOpenDueDate}
+                            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                        >
+                            <Save size={12}/> Salvar
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-800/50 flex flex-col items-center justify-center">

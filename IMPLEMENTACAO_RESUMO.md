@@ -1,5 +1,17 @@
 # Implementações
 
+## 2026-06-04
+- **Objetivo:** Corrigir consistencia do recebimento normal, evitar travamento no envio de comprovante e restaurar indicadores/IA do dashboard.
+- **Arquivos Alterados:**
+    - `/services/payments.service.ts`: Adicionada revalidacao do saldo aberto do contrato apos o RPC de pagamento; a renovacao de vencimento/juros do proximo ciclo passa a ocorrer somente se ainda houver saldo real no banco; o tipo final do pagamento passa a ser definido pelo saldo revalidado, evitando residuo em quitacao total.
+    - `/components/modals/ReceiptModal.tsx`: O botao principal de WhatsApp passou a enviar texto direto, sem gerar canvas/imagem antes; PNG e PDF permanecem como acoes separadas.
+    - `/domain/dashboard/stats.ts`: Contratos com nome contendo "teste" voltaram a entrar nos indicadores do dashboard.
+    - `/pages/DashboardPage.tsx`: Inserido `AIBalanceInsight` no painel de indicadores, acessivel no mobile pela aba Balanco.
+- **Arquivos Criados:** Nenhum.
+- **Riscos/Observacoes:** A IA no dashboard depende da configuracao da API usada por `geminiService`. A correcao de quitacao normal depende da RPC `process_payment_v3_selective` manter saldos de parcelas atualizados no banco.
+- **Validacao:** `npm run build` executado com sucesso.
+- **Escopo:** Alteracoes limitadas a recebimento normal, comprovante, indicadores e exibicao da IA no dashboard. Nada fora do escopo foi alterado.
+
 ## 2026-05-31
 - **Objetivo:** Ajustar confissao de divida, assinatura publica e envio de comprovante conforme solicitacao.
 - **Arquivos Alterados:**
@@ -369,3 +381,27 @@
 - **Alteracao de Banco Executada:** SQL aplicado no Supabase remoto via `npx supabase db query --linked --file`; consulta no catalogo confirmou a assinatura ativa da RPC `process_payment_v3_selective`.
 - **Validacao:** Teste sintético confirmou contrato `PAGO` com parcela antiga pendente retornando saldo zero, status de motor `PAID`, grupo `PAID` e zero em `Capital na Rua`; `npm run lint` e `npm run build` executados com sucesso.
 - **Escopo:** Apenas motor financeiro, agrupamento/auditoria de status e RPC de pagamento; sem alteracao visual estrutural.
+
+## 2026-06-04 (Parte 2 - Acordos, Cards e Navegacao)
+- **Objetivo:** Corrigir edicao de acordo renegociado, clique de abertura em cards e retorno visual sempre pelo topo.
+- **Arquivos Alterados:**
+    - `/features/agreements/services/agreementService.ts`: Adicionado `updateAgreementSchedule`, que atualiza periodicidade e recalcula vencimentos apenas das parcelas abertas do acordo, preservando parcelas pagas/historico.
+    - `/features/agreements/components/AgreementView.tsx`: Adicionado controle de edicao do calendario do acordo ativo com frequencia semanal/quinzenal/mensal e primeira parcela aberta.
+    - `/services/adapters/loanAdapter.ts` e `/services/adapters/dbAdapters.ts`: Periodicidade do banco (`SEMANAL`, `QUINZENAL`, `MENSAL`) agora e normalizada para o frontend (`WEEKLY`, `BIWEEKLY`, `MONTHLY`), evitando acordo semanal aparecer/processar como outra frequencia.
+    - `/layout/AppShell.tsx`: Conteudo principal passa a rolar para o topo ao mudar de tela/contrato.
+    - `/components/cards/LoanCard.tsx`: Removido auto-scroll antigo do card e clique em area neutra de card expandido agora abre o contrato.
+    - `/components/cards/ClientGroupCard.tsx`: Removido auto-scroll antigo do grupo e cabecalho/nome do cliente em grupo passa a abrir o cadastro do cliente.
+    - `/pages/DashboardPage.tsx`, `/containers/DashboardContainer.tsx` e `/App.tsx`: Propagado callback para abrir cliente a partir do grupo no Dashboard.
+- **Arquivos Novos:** Nenhum.
+- **Validacao:** `npm run build` executado com sucesso. Permanecem apenas avisos antigos de chunk/import dinamico do Vite.
+- **Riscos/Observacoes:** A edicao de acordo altera somente calendario das parcelas em aberto; nao altera valores pagos nem recibos. Para emprestimo parcelado normal, o clique neutro agora leva ao contrato, onde o fluxo de recebimento total/outro valor ja existe.
+- **Escopo:** Funcionalidade de acordo ativo, comportamento de navegacao e clique de cards; sem alteracao visual estrutural.
+
+## 2026-06-04 (Parte 3 - Reset Global de Scroll)
+- **Objetivo:** Impedir que contrato e demais telas abram no fim da pagina ao navegar/clicar em abrir.
+- **Arquivos Alterados:**
+    - `/layout/AppShell.tsx`: Scroll principal agora e resetado em `useLayoutEffect`, tambem apos o paint da rota, e o navegador fica com `history.scrollRestoration = manual` durante o uso do shell.
+    - `/IMPLEMENTACAO_RESUMO.md`: Registrado o ajuste aplicado.
+- **Arquivos Novos:** Nenhum.
+- **Validacao:** `npm run build` executado com sucesso. Permanecem apenas avisos antigos de chunk/import dinamico do Vite.
+- **Escopo:** Apenas comportamento funcional de scroll/navegacao; sem alteracao visual.

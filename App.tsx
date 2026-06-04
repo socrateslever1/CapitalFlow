@@ -203,6 +203,21 @@ export const App: React.FC = () => {
   const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, aiCtrl, adminCtrl } =
     controllers;
 
+  const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
+    const client = (clients as any[]).find((item: any) => item.id === clientId)
+      || (clients as any[]).find((item: any) => String(item.name || item.nome || '').trim().toLowerCase() === String(clientName || '').trim().toLowerCase());
+    const clientAny = client as any;
+
+    setClientSearchTerm(clientAny?.name || clientAny?.nome || clientName || '');
+    handleSetActiveTab('CLIENTS');
+
+    if (client) {
+      setTimeout(() => clientCtrl.openClientModal(client), 0);
+    } else {
+      showToast('Cliente nao encontrado no cadastro.', 'warning');
+    }
+  }, [clients, clientCtrl, handleSetActiveTab, setClientSearchTerm, showToast]);
+
   const { notifications, removeNotification, addNotification } = useAppNotifications({
     loans,
     sources,
@@ -440,6 +455,7 @@ export const App: React.FC = () => {
                 showToast={showToast}
                 onRefresh={() => fetchFullData(activeUser?.id || '')}
                 onNavigate={navigate}
+                onOpenClient={handleOpenClientFromDashboard}
               />
             </div>
 

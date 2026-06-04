@@ -9,25 +9,16 @@ interface ClientGroupCardProps {
     // Props passadas para o LoanCard (drill-down)
     passThroughProps: any;
     isStealthMode: boolean;
+    onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;
 }
 
-export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThroughProps, isStealthMode }) => {
+export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThroughProps, isStealthMode, onOpenClient }) => {
     const { selectedLoanId, setSelectedLoanId } = passThroughProps;
     const hasSelectedLoan = selectedLoanId && group.loans.some(l => l.id === selectedLoanId);
     const isGroupSelected = selectedLoanId === 'GROUP_' + group.id;
     const isExpanded = hasSelectedLoan || isGroupSelected;
 
     const cardRef = React.useRef<HTMLDivElement>(null);
-    const isInitialMount = React.useRef(true);
-    
-    React.useEffect(() => {
-        if (isExpanded && isInitialMount.current && cardRef.current) {
-            setTimeout(() => {
-                cardRef.current?.scrollIntoView({ behavior: 'auto', block: 'center' });
-            }, 100);
-        }
-        isInitialMount.current = false;
-    }, [isExpanded]);
 
     const handleRenegotiateAll = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -84,6 +75,12 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         }
     };
 
+    const handleOpenClient = (e: React.MouseEvent) => {
+        if (!onOpenClient) return;
+        e.stopPropagation();
+        onOpenClient(group.clientId, group.clientName);
+    };
+
     return (
         <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div 
@@ -91,7 +88,12 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                 onClick={handleCardClick}
             >
                 <div className="flex justify-between items-start gap-3 flex-wrap sm:flex-nowrap">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div
+                        className="flex items-center gap-3 min-w-0 flex-1"
+                        onClick={handleOpenClient}
+                        role={onOpenClient ? 'button' : undefined}
+                        title={onOpenClient ? 'Abrir cliente' : undefined}
+                    >
                         <div className="relative shrink-0">
                             {group.avatarUrl ? (
                                 <img src={group.avatarUrl} className="w-11 h-11 rounded-xl object-cover border border-slate-700/50" alt={group.clientName} />

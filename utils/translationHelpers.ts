@@ -39,13 +39,23 @@ export const translateTransactionType = (type: string): string => {
     'transfer': 'Transferência',
     'RENEGOTIATION_CREATED': 'Renegociação Criada',
     'RENEGOTIATION_BROKEN': 'Renegociação Quebrada',
+    'RENEGOTIATION_ABATEMENT': 'Abatimento da Renegociação',
+    'AGREEMENT_SCHEDULE_UPDATED': 'Calendário do Acordo Atualizado',
+    'NORMAL_UNIFICATION_CREATED': 'Unificação Normal Criada',
+    'CAPITAL_ONLY_RECOVERY_ENABLED': 'Somente Capital Ativado',
+    'CAPITAL_ONLY_RECOVERY_DISABLED': 'Somente Capital Removido',
     'CHARGE': 'Encargo Financeiro',
     'ARCHIVE': 'Arquivamento',
     'RESTORE': 'Restauração',
     'EXTERNAL_WITHDRAWAL': 'Resgate Externo',
   };
 
-  return translations[type] || type;
+  if (translations[type]) return translations[type];
+
+  return String(type || '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 export const translateLoanStatus = (status: string): string => {
@@ -66,6 +76,27 @@ export const translateLoanStatus = (status: string): string => {
   };
 
   return translations[status] || status;
+};
+
+export const translateDocumentType = (type: string): string => {
+  const translations: Record<string, string> = {
+    'CONFISSAO': 'Confissão de Dívida',
+    'CONFISSAO_AUTO': 'Confissão de Dívida',
+    'CONFISSAO_UNICO': 'Confissão de Dívida',
+    'CONFISSAO_DIVIDA': 'Confissão de Dívida',
+    'NOTA_PROMISSORIA': 'Nota Promissória',
+    'NOTIFICACAO': 'Notificação de Cobrança',
+    'TERMO_QUITACAO': 'Termo de Quitação',
+    'QUITACAO': 'Termo de Quitação',
+    'ACORDO_EXTRAJUDICIAL': 'Acordo Extrajudicial',
+  };
+
+  if (translations[type]) return translations[type];
+
+  return String(type || 'Documento')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 export const translateFilter = (filter: string): string => {

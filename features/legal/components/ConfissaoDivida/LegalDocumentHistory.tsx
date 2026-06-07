@@ -8,6 +8,7 @@
 import React from 'react';
 import { Loader2, Trash2, ExternalLink, Copy } from 'lucide-react';
 import { LegalDocumentRecord } from '../../../../types';
+import { translateDocumentType } from '../../../../utils/translationHelpers';
 
 interface LegalDocumentHistoryProps {
     loanDocuments: LegalDocumentRecord[];
@@ -125,7 +126,7 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
                                                 </span>
                                             )}
                                             <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">
-                                                {doc.type || 'CONFISSAO'}
+                                                {translateDocumentType(doc.type || 'CONFISSAO')}
                                             </span>
                                         </div>
                                         <p className="text-[10px] font-black text-white uppercase tracking-tight">

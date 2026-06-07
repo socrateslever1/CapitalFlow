@@ -57,7 +57,7 @@ const LedgerItem: React.FC<{
       ? 'Pagamento de Acordo'
       : isAudit
       ? 'Sistema / Auditoria'
-      : (t.type === 'LOAN_INITIAL' ? 'Contrato Inicial' : (t.notes && t.notes.length < 30 ? t.notes : translateTransactionType(t.type)));
+      : translateTransactionType(t.type);
 
   return (
     <div className="flex flex-col border-b border-slate-800/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0 group">

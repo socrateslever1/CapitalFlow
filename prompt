@@ -228,12 +228,31 @@ DEPOIS, você deve informar:
 6. confirmação explícita de que nada fora do escopo foi alterado
 
 ==================================================
-IMPLEMENTACAO_RESUMO.md
+RESUMOS DE IMPLEMENTACAO POR CATEGORIA
 ==================================================
 
-Você deve SEMPRE criar, refazer ou atualizar o arquivo `IMPLEMENTACAO_RESUMO.md` quando houver MUDANÇA SIGNIFICATIVA REAL no sistema.
+Você deve SEMPRE criar, refazer ou atualizar um arquivo de resumo por categoria quando houver MUDANÇA SIGNIFICATIVA REAL no sistema.
 
-O `IMPLEMENTACAO_RESUMO.md` deve conter APENAS o que foi realmente feito.
+O arquivo `IMPLEMENTACAO_RESUMO.md` deve ser tratado como índice geral, quando existir.
+
+NÃO registre novas implementações diretamente no índice geral, salvo se o usuário pedir explicitamente.
+
+Cada nova implementação deve ser registrada em um arquivo específico por categoria/ação, usando este padrão:
+
+`IMPLEMENTACAO_RESUMO_<CATEGORIA_OU_ACAO>.md`
+
+Exemplos:
+- `IMPLEMENTACAO_RESUMO_RENEGOCIACAO_ACORDOS.md`
+- `IMPLEMENTACAO_RESUMO_RECEBIMENTOS_COMPROVANTES.md`
+- `IMPLEMENTACAO_RESUMO_JURIDICO_ASSINATURAS.md`
+- `IMPLEMENTACAO_RESUMO_PORTAL_OFFLINE.md`
+- `IMPLEMENTACAO_RESUMO_BANCO_RPC_SYNC.md`
+- `IMPLEMENTACAO_RESUMO_UI_NAVEGACAO_MENUS.md`
+- `IMPLEMENTACAO_RESUMO_CLIENTES_EQUIPE.md`
+
+Se a categoria ainda não existir, crie um novo arquivo com nome claro e específico.
+
+O arquivo de resumo da categoria deve conter APENAS o que foi realmente feito naquela frente.
 
 É PROIBIDO:
 - inventar alteração
@@ -244,7 +263,7 @@ O `IMPLEMENTACAO_RESUMO.md` deve conter APENAS o que foi realmente feito.
 - misturar implementações de frentes diferentes no mesmo bloco sem separação
 - registrar melhorias que não foram efetivamente aplicadas
 
-O `IMPLEMENTACAO_RESUMO.md` deve incluir:
+O arquivo de resumo da categoria deve incluir:
 1. data da modificação
 2. objetivo da modificação
 3. arquivos alterados
@@ -257,9 +276,12 @@ O `IMPLEMENTACAO_RESUMO.md` deve incluir:
 REGRAS DO RESUMO:
 - só atualizar se houver mudança significativa real
 - não atualizar por conversa, análise ou sugestão sem implementação
+- usar sempre português do Brasil
 - usar linguagem técnica, objetiva e seca
 - separar por data e por frente de trabalho
 - nunca misturar backend crítico com ajuste visual trivial sem separação clara
+- se a implementação envolver mais de uma frente, registre cada frente no arquivo de categoria correspondente
+- nunca deixar texto, rótulo, status, explicação ou detalhe visível no frontend em inglês; o frontend deve estar sempre em português do Brasil
 
 ==================================================
 REGRA DE INTEGRAÇÃO REAL
@@ -339,10 +361,10 @@ ARQUIVOS NOVOS:
 ou
 - nenhum
 
-IMPLEMENTACAO_RESUMO.md:
-- confirmar se foi atualizado ou não
+RESUMO DE IMPLEMENTAÇÃO:
+- informar qual arquivo `IMPLEMENTACAO_RESUMO_<CATEGORIA_OU_ACAO>.md` foi atualizado ou criado
 - resumir o que foi registrado
-- se não foi atualizado, dizer claramente o motivo
+- se nenhum resumo foi atualizado, dizer claramente o motivo
 
 ARQUIVOS NÃO ALTERADOS FORA DO ESCOPO:
 - confirmação explícita
@@ -360,4 +382,4 @@ Sem invenção
 Sem desvio de escopo
 Sem efeito colateral desnecessário
 
-E registrar fielmente tudo no `IMPLEMENTACAO_RESUMO.md`, com data, modificações e sugestões, somente quando houver mudança significativa real.
+E registrar fielmente tudo no arquivo `IMPLEMENTACAO_RESUMO_<CATEGORIA_OU_ACAO>.md` correspondente, com data, modificações e sugestões, somente quando houver mudança significativa real.

@@ -10,6 +10,7 @@ import { QuickActions } from './LoanCardComposition/QuickActions';
 import { Body } from './LoanCardComposition/Body';
 import { Footer } from './LoanCardComposition/Footer';
 import { Ledger } from './LoanCardComposition/Ledger';
+import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
 // Re-exporta a interface para manter compatibilidade
 export type { LoanCardProps };
@@ -20,7 +21,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     onRestore, onDelete, onNote, onPortalLink, onUploadPromissoria,
     onUploadDoc, onViewPromissoria, onViewDoc, onReviewSignal, onOpenComprovante,
     onReverseTransaction, onOpenReceipt, onRenegotiate, onActivate, onNewAporte, onAgreementPayment,
-    onReverseAgreementPayment, onNavigate, onLegalDocument, onRefresh, allLoans,
+    onReverseAgreementPayment, onNavigate, onLegalDocument, onRefresh, allLoans, onToggleCapitalOnly,
     isExpanded: isExpandedProp, onToggleExpand
   } = props;
 
@@ -34,6 +35,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
 
   // Lógica de Negócio
   const computed = useLoanCardComputed(loan, sources, isStealthMode);
+  const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
 
   const {
     isLate, hasActiveAgreement, isFullyFinalized, iconStyle,
@@ -48,6 +50,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   // Definição da cor da borda lateral baseada no status
   let borderLeftColor = "border-l-slate-700"; // Padrão
   if (isFullyFinalized) borderLeftColor = "border-l-emerald-500";
+  else if (isCapitalOnlyRecovery) borderLeftColor = "border-l-rose-600";
   else if (hasActiveAgreement) borderLeftColor = "border-l-indigo-500";
   else if (isLate) borderLeftColor = "border-l-rose-500";
   else if (daysUntilDue <= 3) borderLeftColor = "border-l-amber-500";
@@ -120,6 +123,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
           onNavigate={handleNavigate}
           onMarkAsBilled={props.onMarkAsBilled}
           riskProfile={riskProfile}
+          isCapitalOnlyRecovery={isCapitalOnlyRecovery}
         />
 
         {isExpanded && (
@@ -186,6 +190,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               onRenegotiate={() => onRenegotiate(loan)}
               onActivate={() => onActivate(loan)}
               onNewAporte={() => onNewAporte(loan)}
+              onToggleCapitalOnly={() => onToggleCapitalOnly?.(loan)}
               onEdit={(e) => { e.stopPropagation(); onEdit(loan); }}
               isFullyFinalized={isFullyFinalized}
               hasActiveAgreement={hasActiveAgreement}

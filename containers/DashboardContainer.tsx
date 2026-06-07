@@ -6,6 +6,7 @@ import { filterLoans } from '../domain/filters/loanFilters';
 import { buildDashboardStats } from '../domain/dashboard/stats';
 import { agreementService } from '../features/agreements/services/agreementService';
 import { contractsService } from '../services/contracts.service';
+import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
 
 interface DashboardContainerProps {
   loans: Loan[];
@@ -77,6 +78,10 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   };
 
   const handleNewAporte = (loan: Loan) => {
+      if (isCapitalOnlyRecoveryLoan(loan)) {
+          showToast("Cliente marcado como Somente Capital nao pode receber novo aporte.", "error");
+          return;
+      }
       ui.setNewAporteModalLoan(loan);
       ui.openModal('NEW_APORTE');
   };

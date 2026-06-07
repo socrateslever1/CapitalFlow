@@ -470,6 +470,7 @@ export const App: React.FC = () => {
                 >
                   <ClientsContainer
                     clients={clients}
+                    loans={loans}
                     clientSearchTerm={clientSearchTerm}
                     setClientSearchTerm={setClientSearchTerm}
                     clientCtrl={clientCtrl}

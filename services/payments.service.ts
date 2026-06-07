@@ -6,6 +6,7 @@ import { calculateTotalDue, ZERO_BALANCE_THRESHOLD } from '../domain/finance/cal
 import { todayDateOnlyUTC, parseDateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
+import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
 
 const parseMoney = (v: string) => {
   if (!v) return 0;
@@ -403,6 +404,7 @@ export const paymentsService = {
       return { amountToPay: lendAmount, paymentType: 'LEND_MORE' };
     }
 
+    const effectiveForgivenessMode = isCapitalOnlyRecoveryLoan(loan) ? 'CAPITAL_ONLY' : forgivenessMode;
     const amountToPay = Number(amountPaid || 0);
     if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
       throw new Error('O valor do pagamento deve ser maior que zero.');
@@ -420,7 +422,7 @@ export const paymentsService = {
       amountToPay,
       loan,
       installmentSnapshot,
-      forgivenessMode
+      effectiveForgivenessMode
     ) as unknown as {
       paidPrincipal: number;
       paidInterest: number;
@@ -442,7 +444,7 @@ export const paymentsService = {
     const renewalBuckets = resolveRenewalBuckets(loan, installmentSnapshot);
 
     // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Mora -> Juros -> Principal)
-    if (forgivenessMode !== 'CAPITAL_ONLY' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
+    if (effectiveForgivenessMode !== 'CAPITAL_ONLY' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
       let remaining = amountToPay;
 
       lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
@@ -525,7 +527,7 @@ export const paymentsService = {
       p_caixa_livre_id: safeUUID(caixaLivreId),
     };
 
-    if (isOffline && forgivenessMode === 'CAPITAL_ONLY') {
+    if (isOffline && effectiveForgivenessMode === 'CAPITAL_ONLY') {
       throw new Error('Recebimento sem juros exige internet para zerar os encargos com seguranca no banco.');
     }
 
@@ -586,7 +588,7 @@ export const paymentsService = {
       console.error('Erro ao gravar auditoria de pagamento:', auditErr);
     }
 
-    if (forgivenessMode === 'CAPITAL_ONLY') {
+    if (effectiveForgivenessMode === 'CAPITAL_ONLY') {
       const { error: forgiveInterestError } = await supabase
         .from('parcelas')
         .update({
@@ -614,7 +616,7 @@ export const paymentsService = {
       const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
       const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
-      if (forgivenessMode !== 'CAPITAL_ONLY' && isMonthlyOrGiro && hasPrincipalRemaining) {
+      if (effectiveForgivenessMode !== 'CAPITAL_ONLY' && isMonthlyOrGiro && hasPrincipalRemaining) {
         // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
         const currentDueDate = parseDateOnlyUTC(inst.dueDate);
         const diffDays = (manualDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
@@ -642,7 +644,7 @@ export const paymentsService = {
     const finalBalance = await revalidateLoanOpenBalance(loanId);
     const remainingAfterPayment = Number(finalBalance.totalRemaining || 0);
 
-    if (forgivenessMode === 'CAPITAL_ONLY' && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
+    if (effectiveForgivenessMode === 'CAPITAL_ONLY' && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
       await supabase
         .from('parcelas')
         .update({

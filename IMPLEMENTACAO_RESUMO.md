@@ -1,20 +1,24 @@
 # Implementações
 
 ## 2026-06-07
-- **Objetivo:** Adicionar recebimento/renegociacao sem juros, permitindo cobrar somente o capital em pagamento total ou parcial.
+- **Objetivo:** Ajustar renegociacao/unificacao e criar estado operacional `Somente Capital` para recuperar apenas principal, sem juros e sem novo credito ao cliente marcado.
 - **Arquivos Alterados:**
-    - `/components/modals/PaymentManagerModal.tsx`: Adicionado botao `Receber Sem Juros (So Capital)` no recebimento normal; ao ativar, o valor sugerido passa a ser o capital aberto e o impacto informa abatimento direto no principal.
-    - `/pages/ContractDetails/PaymentRegistrationForm.tsx`: Adicionado o mesmo modo de recebimento sem juros na tela de detalhes do contrato.
-    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: Adicionado modo `CAPITAL_ONLY`, que zera juros, multa e mora no calculo exibido ao usuario.
-    - `/domain/finance/calculations.ts`: Estendido o calculo de amortizacao para `CAPITAL_ONLY`, alocando o pagamento somente no principal e desconsiderando encargos.
-    - `/domain/loanEngine.ts`: Aceito o novo modo `CAPITAL_ONLY` na amortizacao de parcela.
-    - `/services/payments.service.ts`: Persistencia do modo sem juros passa a pagar principal, zerar juros/multa/mora da parcela no banco, impedir uso offline desse modo e finalizar contrato quando o saldo real fica zerado.
-    - `/hooks/controllers/usePaymentController.ts`: Tipagem do controlador de pagamento atualizada para aceitar `CAPITAL_ONLY`.
-    - `/features/agreements/components/RenegotiationModal.tsx`: Renegociacao `Sem Juros` passa a usar somente o capital aberto como base do acordo e salva `interest_base_mode` como `CAPITAL_ONLY`.
-- **Arquivos Criados:** Nenhum.
-- **Riscos/Observacoes:** O recebimento sem juros exige conexao com o banco para zerar encargos com consistencia; em modo offline ele e bloqueado com mensagem tecnica. A alteracao nao cria migration, pois usa campos ja existentes em `parcelas`.
+    - `/utils/capitalOnlyRecovery.ts`: Criado helper do marcador tecnico `[CAPITAL_ONLY_RECOVERY]`, usado para identificar contrato/cliente em recuperacao somente de capital.
+    - `/features/agreements/components/RenegotiationModal.tsx`: O fluxo passa a permitir acordo parcelado, unificacao normal sem parcelamento ou marcacao `Somente Capital` em aberto, sem gerar cronograma de parcelas.
+    - `/services/contracts.service.ts`: Adicionada persistencia para marcar/desmarcar `Somente Capital`, zerando juros/encargos das parcelas e registrando evento no extrato; adicionada validacao que bloqueia novo contrato para cliente marcado.
+    - `/hooks/controllers/useLoanController.ts`: Novo contrato passa a ser bloqueado quando o cliente possui contrato `Somente Capital`; adicionada acao de marcar/desmarcar no card.
+    - `/containers/DashboardContainer.tsx`: Bloqueado novo aporte para contrato marcado como `Somente Capital`.
+    - `/components/cards/LoanCard.tsx`, `/components/cards/LoanCardComposition/Header.tsx`, `/components/cards/LoanCardComposition/Footer.tsx` e `/components/cards/LoanCardComposition/types.ts`: Card passa a exibir alerta `Somente Capital`, sinal de perigo e acao para marcar/desmarcar; novo aporte fica indisponivel quando marcado.
+    - `/domain/finance/calculations.ts`: Contrato marcado como `Somente Capital` passa a calcular saldo apenas pelo principal aberto.
+    - `/services/payments.service.ts`: Recebimentos em contrato marcado passam automaticamente a amortizar somente capital e manter encargos zerados.
+    - `/domain/dashboard/loanGrouping.ts` e `/components/cards/ClientGroupCard.tsx`: Grupo do cliente passa a sinalizar `Somente Capital`.
+    - `/containers/ClientsContainer.tsx`, `/pages/ClientsPage.tsx` e `/App.tsx`: Carteira de clientes passa a receber contratos e exibir cliente marcado em vermelho com alerta `Somente Capital`.
+    - `/components/modals/PaymentManagerModal.tsx` e `/pages/ContractDetails/PaymentRegistrationForm.tsx`: Removida decisao avulsa de recebimento sem juros; o comportamento passa a depender do estado do contrato.
+- **Arquivos Criados:**
+    - `/utils/capitalOnlyRecovery.ts`: Necessario para centralizar o marcador tecnico e evitar divergencia entre card, carteira, calculo, pagamento e validacao.
+- **Riscos/Observacoes:** A marcacao `Somente Capital` usa `contratos.notes` para evitar migration. A unificacao normal consolida o saldo aberto no contrato principal e marca os demais como legado renegociado.
 - **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.
-- **Escopo:** Alteracoes limitadas a recebimento normal, recebimento na tela de detalhes e base de renegociacao sem juros. Nenhuma rota, layout global ou componente global foi alterado.
+- **Escopo:** Alteracoes limitadas a renegociacao/unificacao, marcacao de recuperacao somente capital, cards, carteira de clientes e bloqueios de novo credito para cliente marcado.
 
 ## 2026-06-04
 - **Objetivo:** Corrigir consistencia do recebimento normal, evitar travamento no envio de comprovante e restaurar indicadores/IA do dashboard.

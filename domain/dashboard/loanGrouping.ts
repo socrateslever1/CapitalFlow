@@ -3,6 +3,7 @@ import { rebuildLoanStateFromLedger } from '../../domain/finance/calculations';
 import { loanEngine } from '../../domain/loanEngine';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
 import { normalizeName, onlyDigits } from '../../utils/formatters';
+import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
 export interface ClientGroup {
   id: string; // Unique ID for the group
@@ -13,6 +14,7 @@ export interface ClientGroup {
   totalDebt: number;
   totalMonthlyDue: number;
   status: 'CRITICAL' | 'LATE' | 'WARNING' | 'OK' | 'PAID';
+  hasCapitalOnlyRecovery?: boolean;
   contractCount: number;
   isStandalone: boolean; // Indica se possui apenas um contrato
   // Metadados internos para ordenação
@@ -58,6 +60,7 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
         totalDebt: 0,
         totalMonthlyDue: 0,
         status: 'OK',
+        hasCapitalOnlyRecovery: false,
         contractCount: 0,
         isStandalone: false
       };
@@ -72,6 +75,7 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
     // Aqui mantemos o primeiro nome encontrado para estabilidade visual
 
     groups[groupKey].loans.push(loan);
+    if (isCapitalOnlyRecoveryLoan(loan)) groups[groupKey].hasCapitalOnlyRecovery = true;
     groups[groupKey].contractCount++;
 
     const loanDebt = loanEngine.computeRemainingBalance(loan).totalRemaining;

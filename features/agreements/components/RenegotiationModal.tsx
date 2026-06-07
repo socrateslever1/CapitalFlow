@@ -9,6 +9,7 @@ import { agreementService } from "../services/agreementService";
 import { legalService } from "../../legal/services/legalService";
 import { safeUUID } from "../../../utils/uuid";
 import { supabase } from "../../../lib/supabase";
+import { addCapitalOnlyRecoveryMarker } from "../../../utils/capitalOnlyRecovery";
 
 interface RenegotiationModalProps {
     loans: Loan[];
@@ -62,6 +63,7 @@ const buildContractBaseFromLoan = (loan: Loan, activeUser: any) => {
 
 export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, activeUser, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
+    const [flowMode, setFlowMode] = useState<'INSTALLMENT_AGREEMENT' | 'NORMAL_UNIFICATION' | 'CAPITAL_ONLY_OPEN'>('INSTALLMENT_AGREEMENT');
     const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_COM_JUROS');
     const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_INSTALLMENTS');
 
@@ -98,6 +100,11 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     }, [loans]);
 
     const handleSimulate = () => {
+        if (flowMode !== 'INSTALLMENT_AGREEMENT') {
+            setStep(2);
+            return;
+        }
+
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
         const baseDebtForAgreement = finalType === 'PARCELADO_SEM_JUROS' || interestBaseMode === 'CAPITAL_ONLY' ? principalDebt : totalDebt;
         const result = simulateAgreement({
@@ -112,11 +119,105 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     };
 
     const handleConfirm = async () => {
-        if (!simulation || !loans.length) return;
+        if ((!simulation && flowMode === 'INSTALLMENT_AGREEMENT') || !loans.length) return;
         setIsSaving(true);
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
 
         try {
+            if (flowMode === 'CAPITAL_ONLY_OPEN') {
+                for (const loan of loans) {
+                    const loanId = safeUUID(loan.id);
+                    if (!loanId) continue;
+                    await supabase.from('contratos').update({
+                        notes: addCapitalOnlyRecoveryMarker(loan.notes),
+                        interest_rate: 0,
+                        fine_percent: 0,
+                        daily_interest_percent: 0,
+                        status: LoanStatus.ATIVO
+                    }).eq('id', loanId);
+
+                    await supabase.from('parcelas').update({
+                        interest_remaining: 0,
+                        late_fee_accrued: 0,
+                        scheduled_interest: 0
+                    }).eq('loan_id', loanId);
+
+                    await supabase.from('transacoes').insert({
+                        id: safeUUID(crypto.randomUUID()) || crypto.randomUUID(),
+                        loan_id: loanId,
+                        profile_id: safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id),
+                        date: new Date().toISOString(),
+                        type: 'CAPITAL_ONLY_RECOVERY_ENABLED',
+                        amount: 0,
+                        notes: 'Renegociacao aberta sem parcelamento: recuperar somente o capital.'
+                    });
+                }
+
+                onSuccess();
+                return;
+            }
+
+            if (flowMode === 'NORMAL_UNIFICATION') {
+                const mainLoan = loans[0];
+                const mainLoanId = safeUUID(mainLoan.id);
+                if (!mainLoanId) throw new Error("Contrato principal invalido.");
+
+                const firstOpenInstallment = (mainLoan.installments || []).find((inst) => {
+                    const status = String(inst.status || '').toUpperCase();
+                    const open = (Number(inst.principalRemaining) || 0) + (Number(inst.interestRemaining) || 0) + (Number(inst.lateFeeAccrued) || 0);
+                    return !['PAID', 'PAGO', 'QUITADO', 'RENEGOCIADO'].includes(status) && open > 0.05;
+                }) || mainLoan.installments?.[0];
+
+                const totalUnified = loans.reduce((total, loan) => total + (loan.installments || []).reduce((acc, inst) => {
+                    const status = String(inst.status || '').toUpperCase();
+                    if (['PAID', 'PAGO', 'QUITADO', 'RENEGOCIADO'].includes(status)) return acc;
+                    return acc + Number(inst.principalRemaining || 0) + Number(inst.interestRemaining || 0) + Number(inst.lateFeeAccrued || 0);
+                }, 0), 0);
+
+                await supabase.from('contratos').update({
+                    principal: totalUnified,
+                    total_to_receive: totalUnified,
+                    status: LoanStatus.ATIVO,
+                    acordo_ativo_id: null,
+                    notes: `${mainLoan.notes || ''}\n[UNIFICACAO_NORMAL] Contratos unificados sem parcelamento em ${new Date().toISOString()}.`
+                }).eq('id', mainLoanId);
+
+                if (firstOpenInstallment?.id) {
+                    await supabase.from('parcelas').update({
+                        principal_remaining: totalUnified,
+                        interest_remaining: 0,
+                        late_fee_accrued: 0,
+                        scheduled_principal: totalUnified,
+                        scheduled_interest: 0,
+                        amount: totalUnified,
+                        valor_parcela: totalUnified,
+                        status: 'PENDENTE'
+                    }).eq('id', firstOpenInstallment.id);
+                }
+
+                for (const loan of loans.slice(1)) {
+                    await supabase.from('contratos').update({
+                        status: LoanStatus.RENEGOCIADO,
+                        notes: `${loan.notes || ''}\n[LEGADO_UNIFICACAO_NORMAL:${mainLoanId.slice(0, 8)}] Contrato unificado no contrato principal.`
+                    }).eq('id', loan.id);
+
+                    await supabase.from('parcelas').update({ status: 'RENEGOCIADO' }).eq('loan_id', loan.id);
+                }
+
+                await supabase.from('transacoes').insert({
+                    id: safeUUID(crypto.randomUUID()) || crypto.randomUUID(),
+                    loan_id: mainLoanId,
+                    profile_id: safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id),
+                    date: new Date().toISOString(),
+                    type: 'NORMAL_UNIFICATION_CREATED',
+                    amount: 0,
+                    notes: `Unificacao normal de ${loans.length} contrato(s), sem parcelamento. Total consolidado: R$ ${totalUnified.toFixed(2)}.`
+                });
+
+                onSuccess();
+                return;
+            }
+
             const oldInstallmentIds = loans.flatMap(l => (l.installments || []).map(i => i.id));
             if (oldInstallmentIds.length > 0) {
                 const { error: updateError } = await supabase
@@ -233,27 +334,33 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             {loans.length > 1 && <p className="text-[10px] text-slate-400 mt-2">Somando {loans.length} contratos selecionados</p>}
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <button onClick={() => setFlowMode('INSTALLMENT_AGREEMENT')} className={`p-3 rounded-xl border text-center transition-all ${flowMode === 'INSTALLMENT_AGREEMENT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Parcelar</p></button>
+                            {loans.length > 1 && <button onClick={() => setFlowMode('NORMAL_UNIFICATION')} className={`p-3 rounded-xl border text-center transition-all ${flowMode === 'NORMAL_UNIFICATION' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Unificar Normal</p></button>}
+                            <button onClick={() => setFlowMode('CAPITAL_ONLY_OPEN')} className={`p-3 rounded-xl border text-center transition-all ${flowMode === 'CAPITAL_ONLY_OPEN' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Somente Capital</p></button>
+                        </div>
+
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-2">
                             <button onClick={() => setCalculationMode('BY_INSTALLMENTS')} className={`p-3 rounded-xl border text-center transition-all ${calculationMode === 'BY_INSTALLMENTS' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Hash size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Parcelas</p></button>
                             <button onClick={() => setCalculationMode('BY_INSTALLMENT_VALUE')} className={`p-3 rounded-xl border text-center transition-all ${calculationMode === 'BY_INSTALLMENT_VALUE' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><DollarSign size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Valor</p></button>
                             <button onClick={() => setCalculationMode('BY_VALUE_AND_COUNT')} className={`p-3 rounded-xl border text-center transition-all ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Percent size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Valor + Qtd</p></button>
-                        </div>
+                        </div>}
 
-                        {calculationMode !== 'BY_VALUE_AND_COUNT' && (
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && calculationMode !== 'BY_VALUE_AND_COUNT' && (
                             <div className="grid grid-cols-2 gap-4">
                                 <button onClick={() => setType('PARCELADO_COM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_COM_JUROS' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Parcelado c/ Juros</p><p className="text-[9px] opacity-70">Recalcula dívida com nova taxa</p></button>
                                 <button onClick={() => setType('PARCELADO_SEM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_SEM_JUROS' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Sem Juros</p><p className="text-[9px] opacity-70">Renegocia somente o capital</p></button>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-4">
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-2 gap-4">
                             {calculationMode === 'BY_INSTALLMENTS' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
                             {calculationMode === 'BY_INSTALLMENT_VALUE' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
                             {calculationMode === 'BY_VALUE_AND_COUNT' && <><div key="val"><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div><div key="qtd"><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div></>}
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Periodicidade</label><select value={frequency} onChange={e => setFrequency(e.target.value as any)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="MONTHLY">Mensal</option><option value="BIWEEKLY">Quinzenal</option><option value="WEEKLY">Semanal</option></select></div>
-                        </div>
+                        </div>}
 
-                        {calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && <div className="space-y-3">
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && <div className="space-y-3">
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Taxa de Juros (%)</label><input type="number" step="0.1" value={interestRate} onChange={e => setInterestRate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div><label className="text-[10px] uppercase font-bold text-slate-500">Aplicar Juros</label><select value={interestApplicationMode} onChange={e => setInterestApplicationMode(e.target.value as InterestApplicationMode)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="TOTAL_ONCE">Total do acordo</option><option value="MONTHLY_SIMPLE">Ao mês pelo prazo</option></select></div>
@@ -261,20 +368,28 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             </div>
                         </div>}
 
-                        <div className="grid grid-cols-3 gap-4">
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-4">
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Desconto (R$)</label><input type="number" value={discount} onChange={e => setDiscount(e.target.value)} disabled={calculationMode === 'BY_VALUE_AND_COUNT'} className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'opacity-50' : ''}`} /></div>
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Entrada (R$)</label><input type="number" value={downPayment} onChange={e => setDownPayment(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
                             <div><label className="text-[10px] uppercase font-bold text-slate-500">Carência (Dias)</label><input type="number" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
-                        </div>
+                        </div>}
 
-                        <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
 
-                        <button onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2"><Calculator size={16}/> Simular Acordo</button>
+                        <button onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2"><Calculator size={16}/> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button>
                     </div>
                 )}
 
-                {step === 2 && simulation && (
+                {step === 2 && (simulation || flowMode !== 'INSTALLMENT_AGREEMENT') && (
                     <div className="space-y-4 animate-in slide-in-from-right">
+                        {flowMode !== 'INSTALLMENT_AGREEMENT' && (
+                            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                <p className="text-[10px] uppercase font-bold text-slate-500">Operacao Selecionada</p>
+                                <p className="text-xl font-black text-white mt-1">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificacao normal sem parcelamento' : 'Somente Capital em aberto'}</p>
+                                <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serao consolidados no contrato principal, sem acordo parcelado.' : 'O contrato ficara marcado para recuperar apenas o capital, sem cronograma de parcelas.'}</p>
+                            </div>
+                        )}
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && (
                         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
                             <div className="flex justify-between items-end mb-4">
                                 <div>
@@ -328,6 +443,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 ))}
                             </div>
                         </div>
+                        )}
 
                         <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-xl flex items-start gap-3">
                             <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-1"/>
@@ -336,7 +452,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
                         <div className="flex gap-3">
                             <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold uppercase text-xs">Voltar</button>
-                            <button onClick={handleConfirm} disabled={isSaving} className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">{isSaving ? 'Processando...' : <><CheckCircle2 size={16}/> Confirmar Acordo</>}</button>
+                            <button onClick={handleConfirm} disabled={isSaving} className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">{isSaving ? 'Processando...' : <><CheckCircle2 size={16}/> Confirmar</>}</button>
                         </div>
                     </div>
                 )}

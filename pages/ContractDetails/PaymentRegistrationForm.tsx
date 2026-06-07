@@ -12,6 +12,7 @@ import { Loan } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { FlexibleDailyScreen } from '../../components/modals/payment/FlexibleDailyScreen';
+import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
 interface PaymentRegistrationFormProps {
     loan: Loan;
@@ -64,6 +65,8 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     safeParse,
     handleConfirm
 }) => {
+    const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
+
     if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') {
         return (
             <FlexibleDailyScreen
@@ -129,7 +132,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                         const totalDue = debtBreakdown.total;
                                         const interestDue = totalInterestDue;
 
-                                        if (forgivenessMode === 'CAPITAL_ONLY') {
+                                        if (isCapitalOnlyRecovery) {
                                             if (val >= debtBreakdown.principal - 0.05) return 'Quitação sem juros: recebe apenas o capital e encerra os encargos.';
                                             return `Recebimento sem juros: abate ${formatMoney(val, isStealthMode)} diretamente do capital.`;
                                         }
@@ -188,20 +191,6 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             }`}
                         >
                             Perdoar Total (100% Encargos)
-                        </button>
-                        <button
-                            onClick={() => {
-                                const nextMode = forgivenessMode === 'CAPITAL_ONLY' ? 'NONE' : 'CAPITAL_ONLY';
-                                setForgivenessMode(nextMode);
-                                if (nextMode === 'CAPITAL_ONLY') setAvAmount(debtBreakdown.principal.toFixed(2));
-                            }}
-                            className={`col-span-2 p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${
-                                forgivenessMode === 'CAPITAL_ONLY'
-                                    ? 'bg-blue-600 border-blue-500 text-white'
-                                    : 'bg-slate-900 border-slate-800 text-slate-500'
-                            }`}
-                        >
-                            Receber Sem Juros (Só Capital)
                         </button>
                     </div>
                 </div>

@@ -81,6 +81,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       onRestore, onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc,
       onViewPromissoria, onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, onOpenReceipt,
       onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment,
+      onToggleCapitalOnly: loanCtrl.handleToggleCapitalOnlyRecovery,
       onNavigate: (id: string) => onNavigate(`/contrato/${id}`),
       onLegalDocument: onNavigate,
       onRefresh, isStealthMode

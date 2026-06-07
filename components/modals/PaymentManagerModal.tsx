@@ -4,6 +4,7 @@ import { Loan, Installment } from '../../types';
 import { parseDateOnlyUTC } from '../../utils/dateHelpers';
 import { FlexibleDailyScreen } from './payment/FlexibleDailyScreen';
 import { usePaymentManagerState, ForgivenessMode } from './payment/hooks/usePaymentManagerState';
+import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 import { formatMoney } from '../../utils/formatters';
 
 interface PaymentManagerModalProps {
@@ -44,6 +45,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     if (!data) return null;
 
     const { loan, calculations } = data;
+    const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
 
     const safeParse = (val: string) => {
         if (!val) return 0;
@@ -80,7 +82,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     // Tem multa ou mora original para perdoar?
     const hasOriginalFine = (Number(calculations.lateFee) || 0) > 0 || debtBreakdown.fine > 0 || debtBreakdown.dailyMora > 0;
-    const hasChargesToForgive = forgivenessMode === 'CAPITAL_ONLY' || (Number(calculations.interest) || 0) > 0 || debtBreakdown.interest > 0 || hasOriginalFine;
+    const hasChargesToForgive = !isCapitalOnlyRecovery && ((Number(calculations.interest) || 0) > 0 || debtBreakdown.interest > 0 || hasOriginalFine);
 
     return (
         <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans h-[100dvh] pt-16 sm:pt-20 pb-28 md:pb-0">
@@ -132,17 +134,17 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 <span className="text-slate-400 font-bold uppercase">Capital Principal</span>
                                 <span className="text-white font-bold">{formatMoney(debtBreakdown.principal)}</span>
                             </div>
-                            <div className={`flex justify-between items-center text-xs border-b border-slate-800/50 pb-2 ${forgivenessMode === 'CAPITAL_ONLY' ? 'line-through opacity-50' : ''}`}>
+                            <div className={`flex justify-between items-center text-xs border-b border-slate-800/50 pb-2 ${isCapitalOnlyRecovery ? 'line-through opacity-50' : ''}`}>
                                 <span className="text-blue-400 font-bold uppercase flex items-center gap-1"><TrendingUp size={12}/> Lucro (Juros)</span>
                                 <span className="text-blue-400 font-bold">{formatMoney(debtBreakdown.interest)}</span>
                             </div>
                             {(calculations.lateFee > 0) && (
                                 <>
-                                    <div className={`flex justify-between items-center text-xs ${forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'CAPITAL_ONLY' ? 'line-through opacity-50' : ''}`}>
+                                    <div className={`flex justify-between items-center text-xs ${forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'BOTH' || isCapitalOnlyRecovery ? 'line-through opacity-50' : ''}`}>
                                         <span className="text-rose-400 font-bold uppercase flex items-center gap-1"><AlertTriangle size={12}/> Multa Fixa</span>
                                         <span className="text-rose-400 font-bold">{formatMoney(debtBreakdown.fine)}</span>
                                     </div>
-                                    <div className={`flex justify-between items-center text-xs ${forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'CAPITAL_ONLY' ? 'line-through opacity-50' : ''}`}>
+                                    <div className={`flex justify-between items-center text-xs ${forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'BOTH' || isCapitalOnlyRecovery ? 'line-through opacity-50' : ''}`}>
                                         <span className="text-orange-400 font-bold uppercase flex items-center gap-1"><Clock size={12}/> Juros Mora</span>
                                         <span className="text-orange-400 font-bold">{formatMoney(debtBreakdown.dailyMora)}</span>
                                     </div>
@@ -179,16 +181,6 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                     className={`col-span-2 px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'BOTH' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-emerald-500'}`}
                                 >
                                     Perdoar Total (100% Encargos)
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        const nextMode = forgivenessMode === 'CAPITAL_ONLY' ? 'NONE' : 'CAPITAL_ONLY';
-                                        setForgivenessMode(nextMode);
-                                        if (nextMode === 'CAPITAL_ONLY') setAvAmount(debtBreakdown.principal.toFixed(2));
-                                    }}
-                                    className={`col-span-2 px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'CAPITAL_ONLY' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-blue-500'}`}
-                                >
-                                    Receber Sem Juros (Só Capital)
                                 </button>
                             </div>
                         </div>
@@ -275,7 +267,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                                 const totalDue = debtBreakdown.total;
                                                                 const interestDue = totalInterestDue;
                                                                 
-                                                                if (forgivenessMode === 'CAPITAL_ONLY') {
+                                                                if (isCapitalOnlyRecovery) {
                                                                     if (val >= debtBreakdown.principal - 0.05) return "Quitação sem juros: recebe apenas o capital e encerra os encargos.";
                                                                     return `Recebimento sem juros: abate ${formatMoney(val)} diretamente do capital.`;
                                                                 }
@@ -297,7 +289,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                     <div className="space-y-1">
                                                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Novo Saldo Devedor</p>
                                                         <p className="text-lg font-black text-white">
-                                                            {formatMoney(forgivenessMode === 'CAPITAL_ONLY'
+                                                            {formatMoney(isCapitalOnlyRecovery
                                                                 ? Math.max(0, debtBreakdown.principal - safeParse(avAmount))
                                                                 : Math.max(0, debtBreakdown.principal - Math.max(0, safeParse(avAmount) - totalInterestDue)))}
                                                         </p>

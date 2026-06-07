@@ -1,11 +1,13 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, ChevronLeft, Users } from 'lucide-react';
-import { Client } from '../types';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, ChevronLeft, Users, ShieldAlert } from 'lucide-react';
+import { Client, Loan } from '../types';
 import { startDictation } from '../utils/speech';
 import { formatShortName, maskPhone, maskDocument } from '../utils/formatters';
+import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 
 interface ClientsPageProps {
   filteredClients: Client[];
+  loans: Loan[];
   clientSearchTerm: string;
   setClientSearchTerm: (term: string) => void;
   openClientModal: (client?: Client) => void;
@@ -22,7 +24,7 @@ interface ClientsPageProps {
 }
 
 export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean }> = ({ 
-  filteredClients, clientSearchTerm, setClientSearchTerm, 
+  filteredClients, loans, clientSearchTerm, setClientSearchTerm,
   openClientModal, openConfirmation, showToast,
   isBulkDeleteMode, toggleBulkDeleteMode, selectedClientsToDelete, toggleClientSelection, executeBulkDelete,
   onDeleteClient,
@@ -76,9 +78,9 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         {/* GRID COMPACTA E MODERNA */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[...filteredClients].sort((a, b) => a.name.localeCompare(b.name)).map(client => (
-                <div 
-                    key={client.id} 
-                    className={`bg-slate-900 border p-4 rounded-2xl transition-all group relative flex flex-col ${isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                <div
+                    key={client.id}
+                    className={`bg-slate-900 border p-4 rounded-2xl transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : undefined}
                 >
                     {isBulkDeleteMode && (
@@ -99,6 +101,11 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             <h3 className="font-bold text-white text-sm truncate uppercase">{formatShortName(client.name)}</h3>
                             <div className="flex items-center gap-2">
                                 <p className="text-[10px] text-slate-500 truncate font-mono">{maskDocument((client as any).document, isStealthMode) || 'S/ CPF'}</p>
+                                {clientHasCapitalOnlyRecovery(loans, client) && (
+                                    <span className="inline-flex items-center gap-1 text-[8px] text-rose-500 font-black uppercase">
+                                        <ShieldAlert size={10}/> Somente Capital
+                                    </span>
+                                )}
                                 {client.createdAt && (
                                     <span className="text-[8px] text-slate-600 font-medium uppercase tracking-tighter">
                                         • {new Date(client.createdAt).toLocaleDateString('pt-BR')}

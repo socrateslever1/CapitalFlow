@@ -45,7 +45,12 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     let statusText = 'Regular';
     let statusTextColor = 'text-slate-400';
 
-    if (group.status === 'CRITICAL') {
+    if (group.hasCapitalOnlyRecovery) {
+        borderLeftColor = 'border-l-rose-600';
+        icon = <ShieldAlert className="text-rose-500" size={20} />;
+        statusText = 'Somente Capital';
+        statusTextColor = 'text-rose-500';
+    } else if (group.status === 'CRITICAL') {
         borderLeftColor = 'border-l-rose-500';
         icon = <ShieldAlert className="text-rose-500" size={20} />;
         statusText = 'Risco Crítico';

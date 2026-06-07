@@ -31,6 +31,7 @@ export interface LoanCardProps {
   onRefresh: () => void;
   onMarkAsBilled?: (loan: Loan) => void;
   onNewAporte?: (loan: Loan) => void;
+  onToggleCapitalOnly?: (loan: Loan) => void;
   onNavigate?: (id: string) => void;
   onLegalDocument?: (path: string) => void;
   isStealthMode?: boolean;

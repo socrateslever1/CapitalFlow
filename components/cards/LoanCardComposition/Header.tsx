@@ -33,6 +33,7 @@ interface HeaderProps {
   onNavigate?: (id: string) => void;
   onMarkAsBilled?: (loan: Loan) => void;
   riskProfile?: RiskProfile;
+  isCapitalOnlyRecovery?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,7 +50,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleExpand,
   onNavigate,
   onMarkAsBilled,
-  riskProfile
+  riskProfile,
+  isCapitalOnlyRecovery
 }) => {
   const isOverdueByDays = daysUntilDue < 0;
 
@@ -125,7 +127,14 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Badges refinados
   let Badge = null;
-  if (isFullyFinalized) {
+  if (isCapitalOnlyRecovery && !isFullyFinalized) {
+    Badge = (
+      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-600/20 text-rose-500 rounded-md border border-rose-600/40">
+        <ShieldAlert size={8} />
+        <span className="text-[7px] font-black uppercase tracking-wider">Somente Capital</span>
+      </div>
+    );
+  } else if (isFullyFinalized) {
     Badge = (
       <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-md border border-emerald-500/20">
         <CheckCircle2 size={8} />
@@ -151,7 +160,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Risk Badge logic
   let RiskBadge = null;
-  if (riskProfile && !isFullyFinalized) {
+  if (riskProfile && !isFullyFinalized && !isCapitalOnlyRecovery) {
     const { level, flags, isPotentialDefaulter } = riskProfile;
     
     let config = { icon: ShieldCheck, color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', label: 'Risco Baixo' };
@@ -192,7 +201,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${iconStyle}`}
               title="Abrir Contrato"
             >
-              {isFullyFinalized ? <CheckCircle2 size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />}
+              {isFullyFinalized ? <CheckCircle2 size={18} /> : isCapitalOnlyRecovery ? <ShieldAlert size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />}
             </button>
             <button 
               onClick={(e) => {

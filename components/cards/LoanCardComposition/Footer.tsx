@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { Upload, FileEdit, Handshake, Archive, RotateCcw, Trash2 } from 'lucide-react';
+import { Upload, FileEdit, Handshake, Archive, RotateCcw, Trash2, ShieldAlert } from 'lucide-react';
 import { Loan } from '../../../types';
+import { isCapitalOnlyRecoveryLoan } from '../../../utils/capitalOnlyRecovery';
 
 interface FooterProps {
     loan: Loan;
@@ -9,6 +10,7 @@ interface FooterProps {
     hasActiveAgreement: boolean;
     isLate: boolean;
     onNewAporte?: (loan: Loan) => void;
+    onToggleCapitalOnly?: (loan: Loan) => void;
     onEdit: (e: React.MouseEvent) => void;
     onRenegotiate: (loan: Loan) => void;
     onActivate: (loan: Loan) => void;
@@ -19,8 +21,10 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({
     loan, isFullyFinalized, hasActiveAgreement, isLate,
-    onNewAporte, onEdit, onRenegotiate, onActivate, onArchive, onRestore, onDelete
+    onNewAporte, onToggleCapitalOnly, onEdit, onRenegotiate, onActivate, onArchive, onRestore, onDelete
 }) => {
+    const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
+
     return (
         <div className="pt-4 border-t border-slate-800/50">
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-3">
@@ -36,7 +40,7 @@ export const Footer: React.FC<FooterProps> = ({
                 )}
 
                 {/* Botão NOVO APORTE (Seguro) */}
-                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && onNewAporte && (
+                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && !isCapitalOnlyRecovery && onNewAporte && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onNewAporte(loan); }}
                     className="col-span-1 px-4 py-3 bg-blue-950/30 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-gradient-to-br hover:from-blue-600 hover:to-blue-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
@@ -65,6 +69,15 @@ export const Footer: React.FC<FooterProps> = ({
                    >
                       <Handshake size={14}/> 
                       <span className="text-[9px] font-black uppercase tracking-tight">Renegociar</span>
+                   </button>
+                )}
+                {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && onToggleCapitalOnly && (
+                   <button
+                    onClick={(e) => { e.stopPropagation(); onToggleCapitalOnly(loan); }}
+                    className={`col-span-2 sm:col-span-1 px-4 py-3 rounded-xl transition-all flex flex-col sm:flex-row items-center justify-center gap-2 ${isCapitalOnlyRecovery ? 'bg-rose-600 text-white border border-rose-500' : 'bg-rose-950/30 text-rose-400 border border-rose-500/20 hover:bg-rose-600 hover:text-white'}`}
+                   >
+                      <ShieldAlert size={14}/>
+                      <span className="text-[9px] font-black uppercase tracking-tight">{isCapitalOnlyRecovery ? 'Somente Capital' : 'Marcar Só Capital'}</span>
                    </button>
                 )}
             </div>

@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { ClientsPage } from '../pages/ClientsPage';
-import { Client } from '../types';
+import { Client, Loan } from '../types';
 import { filterClients } from '../domain/filters/clientFilters';
 
 interface ClientsContainerProps {
   clients: Client[];
+  loans: Loan[];
   clientSearchTerm: string;
   setClientSearchTerm: (term: string) => void;
   clientCtrl: any;
@@ -15,7 +16,7 @@ interface ClientsContainerProps {
 }
 
 export const ClientsContainer: React.FC<ClientsContainerProps> = ({ 
-  clients, clientSearchTerm, setClientSearchTerm, clientCtrl, loanCtrl, showToast, ui, isStealthMode
+  clients, loans, clientSearchTerm, setClientSearchTerm, clientCtrl, loanCtrl, showToast, ui, isStealthMode
 }) => {
   const filteredClients = useMemo(() => filterClients(clients, clientSearchTerm), [clients, clientSearchTerm]);
 
@@ -29,6 +30,7 @@ export const ClientsContainer: React.FC<ClientsContainerProps> = ({
         toggleClientSelection={clientCtrl.toggleClientSelection}
         executeBulkDelete={clientCtrl.executeBulkDelete}
         onDeleteClient={(id) => loanCtrl.openConfirmation({ type: 'DELETE_CLIENT', target: id })}
+        loans={loans}
         isStealthMode={ui.isStealthMode}
     />
   );

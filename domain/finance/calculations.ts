@@ -3,6 +3,7 @@ import { AgreementInstallment, Installment, Loan, LoanPolicy, LoanStatus } from 
 import { getDaysDiff as getDaysDiffHelper } from "../../utils/dateHelpers";
 import { financeDispatcher } from "./dispatch";
 import { CalculationResult } from "./modalities/types";
+import { isCapitalOnlyRecoveryLoan } from "../../utils/capitalOnlyRecovery";
 
 const round = (num: number): number => Math.round((num + Number.EPSILON) * 100) / 100;
 
@@ -84,6 +85,18 @@ export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: str
 // --- FACHADA DE CÁLCULO DE DÍVIDA ---
 
 export const calculateTotalDue = (loan: Loan, inst: Installment): CalculationResult => {
+  if (isCapitalOnlyRecoveryLoan(loan)) {
+    const principal = round(Number(inst.principalRemaining || 0));
+    return {
+      total: principal,
+      principal,
+      interest: 0,
+      lateFee: 0,
+      finePart: 0,
+      moraPart: 0,
+    } as CalculationResult;
+  }
+
   const policy: LoanPolicy = loan.policiesSnapshot || {
     interestRate: loan.interestRate,
     finePercent: loan.finePercent,

@@ -7,6 +7,7 @@ import { tinyService } from '../../services/tinyService';
 import { getOrCreatePortalLink } from '../../utils/portalLink';
 import { maintenanceService } from '../../services/maintenance.service';
 import type { Loan, UserProfile, CapitalSource, Client, LedgerEntry } from '../../types';
+import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -49,6 +50,10 @@ export const useLoanController = (
     }
 
     try {
+      if (!ui.editingLoan) {
+        await contractsService.assertClientCanBorrow(loan, loans);
+      }
+
       await contractsService.saveLoan(loan, activeUser, sources, ui.editingLoan);
       showToast(ui.editingLoan ? 'Contrato Atualizado!' : 'Contrato Salvo!', 'success');
       ui.closeModal();
@@ -295,6 +300,24 @@ export const useLoanController = (
     });
   };
 
+  const handleToggleCapitalOnlyRecovery = async (loan: Loan) => {
+    if (!activeUser) return;
+    const ownerId = getOwnerId();
+    if (!ownerId) {
+      showToast('Perfil invalido. Refaca o login.', 'error');
+      return;
+    }
+
+    const enabled = !isCapitalOnlyRecoveryLoan(loan);
+    try {
+      await contractsService.setCapitalOnlyRecovery(loan, enabled, activeUser);
+      showToast(enabled ? 'Contrato marcado como Somente Capital.' : 'Marcacao Somente Capital removida.', 'success');
+      await fetchFullData(ownerId);
+    } catch (e: any) {
+      showToast(e?.message || 'Falha ao atualizar Somente Capital.', 'error');
+    }
+  };
+
   const handleRecalculateAll = async () => {
     if (!activeUser) return;
     const ownerId = getOwnerId();
@@ -345,6 +368,7 @@ export const useLoanController = (
     handleGenerateLink,
     handleExportExtrato,
     handleActivateLoan,
+    handleToggleCapitalOnlyRecovery,
     handleRecalculateAll,
     openConfirmation,
     executeConfirmation,

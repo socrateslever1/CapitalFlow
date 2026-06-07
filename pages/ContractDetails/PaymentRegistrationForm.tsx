@@ -129,6 +129,10 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                         const totalDue = debtBreakdown.total;
                                         const interestDue = totalInterestDue;
 
+                                        if (forgivenessMode === 'CAPITAL_ONLY') {
+                                            if (val >= debtBreakdown.principal - 0.05) return 'Quitação sem juros: recebe apenas o capital e encerra os encargos.';
+                                            return `Recebimento sem juros: abate ${formatMoney(val, isStealthMode)} diretamente do capital.`;
+                                        }
                                         if (val >= totalDue - 0.05) return 'Quitação total: O contrato será encerrado e arquivado.';
                                         if (val >= interestDue - 0.05) {
                                             const amort = val - interestDue;
@@ -184,6 +188,20 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             }`}
                         >
                             Perdoar Total (100% Encargos)
+                        </button>
+                        <button
+                            onClick={() => {
+                                const nextMode = forgivenessMode === 'CAPITAL_ONLY' ? 'NONE' : 'CAPITAL_ONLY';
+                                setForgivenessMode(nextMode);
+                                if (nextMode === 'CAPITAL_ONLY') setAvAmount(debtBreakdown.principal.toFixed(2));
+                            }}
+                            className={`col-span-2 p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${
+                                forgivenessMode === 'CAPITAL_ONLY'
+                                    ? 'bg-blue-600 border-blue-500 text-white'
+                                    : 'bg-slate-900 border-slate-800 text-slate-500'
+                            }`}
+                        >
+                            Receber Sem Juros (Só Capital)
                         </button>
                     </div>
                 </div>

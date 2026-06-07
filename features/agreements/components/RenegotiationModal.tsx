@@ -99,7 +99,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
     const handleSimulate = () => {
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
-        const baseDebtForAgreement = interestBaseMode === 'CAPITAL_ONLY' ? principalDebt : totalDebt;
+        const baseDebtForAgreement = finalType === 'PARCELADO_SEM_JUROS' || interestBaseMode === 'CAPITAL_ONLY' ? principalDebt : totalDebt;
         const result = simulateAgreement({
             totalDebt, type: finalType, installmentsCount: installmentsCount as number, installmentValue: installmentValue as number, calculationMode,
             interestRate: interestRate as number, firstDueDate, frequency, gracePeriod: gracePeriod as number, discount: discount as number, downPayment: downPayment as number,
@@ -140,7 +140,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 downPayment: Number(downPayment) || 0,
                 calculation_mode: calculationMode,
                 interest_application_mode: interestApplicationMode,
-                interest_base_mode: interestBaseMode,
+                interest_base_mode: finalType === 'PARCELADO_SEM_JUROS' ? 'CAPITAL_ONLY' : interestBaseMode,
                 installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (Number(installmentValue) || 0) : (simulation.installments[0]?.amount || 0),
                 calculation_result: simulation.calculationResult,
                 notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(Number(downPayment) || 0)}, desconto de ${formatMoney(Number(discount) || 0)}.`
@@ -242,7 +242,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                         {calculationMode !== 'BY_VALUE_AND_COUNT' && (
                             <div className="grid grid-cols-2 gap-4">
                                 <button onClick={() => setType('PARCELADO_COM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_COM_JUROS' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Parcelado c/ Juros</p><p className="text-[9px] opacity-70">Recalcula dívida com nova taxa</p></button>
-                                <button onClick={() => setType('PARCELADO_SEM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_SEM_JUROS' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Sem Juros (Fixar)</p><p className="text-[9px] opacity-70">Congela o valor atual</p></button>
+                                <button onClick={() => setType('PARCELADO_SEM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_SEM_JUROS' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Sem Juros</p><p className="text-[9px] opacity-70">Renegocia somente o capital</p></button>
                             </div>
                         )}
 

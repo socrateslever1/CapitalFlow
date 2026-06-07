@@ -33,7 +33,7 @@ export const usePaymentController = (
   const lockRef = useRef(false);
 
   const handlePayment = async (
-    forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH',
+    forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'CAPITAL_ONLY',
     manualDate?: Date | null,
     customAmount?: number,
     realDate?: Date | null,

@@ -214,13 +214,19 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          <div className="min-w-0 flex flex-col flex-1 pr-20 sm:pr-0">
-            <div className="flex items-center gap-2">
-              <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight flex-1">
+          <div className="min-w-0 flex flex-col flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight flex-1 min-w-0 truncate">
                 {formatShortName(debtorNameSafe)}
               </h3>
             </div>
-            <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+            {(RiskBadge || Badge) && (
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                {RiskBadge}
+                {Badge}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 flex-wrap">
               <span className="bg-slate-800/50 px-1.5 rounded-sm">{getBillingCycleLabel(loan.billingCycle)}</span>
               <span className="text-slate-700">•</span>
               <div className="flex items-center gap-0.5 opacity-70">
@@ -230,11 +236,9 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
         </div>
-        <div className="absolute top-0 right-0 flex items-center gap-2">
-          {RiskBadge}
-          {Badge}
+        <div className="shrink-0 flex items-start justify-end max-w-[42%] sm:max-w-none">
           {isOverdueByDays && !isFullyFinalized && (
-             <div className="animate-in fade-in zoom-in duration-300 flex items-center gap-1.5">
+             <div className="animate-in fade-in zoom-in duration-300 flex items-center justify-end gap-1.5 flex-wrap">
                 {(loan.billing_count || 0) > 0 && (
                   <div className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-md border border-slate-700 font-black text-[7px] uppercase tracking-tighter">
                     Int: {loan.billing_count}

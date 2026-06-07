@@ -1,5 +1,14 @@
 ﻿# Implementacoes - UI NAVEGACAO MENUS
 
+## 2026-06-07
+- **Objetivo:** Corrigir sobreposicao de badges nos cards mobile e adicionar acoes uteis no container agrupado de cliente.
+- **Arquivos Alterados:**
+    - `/components/cards/LoanCardComposition/Header.tsx`: Badges de risco/status agora ficam abaixo do nome do cliente e antes da modalidade/codigo do contrato, evitando sobreposicao com o nome e com botoes no mobile.
+    - `/components/cards/ClientGroupCard.tsx`: Card agrupado refeito mantendo o resumo do cliente, corrigindo textos em portugues e adicionando acoes abaixo dos contratos: cobrar todos, cobrar vencidos, cobrar vencendo, unificar e arquivar com escolha entre todos ou contrato individual.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.
+- **Escopo:** Alteracao limitada a composicao visual e acoes do card/lista do painel.
+
 ## 2026-05-01 (Parte 2)
 - **Objetivo:** Implementar melhorias de usabilidade: persistÃªncia de estado do contrato selecionado.
 - **Arquivos Alterados:**

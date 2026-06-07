@@ -1,5 +1,14 @@
 ﻿# Implementacoes - RECEBIMENTOS COMPROVANTES
 
+## 2026-06-07
+- **Objetivo:** Simplificar o envio de comprovante pelo WhatsApp e evitar travamento por geracao antecipada de PNG/PDF.
+- **Arquivos Alterados:**
+    - `/components/modals/ReceiptModal.tsx`: O fluxo passou a ter selecao de formato (`Texto`, `PNG` ou `PDF`) e um unico botao `Enviar no WhatsApp`. PNG/PDF agora sao gerados somente no clique de envio, com escala menor no canvas; quando o navegador suporta compartilhamento de arquivo, envia o arquivo pelo compartilhamento nativo, e quando nao suporta baixa o arquivo e abre a conversa do WhatsApp com a mensagem pronta. Textos visiveis do comprovante foram corrigidos para portugues.
+- **Arquivos Criados:** Nenhum.
+- **Riscos/Observacoes:** Navegadores de desktop nao permitem anexar automaticamente um arquivo local/blob em uma conversa do WhatsApp por link `wa.me`; nesses casos o sistema baixa o comprovante e abre a conversa para anexo manual. Em navegadores com Web Share API compativel, o arquivo e entregue ao compartilhamento nativo.
+- **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.
+- **Escopo:** Alteracao limitada ao modal de comprovante e ao resumo da categoria de recebimentos/comprovantes.
+
 ## 2026-06-04
 - **Objetivo:** Corrigir consistencia do recebimento normal, evitar travamento no envio de comprovante e restaurar indicadores/IA do dashboard.
 - **Arquivos Alterados:**

@@ -44,12 +44,12 @@ export const PersonalFinanceAI: React.FC<Props> = ({ transactions, accounts, car
     }, [transactions.length, accounts.length]);
 
     return (
-        <div className="w-full bg-gradient-to-r from-slate-900 to-slate-900 border border-pink-500/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-2xl mt-8">
+        <div className="w-full bg-gradient-to-r from-slate-900 to-slate-900 border border-pink-500/30 rounded-lg p-6 sm:p-8 relative overflow-hidden shadow-2xl mt-8">
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-pink-600/10 blur-[80px] rounded-full pointer-events-none"></div>
-            
+
             <div className="flex justify-between items-start mb-6 relative z-10">
                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-pink-600 rounded-2xl text-white shadow-lg shadow-pink-600/20">
+                    <div className="p-3 bg-pink-600 rounded-lg text-white shadow-lg shadow-pink-600/20">
                         <BrainCircuit size={28}/>
                     </div>
                     <div>
@@ -60,16 +60,16 @@ export const PersonalFinanceAI: React.FC<Props> = ({ transactions, accounts, car
                     </div>
                 </div>
 
-                <button 
+                <button
                     onClick={generateInsight}
                     disabled={loading}
-                    className="p-3 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
+                    className="p-3 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-all"
                 >
                     <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
                 </button>
             </div>
 
-            <div className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800 relative z-10">
+            <div className="bg-slate-950/50 p-6 rounded-lg border border-slate-800 relative z-10">
                 {loading ? (
                     <div className="flex items-center gap-3 text-slate-500 py-4">
                         <Loader2 size={18} className="animate-spin text-pink-500"/>

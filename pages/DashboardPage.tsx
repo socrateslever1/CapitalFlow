@@ -89,7 +89,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="md:hidden bg-slate-900 p-1 rounded-xl border border-slate-800 flex relative overflow-hidden">
+      <div className="md:hidden bg-slate-900 p-1 rounded-lg border border-slate-800 flex relative overflow-hidden">
           <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
             <Briefcase size={14} /> Contratos
           </button>
@@ -130,8 +130,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
               ) : (
                   // Empty State Otimizado
-                  <div className="flex flex-col items-center justify-center py-20 px-6 bg-slate-900/50 border border-dashed border-slate-800 rounded-2xl text-center mt-4">
-                      <div className="w-20 h-20 bg-slate-900 rounded-2xl flex items-center justify-center mb-6 shadow-2xl shadow-black/50 border border-slate-800 rotate-3 transition-transform hover:rotate-6">
+                  <div className="flex flex-col items-center justify-center py-20 px-6 bg-slate-900/50 border border-dashed border-slate-800 rounded-lg text-center mt-4">
+                      <div className="w-20 h-20 bg-slate-900 rounded-lg flex items-center justify-center mb-6 shadow-2xl shadow-black/50 border border-slate-800 rotate-3 transition-transform hover:rotate-6">
                           <BarChart3 className="w-8 h-8 text-slate-500" />
                       </div>
                       <h3 className="text-white font-black uppercase tracking-tight text-lg mb-2">Nenhum contrato encontrado</h3>
@@ -244,7 +244,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <ProfitCard variant="compact" balance={stats.interestBalance} onWithdraw={() => ui.openModal('WITHDRAW')} isStealthMode={isStealthMode} />
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
                   <div className="flex items-center justify-between w-full mb-6">
                       <h3 className="card-title font-black uppercase tracking-[0.15em] text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">

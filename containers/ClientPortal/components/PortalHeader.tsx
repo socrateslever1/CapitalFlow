@@ -10,8 +10,8 @@ interface PortalHeaderProps {
     handleLogout: () => void;
 }
 
-export const PortalHeader: React.FC<PortalHeaderProps> = ({ 
-    loggedClient, selectedLoanId, setSelectedLoanId, clientContracts, handleLogout 
+export const PortalHeader: React.FC<PortalHeaderProps> = ({
+    loggedClient, selectedLoanId, setSelectedLoanId, clientContracts, handleLogout
 }) => {
     return (
         <div className="bg-slate-950 border-b border-slate-800 shrink-0 relative z-20">
@@ -25,7 +25,7 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
                         <p className="text-white font-bold text-sm truncate max-w-[150px]">{loggedClient.name.split(' ')[0]}</p>
                     </div>
                 </div>
-                <button onClick={handleLogout} className="p-2.5 bg-slate-900 text-slate-500 border border-slate-800 rounded-xl hover:text-rose-500 hover:border-rose-500/30 transition-colors">
+                <button onClick={handleLogout} className="p-2.5 bg-slate-900 text-slate-500 border border-slate-800 rounded-lg hover:text-rose-500 hover:border-rose-500/30 transition-colors">
                     <LogOut size={16}/>
                 </button>
             </div>
@@ -34,10 +34,10 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
             <div className="px-5 pb-5">
                 <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2 block ml-1">Contrato Selecionado</label>
                 <div className="relative group">
-                    <select 
+                    <select
                         value={selectedLoanId}
                         onChange={(e) => setSelectedLoanId(e.target.value)}
-                        className="w-full appearance-none bg-slate-900 border border-slate-800 rounded-xl pl-4 pr-10 py-3 text-white text-xs font-bold uppercase outline-none focus:border-blue-500 appearance-none cursor-pointer hover:bg-slate-800 transition-colors shadow-sm"
+                        className="w-full appearance-none bg-slate-900 border border-slate-800 rounded-lg pl-4 pr-10 py-3 text-white text-xs font-bold uppercase outline-none focus:border-blue-500 appearance-none cursor-pointer hover:bg-slate-800 transition-colors shadow-sm"
                         disabled={clientContracts.length <= 1}
                     >
                         {clientContracts.map((c) => {

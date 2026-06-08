@@ -96,7 +96,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
     if (!loan) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 border border-slate-800">
+                <div className="w-16 h-16 bg-slate-900 rounded-lg flex items-center justify-center mb-4 border border-slate-800">
                     <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                 </div>
                 <h3 className="text-white font-black uppercase tracking-tight">Carregando contrato...</h3>
@@ -184,25 +184,25 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                             />
                         </div>
                     ) : (
-                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-6">
                             <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
                                 <TrendingUp size={16} className="text-blue-500"/> Resumo Financeiro
                             </h3>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
+                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-lg">
                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Principal Restante</p>
                                     <p className="text-xl font-black text-white">{formatMoney(debtBreakdown.principal, isStealthMode)}</p>
                                 </div>
-                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
+                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-lg">
                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Juros Acumulados</p>
                                     <p className="text-xl font-black text-blue-400">{formatMoney(debtBreakdown.interest, isStealthMode)}</p>
                                 </div>
-                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl">
+                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-lg">
                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Multa/Mora</p>
                                     <p className="text-xl font-black text-rose-400">{formatMoney(debtBreakdown.fine + debtBreakdown.dailyMora, isStealthMode)}</p>
                                 </div>
-                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl ring-2 ring-emerald-500/20">
+                                <div className="bg-slate-950 border border-slate-800 p-4 rounded-lg ring-2 ring-emerald-500/20">
                                     <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Atual</p>
                                     <p className="text-xl font-black text-emerald-400">{formatMoney(debtBreakdown.total, isStealthMode)}</p>
                                 </div>
@@ -221,7 +221,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                     </div>
                                     <div className="space-y-3">
                                         {delayDetails.items.map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-950/50 border border-slate-800 rounded-xl group hover:border-rose-500/30 transition-all">
+                                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-950/50 border border-slate-800 rounded-lg group hover:border-rose-500/30 transition-all">
                                                 <div className="flex flex-col">
                                                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Parcela {item.number} • {new Date(item.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
                                                     <span className="text-[11px] font-black text-white uppercase leading-none italic">Vencimento {new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
@@ -241,36 +241,36 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                     )}
 
                     {/* SEÇÃO 4 — AÇÕES RÁPIDAS */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4">
                         <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
                             <ShieldCheck size={16} className="text-purple-500"/> Ações do Contrato
                         </h3>
                         <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-[9px] font-black uppercase text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/50 transition-all">
+                            <button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-[9px] font-black uppercase text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/50 transition-all">
                                 <MessageSquare size={14}/> WhatsApp
                             </button>
-                            <button onClick={() => onEdit(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-blue-950/30 border border-blue-500/30 rounded-xl text-[9px] font-black uppercase text-blue-400 hover:text-blue-300 hover:bg-blue-900/50 transition-all">
+                            <button onClick={() => onEdit(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-blue-950/30 border border-blue-500/30 rounded-lg text-[9px] font-black uppercase text-blue-400 hover:text-blue-300 hover:bg-blue-900/50 transition-all">
                                 <FileEdit size={14}/> Editar
                             </button>
-                            <button onClick={() => onRenegotiate(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/50 transition-all">
+                            <button onClick={() => onRenegotiate(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-lg text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/50 transition-all">
                                 <RefreshCcw size={14}/> Renegociar
                             </button>
-                            <button onClick={() => onGenerateContract(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-purple-950/30 border border-purple-500/30 rounded-xl text-[9px] font-black uppercase text-purple-400 hover:text-purple-300 hover:bg-purple-900/50 transition-all">
+                            <button onClick={() => onGenerateContract(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-purple-950/30 border border-purple-500/30 rounded-lg text-[9px] font-black uppercase text-purple-400 hover:text-purple-300 hover:bg-purple-900/50 transition-all">
                                 <FileText size={14}/> Gerar
                             </button>
-                            <button onClick={() => onExportExtrato(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-amber-950/30 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase text-amber-400 hover:text-amber-300 hover:bg-amber-900/50 transition-all">
+                            <button onClick={() => onExportExtrato(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-amber-950/30 border border-amber-500/30 rounded-lg text-[9px] font-black uppercase text-amber-400 hover:text-amber-300 hover:bg-amber-900/50 transition-all">
                                 <Download size={14}/> Extrato
                             </button>
                             {!loan.isArchived ? (
-                                <button onClick={() => onArchive(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-orange-950/30 border border-orange-500/30 rounded-xl text-[9px] font-black uppercase text-orange-400 hover:text-orange-300 hover:bg-orange-900/50 transition-all">
+                                <button onClick={() => onArchive(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-orange-950/30 border border-orange-500/30 rounded-lg text-[9px] font-black uppercase text-orange-400 hover:text-orange-300 hover:bg-orange-900/50 transition-all">
                                     <ShieldCheck size={14}/> Arquivar
                                 </button>
                             ) : (
-                                <button onClick={() => onRestore(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-[9px] font-black uppercase text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/50 transition-all">
+                                <button onClick={() => onRestore(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-[9px] font-black uppercase text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/50 transition-all">
                                     <ShieldCheck size={14}/> Restaurar
                                 </button>
                             )}
-                            <button onClick={() => onDelete(loan)} className="col-span-2 flex items-center justify-center gap-1.5 p-3 bg-rose-950/30 border border-rose-500/30 rounded-xl text-[9px] font-black uppercase text-rose-400 hover:text-rose-300 hover:bg-rose-900/50 transition-all">
+                            <button onClick={() => onDelete(loan)} className="col-span-2 flex items-center justify-center gap-1.5 p-3 bg-rose-950/30 border border-rose-500/30 rounded-lg text-[9px] font-black uppercase text-rose-400 hover:text-rose-300 hover:bg-rose-900/50 transition-all">
                                 <AlertTriangle size={14}/> Excluir
                             </button>
                         </div>
@@ -315,7 +315,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
                     {/* ATALHOS RÁPIDOS MOBILE */}
                     <div className="md:hidden grid grid-cols-1 gap-4">
-                        <button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-2 p-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase text-slate-400">
+                        <button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-2 p-4 bg-slate-900 border border-slate-800 rounded-lg text-[10px] font-black uppercase text-slate-400">
                             <MessageSquare size={16}/> WhatsApp
                         </button>
                     </div>

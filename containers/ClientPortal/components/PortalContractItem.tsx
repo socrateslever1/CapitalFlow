@@ -86,7 +86,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
                 <button
                     onClick={onPay}
                     disabled={isPaidOff}
-                    className={`py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all ${
+                    className={`py-2.5 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all ${
                         isPaidOff ? 'bg-slate-800 text-slate-500 cursor-not-allowed' :
                         hasLateInstallments ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20' :
                         'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
@@ -96,7 +96,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
                 </button>
                 <button
                     onClick={onChat}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
+                    className="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
                 >
                     <MessageCircle size={14}/> Ajuda
                 </button>

@@ -13,7 +13,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-4">
-      <div className="md:hidden bg-slate-900 p-1 rounded-xl border border-slate-800 flex relative">
+      <div className="md:hidden bg-slate-900 p-1 rounded-lg border border-slate-800 flex relative">
           <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${mobileDashboardTab === 'CONTRACTS' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Contratos</button>
           <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${mobileDashboardTab === 'BALANCE' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Balanço</button>
       </div>

@@ -86,7 +86,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     }
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[60px] rounded-full"></div>
 
             <div className="relative z-10">
@@ -117,9 +117,9 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
 
                 {/* PREVIEW DINÂMICO */}
                 {safeParse(avAmount) > 0 && (
-                    <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-2xl space-y-4 animate-in zoom-in-95 duration-300 mb-8">
+                    <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-lg space-y-4 animate-in zoom-in-95 duration-300 mb-8">
                         <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-500 shrink-0">
+                            <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center text-blue-500 shrink-0">
                                 <TrendingUp size={20} />
                             </div>
                             <div>
@@ -164,7 +164,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => setForgivenessMode(forgivenessMode === 'FINE_ONLY' ? 'NONE' : 'FINE_ONLY')}
-                            className={`p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${
+                            className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
                                 forgivenessMode === 'FINE_ONLY'
                                     ? 'bg-rose-600 border-rose-500 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-500'
@@ -174,7 +174,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                         </button>
                         <button
                             onClick={() => setForgivenessMode(forgivenessMode === 'INTEREST_ONLY' ? 'NONE' : 'INTEREST_ONLY')}
-                            className={`p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${
+                            className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
                                 forgivenessMode === 'INTEREST_ONLY'
                                     ? 'bg-orange-600 border-orange-500 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-500'
@@ -184,7 +184,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                         </button>
                         <button
                             onClick={() => setForgivenessMode(forgivenessMode === 'BOTH' ? 'NONE' : 'BOTH')}
-                            className={`col-span-2 p-3 rounded-xl border text-[9px] font-black uppercase transition-all ${
+                            className={`col-span-2 p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
                                 forgivenessMode === 'BOTH'
                                     ? 'bg-emerald-600 border-emerald-500 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-500'
@@ -196,7 +196,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
                         <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
                             Data Recebimento
                         </label>
@@ -207,7 +207,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
                         />
                     </div>
-                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
                         <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
                             Próximo Vencimento
                         </label>
@@ -221,14 +221,14 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                 </div>
 
                 {showInterestDecision && (
-                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-8 space-y-3">
+                    <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-8 space-y-3">
                         <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
                             Saldo de Juros Restante
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 onClick={() => setInterestHandling('KEEP_PENDING')}
-                                className={`p-3 rounded-xl border text-[10px] font-black uppercase transition-all ${
+                                className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${
                                     interestHandling === 'KEEP_PENDING'
                                         ? 'bg-blue-600 border-blue-500 text-white'
                                         : 'bg-slate-900 border-slate-800 text-slate-500'
@@ -238,7 +238,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             </button>
                             <button
                                 onClick={() => setInterestHandling('CAPITALIZE')}
-                                className={`p-3 rounded-xl border text-[10px] font-black uppercase transition-all ${
+                                className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${
                                     interestHandling === 'CAPITALIZE'
                                         ? 'bg-rose-600 border-rose-500 text-white'
                                         : 'bg-slate-900 border-slate-800 text-slate-500'
@@ -253,7 +253,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                 <button
                     onClick={handleConfirm}
                     disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0}
-                    className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase text-sm shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-sm shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isProcessing ? (
                         <Loader2 className="animate-spin" size={20} />

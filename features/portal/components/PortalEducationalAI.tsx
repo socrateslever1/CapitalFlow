@@ -34,7 +34,7 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
         <div className="mt-8 pt-8 border-t border-slate-800 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-pink-600 rounded-xl text-white shadow-lg shadow-pink-900/20">
+                    <div className="p-2.5 bg-pink-600 rounded-lg text-white shadow-lg shadow-pink-900/20">
                         <HeartPulse size={20}/>
                     </div>
                     <div>
@@ -49,11 +49,11 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
                 </button>
             </div>
 
-            <div className="bg-slate-950/50 p-6 rounded-2xl border border-slate-800 relative overflow-hidden group">
+            <div className="bg-slate-950/50 p-6 rounded-lg border border-slate-800 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                     <Trophy size={64} className="text-white"/>
                 </div>
-                
+
                 {loading && !result ? (
                     <div className="py-8 flex flex-col items-center justify-center gap-3">
                         <Loader2 className="animate-spin text-pink-500" size={24}/>
@@ -78,7 +78,7 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
                 )}
             </div>
 
-            <div className="bg-blue-600/5 p-4 rounded-2xl border border-blue-500/10 text-center">
+            <div className="bg-blue-600/5 p-4 rounded-lg border border-blue-500/10 text-center">
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">
                     Educação para o Crédito Consciente
                 </p>

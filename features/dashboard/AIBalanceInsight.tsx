@@ -37,12 +37,12 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
     useEffect(() => { if (loans.length > 0) runAudit(); }, []);
 
     return (
-        <div className="w-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col shadow-2xl mt-8 group hover:border-blue-500/30 transition-all duration-500">
+        <div className="w-full bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col shadow-2xl mt-8 group hover:border-blue-500/30 transition-all duration-500">
             <div className="bg-gradient-to-r from-blue-600/10 to-indigo-600/10 p-6 border-b border-slate-800 flex items-center justify-between relative overflow-hidden">
                 <div className="absolute -top-10 -right-10 w-24 h-24 bg-blue-500 rounded-full blur-[40px] opacity-10 group-hover:opacity-20 transition-opacity"></div>
-                
+
                 <div className="flex items-center gap-4 relative z-10">
-                    <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-lg shadow-blue-900/40 group-hover:scale-110 transition-transform duration-500">
+                    <div className="p-3 bg-blue-600 rounded-lg text-white shadow-lg shadow-blue-900/40 group-hover:scale-110 transition-transform duration-500">
                         <BrainCircuit size={20}/>
                     </div>
                     <div>
@@ -52,10 +52,10 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                         </p>
                     </div>
                 </div>
-                <button 
-                    onClick={runAudit} 
-                    disabled={isAnalyzing} 
-                    className="p-2.5 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-700/50 active:scale-95 relative z-10"
+                <button
+                    onClick={runAudit}
+                    disabled={isAnalyzing}
+                    className="p-2.5 bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-all border border-slate-700/50 active:scale-95 relative z-10"
                 >
                     {isAnalyzing ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16}/>}
                 </button>
@@ -73,7 +73,7 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                 ) : (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
                         <div className="grid grid-cols-2 gap-4 mb-6">
-                            <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 group/item hover:border-emerald-500/30 transition-all">
+                            <div className="bg-slate-900/80 p-4 rounded-lg border border-slate-800 group/item hover:border-emerald-500/30 transition-all">
                                 <p className="text-[8px] font-black text-slate-500 uppercase mb-2 tracking-widest">Score de Saúde</p>
                                 <div className="flex items-center gap-2">
                                     <div className={`p-1.5 rounded-lg ${result?.riskScore && result.riskScore > 70 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
@@ -82,7 +82,7 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                                     <span className="text-sm font-black text-white">{result?.riskScore || '---'}<span className="text-[10px] text-slate-500 ml-0.5">/100</span></span>
                                 </div>
                             </div>
-                            <div className="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 group/item hover:border-amber-500/30 transition-all">
+                            <div className="bg-slate-900/80 p-4 rounded-lg border border-slate-800 group/item hover:border-amber-500/30 transition-all">
                                 <p className="text-[8px] font-black text-slate-500 uppercase mb-2 tracking-widest">Status de Risco</p>
                                 <div className="flex items-center gap-2">
                                     <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
@@ -93,7 +93,7 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                             </div>
                         </div>
                         <div className="prose prose-invert max-w-none">
-                            <p className="text-sm text-slate-300 leading-relaxed font-medium whitespace-pre-wrap bg-slate-900/40 p-4 rounded-2xl border border-slate-800/50 italic">
+                            <p className="text-sm text-slate-300 leading-relaxed font-medium whitespace-pre-wrap bg-slate-900/40 p-4 rounded-lg border border-slate-800/50 italic">
                                 "{result?.analysis || result?.feedback || "Aguardando próxima auditoria..."}"
                             </p>
                         </div>

@@ -62,16 +62,16 @@ export const LeadsPage: React.FC<{ activeUser: any; goBack?: () => void; isSteal
   return (
     <div className="space-y-6 animate-in fade-in font-sans pb-24">
       <div className="flex flex-col md:flex-row justify-end items-start md:items-center gap-4">
-        <div className="bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+        <div className="bg-slate-900 px-4 py-2 rounded-lg border border-slate-800">
            <span className="text-sm font-semibold uppercase tracking-widest text-white">{leads.filter(l => l.status === 'NOVO').length} Novos</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {leads.map(lead => (
-          <div id={lead.id} key={lead.id} className={`bg-slate-900 border ${lead.status === 'NOVO' ? 'border-blue-500/50 shadow-lg shadow-blue-500/10' : 'border-slate-800'} p-5 rounded-2xl relative overflow-hidden group transition-all hover:border-slate-700`}>
+          <div id={lead.id} key={lead.id} className={`bg-slate-900 border ${lead.status === 'NOVO' ? 'border-blue-500/50 shadow-lg shadow-blue-500/10' : 'border-slate-800'} p-5 rounded-lg relative overflow-hidden group transition-all hover:border-slate-700`}>
              {lead.status === 'NOVO' && <div className="absolute top-0 right-0 bg-blue-600 text-white text-[9px] font-black uppercase px-3 py-1 rounded-bl-xl">Novo</div>}
-             
+
              <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                    <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400">
@@ -90,19 +90,19 @@ export const LeadsPage: React.FC<{ activeUser: any; goBack?: () => void; isSteal
              </div>
 
              <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => openWhatsApp(lead)}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2 transition-all"
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-sm flex items-center justify-center gap-2 transition-all"
                 >
                    <MessageCircle size={14}/> Conversar
                 </button>
-                
+
                 {lead.status !== 'CONVERTIDO' && lead.status !== 'REJEITADO' && (
                   <>
-                    <button onClick={() => handleStatusChange(lead.id, 'CONVERTIDO')} className="p-3 bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white rounded-xl transition-all" title="Converter">
+                    <button onClick={() => handleStatusChange(lead.id, 'CONVERTIDO')} className="p-3 bg-slate-800 hover:bg-blue-600 text-slate-400 hover:text-white rounded-lg transition-all" title="Converter">
                        <CheckCircle2 size={16}/>
                     </button>
-                    <button onClick={() => handleStatusChange(lead.id, 'REJEITADO')} className="p-3 bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white rounded-xl transition-all" title="Rejeitar">
+                    <button onClick={() => handleStatusChange(lead.id, 'REJEITADO')} className="p-3 bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white rounded-lg transition-all" title="Rejeitar">
                        <XCircle size={16}/>
                     </button>
                   </>

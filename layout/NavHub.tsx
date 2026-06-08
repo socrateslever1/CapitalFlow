@@ -59,9 +59,9 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
         }
     };
 
-    const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab => 
-        tab !== 'DASHBOARD' && 
-        tab !== 'TEAM' && 
+    const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab =>
+        tab !== 'DASHBOARD' &&
+        tab !== 'TEAM' &&
         tab !== 'LEADS' &&
         tab !== 'ACQUISITION' &&
         tab !== 'AGENDA' &&
@@ -69,11 +69,11 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
     ), 'REPORTS' as AppTab];
 
     return (
-        <div 
+        <div
             className="fixed inset-0 z-[2000] bg-slate-950/40 backdrop-blur-sm hidden md:flex justify-start animate-in fade-in duration-200"
             onClick={onClose}
         >
-            <div 
+            <div
                 className="w-full max-w-sm h-full bg-slate-900 border-r border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-left duration-300"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -85,32 +85,32 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
                         </div>
                         <span className="text-white">Menu</span> <span className="text-blue-500">Principal</span>
                     </h2>
-                    <button 
-                        onClick={onClose} 
+                    <button
+                        onClick={onClose}
                         className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-all active:scale-95"
                     >
                         <X size={20}/>
                     </button>
                 </div>
-                
+
                 {/* Lista com scroll */}
-                <div 
+                <div
                     ref={scrollRef}
                     onPointerDown={handlePointerDown}
                     onPointerUp={handlePointerUp}
                     onPointerMove={handlePointerMove}
-                    className={`flex-1 overflow-y-auto overscroll-contain p-4 space-y-2 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`} 
+                    className={`flex-1 overflow-y-auto overscroll-contain p-4 space-y-2 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                     style={{ WebkitOverflowScrolling: 'touch' }}
                 >
                     {displayOrder.map(tab => {
                         const meta = getTabMeta(tab);
                         return (
-                            <button 
-                                key={tab} 
+                            <button
+                                key={tab}
                                 onClick={() => {
                                     if (!hasDragged) onNavigate(tab);
-                                }} 
-                                className={`w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-2xl transition-all group flex items-center gap-4 relative active:scale-95 ${meta.hover}`}
+                                }}
+                                className={`w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-lg transition-all group flex items-center gap-4 relative active:scale-95 ${meta.hover}`}
                             >
                                 <div className={`p-3 bg-slate-900 rounded-full ${meta.color} group-hover:scale-110 transition-transform`}>
                                     {meta.icon}
@@ -124,25 +124,25 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
                             </button>
                         );
                     })}
-                    
+
                     {/* Atalhos fixos de utilitários */}
                     <div className="pt-4 mt-4 border-t border-slate-800/50 space-y-2">
-                        {/* 
+                        {/*
                         AGENDA - REMOVIDA TEMPORARIAMENTE
-                        <button onClick={() => { if (!hasDragged) onNavigate('AGENDA' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-2xl transition-all group flex items-center gap-4 active:scale-95">
+                        <button onClick={() => { if (!hasDragged) onNavigate('AGENDA' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-lg transition-all group flex items-center gap-4 active:scale-95">
                             <div className="p-3 bg-slate-900 rounded-full text-purple-500 group-hover:scale-110 transition-transform">
                                 <Calendar size={20}/>
                             </div>
                             <span className="font-black text-white uppercase text-[11px] tracking-widest">Agenda</span>
                         </button>
                         */}
-                        <button onClick={() => { if (!hasDragged) onNavigate('SIMULATOR' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-2xl transition-all group flex items-center gap-4 active:scale-95">
+                        <button onClick={() => { if (!hasDragged) onNavigate('SIMULATOR' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-lg transition-all group flex items-center gap-4 active:scale-95">
                             <div className="p-3 bg-slate-900 rounded-full text-blue-400 group-hover:scale-110 transition-transform">
                                 <Calculator size={20}/>
                             </div>
                             <span className="font-black text-white uppercase text-[11px] tracking-widest">Simulador</span>
                         </button>
-                        <button onClick={() => { if (!hasDragged) onNavigate('FLOW' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-2xl transition-all group flex items-center gap-4 active:scale-95">
+                        <button onClick={() => { if (!hasDragged) onNavigate('FLOW' as any); }} className="w-full p-4 bg-slate-950/50 hover:bg-slate-800 border border-slate-800/50 rounded-lg transition-all group flex items-center gap-4 active:scale-95">
                             <div className="p-3 bg-slate-900 rounded-full text-emerald-400 group-hover:scale-110 transition-transform">
                                 <ArrowRightLeft size={20}/>
                             </div>

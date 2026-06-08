@@ -12,7 +12,7 @@ const DEFAULT_TEMPLATE = "Olá! Me chamo {NOME}. Vim pela campanha {CAMPANHA}. T
 
 export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null, goBack?: () => void, isStealthMode?: boolean }> = ({ activeUser, goBack, isStealthMode }) => {
   const [activeMode, setActiveMode] = useState<'CHAT' | 'CAMPAIGNS'>('CHAT');
-  
+
   // --- STATE PARA CAMPANHAS ---
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [view, setView] = useState<'LIST' | 'FORM'>('LIST');
@@ -45,7 +45,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
     const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [inputText, setInputText] = useState('');
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +59,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
   useEffect(() => {
     if (activeMode === 'CHAT') {
-      const filtered = leads.filter(l => 
+      const filtered = leads.filter(l =>
         (l.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (l.whatsapp || '').includes(searchTerm) ||
         (l.cpf || '').includes(searchTerm)
@@ -80,7 +80,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || !selectedSession || sending) return;
-    
+
     try {
       await sendMessage(inputText);
       setInputText('');
@@ -154,7 +154,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
       alert('Preencha o nome da campanha primeiro.');
       return;
     }
-    
+
     setGeneratingImage(true);
     try {
       const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -162,9 +162,9 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
         throw new Error("Chave da API do Gemini não configurada.");
       }
       const ai = new GoogleGenAI({ apiKey: googleApiKey });
-      const prompt = `Create a professional, clean, and trustworthy social media image for a financial service campaign named "${form.name}". 
-      Text to include: "Simule seu crédito" and "Escolha o valor e fale no WhatsApp". 
-      Style: Commercial, financial, blue and white tones, high quality. 
+      const prompt = `Create a professional, clean, and trustworthy social media image for a financial service campaign named "${form.name}".
+      Text to include: "Simule seu crédito" and "Escolha o valor e fale no WhatsApp".
+      Style: Commercial, financial, blue and white tones, high quality.
       Aspect ratio 1:1.`;
 
       const response = await ai.models.generateContent({
@@ -211,7 +211,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
       .replace('{VALOR}', campaign.values[0].toString())
       .replace('{LINK}', campaign.link)
       .replace('{CAMPANHA}', campaign.name);
-    
+
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -233,14 +233,14 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
           </div>
         </div>
 
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
-          <button 
+        <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+          <button
             onClick={() => setActiveMode('CHAT')}
             className={`px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-widest transition-all ${activeMode === 'CHAT' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
           >
             Atendimento
           </button>
-          <button 
+          <button
             onClick={() => setActiveMode('CAMPAIGNS')}
             className={`px-4 py-2 rounded-lg text-sm font-semibold uppercase tracking-widest transition-all ${activeMode === 'CAMPAIGNS' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}
           >
@@ -252,14 +252,14 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
       {activeMode === 'CHAT' ? (
         <div className="flex-1 flex gap-6 overflow-hidden">
           {/* SIDEBAR DE LEADS */}
-          <div className="w-full md:w-80 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="w-full md:w-80 flex flex-col bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
             <div className="p-4 border-b border-slate-800">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
-                <input 
+                <input
                   type="text"
                   placeholder="Buscar lead..."
-                  className="w-full bg-slate-950 border border-slate-800 pl-10 pr-4 py-2 rounded-xl text-sm font-medium text-white outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 pl-10 pr-4 py-2 rounded-lg text-sm font-medium text-white outline-none focus:border-blue-500 transition-colors"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                 />
@@ -281,7 +281,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                   <button
                     key={lead.id}
                     onClick={() => handleSelectLead(lead)}
-                    className={`w-full p-4 rounded-2xl text-left transition-all border relative overflow-hidden ${selectedSession?.id === lead.id ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'}`}
+                    className={`w-full p-4 rounded-lg text-left transition-all border relative overflow-hidden ${selectedSession?.id === lead.id ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'}`}
                   >
                     {lead.status === 'NOVO' && (
                       <div className="absolute top-0 right-0 bg-amber-500 text-black text-[10px] font-black uppercase px-2 py-0.5 rounded-bl-lg shadow-sm">
@@ -313,7 +313,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
           </div>
 
           {/* ÁREA DE CHAT */}
-          <div className="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+          <div className="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-xl">
             {selectedSession ? (
               <>
                 {/* Header do Chat */}
@@ -335,7 +335,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                 </div>
 
                 {/* Mensagens */}
-                <div 
+                <div
                   ref={scrollRef}
                   className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-950/20"
                 >
@@ -352,24 +352,24 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                     messages.map((msg, idx) => {
                       const isOperator = msg.sender === 'OPERATOR';
                       return (
-                        <div 
+                        <div
                           key={msg.id || idx}
                           className={`flex ${isOperator ? 'justify-end' : 'justify-start'}`}
                         >
-                          <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-medium shadow-sm ${isOperator ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}`}>
+                          <div className={`max-w-[80%] p-4 rounded-lg text-sm font-medium shadow-sm ${isOperator ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}`}>
                             {msg.message?.startsWith('[ANEXO]') ? (
                               <div className="space-y-2">
                                 {msg.message.split(' ')[1].match(/\.(jpeg|jpg|gif|png)$/) ? (
-                                  <img 
-                                    src={msg.message.split(' ')[1]} 
-                                    alt="Anexo" 
+                                  <img
+                                    src={msg.message.split(' ')[1]}
+                                    alt="Anexo"
                                     className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                     onClick={() => window.open(msg.message.split(' ')[1], '_blank')}
                                   />
                                 ) : (
-                                  <a 
-                                    href={msg.message.split(' ')[1]} 
-                                    target="_blank" 
+                                  <a
+                                    href={msg.message.split(' ')[1]}
+                                    target="_blank"
                                     rel="noreferrer"
                                     className="flex items-center gap-2 underline"
                                   >
@@ -393,24 +393,24 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                 {/* Input de Mensagem */}
                 <div className="p-4 bg-slate-950/50 border-t border-slate-800">
                   <div className="flex items-end gap-3">
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
                       onChange={handleFileUpload}
                     />
-                    <button 
+                    <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-500 rounded-xl transition-colors border border-slate-800 disabled:opacity-50"
+                      className="p-3 bg-slate-900 hover:bg-slate-800 text-slate-500 rounded-lg transition-colors border border-slate-800 disabled:opacity-50"
                     >
                       {uploading ? <Loader2 className="animate-spin" size={20}/> : <Paperclip size={20}/>}
                     </button>
                     <div className="flex-1 relative">
-                      <textarea 
+                      <textarea
                         rows={1}
                         placeholder="Digite sua mensagem..."
-                        className="w-full bg-slate-900 border border-slate-800 p-3 rounded-xl text-white outline-none focus:border-blue-500 transition-colors text-sm font-medium resize-none max-h-32"
+                        className="w-full bg-slate-900 border border-slate-800 p-3 rounded-lg text-white outline-none focus:border-blue-500 transition-colors text-sm font-medium resize-none max-h-32"
                         value={inputText}
                         onChange={e => setInputText(e.target.value)}
                         onKeyDown={e => {
@@ -421,10 +421,10 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                         }}
                       />
                     </div>
-                    <button 
+                    <button
                       onClick={handleSendMessage}
                       disabled={!inputText.trim() || sending}
-                      className="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
+                      className="p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95"
                     >
                       {sending ? <Loader2 className="animate-spin" size={20}/> : <Send size={20}/>}
                     </button>
@@ -433,7 +433,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-slate-500 p-10 text-center">
-                <div className="w-24 h-24 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-center mb-6 shadow-2xl">
+                <div className="w-24 h-24 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-center mb-6 shadow-2xl">
                   <MessageCircle size={40} className="opacity-20"/>
                 </div>
                 <h3 className="text-white font-black uppercase tracking-tight text-lg mb-2">Selecione um Lead</h3>
@@ -458,11 +458,11 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                   <p className="text-sm text-slate-500 font-medium uppercase tracking-widest">Gerencie seus links de captação</p>
                 </div>
               </div>
-              
+
               {view === 'LIST' && (
-                <button 
+                <button
                   onClick={() => { setForm({ values: DEFAULT_VALUES, messageTemplate: DEFAULT_TEMPLATE, status: 'ACTIVE' }); setGeneratedImage(null); setView('FORM'); }}
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl font-bold uppercase text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold uppercase text-xs flex items-center gap-2 shadow-lg shadow-blue-600/20"
                 >
                   <Plus size={16}/> Nova Campanha
                 </button>
@@ -470,7 +470,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
             </div>
 
             {view === 'FORM' ? (
-              <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-3xl mx-auto shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg max-w-3xl mx-auto shadow-xl">
                 <div className="flex items-center gap-2 text-white font-bold uppercase text-sm border-b border-slate-800 pb-4 mb-6">
                   <LinkIcon size={16} className="text-blue-500"/>
                   <h2>{form.id ? 'Editar Campanha' : 'Nova Campanha'}</h2>
@@ -480,9 +480,9 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block">Nome (utm_campaign) *</label>
-                      <input 
-                        type="text" 
-                        className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
+                      <input
+                        type="text"
+                        className="w-full bg-slate-950 border border-slate-800 p-4 rounded-lg text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
                         placeholder="Ex: verao_2024"
                         value={form.name || ''}
                         onChange={e => setForm({...form, name: e.target.value})}
@@ -490,9 +490,9 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block">Origem (utm_source) *</label>
-                      <input 
-                        type="text" 
-                        className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
+                      <input
+                        type="text"
+                        className="w-full bg-slate-950 border border-slate-800 p-4 rounded-lg text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
                         placeholder="Ex: instagram"
                         value={form.source || ''}
                         onChange={e => setForm({...form, source: e.target.value})}
@@ -502,9 +502,9 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block">Descrição</label>
-                    <input 
-                      type="text" 
-                      className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
+                    <input
+                      type="text"
+                      className="w-full bg-slate-950 border border-slate-800 p-4 rounded-lg text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
                       value={form.description || ''}
                       onChange={e => setForm({...form, description: e.target.value})}
                     />
@@ -512,9 +512,9 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block">Valores Disponíveis (separados por vírgula)</label>
-                    <input 
-                      type="text" 
-                      className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
+                    <input
+                      type="text"
+                      className="w-full bg-slate-950 border border-slate-800 p-4 rounded-lg text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold"
                       value={form.values?.join(', ') || ''}
                       onChange={e => setForm({...form, values: e.target.value.split(',').map(v => Number(v.trim())).filter(n => !isNaN(n))})}
                     />
@@ -522,8 +522,8 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
                   <div>
                     <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block">Template de Mensagem WhatsApp</label>
-                    <textarea 
-                      className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold h-24"
+                    <textarea
+                      className="w-full bg-slate-950 border border-slate-800 p-4 rounded-lg text-white outline-none focus:border-blue-500 transition-colors text-sm font-bold h-24"
                       value={form.messageTemplate || ''}
                       onChange={e => setForm({...form, messageTemplate: e.target.value})}
                     />
@@ -533,7 +533,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                   <div className="border-t border-slate-800 pt-6">
                     <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-2 block">Imagem da Campanha</label>
                     <div className="flex items-start gap-4">
-                        <div className="w-32 h-32 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center overflow-hidden">
+                        <div className="w-32 h-32 bg-slate-950 rounded-lg border border-slate-800 flex items-center justify-center overflow-hidden">
                           {generatedImage || form.imageUrl ? (
                             <img src={generatedImage || form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
                           ) : (
@@ -541,7 +541,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                           )}
                         </div>
                         <div className="flex-1">
-                          <button 
+                          <button
                             onClick={handleGenerateImage}
                             disabled={generatingImage || !form.name}
                             className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold uppercase text-xs flex items-center gap-2 shadow-lg shadow-purple-600/20 disabled:opacity-50"
@@ -555,15 +555,15 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                   </div>
 
                   <div className="flex gap-3 pt-4">
-                    <button 
+                    <button
                       onClick={() => setView('LIST')}
-                      className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-black uppercase text-xs"
+                      className="flex-1 py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-black uppercase text-xs"
                     >
                       Cancelar
                     </button>
-                    <button 
+                    <button
                       onClick={handleSave}
-                      className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-emerald-600/20"
+                      className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-600/20"
                     >
                       Salvar Campanha
                     </button>
@@ -573,20 +573,20 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 {campaigns.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500 bg-slate-900 rounded-2xl border border-slate-800">
+                  <div className="text-center py-12 text-slate-500 bg-slate-900 rounded-lg border border-slate-800">
                     <Megaphone size={48} className="mx-auto mb-4 opacity-20"/>
                     <p className="text-sm font-bold">Nenhuma campanha criada.</p>
                     <p className="text-xs mt-1">Crie sua primeira campanha para começar a captar leads.</p>
                   </div>
                 ) : (
                   campaigns.map(campaign => (
-                    <div key={campaign.id} className="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center gap-6 group hover:border-slate-700 transition-colors shadow-xl">
+                    <div key={campaign.id} className="bg-slate-900 border border-slate-800 p-6 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-6 group hover:border-slate-700 transition-colors shadow-xl">
                       {campaign.imageUrl && (
-                        <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
+                        <div className="w-16 h-16 rounded-lg bg-slate-950 border border-slate-800 overflow-hidden shrink-0">
                           <img src={campaign.imageUrl} alt={campaign.name} className="w-full h-full object-cover"/>
                         </div>
                       )}
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="text-white font-semibold text-sm truncate">{campaign.name}</h3>
@@ -595,7 +595,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                           </span>
                         </div>
                         <p className="text-slate-500 text-sm truncate mb-3">{campaign.description || 'Sem descrição'}</p>
-                        
+
                         <div className="flex items-center gap-4 text-sm text-slate-400 font-medium uppercase tracking-wider bg-slate-950/50 p-2 rounded-lg w-fit">
                           <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(campaign.createdAt).toLocaleDateString()}</span>
                           <span className="flex items-center gap-1 text-blue-400"><MousePointer2 size={12}/> {campaign.clicks || 0} Cliques</span>
@@ -605,13 +605,13 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
                       <div className="flex flex-col gap-2 w-full md:w-auto">
                         <div className="flex items-center gap-2">
-                            <button 
+                            <button
                               onClick={() => copyToClipboard(campaign.link)}
                               className="flex-1 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-2 transition-colors"
                             >
                               <LinkIcon size={14}/> Copiar Link
                             </button>
-                            <button 
+                            <button
                               onClick={() => shareWhatsApp(campaign)}
                               className="px-3 py-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-500 rounded-lg transition-colors"
                               title="Testar WhatsApp"
@@ -620,13 +620,13 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                             </button>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button 
+                            <button
                               onClick={() => { setForm(campaign); setGeneratedImage(campaign.imageUrl || null); setView('FORM'); }}
                               className="flex-1 px-3 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 rounded-lg text-[10px] font-bold uppercase transition-colors"
                             >
                               Editar
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDelete(campaign.id)}
                               className="px-3 py-2 bg-rose-600/10 hover:bg-rose-600/20 text-rose-500 rounded-lg transition-colors"
                               title="Excluir"

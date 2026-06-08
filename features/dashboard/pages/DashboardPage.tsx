@@ -41,7 +41,7 @@ export const DashboardAlerts = ({
   return (
     <div className="space-y-4 mb-6">
       {critical > 0 && !isDismissed && (
-        <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-4 animate-pulse relative pr-10">
+        <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-lg flex items-center gap-4 animate-pulse relative pr-10">
           <button
             onClick={handleDismiss}
             className="absolute top-3 right-3 text-rose-400/50 hover:text-white transition-colors p-1 rounded-full hover:bg-rose-500/20"
@@ -50,7 +50,7 @@ export const DashboardAlerts = ({
             <X size={14} />
           </button>
 
-          <div className="p-3 bg-rose-500 rounded-xl text-white shadow-lg shadow-rose-900/20 flex-shrink-0">
+          <div className="p-3 bg-rose-500 rounded-lg text-white shadow-lg shadow-rose-900/20 flex-shrink-0">
             <ShieldAlert size={24} />
           </div>
 
@@ -64,8 +64,8 @@ export const DashboardAlerts = ({
       )}
 
       {lowBalanceSources.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-4">
-          <div className="p-3 bg-amber-500 rounded-xl text-black shadow-lg shadow-amber-900/20 flex-shrink-0">
+        <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex items-center gap-4">
+          <div className="p-3 bg-amber-500 rounded-lg text-black shadow-lg shadow-amber-900/20 flex-shrink-0">
             <AlertTriangle size={24} />
           </div>
 

@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Scale, 
-  ChevronLeft, 
-  FileText, 
-  Printer, 
-  Scroll, 
-  MessageCircle, 
-  ShieldCheck, 
-  Loader2, 
-  Trash2, 
-  Eye, 
-  PenTool, 
+import {
+  Scale,
+  ChevronLeft,
+  FileText,
+  Printer,
+  Scroll,
+  MessageCircle,
+  ShieldCheck,
+  Loader2,
+  Trash2,
+  Eye,
+  PenTool,
   Plus,
   User,
   FileCheck,
@@ -44,30 +44,30 @@ interface DocItem {
 }
 
 const DOCUMENT_TYPES: DocItem[] = [
-  { 
-    id: 'CONFISSAO', 
-    title: 'Confissão de Dívida', 
+  {
+    id: 'CONFISSAO',
+    title: 'Confissão de Dívida',
     description: 'Título executivo extrajudicial com força de lei.',
     icon: <Scroll size={20} />,
     color: 'indigo'
   },
-  { 
-    id: 'NOTA_PROMISSORIA', 
-    title: 'Nota Promissória', 
+  {
+    id: 'NOTA_PROMISSORIA',
+    title: 'Nota Promissória',
     description: 'Promessa de pagamento para execução direta.',
     icon: <Printer size={20} />,
     color: 'blue'
   },
-  { 
-    id: 'NOTIFICACAO', 
-    title: 'Notificação Extrajudicial', 
+  {
+    id: 'NOTIFICACAO',
+    title: 'Notificação Extrajudicial',
     description: 'Aviso formal de cobrança e mora.',
     icon: <MessageCircle size={20} />,
     color: 'amber'
   },
-  { 
-    id: 'QUITACAO', 
-    title: 'Termo de Quitação', 
+  {
+    id: 'QUITACAO',
+    title: 'Termo de Quitação',
     description: 'Recibo definitivo de liquidação do débito.',
     icon: <ShieldCheck size={20} />,
     color: 'emerald'
@@ -164,7 +164,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
     <div className="min-h-screen bg-slate-950 pb-20">
       {/* STICKY HEADER */}
       <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-4 flex items-center gap-4">
-        <button 
+        <button
           onClick={onBack}
           className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
         >
@@ -184,7 +184,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
         {/* INFO CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Cliente */}
-          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
                 <User size={20} />
@@ -207,7 +207,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
           </div>
 
           {/* Contrato */}
-          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                 <FileText size={20} />
@@ -244,20 +244,20 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
               const isCurrentGenerating = isGenerating === docType.id;
 
               return (
-                <motion.div 
+                <motion.div
                   key={docType.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-slate-700 transition-all"
+                  className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-slate-700 transition-all"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl bg-${docType.color}-500/10 flex items-center justify-center text-${docType.color}-500 shrink-0`}>
+                    <div className={`w-12 h-12 rounded-lg bg-${docType.color}-500/10 flex items-center justify-center text-${docType.color}-500 shrink-0`}>
                       {docType.icon}
                     </div>
                     <div>
                       <h4 className="font-bold text-white text-sm">{docType.title}</h4>
                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-tight">{docType.description}</p>
-                      
+
                       {doc && (
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${doc.status === 'SIGNED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
@@ -273,35 +273,35 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
 
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     {!doc ? (
-                      <button 
+                      <button
                         onClick={() => handleGenerate(docType.id)}
                         disabled={!!isGenerating}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-lg shadow-indigo-900/20"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-lg shadow-indigo-900/20"
                       >
                         {isCurrentGenerating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                         Gerar Documento
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <button 
+                        <button
                           onClick={() => window.open(`/portal/doc/${doc.public_access_token}`, '_blank')}
-                          className="flex-1 sm:flex-none p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2 text-[10px] font-black uppercase"
+                          className="flex-1 sm:flex-none p-2.5 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-2 text-[10px] font-black uppercase"
                         >
                           <Eye size={14} /> Visualizar
                         </button>
-                        
+
                         {doc.status !== 'SIGNED' && (
-                          <button 
+                          <button
                             onClick={() => window.open(`/portal/doc/${doc.public_access_token}`, '_blank')}
-                            className="flex-1 sm:flex-none p-2.5 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase"
+                            className="flex-1 sm:flex-none p-2.5 bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase"
                           >
                             <PenTool size={14} /> Assinar
                           </button>
                         )}
 
-                        <button 
+                        <button
                           onClick={() => handleDelete(doc.id)}
-                          className="p-2.5 bg-rose-900/20 text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl transition-all flex items-center justify-center"
+                          className="p-2.5 bg-rose-900/20 text-rose-400 hover:bg-rose-600 hover:text-white rounded-lg transition-all flex items-center justify-center"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -315,7 +315,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
         </div>
 
         {/* AVISO */}
-        <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-2xl flex gap-3">
+        <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-lg flex gap-3">
           <AlertCircle className="text-amber-500 shrink-0" size={20} />
           <p className="text-[10px] text-amber-200/60 font-medium leading-relaxed">
             Os documentos gerados possuem validade jurídica e utilizam assinatura digital com registro de IP, Hash SHA-256 e carimbo de tempo. Certifique-se de que os dados do cliente estão corretos antes de enviar para assinatura.

@@ -72,10 +72,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
           : 'bg-blue-400';
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div className="relative overflow-hidden rounded-lg">
       <motion.div
         style={{ opacity: deleteOpacity, scale: deleteScale }}
-        className="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center rounded-2xl bg-rose-500/12 border border-rose-500/20"
+        className="absolute inset-y-0 right-0 w-20 flex flex-col items-center justify-center rounded-lg bg-rose-500/12 border border-rose-500/20"
       >
         <Trash2 size={16} className="text-rose-400" />
         <span className="mt-1 text-[8px] font-black uppercase tracking-[0.18em] text-rose-400">
@@ -107,12 +107,12 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             onOpen(notif);
           }
         }}
-        className="relative cursor-pointer rounded-2xl border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3.5 py-3 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
+        className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3.5 py-3 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
       >
         <div className="pointer-events-none absolute inset-y-3 left-0 w-[3px] rounded-full bg-white/10" />
         <div className="flex gap-3 items-start">
           <div
-            className={`mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border border-white/5 shadow-inner ${getNotificationBg(
+            className={`mt-0.5 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/5 shadow-inner ${getNotificationBg(
               notif.type
             )}`}
           >
@@ -337,7 +337,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-      className={`absolute ${isMobile ? 'fixed inset-x-3 top-20' : 'top-full right-0 mt-3 w-[22rem]'} max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-6rem)] sm:max-h-[28rem] flex flex-col overflow-hidden rounded-[1.4rem] border border-white/10 bg-slate-950/96 backdrop-blur-2xl z-[1100] ring-1 ring-white/10`}
+      className={`absolute ${isMobile ? 'fixed inset-x-3 top-20' : 'top-full right-0 mt-3 w-[22rem]'} max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-6rem)] sm:max-h-[28rem] flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl z-[1100] ring-1 ring-white/10`}
       style={{
         boxShadow: `0 28px 80px -26px ${primaryColor}30, 0 28px 90px -28px rgba(0,0,0,0.82)`,
       }}
@@ -356,7 +356,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 shadow-inner"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 shadow-inner"
                 style={{ backgroundColor: `${primaryColor}18` }}
               >
                 <Bell size={15} style={{ color: primaryColor }} />
@@ -403,7 +403,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2 custom-scrollbar">
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/5 bg-slate-900/80 shadow-inner">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-white/5 bg-slate-900/80 shadow-inner">
               <Bell size={20} className="text-slate-600" />
             </div>
             <p className="text-sm text-slate-200 font-black tracking-tight">Tudo em dia</p>
@@ -444,7 +444,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 id="btn-open-nav"
                 onClick={onOpenNav}
-                className="h-11 w-11 flex items-center justify-center bg-slate-900 hover:bg-blue-600 text-slate-400 hover:text-white rounded-xl transition-all shadow-lg group"
+                className="h-11 w-11 flex items-center justify-center bg-slate-900 hover:bg-blue-600 text-slate-400 hover:text-white rounded-lg transition-all shadow-lg group"
               >
                 <Menu size={22} className="group-hover:scale-110 transition-transform" />
               </button>
@@ -457,7 +457,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             >
               <div
                 id="logo-wrapper"
-                className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg transition-transform flex-shrink-0 group-hover:scale-110"
+                className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-lg flex items-center justify-center shadow-lg transition-transform flex-shrink-0 group-hover:scale-110"
                 style={{ backgroundColor: primaryColor }}
               >
                 {activeUser?.logoUrl ? (
@@ -486,9 +486,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 id="btn-profile-desktop"
                 onClick={() => setActiveTab('PROFILE')}
-                className="flex items-center gap-3 bg-slate-900/50 hover:bg-slate-800/80 p-2 pr-4 rounded-xl border border-slate-800/50 transition-all hover:border-slate-700 group"
+                className="flex items-center gap-3 bg-slate-900/50 hover:bg-slate-800/80 p-2 pr-4 rounded-lg border border-slate-800/50 transition-all hover:border-slate-700 group"
               >
-                <div className="w-8 h-8 rounded-xl overflow-hidden border border-slate-700 group-hover:border-blue-500/50 transition-colors">
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-700 group-hover:border-blue-500/50 transition-colors">
                   {activeUser?.photo ? (
                     <img src={activeUser.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
@@ -510,7 +510,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 id="btn-stealth-desktop"
                 onClick={toggleStealthMode}
-                className={`p-3 rounded-xl transition-all shadow-lg group ${
+                className={`p-3 rounded-lg transition-all shadow-lg group ${
                   isStealthMode
                     ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-indigo-500/20'
                     : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
@@ -524,7 +524,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 <button
                   id="btn-notifications-desktop"
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className={`p-3 rounded-xl transition-all shadow-lg group relative ${
+                  className={`p-3 rounded-lg transition-all shadow-lg group relative ${
                     showNotifications
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-500/20'
                       : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
@@ -550,7 +550,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerMove={handlePointerMove}
-            className={`hidden md:flex w-full xl:w-auto xl:flex-1 order-3 xl:order-2 bg-slate-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide xl:mx-4 mt-3 xl:mt-0 ${
+            className={`hidden md:flex w-full xl:w-auto xl:flex-1 order-3 xl:order-2 bg-slate-900/50 backdrop-blur-md p-1.5 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide xl:mx-4 mt-3 xl:mt-0 ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             }`}
             style={{ WebkitOverflowScrolling: 'touch' }}
@@ -565,7 +565,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     onClick={() => {
                       if (!hasDragged) setActiveTab(tab);
                     }}
-                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
                       isActive
                         ? 'text-white shadow-xl shadow-blue-500/20'
                         : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
@@ -588,7 +588,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 <button
                   id="btn-notifications-mobile"
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center border transition-all relative ${
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all relative ${
                     showNotifications
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/20'
                       : 'bg-slate-900 border-slate-700 text-slate-400'
@@ -607,7 +607,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 id="btn-stealth-mobile"
                 onClick={toggleStealthMode}
-                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center border transition-all ${
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all ${
                   isStealthMode
                     ? 'bg-gradient-to-br from-indigo-600 to-violet-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'
                     : 'bg-slate-900 border-slate-700 text-slate-400'
@@ -619,7 +619,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <button
                 id="btn-profile-mobile"
                 onClick={() => setActiveTab('PROFILE')}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center"
               >
                 {activeUser?.photo ? (
                   <img src={activeUser.photo} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -634,7 +634,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 <button
                   id="btn-new-contract"
                   onClick={onNewLoan}
-                  className="h-11 rounded-xl text-white px-4 py-2.5 font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 shrink-0"
+                  className="h-11 rounded-lg text-white px-4 py-2.5 font-black text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap hover:brightness-110 shrink-0"
                   style={{
                     background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
                     boxShadow: `0 10px 20px -5px ${primaryColor}66`,

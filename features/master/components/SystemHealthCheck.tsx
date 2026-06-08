@@ -51,23 +51,23 @@ export const SystemHealthCheck = () => {
         // --- 2. TESTES FINANCEIROS (ARREDONDAMENTO IEEE 754) ---
         try {
             // Mock Loan
-            const mockLoan = { 
-                interestRate: 10, finePercent: 2, dailyInterestPercent: 1, 
-                policiesSnapshot: { interestRate: 10, finePercent: 2, dailyInterestPercent: 1 } 
+            const mockLoan = {
+                interestRate: 10, finePercent: 2, dailyInterestPercent: 1,
+                policiesSnapshot: { interestRate: 10, finePercent: 2, dailyInterestPercent: 1 }
             } as any;
-            
+
             // Mock Installment (Vencida há 5 dias)
             // Principal: 100.00
             // Juros: 10.00 (devido)
             // Multa Fixa (2%): 2.20 (2% de 110)
             // Mora Diária (1%): 5 dias * 1.10 (1% de 110) = 5.50
             // Total Esperado: 110 + 2.20 + 5.50 = 117.70
-            
+
             // Mock Data: 5 dias atrás
             const today = new Date();
             const fiveDaysAgo = new Date();
             fiveDaysAgo.setDate(today.getDate() - 5);
-            
+
             const mockInst = {
                 dueDate: toISODateOnlyUTC(fiveDaysAgo),
                 principalRemaining: 100,
@@ -79,7 +79,7 @@ export const SystemHealthCheck = () => {
             const expectedTotal = 117.70;
             // Tolerância minúscula para float
             const diff = Math.abs(calc.total - expectedTotal);
-            
+
             tests.push({
                 id: 'fin-1', category: 'FINANCE', name: 'Cálculo de Juros/Multa/Mora',
                 passed: diff < 0.01,
@@ -114,10 +114,10 @@ export const SystemHealthCheck = () => {
         try {
             const dataA = { nome: "Teste", valor: 100 };
             const dataB = { valor: 100, nome: "Teste" }; // Ordem diferente
-            
+
             const snapshotA = legalValidityService.prepareLegalSnapshot(dataA);
             const snapshotB = legalValidityService.prepareLegalSnapshot(dataB);
-            
+
             // Hash deve ser idêntico independente da ordem das chaves (Canonicalização)
             const hashA = await legalValidityService.calculateHash(snapshotA);
             const hashB = await legalValidityService.calculateHash(snapshotB);
@@ -149,7 +149,7 @@ export const SystemHealthCheck = () => {
     };
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mt-8">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 mt-8">
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h3 className="text-white font-black uppercase text-sm flex items-center gap-2">
@@ -157,10 +157,10 @@ export const SystemHealthCheck = () => {
                     </h3>
                     <p className="text-[10px] text-slate-500 mt-1">Verificação interna de lógica matemática e integridade.</p>
                 </div>
-                <button 
-                    onClick={runTests} 
+                <button
+                    onClick={runTests}
                     disabled={isRunning}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-black uppercase flex items-center gap-2 transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center gap-2 transition-all disabled:opacity-50"
                 >
                     {isRunning ? <RefreshCw className="animate-spin" size={14}/> : <Play size={14}/>}
                     Rodar Testes
@@ -177,7 +177,7 @@ export const SystemHealthCheck = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {results.map(res => (
-                            <div key={res.id} className={`p-3 rounded-xl border flex items-start gap-3 ${res.passed ? 'bg-emerald-950/10 border-emerald-500/20' : 'bg-rose-950/10 border-rose-500/30'}`}>
+                            <div key={res.id} className={`p-3 rounded-lg border flex items-start gap-3 ${res.passed ? 'bg-emerald-950/10 border-emerald-500/20' : 'bg-rose-950/10 border-rose-500/30'}`}>
                                 <div className={`mt-0.5 ${res.passed ? 'text-emerald-500' : 'text-rose-500'}`}>
                                     {res.passed ? <CheckCircle2 size={16}/> : <XCircle size={16}/>}
                                 </div>
@@ -202,7 +202,7 @@ export const SystemHealthCheck = () => {
                     </div>
                 </div>
             )}
-            
+
             {results.length === 0 && !isRunning && (
                 <div className="text-center py-8 text-slate-600 text-xs uppercase font-black">
                     Clique em "Rodar Testes" para verificar a integridade.

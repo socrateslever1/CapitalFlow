@@ -16,7 +16,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Seu Novo App</h1>
         <p className="text-gray-600 mb-6">
           O ambiente está configurado e pronto. O que você gostaria de construir hoje?

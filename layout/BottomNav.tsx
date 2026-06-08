@@ -14,7 +14,7 @@ interface BottomNavProps {
   onGoBack?: () => void;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({ 
+export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab, setActiveTab, onOpenNav, onNewLoan, navOrder, primaryColor = '#2563eb', isStaff, onGoBack
 }) => {
   const scrollRef = useRef<HTMLElement>(null);
@@ -88,7 +88,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const mobileTabs = ['DASHBOARD', 'SIMULATOR', 'CLIENTS', 'SOURCES', 'LEGAL', 'SUPPORT'];
 
   return (
-    <div 
+    <div
       ref={scrollRef as React.RefObject<HTMLDivElement>}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
@@ -97,12 +97,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
        {mobileTabs.map(tab => (
-           <button 
+           <button
             key={tab}
             onClick={() => {
                 if (!hasDragged) setActiveTab(tab);
-            }} 
-            className={`flex flex-col items-center gap-1 p-2 min-w-[64px] rounded-xl transition-all shrink-0 ${activeTab === tab ? 'bg-slate-900/50' : 'text-slate-500'}`}
+            }}
+            className={`flex flex-col items-center gap-1 p-2 min-w-[64px] rounded-lg transition-all shrink-0 ${activeTab === tab ? 'bg-slate-900/50' : 'text-slate-500'}`}
            >
                {getTabIcon(tab, activeTab === tab)}
                <span className={`text-[9px] font-bold uppercase truncate w-full text-center ${activeTab === tab ? 'text-white' : ''}`}>{getTabLabel(tab)}</span>

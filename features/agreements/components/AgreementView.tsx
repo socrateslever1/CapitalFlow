@@ -89,7 +89,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
 
     if (agreement?.status === 'BROKEN' || agreement?.status === 'QUEBRADO') {
         return (
-            <div className="bg-rose-950/20 border border-rose-500/30 p-4 rounded-2xl text-center">
+            <div className="bg-rose-950/20 border border-rose-500/30 p-4 rounded-lg text-center">
                 <p className="text-rose-500 font-black uppercase text-xs mb-1">Acordo Quebrado</p>
                 <p className="text-slate-400 text-[10px]">Este acordo foi cancelado. O contrato original está vigente.</p>
 
@@ -123,7 +123,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
 
     if (agreement?.status === 'PAID' || agreement?.status === 'PAGO' || agreement?.status === 'FINALIZADO') {
         return (
-            <div className="bg-emerald-950/20 border border-emerald-500/30 p-4 rounded-2xl text-center">
+            <div className="bg-emerald-950/20 border border-emerald-500/30 p-4 rounded-lg text-center">
                 <div className="flex justify-center mb-2"><CheckCircle2 className="text-emerald-500" size={24}/></div>
                 <p className="text-emerald-500 font-black uppercase text-xs mb-1">Acordo Quitado</p>
                 <p className="text-slate-400 text-[10px] mb-2">Todos os débitos foram regularizados.</p>
@@ -210,7 +210,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             </div>
 
             {isEditingSchedule && (
-                <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-3 mb-4" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-3 space-y-3 mb-4" onClick={(e) => e.stopPropagation()}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <label className="flex flex-col gap-1">
                             <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Frequencia</span>
@@ -253,11 +253,11 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             )}
 
             <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-slate-900/50 p-2.5 rounded-xl border border-slate-800/50 flex flex-col items-center justify-center">
+                <div className="bg-slate-900/50 p-2.5 rounded-lg border border-slate-800/50 flex flex-col items-center justify-center">
                     <p className="text-[8px] font-black text-slate-500 uppercase tracking-tighter">Dívida Base</p>
                     <p className="text-[11px] font-bold text-slate-300">{formatMoney(agreement.totalDebtAtNegotiation, isStealthMode)}</p>
                 </div>
-                <div className="bg-indigo-500/10 p-2 rounded-xl border border-indigo-500/20">
+                <div className="bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
                     <p className="text-[8px] font-black text-indigo-400 uppercase tracking-tighter">Total Negociado</p>
                     <p className="text-[11px] font-bold text-white">{formatMoney(agreement.negotiatedTotal, isStealthMode)}</p>
                 </div>
@@ -327,8 +327,8 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             {/* MODAL DE CONFIRMAÇÃO INTERNO */}
             {confirmAction && (confirmAction === 'PAY' || confirmAction === 'REVERSE') && selectedInst && (
                 <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-[280px] shadow-2xl space-y-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mx-auto ${confirmAction === 'PAY' ? 'bg-blue-500/20 text-blue-500' : 'bg-rose-500/20 text-rose-500'}`}>
+                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-[280px] shadow-2xl space-y-4">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto ${confirmAction === 'PAY' ? 'bg-blue-500/20 text-blue-500' : 'bg-rose-500/20 text-rose-500'}`}>
                             {confirmAction === 'PAY' ? <DollarSign size={24}/> : <RefreshCcw size={24}/>}
                         </div>
 
@@ -352,13 +352,13 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                         setPaymentAmount(String(Math.max(0, Number(selectedInst.amount || 0) - alreadyPaid)));
                                         setShowCustomAmount(false);
                                     }}
-                                    className="w-full py-2 rounded-xl text-[10px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
+                                    className="w-full py-2 rounded-lg text-[10px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
                                 >
                                     Pagou tudo
                                 </button>
                                 <button
                                     onClick={() => setShowCustomAmount(true)}
-                                    className="w-full py-2 rounded-xl text-[10px] font-black uppercase bg-slate-950 text-slate-300 border border-slate-700"
+                                    className="w-full py-2 rounded-lg text-[10px] font-black uppercase bg-slate-950 text-slate-300 border border-slate-700"
                                 >
                                     Outro valor
                                 </button>
@@ -368,7 +368,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                         step="0.01"
                                         value={paymentAmount}
                                         onChange={e => setPaymentAmount(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white font-bold outline-none"
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white font-bold outline-none"
                                         autoFocus
                                     />
                                 )}
@@ -383,7 +383,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                     setConfirmAction(null);
                                     setSelectedInst(null);
                                 }}
-                                className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${confirmAction === 'PAY' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
+                                className={`w-full py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${confirmAction === 'PAY' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
                             >
                                 Confirmar
                             </button>
@@ -392,7 +392,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                     setConfirmAction(null);
                                     setSelectedInst(null);
                                 }}
-                                className="w-full py-2.5 rounded-xl text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all"
+                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all"
                             >
                                 Cancelar
                             </button>

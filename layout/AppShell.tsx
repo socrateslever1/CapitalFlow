@@ -24,7 +24,7 @@ interface AppShellProps {
   isStealthMode: boolean;
   toggleStealthMode: () => void;
   onOpenSupport?: () => void;
-  navOrder: string[]; 
+  navOrder: string[];
   onGoBack?: () => void;
   isInHub?: boolean;
   title?: string;
@@ -36,7 +36,7 @@ interface AppShellProps {
   activeModal?: any;
 }
 
-export const AppShell: React.FC<AppShellProps> = ({ 
+export const AppShell: React.FC<AppShellProps> = ({
   children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, onNavigate, activeModal, addNotification
 }) => {
   const [unreadSupport, setUnreadSupport] = useState(0);
@@ -49,7 +49,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   useEffect(() => {
     if (!activeUser || activeUser.id === 'DEMO') return;
-    
+
     const fetchUnread = async () => {
         const { count } = await supabase
             .from('mensagens_suporte')
@@ -63,11 +63,11 @@ export const AppShell: React.FC<AppShellProps> = ({
     fetchUnread();
 
     const channel = supabase.channel('support-notifications-main')
-        .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'mensagens_suporte', 
-            filter: `profile_id=eq.${activeUser.id}` 
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensagens_suporte',
+            filter: `profile_id=eq.${activeUser.id}`
         }, (payload) => {
             if (payload.new.sender_user_id !== activeUser.id) {
                 const supportMessage = payload.new.content || payload.new.text || "Cliente enviou uma midia.";
@@ -153,12 +153,12 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   return (
     <div className="h-screen w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden relative">
-      <HeaderBar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        activeUser={activeUser} 
-        isLoadingData={isLoadingData} 
-        onOpenNav={onOpenNav} 
+      <HeaderBar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        activeUser={activeUser}
+        isLoadingData={isLoadingData}
+        onOpenNav={onOpenNav}
         onNewLoan={onNewLoan}
         isStealthMode={isStealthMode}
         toggleStealthMode={toggleStealthMode}
@@ -178,7 +178,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
       {activeUser && (
         <div className="fixed bottom-22 md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col gap-3 items-center mb-safe">
-          <button 
+          <button
             onClick={onNewLoan}
             className="w-12 h-12 relative flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
             style={{
@@ -187,10 +187,10 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
           >
             <Plus size={24}/>
-            <span className="absolute right-full mr-4 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">Novo Contrato</span>
+            <span className="absolute right-full mr-4 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">Novo Contrato</span>
           </button>
 
-          <button 
+          <button
             onClick={onOpenSupport}
             className="w-12 h-12 relative flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
             style={{
@@ -204,16 +204,16 @@ export const AppShell: React.FC<AppShellProps> = ({
                       {totalUnread > 99 ? '99+' : totalUnread}
                   </span>
               )}
-              <span className="absolute right-full mr-4 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">Atendimento Online</span>
+              <span className="absolute right-full mr-4 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">Atendimento Online</span>
           </button>
         </div>
       )}
 
       {(!activeModal || activeModal.type !== 'SUPPORT_CHAT') && (
-        <BottomNav 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-          onOpenNav={onOpenNav} 
+        <BottomNav
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenNav={onOpenNav}
           onNewLoan={onNewLoan}
           navOrder={navOrder}
           primaryColor={activeUser?.brandColor}

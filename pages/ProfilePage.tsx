@@ -155,7 +155,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* SIDEBAR */}
       <div className="lg:col-span-4 space-y-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg relative overflow-hidden">
           <div className="flex flex-col items-center mb-6">
             <div
               className="relative group cursor-pointer"
@@ -195,7 +195,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <nav className="space-y-2">
             <button
               onClick={() => setActiveSection('GENERAL')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'GENERAL'
                   ? 'bg-blue-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -207,7 +207,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('FINANCE')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'FINANCE'
                   ? 'bg-emerald-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -221,7 +221,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('PAYMENTS')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'PAYMENTS'
                   ? 'bg-blue-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -233,7 +233,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('INTERFACE')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'INTERFACE'
                   ? 'bg-purple-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -247,7 +247,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('DATA')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'DATA'
                   ? 'bg-amber-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -259,7 +259,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('SECURITY')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'SECURITY'
                   ? 'bg-indigo-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -271,7 +271,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('SYSTEM')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'SYSTEM'
                   ? 'bg-slate-600 text-white shadow-lg'
                   : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -283,7 +283,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <button
               onClick={() => setActiveSection('DANGER')}
-              className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
                 activeSection === 'DANGER'
                   ? 'bg-rose-600 text-white shadow-lg'
                   : 'bg-slate-950 text-rose-500 hover:bg-rose-900/20'
@@ -296,7 +296,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           <button
             onClick={handleLogout}
-            className="w-full mt-6 py-4 border border-rose-900/30 bg-rose-950/10 text-rose-500 rounded-2xl font-bold uppercase text-xs hover:bg-rose-900/30 hover:text-rose-400 transition-all flex items-center justify-center gap-2"
+            className="w-full mt-6 py-4 border border-rose-900/30 bg-rose-950/10 text-rose-500 rounded-lg font-bold uppercase text-xs hover:bg-rose-900/30 hover:text-rose-400 transition-all flex items-center justify-center gap-2"
           >
             <LogOut size={16} /> Sair do Sistema
           </button>
@@ -305,7 +305,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
       {/* CONTEÚDO */}
       <div className="lg:col-span-8 space-y-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-2xl">
+        <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-lg">
           {/* GENERAL */}
           {activeSection === 'GENERAL' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right">
@@ -331,7 +331,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           name: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -348,7 +348,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           email: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -365,7 +365,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           businessName: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -382,7 +382,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           pixKey: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-400 font-bold outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-emerald-400 font-bold outline-none focus:border-emerald-500"
                       placeholder="CPF, Email ou Telefone"
                     />
                     <p className="text-[9px] text-slate-500 mt-1 ml-1 uppercase font-bold tracking-widest leading-relaxed">
@@ -405,7 +405,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           fullName: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -422,7 +422,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           document: maskDocument(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                       placeholder="000.000.000-00"
                     />
                   </div>
@@ -440,7 +440,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           phone: maskPhone(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -457,7 +457,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           contato_whatsapp: maskPhone(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-blue-900/30 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-blue-900/30 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                       placeholder="Número para envio de cobranças"
                     />
                     <p className="text-[9px] text-slate-500 mt-1 ml-1 uppercase font-bold tracking-widest">
@@ -478,7 +478,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           address: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                       placeholder="Rua, Número, Bairro"
                     />
                   </div>
@@ -497,7 +497,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             city: e.target.value,
                           })
                         }
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                       />
                     </div>
                     <div>
@@ -514,7 +514,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           })
                         }
                         maxLength={2}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-blue-500"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
@@ -525,7 +525,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <h4 className="text-xs font-black text-white uppercase mb-4 flex items-center gap-2">
                   <Palette size={14} className="text-purple-500" /> Personalização
                 </h4>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">
                       Logo URL (Opcional)
@@ -559,7 +559,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                   <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
                     Juros Padrão (%)
                   </label>
@@ -576,7 +576,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   />
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                   <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
                     Multa Padrão (%)
                   </label>
@@ -593,7 +593,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   />
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                   <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
                     Mora Diária (%)
                   </label>
@@ -625,7 +625,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         targetCapital: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-emerald-500"
                   />
                 </div>
 
@@ -642,7 +642,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         targetProfit: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -658,7 +658,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex items-center justify-between group hover:border-blue-500 transition-all">
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-blue-500 transition-all">
                   <div>
                     <h4 className="text-white font-bold text-sm uppercase">
                       Exportar Backup Completo
@@ -669,13 +669,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
                   <button
                     onClick={handleExportBackup}
-                    className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-500 shadow-lg transition-all"
+                    className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 shadow-lg transition-all"
                   >
                     <Download size={20} />
                   </button>
                 </div>
 
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex items-center justify-between group hover:border-emerald-500 transition-all">
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-emerald-500 transition-all">
                   <div>
                     <h4 className="text-white font-bold text-sm uppercase">
                       Importar Planilha (Excel)
@@ -686,13 +686,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
                   <button
                     onClick={() => fileInputExcelRef.current?.click()}
-                    className="p-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg transition-all"
+                    className="p-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 shadow-lg transition-all"
                   >
                     <FileSpreadsheet size={20} />
                   </button>
                 </div>
 
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl flex items-center justify-between group hover:border-amber-500 transition-all">
+                <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-amber-500 transition-all">
                   <div>
                     <h4 className="text-white font-bold text-sm uppercase">
                       Restaurar do Backup
@@ -703,7 +703,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
                   <button
                     onClick={() => backupRestoreRef.current?.click()}
-                    className="p-3 bg-amber-600 text-white rounded-xl hover:bg-amber-500 shadow-lg transition-all"
+                    className="p-3 bg-amber-600 text-white rounded-lg hover:bg-amber-500 shadow-lg transition-all"
                   >
                     <RefreshCw size={20} />
                   </button>
@@ -756,7 +756,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     {navOrder.filter(t => t !== 'AGENDA' && t !== 'TEAM' && t !== 'LEADS' && t !== 'ACQUISITION').map((tab) => (
                       <div
                         key={tab}
-                        className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between group"
+                        className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between group"
                       >
                         <span className="text-xs font-bold text-white uppercase">
                           {getTabLabel(tab)}
@@ -796,7 +796,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     {hubOrder.filter(t => t !== 'AGENDA' && t !== 'TEAM' && t !== 'LEADS' && t !== 'ACQUISITION').map((tab) => (
                       <div
                         key={tab}
-                        className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between group"
+                        className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between group"
                       >
                         <span className="text-xs font-bold text-white uppercase">
                           {getTabLabel(tab)}
@@ -842,7 +842,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <ProfileAuditLog logs={auditLogs} />
             </div>
           )}
-          
+
           {/* SYSTEM */}
           {activeSection === 'SYSTEM' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right">
@@ -852,9 +852,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   Informações de Build e Versão
                 </h3>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 space-y-4">
                     <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Controle de Versão</h4>
                     <div className="space-y-3">
                         <div className="flex justify-between items-center py-2 border-b border-slate-900">
@@ -872,7 +872,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </div>
                 </div>
 
-                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 space-y-4">
                     <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Motor Lógico</h4>
                     <div className="space-y-3">
                         <div className="flex justify-between items-center py-2 border-b border-slate-900">
@@ -889,9 +889,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
-              <div className="bg-blue-600/10 border border-blue-500/20 p-6 rounded-2xl">
+              <div className="bg-blue-600/10 border border-blue-500/20 p-6 rounded-lg">
                  <div className="flex gap-4">
-                    <div className="p-3 bg-blue-600/20 text-blue-400 rounded-xl h-fit">
+                    <div className="p-3 bg-blue-600/20 text-blue-400 rounded-lg h-fit">
                         <Shield size={20} />
                     </div>
                     <div>
@@ -919,7 +919,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <div className="pt-8 mt-8 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-2">
             <button
               onClick={handleSaveProfile}
-              className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-sm shadow-2xl shadow-blue-900/20 transition-all flex items-center justify-center gap-3"
+              className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-black uppercase text-sm shadow-2xl shadow-blue-900/20 transition-all flex items-center justify-center gap-3"
             >
               <Save size={20} /> Salvar Alterações
             </button>

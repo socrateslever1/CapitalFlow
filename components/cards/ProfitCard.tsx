@@ -9,15 +9,15 @@ export const ProfitCard = ({ balance, onWithdraw, isStealthMode, variant = 'defa
     const paddingClass = isCompact ? 'p-3' : 'p-5';
 
     return (
-        <div className={`relative overflow-hidden ${bgClass} border border-slate-800 rounded-2xl hover:border-emerald-500/30 transition-all duration-300 group flex ${isCompact ? 'items-center justify-between p-3' : 'flex-col justify-between h-full p-5'}`}>
+        <div className={`relative overflow-hidden ${bgClass} border border-slate-800 rounded-lg hover:border-emerald-500/30 transition-all duration-300 group flex ${isCompact ? 'items-center justify-between p-3' : 'flex-col justify-between h-full p-5'}`}>
             <div className={`absolute -top-10 -right-10 w-32 h-32 bg-emerald-500 rounded-full blur-[60px] opacity-10 group-hover:opacity-25 transition-opacity`}></div>
-            
+
             {/* Color Accent Bar for consistency with StatCard */}
             <div className={`absolute top-0 left-0 w-1 h-full bg-emerald-500 opacity-50`}></div>
 
             <div className={isCompact ? 'flex items-center gap-3' : ''}>
                 <div className="flex items-center gap-3">
-                    <div className={`${isCompact ? 'p-1.5' : 'p-2.5'} rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-sm group-hover:scale-110 transition-transform duration-500`}>
+                    <div className={`${isCompact ? 'p-1.5' : 'p-2.5'} rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-sm group-hover:scale-110 transition-transform duration-500`}>
                         <ArrowUpRight size={isCompact ? 14 : 20}/>
                     </div>
                     {isCompact ? (
@@ -36,9 +36,9 @@ export const ProfitCard = ({ balance, onWithdraw, isStealthMode, variant = 'defa
 
             <div className={isCompact ? '' : 'mt-auto'}>
                 {isCompact ? (
-                    <button 
-                        onClick={onWithdraw} 
-                        className="relative z-20 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 active:scale-95"
+                    <button
+                        onClick={onWithdraw}
+                        className="relative z-20 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 active:scale-95"
                     >
                         Resgatar <ArrowRightLeft size={10} />
                     </button>
@@ -48,8 +48,8 @@ export const ProfitCard = ({ balance, onWithdraw, isStealthMode, variant = 'defa
                             <Wallet size={12} className="text-emerald-500/50"/>
                             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Disponível</span>
                         </div>
-                        <button 
-                            onClick={onWithdraw} 
+                        <button
+                            onClick={onWithdraw}
                             className="relative z-20 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/40 active:scale-95"
                         >
                             Resgatar <ArrowRightLeft size={12} />

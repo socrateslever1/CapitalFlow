@@ -13,10 +13,10 @@ interface MasterScreenProps {
     showToast: (msg: string, type?: any) => void;
 }
 
-export const MasterScreen: React.FC<MasterScreenProps> = ({ 
-    activeUser, systemUsers, fetchFullData, handleLogout, showToast 
+export const MasterScreen: React.FC<MasterScreenProps> = ({
+    activeUser, systemUsers, fetchFullData, handleLogout, showToast
 }) => {
-    
+
     const {
         searchTerm, setSearchTerm,
         isEditModalOpen, editingUser, openEditUser, closeEditUser,
@@ -27,8 +27,8 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
     const filteredUsers = useMemo(() => {
         if (!searchTerm) return systemUsers;
         const lower = searchTerm.toLowerCase();
-        return systemUsers.filter(u => 
-            (u.name || u.nome_operador || '').toLowerCase().includes(lower) || 
+        return systemUsers.filter(u =>
+            (u.name || u.nome_operador || '').toLowerCase().includes(lower) ||
             (u.email || u.usuario_email || '').toLowerCase().includes(lower)
         );
     }, [systemUsers, searchTerm]);
@@ -39,7 +39,7 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
             <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
                 <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-600/20">
+                        <div className="w-12 h-12 bg-rose-600 rounded-lg flex items-center justify-center shadow-lg shadow-rose-600/20">
                             <Shield size={24} className="text-white"/>
                         </div>
                         <div>
@@ -47,10 +47,10 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
                             <p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest mt-1">Central de Atendimento (SAC)</p>
                         </div>
                     </div>
-                    
-                    <button 
+
+                    <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:border-rose-500/50 transition-all text-xs font-bold uppercase"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-400 hover:text-white hover:border-rose-500/50 transition-all text-xs font-bold uppercase"
                     >
                         <LogOut size={16}/> Sair
                     </button>
@@ -68,9 +68,9 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search size={16} className="text-slate-500 group-focus-within:text-rose-500 transition-colors"/>
                         </div>
-                        <input 
-                            type="text" 
-                            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-white text-sm outline-none focus:border-rose-500 transition-all placeholder:text-slate-500 font-medium"
+                        <input
+                            type="text"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-white text-sm outline-none focus:border-rose-500 transition-all placeholder:text-slate-500 font-medium"
                             placeholder="Buscar operador..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -84,9 +84,9 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
                         const isAdmin = user.accessLevel === 'ADMIN' || user.accessLevel === 1 || user.access_level === 1;
 
                         return (
-                            <div key={user.id} className={`bg-slate-900 border ${isMe ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-slate-800'} rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 hover:border-slate-700 transition-all group`}>
+                            <div key={user.id} className={`bg-slate-900 border ${isMe ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-slate-800'} rounded-lg p-5 flex flex-col md:flex-row items-center justify-between gap-6 hover:border-slate-700 transition-all group`}>
                                 <div className="flex items-center gap-5 w-full md:w-auto">
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 shrink-0 ${isAdmin ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
+                                    <div className={`w-14 h-14 rounded-lg flex items-center justify-center border-2 shrink-0 ${isAdmin ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
                                         {isAdmin ? <Shield size={24}/> : <User size={24}/>}
                                     </div>
                                     <div className="min-w-0">
@@ -103,17 +103,17 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
                                 </div>
 
                                 <div className="flex items-center gap-3 w-full md:w-auto border-t md:border-t-0 border-slate-800 pt-4 md:pt-0">
-                                    <button 
+                                    <button
                                         onClick={() => openEditUser(user)}
-                                        className="flex-1 md:flex-none px-5 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
+                                        className="flex-1 md:flex-none px-5 py-3 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2"
                                     >
                                         <Edit size={14}/> Dados / Senha
                                     </button>
 
                                     {!isMe && (
-                                        <button 
+                                        <button
                                             onClick={() => handleToggleAdminStatus(user)}
-                                            className={`p-3 rounded-xl border transition-all ${isAdmin ? 'bg-slate-950 border-slate-800 text-slate-500 hover:text-rose-500 hover:border-rose-500' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-emerald-500 hover:border-emerald-500'}`}
+                                            className={`p-3 rounded-lg border transition-all ${isAdmin ? 'bg-slate-950 border-slate-800 text-slate-500 hover:text-rose-500 hover:border-rose-500' : 'bg-slate-950 border-slate-800 text-slate-500 hover:text-emerald-500 hover:border-emerald-500'}`}
                                             title={isAdmin ? "Remover Admin" : "Promover a Admin"}
                                         >
                                             {isAdmin ? <ShieldAlert size={18}/> : <Shield size={18}/>}
@@ -125,7 +125,7 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
                     })}
 
                     {filteredUsers.length === 0 && (
-                        <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-2xl opacity-50">
+                        <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-lg opacity-50">
                             <p className="text-slate-500 font-bold uppercase text-xs tracking-widest">Nenhum usuário encontrado.</p>
                         </div>
                     )}
@@ -133,10 +133,10 @@ export const MasterScreen: React.FC<MasterScreenProps> = ({
             </main>
 
             {isEditModalOpen && (
-                <MasterEditModal 
-                    user={editingUser} 
-                    onClose={closeEditUser} 
-                    onSave={handleSaveUserChanges} 
+                <MasterEditModal
+                    user={editingUser}
+                    onClose={closeEditUser}
+                    onSave={handleSaveUserChanges}
                 />
             )}
         </div>

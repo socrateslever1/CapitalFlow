@@ -72,7 +72,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
             </div>
             <button
                 onClick={() => setSubView('PROFILE')}
-                className="w-full md:w-auto px-6 py-3 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-slate-700"
+                className="w-full md:w-auto px-6 py-3 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-slate-700"
             >
                 <User size={16}/> Perfil Jurídico
             </button>
@@ -116,9 +116,9 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* DOC 1: Confissão */}
-                <button onClick={() => setSubView('CONFISSAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col gap-3 hover:border-indigo-500 transition-all group text-left">
+                <button onClick={() => setSubView('CONFISSAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex flex-col gap-3 hover:border-indigo-500 transition-all group text-left">
                     <div className="flex justify-between items-start">
-                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl group-hover:bg-indigo-500 group-hover:text-white transition-all"><Scroll size={20}/></div>
+                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all"><Scroll size={20}/></div>
                         <span className="text-[9px] font-black uppercase bg-indigo-950 text-indigo-400 px-2 py-1 rounded">Gerar</span>
                     </div>
                     <div>
@@ -128,9 +128,9 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 </button>
 
                 {/* DOC 2: Promissória */}
-                <button onClick={() => setSubView('PROMISSORIA')} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col gap-3 hover:border-blue-500 transition-all group text-left">
+                <button onClick={() => setSubView('PROMISSORIA')} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex flex-col gap-3 hover:border-blue-500 transition-all group text-left">
                     <div className="flex justify-between items-start">
-                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-xl group-hover:bg-blue-500 group-hover:text-white transition-all"><Printer size={20}/></div>
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-all"><Printer size={20}/></div>
                         <span className="text-[9px] font-black uppercase bg-blue-950 text-blue-400 px-2 py-1 rounded">Imprimir</span>
                     </div>
                     <div>
@@ -140,9 +140,9 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 </button>
 
                 {/* DOC 3: Notificação */}
-                <button onClick={() => setSubView('NOTIFICACAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col gap-3 hover:border-amber-500 transition-all group text-left">
+                <button onClick={() => setSubView('NOTIFICACAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex flex-col gap-3 hover:border-amber-500 transition-all group text-left">
                     <div className="flex justify-between items-start">
-                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl group-hover:bg-amber-500 group-hover:text-white transition-all"><MessageCircle size={20}/></div>
+                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-all"><MessageCircle size={20}/></div>
                         <span className="text-[9px] font-black uppercase bg-amber-950 text-amber-400 px-2 py-1 rounded">Cobrar</span>
                     </div>
                     <div>
@@ -152,9 +152,9 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 </button>
 
                 {/* DOC 4: Quitação */}
-                <button onClick={() => setSubView('QUITACAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col gap-3 hover:border-emerald-500 transition-all group text-left">
+                <button onClick={() => setSubView('QUITACAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex flex-col gap-3 hover:border-emerald-500 transition-all group text-left">
                     <div className="flex justify-between items-start">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-all"><ShieldCheck size={20}/></div>
+                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-all"><ShieldCheck size={20}/></div>
                         <span className="text-[9px] font-black uppercase bg-emerald-950 text-emerald-400 px-2 py-1 rounded">Recibo</span>
                     </div>
                     <div>
@@ -172,7 +172,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
             </h3>
 
             {legalLoans.length === 0 ? (
-                <div className="text-center py-20 bg-slate-900/50 rounded-2xl border-2 border-dashed border-slate-800">
+                <div className="text-center py-20 bg-slate-900/50 rounded-lg border-2 border-dashed border-slate-800">
                     <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Scale className="text-slate-500" size={32}/>
                     </div>

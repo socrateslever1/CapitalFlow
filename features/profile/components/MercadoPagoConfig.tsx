@@ -63,8 +63,8 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4">
-        <div className="h-10 bg-slate-800 rounded-xl w-1/3"></div>
-        <div className="h-32 bg-slate-800 rounded-xl w-full"></div>
+        <div className="h-10 bg-slate-800 rounded-lg w-1/3"></div>
+        <div className="h-32 bg-slate-800 rounded-lg w-full"></div>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
         <h3 className="text-lg font-black uppercase">Mercado Pago (Configuração Individual)</h3>
       </div>
 
-      <div className="bg-blue-900/10 border border-blue-900/30 p-4 rounded-xl flex gap-3">
+      <div className="bg-blue-900/10 border border-blue-900/30 p-4 rounded-lg flex gap-3">
         <ShieldCheck className="text-blue-500 shrink-0" size={20} />
         <div className="text-[10px] text-slate-400 leading-relaxed font-medium">
           <p className="text-blue-400 font-bold uppercase mb-1">Como funciona?</p>
@@ -84,14 +84,14 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
         </div>
       </div>
 
-      <div className="space-y-6 bg-slate-950 p-6 rounded-2xl border border-slate-800">
+      <div className="space-y-6 bg-slate-950 p-6 rounded-lg border border-slate-800">
         {/* ACCESS TOKEN */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
             <span>Seu Access Token Produção</span>
-            <a 
-              href="https://www.mercadopago.com.br/developers/panel/credentials" 
-              target="_blank" 
+            <a
+              href="https://www.mercadopago.com.br/developers/panel/credentials"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 hover:underline flex items-center gap-1 normal-case font-bold"
             >
@@ -104,7 +104,7 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 placeholder="APP_USR-..."
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
               />
               {accessToken && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
@@ -126,12 +126,12 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
             <span className="text-[9px] text-amber-500 font-bold uppercase">Configuração Obrigatória</span>
           </label>
           <div className="flex gap-2">
-            <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-400 font-mono text-[10px] truncate">
+            <div className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-3 text-slate-400 font-mono text-[10px] truncate">
               {projectWebhookUrl}
             </div>
             <button
               onClick={handleCopy}
-              className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700 flex items-center justify-center gap-2"
+              className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-700 flex items-center justify-center gap-2"
               title="Copiar URL"
             >
               {copied ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} />}
@@ -146,7 +146,7 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white rounded-xl font-bold uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
+          className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white rounded-lg font-bold uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
         >
           {isSaving ? (
             <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -158,7 +158,7 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
         </button>
       </div>
 
-      <div className="bg-amber-900/10 border border-amber-900/30 p-4 rounded-xl flex gap-3">
+      <div className="bg-amber-900/10 border border-amber-900/30 p-4 rounded-lg flex gap-3">
         <AlertCircle className="text-amber-500 shrink-0" size={20} />
         <div className="text-[10px] text-slate-400 leading-relaxed font-medium">
           <p className="text-amber-400 font-bold uppercase mb-1">Aviso de Baixa Automática</p>

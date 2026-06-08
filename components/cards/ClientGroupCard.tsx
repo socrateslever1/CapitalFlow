@@ -6,6 +6,8 @@ import {
     ChevronDown,
     ChevronUp,
     Clock,
+    Copy,
+    Link as LinkIcon,
     Layers,
     MessageSquare,
     RefreshCcw,
@@ -30,6 +32,9 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const isGroupSelected = selectedLoanId === 'GROUP_' + group.id;
     const isExpanded = hasSelectedLoan || isGroupSelected;
     const [showArchiveChoices, setShowArchiveChoices] = useState(false);
+    const [billFilter, setBillFilter] = useState<'ALL' | 'OVERDUE' | 'DUE_SOON' | null>(null);
+    const [showUnifyChoices, setShowUnifyChoices] = useState(false);
+    const [showPortalChoices, setShowPortalChoices] = useState(false);
 
     const cardRef = React.useRef<HTMLDivElement>(null);
 
@@ -60,12 +65,11 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         passThroughProps.onRenegotiate?.(group.loans);
     };
 
-    const handleBillSelection = (e: React.MouseEvent, loans: any[]) => {
+    const handleBillLoan = (e: React.MouseEvent, loan: any) => {
         e.stopPropagation();
-        const billableLoans = loans.filter(Boolean);
-        if (billableLoans.length === 0) return;
-        billableLoans.forEach((loan) => passThroughProps.onMarkAsBilled?.(loan));
-        passThroughProps.onMessage?.(billableLoans[0]);
+        if (!loan) return;
+        passThroughProps.onMarkAsBilled?.(loan);
+        passThroughProps.onMessage?.(loan);
     };
 
     const handleArchiveSelection = (e: React.MouseEvent, loans: any[]) => {
@@ -73,6 +77,32 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         loans.filter(Boolean).forEach((loan) => passThroughProps.onArchive?.(loan));
         setShowArchiveChoices(false);
     };
+
+    const handlePortalSelection = (e: React.MouseEvent, loan: any) => {
+        e.stopPropagation();
+        if (!loan) return;
+        passThroughProps.onPortalLink?.(loan);
+        setShowPortalChoices(false);
+    };
+
+    const closeActionPanels = () => {
+        setBillFilter(null);
+        setShowArchiveChoices(false);
+        setShowUnifyChoices(false);
+        setShowPortalChoices(false);
+    };
+
+    const billChoices = billFilter === 'OVERDUE'
+        ? overdueLoans
+        : billFilter === 'DUE_SOON'
+            ? dueSoonLoans
+            : group.loans;
+
+    const billFilterLabel = billFilter === 'OVERDUE'
+        ? 'Contratos vencidos'
+        : billFilter === 'DUE_SOON'
+            ? 'Contratos vencendo'
+            : 'Todos os contratos';
 
     if (group.isStandalone && group.loans.length === 1) {
         const loan = group.loans[0];
@@ -132,7 +162,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     };
 
     return (
-        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
+        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div
                 className="flex flex-col min-h-[6rem] justify-between relative"
                 onClick={handleCardClick}
@@ -146,15 +176,15 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                     >
                         <div className="relative shrink-0">
                             {group.avatarUrl ? (
-                                <img src={group.avatarUrl} className="w-11 h-11 rounded-xl object-cover border border-slate-700/50" alt={group.clientName} />
+                                <img src={group.avatarUrl} className="w-11 h-11 rounded-lg object-cover border border-slate-700/50" alt={group.clientName} />
                             ) : (
-                                <div className="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700/50 shadow-sm">
+                                <div className="w-11 h-11 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700/50 shadow-sm">
                                     {icon}
                                 </div>
                             )}
                             <button
                                 onClick={handleToggleGroup}
-                                className="absolute -bottom-1 -right-1 bg-slate-900 rounded-lg p-1 border border-slate-700 hover:bg-slate-800 transition-colors"
+                                className="absolute -bottom-1 -right-1 bg-slate-900 rounded-md p-1 border border-slate-700 hover:bg-slate-800 transition-colors"
                             >
                                 {isExpanded ? <ChevronUp size={14} className="text-white" /> : <ChevronDown size={14} className="text-white" />}
                             </button>
@@ -206,56 +236,174 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                     ))}
 
                     <div className="pt-3 border-t border-slate-800/60 space-y-3">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
                             <button
-                                onClick={(e) => handleBillSelection(e, group.loans)}
-                                className="px-3 py-3 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 rounded-xl hover:bg-emerald-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1.5"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenClient(e);
+                                    closeActionPanels();
+                                }}
+                                className="px-2 py-2 bg-slate-900 text-slate-400 border border-slate-800 rounded-lg hover:bg-slate-800 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
                             >
-                                <MessageSquare size={14} />
-                                <span className="text-[8px] font-black uppercase text-center">Cobrar Todos</span>
+                                <User size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Cliente</span>
                             </button>
                             <button
-                                onClick={(e) => handleBillSelection(e, overdueLoans)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowPortalChoices((current) => !current);
+                                    setBillFilter(null);
+                                    setShowArchiveChoices(false);
+                                    setShowUnifyChoices(false);
+                                }}
+                                className="px-2 py-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
+                            >
+                                <LinkIcon size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Portal</span>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBillFilter((current) => current === 'ALL' ? null : 'ALL');
+                                    setShowArchiveChoices(false);
+                                    setShowUnifyChoices(false);
+                                    setShowPortalChoices(false);
+                                }}
+                                className="px-2 py-2 bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
+                            >
+                                <MessageSquare size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Cobrar</span>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBillFilter((current) => current === 'OVERDUE' ? null : 'OVERDUE');
+                                    setShowArchiveChoices(false);
+                                    setShowUnifyChoices(false);
+                                    setShowPortalChoices(false);
+                                }}
                                 disabled={overdueLoans.length === 0}
-                                className="px-3 py-3 bg-rose-600/10 text-rose-400 border border-rose-500/20 rounded-xl hover:bg-rose-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1.5 disabled:opacity-40 disabled:hover:bg-rose-600/10 disabled:hover:text-rose-400"
+                                className="px-2 py-2 bg-rose-600/10 text-rose-400 border border-rose-500/20 rounded-lg hover:bg-rose-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-40 disabled:hover:bg-rose-600/10 disabled:hover:text-rose-400"
                             >
-                                <AlertCircle size={14} />
-                                <span className="text-[8px] font-black uppercase text-center">Vencidos</span>
+                                <AlertCircle size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Venc.</span>
                             </button>
                             <button
-                                onClick={(e) => handleBillSelection(e, dueSoonLoans)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBillFilter((current) => current === 'DUE_SOON' ? null : 'DUE_SOON');
+                                    setShowArchiveChoices(false);
+                                    setShowUnifyChoices(false);
+                                    setShowPortalChoices(false);
+                                }}
                                 disabled={dueSoonLoans.length === 0}
-                                className="px-3 py-3 bg-amber-600/10 text-amber-400 border border-amber-500/20 rounded-xl hover:bg-amber-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1.5 disabled:opacity-40 disabled:hover:bg-amber-600/10 disabled:hover:text-amber-400"
+                                className="px-2 py-2 bg-amber-600/10 text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-40 disabled:hover:bg-amber-600/10 disabled:hover:text-amber-400"
                             >
-                                <Clock size={14} />
-                                <span className="text-[8px] font-black uppercase text-center">Vencendo</span>
+                                <Clock size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Prazo</span>
                             </button>
                             <button
-                                onClick={handleRenegotiateAll}
-                                className="px-3 py-3 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 rounded-xl hover:bg-indigo-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1.5"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowUnifyChoices((current) => !current);
+                                    setBillFilter(null);
+                                    setShowArchiveChoices(false);
+                                    setShowPortalChoices(false);
+                                }}
+                                className="px-2 py-2 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-600 hover:text-white transition-all flex flex-col items-center justify-center gap-1"
                             >
-                                <RefreshCcw size={14} />
-                                <span className="text-[8px] font-black uppercase text-center">Unificar</span>
+                                <RefreshCcw size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Unir</span>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowArchiveChoices((current) => !current);
+                                    setBillFilter(null);
+                                    setShowUnifyChoices(false);
+                                    setShowPortalChoices(false);
+                                }}
+                                className="px-2 py-2 bg-slate-900 text-slate-400 border border-slate-800 rounded-lg hover:bg-slate-800 hover:text-amber-400 transition-all flex flex-col items-center justify-center gap-1"
+                            >
+                                <Archive size={13} />
+                                <span className="text-[7px] font-black uppercase text-center">Arq.</span>
                             </button>
                         </div>
 
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowArchiveChoices((current) => !current);
-                            }}
-                            className="w-full px-3 py-3 bg-slate-900 text-slate-400 border border-slate-800 rounded-xl hover:bg-slate-800 hover:text-amber-400 transition-all flex items-center justify-center gap-2"
-                        >
-                            <Archive size={14} />
-                            <span className="text-[8px] font-black uppercase">Arquivar</span>
-                        </button>
+                        {showPortalChoices && (
+                            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
+                                <p className="px-1 text-[8px] font-black uppercase text-slate-500 tracking-widest">Copiar link do portal</p>
+                                <button
+                                    onClick={(e) => handlePortalSelection(e, group.loans[0])}
+                                    className="w-full px-3 py-2 rounded-md bg-blue-600/10 text-blue-400 border border-blue-500/20 text-[8px] font-black uppercase hover:bg-blue-600 hover:text-white flex items-center justify-center gap-2"
+                                >
+                                    <Copy size={12} /> Copiar link principal
+                                </button>
+                                <div className="grid gap-2">
+                                    {group.loans.map((loan) => (
+                                        <button
+                                            key={loan.id}
+                                            onClick={(e) => handlePortalSelection(e, loan)}
+                                            className="w-full px-3 py-2 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-blue-400"
+                                        >
+                                            Portal {formatShortName(loan.debtorName)} · #{loan.id.substring(0, 6)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
+                        {billFilter && (
+                            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
+                                <p className="px-1 text-[8px] font-black uppercase text-slate-500 tracking-widest">{billFilterLabel}</p>
+                                {billChoices.length === 0 ? (
+                                    <p className="px-3 py-2 text-[9px] font-bold text-slate-500">Nenhum contrato neste filtro.</p>
+                                ) : (
+                                    <div className="grid gap-2">
+                                        {billChoices.map((loan) => (
+                                            <button
+                                                key={loan.id}
+                                                onClick={(e) => handleBillLoan(e, loan)}
+                                                className="w-full px-3 py-2 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-emerald-400"
+                                            >
+                                                Cobrar {formatShortName(loan.debtorName)} · #{loan.id.substring(0, 6)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {showUnifyChoices && (
+                            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
+                                <button
+                                    onClick={handleRenegotiateAll}
+                                    className="w-full px-3 py-2 rounded-md bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 text-[8px] font-black uppercase hover:bg-indigo-600 hover:text-white"
+                                >
+                                    Unificar todos os contratos
+                                </button>
+                                <div className="grid gap-2">
+                                    {group.loans.map((loan) => (
+                                        <button
+                                            key={loan.id}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                passThroughProps.onRenegotiate?.(loan);
+                                            }}
+                                            className="w-full px-3 py-2 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-indigo-400"
+                                        >
+                                            Renegociar {formatShortName(loan.debtorName)} · #{loan.id.substring(0, 6)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         {showArchiveChoices && (
-                            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-2 space-y-2">
+                            <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
                                 <button
                                     onClick={(e) => handleArchiveSelection(e, activeLoans)}
                                     disabled={activeLoans.length === 0}
-                                    className="w-full px-3 py-2 rounded-lg bg-amber-600/10 text-amber-400 border border-amber-500/20 text-[8px] font-black uppercase disabled:opacity-40"
+                                    className="w-full px-3 py-2 rounded-md bg-amber-600/10 text-amber-400 border border-amber-500/20 text-[8px] font-black uppercase disabled:opacity-40"
                                 >
                                     Arquivar todos
                                 </button>
@@ -264,7 +412,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                         <button
                                             key={loan.id}
                                             onClick={(e) => handleArchiveSelection(e, [loan])}
-                                            className="w-full px-3 py-2 rounded-lg bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-amber-400"
+                                            className="w-full px-3 py-2 rounded-md bg-slate-950 text-slate-300 border border-slate-800 text-left text-[9px] font-black uppercase truncate hover:text-amber-400"
                                         >
                                             {formatShortName(loan.debtorName)} · #{loan.id.substring(0, 6)}
                                         </button>

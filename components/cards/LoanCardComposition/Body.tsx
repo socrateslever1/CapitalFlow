@@ -54,7 +54,7 @@ export const Body: React.FC<BodyProps> = ({
 
     return (
         <div className="space-y-6 pt-2">
-            {/* SeÃ§Ã£o de Resumo de Status (VisÃ­vel apenas se expandido) */}
+            {/* Seção de resumo de status, visível apenas se expandido. */}
             <div className="flex flex-wrap items-center gap-2 pb-2">
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-900/50 rounded-lg border border-slate-800/50">
                    <Info size={10} className="text-slate-500" />
@@ -69,7 +69,7 @@ export const Body: React.FC<BodyProps> = ({
                 ) : hasActiveAgreement ? (
                     <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20">
                         <Handshake size={10} className="shrink-0" />
-                        <span className="text-[9px] font-black uppercase tracking-wider">Em RenegociaÃ§Ã£o</span>
+                        <span className="text-[9px] font-black uppercase tracking-wider">Em Renegociação</span>
                     </div>
                 ) : (
                     (() => {
@@ -94,7 +94,7 @@ export const Body: React.FC<BodyProps> = ({
                 )}
             </div>
 
-            {/* SeÃ§Ã£o de UnificaÃ§Ã£o */}
+            {/* Seção de unificação. */}
             {unifiedChildren.length > 0 && (
                 <div className="space-y-3 bg-slate-900/40 p-4 rounded-[1.5rem] border border-slate-800/50">
                     <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export const Body: React.FC<BodyProps> = ({
                                     <span className="text-[10px] font-black text-white uppercase truncate">{child.debtorName}</span>
                                     <div className="flex items-center gap-1.5 mt-0.5 opacity-60">
                                         <span className="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">ID: {child.id.slice(0, 8)}</span>
-                                        <span className="text-slate-800">â€¢</span>
+                                        <span className="text-slate-800">•</span>
                                         <span className="text-[8px] text-emerald-500/80 font-black tracking-tight">{formatMoney(child.principal, isStealthMode)}</span>
                                     </div>
                                 </div>

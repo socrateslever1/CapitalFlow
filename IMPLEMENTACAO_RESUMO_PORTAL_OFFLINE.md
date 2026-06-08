@@ -1,5 +1,18 @@
 ﻿# Implementacoes - PORTAL OFFLINE
 
+## 2026-06-07
+- **Objetivo:** Verificar o Portal do Cliente apos as mudancas de renegociacao/Somente Capital e ajustar quadros excessivamente arredondados.
+- **Arquivos Alterados:**
+    - `/containers/ClientPortal/ClientPortalView.tsx`: Reduzidos os arredondamentos dos quadros principais, cards, modal juridico, aviso, area financeira e botoes grandes para `rounded-lg`, mantendo apenas indicadores circulares/pilulas quando fazem sentido.
+    - `/containers/ClientPortal/ClientPortalView.tsx`: Corrigido texto quebrado no aviso de acesso invalido.
+- **Verificacao Funcional:**
+    - O portal ativo e importado por `/components/AppGate.tsx` a partir de `/containers/ClientPortal/ClientPortalView.tsx`.
+    - O calculo do portal usa `/features/portal/mappers/portalDebtRules.ts`, que chama `/domain/finance/calculations.ts`. A regra de `Somente Capital` ja esta centralizada em `calculateTotalDue`, retornando principal e zerando juros/multa.
+    - Contratos com renegociacao ativa continuam exibindo parcelas do acordo ativo via `loan.activeAgreement.installments`.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.
+- **Escopo:** Ajuste visual e verificacao de integracao do portal; sem alteracao de regra financeira.
+
 ## 2026-05-01 (Parte 3)
 - **Objetivo:** Resolver erros crÃ­ticos de banco de dados, portal e aportes.
 - **Arquivos Alterados:**

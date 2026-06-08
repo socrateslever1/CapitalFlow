@@ -83,6 +83,8 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const [simulation, setSimulation] = useState<any>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [frequency, setFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
+    const mainLoan = loans[0];
+    const mainLoanLabel = mainLoan ? `${mainLoan.debtorName} #${mainLoan.id.slice(0, 6).toUpperCase()}` : 'contrato principal';
 
     useEffect(() => {
         if (!loans || loans.length === 0) return;
@@ -323,6 +325,20 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         }
     };
 
+    const operationWarning = (() => {
+        if (flowMode === 'NORMAL_UNIFICATION') {
+            return `Ao confirmar, ${mainLoanLabel} será o contrato principal. Os demais contratos selecionados ficarão como legado histórico, sem criar parcelamento.`;
+        }
+        if (flowMode === 'CAPITAL_ONLY_OPEN') {
+            return loans.length > 1
+                ? 'Ao confirmar, todos os contratos selecionados ficarão marcados como Somente Capital, sem juros, multa ou cronograma fixo de acordo.'
+                : 'Ao confirmar, este contrato ficará marcado como Somente Capital, sem juros, multa ou cronograma fixo de acordo.';
+        }
+        return loans.length > 1
+            ? `Ao confirmar, ${mainLoanLabel} será o contrato principal do acordo parcelado e os demais ficarão como legado histórico.`
+            : 'Ao confirmar, este contrato será transformado em um acordo parcelado, sem criar outro contrato para o mesmo cliente.';
+    })();
+
     return (
         <Modal onClose={onClose} title={loans.length > 1 ? `Unificar ${loans.length} Contratos` : "Acordo de Inadimplência"}>
             <div className="space-y-6">
@@ -332,6 +348,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             <p className="text-[10px] uppercase font-black text-slate-500">Dívida Total Calculada</p>
                             <p className="text-3xl font-black text-rose-500">{formatMoney(totalDebt)}</p>
                             {loans.length > 1 && <p className="text-[10px] text-slate-400 mt-2">Somando {loans.length} contratos selecionados</p>}
+                            {loans.length > 1 && <p className="text-[10px] text-blue-300 mt-2">Contrato principal: <b>{mainLoanLabel}</b></p>}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -384,9 +401,9 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     <div className="space-y-4 animate-in slide-in-from-right">
                         {flowMode !== 'INSTALLMENT_AGREEMENT' && (
                             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                                <p className="text-[10px] uppercase font-bold text-slate-500">Operacao Selecionada</p>
-                                <p className="text-xl font-black text-white mt-1">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificacao normal sem parcelamento' : 'Somente Capital em aberto'}</p>
-                                <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serao consolidados no contrato principal, sem acordo parcelado.' : 'O contrato ficara marcado para recuperar apenas o capital, sem cronograma de parcelas.'}</p>
+                                <p className="text-[10px] uppercase font-bold text-slate-500">Operação Selecionada</p>
+                                <p className="text-xl font-black text-white mt-1">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificação normal sem parcelamento' : 'Somente Capital em aberto'}</p>
+                                <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serão consolidados no contrato principal, sem acordo parcelado.' : 'O contrato ficará marcado para recuperar apenas o capital, sem cronograma de parcelas.'}</p>
                             </div>
                         )}
                         {flowMode === 'INSTALLMENT_AGREEMENT' && (
@@ -447,7 +464,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
                         <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-xl flex items-start gap-3">
                             <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-1"/>
-                            <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {loans.length > 1 ? `Ao confirmar, o contrato principal será transformado em um único parcelamento ativo e os demais ficarão apenas como legado histórico.` : "Ao confirmar, este contrato será transformado em um contrato parcelado, sem criar outro contrato para o mesmo cliente."}</p>
+                            <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {operationWarning}</p>
                         </div>
 
                         <div className="flex gap-3">

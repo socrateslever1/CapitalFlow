@@ -4,6 +4,8 @@
 - **Objetivo:** Simplificar o envio de comprovante pelo WhatsApp e evitar travamento por geracao antecipada de PNG/PDF.
 - **Arquivos Alterados:**
     - `/components/modals/ReceiptModal.tsx`: O fluxo passou a ter selecao de formato (`Texto`, `PNG` ou `PDF`) e um unico botao `Enviar no WhatsApp`. PNG/PDF agora sao gerados somente no clique de envio, com escala menor no canvas; quando o navegador suporta compartilhamento de arquivo, envia o arquivo pelo compartilhamento nativo, e quando nao suporta baixa o arquivo e abre a conversa do WhatsApp com a mensagem pronta. Textos visiveis do comprovante foram corrigidos para portugues.
+- **Ajuste Posterior no Mesmo Dia:**
+    - `/components/modals/ReceiptModal.tsx`: Restaurada a opcao `Imprimir`, que era o caminho funcional anterior. PNG e PDF voltaram a ter botoes diretos de download, e o envio pelo WhatsApp agora abre a conversa com texto pronto; quando o formato escolhido for PNG/PDF, o arquivo e gerado/baixado antes e a conversa e aberta para anexo manual.
 - **Arquivos Criados:** Nenhum.
 - **Riscos/Observacoes:** Navegadores de desktop nao permitem anexar automaticamente um arquivo local/blob em uma conversa do WhatsApp por link `wa.me`; nesses casos o sistema baixa o comprovante e abre a conversa para anexo manual. Em navegadores com Web Share API compativel, o arquivo e entregue ao compartilhamento nativo.
 - **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.

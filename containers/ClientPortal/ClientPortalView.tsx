@@ -67,7 +67,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
 
   return (
     <div
-      className={`relative group border rounded-[2rem] p-6 transition-all duration-500 overflow-hidden ${
+      className={`relative group border rounded-lg p-6 transition-all duration-500 overflow-hidden ${
         hasLateInstallments
           ? 'bg-rose-950/10 border-rose-500/20 hover:border-rose-500/40'
           : isPaidOff
@@ -128,7 +128,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
       )}
 
       {!isPaidOff && (
-        <div className="space-y-2 mb-6 bg-slate-950/40 p-3 rounded-2xl border border-slate-800/30 backdrop-blur-sm relative z-10">
+        <div className="space-y-2 mb-6 bg-slate-950/40 p-3 rounded-lg border border-slate-800/30 backdrop-blur-sm relative z-10">
           {installmentsToShow
             .filter((i: any) => !isPortalInstallmentPaid(i))
             .slice(0, 2)
@@ -150,7 +150,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
         <button
           onClick={onPay}
           disabled={isPaidOff}
-          className={`w-full py-4 rounded-2xl text-[11px] font-black uppercase flex items-center justify-center gap-3 transition-all duration-300 ${
+          className={`w-full py-4 rounded-lg text-[11px] font-black uppercase flex items-center justify-center gap-3 transition-all duration-300 ${
             isPaidOff
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'
               : hasLateInstallments
@@ -180,16 +180,16 @@ export const ClientPortalView: React.FC<ClientPortalViewProps> = ({ initialPorta
   if (initialPortalToken === 'INVALID_ACCESS') {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-rose-500/5 blur-[100px] pointer-events-none"></div>
           <ShieldCheck size={56} className="mx-auto text-rose-500 mb-6" />
           <h2 className="text-white font-black text-2xl uppercase tracking-tighter mb-2">Acesso Restrito</h2>
-          <p className="text-slate-400 text-sm mb-8 leading-relaxed">Este link de acesso ÃƒÂ© invÃƒÂ¡lido ou jÃƒÂ¡ expirou por razÃƒÂµes de seguranÃƒÂ§a.</p>
+          <p className="text-slate-400 text-sm mb-8 leading-relaxed">Este link de acesso é inválido ou já expirou por razões de segurança.</p>
           <button
             onClick={() => (window.location.href = '/')}
-            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all border border-slate-700"
+            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-black uppercase text-xs tracking-widest transition-all border border-slate-700"
           >
-            Voltar ao InÃƒÂ­cio
+            Voltar ao Início
           </button>
         </div>
       </div>
@@ -210,14 +210,14 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
   if (initialPortalToken === 'INVALID_ACCESS') {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-rose-500/5 blur-[100px] pointer-events-none"></div>
           <ShieldCheck size={56} className="mx-auto text-rose-500 mb-6" />
           <h2 className="text-white font-black text-2xl uppercase tracking-tighter mb-2">Acesso Restrito</h2>
           <p className="text-slate-400 text-sm mb-8 leading-relaxed">Este link de acesso é inválido ou já expirou por razões de segurança.</p>
           <button
             onClick={() => (window.location.href = '/')}
-            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest transition-all border border-slate-700"
+            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-black uppercase text-xs tracking-widest transition-all border border-slate-700"
           >
             Voltar ao Início
           </button>
@@ -399,7 +399,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
   if (portalError || !loggedClient) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-[2rem] p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-10 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-rose-500/5 blur-[100px] pointer-events-none"></div>
           <AlertTriangle size={56} className="mx-auto text-rose-500 mb-6" />
           <h2 className="text-white font-black text-2xl uppercase tracking-tighter mb-2">Sessão Indisponível</h2>
@@ -434,11 +434,11 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                       zIndex: clientNotifications.length - idx 
                     }}
                     exit={{ y: -100, opacity: 0, transition: { duration: 0.3 } }}
-                    className={`absolute inset-x-0 bg-slate-900/95 backdrop-blur-xl text-white p-5 rounded-[1.5rem] shadow-2xl border flex items-start gap-4 pointer-events-auto ring-1 ring-white/10 ${
+                    className={`absolute inset-x-0 bg-slate-900/95 backdrop-blur-xl text-white p-5 rounded-lg shadow-2xl border flex items-start gap-4 pointer-events-auto ring-1 ring-white/10 ${
                       isRose ? 'border-rose-500/30 shadow-rose-950/20' : 'border-amber-500/30 shadow-amber-950/20'
                     }`}
                   >
-                    <div className={`p-2.5 rounded-xl shrink-0 ${
+                    <div className={`p-2.5 rounded-lg shrink-0 ${
                       isRose ? 'bg-rose-500/10 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.1)]' : 'bg-amber-500/10 text-amber-500'
                     }`}>
                       <BellRing size={20} className={isRose ? 'animate-pulse' : ''} />
@@ -457,10 +457,10 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         </div>
       )}
 
-      <div className="w-full max-w-lg bg-slate-900/10 sm:rounded-[3rem] flex flex-col h-full sm:h-[92vh] sm:border border-slate-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative backdrop-blur-3xl">
+      <div className="w-full max-w-lg bg-slate-900/10 sm:rounded-lg flex flex-col h-full sm:h-[92vh] sm:border border-slate-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative backdrop-blur-3xl">
         <div className="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 p-6 flex items-center justify-between shrink-0 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-lg shadow-xl border-2 border-slate-900 relative">
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-lg shadow-xl border-2 border-slate-900 relative">
               {loggedClient.name.charAt(0)}
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-950 rounded-full"></div>
             </div>
@@ -478,7 +478,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 exitPortal();
               }
             }}
-            className="p-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl hover:text-rose-400 hover:border-rose-500/20 transition-all active:scale-90"
+            className="p-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:text-rose-400 hover:border-rose-500/20 transition-all active:scale-90"
             title="Sair do Portal"
           >
             <LogOut size={20} />
@@ -489,7 +489,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           {alertTheme && <div className="absolute top-0 right-0 w-full h-80 bg-rose-500/5 blur-[120px] pointer-events-none"></div>}
 
           <div
-            className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-700 shadow-2xl ${
+            className={`p-8 rounded-lg border relative overflow-hidden transition-all duration-700 shadow-2xl ${
               alertTheme 
                 ? 'bg-gradient-to-br from-rose-950/30 to-slate-900/50 border-rose-500/20' 
                 : 'bg-gradient-to-br from-slate-800/20 to-slate-900 border-slate-800'
@@ -537,11 +537,11 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           <div className="grid grid-cols-1 gap-4">
               <button
                 onClick={() => setIsLegalOpen(true)}
-                className="group relative bg-slate-900/50 border border-slate-800 p-5 rounded-[2rem] flex items-center justify-between hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 overflow-hidden"
+                className="group relative bg-slate-900/50 border border-slate-800 p-5 rounded-lg flex items-center justify-between hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 overflow-hidden"
               >
                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-3xl rounded-full group-hover:bg-indigo-500/10 transition-all"></div>
                 <div className="flex items-center gap-4 relative z-10">
-                  <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-all transform group-hover:scale-110 shadow-lg">
+                  <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all transform group-hover:scale-110 shadow-lg">
                     <FileSignature size={22} />
                   </div>
                   <div className="text-left">
@@ -559,7 +559,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
             </h3>
 
             {clientContracts.length === 0 ? (
-              <div className="text-center py-16 bg-slate-900/20 border-2 border-dashed border-slate-800/50 rounded-[2.5rem]">
+              <div className="text-center py-16 bg-slate-900/20 border-2 border-dashed border-slate-800/50 rounded-lg">
                 <RefreshCw size={24} className="mx-auto text-slate-700 mb-3" />
                 <p className="text-slate-600 text-[11px] font-black uppercase tracking-widest">Aguardando novos lançamentos</p>
               </div>
@@ -577,9 +577,9 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           <PortalEducationalAI contracts={clientContracts} clientName={loggedClient.name} />
 
           {clientContracts.length > 0 && (
-            <div className="bg-slate-950/40 p-5 rounded-[2rem] border border-slate-800/30 flex items-center gap-4 relative overflow-hidden group">
+            <div className="bg-slate-950/40 p-5 rounded-lg border border-slate-800/30 flex items-center gap-4 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-slate-800/10 blur-3xl rounded-full group-hover:scale-150 transition-transform duration-1000"></div>
-              <div className="p-3 bg-slate-900 rounded-2xl text-slate-500 shadow-inner">
+              <div className="p-3 bg-slate-900 rounded-lg text-slate-500 shadow-inner">
                 <Building size={20} />
               </div>
               <div className="overflow-hidden flex-1 relative z-10">
@@ -595,7 +595,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         {/* Botão de Suporte (WhatsApp do Operador ou Chat Interno) */}
         <button
           onClick={handleSupportAction}
-          className="fixed bottom-8 right-6 w-16 h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[1.5rem] shadow-[0_20px_40px_rgba(16,185,129,0.3)] flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 z-[100] group overflow-hidden"
+          className="fixed bottom-8 right-6 w-16 h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-[0_20px_40px_rgba(16,185,129,0.3)] flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 z-[100] group overflow-hidden"
         >
            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
            <MessageCircle size={28} className="relative z-10 group-hover:rotate-12 transition-transform" />
@@ -630,10 +630,10 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
 
       {isLegalOpen && (
         <div className="fixed inset-0 bg-slate-950/98 flex items-center justify-center z-[250] p-4 backdrop-blur-xl animate-in fade-in duration-500">
-          <div className="bg-slate-900 border border-indigo-500/20 rounded-[3rem] shadow-2xl relative w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+          <div className="bg-slate-900 border border-indigo-500/20 rounded-lg shadow-2xl relative w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
             <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400">
+                    <div className="w-12 h-12 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-400">
                         <Gavel size={24} />
                     </div>
                     <div>
@@ -643,14 +643,14 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 </div>
                 <button
                   onClick={() => setIsLegalOpen(false)}
-                  className="p-3 bg-slate-950/50 border border-slate-800 rounded-2xl text-slate-500 hover:text-white transition-all shadow-inner"
+                  className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg text-slate-500 hover:text-white transition-all shadow-inner"
                 >
                   <X size={20} />
                 </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
-              <div className="bg-gradient-to-br from-indigo-500/10 to-transparent p-6 rounded-[2rem] border border-indigo-500/20 text-center relative overflow-hidden group">
+              <div className="bg-gradient-to-br from-indigo-500/10 to-transparent p-6 rounded-lg border border-indigo-500/20 text-center relative overflow-hidden group">
                 <Lock className="mx-auto text-indigo-400 mb-2 relative z-10" size={32} />
                 <h4 className="text-white font-black text-sm uppercase tracking-wide relative z-10">Assinatura Eletrônica</h4>
                 <p className="text-[10px] text-slate-400 mt-2 font-medium leading-relaxed relative z-10">
@@ -664,12 +664,12 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                   <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest animate-pulse">Sincronizando Arquivos...</p>
                 </div>
               ) : legalDocsError ? (
-                <div className="w-full bg-rose-500/5 border border-rose-500/20 rounded-[2rem] p-6 text-center">
+                <div className="w-full bg-rose-500/5 border border-rose-500/20 rounded-lg p-6 text-center">
                   <AlertTriangle className="mx-auto text-rose-500 mb-2" size={32} />
                   <p className="text-rose-100 text-xs font-bold leading-tight mb-4">{legalDocsError}</p>
                   <button
                     onClick={loadDocs}
-                    className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase rounded-xl shadow-lg shadow-rose-900/30 transition-all"
+                    className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-rose-900/30 transition-all"
                   >
                     Tentar Sincronização
                   </button>
@@ -686,10 +686,10 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                       <button
                         key={doc.id}
                         onClick={() => openPublicLegalDocument(doc)}
-                        className="w-full p-5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800/50 rounded-[2rem] flex items-center justify-between group transition-all"
+                        className="w-full p-5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800/50 rounded-lg flex items-center justify-between group transition-all"
                       >
                         <div className="flex items-center gap-4 text-left">
-                          <div className={`p-3 rounded-2xl shadow-lg transition-colors ${
+                          <div className={`p-3 rounded-lg shadow-lg transition-colors ${
                               (doc.status_assinatura || '').toUpperCase() === 'ASSINADO' 
                               ? 'bg-emerald-500/10 text-emerald-500' 
                               : 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white'

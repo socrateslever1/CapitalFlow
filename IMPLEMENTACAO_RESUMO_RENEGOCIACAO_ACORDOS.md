@@ -17,6 +17,8 @@
     - `/utils/translationHelpers.ts`: Adicionadas traducoes para eventos tecnicos de extrato e tipos de documento juridico, evitando exibicao de chaves em ingles no frontend.
     - `/components/cards/components/LedgerList.tsx` e `/pages/ContractDetails/LedgerTimeline.tsx`: Extrato passa a exibir nomes traduzidos para eventos como `Somente Capital Ativado` e `Unificacao Normal Criada`.
     - `/features/legal/components/ConfissaoDivida/LegalDocumentHistory.tsx`: Historico juridico passa a exibir tipo de documento traduzido em portugues.
+- **Ajuste Posterior no Mesmo Dia:**
+    - `/features/agreements/components/RenegotiationModal.tsx`: Modal passou a exibir o contrato principal quando ha varios contratos selecionados, corrigiu textos visiveis em portugues e passou a trocar o aviso final conforme a operacao escolhida, evitando dizer que sera criado parcelamento quando a escolha for `Unificar Normal` ou `Somente Capital`.
 - **Arquivos Criados:**
     - `/utils/capitalOnlyRecovery.ts`: Necessario para centralizar o marcador tecnico e evitar divergencia entre card, carteira, calculo, pagamento e validacao.
 - **Riscos/Observacoes:** A marcacao `Somente Capital` usa `contratos.notes` para evitar migration. A unificacao normal consolida o saldo aberto no contrato principal e marca os demais como legado renegociado. A traducao do extrato altera apenas exibicao, sem mudar os tipos tecnicos gravados no banco.

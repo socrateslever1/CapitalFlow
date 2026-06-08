@@ -76,6 +76,15 @@
 - **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso. `git diff --check` sem erros; apenas avisos de LF/CRLF do Git no Windows.
 - **Escopo:** Ajuste visual/textual. Sem alteracao de regra financeira, recebimento, calendario, suporte, banco, rotas ou integracoes externas.
 
+### Complemento - Finalizacao global de arredondamento
+- **Objetivo:** Encerrar a padronizacao visual global, removendo sobras de `rounded-xl`, `rounded-2xl`, `rounded-3xl` e arredondamentos arbitrarios grandes em telas restantes.
+- **Arquivos Alterados:** Ajuste mecanico global em arquivos `.ts` e `.tsx` do projeto, preservando `rounded-full` e estados direcionais como `rounded-tr-none`/`rounded-tl-none`.
+- **Validacao:**
+    - `rg "rounded-\\[[^\\]]+\\]|rounded-3xl|rounded-2xl|rounded-xl"` sem ocorrencias no codigo fonte.
+    - `git diff --check` executado sem erros.
+    - `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.
+- **Escopo:** Ajuste visual global. Sem alteracao intencional de regras de negocio, banco, rotas ou integracoes externas.
+
 ## 2026-05-01 (Parte 2)
 - **Objetivo:** Implementar melhorias de usabilidade: persistÃªncia de estado do contrato selecionado.
 - **Arquivos Alterados:**

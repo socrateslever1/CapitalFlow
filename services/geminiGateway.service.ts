@@ -1,5 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
+import { getGeminiApiKey } from "../utils/geminiConfig";
 
 /**
  * Serviço isolado para integração com Google Gemini via Cloudflare AI Gateway.
@@ -11,7 +12,7 @@ export const geminiGatewayService = {
   getClient() {
     const accountId = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
     const gatewayName = import.meta.env.VITE_GATEWAY_NAME;
-    const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const googleApiKey = getGeminiApiKey();
 
     const isGatewayConfigured = accountId && gatewayName && 
                                !accountId.includes('SEU_') && 
@@ -48,7 +49,7 @@ export const geminiGatewayService = {
   async testGenerateContent(prompt: string) {
     const accountId = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
     const gatewayName = import.meta.env.VITE_GATEWAY_NAME;
-    const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const googleApiKey = getGeminiApiKey();
 
     const isGatewayConfigured = !!(accountId && gatewayName && 
                                !accountId.includes('SEU_') && 

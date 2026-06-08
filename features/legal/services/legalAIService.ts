@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { LegalDocumentParams, Agreement, Loan, UserProfile } from "../../../types";
+import { GEMINI_API_KEY_HELP, getGeminiApiKey } from "../../../utils/geminiConfig";
 
 export const legalAIService = {
   generateConfissaoPayload: async (
@@ -9,10 +10,10 @@ export const legalAIService = {
     activeUser: UserProfile,
     options: any
   ): Promise<LegalDocumentParams> => {
-    const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-    
+    const googleApiKey = getGeminiApiKey();
+
     if (!googleApiKey) {
-      throw new Error("Chave da API do Gemini não configurada.");
+      throw new Error(GEMINI_API_KEY_HELP);
     }
 
     const ai = new GoogleGenAI({ apiKey: googleApiKey });

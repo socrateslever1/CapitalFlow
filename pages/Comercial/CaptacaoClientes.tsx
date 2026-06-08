@@ -6,6 +6,7 @@ import { useCampaignChat } from '../../hooks/useCampaignChat';
 import { supabase } from '../../lib/supabase';
 import { formatMoney, maskPhone } from '../../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
+import { GEMINI_API_KEY_HELP, getGeminiApiKey } from '../../utils/geminiConfig';
 
 const DEFAULT_VALUES = [300, 500, 800, 1000, 1500];
 const DEFAULT_TEMPLATE = "Olá! Me chamo {NOME}. Vim pela campanha {CAMPANHA}. Tenho interesse no valor de R$ {VALOR}. Link: {LINK}";
@@ -157,9 +158,9 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
     setGeneratingImage(true);
     try {
-      const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+      const googleApiKey = getGeminiApiKey();
       if (!googleApiKey) {
-        throw new Error("Chave da API do Gemini não configurada.");
+        throw new Error(GEMINI_API_KEY_HELP);
       }
       const ai = new GoogleGenAI({ apiKey: googleApiKey });
       const prompt = `Create a professional, clean, and trustworthy social media image for a financial service campaign named "${form.name}".

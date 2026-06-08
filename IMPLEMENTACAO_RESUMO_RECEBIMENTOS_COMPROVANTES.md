@@ -68,3 +68,11 @@
 - **Riscos/Observacoes:** A publicacao da funcao elimina a indisponibilidade por ausencia de deploy; validacao funcional final de pagamento depende de chamada real com token/portal validos.
 - **Escopo:** Somente conclusao de infraestrutura remota da Edge Function exigida pelo fluxo do portal.
 
+## 2026-06-08
+- **Objetivo:** Tornar o comprovante estavel e melhor formatado, aceitando o fluxo de impressao/salvar como PDF no lugar da geracao instavel de imagem.
+- **Arquivos Alterados:**
+    - `/components/modals/ReceiptModal.tsx`: Removidas as rotinas de PNG/jsPDF/canvas que travavam o sistema. O comprovante agora abre uma janela propria de impressao com layout em HTML/CSS, pronto para imprimir ou salvar como PDF pelo navegador. O modal mantem a opcao de enviar texto pelo WhatsApp, sem tentar anexar arquivo automaticamente.
+- **Arquivos Criados:** Nenhum.
+- **Riscos/Observacoes:** A geracao de imagem foi retirada do fluxo principal por instabilidade. Para PDF, o caminho recomendado e usar a janela de impressao do navegador e escolher "Salvar como PDF".
+- **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso; `git diff --check` sem erros, apenas aviso normal de LF/CRLF no Windows.
+- **Escopo:** Ajuste limitado ao modal de comprovante e ao resumo da categoria de recebimentos/comprovantes.

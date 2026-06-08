@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { GEMINI_API_KEY_HELP, getGeminiApiKey } from "../utils/geminiConfig";
 
 /**
  * Tipos e Interfaces existentes para manter compatibilidade com o sistema atual.
@@ -62,11 +63,11 @@ export const processNaturalLanguageCommand = async (
     const persona = resolvePersona(context);
     const systemInstruction = getSystemInstruction(persona);
 
-    const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const googleApiKey = getGeminiApiKey();
     if (!googleApiKey) {
       return {
         intent: 'ERROR',
-        feedback: 'Chave da API do Gemini não configurada (VITE_GOOGLE_API_KEY ou process.env.GEMINI_API_KEY).',
+        feedback: GEMINI_API_KEY_HELP,
       };
     }
 
@@ -215,7 +216,7 @@ import { fetchWithRetry } from "../utils/fetchWithRetry";
 export async function askGemini(prompt: string): Promise<string> {
   const accountId = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
   const gatewayName = import.meta.env.VITE_GATEWAY_NAME;
-  const googleApiKey = import.meta.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const googleApiKey = getGeminiApiKey();
   const cfAigToken = import.meta.env.VITE_CF_AIG_TOKEN;
 
   const isGatewayConfigured = !!(accountId && gatewayName && 
@@ -269,7 +270,7 @@ export async function askGemini(prompt: string): Promise<string> {
       }
     }
 
-    if (!googleApiKey) throw new Error("API Key não configurada");
+    if (!googleApiKey) throw new Error(GEMINI_API_KEY_HELP);
     
     // Retry logic for askGemini
     let lastError: any;

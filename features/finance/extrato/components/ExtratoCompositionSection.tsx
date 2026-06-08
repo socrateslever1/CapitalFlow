@@ -1,7 +1,7 @@
 import React from 'react';
 
 export const ExtratoCompositionSection = ({ dre }: { dre: any }) => (
-    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+    <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg">
         <h3 className="text-xs font-bold uppercase text-slate-500 tracking-widest mb-4">Composição do Resultado</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div><p className="text-[10px] text-slate-500 uppercase">Juros Recebidos</p><p className="text-sm font-bold text-white">R$ {dre.interestReceived.toFixed(2)}</p></div>

@@ -11,8 +11,8 @@ interface MemberEditorModalProps {
     onSave: (memberId: string, updates: { role?: string, team_id?: string, supervisor_id?: string | null }) => Promise<void>;
 }
 
-export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({ 
-    isOpen, onClose, member, teams, onSave 
+export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
+    isOpen, onClose, member, teams, onSave
 }) => {
     const [role, setRole] = useState(member?.role || 'MEMBER');
     const [teamId, setTeamId] = useState(member?.team_id || '');
@@ -24,10 +24,10 @@ export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
     const handleSave = async () => {
         setIsLoading(true);
         try {
-            await onSave(member.id, { 
-                role, 
+            await onSave(member.id, {
+                role,
                 team_id: teamId,
-                supervisor_id: supervisorId || null 
+                supervisor_id: supervisorId || null
             });
             onClose();
         } finally {
@@ -38,7 +38,7 @@ export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
     return (
         <Modal onClose={onClose} title="Editar Membro">
             <div className="space-y-6">
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center gap-3">
+                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
                         {member.linked_profile?.avatar_url ? (
                             <img src={member.linked_profile.avatar_url} className="w-full h-full object-cover"/>
@@ -54,10 +54,10 @@ export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
                     <div>
                         <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block flex items-center gap-1"><ShieldCheck size={12}/> Função / Permissão</label>
                         <div className="relative group">
-                            <select 
-                                value={role || 'MEMBER'} 
+                            <select
+                                value={role || 'MEMBER'}
                                 onChange={e => setRole(e.target.value)}
-                                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 pr-10 text-white font-bold text-xs outline-none focus:border-blue-500 cursor-pointer"
+                                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 pr-10 text-white font-bold text-xs outline-none focus:border-blue-500 cursor-pointer"
                             >
                                 <option value="MEMBER">Operador (Padrão)</option>
                                 <option value="ADMIN">Administrador</option>
@@ -69,10 +69,10 @@ export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
                     <div>
                         <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block flex items-center gap-1"><Layers size={12}/> Alocar na Equipe</label>
                         <div className="relative group">
-                            <select 
-                                value={teamId || ''} 
+                            <select
+                                value={teamId || ''}
                                 onChange={e => setTeamId(e.target.value)}
-                                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 pr-10 text-white font-bold text-xs outline-none focus:border-blue-500 cursor-pointer"
+                                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 pr-10 text-white font-bold text-xs outline-none focus:border-blue-500 cursor-pointer"
                             >
                                 {teams.map(t => (
                                     <option key={t.id} value={t.id}>{t.name}</option>
@@ -85,10 +85,10 @@ export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
                     <div>
                         <label className="text-[10px] font-black uppercase text-slate-500 ml-1 mb-1 block flex items-center gap-1"><User size={12}/> Definir Supervisor</label>
                         <div className="relative group">
-                            <select 
-                                value={supervisorId || ''} 
+                            <select
+                                value={supervisorId || ''}
                                 onChange={e => setSupervisorId(e.target.value)}
-                                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 pr-10 text-white font-bold text-xs outline-none focus:border-blue-500 cursor-pointer"
+                                className="w-full appearance-none bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 pr-10 text-white font-bold text-xs outline-none focus:border-blue-500 cursor-pointer"
                             >
                                 <option value="">Sem Supervisor (Direto)</option>
                                 {member.team_members?.filter((m: any) => m.profile_id && m.profile_id !== member.profile_id).map((m: any) => (
@@ -100,10 +100,10 @@ export const MemberEditorModal: React.FC<MemberEditorModalProps> = ({
                     </div>
                 </div>
 
-                <button 
-                    onClick={handleSave} 
-                    disabled={isLoading} 
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
+                <button
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
                 >
                     {isLoading ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16}/> Salvar Alterações</>}
                 </button>

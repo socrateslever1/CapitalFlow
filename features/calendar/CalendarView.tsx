@@ -278,7 +278,7 @@ export default function CalendarView({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode(viewMode === 'AGENDA' ? 'RAIO_X' : 'AGENDA')}
-            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border transition-all ${
               viewMode === 'RAIO_X'
                 ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'
@@ -294,7 +294,7 @@ export default function CalendarView({
         {viewMode === 'RAIO_X' ? (
           <div className="space-y-6 animate-in zoom-in duration-300">
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg shadow-xl">
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                   <AlertTriangle className="text-rose-500" size={14} /> Vencidos
                 </p>
@@ -304,7 +304,7 @@ export default function CalendarView({
                 </p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg shadow-xl">
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                   <Clock className="text-amber-500" size={14} /> Hoje
                 </p>
@@ -314,7 +314,7 @@ export default function CalendarView({
                 </p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg shadow-xl">
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                   <CalendarDays className="text-blue-500" size={14} /> Próx. 7 Dias
                 </p>
@@ -324,7 +324,7 @@ export default function CalendarView({
                 </p>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg shadow-xl">
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                   <CalendarCheck className="text-slate-500" size={14} /> Total Ativo
                 </p>
@@ -340,7 +340,7 @@ export default function CalendarView({
               </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg shadow-xl">
               <h3 className="text-[10px] font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Activity size={14} className="text-purple-500" /> Saúde da Carteira
               </h3>
@@ -372,7 +372,7 @@ export default function CalendarView({
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
+                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                     filter === f
                       ? 'bg-white text-slate-950 border-white shadow-lg shadow-white/10'
                       : 'bg-slate-900 text-slate-500 border-slate-800 hover:border-slate-700'
@@ -394,7 +394,7 @@ export default function CalendarView({
                 placeholder="BUSCAR NA AGENDA..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-12 pr-4 text-xs font-bold text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 transition-colors uppercase tracking-wider"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-12 pr-4 text-xs font-bold text-white placeholder:text-slate-600 focus:outline-none focus:border-purple-500 transition-colors uppercase tracking-wider"
               />
             </div>
 
@@ -431,7 +431,7 @@ export default function CalendarView({
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex items-center gap-3">
                               <div
-                                className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black text-xs shadow-lg ${
+                                className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-lg ${
                                   item.status === 'OVERDUE'
                                     ? 'bg-rose-500 shadow-rose-900/20'
                                     : 'bg-slate-800'
@@ -470,7 +470,7 @@ export default function CalendarView({
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleWhatsApp(item)}
-                                className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"
+                                className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"
                                 title="WhatsApp"
                               >
                                 <MessageCircle size={16} />
@@ -478,7 +478,7 @@ export default function CalendarView({
 
                               <button
                                 onClick={() => handleCreateReminder(item)}
-                                className="p-2 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
+                                className="p-2 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
                                 title="Gerar Lembrete"
                               >
                                 <BellRing size={16} />
@@ -487,7 +487,7 @@ export default function CalendarView({
 
                             <button
                               onClick={() => onSystemAction('NAVIGATE_CONTRACT', { loanId: item.loanId })}
-                              className="px-4 py-2 bg-slate-800 text-white text-[10px] font-black uppercase rounded-xl hover:bg-white hover:text-slate-950 transition-all"
+                              className="px-4 py-2 bg-slate-800 text-white text-[10px] font-black uppercase rounded-lg hover:bg-white hover:text-slate-950 transition-all"
                             >
                               Baixar
                             </button>

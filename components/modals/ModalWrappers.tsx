@@ -20,16 +20,16 @@ export const PaymentModalWrapper = () => {
     if (!ui.paymentModal || !ui.paymentModal.loan || !ui.paymentModal.inst) return null;
 
     return (
-        <PaymentManagerModal 
-            data={ui.paymentModal} 
-            onClose={closeModal} 
-            isProcessing={ui.isProcessingPayment} 
-            paymentType={ui.paymentType} 
-            setPaymentType={ui.setPaymentType} 
-            avAmount={ui.avAmount} 
-            setAvAmount={ui.setAvAmount} 
-            onConfirm={paymentCtrl.handlePayment} 
-            onOpenMessage={(l: Loan) => { ui.setMessageModalLoan(l); ui.openModal('MESSAGE_HUB'); }} 
+        <PaymentManagerModal
+            data={ui.paymentModal}
+            onClose={closeModal}
+            isProcessing={ui.isProcessingPayment}
+            paymentType={ui.paymentType}
+            setPaymentType={ui.setPaymentType}
+            avAmount={ui.avAmount}
+            setAvAmount={ui.setAvAmount}
+            onConfirm={paymentCtrl.handlePayment}
+            onOpenMessage={(l: Loan) => { ui.setMessageModalLoan(l); ui.openModal('MESSAGE_HUB'); }}
         />
     );
 };
@@ -71,11 +71,11 @@ export const ReceiptModalWrapper = () => {
     };
 
     return (
-        <ReceiptModal 
-            data={receiptData} 
-            onClose={closeModal} 
-            userName={activeUser.businessName || activeUser.name || 'Empresa'} 
-            userDoc={activeUser.document} 
+        <ReceiptModal
+            data={receiptData}
+            onClose={closeModal}
+            userName={activeUser.businessName || activeUser.name || 'Empresa'}
+            userDoc={activeUser.document}
         />
     );
 };
@@ -83,15 +83,15 @@ export const ReceiptModalWrapper = () => {
 export const MessageHubWrapper = () => {
     const { ui, closeModal, clients } = useModal();
     if (!ui.messageModalLoan) return null;
-    
+
     // Busca segura do cliente
     const client = clients.find((c: any) => c.id === ui.messageModalLoan?.clientId);
 
     return (
-        <MessageHubModal 
-            loan={ui.messageModalLoan} 
-            client={client} 
-            onClose={closeModal} 
+        <MessageHubModal
+            loan={ui.messageModalLoan}
+            client={client}
+            onClose={closeModal}
         />
     );
 };
@@ -131,8 +131,8 @@ export const CalculatorWrapper = () => {
 export const AIWrapper = () => {
     const { closeModal, aiCtrl, loans, sources, activeUser } = useModal();
     return (
-       <AIAssistantModal 
-            onClose={closeModal} 
+       <AIAssistantModal
+            onClose={closeModal}
             onCommandDetected={aiCtrl.handleAICommand}
             loans={loans}
             sources={sources}
@@ -144,11 +144,11 @@ export const AIWrapper = () => {
 export const NoteWrapper = () => {
     const { closeModal, ui, loanCtrl } = useModal();
     if (!ui.noteModalLoan) return null;
-    
+
     return (
        <Modal onClose={closeModal} title={`Notas: ${ui.noteModalLoan.debtorName}`}>
            <div className="space-y-4">
-               <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
+               <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden shadow-inner">
                    <Editor
                        apiKey="ziw4kfelhofucgrab0ueghdsi13jepgmny2ygoqlm7l9fzbp"
                        value={ui.noteText || ''}
@@ -161,11 +161,11 @@ export const NoteWrapper = () => {
                            skin: 'oxide-dark',
                            content_css: 'dark',
                            content_style: `
-                               body { 
-                                   font-family: ui-sans-serif, system-ui, sans-serif; 
-                                   font-size: 14px; 
-                                   background-color: transparent; 
-                                   color: #e2e8f0; 
+                               body {
+                                   font-family: ui-sans-serif, system-ui, sans-serif;
+                                   font-size: 14px;
+                                   background-color: transparent;
+                                   color: #e2e8f0;
                                    line-height: 1.5;
                                    padding: 16px;
                                }
@@ -185,13 +185,13 @@ export const NoteWrapper = () => {
                <div className="flex gap-3">
                    <button
                        onClick={closeModal}
-                       className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px] hover:bg-slate-700 hover:text-white transition-all"
+                       className="flex-1 py-3 rounded-lg bg-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px] hover:bg-slate-700 hover:text-white transition-all"
                    >
                        Cancelar
                    </button>
                    <button
                        onClick={loanCtrl.handleSaveNote}
-                       className="flex-[2] py-3 rounded-xl bg-blue-600 text-white font-bold uppercase tracking-wider text-[10px] hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/10"
+                       className="flex-[2] py-3 rounded-lg bg-blue-600 text-white font-bold uppercase tracking-wider text-[10px] hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/10"
                    >
                        Salvar Alterações
                    </button>

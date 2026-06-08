@@ -9,7 +9,7 @@ interface BillingViewProps {
     totalToPay: number;
     interestOnlyWithFees: number;
     // Removed raw isLate/daysLate to use dueDateISO for precise calculation
-    dueDateISO: string; 
+    dueDateISO: string;
     daysLateRaw: number; // Still needed for internal calc but label logic is delegated
     pixKey: string;
     onCopyPix: () => void;
@@ -72,7 +72,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                 )}
             </div>
 
-            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800">
+            <div className="bg-slate-950 p-5 rounded-lg border border-slate-800">
                 <div className="flex items-center justify-between mb-3">
                     <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest flex items-center gap-1">
                         <QrCode size={12} /> PIX Convencional
@@ -81,7 +81,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 relative overflow-hidden group">
+                    <div className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-3 relative overflow-hidden group">
                         <p className="text-white text-xs font-mono font-bold truncate pr-8">
                             {pixKey || "Chave não cadastrada"}
                         </p>
@@ -91,7 +91,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     <button
                         onClick={onCopyPix}
                         disabled={!pixKey}
-                        className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                        className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all shadow-lg active:scale-95 disabled:opacity-50"
                         title="Copiar Chave"
                     >
                         <Copy size={18} />
@@ -107,22 +107,22 @@ export const BillingView: React.FC<BillingViewProps> = ({
             {!isInstallmentPaid && (
                 <div className="space-y-3">
                     <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest pl-1">Anexar Comprovante (Opcional)</p>
-                    
+
                     {!receiptFile ? (
-                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-900/50 transition-all group">
+                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-800 rounded-lg cursor-pointer hover:bg-slate-900/50 transition-all group">
                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                 <Upload className="w-6 h-6 text-slate-500 group-hover:text-blue-500 mb-2 transition-colors" />
                                 <p className="text-[10px] text-slate-500 font-bold uppercase">Clique para selecionar arquivo</p>
                             </div>
-                            <input 
-                                type="file" 
-                                className="hidden" 
+                            <input
+                                type="file"
+                                className="hidden"
                                 accept="image/*,application/pdf"
                                 onChange={(e) => onFileChange?.(e.target.files?.[0] || null)}
                             />
                         </label>
                     ) : (
-                        <div className="bg-slate-900 border border-blue-500/30 p-3 rounded-2xl flex items-center justify-between">
+                        <div className="bg-slate-900 border border-blue-500/30 p-3 rounded-lg flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
                                     <FileText size={18} />
@@ -132,7 +132,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                                     <p className="text-[9px] text-slate-500 uppercase">{(receiptFile.size / 1024).toFixed(0)} KB</p>
                                 </div>
                             </div>
-                            <button 
+                            <button
                                 onClick={() => onFileChange?.(null)}
                                 className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
                             >
@@ -150,7 +150,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                         <button
                             onClick={onAsaas}
                             disabled={isProcessingAsaas || isProcessing}
-                            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-amber-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-amber-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
                             {isProcessingAsaas ? (
                                 <><Loader2 size={16} className="animate-spin" /> Processando Cartão...</>
@@ -163,7 +163,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     <button
                         onClick={onMercadoPago}
                         disabled={isProcessingOnline || isProcessing}
-                        className="w-full bg-[#009EE3] hover:bg-[#0089C9] disabled:opacity-50 text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full bg-[#009EE3] hover:bg-[#0089C9] disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         {isProcessingOnline ? (
                             <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
@@ -171,7 +171,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             <><QrCode size={18} /> Pagar com PIX Online</>
                         )}
                     </button>
-                    
+
                     <p className="text-[9px] text-center text-slate-500 font-bold tracking-widest uppercase">
                         Pagamento Seguro e Criptografado
                     </p>
@@ -180,14 +180,14 @@ export const BillingView: React.FC<BillingViewProps> = ({
 
             <div className="space-y-3">
                 {isInstallmentPaid ? (
-                    <div className="w-full bg-slate-800 text-slate-400 p-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 cursor-not-allowed">
+                    <div className="w-full bg-slate-800 text-slate-400 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 cursor-not-allowed">
                         <CheckCircle2 size={16} className="text-emerald-500" /> Parcela Quitada
                     </div>
                 ) : (
                     <button
                         onClick={onNotify}
                         disabled={isProcessing}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white p-4 rounded-2xl font-black uppercase text-xs shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         {isProcessing ? (
                             <><Loader2 size={16} className="animate-spin" /> Processando...</>
@@ -199,7 +199,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
             </div>
 
             {error && (
-                <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-xl flex items-center gap-2 text-rose-400 text-xs">
+                <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-lg flex items-center gap-2 text-rose-400 text-xs">
                     <AlertTriangle size={16} /> {error}
                 </div>
             )}
@@ -236,7 +236,7 @@ export const SuccessView = ({ onClose }: { onClose: () => void }) => (
                 O gestor foi notificado do seu pagamento. Aguarde a confirmação da baixa no sistema.
             </p>
         </div>
-        <button onClick={onClose} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase rounded-xl transition-colors">
+        <button onClick={onClose} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase rounded-lg transition-colors">
             Fechar Janela
         </button>
     </div>

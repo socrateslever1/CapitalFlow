@@ -20,12 +20,12 @@ export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen
     return formatFirstAndSecondName(loan?.debtorName || loan?.debtor_name || loan?.clientName || 'Atendimento');
   }, [loan]);
 
-  // ✅ Busca ID de contrato de forma resiliente
+  // Busca ID de contrato de forma resiliente.
   const loanId = useMemo(() => {
      return loan?.id || loan?.loan_id || loan?.loanId || loan?.contract_id || null;
   }, [loan]);
 
-  // ✅ Busca ID de cliente de forma resiliente
+  // Busca ID de cliente de forma resiliente.
   const clientId = useMemo(() => {
      return loan?.client_id || loan?.clientId || loan?.clientID || loan?.loggedClientId || null;
   }, [loan]);
@@ -44,20 +44,20 @@ export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen
       return null;
     }
 
-    // ✅ CRÍTICO: profileId DEVE ser o ID do Profissional (Tenant), nunca do devedor (clientId).
+    // Crítico: profileId deve ser o ID do profissional, nunca do devedor.
     // Se usarmos o clientId aqui, violaremos a FK "mensagens_suporte_profile_id_fkey".
     const professionalId = effectiveProfileId;
-    
+
     if (!isUuid(professionalId)) {
         console.error('[PortalChatDrawer] professionalId/effectiveProfileId is not a valid UUID:', professionalId);
         return null;
     }
 
-    const ctx = { 
-      loanId: loanId || clientId, 
-      profileId: professionalId, 
-      myId: clientId, 
-      clientName: loan?.debtorName || loan?.debtor_name || loan?.clientName || 'Atendimento' 
+    const ctx = {
+      loanId: loanId || clientId,
+      profileId: professionalId,
+      myId: clientId,
+      clientName: loan?.debtorName || loan?.debtor_name || loan?.clientName || 'Atendimento'
     };
     console.log('[PortalChatDrawer] Resolved Chat Context:', ctx);
     return ctx;
@@ -69,15 +69,15 @@ export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen
 
   return (
     <div className="fixed inset-0 z-[250] flex justify-end overflow-hidden">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" 
+        className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
         onClick={onClose}
       ></motion.div>
 
-      <motion.div 
+      <motion.div
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
@@ -86,17 +86,17 @@ export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen
       >
         {isInvalid || !context ? (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center bg-slate-950/50 backdrop-blur-3xl">
-            <div className="w-20 h-20 bg-rose-500/10 rounded-[2rem] flex items-center justify-center text-rose-500 mb-6 shadow-2xl">
+            <div className="w-20 h-20 bg-rose-500/10 rounded-lg flex items-center justify-center text-rose-500 mb-6 shadow-2xl">
                 <ShieldCheck size={40} />
             </div>
             <h3 className="text-white font-black text-xl uppercase tracking-tighter mb-4">Conexão Indisponível</h3>
             <p className="text-slate-400 text-xs leading-relaxed max-w-xs mb-4">
-              Não conseguimos vincular sua sessão a um contrato ativo ou canal de suporte. 
+              Não conseguimos vincular sua sessão a um contrato ativo ou canal de suporte.
               Por favor, atualize a página ou entre em contato via WhatsApp.
             </p>
-            
+
             {/* Debug técnico para o usuário/suporte saber o que falta */}
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-rose-500/20 mb-8 text-left w-full">
+            <div className="bg-slate-900/80 p-3 rounded-lg border border-rose-500/20 mb-8 text-left w-full">
                 <p className="text-[9px] font-mono text-rose-400/60 uppercase mb-2 border-b border-rose-500/10 pb-1">Diagnóstico de Identidade</p>
                 <div className="space-y-1">
                     <div className="flex justify-between text-[9px]">
@@ -116,7 +116,7 @@ export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen
 
             <button
               onClick={onClose}
-              className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all border border-slate-700 active:scale-95"
+              className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-black uppercase text-[10px] tracking-widest transition-all border border-slate-700 active:scale-95"
             >
               Entendido
             </button>

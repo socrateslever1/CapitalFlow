@@ -16,6 +16,7 @@ import { Loan } from '../../../types';
 import { RiskProfile } from '../../../domain/finance/riskAnalysis';
 import { formatMoney, formatShortName } from '../../../utils/formatters';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
+import { translateBillingCycle } from '../../../utils/translationHelpers';
 
 interface HeaderProps {
   loan: Loan;
@@ -112,16 +113,6 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(timer);
   }, [effectiveLastBilledAt, checkIsLocked]);
   
-  const getBillingCycleLabel = (cycle: string) => {
-    switch (cycle) {
-      case 'MONTHLY': return 'Mensal';
-      case 'DAILY': return 'Diário';
-      case 'DAILY_FREE': return 'Diário (Livre)';
-      case 'DAILY_FIXED_TERM': return 'Diário (Prazo Fixo)';
-      default: return cycle;
-    }
-  };
-
   const displayAmount = currentDebt ?? loan.totalToReceive ?? loan.principal;
   const amountLabel = 'Total';
 
@@ -198,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
                 e.stopPropagation();
                 onNavigate?.(loan.id);
               }}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${iconStyle}`}
+              className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${iconStyle}`}
               title="Abrir Contrato"
             >
               {isFullyFinalized ? <CheckCircle2 size={18} /> : isCapitalOnlyRecovery ? <ShieldAlert size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />}
@@ -227,7 +218,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
             <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 flex-wrap">
-              <span className="bg-slate-800/50 px-1.5 rounded-sm">{getBillingCycleLabel(loan.billingCycle)}</span>
+              <span className="bg-slate-800/50 px-1.5 rounded-sm">{translateBillingCycle(loan.billingCycle)}</span>
               <span className="text-slate-700">•</span>
               <div className="flex items-center gap-0.5 opacity-70">
                 <Hash size={8} />

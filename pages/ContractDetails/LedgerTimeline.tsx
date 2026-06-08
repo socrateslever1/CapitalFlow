@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Clock, Receipt, RefreshCcw } from 'lucide-react';
+import { Clock, FileText, Receipt, RefreshCcw } from 'lucide-react';
 import { Loan, LedgerEntry } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { translateTransactionType } from '../../utils/translationHelpers';
@@ -30,39 +30,39 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
             case 'PAYMENT':
             case 'PAYMENT_FULL':
             case 'PAYMENT_PARTIAL':
-                return '💰';
+                return 'R$';
             case 'AGREEMENT_PAYMENT':
-                return '🪙';
+                return 'AC';
             case 'AGREEMENT_PAYMENT_REVERSED':
-                return '🔄';
+                return 'ES';
             case 'ESTORNO':
-                return '🔁';
+                return 'ES';
             case 'RENEGOTIATION_CREATED':
             case 'NORMAL_UNIFICATION_CREATED':
             case 'CAPITAL_ONLY_RECOVERY_ENABLED':
             case 'CAPITAL_ONLY_RECOVERY_DISABLED':
             case 'AGREEMENT_SCHEDULE_UPDATED':
-                return '📄';
+                return 'DOC';
             case 'RENEGOTIATION_BROKEN':
-                return '⚠';
+                return '!';
             case 'LEND_MORE':
             case 'NOVO_APORTE':
             case 'LOAN_INITIAL':
-                return '🏦';
+                return 'CAP';
             case 'CHARGE':
             case 'PAYMENT_INTEREST':
             case 'PAYMENT_LATE_FEE':
-                return '📈';
+                return '%';
             case 'ADJUSTMENT':
             case 'SYSTEM':
-                return '✍';
+                return 'AJ';
             default:
-                return '💰';
+                return 'R$';
         }
     };
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
                     <Clock size={14} className="text-amber-500" /> Extrato de Transações
@@ -86,11 +86,11 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                 {entries.map((entry) => (
                                     <div
                                         key={entry.id}
-                                        className="flex items-center justify-between p-2 rounded-xl bg-slate-950/30 border border-transparent hover:border-slate-800 hover:bg-slate-950/50 transition-all group"
+                                        className="flex items-center justify-between p-2 rounded-lg bg-slate-950/30 border border-transparent hover:border-slate-800 hover:bg-slate-950/50 transition-all group"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-sm border border-slate-800 group-hover:border-slate-700 transition-colors">
-                                                {getTransactionIcon(entry.type)}
+                                            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-[9px] font-black border border-slate-800 group-hover:border-slate-700 transition-colors">
+                                                {getTransactionIcon(entry.type) === 'DOC' ? <FileText size={13} /> : getTransactionIcon(entry.type)}
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-black text-white uppercase tracking-tight leading-none mb-1">
@@ -154,7 +154,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                         </div>
                     ))
                 ) : (
-                    <div className="text-center py-10 bg-slate-950/30 rounded-2xl border border-dashed border-slate-800">
+                    <div className="text-center py-10 bg-slate-950/30 rounded-lg border border-dashed border-slate-800">
                         <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
                             Nenhuma transação registrada
                         </p>

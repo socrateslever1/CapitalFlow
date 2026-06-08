@@ -40,7 +40,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
     try {
       setLoading(true);
       setError(null);
-      
+
       // Busca o HTML renderizado
       const renderedHtml = await legalService.getRenderedHTML(documentId);
       setHtml(renderedHtml);
@@ -53,7 +53,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
         .single();
 
       if (docError) throw docError;
-      
+
       setDoc({
         id: docData.id,
         loanId: docData.loan_id,
@@ -74,7 +74,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
 
   const handleSign = async () => {
     if (!agreeTerms) return;
-    
+
     try {
       setSigning(true);
       await legalService.signDocument(
@@ -83,7 +83,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
         { name: signerName, doc: signerDoc },
         'DEVEDOR'
       );
-      
+
       setShowSignModal(false);
       await loadDocument();
       if (onSigned) onSigned();
@@ -119,7 +119,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
       <div className="p-8 text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
         <p className="text-red-400">{error}</p>
-        <button 
+        <button
           onClick={loadDocument}
           className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors"
         >
@@ -130,7 +130,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 rounded-xl overflow-hidden border border-white/10 shadow-2xl">
+    <div className="flex flex-col h-full bg-zinc-950 rounded-lg overflow-hidden border border-white/10 shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-white/5 bg-zinc-900/50">
         <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {doc?.status === 'SIGNED' ? (
             <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-xs font-medium border border-emerald-500/20">
@@ -159,17 +159,17 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               Aguardando Assinatura
             </div>
           )}
-          
-          <button 
+
+          <button
             onClick={handleDownloadPDF}
             className="p-2 hover:bg-white/5 text-zinc-400 hover:text-white rounded-lg transition-colors"
             title="Baixar PDF"
           >
             <Download className="w-5 h-5" />
           </button>
-          
+
           {onClose && (
-            <button 
+            <button
               onClick={onClose}
               className="p-2 hover:bg-white/5 text-zinc-400 hover:text-white rounded-lg transition-colors"
             >
@@ -183,25 +183,25 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
       <div className="flex-1 overflow-y-auto bg-zinc-900/30 p-4 md:p-8 custom-scrollbar">
         <div className="max-w-4xl mx-auto">
           {/* Document Content */}
-          <div 
+          <div
             id="legal-document-content"
             className="bg-white text-black p-8 md:p-16 shadow-xl rounded-sm min-h-[1000px] legal-print-container"
             dangerouslySetInnerHTML={{ __html: html }}
           />
-          
+
           {/* Integrity Info (Outside Print) */}
-          <div className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-xl space-y-4">
+          <div className="mt-8 p-4 bg-zinc-900 border border-white/5 rounded-lg space-y-4">
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-emerald-500 mt-0.5" />
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-white">Integridade do Documento</h4>
                 <p className="text-xs text-zinc-400 mt-1">
-                  Este documento possui validade jurídica como título executivo extrajudicial (Art. 784, CPC). 
+                  Este documento possui validade jurídica como título executivo extrajudicial (Art. 784, CPC).
                   A integridade é garantida via hash SHA-256 e registro de auditoria.
                 </p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Hash SHA-256 do Documento</span>
@@ -209,10 +209,10 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
                   {doc?.hashSHA256}
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg border border-white/5">
                 <div className="bg-white p-1 rounded">
-                  <QRCodeSVG 
+                  <QRCodeSVG
                     value={`${window.location.origin}/verify/${documentId}`}
                     size={64}
                     level="H"
@@ -237,7 +237,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowSignModal(true)}
-            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-colors flex items-center gap-2"
+            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-lg shadow-lg shadow-emerald-500/20 transition-colors flex items-center gap-2"
           >
             <Shield className="w-5 h-5" />
             Assinar Documento Agora
@@ -253,7 +253,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
+              className="bg-zinc-900 border border-white/10 rounded-lg w-full max-w-md overflow-hidden shadow-2xl"
             >
               <div className="p-6 border-b border-white/5">
                 <h3 className="text-xl font-bold text-white">Assinatura Digital</h3>
@@ -261,9 +261,9 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
                   Você está prestes a assinar um documento com validade jurídica.
                 </p>
               </div>
-              
+
               <div className="p-6 space-y-6">
-                <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-3">
+                <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-lg space-y-3">
                   <div className="flex items-center gap-2 text-emerald-500">
                     <Info className="w-4 h-4" />
                     <span className="text-xs font-bold uppercase tracking-wider">Dados do Signatário</span>
@@ -277,8 +277,8 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
                 <div className="space-y-4">
                   <label className="flex items-start gap-3 cursor-pointer group">
                     <div className="relative flex items-center mt-1">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={agreeTerms}
                         onChange={(e) => setAgreeTerms(e.target.checked)}
                         className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-white/20 bg-zinc-800 checked:bg-emerald-500 transition-all"
@@ -295,14 +295,14 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               <div className="p-6 bg-black/20 flex gap-3">
                 <button
                   onClick={() => setShowSignModal(false)}
-                  className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-medium rounded-xl transition-colors"
+                  className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-medium rounded-lg transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   disabled={!agreeTerms || signing}
                   onClick={handleSign}
-                  className="flex-1 px-4 py-3 bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-400 text-black font-bold rounded-xl transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-3 bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-400 text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {signing ? (
                     <>

@@ -101,7 +101,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   return (
     <div
       ref={cardRef}
-      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-xl sm:rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
+      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
       onClick={handleCardClick}
       onDoubleClick={handleNavigate}
     >

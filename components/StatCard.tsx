@@ -41,7 +41,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   return (
     <div 
-      className={`relative overflow-hidden ${bgClass} border border-slate-800 rounded-2xl hover:border-${colorBase}-500/40 transition-all duration-300 group cursor-default flex flex-col justify-between ${isCompact ? 'p-3' : 'p-5'}`}
+      className={`relative overflow-hidden ${bgClass} border border-slate-800 rounded-lg hover:border-${colorBase}-500/40 transition-all duration-300 group cursor-default flex flex-col justify-between ${isCompact ? 'p-3' : 'p-5'}`}
       onClick={onClick}
     >
         {/* Background Glow Effect */}
@@ -54,7 +54,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             {/* Header */}
             <div className={`flex justify-between items-start ${isCompact ? 'mb-0' : 'mb-2'}`}>
                 <div className="flex items-center gap-3">
-                    <div className={`${isCompact ? 'p-1.5' : 'p-2.5'} rounded-xl ${iconBgClass} border ${borderColorClass} ${textColorClass} shadow-sm group-hover:scale-110 transition-transform duration-500`}>
+                    <div className={`${isCompact ? 'p-1.5' : 'p-2.5'} rounded-lg ${iconBgClass} border ${borderColorClass} ${textColorClass} shadow-sm group-hover:scale-110 transition-transform duration-500`}>
                         {React.cloneElement(icon as React.ReactElement<any>, { size: isCompact ? 14 : 20 })}
                     </div>
                     {!isCompact && (
@@ -100,7 +100,7 @@ export const StatCard: React.FC<StatCardProps> = ({
 
                 {/* Custom Footer Info */}
                 {footer && (
-                    <div className="bg-slate-950/40 border border-slate-800/40 rounded-xl p-3 flex items-center justify-between gap-3 backdrop-blur-md group-hover:bg-slate-950/60 transition-colors">
+                    <div className="bg-slate-950/40 border border-slate-800/40 rounded-lg p-3 flex items-center justify-between gap-3 backdrop-blur-md group-hover:bg-slate-950/60 transition-colors">
                         {footer}
                     </div>
                 )}

@@ -40,7 +40,7 @@ export const WitnessBaseManager: React.FC<WitnessBaseManagerProps> = ({ profileI
             alert("Preencha o nome e documento da testemunha.");
             return;
         }
-        
+
         setIsSaving(true);
         setError(null);
         try {
@@ -65,7 +65,7 @@ export const WitnessBaseManager: React.FC<WitnessBaseManagerProps> = ({ profileI
     };
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 sm:p-8 space-y-6">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-full"><Users size={20}/></div>
@@ -77,11 +77,11 @@ export const WitnessBaseManager: React.FC<WitnessBaseManagerProps> = ({ profileI
             </div>
 
             {/* FORM ADICIONAR */}
-            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+            <div className="bg-slate-950 p-5 rounded-lg border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                 <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Nome Completo</label>
-                    <input 
-                        value={newWitness.name} 
+                    <input
+                        value={newWitness.name}
                         onChange={e => setNewWitness({...newWitness, name: e.target.value})}
                         className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-white outline-none focus:border-indigo-500 transition-all"
                         placeholder="Ex: João da Silva"
@@ -89,15 +89,15 @@ export const WitnessBaseManager: React.FC<WitnessBaseManagerProps> = ({ profileI
                 </div>
                 <div className="space-y-1">
                     <label className="text-[9px] font-black text-slate-500 uppercase ml-1">CPF</label>
-                    <input 
-                        value={newWitness.document} 
+                    <input
+                        value={newWitness.document}
                         onChange={e => setNewWitness({...newWitness, document: maskDocument(e.target.value)})}
                         className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-white outline-none focus:border-indigo-500 transition-all"
                         placeholder="000.000.000-00"
                     />
                 </div>
-                <button 
-                    onClick={handleAdd} 
+                <button
+                    onClick={handleAdd}
                     disabled={isSaving || !newWitness.name.trim()}
                     className="h-[46px] bg-indigo-600 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-indigo-500 transition-all disabled:opacity-50 shadow-lg shadow-indigo-900/20"
                 >
@@ -107,7 +107,7 @@ export const WitnessBaseManager: React.FC<WitnessBaseManagerProps> = ({ profileI
 
             {/* ERROR DISPLAY */}
             {error && (
-                <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-3 text-rose-400">
+                <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-start gap-3 text-rose-400">
                     <AlertCircle size={18} className="shrink-0 mt-0.5"/>
                     <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase">Erro de Banco de Dados</p>
@@ -123,18 +123,18 @@ export const WitnessBaseManager: React.FC<WitnessBaseManagerProps> = ({ profileI
                         <p className="text-[10px] font-black uppercase tracking-widest text-white">Acessando base de dados...</p>
                     </div>
                 ) : witnesses.length === 0 && !error ? (
-                    <div className="col-span-2 py-16 text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-2xl">
+                    <div className="col-span-2 py-16 text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest border-2 border-dashed border-slate-800 rounded-lg">
                         A base está vazia. Cadastre testemunhas para agilizar seus contratos.
                     </div>
                 ) : (
                     witnesses.map(w => (
-                        <div key={w.id} className="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex justify-between items-center group hover:border-slate-600 transition-all">
+                        <div key={w.id} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex justify-between items-center group hover:border-slate-600 transition-all">
                             <div>
                                 <p className="text-xs font-bold text-white uppercase">{w.name}</p>
                                 <p className="text-[10px] text-slate-500 font-mono mt-1">{w.document}</p>
                             </div>
-                            <button 
-                                onClick={() => w.id && handleDelete(w.id)} 
+                            <button
+                                onClick={() => w.id && handleDelete(w.id)}
                                 className="p-2.5 text-slate-700 hover:text-rose-500 hover:bg-rose-500/10 rounded-full transition-all"
                                 title="Excluir da base"
                             >

@@ -36,7 +36,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
 
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
 
-    const containerClasses = `responsive-card rounded-2xl border flex flex-col justify-between h-full ${
+    const containerClasses = `responsive-card rounded-lg border flex flex-col justify-between h-full ${
         isRenegotiated ? 'bg-slate-900/80 border-slate-700/50' :
         isPaid || isFixedTermDone || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/20' : 
         isLateInst ? 'bg-rose-500/5 border-rose-500/20' : 

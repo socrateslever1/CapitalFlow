@@ -69,7 +69,7 @@ const LedgerItem: React.FC<{
           <div className="min-w-0">
             <p className="text-white font-bold truncate">{titleText}</p>
             <p className="text-[9px] text-slate-500 truncate">
-              {new Date(t.date).toLocaleDateString()} às{' '}
+              {new Date(t.date).toLocaleDateString('pt-BR')} às{' '}
               {new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
@@ -103,7 +103,7 @@ const LedgerItem: React.FC<{
                 onReverse(t, loan);
               }}
               className="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-              title="Estornar (Desfazer) Lançamento"
+              title="Estornar lançamento"
             >
               <Undo2 size={12} />
             </button>

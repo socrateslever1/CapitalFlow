@@ -26,6 +26,7 @@ import { PortalChatDrawer } from './components/PortalChatDrawer';
 import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel } from './mappers/portalDebtRules';
 import { PortalInstallmentItem } from '../../containers/ClientPortal/components/PortalInstallmentItem';
 import { formatMoney } from '../../utils/formatters';
+import { translateBillingCycle } from '../../utils/translationHelpers';
 
 interface ContractBlockProps {
     loan: any;
@@ -45,14 +46,14 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
     const isPaidOff = pendingCount === 0;
 
     return (
-        <div className={`border rounded-2xl p-4 transition-all ${hasLateInstallments ? 'bg-rose-950/10 border-rose-500/30' : isPaidOff ? 'bg-emerald-950/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}`}>
+        <div className={`border rounded-lg p-4 transition-all ${hasLateInstallments ? 'bg-rose-950/10 border-rose-500/30' : isPaidOff ? 'bg-emerald-950/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}`}>
             <div className="flex justify-between items-start mb-3">
                 <div>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contrato</span>
                         <span className="text-[10px] font-mono text-slate-600">#{loan.id.substring(0,6).toUpperCase()}</span>
                     </div>
-                    <h4 className="text-white font-bold text-sm mt-0.5">{loan.billingCycle === 'DAILY_FREE' ? 'Modalidade Diária' : 'Crédito Mensal'}</h4>
+                    <h4 className="text-white font-bold text-sm mt-0.5">{translateBillingCycle(loan.billingCycle)}</h4>
                 </div>
                 <div className={`px-2 py-1 rounded text-[9px] font-black uppercase border ${
                     statusInfo.variant === 'OVERDUE' ? 'bg-rose-500 text-white border-rose-600' :
@@ -96,18 +97,18 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
 
             {/* Ações */}
             <div className="grid grid-cols-2 gap-2 mt-2">
-                <button 
+                <button
                     onClick={onPay}
                     disabled={isPaidOff}
                     className={`py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all ${
-                        isPaidOff ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 
-                        hasLateInstallments ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20' : 
+                        isPaidOff ? 'bg-slate-800 text-slate-500 cursor-not-allowed' :
+                        hasLateInstallments ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20' :
                         'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
                     }`}
                 >
                     <Wallet size={14}/> {isPaidOff ? 'Quitado' : 'Pagar Agora'}
                 </button>
-                <button 
+                <button
                     onClick={onChat}
                     className="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
                 >
@@ -157,9 +158,9 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
   const alertTheme = globalSummary.lateCount > 0;
 
   // Notificações Baseadas no Global
-  const clientNotification = usePortalClientNotifications(initialPortalToken, initialPortalCode, { 
-    overdueCount: globalSummary.lateCount, 
-    maxDaysLate: globalSummary.maxLate, 
+  const clientNotification = usePortalClientNotifications(initialPortalToken, initialPortalCode, {
+    overdueCount: globalSummary.lateCount,
+    maxDaysLate: globalSummary.maxLate,
     nextDueDate: null // Global não tem nextDueDate único relevante
   });
 
@@ -186,7 +187,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center p-0 sm:p-4 overflow-hidden">
-      
+
       {/* NOTIFICAÇÃO TOAST */}
       {clientNotification && clientNotification.length > 0 && clientNotification[0].show && (
           <div className="fixed top-6 left-4 right-4 z-[200] animate-in slide-in-from-top-6 duration-500 pointer-events-none">
@@ -203,7 +204,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
       )}
 
       <div className="w-full max-w-lg bg-slate-900 sm:rounded-[2.5rem] flex flex-col h-full sm:h-[90vh] sm:border border-slate-800 shadow-2xl overflow-hidden relative">
-        
+
         {/* HEADER CLIENTE */}
         <div className="bg-slate-950 border-b border-slate-800 p-5 flex items-center justify-between shrink-0 relative z-10">
             <div className="flex items-center gap-3">
@@ -222,7 +223,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
 
         {/* CONTEÚDO SCROLLÁVEL */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6 relative">
-            
+
             {/* Efeito Background Alerta */}
             {alertTheme && <div className="absolute top-0 right-0 w-full h-64 bg-rose-900/10 blur-[80px] pointer-events-none"></div>}
 
@@ -234,7 +235,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                             {alertTheme ? <AlertTriangle size={12}/> : <ShieldCheck size={12}/>} Total Consolidado
                          </p>
                          <p className="text-3xl font-black text-white tracking-tight">{formatMoney(globalSummary.total)}</p>
-                         
+
                          <div className="mt-4 flex gap-2">
                             {globalSummary.lateCount > 0 ? (
                                 <span className="text-[9px] font-black uppercase bg-rose-500 text-white px-2 py-1 rounded-lg animate-pulse">
@@ -274,8 +275,8 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                     </div>
                 ) : (
                     clientContracts.map(contract => (
-                        <ContractBlock 
-                            key={contract.id} 
+                        <ContractBlock
+                            key={contract.id}
                             loan={contract}
                             onPay={() => setActiveLoanForPayment(contract)}
                             onChat={() => setActiveLoanForChat(contract)}
@@ -283,7 +284,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                     ))
                 )}
             </div>
-            
+
             {/* CREDOR INFO (Geral, pega do primeiro contrato ativo) */}
             {clientContracts.length > 0 && (
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/50 flex items-center gap-3 opacity-60">
@@ -299,25 +300,25 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
 
       {/* MODAL PAGAMENTO (Contextualizado) */}
       {activeLoanForPayment && (
-          <PortalPaymentModal 
+          <PortalPaymentModal
               portalToken={initialPortalToken}
               portalCode={initialPortalCode}
-              loan={activeLoanForPayment} 
-              installment={activeLoanForPayment.installments.find((i:any) => i.status!=='PAID') || activeLoanForPayment.installments[0]} 
-              clientData={{ name: loggedClient.name, doc: loggedClient.document, id: loggedClient.id }} 
-              onClose={() => { setActiveLoanForPayment(null); loadFullPortalData(); }} 
+              loan={activeLoanForPayment}
+              installment={activeLoanForPayment.installments.find((i:any) => i.status!=='PAID') || activeLoanForPayment.installments[0]}
+              clientData={{ name: loggedClient.name, doc: loggedClient.document, id: loggedClient.id }}
+              onClose={() => { setActiveLoanForPayment(null); loadFullPortalData(); }}
           />
       )}
 
       {/* DRAWER CHAT (Contextualizado) */}
-      <PortalChatDrawer 
+      <PortalChatDrawer
           loan={activeLoanForChat ? {
               ...activeLoanForChat,
               clientProfileId: loggedClient?.profileId,
               loggedClientId: loggedClient?.id
-          } : null} 
-          isOpen={!!activeLoanForChat} 
-          onClose={() => setActiveLoanForChat(null)} 
+          } : null}
+          isOpen={!!activeLoanForChat}
+          onClose={() => setActiveLoanForChat(null)}
       />
 
       {/* MODAL JURÍDICO */}
@@ -328,7 +329,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
             <div className="flex flex-col items-center text-center py-6 w-full">
                 <Lock size={40} className="text-indigo-500 mb-4"/>
                 <h2 className="text-white font-black uppercase text-lg mb-2">Central Jurídica</h2>
-                
+
                 <div className="w-full space-y-3 mb-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
                     {portalDocuments.length === 0 ? (
                         <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-slate-500 text-xs font-bold uppercase">
@@ -353,16 +354,16 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                                     </p>
                                 </div>
                                 <div className="flex gap-2 items-center">
-                                    <button 
+                                    <button
                                         onClick={() => handleViewDocument(doc.id)}
                                         className="p-2.5 bg-slate-800 text-slate-400 rounded-xl hover:text-white hover:bg-slate-700 transition-all"
                                         title="Visualizar"
                                     >
                                         <ChevronRight size={16}/>
                                     </button>
-                                    
+
                                     {doc.status_assinatura !== 'ASSINADO' ? (
-                                        <button 
+                                        <button
                                             onClick={() => handleSignDocument(doc.id)}
                                             disabled={isSigning}
                                             className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-50"
@@ -371,7 +372,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                                         </button>
                                     ) : null}
 
-                                    <button 
+                                    <button
                                         onClick={() => handleDeleteDocument(doc.id)}
                                         className="p-2.5 bg-slate-900/50 text-slate-600 rounded-xl hover:text-rose-500 hover:bg-rose-500/10 transition-all ml-1"
                                         title="Excluir Documento"

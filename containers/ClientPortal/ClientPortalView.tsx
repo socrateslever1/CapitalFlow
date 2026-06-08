@@ -31,6 +31,7 @@ import { PortalInstallmentItem } from './components/PortalInstallmentItem';
 import { PortalEducationalAI } from '../../features/portal/components/PortalEducationalAI';
 import { formatMoney } from '../../utils/formatters';
 import { legalDocumentService } from '../../services/legalDocument.service';
+import { translateBillingCycle } from '../../utils/translationHelpers';
 
 interface ClientPortalViewProps {
   initialPortalToken: string;
@@ -87,7 +88,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
             <span className="text-[10px] font-mono text-slate-600 bg-slate-950/50 px-2 py-0.5 rounded-md border border-slate-800/50">#{loan.id.substring(0, 6).toUpperCase()}</span>
           </div>
           <h4 className="text-white font-black text-sm uppercase tracking-tight">
-            {loan.activeAgreement ? 'Renegociação Ativa' : (loan.billingCycle === 'DAILY_FREE' ? 'Crédito Flexível' : 'Crédito Mensal')}
+            {loan.activeAgreement ? 'Renegociação Ativa' : translateBillingCycle(loan.billingCycle)}
           </h4>
         </div>
 

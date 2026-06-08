@@ -47,10 +47,10 @@ export const TeamAIInsight: React.FC<{ members: any[], teamName?: string }> = ({
                 </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl relative overflow-hidden">
                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/5 blur-[50px] rounded-full pointer-events-none"></div>
-                
-                <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
+
+                <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800">
                     {isAnalyzing ? (
                         <div className="py-8 flex flex-col items-center justify-center gap-2">
                             <Loader2 className="animate-spin text-blue-500" size={20}/>
@@ -65,7 +65,7 @@ export const TeamAIInsight: React.FC<{ members: any[], teamName?: string }> = ({
                             <p className="text-xs text-slate-300 leading-relaxed font-medium">
                                 {insight?.analysis || insight?.feedback || "Selecione uma equipe para análise de produtividade."}
                             </p>
-                            
+
                             {insight?.suggestions && (
                                 <div className="pt-4 border-t border-slate-800">
                                     <p className="text-[10px] font-black text-blue-500 uppercase mb-2">Recomendações de Gestão:</p>

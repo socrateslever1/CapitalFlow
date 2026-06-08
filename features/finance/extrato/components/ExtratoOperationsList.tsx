@@ -25,7 +25,7 @@ export const ExtratoOperationsList = ({
     onPrint: () => void, 
     onNavigate: (loanId: string) => void 
 }) => (
-    <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex flex-col flex-1 min-h-[350px]">
+    <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden flex flex-col flex-1 min-h-[350px]">
         <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center shrink-0">
             <div className="flex items-center gap-3">
                 <p className="text-sm font-semibold uppercase text-slate-500 tracking-widest">Detalhamento das Operações</p>
@@ -56,7 +56,7 @@ export const ExtratoOperationsList = ({
                                 <div>
                                     <p className="text-xs font-bold text-white uppercase">{t.clientName}</p>
                                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                        <span>{new Date(t.date).toLocaleDateString()}</span>
+                                        <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
                                         <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                                         <span className={`${style.text}`}>
                                             {style.label}

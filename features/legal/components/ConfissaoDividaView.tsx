@@ -114,7 +114,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                         <button
                             onClick={onBack}
                             title="Voltar"
-                            className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-all border border-slate-700 shadow-lg"
+                            className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-all border border-slate-700 shadow-lg"
                         >
                             <ChevronLeft size={18} className="text-slate-300" />
                         </button>
@@ -177,7 +177,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                     placeholder="Buscar cliente..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white outline-none focus:border-indigo-500/50 transition-all placeholder:text-slate-600"
+                                    className="w-full bg-slate-900/50 border border-slate-800 rounded-lg pl-9 pr-4 py-2.5 text-xs text-white outline-none focus:border-indigo-500/50 transition-all placeholder:text-slate-600"
                                 />
                             </div>
 
@@ -212,7 +212,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                                     setSelectedLoan(loan);
                                                     setDocumentContent('');
                                                 }}
-                                                className={`p-3 rounded-xl border transition-all text-left group relative overflow-hidden ${itemClass}`}
+                                                className={`p-3 rounded-lg border transition-all text-left group relative overflow-hidden ${itemClass}`}
                                             >
                                                 <div className="flex justify-between items-start mb-1">
                                                     <p
@@ -278,7 +278,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                     <button
                                         key={clause.id}
                                         onClick={() => handleToggleClause(clause.id)}
-                                        className={`p-3 rounded-xl border transition-all text-left flex items-center justify-between group ${
+                                        className={`p-3 rounded-lg border transition-all text-left flex items-center justify-between group ${
                                             clause.active
                                                 ? 'bg-indigo-600/10 border-indigo-500/50 text-white'
                                                 : 'bg-slate-900/50 border-slate-800 text-slate-500 hover:border-slate-700'
@@ -328,7 +328,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                 </div>
                                 <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Testemunhas</h3>
                             </div>
-                            <div className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-2xl backdrop-blur-sm space-y-3">
+                            <div className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-lg backdrop-blur-sm space-y-3">
                                 <div className="grid grid-cols-1 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest px-1">
@@ -373,7 +373,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                             <button
                                 onClick={handleRegister}
                                 disabled={!selectedLoan || isGenerating || !selectedW1 || !selectedW2}
-                                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-900/20 hover:bg-indigo-500 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-95"
+                                className="w-full py-4 bg-indigo-600 text-white rounded-lg font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-900/20 hover:bg-indigo-500 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-95"
                             >
                                 {isGenerating ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
                                 Registrar Documento
@@ -450,8 +450,8 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                     {/* RIGHT COLUMN: EDITOR */}
                     <div className="lg:col-span-8">
                         {!selectedLoan ? (
-                            <div className="h-full min-h-[600px] bg-slate-900/20 border-2 border-dashed border-slate-800 rounded-[2.5rem] flex flex-col items-center justify-center text-center p-12 group hover:border-indigo-500/20 transition-all">
-                                <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner">
+                            <div className="h-full min-h-[600px] bg-slate-900/20 border-2 border-dashed border-slate-800 rounded-lg flex flex-col items-center justify-center text-center p-12 group hover:border-indigo-500/20 transition-all">
+                                <div className="w-20 h-20 bg-slate-900 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner">
                                     <Scroll className="text-slate-800 group-hover:text-indigo-500 transition-colors" size={40} />
                                 </div>
                                 <h3 className="text-lg font-black text-white uppercase tracking-tight mb-2">Aguardando Seleção</h3>
@@ -468,7 +468,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                             Pré-visualização da Minuta
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-800/50">
+                                    <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-lg border border-slate-800/50">
                                         {[
                                             { id: 'AUTO', label: 'Automático' },
                                             { id: 'UNICO', label: 'Modelo Único' },

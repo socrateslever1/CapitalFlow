@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Trash2, User, ShieldCheck, Mail, Clock, Timer, XCircle, 
-    CheckCircle2, Copy, ChevronDown, ChevronUp, Wallet, 
+import {
+    Trash2, User, ShieldCheck, Mail, Clock, Timer, XCircle,
+    CheckCircle2, Copy, ChevronDown, ChevronUp, Wallet,
     Users, Briefcase, Activity, MessageSquare, ExternalLink,
     TrendingUp, MousePointer2
 } from 'lucide-react';
@@ -27,7 +27,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
     const isPending = !member.profile_id && member.invite_status === 'PENDING';
     const isExpired = member.invite_status === 'EXPIRED' || (!member.profile_id && new Date(member.expires_at) < new Date());
     const isAccepted = member.invite_status === 'ACCEPTED' || !!member.profile_id;
-    
+
     const emailDisplay = member.linked_profile?.usuario_email || member.username_or_email || "Aguardando ativação";
     const avatarUrl = member.linked_profile?.avatar_url;
     const inviteLink = `${window.location.origin}/setup-password?invite_token=${member.invite_token}`;
@@ -39,7 +39,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
 
     const loadMemberActivity = async () => {
         if (!member.profile_id || !isExpanded) return;
-        
+
         setLoadingStats(true);
         try {
             const [loansRes, clientsRes, transRes] = await Promise.all([
@@ -89,7 +89,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
         } ${
             isExpired ? 'opacity-60' : ''
         }`}>
-            
+
             {isPending && !isExpired && (
                 <div className="absolute top-0 right-0 px-4 py-1 bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest rounded-bl-full flex items-center gap-1.5 shadow-lg z-10">
                     <Timer size={10} className="animate-spin" /> {getRemainingTime()}
@@ -101,7 +101,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-slate-500 border overflow-hidden shrink-0 ${isPending ? 'bg-slate-950 border-blue-500/20' : 'bg-slate-950 border-slate-800'}`}>
                        {avatarUrl ? <img src={avatarUrl} alt={member.full_name} className="w-full h-full object-cover" /> : <User size={24} className={isPending ? 'text-blue-500' : ''} />}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -121,7 +121,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                                 {isExpanded ? <ChevronUp size={18} className="text-slate-500"/> : <ChevronDown size={18} className="text-slate-500"/>}
                             </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-3 mt-1">
                             <span className="text-slate-500 text-[10px] font-black uppercase tracking-widest">
                                 {member.cpf ? maskDocument(member.cpf, isStealthMode) : 'S/ CPF'}
@@ -137,7 +137,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
 
             {isExpanded && isPending && !isExpired && (
                 <div className="px-6 pb-6 animate-in slide-in-from-top-2 duration-300">
-                    <div className="bg-slate-950 p-4 rounded-2xl border border-blue-500/20 space-y-3">
+                    <div className="bg-slate-950 p-4 rounded-lg border border-blue-500/20 space-y-3">
                         <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
                             <ExternalLink size={12}/> Link de Ativação Único
                         </p>
@@ -145,7 +145,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                             <div className="flex-1 bg-slate-900 border border-slate-800 rounded-full p-2.5 overflow-hidden">
                                 <p className="text-[10px] font-mono text-slate-400 truncate">{inviteLink}</p>
                             </div>
-                            <button 
+                            <button
                                 onClick={handleCopyLink}
                                 className={`p-2.5 rounded-full transition-all shadow-lg ${copied ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-500'}`}
                             >
@@ -159,22 +159,22 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
             {isExpanded && isAccepted && (
                 <div className="px-6 pb-6 space-y-6 animate-in slide-in-from-top-2 duration-300">
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             onClick={() => onOpenChat?.(member)}
-                            className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all"
+                            className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 transition-all"
                         >
                             <MessageSquare size={14}/> Chat de Equipe
                         </button>
-                        <button 
+                        <button
                             onClick={() => onEdit(member)}
-                            className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-[10px] font-black uppercase transition-all"
+                            className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-black uppercase transition-all"
                         >
                             Editar Permissões
                         </button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                             <div className="flex items-center gap-2 text-slate-500 mb-1">
                                 <Briefcase size={12}/>
                                 <span className="text-[9px] font-black uppercase">Capital Operado</span>
@@ -183,7 +183,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                                 {loadingStats ? "..." : formatMoney(stats?.totalLent || 0, isStealthMode)}
                             </p>
                         </div>
-                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                             <div className="flex items-center gap-2 text-slate-500 mb-1">
                                 <Users size={12}/>
                                 <span className="text-[9px] font-black uppercase">Clientes</span>
@@ -194,7 +194,7 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                         </div>
                     </div>
 
-                    <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+                    <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
                         <div className="bg-slate-900/50 px-4 py-2 border-b border-slate-800 flex items-center gap-2">
                             <Activity size={12} className="text-emerald-500"/>
                             <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Atividade Recente</span>
@@ -228,8 +228,8 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onDelete(member.id); }} 
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(member.id); }}
                         className="p-2 bg-slate-900 text-slate-500 hover:text-rose-500 rounded-full transition-all border border-slate-800 hover:border-rose-500/30"
                         title="Excluir Membro"
                     >

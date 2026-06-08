@@ -19,7 +19,7 @@ export const TermoQuitacaoView: React.FC<TermoQuitacaoViewProps> = ({ loans, act
 
     const handleGenerateReceipt = (loan: Loan) => {
         if (!activeUser) return;
-        
+
         const totalPaid = loan.installments.reduce((acc, i) => acc + (i.paidTotal || 0), 0);
         const html = DocumentTemplates.quitacao({
             creditorName: activeUser.fullName || activeUser.businessName || activeUser.name,
@@ -52,7 +52,7 @@ export const TermoQuitacaoView: React.FC<TermoQuitacaoViewProps> = ({ loans, act
                 </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {paidLoans.length === 0 ? (
                         <div className="col-span-2 text-center py-20 flex flex-col items-center opacity-40">
@@ -61,9 +61,9 @@ export const TermoQuitacaoView: React.FC<TermoQuitacaoViewProps> = ({ loans, act
                         </div>
                     ) : (
                         paidLoans.map(loan => (
-                            <div key={loan.id} className="bg-slate-950 p-6 rounded-2xl border border-emerald-500/20 flex flex-col gap-4 group hover:border-emerald-500 transition-all">
+                            <div key={loan.id} className="bg-slate-950 p-6 rounded-lg border border-emerald-500/20 flex flex-col gap-4 group hover:border-emerald-500 transition-all">
                                 <div className="flex justify-between items-start">
-                                    <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-2xl"><CheckCircle2 size={24}/></div>
+                                    <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-lg"><CheckCircle2 size={24}/></div>
                                     <div className="text-right">
                                         <p className="text-[9px] text-slate-500 uppercase font-black">Status do Contrato</p>
                                         <p className="text-[10px] text-emerald-400 font-bold uppercase">Liquidação Total</p>
@@ -78,9 +78,9 @@ export const TermoQuitacaoView: React.FC<TermoQuitacaoViewProps> = ({ loans, act
                                         <Landmark size={14}/>
                                         <span className="text-[10px] font-black uppercase">Fundo Liberado</span>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => handleGenerateReceipt(loan)}
-                                        className="px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase flex items-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20"
+                                        className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase flex items-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20"
                                     >
                                         <Download size={14}/> Baixar Termo
                                     </button>

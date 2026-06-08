@@ -26,7 +26,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
     const portfolioSummary = useMemo(() => {
         const activeLoans = loans.filter(l => !l.isArchived);
         const lateLoans = activeLoans.filter(l => l.installments.some(i => getDaysDiff(i.dueDate) > 0 && i.status !== 'PAID'));
-        
+
         const topLate = lateLoans
             .map(l => {
                 const pending = l.installments.find(i => i.status !== 'PAID');
@@ -70,7 +70,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
         setTranscript('');
         setFeedback('');
         setStrategicAnalysis(null);
-        
+
         startDictation(
             (text) => {
                 setTranscript(text);
@@ -87,7 +87,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
         setStatus('THINKING');
         try {
             const result = await processNaturalLanguageCommand(text, portfolioSummary);
-            
+
             if (result.intent === 'UNKNOWN') {
                 setFeedback("Ainda estou aprendendo. Tente algo como 'Cadastrar cliente...' ou 'Como está minha carteira?'");
                 setStatus('ERROR');
@@ -97,9 +97,9 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
             } else {
                 setFeedback(result.feedback);
                 if (result.analysis) setStrategicAnalysis(result.analysis);
-                
+
                 setStatus('SUCCESS');
-                
+
                 // Se for comando de execução (cadastro/pagamento), emite o evento
                 if (result.intent !== 'ANALYZE_PORTFOLIO') {
                     setTimeout(() => {
@@ -117,11 +117,11 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
     return (
         <Modal onClose={onClose} title="CFO Virtual (IA)">
             <div className="flex flex-col items-center justify-center py-6 space-y-6">
-                
+
                 {/* Visual Brain Animation */}
-                <div className={`relative w-24 h-24 rounded-2xl flex items-center justify-center transition-all duration-700 rotate-45 
-                    ${status === 'LISTENING' ? 'bg-blue-600 animate-pulse shadow-[0_0_40px_rgba(37,99,235,0.4)]' : 
-                      status === 'THINKING' ? 'bg-purple-600 animate-spin scale-110' : 
+                <div className={`relative w-24 h-24 rounded-lg flex items-center justify-center transition-all duration-700 rotate-45
+                    ${status === 'LISTENING' ? 'bg-blue-600 animate-pulse shadow-[0_0_40px_rgba(37,99,235,0.4)]' :
+                      status === 'THINKING' ? 'bg-purple-600 animate-spin scale-110' :
                       status === 'SUCCESS' ? 'bg-emerald-500 rotate-0' : 'bg-slate-800'}`
                 }>
                     <div className="-rotate-45">
@@ -135,24 +135,24 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
 
                 <div className="text-center space-y-3 px-2 w-full">
                     <p className="text-xl font-black uppercase text-white tracking-tighter">
-                        {status === 'LISTENING' ? 'Estou Ouvindo...' : 
-                         status === 'THINKING' ? 'Analisando Carteira...' : 
-                         status === 'SUCCESS' ? 'Insight Gerado' : 
+                        {status === 'LISTENING' ? 'Estou Ouvindo...' :
+                         status === 'THINKING' ? 'Analisando Carteira...' :
+                         status === 'SUCCESS' ? 'Insight Gerado' :
                          status === 'IDLE' ? 'Clique para Falar' : 'Aguardando'}
                     </p>
-                    
+
                     {transcript && (
                         <p className="text-sm text-slate-500 italic max-w-xs mx-auto">"{transcript}"</p>
                     )}
-                    
+
                     {feedback && (
-                        <div className={`p-4 rounded-2xl border ${status === 'ERROR' ? 'bg-rose-950/30 border-rose-500/30 text-rose-400' : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'} font-bold text-sm leading-tight`}>
+                        <div className={`p-4 rounded-lg border ${status === 'ERROR' ? 'bg-rose-950/30 border-rose-500/30 text-rose-400' : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'} font-bold text-sm leading-tight`}>
                             {feedback}
                         </div>
                     )}
 
                     {strategicAnalysis && (
-                        <div className="mt-4 text-left bg-slate-950 border border-slate-800 p-5 rounded-2xl animate-in slide-in-from-bottom-4">
+                        <div className="mt-4 text-left bg-slate-950 border border-slate-800 p-5 rounded-lg animate-in slide-in-from-bottom-4">
                             <div className="flex items-center gap-2 mb-3">
                                 <BarChart3 size={16} className="text-blue-500"/>
                                 <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Análise Estratégica</span>
@@ -180,7 +180,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
                             {strategicAnalysis ? <><Mic size={16}/> Nova Consulta</> : status === 'IDLE' ? <><Play size={16} className="fill-white"/> Iniciar Microfone</> : 'Tentar Novamente'}
                         </button>
                     ) : null}
-                    
+
                     {strategicAnalysis && (
                         <button onClick={onClose} className="flex-1 py-5 bg-slate-800 text-white rounded-full text-[10px] font-black uppercase transition-all">
                             Entendido

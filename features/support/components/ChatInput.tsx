@@ -87,8 +87,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
 
   return (
     <div className={`px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] relative z-30 shrink-0 backdrop-blur-3xl border-t ${
-      chatTheme === 'blue' 
-        ? 'bg-slate-900/60 border-blue-500/20 shadow-[0_-20px_50px_rgba(30,41,59,0.5)]' 
+      chatTheme === 'blue'
+        ? 'bg-slate-900/60 border-blue-500/20 shadow-[0_-20px_50px_rgba(30,41,59,0.5)]'
         : 'bg-slate-950/40 border-slate-800/50 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]'
     }`}>
       {showAttachMenu && <AttachMenu onSelect={handleAttachSelect} fileInputRef={fileInputRef} />}
@@ -96,7 +96,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
 
       {isRecording ? (
-        <div className="flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-4 rounded-[2rem] animate-in fade-in slide-in-from-bottom-4 border border-rose-500/20 shadow-2xl shadow-rose-950/30">
+        <div className="flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-4 rounded-lg animate-in fade-in slide-in-from-bottom-4 border border-rose-500/20 shadow-2xl shadow-rose-950/30">
           <div className="flex items-center gap-4 flex-1">
             <div className="relative">
               <span className="absolute inset-0 bg-rose-500 rounded-full animate-ping opacity-20"></span>
@@ -109,12 +109,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
 
           <button
             onClick={cancelRecording}
-            className="px-4 py-2 text-rose-400 hover:text-white hover:bg-rose-500/10 rounded-xl transition-all text-[9px] font-black uppercase tracking-widest"
+            className="px-4 py-2 text-rose-400 hover:text-white hover:bg-rose-500/10 rounded-lg transition-all text-[9px] font-black uppercase tracking-widest"
           >
             Descartar
           </button>
 
-          <button onClick={handleStopRecording} className="w-12 h-12 bg-emerald-600 rounded-2xl text-white hover:bg-emerald-500 shadow-xl shadow-emerald-900/40 flex items-center justify-center transition-all active:scale-90">
+          <button onClick={handleStopRecording} className="w-12 h-12 bg-emerald-600 rounded-lg text-white hover:bg-emerald-500 shadow-xl shadow-emerald-900/40 flex items-center justify-center transition-all active:scale-90">
             <Send size={20} className="ml-0.5" />
           </button>
         </div>
@@ -122,16 +122,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
         <div className="flex gap-4 items-end">
           <button
             onClick={() => setShowAttachMenu(!showAttachMenu)}
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-90 border ${
-                showAttachMenu 
-                ? 'bg-blue-600 border-blue-400 text-white shadow-blue-500/20' 
+            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all shadow-lg active:scale-90 border ${
+                showAttachMenu
+                ? 'bg-blue-600 border-blue-400 text-white shadow-blue-500/20'
                 : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
             }`}
           >
             {showAttachMenu ? <X size={20} /> : <Paperclip size={20} />}
           </button>
 
-          <div className="flex-1 bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-[1.5rem] flex items-center focus-within:border-blue-500/40 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-300 shadow-inner group">
+          <div className="flex-1 bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-lg flex items-center focus-within:border-blue-500/40 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-300 shadow-inner group">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -153,7 +153,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
             <button
               onClick={handleSendText}
               disabled={isUploading}
-              className="w-12 h-12 bg-blue-600 text-white rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/40 active:scale-90 disabled:opacity-50 flex items-center justify-center border border-blue-400/30"
+              className="w-12 h-12 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/40 active:scale-90 disabled:opacity-50 flex items-center justify-center border border-blue-400/30"
             >
               {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className="ml-0.5" />}
             </button>
@@ -164,7 +164,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
                 startRecording();
               }}
               disabled={isUploading || isLocating}
-              className="w-12 h-12 bg-slate-900/50 text-slate-400 hover:text-white border border-slate-800 rounded-2xl transition-all active:scale-90 hover:bg-slate-800 shadow-lg flex items-center justify-center"
+              className="w-12 h-12 bg-slate-900/50 text-slate-400 hover:text-white border border-slate-800 rounded-lg transition-all active:scale-90 hover:bg-slate-800 shadow-lg flex items-center justify-center"
             >
               {isLocating ? <Loader2 size={20} className="animate-spin text-blue-500" /> : <Mic size={20} />}
             </button>

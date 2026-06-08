@@ -96,7 +96,7 @@ export const Body: React.FC<BodyProps> = ({
 
             {/* Seção de unificação. */}
             {unifiedChildren.length > 0 && (
-                <div className="space-y-3 bg-slate-900/40 p-4 rounded-[1.5rem] border border-slate-800/50">
+                <div className="space-y-3 bg-slate-900/40 p-4 rounded-lg border border-slate-800/50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
                             <Layers size={14} />
@@ -109,7 +109,7 @@ export const Body: React.FC<BodyProps> = ({
 
                     <div className="grid grid-cols-1 gap-2 mt-2">
                         {unifiedChildren.map(child => (
-                            <div key={child.id} className="bg-slate-950/60 border border-slate-800/30 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 hover:border-indigo-500/30 transition-colors">
+                            <div key={child.id} className="bg-slate-950/60 border border-slate-800/30 px-4 py-3 rounded-lg flex items-center justify-between gap-3 hover:border-indigo-500/30 transition-colors">
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-[10px] font-black text-white uppercase truncate">{child.debtorName}</span>
                                     <div className="flex items-center gap-1.5 mt-0.5 opacity-60">

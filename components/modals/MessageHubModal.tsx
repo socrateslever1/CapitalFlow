@@ -25,12 +25,12 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
         setLoading(true);
         try {
             const portalLink = await getOrCreatePortalLink(loan.id);
-            
+
             const firstName = (loan.debtorName || '').split(' ').filter(Boolean)[0] || 'Cliente';
             const greeting = getGreeting();
 
             const pendingInst = loan.installments.find(i => i.status !== 'PAID');
-            
+
             let dateContext = '';
             let amount = '0,00';
             let daysLate = 0;
@@ -39,10 +39,10 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                 const debt = calculateTotalDue(loan, pendingInst);
                 amount = debt.total.toFixed(2);
                 daysLate = debt.daysLate;
-                
+
                 const dueDateObj = new Date(pendingInst.dueDate);
                 const dateStr = dueDateObj.toLocaleDateString('pt-BR');
-                
+
                 // Lógica de contexto temporal para a mensagem
                 const diff = getDaysDiff(pendingInst.dueDate); // >0 atrasado, 0 hoje, <0 futuro
 
@@ -113,28 +113,28 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
     return (
         <Modal onClose={onClose} title="Central de Mensagens">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button disabled={loading} onClick={() => handleSend('WELCOME')} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl hover:border-blue-500 transition-all text-left group disabled:opacity-50">
+                <button disabled={loading} onClick={() => handleSend('WELCOME')} className="p-4 bg-slate-950 border border-slate-800 rounded-lg hover:border-blue-500 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-blue-500/10 text-blue-500 rounded-full group-hover:bg-blue-500 group-hover:text-white transition-colors"><HandCoins size={20}/></div>
                         <span className="font-bold text-white uppercase text-xs">Boas Vindas</span>
                     </div>
                     <p className="text-[10px] text-slate-500">Envia o link de acesso direto.</p>
                 </button>
-                <button disabled={loading} onClick={() => handleSend('REMINDER')} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-amber-500 transition-all text-left group disabled:opacity-50">
+                <button disabled={loading} onClick={() => handleSend('REMINDER')} className="p-4 bg-slate-900 border border-slate-800 rounded-lg hover:border-amber-500 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-amber-500/10 text-amber-500 rounded-full group-hover:bg-amber-500 group-hover:text-white transition-colors"><CalendarClock size={20}/></div>
                         <span className="font-bold text-white uppercase text-xs">Lembrete Vencimento</span>
                     </div>
                     <p className="text-[10px] text-slate-500">Aviso suave ou do dia.</p>
                 </button>
-                <button disabled={loading} onClick={() => handleSend('LATE')} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-rose-500 transition-all text-left group disabled:opacity-50">
+                <button disabled={loading} onClick={() => handleSend('LATE')} className="p-4 bg-slate-900 border border-slate-800 rounded-lg hover:border-rose-500 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-rose-500/10 text-rose-500 rounded-full group-hover:bg-rose-500 group-hover:text-white transition-colors"><ShieldAlert size={20}/></div>
                         <span className="font-bold text-white uppercase text-xs">Cobrança Atraso</span>
                     </div>
                     <p className="text-[10px] text-slate-500">Mensagem firme solicitando regularização.</p>
                 </button>
-                <button disabled={loading} onClick={() => handleSend('PAID')} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl hover:border-emerald-500 transition-all text-left group disabled:opacity-50">
+                <button disabled={loading} onClick={() => handleSend('PAID')} className="p-4 bg-slate-900 border border-slate-800 rounded-lg hover:border-emerald-500 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors"><CheckCircle2 size={20}/></div>
                         <span className="font-bold text-white uppercase text-xs">Recibo Pagamento</span>

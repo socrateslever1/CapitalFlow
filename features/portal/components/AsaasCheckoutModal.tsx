@@ -24,7 +24,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     holderName: '',
     number: '',
@@ -32,7 +32,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
     ccv: '',
   });
 
-  const amountToPay = Number(installment?.principal_remaining || installment?.principalRemaining || 0) + 
+  const amountToPay = Number(installment?.principal_remaining || installment?.principalRemaining || 0) +
                     Number(installment?.interest_remaining || installment?.interestRemaining || 0);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +47,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
 
     try {
       const [expiryMonth, expiryYear] = formData.expiry.split('/');
-      
+
       const payload: AsaasPaymentInput = {
         loan_id: loan.id,
         installment_id: installment.id,
@@ -78,15 +78,15 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-        
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+
         {/* Header */}
         <div className="bg-gradient-to-br from-amber-600 to-amber-700 p-8 text-white relative">
           <div className="absolute top-4 right-4 bg-white/20 p-2 rounded-full cursor-pointer hover:bg-white/30 transition-all" onClick={onClose}>
              <ChevronRight className="rotate-90" size={16} />
           </div>
           <div className="flex items-center gap-4 mb-4">
-            <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+            <div className="bg-white/20 p-3 rounded-lg backdrop-blur-md">
               <CreditCard size={28} />
             </div>
             <div>
@@ -101,9 +101,9 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          
+
           {error && (
-            <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-2xl flex gap-3 text-red-500 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-red-900/10 border border-red-900/30 p-4 rounded-lg flex gap-3 text-red-500 animate-in fade-in slide-in-from-top-2">
               <AlertCircle className="shrink-0" size={18} />
               <p className="text-[10px] font-bold leading-tight">{error}</p>
             </div>
@@ -112,13 +112,13 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
           <div className="space-y-4">
             <div>
               <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Nome no Cartão</label>
-              <input 
+              <input
                 required
                 name="holderName"
                 value={formData.holderName}
                 onChange={handleInputChange}
                 autoComplete="cc-name"
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700"
                 placeholder="NOME COMO NO CARTÃO"
               />
             </div>
@@ -126,13 +126,13 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
             <div>
               <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Número do Cartão</label>
               <div className="relative">
-                <input 
+                <input
                   required
                   name="number"
                   value={formData.number}
                   onChange={handleInputChange}
                   autoComplete="cc-number"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-mono tracking-widest font-bold placeholder:text-slate-700"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-mono tracking-widest font-bold placeholder:text-slate-700"
                   placeholder="0000 0000 0000 0000"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700">
@@ -144,20 +144,20 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Validade</label>
-                <input 
+                <input
                   required
                   name="expiry"
                   value={formData.expiry}
                   onChange={handleInputChange}
                   placeholder="MM/AA"
                   autoComplete="cc-exp"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700 text-center"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700 text-center"
                 />
               </div>
               <div>
                 <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">CVV</label>
                 <div className="relative">
-                  <input 
+                  <input
                     required
                     name="ccv"
                     type="password"
@@ -166,7 +166,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
                     onChange={handleInputChange}
                     placeholder="***"
                     autoComplete="cc-csc"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700 text-center"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700 text-center"
                   />
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700">
                     <Lock size={16} />
@@ -176,7 +176,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
             </div>
           </div>
 
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center gap-3">
+          <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 flex items-center gap-3">
              <ShieldCheck size={20} className="text-emerald-500" />
              <div className="text-[9px] text-slate-400 font-medium leading-tight">
                Seus dados são criptografados e processados com segurança pelo <span className="text-white font-bold">Asaas</span>. Não armazenamos os dados do seu cartão.
@@ -186,7 +186,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
           <button
             type="submit"
             disabled={isProcessing}
-            className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black uppercase text-xs tracking-widest py-5 rounded-2xl transition-all shadow-xl shadow-amber-900/20 flex items-center justify-center gap-3"
+            className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-white font-black uppercase text-xs tracking-widest py-5 rounded-lg transition-all shadow-xl shadow-amber-900/20 flex items-center justify-center gap-3"
           >
             {isProcessing ? (
               <>

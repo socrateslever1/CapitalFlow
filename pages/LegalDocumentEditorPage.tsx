@@ -21,6 +21,7 @@ import { ArrowLeft, Save, RefreshCw, FileText } from 'lucide-react';
 import { legalService } from '../features/legal/services/legalService';
 import { safeUUID } from '../utils/uuid';
 import { toast } from 'sonner';
+import { translateBillingCycle } from '../utils/translationHelpers';
 
 // Essencial para o funcionamento do @tinymce/tinymce-react em modo bundled
 if (typeof window !== 'undefined') {
@@ -55,19 +56,19 @@ export const LegalDocumentEditorPage: React.FC<Props> = ({ loanId: propLoanId, l
     const debtorName = loan.debtorName || '[PREENCHER]';
     const debtorCpf = loan.debtorDocument || '[PREENCHER]';
     const totalToReceive = loan.totalToReceive?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '[PREENCHER]';
-    
+
     // Encontrar próxima data de vencimento
     const nextInstallment = loan.installments?.find(i => i.status === 'PENDING' || i.status === 'LATE');
     const nextDueDate = nextInstallment?.dueDate ? new Date(nextInstallment.dueDate).toLocaleDateString() : '[PREENCHER]';
-    
+
     const city = activeUser?.city || '[PREENCHER]';
 
     const installmentsCount = loan.installments?.length || 0;
     const isSinglePayment = installmentsCount === 1;
-    const billingCycle = loan.billingCycle || 'MENSAL';
-    
-    const formaPagamentoText = isSinglePayment 
-      ? 'EM PARCELA ÚNICA' 
+    const billingCycle = translateBillingCycle(loan.billingCycle || 'MONTHLY');
+
+    const formaPagamentoText = isSinglePayment
+      ? 'EM PARCELA ÚNICA'
       : `DE FORMA PARCELADA (${billingCycle})`;
 
     const baseText = `
@@ -168,7 +169,7 @@ Assinatura: ______________________
 
       await legalService.generateAndRegisterDocument(
         loan.id,
-        { 
+        {
           customContent: content,
           creditorName: creditorName,
           debtorName: loan.debtorName,
@@ -193,9 +194,9 @@ Assinatura: ______________________
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={onBack}
-            className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-all border border-slate-700 shadow-lg"
+            className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-all border border-slate-700 shadow-lg"
           >
             <ArrowLeft size={18} className="text-slate-300" />
           </button>
@@ -214,10 +215,10 @@ Assinatura: ______________________
           </div>
         </div>
 
-        <button 
+        <button
           onClick={handleSave}
           disabled={isSaving}
-          className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 rounded-xl transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase shadow-lg shadow-emerald-500/20"
+          className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase shadow-lg shadow-emerald-500/20"
         >
           {isSaving ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -229,7 +230,7 @@ Assinatura: ______________________
       </div>
 
       {/* EDITOR CONTAINER */}
-      <div className="bg-white rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+      <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-white/10">
         <Editor
           value={content}
           onEditorChange={(newValue) => setContent(newValue)}
@@ -255,7 +256,7 @@ Assinatura: ______________________
         />
       </div>
 
-      <div className="mt-6 p-4 bg-slate-900/50 border border-slate-800 rounded-xl">
+      <div className="mt-6 p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
         <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
           Este documento será salvo como a versão oficial do contrato. Certifique-se de que todos os dados do Credor e Devedor estão corretos antes de finalizar.
         </p>

@@ -32,7 +32,7 @@ export const SigningLinkCard: React.FC<SigningLinkCardProps> = ({
     };
 
     return (
-        <div className={`p-4 rounded-xl border transition-all group ${colorClasses[color]}`}>
+        <div className={`p-4 rounded-lg border transition-all group ${colorClasses[color]}`}>
             <div className="flex justify-between items-center mb-3">
                 <div>
                     <h5 className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-0.5">{title}</h5>

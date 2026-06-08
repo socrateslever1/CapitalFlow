@@ -16,7 +16,7 @@ export const Ledger: React.FC<LedgerProps> = ({
     allLedger, loan, onReverseTransaction, onOpenReceipt, isStealthMode
 }) => {
     return (
-        <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+        <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
             {/* Cabeçalho do Extrato */}
             <div className="bg-slate-900/50 p-3 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">

@@ -29,7 +29,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
   const [contracts, setContracts] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [campaignLeads, setCampaignLeads] = useState<any[]>([]);
-  
+
   const [selectedChat, setSelectedChat] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [chatTheme, setChatTheme] = useState<'dark' | 'blue'>('dark');
@@ -41,9 +41,9 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
 
   const handleDeleteHistory = async () => {
     if (!selectedChat) return;
-    
+
     const isCampaign = selectedChat.type === 'CAMPAIGN';
-    const confirmMsg = isCampaign 
+    const confirmMsg = isCampaign
         ? `Tem certeza que deseja apagar TODO o histórico de conversa com este Lead? Essa ação é irreversível.`
         : `Tem certeza que deseja apagar TODO o histórico de conversa com ${selectedChat.clientName}? Essa ação é irreversível.`;
 
@@ -81,7 +81,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
 
   const loadAllData = async () => {
     if (!activeUser) return;
-    
+
     // 1. Chats Ativos
     const actives = await supportChatService.getActiveChats(activeUser.id);
     setActiveChats(actives);
@@ -126,7 +126,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
           });
           return;
       }
-      
+
       // Se selecionou um cliente da lista que JÁ tem chat ativo, muda para o chat ativo
       const existingChat = activeChats.find(c => c.loanId === contact.loanId);
       if (existingChat) {
@@ -166,26 +166,26 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
 
   const supportContext = useMemo(() => {
     if (!selectedChat || selectedChat.type === 'CAMPAIGN') return null;
-    return { 
-      loanId: selectedChat.loanId, 
-      profileId: selectedChat.profileId || activeUser.id, 
+    return {
+      loanId: selectedChat.loanId,
+      profileId: selectedChat.profileId || activeUser.id,
       myId: activeUser.id,
-      clientName: selectedChat.clientName, 
-      operatorId: activeUser.id 
+      clientName: selectedChat.clientName,
+      operatorId: activeUser.id
     };
   }, [selectedChat, activeUser.id]);
 
   const campaignContext = useMemo(() => {
     if (!selectedChat || selectedChat.type !== 'CAMPAIGN') return null;
-    return { 
-      sessionToken: selectedChat.session_token, 
-      clientName: selectedChat.clientName 
+    return {
+      sessionToken: selectedChat.session_token,
+      clientName: selectedChat.clientName
     };
   }, [selectedChat]);
 
   return (
     <div className="fixed inset-0 z-[var(--z-support)] w-full h-full bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans pointer-events-auto">
-      
+
       {/* HEADER COMPACTO PADRÃO */}
       <div className="h-14 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 shrink-0 z-[var(--z-header)]">
         <div className="flex items-center gap-3">
@@ -202,7 +202,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
             <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5">Painel do Operador</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button onClick={() => setChatTheme(prev => prev === 'dark' ? 'blue' : 'dark')} className="w-10 h-10 flex items-center justify-center bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 rounded-full transition-all" title="Alternar Tema">
             <Palette size={18}/>
@@ -214,9 +214,9 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
       </div>
 
       <div className="flex-1 flex w-full h-full overflow-hidden">
-        
+
         {/* SIDEBAR COM ABAS */}
-        <ChatSidebar 
+        <ChatSidebar
             chats={filteredActive}
             clients={filteredClients}
             team={filteredTeam}
@@ -260,7 +260,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
           ) : (
             /* Empty State */
             <div className={`flex-1 flex flex-col items-center justify-center text-slate-500 ${chatTheme === 'blue' ? 'bg-blue-950/20' : 'bg-slate-900/50'}`}>
-              <div className="w-24 h-24 bg-slate-800/50 rounded-2xl flex items-center justify-center mb-6 border-2 border-dashed border-slate-700">
+              <div className="w-24 h-24 bg-slate-800/50 rounded-lg flex items-center justify-center mb-6 border-2 border-dashed border-slate-700">
                  <MessageCircle size={40} className="opacity-50"/>
               </div>
               <h3 className="text-sm font-black uppercase text-white tracking-widest mb-2">Pronto para Atender</h3>

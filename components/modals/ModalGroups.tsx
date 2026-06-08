@@ -28,9 +28,9 @@ export const ClientModals = () => {
        <Modal onClose={closeModal} title={editingClient ? 'Editar Cadastro' : 'Novo Cadastro'}>
            <div className="space-y-6 pb-4">
                {/* Header Section: Avatar + Credentials */}
-               <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-950/40 p-5 rounded-3xl border border-slate-800/50">
+               <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-950/40 p-5 rounded-lg border border-slate-800/50">
                     <div className="flex flex-col items-center gap-2 shrink-0">
-                        <div className="relative w-20 h-20 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden cursor-pointer group" onClick={() => editingClient && ui.clientAvatarInputRef.current?.click()}>
+                        <div className="relative w-20 h-20 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden cursor-pointer group" onClick={() => editingClient && ui.clientAvatarInputRef.current?.click()}>
                             {clientForm.fotoUrl ? <img src={clientForm.fotoUrl} alt="Avatar" className="w-full h-full object-cover" /> : <User size={32} className="text-slate-600" />}
                             {editingClient && <div className="absolute inset-0 bg-blue-600/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"><Camera className="text-white" size={18} /></div>}
                         </div>
@@ -39,16 +39,16 @@ export const ClientModals = () => {
                     </div>
 
                     <div className="flex-1 w-full space-y-3">
-                        <div className="flex justify-between items-center bg-slate-900/50 px-4 py-2.5 rounded-2xl border border-slate-800/30">
+                        <div className="flex justify-between items-center bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-800/30">
                             <span className="text-[9px] uppercase text-slate-500 font-black tracking-widest">Acesso</span>
                             <span className="text-sm font-black text-white tracking-widest font-mono">{accessCode || '----'}</span>
                         </div>
-                        <div className="flex justify-between items-center bg-slate-900/50 px-4 py-2.5 rounded-2xl border border-slate-800/30">
+                        <div className="flex justify-between items-center bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-800/30">
                             <span className="text-[9px] uppercase text-slate-500 font-black tracking-widest">Nº Cliente</span>
                             <span className="text-sm font-black text-blue-500 font-mono">{clientNumber || '----'}</span>
                         </div>
                         {editingClient?.createdAt && (
-                           <div className="flex justify-between items-center bg-slate-900/50 px-4 py-2.5 rounded-2xl border border-slate-800/30">
+                           <div className="flex justify-between items-center bg-slate-900/50 px-4 py-2.5 rounded-lg border border-slate-800/30">
                                <span className="text-[9px] uppercase text-slate-500 font-black tracking-widest">Cadastro</span>
                                <span className="text-[10px] font-black text-slate-400 font-mono">{new Date(editingClient.createdAt).toLocaleDateString('pt-BR')}</span>
                            </div>
@@ -63,7 +63,7 @@ export const ClientModals = () => {
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Nome Completo</label>
                         <input
                             type="text"
-                            className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700"
+                            className="w-full bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700"
                             value={clientForm.name || ''}
                             onChange={e => ui.setClientForm({...clientForm, name: e.target.value})}
                             onBlur={e => ui.setClientForm({...clientForm, name: capitalizeName(e.target.value)})}
@@ -74,28 +74,28 @@ export const ClientModals = () => {
                     <div>
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">WhatsApp</label>
                         <div className="flex gap-2">
-                            <input type="tel" className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.phone || ''} onChange={e => ui.setClientForm({...clientForm, phone: maskPhone(e.target.value)})} placeholder="(00) 00000-0000"/>
-                            {canImportContacts && <button onClick={clientCtrl.handlePickContact} className="px-3 bg-blue-600/10 border border-blue-500/20 rounded-2xl text-blue-400 hover:bg-blue-600 hover:text-white transition-all"><User size={18}/></button>}
+                            <input type="tel" className="w-full bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.phone || ''} onChange={e => ui.setClientForm({...clientForm, phone: maskPhone(e.target.value)})} placeholder="(00) 00000-0000"/>
+                            {canImportContacts && <button onClick={clientCtrl.handlePickContact} className="px-3 bg-blue-600/10 border border-blue-500/20 rounded-lg text-blue-400 hover:bg-blue-600 hover:text-white transition-all"><User size={18}/></button>}
                         </div>
                     </div>
 
                     <div>
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">CPF / CNPJ</label>
-                        <input type="text" className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.document || ''} onChange={e => ui.setClientForm({...clientForm, document: maskDocument(e.target.value)})} placeholder="000.000.000-00"/>
+                        <input type="text" className="w-full bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.document || ''} onChange={e => ui.setClientForm({...clientForm, document: maskDocument(e.target.value)})} placeholder="000.000.000-00"/>
                     </div>
 
                     <div className="sm:col-span-2">
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider flex items-center gap-1.5"><Mail size={12} className="text-blue-500"/> E-mail</label>
-                        <input type="email" className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.email || ''} onChange={e => ui.setClientForm({...clientForm, email: e.target.value})} placeholder="email@exemplo.com"/>
+                        <input type="email" className="w-full bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.email || ''} onChange={e => ui.setClientForm({...clientForm, email: e.target.value})} placeholder="email@exemplo.com"/>
                     </div>
 
                     <div className="sm:col-span-2">
                         <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider flex items-center gap-1.5"><MapPin size={12} className="text-blue-500"/> Endereço</label>
                         <div className="space-y-3">
-                            <input type="text" className="w-full bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.address || ''} onChange={e => ui.setClientForm({...clientForm, address: e.target.value})} placeholder="Rua, nº, bairro"/>
+                            <input type="text" className="w-full bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.address || ''} onChange={e => ui.setClientForm({...clientForm, address: e.target.value})} placeholder="Rua, nº, bairro"/>
                             <div className="grid grid-cols-3 gap-3">
-                                <input type="text" className="col-span-2 bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.city || ''} onChange={e => ui.setClientForm({...clientForm, city: e.target.value})} placeholder="Cidade"/>
-                                <input type="text" className="bg-slate-950/50 p-3.5 rounded-2xl border border-slate-800/80 text-white outline-none text-sm text-center focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.state || ''} onChange={e => ui.setClientForm({...clientForm, state: e.target.value.toUpperCase()})} maxLength={2} placeholder="UF"/>
+                                <input type="text" className="col-span-2 bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.city || ''} onChange={e => ui.setClientForm({...clientForm, city: e.target.value})} placeholder="Cidade"/>
+                                <input type="text" className="bg-slate-950/50 p-3.5 rounded-lg border border-slate-800/80 text-white outline-none text-sm text-center focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.state || ''} onChange={e => ui.setClientForm({...clientForm, state: e.target.value.toUpperCase()})} maxLength={2} placeholder="UF"/>
                             </div>
                         </div>
                     </div>
@@ -103,13 +103,13 @@ export const ClientModals = () => {
 
                <div className="space-y-2">
                    <label className="text-[10px] uppercase text-slate-500 font-black ml-2 block tracking-wider">Observações Internas</label>
-                   <textarea placeholder="Notas sobre o perfil..." className="w-full bg-slate-950/50 p-4 rounded-3xl border border-slate-800/80 text-white outline-none h-24 text-sm resize-none focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.notes || ''} onChange={e => ui.setClientForm({...clientForm, notes: e.target.value})} />
+                   <textarea placeholder="Notas sobre o perfil..." className="w-full bg-slate-950/50 p-4 rounded-lg border border-slate-800/80 text-white outline-none h-24 text-sm resize-none focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.notes || ''} onChange={e => ui.setClientForm({...clientForm, notes: e.target.value})} />
                </div>
 
                <button
                 onClick={clientCtrl.handleSaveClient}
                 disabled={ui.isSaving}
-                className="w-full py-4.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black rounded-2xl uppercase shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 text-xs tracking-widest disabled:opacity-50 transition-all active:scale-[0.98]"
+                className="w-full py-4.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black rounded-lg uppercase shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 text-xs tracking-widest disabled:opacity-50 transition-all active:scale-[0.98]"
                >
                    {ui.isSaving ? <Loader2 className="animate-spin" size={16}/> : <ShieldCheck size={16}/>}
                    {ui.isSaving ? 'Processando...' : 'Finalizar Cadastro'}
@@ -130,30 +130,30 @@ export const FinanceModals = () => {
                     <div className="space-y-5">
                         <div>
                             <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">Identificação</label>
-                            <input type="text" placeholder="Nome da Fonte" className="w-full bg-slate-950 p-4 rounded-2xl text-white outline-none border border-slate-800 focus:border-blue-500 transition-all" value={ui.sourceForm.name || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, name: e.target.value})} />
+                            <input type="text" placeholder="Nome da Fonte" className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800 focus:border-blue-500 transition-all" value={ui.sourceForm.name || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, name: e.target.value})} />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">Tipo</label>
-                                <select className="w-full bg-slate-950 p-4 rounded-2xl text-white outline-none border border-slate-800" value={ui.sourceForm.type || 'BANK'} onChange={e => ui.setSourceForm({...ui.sourceForm, type: e.target.value})}>
+                                <select className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800" value={ui.sourceForm.type || 'BANK'} onChange={e => ui.setSourceForm({...ui.sourceForm, type: e.target.value})}>
                                     <option value="BANK">Banco / Digital</option><option value="CASH">Espécie</option><option value="WALLET">Carteira</option><option value="CARD">Cartão</option>
                                 </select>
                             </div>
                             <div>
                                 <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">Saldo Inicial</label>
-                                <input type="text" inputMode="decimal" placeholder="R$ 0,00" className="w-full bg-slate-950 p-4 rounded-2xl text-white outline-none border border-slate-800" value={ui.sourceForm.balance || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, balance: e.target.value.replace(/[^0-9.,]/g, '')})} />
+                                <input type="text" inputMode="decimal" placeholder="R$ 0,00" className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800" value={ui.sourceForm.balance || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, balance: e.target.value.replace(/[^0-9.,]/g, '')})} />
                             </div>
                         </div>
 
                         <div>
                             <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">URL do Ícone / Logo (Opcional)</label>
-                            <input type="text" placeholder="https://..." className="w-full bg-slate-950 p-4 rounded-2xl text-white outline-none border border-slate-800 focus:border-blue-500 transition-all" value={ui.sourceForm.logo_url || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, logo_url: e.target.value})} />
+                            <input type="text" placeholder="https://..." className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800 focus:border-blue-500 transition-all" value={ui.sourceForm.logo_url || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, logo_url: e.target.value})} />
                         </div>
 
                         {/* NOVO: DESIGNAR CARTEIRA A OPERADOR (EXCLUSIVIDADE) */}
                         {activeUser?.accessLevel === 'ADMIN' && staffMembers.length > 0 && (
-                            <div className="bg-indigo-950/20 border border-indigo-500/20 p-5 rounded-2xl space-y-3">
+                            <div className="bg-indigo-950/20 border border-indigo-500/20 p-5 rounded-lg space-y-3">
                                 <div className="flex items-center gap-2 text-indigo-400">
                                     <ShieldCheck size={18}/>
                                     <span className="text-[10px] font-black uppercase tracking-widest">Acesso Privado</span>
@@ -172,7 +172,7 @@ export const FinanceModals = () => {
                             </div>
                         )}
 
-                        <button onClick={sourceCtrl.handleSaveSource} disabled={ui.isSaving} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl uppercase shadow-xl transition-all">{ui.isSaving ? 'Sincronizando...' : 'Salvar Fonte'}</button>
+                        <button onClick={sourceCtrl.handleSaveSource} disabled={ui.isSaving} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-lg uppercase shadow-xl transition-all">{ui.isSaving ? 'Sincronizando...' : 'Salvar Fonte'}</button>
                     </div>
                 </Modal>
             )}
@@ -193,7 +193,7 @@ export const FinanceModals = () => {
             {activeModal?.type === 'WITHDRAW' && (
                 <Modal onClose={closeModal} title="Resgatar Lucros">
                     <div className="space-y-6 pb-2">
-                        <div className="bg-slate-950/50 p-6 rounded-3xl border border-slate-800/50 text-center shadow-inner relative overflow-hidden group">
+                        <div className="bg-slate-950/50 p-6 rounded-lg border border-slate-800/50 text-center shadow-inner relative overflow-hidden group">
                             <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Disponível para Saque</p>
                             <p className="text-3xl font-black text-emerald-400 tracking-tight">
@@ -208,7 +208,7 @@ export const FinanceModals = () => {
                                     type="text"
                                     inputMode="decimal"
                                     placeholder="R$ 0,00"
-                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700"
+                                    className="w-full bg-slate-950/50 p-4 rounded-lg text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700"
                                     value={ui.withdrawValue || ''}
                                     onChange={e => ui.setWithdrawValue(e.target.value.replace(/[^0-9.,]/g, ''))}
                                 />
@@ -217,7 +217,7 @@ export const FinanceModals = () => {
                             <div>
                                 <label className="text-[10px] uppercase text-slate-500 font-black ml-2 mb-1.5 block tracking-wider">Destino do Capital</label>
                                 <select
-                                    className="w-full bg-slate-950/50 p-4 rounded-2xl text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all cursor-pointer appearance-none"
+                                    className="w-full bg-slate-950/50 p-4 rounded-lg text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all cursor-pointer appearance-none"
                                     value={ui.withdrawSourceId || ''}
                                     onChange={e => ui.setWithdrawSourceId(e.target.value)}
                                 >
@@ -230,7 +230,7 @@ export const FinanceModals = () => {
 
                         <button
                             onClick={sourceCtrl.handleWithdrawProfit}
-                            className="w-full py-4.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black rounded-2xl uppercase shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.98] tracking-widest text-xs"
+                            className="w-full py-4.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black rounded-lg uppercase shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.98] tracking-widest text-xs"
                         >
                             Confirmar Resgate
                         </button>

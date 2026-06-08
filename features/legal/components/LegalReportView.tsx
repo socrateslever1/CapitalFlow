@@ -12,27 +12,27 @@ export const LegalReportView: React.FC<LegalReportViewProps> = ({ docRecord, ful
     if (!docRecord || !fullAuditData) return <div className="text-center p-10 text-slate-500">Carregando dados de auditoria...</div>;
 
     const { doc, signatures = [], logs = [] } = fullAuditData;
-    
+
     // Verificações de Execução
     const hasDebtorSign = signatures.some((s: any) => s.signer_name === doc.snapshot?.debtorName);
-    const hasWitnesses = signatures.length >= 3; 
+    const hasWitnesses = signatures.length >= 3;
     const integrityCheck = doc.hash_sha256 ? true : false;
-    
+
     const isReadyForExecution = hasDebtorSign && integrityCheck;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            
+
             {/* CABEÇALHO DO RELATÓRIO */}
-            <div className={`p-5 rounded-2xl border flex items-center justify-between ${isReadyForExecution ? 'bg-emerald-950/30 border-emerald-500/50' : 'bg-amber-950/30 border-amber-500/50'}`}>
+            <div className={`p-5 rounded-lg border flex items-center justify-between ${isReadyForExecution ? 'bg-emerald-950/30 border-emerald-500/50' : 'bg-amber-950/30 border-amber-500/50'}`}>
                 <div>
                     <h3 className={`text-sm font-black uppercase tracking-widest flex items-center gap-2 ${isReadyForExecution ? 'text-emerald-400' : 'text-amber-400'}`}>
                         {isReadyForExecution ? <CheckCircle2 size={18}/> : <AlertTriangle size={18}/>}
                         Status de Exequibilidade
                     </h3>
                     <p className="text-xs text-white mt-1">
-                        {isReadyForExecution 
-                            ? "Documento apto para Execução de Título Extrajudicial (CPC Art. 784, III)." 
+                        {isReadyForExecution
+                            ? "Documento apto para Execução de Título Extrajudicial (CPC Art. 784, III)."
                             : "Atenção: Pendências detectadas para execução direta."}
                     </p>
                 </div>
@@ -43,7 +43,7 @@ export const LegalReportView: React.FC<LegalReportViewProps> = ({ docRecord, ful
             </div>
 
             {/* DADOS TÉCNICOS */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
+            <div className="bg-slate-950 border border-slate-800 rounded-lg p-6">
                 <h4 className="text-xs font-black uppercase text-blue-500 mb-4 flex items-center gap-2"><Cpu size={14}/> Metadados Forenses</h4>
                 <div className="grid grid-cols-2 gap-6">
                     <div>
@@ -58,11 +58,11 @@ export const LegalReportView: React.FC<LegalReportViewProps> = ({ docRecord, ful
             </div>
 
             {/* ASSINATURAS */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
+            <div className="bg-slate-950 border border-slate-800 rounded-lg p-6">
                 <h4 className="text-xs font-black uppercase text-emerald-500 mb-4 flex items-center gap-2"><ShieldCheck size={14}/> Assinaturas Registradas</h4>
                 <div className="space-y-3">
                     {signatures.length === 0 ? <p className="text-xs text-slate-500 italic">Nenhuma assinatura registrada.</p> : signatures.map((s: any) => (
-                        <div key={s.id} className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                        <div key={s.id} className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
                             <div>
                                 <p className="text-xs font-bold text-white">{s.signer_name}</p>
                                 <p className="text-[10px] text-slate-500">{s.signer_email} • {s.signer_document}</p>
@@ -79,7 +79,7 @@ export const LegalReportView: React.FC<LegalReportViewProps> = ({ docRecord, ful
             </div>
 
             {/* LOGS DE AUDITORIA */}
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6">
+            <div className="bg-slate-950 border border-slate-800 rounded-lg p-6">
                 <h4 className="text-xs font-black uppercase text-purple-500 mb-4 flex items-center gap-2"><Activity size={14}/> Trilha de Auditoria (Logs)</h4>
                 <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
                     {logs.length === 0 ? <p className="text-[10px] text-slate-500 italic">Nenhum log registrado.</p> : logs.map((log: any) => (
@@ -92,7 +92,7 @@ export const LegalReportView: React.FC<LegalReportViewProps> = ({ docRecord, ful
                 </div>
             </div>
 
-            <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-xl text-[10px] text-blue-300 leading-relaxed">
+            <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-lg text-[10px] text-blue-300 leading-relaxed">
                 Este relatório técnico é gerado automaticamente pelo sistema CapitalFlow e serve como evidência auxiliar para comprovação da autoria e integridade do documento em processos judiciais, conforme Medida Provisória 2.200-2/2001 e Lei 14.063/2020.
             </div>
         </div>

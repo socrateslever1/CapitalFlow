@@ -102,7 +102,7 @@ export const NewAporteModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" onClick={loading ? undefined : onClose} />
 
-      <div className="relative w-[92vw] max-w-xl max-h-[90vh] flex flex-col rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
+      <div className="relative w-[92vw] max-w-xl max-h-[90vh] flex flex-col rounded-lg border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Contrato</p>
@@ -115,7 +115,7 @@ export const NewAporteModal: React.FC<Props> = ({
           </div>
 
           <button
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 self-start"
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 self-start"
             onClick={loading ? undefined : onClose}
             aria-label="Fechar"
           >
@@ -125,7 +125,7 @@ export const NewAporteModal: React.FC<Props> = ({
 
         <div className="p-5 overflow-y-auto custom-scrollbar space-y-4">
           {/* Valor */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Valor do Aporte</p>
             <input
               value={amount || ''}
@@ -139,7 +139,7 @@ export const NewAporteModal: React.FC<Props> = ({
           </div>
 
           {/* Fonte */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Fonte (Carteira de Origem)</p>
             <div className="relative group">
                 <select
@@ -159,7 +159,7 @@ export const NewAporteModal: React.FC<Props> = ({
           </div>
 
           {/* Parcela alvo (opcional) */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Aplicar em qual parcela?</p>
             <div className="relative group">
                 <select
@@ -187,7 +187,7 @@ export const NewAporteModal: React.FC<Props> = ({
           </div>
 
           {/* Observações */}
-          <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Observações</p>
             <input
               value={notes || ''}
@@ -198,7 +198,7 @@ export const NewAporteModal: React.FC<Props> = ({
           </div>
 
           {err ? (
-            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3">
               <p className="text-rose-300 text-xs font-bold">{err}</p>
             </div>
           ) : null}
@@ -208,14 +208,14 @@ export const NewAporteModal: React.FC<Props> = ({
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-60"
+            className="flex-1 py-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-60"
           >
             Cancelar
           </button>
           <button
             onClick={handleConfirm}
             disabled={loading}
-            className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all disabled:opacity-60"
+            className="flex-1 py-3 rounded-lg bg-blue-600 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all disabled:opacity-60"
           >
             {loading ? 'Aplicando...' : 'Confirmar Aporte'}
           </button>

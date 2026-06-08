@@ -223,7 +223,7 @@ export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan
                                         setSendFormat(option.value);
                                         setSendStatus('');
                                     }}
-                                    className={`py-3 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 transition-all border ${
+                                    className={`py-3 rounded-lg font-black uppercase text-[10px] flex items-center justify-center gap-1.5 transition-all border ${
                                         active
                                             ? 'bg-emerald-600 text-white border-emerald-500'
                                             : 'bg-slate-900 text-slate-200 border-slate-800 hover:bg-slate-800'
@@ -237,14 +237,14 @@ export const ReceiptModal = ({ data, onClose, userName, userDoc }: { data: {loan
                     <button
                         onClick={sendToWhatsApp}
                         disabled={isBusy}
-                        className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-60 disabled:cursor-wait"
+                        className="w-full py-4 bg-emerald-600 text-white rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-60 disabled:cursor-wait"
                     >
                         <Share2 size={18} /> {isBusy ? 'Preparando...' : 'Enviar no WhatsApp'}
                     </button>
                     <div className="grid grid-cols-3 gap-2">
-                        <button onClick={downloadPng} disabled={isBusy} className="py-3 bg-slate-900 text-slate-200 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all disabled:opacity-60"><Download size={14}/> PNG</button>
-                        <button onClick={downloadPdf} disabled={isBusy} className="py-3 bg-slate-900 text-slate-200 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all disabled:opacity-60"><FileText size={14}/> PDF</button>
-                        <button onClick={printReceipt} disabled={isBusy} className="py-3 bg-slate-900 text-slate-200 rounded-xl font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all disabled:opacity-60"><Printer size={14}/> Imprimir</button>
+                        <button onClick={downloadPng} disabled={isBusy} className="py-3 bg-slate-900 text-slate-200 rounded-lg font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all disabled:opacity-60"><Download size={14}/> PNG</button>
+                        <button onClick={downloadPdf} disabled={isBusy} className="py-3 bg-slate-900 text-slate-200 rounded-lg font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all disabled:opacity-60"><FileText size={14}/> PDF</button>
+                        <button onClick={printReceipt} disabled={isBusy} className="py-3 bg-slate-900 text-slate-200 rounded-lg font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all disabled:opacity-60"><Printer size={14}/> Imprimir</button>
                     </div>
                     {sendStatus && <p className="text-center text-[11px] font-bold text-slate-400">{sendStatus}</p>}
                 </div>

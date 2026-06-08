@@ -344,7 +344,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
             <div className="space-y-6">
                 {step === 1 && (
                     <div className="space-y-4 animate-in slide-in-from-right">
-                         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                         <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center">
                             <p className="text-[10px] uppercase font-black text-slate-500">Dívida Total Calculada</p>
                             <p className="text-3xl font-black text-rose-500">{formatMoney(totalDebt)}</p>
                             {loans.length > 1 && <p className="text-[10px] text-slate-400 mt-2">Somando {loans.length} contratos selecionados</p>}
@@ -352,62 +352,62 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <button onClick={() => setFlowMode('INSTALLMENT_AGREEMENT')} className={`p-3 rounded-xl border text-center transition-all ${flowMode === 'INSTALLMENT_AGREEMENT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Parcelar</p></button>
-                            {loans.length > 1 && <button onClick={() => setFlowMode('NORMAL_UNIFICATION')} className={`p-3 rounded-xl border text-center transition-all ${flowMode === 'NORMAL_UNIFICATION' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Unificar Normal</p></button>}
-                            <button onClick={() => setFlowMode('CAPITAL_ONLY_OPEN')} className={`p-3 rounded-xl border text-center transition-all ${flowMode === 'CAPITAL_ONLY_OPEN' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Somente Capital</p></button>
+                            <button onClick={() => setFlowMode('INSTALLMENT_AGREEMENT')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'INSTALLMENT_AGREEMENT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Parcelar</p></button>
+                            {loans.length > 1 && <button onClick={() => setFlowMode('NORMAL_UNIFICATION')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'NORMAL_UNIFICATION' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Unificar Normal</p></button>}
+                            <button onClick={() => setFlowMode('CAPITAL_ONLY_OPEN')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'CAPITAL_ONLY_OPEN' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Somente Capital</p></button>
                         </div>
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-2">
-                            <button onClick={() => setCalculationMode('BY_INSTALLMENTS')} className={`p-3 rounded-xl border text-center transition-all ${calculationMode === 'BY_INSTALLMENTS' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Hash size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Parcelas</p></button>
-                            <button onClick={() => setCalculationMode('BY_INSTALLMENT_VALUE')} className={`p-3 rounded-xl border text-center transition-all ${calculationMode === 'BY_INSTALLMENT_VALUE' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><DollarSign size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Valor</p></button>
-                            <button onClick={() => setCalculationMode('BY_VALUE_AND_COUNT')} className={`p-3 rounded-xl border text-center transition-all ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Percent size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Valor + Qtd</p></button>
+                            <button onClick={() => setCalculationMode('BY_INSTALLMENTS')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_INSTALLMENTS' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Hash size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Parcelas</p></button>
+                            <button onClick={() => setCalculationMode('BY_INSTALLMENT_VALUE')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_INSTALLMENT_VALUE' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><DollarSign size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Valor</p></button>
+                            <button onClick={() => setCalculationMode('BY_VALUE_AND_COUNT')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Percent size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Valor + Qtd</p></button>
                         </div>}
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && calculationMode !== 'BY_VALUE_AND_COUNT' && (
                             <div className="grid grid-cols-2 gap-4">
-                                <button onClick={() => setType('PARCELADO_COM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_COM_JUROS' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Parcelado c/ Juros</p><p className="text-[9px] opacity-70">Recalcula dívida com nova taxa</p></button>
-                                <button onClick={() => setType('PARCELADO_SEM_JUROS')} className={`p-4 rounded-2xl border transition-all ${type === 'PARCELADO_SEM_JUROS' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Sem Juros</p><p className="text-[9px] opacity-70">Renegocia somente o capital</p></button>
+                                <button onClick={() => setType('PARCELADO_COM_JUROS')} className={`p-4 rounded-lg border transition-all ${type === 'PARCELADO_COM_JUROS' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Parcelado c/ Juros</p><p className="text-[9px] opacity-70">Recalcula dívida com nova taxa</p></button>
+                                <button onClick={() => setType('PARCELADO_SEM_JUROS')} className={`p-4 rounded-lg border transition-all ${type === 'PARCELADO_SEM_JUROS' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Sem Juros</p><p className="text-[9px] opacity-70">Renegocia somente o capital</p></button>
                             </div>
                         )}
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-2 gap-4">
-                            {calculationMode === 'BY_INSTALLMENTS' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
-                            {calculationMode === 'BY_INSTALLMENT_VALUE' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
-                            {calculationMode === 'BY_VALUE_AND_COUNT' && <><div key="val"><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div><div key="qtd"><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div></>}
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Periodicidade</label><select value={frequency} onChange={e => setFrequency(e.target.value as any)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="MONTHLY">Mensal</option><option value="BIWEEKLY">Quinzenal</option><option value="WEEKLY">Semanal</option></select></div>
+                            {calculationMode === 'BY_INSTALLMENTS' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
+                            {calculationMode === 'BY_INSTALLMENT_VALUE' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
+                            {calculationMode === 'BY_VALUE_AND_COUNT' && <><div key="val"><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div><div key="qtd"><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div></>}
+                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Periodicidade</label><select value={frequency} onChange={e => setFrequency(e.target.value as any)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none"><option value="MONTHLY">Mensal</option><option value="BIWEEKLY">Quinzenal</option><option value="WEEKLY">Semanal</option></select></div>
                         </div>}
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && <div className="space-y-3">
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Taxa de Juros (%)</label><input type="number" step="0.1" value={interestRate} onChange={e => setInterestRate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
+                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Taxa de Juros (%)</label><input type="number" step="0.1" value={interestRate} onChange={e => setInterestRate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Aplicar Juros</label><select value={interestApplicationMode} onChange={e => setInterestApplicationMode(e.target.value as InterestApplicationMode)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="TOTAL_ONCE">Total do acordo</option><option value="MONTHLY_SIMPLE">Ao mês pelo prazo</option></select></div>
-                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Base do Cálculo</label><select value={interestBaseMode} onChange={e => setInterestBaseMode(e.target.value as InterestBaseMode)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none"><option value="TOTAL_DEBT">Dívida atual</option><option value="CAPITAL_ONLY">Somente capital</option></select></div>
+                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Aplicar Juros</label><select value={interestApplicationMode} onChange={e => setInterestApplicationMode(e.target.value as InterestApplicationMode)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none"><option value="TOTAL_ONCE">Total do acordo</option><option value="MONTHLY_SIMPLE">Ao mês pelo prazo</option></select></div>
+                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Base do Cálculo</label><select value={interestBaseMode} onChange={e => setInterestBaseMode(e.target.value as InterestBaseMode)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none"><option value="TOTAL_DEBT">Dívida atual</option><option value="CAPITAL_ONLY">Somente capital</option></select></div>
                             </div>
                         </div>}
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-4">
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Desconto (R$)</label><input type="number" value={discount} onChange={e => setDiscount(e.target.value)} disabled={calculationMode === 'BY_VALUE_AND_COUNT'} className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'opacity-50' : ''}`} /></div>
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Entrada (R$)</label><input type="number" value={downPayment} onChange={e => setDownPayment(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Carência (Dias)</label><input type="number" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>
+                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Desconto (R$)</label><input type="number" value={discount} onChange={e => setDiscount(e.target.value)} disabled={calculationMode === 'BY_VALUE_AND_COUNT'} className={`w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'opacity-50' : ''}`} /></div>
+                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Entrada (R$)</label><input type="number" value={downPayment} onChange={e => setDownPayment(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>
+                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Carência (Dias)</label><input type="number" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>
                         </div>}
 
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white font-bold outline-none" /></div>}
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
 
-                        <button onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2"><Calculator size={16}/> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button>
+                        <button onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2"><Calculator size={16}/> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button>
                     </div>
                 )}
 
                 {step === 2 && (simulation || flowMode !== 'INSTALLMENT_AGREEMENT') && (
                     <div className="space-y-4 animate-in slide-in-from-right">
                         {flowMode !== 'INSTALLMENT_AGREEMENT' && (
-                            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                                 <p className="text-[10px] uppercase font-bold text-slate-500">Operação Selecionada</p>
                                 <p className="text-xl font-black text-white mt-1">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificação normal sem parcelamento' : 'Somente Capital em aberto'}</p>
                                 <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serão consolidados no contrato principal, sem acordo parcelado.' : 'O contrato ficará marcado para recuperar apenas o capital, sem cronograma de parcelas.'}</p>
                             </div>
                         )}
                         {flowMode === 'INSTALLMENT_AGREEMENT' && (
-                        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                             <div className="flex justify-between items-end mb-4">
                                 <div>
                                     <p className="text-[10px] uppercase font-bold text-slate-500">Novo Total</p>
@@ -462,14 +462,14 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                         </div>
                         )}
 
-                        <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-xl flex items-start gap-3">
+                        <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg flex items-start gap-3">
                             <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-1"/>
                             <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {operationWarning}</p>
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold uppercase text-xs">Voltar</button>
-                            <button onClick={handleConfirm} disabled={isSaving} className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">{isSaving ? 'Processando...' : <><CheckCircle2 size={16}/> Confirmar</>}</button>
+                            <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-800 text-white rounded-lg font-bold uppercase text-xs">Voltar</button>
+                            <button onClick={handleConfirm} disabled={isSaving} className="flex-[2] py-4 bg-emerald-600 text-white rounded-lg font-black uppercase text-xs shadow-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">{isSaving ? 'Processando...' : <><CheckCircle2 size={16}/> Confirmar</>}</button>
                         </div>
                     </div>
                 )}

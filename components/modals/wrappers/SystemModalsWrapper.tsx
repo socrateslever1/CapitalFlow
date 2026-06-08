@@ -16,7 +16,7 @@ import OperatorSupportChat from '../../../features/support/OperatorSupportChat';
 
 export const SystemModalsWrapper = () => {
     const { activeModal, closeModal, ui, activeUser, fileCtrl, fetchFullData, clients, loanCtrl, sources, aiCtrl, loans, profileCtrl, adminCtrl, showToast } = useModal();
-    
+
     // Proteção contra ui undefined
     if (!ui) return null;
 
@@ -66,8 +66,8 @@ export const SystemModalsWrapper = () => {
                                         <p className="text-[10px] font-black text-blue-500 uppercase">{field.key.replace('_', ' ')}</p>
                                     </div>
                                     <div className="relative group">
-                                        <select 
-                                            value={ui.importMapping?.[field.key] ?? ''} 
+                                        <select
+                                            value={ui.importMapping?.[field.key] ?? ''}
                                             onChange={e => ui.setImportMapping({...ui.importMapping, [field.key]: e.target.value === '' ? undefined : parseInt(e.target.value)})}
                                             className="appearance-none bg-slate-900 border border-slate-700 rounded-full px-3 py-2 pr-8 text-xs text-white outline-none focus:border-blue-500 min-w-[150px] cursor-pointer"
                                         >
@@ -92,7 +92,7 @@ export const SystemModalsWrapper = () => {
             return (
                 <Modal onClose={closeModal} title="Curadoria de Clientes">
                     <div className="space-y-4">
-                        <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar">
+                        <div className="bg-slate-950 border border-slate-800 rounded-lg overflow-hidden max-h-[400px] overflow-y-auto custom-scrollbar">
                             {(ui.importCandidates || []).map((c: any, i: number) => {
                                 const isSelected = ui.selectedImportIndices?.includes(i);
                                 return (
@@ -115,7 +115,7 @@ export const SystemModalsWrapper = () => {
 
         case 'RESET_DATA':
             return <ResetDataModal ui={ui} closeModal={closeModal} activeUser={activeUser} onExecute={profileCtrl.handleResetData} />;
-        
+
         case 'DELETE_ACCOUNT':
             return <DeleteAccountModal ui={ui} closeModal={closeModal} activeUser={activeUser} onExecute={profileCtrl.handleDeleteAccount} />;
 
@@ -131,16 +131,16 @@ export const SystemModalsWrapper = () => {
                 <div className="space-y-4 text-center">
                     <p className="text-white text-lg font-bold">{ui.confirmation.title || 'Tem certeza?'}</p>
                     <p className="text-slate-400 text-sm">{ui.confirmation.message || 'Essa ação não pode ser desfeita.'}</p>
-                    
+
                     {/* RESTAURAÇÃO DO CHECKBOX DE ESTORNO */}
                     {ui.confirmation.showRefundOption && (
                        <div className="flex items-center justify-center gap-2 bg-slate-950 p-3 rounded-full border border-slate-800 cursor-pointer" onClick={() => ui.setRefundChecked(!ui.refundChecked)}>
-                           <input 
-                                type="checkbox" 
-                                id="refundCheck" 
-                                checked={!!ui.refundChecked} 
-                                onChange={e => ui.setRefundChecked(e.target.checked)} 
-                                className="w-5 h-5 accent-emerald-500 rounded cursor-pointer" 
+                           <input
+                                type="checkbox"
+                                id="refundCheck"
+                                checked={!!ui.refundChecked}
+                                onChange={e => ui.setRefundChecked(e.target.checked)}
+                                className="w-5 h-5 accent-emerald-500 rounded cursor-pointer"
                            />
                            <label htmlFor="refundCheck" className="text-sm text-slate-300 font-bold select-none cursor-pointer">Devolver capital para a Fonte?</label>
                        </div>
@@ -148,11 +148,11 @@ export const SystemModalsWrapper = () => {
 
                     <div className="flex gap-4 pt-2">
                         <button onClick={closeModal} className="flex-1 py-3 bg-slate-800 text-slate-300 rounded-full font-bold uppercase">Cancelar</button>
-                        <button 
-                            onClick={loanCtrl.executeConfirmation} 
+                        <button
+                            onClick={loanCtrl.executeConfirmation}
                             className={`flex-1 py-3 text-white rounded-full font-bold uppercase ${
-                                ['DELETE', 'DELETE_CLIENT', 'DELETE_SOURCE', 'REVERSE_TRANSACTION'].includes(ui.confirmation.type || '') 
-                                ? 'bg-rose-600' 
+                                ['DELETE', 'DELETE_CLIENT', 'DELETE_SOURCE', 'REVERSE_TRANSACTION'].includes(ui.confirmation.type || '')
+                                ? 'bg-rose-600'
                                 : ui.confirmation.type === 'RESTORE' ? 'bg-emerald-600' : 'bg-blue-600'
                             }`}
                         >

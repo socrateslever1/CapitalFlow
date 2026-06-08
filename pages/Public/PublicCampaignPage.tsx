@@ -17,7 +17,7 @@ export const PublicCampaignPage = () => {
     const [leadName, setLeadName] = useState('');
     const [leadPhone, setLeadPhone] = useState('');
     const [leadCPF, setLeadCPF] = useState('');
-    
+
     const [sessionToken, setSessionToken] = useState<string | null>(null);
     const [chatOpen, setChatOpen] = useState(false);
     const [chatMessages, setChatMessages] = useState<CampaignChatMessage[]>([]);
@@ -61,9 +61,9 @@ export const PublicCampaignPage = () => {
 
         const channel = supabasePortal
             .channel(`campaign_chat_${sessionToken}`)
-            .on('postgres_changes', { 
-                event: 'INSERT', 
-                schema: 'public', 
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
                 table: 'campaign_chat_messages',
                 filter: `session_token=eq.${sessionToken}`
             }, (payload) => {
@@ -98,7 +98,7 @@ export const PublicCampaignPage = () => {
 
     const handleStartSimulation = async () => {
         if (!campaign || !selectedValue || !leadName || !leadPhone || !leadCPF) return;
-        
+
         if (!validateCPF(leadCPF)) {
             alert('CPF inválido. Por favor, verifique os dados.');
             return;
@@ -116,10 +116,10 @@ export const PublicCampaignPage = () => {
 
             setSessionToken(token);
             setChatOpen(true);
-            
+
             const msgs = await campaignChatService.listMessages(token);
             setChatMessages(msgs);
-            
+
         } catch (e: any) {
             console.error(e);
             alert('Erro ao iniciar simulação: ' + e.message);
@@ -130,7 +130,7 @@ export const PublicCampaignPage = () => {
 
     const handleSendMessage = async () => {
         if (!chatInput.trim() || !sessionToken || isSending) return;
-        
+
         const text = chatInput;
         setChatInput('');
         setIsSending(true);
@@ -161,7 +161,7 @@ export const PublicCampaignPage = () => {
 
     if (!campaign) return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full text-center">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center">
                 <h2 className="text-white font-black text-xl mb-2 uppercase">Campanha Indisponível</h2>
                 <p className="text-slate-400 text-sm">O link que você acessou não é mais válido ou expirou.</p>
             </div>
@@ -176,7 +176,7 @@ export const PublicCampaignPage = () => {
                 <div className="relative z-10 flex-1 flex flex-col p-6">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20">
+                            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-600/20">
                                 <DollarSign className="text-white" size={24}/>
                             </div>
                             <span className="font-black text-xl tracking-tight uppercase">Capital<span className="text-blue-500">Flow</span></span>
@@ -190,7 +190,7 @@ export const PublicCampaignPage = () => {
                     {!chatOpen ? (
                         <div className="flex-1 flex flex-col">
                             {campaign.imageUrl && (
-                                <div className="w-full aspect-square rounded-2xl overflow-hidden mb-8 shadow-2xl border border-slate-800 relative group">
+                                <div className="w-full aspect-square rounded-lg overflow-hidden mb-8 shadow-2xl border border-slate-800 relative group">
                                     <img src={campaign.imageUrl} alt={campaign.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-80"></div>
                                     <div className="absolute bottom-8 left-8 right-8">
@@ -202,17 +202,17 @@ export const PublicCampaignPage = () => {
 
                             {step === 1 ? (
                                 <div className="space-y-6 animate-in slide-in-from-bottom-10 duration-500">
-                                    <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl">
+                                    <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-lg">
                                         <h2 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-6 flex items-center gap-2">
                                             <CheckCircle2 size={16} className="text-blue-500"/>
                                             Quanto você precisa?
                                         </h2>
                                         <div className="grid grid-cols-2 gap-4">
                                             {campaign.values.map(val => (
-                                                <button 
+                                                <button
                                                     key={val}
                                                     onClick={() => setSelectedValue(val)}
-                                                    className={`p-5 rounded-2xl border transition-all font-black text-xl ${selectedValue === val ? 'bg-blue-600 border-blue-500 text-white shadow-xl scale-105' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}
+                                                    className={`p-5 rounded-lg border transition-all font-black text-xl ${selectedValue === val ? 'bg-blue-600 border-blue-500 text-white shadow-xl scale-105' : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-600'}`}
                                                 >
                                                     R$ {val}
                                                 </button>
@@ -220,33 +220,33 @@ export const PublicCampaignPage = () => {
                                         </div>
                                     </div>
 
-                                    <button 
+                                    <button
                                         onClick={() => selectedValue && setStep(2)}
                                         disabled={!selectedValue}
-                                        className="w-full py-5 bg-white text-slate-950 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-slate-200 transition-all disabled:opacity-50 shadow-xl flex items-center justify-center gap-2"
+                                        className="w-full py-5 bg-white text-slate-950 rounded-lg font-black uppercase tracking-widest text-sm hover:bg-slate-200 transition-all disabled:opacity-50 shadow-xl flex items-center justify-center gap-2"
                                     >
                                         Continuar Simulação <ArrowRight size={18}/>
                                     </button>
                                 </div>
                             ) : (
                                 <div className="space-y-6 animate-in slide-in-from-right-10 duration-500">
-                                    <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl space-y-6">
+                                    <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-lg space-y-6">
                                         <h2 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-2">
                                             <User size={16} className="text-blue-500"/>
                                             Seus Dados
                                         </h2>
-                                        
+
                                         <div className="space-y-4">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nome Completo</label>
                                                 <div className="relative">
                                                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={leadName}
                                                         onChange={e => setLeadName(e.target.value)}
                                                         placeholder="Ex: João Silva"
-                                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-5 text-sm font-black text-white outline-none focus:border-blue-500 transition-all"
+                                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg py-4 pl-12 pr-5 text-sm font-black text-white outline-none focus:border-blue-500 transition-all"
                                                     />
                                                 </div>
                                             </div>
@@ -255,12 +255,12 @@ export const PublicCampaignPage = () => {
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">WhatsApp</label>
                                                 <div className="relative">
                                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                                                    <input 
+                                                    <input
                                                         type="tel"
                                                         value={leadPhone}
                                                         onChange={e => setLeadPhone(e.target.value)}
                                                         placeholder="(00) 00000-0000"
-                                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-5 text-sm font-black text-white outline-none focus:border-blue-500 transition-all"
+                                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg py-4 pl-12 pr-5 text-sm font-black text-white outline-none focus:border-blue-500 transition-all"
                                                     />
                                                 </div>
                                             </div>
@@ -269,12 +269,12 @@ export const PublicCampaignPage = () => {
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">CPF</label>
                                                 <div className="relative">
                                                     <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/>
-                                                    <input 
+                                                    <input
                                                         type="text"
                                                         value={leadCPF}
                                                         onChange={e => setLeadCPF(e.target.value)}
                                                         placeholder="000.000.000-00"
-                                                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-4 pl-12 pr-5 text-sm font-black text-white outline-none focus:border-blue-500 transition-all"
+                                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg py-4 pl-12 pr-5 text-sm font-black text-white outline-none focus:border-blue-500 transition-all"
                                                     />
                                                 </div>
                                             </div>
@@ -282,16 +282,16 @@ export const PublicCampaignPage = () => {
                                     </div>
 
                                     <div className="flex gap-3">
-                                        <button 
+                                        <button
                                             onClick={() => setStep(1)}
-                                            className="flex-1 py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs border border-slate-800"
+                                            className="flex-1 py-5 bg-slate-900 text-white rounded-lg font-black uppercase tracking-widest text-xs border border-slate-800"
                                         >
                                             Voltar
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={handleStartSimulation}
                                             disabled={isCreatingSession || !leadName || !leadPhone || !leadCPF}
-                                            className="flex-[2] py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                                            className="flex-[2] py-5 bg-blue-600 text-white rounded-lg font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
                                             {isCreatingSession ? <Loader2 className="animate-spin" size={18}/> : 'Finalizar Simulação'}
                                         </button>
@@ -300,7 +300,7 @@ export const PublicCampaignPage = () => {
                             )}
                         </div>
                     ) : (
-                        <div className="flex-1 flex flex-col bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden animate-in zoom-in-95 duration-500">
+                        <div className="flex-1 flex flex-col bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden animate-in zoom-in-95 duration-500">
                             <div className="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center font-black text-white">
@@ -319,7 +319,7 @@ export const PublicCampaignPage = () => {
                             <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
                                 {chatMessages.map((msg) => (
                                     <div key={msg.id} className={`flex ${msg.sender === 'LEAD' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`max-w-[85%] p-4 rounded-2xl text-sm font-medium ${msg.sender === 'LEAD' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}`}>
+                                        <div className={`max-w-[85%] p-4 rounded-lg text-sm font-medium ${msg.sender === 'LEAD' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}`}>
                                             {msg.message}
                                             <div className={`text-[8px] mt-1 opacity-50 ${msg.sender === 'LEAD' ? 'text-right' : 'text-left'}`}>
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -332,18 +332,18 @@ export const PublicCampaignPage = () => {
 
                             <div className="p-4 bg-slate-900 border-t border-slate-800">
                                 <div className="flex gap-2">
-                                    <input 
+                                    <input
                                         type="text"
                                         value={chatInput}
                                         onChange={e => setChatInput(e.target.value)}
                                         onKeyPress={e => e.key === 'Enter' && handleSendMessage()}
                                         placeholder="Digite sua mensagem..."
-                                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-xs font-medium text-white outline-none focus:border-blue-500 transition-all"
+                                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-xs font-medium text-white outline-none focus:border-blue-500 transition-all"
                                     />
-                                    <button 
+                                    <button
                                         onClick={handleSendMessage}
                                         disabled={isSending || !chatInput.trim()}
-                                        className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                                        className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-600/20 disabled:opacity-50"
                                     >
                                         {isSending ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>}
                                     </button>

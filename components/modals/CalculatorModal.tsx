@@ -9,7 +9,7 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
     const [principal, setPrincipal] = useState('');
     const [rate, setRate] = useState('');
     const [duration, setDuration] = useState('1');
-    
+
     // Basic Calculator State
     const [calcDisplay, setCalcDisplay] = useState('0');
     const [calcMemory, setCalcMemory] = useState<number | null>(null);
@@ -154,23 +154,23 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-6 custom-scrollbar">
                 <div className="max-w-3xl mx-auto space-y-6">
-                    
+
                     {/* Seletor de Modalidade */}
                 <div className="flex p-1 bg-slate-950 rounded-full border border-slate-800">
-                    <button 
-                        onClick={() => { setMode('MONTHLY'); setDuration('1'); }} 
+                    <button
+                        onClick={() => { setMode('MONTHLY'); setDuration('1'); }}
                         className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mode === 'MONTHLY' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-white'}`}
                     >
                         <Calendar size={14}/> Mensal
                     </button>
-                    <button 
-                        onClick={() => { setMode('DAILY'); setDuration('30'); }} 
+                    <button
+                        onClick={() => { setMode('DAILY'); setDuration('30'); }}
                         className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mode === 'DAILY' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'text-slate-500 hover:text-white'}`}
                     >
                         <Clock size={14}/> Diário
                     </button>
-                    <button 
-                        onClick={() => setMode('BASIC')} 
+                    <button
+                        onClick={() => setMode('BASIC')}
                         className={`flex-1 py-3 rounded-full text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mode === 'BASIC' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 hover:text-white'}`}
                     >
                         <Calculator size={14}/> Calc
@@ -178,23 +178,23 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                 </div>
 
                 {mode === 'BASIC' ? (
-                    <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 shadow-2xl">
+                    <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 shadow-2xl">
                         <div className="bg-slate-900 p-4 rounded-full mb-4 text-right">
                             <span className="text-3xl font-mono text-white tracking-widest">{calcDisplay}</span>
                         </div>
                         <div className="grid grid-cols-4 gap-3">
                             <button onClick={handleClear} className="col-span-3 p-4 bg-rose-900/30 text-rose-500 rounded-full font-black hover:bg-rose-900/50 transition-colors">C</button>
                             <button onClick={() => handleOp('/')} className="p-4 bg-slate-800 text-blue-400 rounded-full font-black hover:bg-slate-700 transition-colors"><Divide size={20}/></button>
-                            
+
                             {[7,8,9].map(d => <button key={d} onClick={() => handleDigit(String(d))} className="p-4 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors">{d}</button>)}
                             <button onClick={() => handleOp('*')} className="p-4 bg-slate-800 text-blue-400 rounded-full font-black hover:bg-slate-700 transition-colors"><X size={20}/></button>
-                            
+
                             {[4,5,6].map(d => <button key={d} onClick={() => handleDigit(String(d))} className="p-4 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors">{d}</button>)}
                             <button onClick={() => handleOp('-')} className="p-4 bg-slate-800 text-blue-400 rounded-full font-black hover:bg-slate-700 transition-colors"><Minus size={20}/></button>
-                            
+
                             {[1,2,3].map(d => <button key={d} onClick={() => handleDigit(String(d))} className="p-4 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors">{d}</button>)}
                             <button onClick={() => handleOp('+')} className="p-4 bg-slate-800 text-blue-400 rounded-full font-black hover:bg-slate-700 transition-colors"><Plus size={20}/></button>
-                            
+
                             <button onClick={() => handleDigit('0')} className="col-span-2 p-4 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors">0</button>
                             <button onClick={() => handleDigit('.')} className="p-4 bg-slate-900 text-white rounded-full font-bold hover:bg-slate-800 transition-colors">.</button>
                             <button onClick={handleEqual} className="p-4 bg-emerald-600 text-white rounded-full font-black hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"><Equal size={20}/></button>
@@ -207,14 +207,14 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                             {/* Chat Bubble: Capital */}
                             <div className="flex gap-3 items-end">
                                 <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center flex-shrink-0 text-white shadow-lg"><DollarSign size={16}/></div>
-                                <div className="bg-slate-900 p-4 rounded-2xl rounded-bl-none border border-slate-800 max-w-[85%]">
+                                <div className="bg-slate-900 p-4 rounded-lg rounded-bl-none border border-slate-800 max-w-[85%]">
                                     <p className="text-[10px] font-bold text-emerald-500 uppercase mb-1">Capital Investido</p>
-                                    <input 
-                                        type="text" 
-                                        inputMode="decimal" 
-                                        placeholder="0,00" 
-                                        className="w-full bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700" 
-                                        value={principal || ''} 
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="0,00"
+                                        className="w-full bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700"
+                                        value={principal || ''}
                                         onChange={e => setPrincipal(e.target.value.replace(/[^0-9.,]/g, ''))}
                                         autoFocus
                                     />
@@ -224,14 +224,14 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                             {/* Chat Bubble: Taxa */}
                             <div className="flex gap-3 items-end flex-row-reverse">
                                 <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0 text-white shadow-lg"><Percent size={16}/></div>
-                                <div className="bg-slate-900 p-4 rounded-2xl rounded-br-none border border-slate-800 max-w-[85%] text-right">
+                                <div className="bg-slate-900 p-4 rounded-lg rounded-br-none border border-slate-800 max-w-[85%] text-right">
                                     <p className="text-[10px] font-bold text-indigo-500 uppercase mb-1">Taxa Mensal (%)</p>
-                                    <input 
-                                        type="text" 
-                                        inputMode="decimal" 
-                                        placeholder="10" 
-                                        className="w-full bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700 text-right" 
-                                        value={rate || ''} 
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="10"
+                                        className="w-full bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700 text-right"
+                                        value={rate || ''}
                                         onChange={e => setRate(e.target.value.replace(/[^0-9.,]/g, ''))}
                                     />
                                 </div>
@@ -240,14 +240,14 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                             {/* Chat Bubble: Prazo */}
                             <div className="flex gap-3 items-end">
                                 <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 text-white shadow-lg"><Clock size={16}/></div>
-                                <div className="bg-slate-900 p-4 rounded-2xl rounded-bl-none border border-slate-800 max-w-[85%]">
+                                <div className="bg-slate-900 p-4 rounded-lg rounded-bl-none border border-slate-800 max-w-[85%]">
                                     <p className="text-[10px] font-bold text-purple-500 uppercase mb-1">{mode === 'MONTHLY' ? 'Prazo (Meses)' : 'Prazo (Dias)'}</p>
-                                    <input 
-                                        type="text" 
-                                        inputMode="decimal" 
-                                        placeholder={mode === 'MONTHLY' ? "1" : "30"} 
-                                        className="w-full bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700" 
-                                        value={duration || ''} 
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder={mode === 'MONTHLY' ? "1" : "30"}
+                                        className="w-full bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700"
+                                        value={duration || ''}
                                         onChange={e => setDuration(e.target.value.replace(/[^0-9.,]/g, ''))}
                                     />
                                 </div>
@@ -263,7 +263,7 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                                     </div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-6 rounded-2xl relative overflow-hidden shadow-2xl">
+                                <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-6 rounded-lg relative overflow-hidden shadow-2xl">
                                     <div className="flex flex-col items-center text-center">
                                         <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Retorno Total (Juros)</span>
                                         <span className="text-4xl font-black text-white tracking-tight">{formatCurrency(results.grossProfit)}</span>
@@ -272,7 +272,7 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                                             <span>ROI: +{results.roi.toFixed(1)}%</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-800/50">
                                         <div className="text-center">
                                             <p className="text-[9px] font-black uppercase text-slate-500">Por {mode === 'MONTHLY' ? 'Mês' : 'Dia'}</p>

@@ -12,7 +12,7 @@ export const ExtratoAIPanel = ({ onClose, context }: { onClose: () => void, cont
 
     const handleSend = async (action: ActionType = 'FREE_CHAT') => {
         if (!input && action === 'FREE_CHAT') return;
-        
+
         const userMsg = input || (action !== 'FREE_CHAT' ? `Execute: ${action}` : '');
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
         setInput('');
@@ -29,12 +29,12 @@ export const ExtratoAIPanel = ({ onClose, context }: { onClose: () => void, cont
     };
 
     return (
-        <div className="bg-slate-900 border border-slate-700 p-6 rounded-xl flex flex-col h-full">
+        <div className="bg-slate-900 border border-slate-700 p-6 rounded-lg flex flex-col h-full">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><Bot /> Análise com IA</h3>
                 <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto mb-4 space-y-4 custom-scrollbar">
                 {messages.map((m, i) => (
                     <div key={i} className={`p-3 rounded-lg ${m.role === 'user' ? 'bg-blue-900/50 text-white ml-auto' : 'bg-slate-800 text-slate-300'}`}>
@@ -52,8 +52,8 @@ export const ExtratoAIPanel = ({ onClose, context }: { onClose: () => void, cont
             </div>
 
             <div className="flex gap-2">
-                <input 
-                    value={input} 
+                <input
+                    value={input}
                     onChange={(e) => setInput(e.target.value)}
                     className="flex-1 bg-slate-800 text-white p-2 rounded-lg"
                     placeholder="Pergunte algo..."

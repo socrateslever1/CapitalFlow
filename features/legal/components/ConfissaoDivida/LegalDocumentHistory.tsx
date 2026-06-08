@@ -84,7 +84,7 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
                 </div>
             </div>
 
-            <div className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-2xl backdrop-blur-sm space-y-3">
+            <div className="bg-slate-900/30 border border-slate-800/50 p-4 rounded-lg backdrop-blur-sm space-y-3">
                 {isLoadingDocuments ? (
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
                         <Loader2 size={12} className="animate-spin" />
@@ -104,7 +104,7 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
                         return (
                             <div
                                 key={doc.id}
-                                className={`rounded-xl border transition-all ${
+                                className={`rounded-lg border transition-all ${
                                     selectedDocIds.includes(doc.id) ? 'bg-indigo-600/10 border-indigo-500' : 'bg-slate-950/60 border-slate-800'
                                 } p-3 space-y-3 relative group`}
                             >

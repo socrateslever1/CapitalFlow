@@ -124,7 +124,7 @@ export const AudioPlayer = ({
   };
 
   return (
-    <div className={`flex items-center gap-3 px-3 py-2 rounded-xl min-w-[200px] transition-colors ${loadError ? 'bg-rose-500/10 border border-rose-500/20' : 'bg-black/20'}`}>
+    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-[200px] transition-colors ${loadError ? 'bg-rose-500/10 border border-rose-500/20' : 'bg-black/20'}`}>
       <button
         onClick={togglePlay}
         type="button"
@@ -148,10 +148,10 @@ export const AudioPlayer = ({
         {loadError ? (
           <div className="flex flex-col gap-1">
              <span className="text-[8px] text-rose-400 font-bold uppercase tracking-wider">Falha ao carregar áudio</span>
-             <a 
-               href={src} 
-               target="_blank" 
-               rel="noreferrer" 
+             <a
+               href={src}
+               target="_blank"
+               rel="noreferrer"
                className="text-[9px] text-white/50 hover:text-white underline decoration-rose-500/50"
              >
                Baixar arquivo

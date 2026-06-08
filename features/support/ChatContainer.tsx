@@ -69,7 +69,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     // upload fica em outro passo ou componente; aqui só envia texto/links/metadata
     // Se 'file' for string, passamos como fileUrl
     const fileUrl = typeof file === 'string' ? file : undefined;
-    
+
     try {
       await sendMessage(text, type, fileUrl, meta);
     } catch (e: any) {
@@ -108,14 +108,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             <>
               <button
                 onClick={() => startCall('VOICE')}
-                className="p-2.5 bg-slate-900/60 hover:bg-emerald-600/20 text-slate-300 hover:text-emerald-400 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-md transition-all duration-300 group"
+                className="p-2.5 bg-slate-900/60 hover:bg-emerald-600/20 text-slate-300 hover:text-emerald-400 rounded-lg shadow-xl border border-slate-700/50 backdrop-blur-md transition-all duration-300 group"
                 title="Chamada de voz"
               >
                 <Phone size={18} className="group-hover:scale-110 transition-transform" />
               </button>
               <button
                 onClick={() => startCall('VIDEO')}
-                className="p-2.5 bg-slate-900/60 hover:bg-blue-600/20 text-slate-300 hover:text-blue-400 rounded-2xl shadow-xl border border-slate-700/50 backdrop-blur-md transition-all duration-300 group"
+                className="p-2.5 bg-slate-900/60 hover:bg-blue-600/20 text-slate-300 hover:text-blue-400 rounded-lg shadow-xl border border-slate-700/50 backdrop-blur-md transition-all duration-300 group"
                 title="Chamada de vídeo"
               >
                 <Video size={18} className="group-hover:scale-110 transition-transform" />
@@ -138,7 +138,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
             <button
               onClick={endCall}
-              className="px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase"
+              className="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase"
             >
               Encerrar
             </button>
@@ -152,14 +152,14 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                   ref={remoteVideoRef}
                   autoPlay
                   playsInline
-                  className="w-full rounded-2xl bg-black border border-slate-800"
+                  className="w-full rounded-lg bg-black border border-slate-800"
                 />
                 <video
                   ref={localVideoRef}
                   autoPlay
                   muted
                   playsInline
-                  className="w-40 rounded-xl bg-black border border-slate-800 self-end -mt-28 mr-3"
+                  className="w-40 rounded-lg bg-black border border-slate-800 self-end -mt-28 mr-3"
                 />
               </div>
             ) : (
@@ -179,13 +179,13 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
             <div className="p-4 border-t border-slate-800 flex gap-3 justify-center">
               <button
                 onClick={rejectIncoming}
-                className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black uppercase"
+                className="px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-black uppercase"
               >
                 Recusar
               </button>
               <button
                 onClick={acceptIncoming}
-                className="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase"
+                className="px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase"
               >
                 Aceitar
               </button>
@@ -205,7 +205,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
       {ticketStatus === 'CLOSED' && (
         <div className="px-4 pb-2 text-center shrink-0">
-          <div className="bg-slate-900/80 border border-slate-700 p-3 rounded-xl inline-flex items-center gap-2">
+          <div className="bg-slate-900/80 border border-slate-700 p-3 rounded-lg inline-flex items-center gap-2">
             <Lock size={14} className="text-slate-500" />
             <span className="text-xs text-slate-400 font-bold uppercase">Atendimento Finalizado</span>
             {senderType === 'CLIENT' && (

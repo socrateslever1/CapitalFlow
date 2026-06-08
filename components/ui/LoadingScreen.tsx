@@ -50,7 +50,7 @@ export const LoadingScreen: React.FC = () => {
          <div className="absolute inset-0 bg-slate-500 blur-[60px] opacity-20 animate-pulse rounded-full"></div>
          
          {/* Ícone Central */}
-         <div className="relative bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-2xl shadow-black/50">
+         <div className="relative bg-slate-900 p-8 rounded-lg border border-slate-800 shadow-2xl shadow-black/50">
             <TrendingUp size={64} className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
          </div>
       </div>
@@ -68,7 +68,7 @@ export const LoadingScreen: React.FC = () => {
          </div>
 
          {/* Dica do Dia (Onboarding/Tips) */}
-         <div className="mt-6 w-full bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+         <div className="mt-6 w-full bg-slate-900/40 border border-slate-800/60 rounded-lg p-4 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Lightbulb size={14} className="text-amber-400" />
               <span className="text-[10px] font-black text-amber-400/80 uppercase tracking-widest">Dica do Dia</span>
@@ -81,7 +81,7 @@ export const LoadingScreen: React.FC = () => {
          {/* Botão de Escape para evitar carregamento infinito */}
          <button 
             onClick={handleCancelLoading}
-            className="flex items-center gap-2 text-[10px] font-bold text-slate-500 hover:text-rose-500 transition-colors uppercase tracking-widest px-4 py-2 rounded-xl bg-slate-900/30 border border-slate-800/50 mt-4 active:scale-95 transition-all"
+            className="flex items-center gap-2 text-[10px] font-bold text-slate-500 hover:text-rose-500 transition-colors uppercase tracking-widest px-4 py-2 rounded-lg bg-slate-900/30 border border-slate-800/50 mt-4 active:scale-95 transition-all"
          >
             <LogOut size={12}/> Voltar ao Login
          </button>

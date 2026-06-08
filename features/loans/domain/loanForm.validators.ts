@@ -1,5 +1,6 @@
 import { CapitalSource } from '../../../types';
 import { LoanFormState } from './loanForm.mapper';
+import { translateBillingCycle } from '../../../utils/translationHelpers';
 
 export const validateLoanForm = (
   formData: LoanFormState,
@@ -59,7 +60,7 @@ export const validateLoanForm = (
 
   const officialModalities = ['MONTHLY', 'INSTALLMENT_FIXED', 'DAILY_FREE', 'DAILY_FIXED_TERM'];
   if (!officialModalities.includes(formData.billingCycle)) {
-    return { isValid: false, error: `Erro: A modalidade ${formData.billingCycle} não é uma modalidade oficial suportada para novos contratos.` };
+    return { isValid: false, error: `Erro: A modalidade ${translateBillingCycle(formData.billingCycle)} não é uma modalidade oficial suportada para novos contratos.` };
   }
 
   return { isValid: true };

@@ -4,6 +4,7 @@ import { Landmark, Banknote, Wallet, CreditCard, Edit2, PlusCircle, Trash2, File
 import { CapitalSource, Loan } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { Modal } from '../ui/Modal';
+import { translateBillingCycle } from '../../utils/translationHelpers';
 
 interface SourceCardProps {
     source: CapitalSource;
@@ -93,7 +94,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({
 
     return (
         <>
-            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-xl relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col h-full">
+            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col h-full">
                 {/* Background Icon (Marca d'água grande) - Reduzido e mais sutil */}
                 <div className={`absolute -top-1 -right-1 p-2 opacity-5 transition-opacity group-hover:opacity-10 ${colorClass}`}>
                     <DefaultIcon size={32} />
@@ -183,7 +184,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                     title={`Detalhes: ${source.name}`}
                 >
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-800">
+                        <div className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
                             <div>
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">Saldo Atual</p>
                                 <p className={`text-xl font-black ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>
@@ -203,10 +204,10 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                             <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
                                 {activeLoans.length > 0 ? (
                                     activeLoans.map(loan => (
-                                        <div key={loan.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center group">
+                                        <div key={loan.id} className="bg-slate-950 p-3 rounded-lg border border-slate-800 flex justify-between items-center group">
                                             <div>
                                                 <p className="text-xs font-bold text-white">{loan.debtorName}</p>
-                                                <p className="text-[10px] text-slate-500">{formatMoney(loan.principal, isStealthMode)} • {loan.billingCycle}</p>
+                                                <p className="text-[10px] text-slate-500">{formatMoney(loan.principal, isStealthMode)} • {translateBillingCycle(loan.billingCycle)}</p>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-black text-emerald-500 uppercase bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -224,7 +225,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({
                         <div className="pt-2 border-t border-slate-800">
                             <button 
                                 onClick={handleUpdateLogo}
-                                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"
+                                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all"
                             >
                                 <ImageIcon size={14}/> Alterar Ícone da Fonte
                             </button>

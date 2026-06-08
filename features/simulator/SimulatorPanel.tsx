@@ -23,12 +23,12 @@ function pmt(principal: number, monthlyRatePercent: number, installmentsCount: n
   return principal * (i / (1 - Math.pow(1 + i, -n)));
 }
 
-export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({ 
-  onClose, 
-  activeUser, 
-  clients, 
-  sources, 
-  showToast, 
+export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
+  onClose,
+  activeUser,
+  clients,
+  sources,
+  showToast,
   fetchFullData,
   isStealthMode
 }) => {
@@ -37,7 +37,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
   const [selectedSourceId, setSelectedSourceId] = useState<string>('');
   const [selectedModality, setSelectedModality] = useState<LoanBillingModality>('MONTHLY');
   const [startDateStr, setStartDateStr] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  
+
   // Parâmetros gerais
   const [principal, setPrincipal] = useState(1000);
   const [interestRate, setInterestRate] = useState(30); // 30% padrão para Mensal/Diário
@@ -70,7 +70,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
     try {
       const strategy = modalityRegistry.get(selectedModality);
-      
+
       const { installments: installmentList, totalToReceive } = strategy.generateInstallments({
         principal: effPrincipal,
         rate: interestRate,
@@ -88,7 +88,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
       const totalInterest = Math.max(0, totalToReceive - effPrincipal);
       const cet = effPrincipal > 0 ? (totalInterest / effPrincipal) * 100 : 0;
-      
+
       // Taxa equivalente
       let monthlyRate = interestRate;
       if (selectedModality === 'INSTALLMENT_FIXED') {
@@ -97,7 +97,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
       const installmentValue = installmentList[0]?.amount || 0;
       const dueDateStr = installmentList[installmentList.length - 1]?.dueDate || startDateStr;
-      
+
       // Converter YYYY-MM-DD para Date com segurança de fuso
       const dueDate = new Date(dueDateStr + 'T12:00:00');
 
@@ -228,11 +228,11 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
       {/* Content */}
       <div className="flex-1 space-y-6">
-        
+
         {/* 1. Parâmetros de Entrada */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-3xl rounded-full -mr-16 -mt-16"></div>
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
             <div className="space-y-1">
               <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
@@ -244,25 +244,25 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                 </div>
               )}
             </div>
-            
+
             <div className="flex flex-wrap gap-2">
               {selectedModality !== 'INSTALLMENT_FIXED' && (
-                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 animate-in fade-in">
-                  <button 
+                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 animate-in fade-in">
+                  <button
                     onClick={() => { setCalculationMode('NORMAL'); }}
                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                       calculationMode === 'NORMAL'
-                        ? 'bg-slate-800 text-white' 
+                        ? 'bg-slate-800 text-white'
                         : 'text-slate-500 hover:text-slate-300'
                     }`}
                   >
                     Normal
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setCalculationMode('REVERSE'); }}
                     className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                       calculationMode === 'REVERSE'
-                        ? 'bg-slate-800 text-white' 
+                        ? 'bg-slate-800 text-white'
                         : 'text-slate-500 hover:text-slate-300'
                     }`}
                   >
@@ -271,42 +271,42 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:flex bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1 sm:gap-0">
-                <button 
+              <div className="grid grid-cols-2 sm:flex bg-slate-950 p-1 rounded-lg border border-slate-800 gap-1 sm:gap-0">
+                <button
                   onClick={() => { setSelectedModality('MONTHLY'); if(calculationMode==='REVERSE') setCalculationMode('NORMAL'); }}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     selectedModality === 'MONTHLY'
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                       : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   Mensal
                 </button>
-                <button 
+                <button
                   onClick={() => { setSelectedModality('INSTALLMENT_FIXED'); }}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     selectedModality === 'INSTALLMENT_FIXED'
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                       : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   Parcelado
                 </button>
-                <button 
+                <button
                   onClick={() => { setSelectedModality('DAILY_FREE'); if(calculationMode==='REVERSE') setCalculationMode('NORMAL'); }}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     selectedModality === 'DAILY_FREE'
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                       : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   Diário Livre
                 </button>
-                <button 
+                <button
                   onClick={() => { setSelectedModality('DAILY_FIXED_TERM'); if(calculationMode==='REVERSE') setCalculationMode('NORMAL'); }}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                     selectedModality === 'DAILY_FIXED_TERM'
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                       : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
@@ -318,7 +318,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
           <div className="space-y-6 relative z-10">
             {/* Seleção de Cliente, Fonte e Data do Contrato */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-slate-950/30 rounded-2xl border border-slate-800/50">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-slate-950/30 rounded-lg border border-slate-800/50">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em] block ml-1">
                   Vincular ao Cliente
@@ -327,7 +327,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                   <select
                     value={selectedClientId}
                     onChange={(e) => setSelectedClientId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="">Selecione um cliente...</option>
                     {clients.map(c => (
@@ -347,7 +347,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                   <select
                     value={selectedSourceId}
                     onChange={(e) => setSelectedSourceId(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                   >
                     <option value="">Selecione uma fonte...</option>
                     {sources.map(s => (
@@ -367,7 +367,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                   type="date"
                   value={startDateStr}
                   onChange={(e) => setStartDateStr(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -385,7 +385,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                     <input
                       type="number"
                       value={calculationMode === 'REVERSE' ? targetInstallment : principal}
-                      onChange={(e) => { 
+                      onChange={(e) => {
                         let raw = e.target.value;
                         if (raw.length > 1 && raw.startsWith('0') && !raw.startsWith('0.')) {
                           raw = raw.replace(/^0+/, '');
@@ -393,9 +393,9 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                         }
                         const val = raw === '' ? 0 : Number(raw);
                         if (calculationMode === 'REVERSE') setTargetInstallment(val);
-                        else setPrincipal(val); 
+                        else setPrincipal(val);
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
                     />
                   </div>
                 </div>
@@ -411,7 +411,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                         type="text"
                         readOnly
                         value={formatMoney(calculation.principal, isStealthMode).replace('R$', '').trim()}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-base font-black text-blue-400 outline-none cursor-default"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-base font-black text-blue-400 outline-none cursor-default"
                       />
                     </div>
                   </div>
@@ -427,15 +427,15 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                       type="number"
                       step="0.01"
                       value={interestRate}
-                      onChange={(e) => { 
+                      onChange={(e) => {
                         let raw = e.target.value;
                         if (raw.length > 1 && raw.startsWith('0') && !raw.startsWith('0.')) {
                           raw = raw.replace(/^0+/, '');
                           e.target.value = raw;
                         }
-                        setInterestRate(raw === '' ? 0 : Number(raw)); 
+                        setInterestRate(raw === '' ? 0 : Number(raw));
                       }}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
                     />
                   </div>
                 </div>
@@ -460,14 +460,14 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                       }
                       setFixedDuration(raw === '' ? '0' : raw);
                     }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
                   />
                 </div>
               </div>
             )}
 
             {(selectedModality === 'DAILY_FREE' || selectedModality === 'DAILY_FIXED_TERM') && (
-              <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800/80 flex items-center justify-between group hover:border-blue-500/30 transition-all max-w-md">
+              <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800/80 flex items-center justify-between group hover:border-blue-500/30 transition-all max-w-md">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg transition-colors ${skipWeekends ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
                     <CalendarX size={18}/>
@@ -499,19 +499,19 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                       <input
                         type="number"
                         value={principal}
-                        onChange={(e) => { 
+                        onChange={(e) => {
                           let raw = e.target.value;
                           if (raw.length > 1 && raw.startsWith('0') && !raw.startsWith('0.')) {
                             raw = raw.replace(/^0+/, '');
                             e.target.value = raw;
                           }
-                          setPrincipal(raw === '' ? 0 : Number(raw)); 
+                          setPrincipal(raw === '' ? 0 : Number(raw));
                         }}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-400 uppercase tracking-widest block ml-1">
                       Margem Cliente (%)
@@ -522,21 +522,21 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                         type="number"
                         step="0.01"
                         value={customerMarginPercent}
-                        onChange={(e) => { 
+                        onChange={(e) => {
                           let raw = e.target.value;
                           if (raw.length > 1 && raw.startsWith('0') && !raw.startsWith('0.')) {
                             raw = raw.replace(/^0+/, '');
                             e.target.value = raw;
                           }
-                          setCustomerMarginPercent(raw === '' ? 0 : Number(raw)); 
+                          setCustomerMarginPercent(raw === '' ? 0 : Number(raw));
                         }}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg py-3 px-4 text-base font-black text-white outline-none focus:border-blue-500 transition-all shadow-inner"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-950/60 border border-slate-850 rounded-3xl p-5 sm:p-6 space-y-6 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-800">
+                <div className="bg-slate-950/60 border border-slate-850 rounded-lg p-5 sm:p-6 space-y-6 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-800">
                   <div className="flex items-center gap-2.5 text-rose-400 border-b border-slate-900 pb-3">
                     <CreditCard size={18} className="text-rose-500" />
                     <span className="text-xs font-black uppercase tracking-widest text-slate-200 font-sans">Custo de Captação / Banco</span>
@@ -544,18 +544,18 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
                   <div className="space-y-5">
                     {/* Toggle Mode */}
-                    <div className="flex bg-slate-900/80 p-1 rounded-2xl border border-slate-800/60 max-w-xs">
+                    <div className="flex bg-slate-900/80 p-1 rounded-lg border border-slate-800/60 max-w-xs">
                       <button
                         type="button"
                         onClick={() => setFundingCalculationMode('TOTAL')}
-                        className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${fundingCalculationMode !== 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}
+                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${fundingCalculationMode !== 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}
                       >
                         Valor final
                       </button>
                       <button
                         type="button"
                         onClick={() => setFundingCalculationMode('RATE')}
-                        className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${fundingCalculationMode === 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}
+                        className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 ${fundingCalculationMode === 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}
                       >
                         Taxa mensal
                       </button>
@@ -577,7 +577,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                             }
                             setFundingInstallmentsCount(raw === '' ? 0 : Number(raw));
                           }}
-                          className="w-full bg-slate-900/80 border border-rose-500/25 rounded-2xl px-5 py-3 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
+                          className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-3 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
                         />
                       </div>
 
@@ -597,7 +597,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                               }
                               setFundingMonthlyRate(raw === '' ? 0 : Number(raw));
                             }}
-                            className="w-full bg-slate-900/80 border border-rose-500/25 rounded-2xl px-5 py-3 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
+                            className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-3 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
                           />
                         </div>
                       ) : (
@@ -616,14 +616,14 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                               }
                               setFundingTotalPayable(raw === '' ? 0 : Number(raw));
                             }}
-                            className="w-full bg-slate-900/80 border border-rose-500/25 rounded-2xl px-5 py-3 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
+                            className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-3 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
                           />
                         </div>
                       )}
 
                       <div className="space-y-1">
                         <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2 block font-sans">Custo do Crédito (Banco)</label>
-                        <div className="w-full bg-slate-900/40 border border-rose-500/15 rounded-2xl px-5 py-3 text-rose-400 font-extrabold flex items-center justify-between h-[48px]">
+                        <div className="w-full bg-slate-900/40 border border-rose-500/15 rounded-lg px-5 py-3 text-rose-400 font-extrabold flex items-center justify-between h-[48px]">
                           <span className="text-sm font-black tracking-wide font-sans">
                             {formatMoney(Math.max(0, (fundingCalculationMode === 'RATE' ? (pmt(principal, fundingMonthlyRate, fundingInstallmentsCount) * fundingInstallmentsCount) : fundingTotalPayable) - principal))}
                           </span>
@@ -632,7 +632,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                     </div>
 
                     {/* Resumo da Operação */}
-                    <div className="bg-slate-950/80 border border-slate-900 rounded-2xl p-5 space-y-4 shadow-inner">
+                    <div className="bg-slate-950/80 border border-slate-900 rounded-lg p-5 space-y-4 shadow-inner">
                       <div className="flex items-center justify-between border-b border-slate-900 pb-2.5">
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-sans">Resumo da Operação</span>
                         <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-full font-black uppercase tracking-wider font-sans">
@@ -683,7 +683,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                       </div>
 
                       {/* Lucro Bruto Pill/Row */}
-                      <div className="bg-gradient-to-r from-emerald-950/20 via-emerald-900/10 to-transparent border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between mt-2 transition-all">
+                      <div className="bg-gradient-to-r from-emerald-950/20 via-emerald-900/10 to-transparent border border-emerald-500/20 rounded-lg p-3 flex items-center justify-between mt-2 transition-all">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-sans">Lucro Bruto Estimado</span>
@@ -701,16 +701,16 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
         </div>
 
         {/* 2. Resultado Detalhado */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
           <div className="absolute bottom-0 left-0 w-40 h-40 bg-emerald-600/5 blur-3xl rounded-full -ml-20 -mb-20"></div>
-          
+
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 relative z-10 font-sans">
             <TrendingUp size={14} className="text-emerald-500" /> Resumo do Cálculo
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
             {calculationMode === 'REVERSE' && selectedModality !== 'INSTALLMENT_FIXED' && (
-              <div className="bg-indigo-600/10 rounded-2xl p-5 border border-indigo-500/20">
+              <div className="bg-indigo-600/10 rounded-lg p-5 border border-indigo-500/20">
                 <p className="text-sm text-indigo-400 font-semibold uppercase tracking-widest mb-1 leading-tight font-sans">
                   Valor informado pelo usuário
                 </p>
@@ -719,23 +719,23 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                 </p>
               </div>
             )}
-            <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800/50 font-sans">
+            <div className="bg-slate-950/50 rounded-lg p-5 border border-slate-800/50 font-sans">
               <p className="text-sm text-slate-500 font-semibold uppercase tracking-widest mb-1 leading-tight">Capital Base</p>
               <p className="text-xl font-black text-white">{formatMoney(calculation.principal, isStealthMode)}</p>
             </div>
-            <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800/50 font-sans">
+            <div className="bg-slate-950/50 rounded-lg p-5 border border-slate-800/50 font-sans">
               <p className="text-sm text-slate-500 font-semibold uppercase tracking-widest mb-1 leading-tight">Juros Totais</p>
               <p className="text-xl font-black text-white">{formatMoney(calculation.interest, isStealthMode)}</p>
             </div>
-            <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800/50 font-sans">
+            <div className="bg-slate-950/50 rounded-lg p-5 border border-slate-800/50 font-sans">
               <p className="text-sm text-slate-500 font-semibold uppercase tracking-widest mb-1 leading-tight">Juros Mensal (Equiv.)</p>
               <p className="text-xl font-black text-white">{(calculation.monthlyRate || 0).toFixed(1)}%</p>
             </div>
-            <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800/50 font-sans">
+            <div className="bg-slate-950/50 rounded-lg p-5 border border-slate-800/50 font-sans">
               <p className="text-sm text-slate-500 font-semibold uppercase tracking-widest mb-1 leading-tight">Custo Efetivo (CET)</p>
               <p className="text-xl font-black text-emerald-500">+{calculation.cet.toFixed(1)}%</p>
             </div>
-            <div className="bg-blue-600/10 rounded-2xl p-5 border border-blue-500/20 font-sans">
+            <div className="bg-blue-600/10 rounded-lg p-5 border border-blue-500/20 font-sans">
               <p className="text-sm text-blue-400 font-semibold uppercase tracking-widest mb-1 leading-tight">Valor Final Total</p>
               <p className="text-xl font-black text-white">{formatMoney(calculation.total, isStealthMode)}</p>
             </div>
@@ -743,7 +743,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
           {selectedModality === 'INSTALLMENT_FIXED' ? (
             <div className="space-y-4 relative z-10">
-              <div className="bg-slate-950/80 rounded-2xl p-5 border border-slate-800 flex items-center justify-between">
+              <div className="bg-slate-950/80 rounded-lg p-5 border border-slate-800 flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-500 font-semibold uppercase tracking-widest font-sans">Valor de cada Parcela</p>
                   <p className="text-2xl font-black text-white font-sans">{formatMoney(calculation.installmentValue, isStealthMode)}</p>
@@ -759,7 +759,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
                 <p className="text-sm font-semibold text-slate-500 uppercase tracking-widest ml-1 font-sans">Cronograma de Pagamentos</p>
                 <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                   {calculation.installmentList.map((inst) => (
-                    <div key={inst.number} className="flex items-center justify-between bg-slate-950/40 p-3 rounded-xl border border-slate-800/50 hover:bg-slate-950 transition-colors">
+                    <div key={inst.number} className="flex items-center justify-between bg-slate-950/40 p-3 rounded-lg border border-slate-800/50 hover:bg-slate-950 transition-colors">
                       <div className="flex items-center gap-3 font-sans">
                         <span className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center text-sm font-black text-slate-400">
                           {inst.number}
@@ -775,7 +775,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
               </div>
             </div>
           ) : (
-            <div className="bg-slate-950/80 rounded-2xl p-5 border border-slate-800 flex items-center justify-between relative z-10">
+            <div className="bg-slate-950/80 rounded-lg p-5 border border-slate-800 flex items-center justify-between relative z-10">
               <div className="flex items-center gap-3">
                 <CalIcon size={20} className="text-slate-500" />
                 <div>
@@ -794,9 +794,9 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
         </div>
 
         {/* 3. Finalização */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-600/5 blur-3xl rounded-full -ml-16 -mt-16"></div>
-          
+
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 relative z-10 font-sans">
             <CheckCircle2 size={14} className="text-emerald-500" /> Finalizar Operação
           </h3>
@@ -805,7 +805,7 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
             <button
               onClick={handleCreateContract}
               disabled={isSavingContract || !selectedClientId || !selectedSourceId}
-              className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-emerald-500 transition-all disabled:opacity-50 shadow-xl active:scale-95 cursor-pointer font-sans"
+              className="w-full py-5 bg-emerald-600 text-white rounded-lg font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-emerald-500 transition-all disabled:opacity-50 shadow-xl active:scale-95 cursor-pointer font-sans"
             >
               {isSavingContract ? (
                 <RefreshCw size={20} className="animate-spin" />

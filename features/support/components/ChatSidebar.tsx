@@ -18,7 +18,7 @@ interface ChatSidebarProps {
     chatTheme?: 'dark' | 'blue';
 }
 
-export const ChatSidebar: React.FC<ChatSidebarProps> = ({ 
+export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     chats, clients, team, campaigns, unreadCampaignCount = 0, selectedChat, searchTerm, setSearchTerm, onSelectChat, diffLabel, onBulkDelete, chatTheme = 'dark'
 }) => {
     const [activeTab, setActiveTab] = useState<'ACTIVE' | 'CLIENTS' | 'TEAM' | 'CAPTACAO'>('ACTIVE');
@@ -76,19 +76,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
     const renderItem = (item: any, isInsideGroup = false, index?: number | string) => {
         const key = item.loanId || item.profileId || item.id || index || Math.random().toString();
-        const isActive = (selectedChat?.loanId === item.loanId && item.loanId) || 
+        const isActive = (selectedChat?.loanId === item.loanId && item.loanId) ||
                          (selectedChat?.profileId === item.profileId && item.profileId) ||
                          (selectedChat?.id === item.id && item.id);
         const isSelected = selectedIds.includes(key);
-        
+
         return (
           <button
             id={key}
             key={key}
             onClick={() => isSelectionMode ? toggleSelection(key) : onSelectChat(item)}
-            className={`w-full p-4 rounded-xl flex items-start gap-3 transition-all border ${
+            className={`w-full p-4 rounded-lg flex items-start gap-3 transition-all border ${
               isActive && !isSelectionMode
-                ? 'bg-blue-900/10 border-blue-500/30 shadow-md' 
+                ? 'bg-blue-900/10 border-blue-500/30 shadow-md'
                 : isSelected && isSelectionMode
                 ? 'bg-rose-900/10 border-rose-500/30'
                 : 'bg-transparent border-transparent hover:bg-slate-900 hover:border-slate-800'
@@ -127,14 +127,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     </span>
                 )}
               </div>
-              
+
               <div className="flex justify-between items-center">
                   <p className={`text-[11px] truncate leading-tight ${isActive && !isSelectionMode ? 'text-blue-200' : 'text-slate-500'}`}>
                     {item.lastMessage || 'Novo Contato'}
                   </p>
                   {activeTab !== 'ACTIVE' && !isSelectionMode && <ChevronRight size={12} className="text-slate-500"/>}
               </div>
-              
+
               {item.type === 'CAMPAIGN' && (
                   <p className="text-[9px] text-slate-500 font-bold uppercase mt-1.5 tracking-wider">
                     WhatsApp: {item.whatsapp || 'N/A'}
@@ -172,30 +172,30 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 <>
                     <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={16}/>
-                    <input 
-                        type="text" 
-                        placeholder="Buscar..." 
-                        className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs font-bold text-white outline-none focus:border-blue-500 transition-all placeholder:text-slate-500"
+                    <input
+                        type="text"
+                        placeholder="Buscar..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-3 pl-10 pr-4 text-xs font-bold text-white outline-none focus:border-blue-500 transition-all placeholder:text-slate-500"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                     </div>
-                    
-                    <div className="flex bg-slate-900 p-1 rounded-xl">
-                        <button 
+
+                    <div className="flex bg-slate-900 p-1 rounded-lg">
+                        <button
                             onClick={() => setActiveTab('ACTIVE')}
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'ACTIVE' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <MessageCircle size={12}/> Ativos
                         </button>
-                        <button 
+                        <button
                             onClick={() => setActiveTab('CLIENTS')}
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'CLIENTS' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                         >
                             <Users size={12}/> Clientes
                         </button>
                         {/* Desativado temporariamente: TEAM
-                        <button 
+                        <button
                             onClick={() => setActiveTab('TEAM')}
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'TEAM' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                         >
@@ -203,7 +203,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         </button>
                         */}
                         {/* Desativado temporariamente: CAPTACAO
-                        <button 
+                        <button
                             onClick={() => setActiveTab('CAPTACAO')}
                             className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 relative ${activeTab === 'CAPTACAO' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
                         >
@@ -226,7 +226,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     )}
                 </>
             ) : (
-                <div className="flex items-center justify-between bg-rose-900/10 p-3 rounded-xl border border-rose-500/20">
+                <div className="flex items-center justify-between bg-rose-900/10 p-3 rounded-lg border border-rose-500/20">
                     <span className="text-rose-500 text-xs font-black uppercase">{selectedIds.length} Selecionados</span>
                     <div className="flex gap-2">
                         <button onClick={executeDelete} disabled={selectedIds.length === 0} className="p-2 bg-rose-600 text-white rounded-lg disabled:opacity-50">
@@ -261,7 +261,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         <div key={itemKey} className="w-full">
                             <button
                                 onClick={() => toggleGroup(item.groupKey)}
-                                className="w-full p-3 rounded-xl flex items-center justify-between transition-all bg-slate-900/50 hover:bg-slate-900 border border-slate-800"
+                                className="w-full p-3 rounded-lg flex items-center justify-between transition-all bg-slate-900/50 hover:bg-slate-900 border border-slate-800"
                             >
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-black text-slate-400 border border-slate-700">

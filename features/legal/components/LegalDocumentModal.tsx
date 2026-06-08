@@ -53,7 +53,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
     const handleSignAsCreditor = async () => {
         if (!docRecord) return;
         if (!confirm("Confirmar sua assinatura como CREDOR(A)? Seus dados técnicos e IP serão vinculados ao título.")) return;
-        
+
         setIsSigning(true);
         try {
             await legalService.signDocument(docRecord.id, activeUser.id, {
@@ -97,7 +97,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
     return (
         <Modal onClose={onClose} title="Gestão de Título Executivo">
             <div className="flex flex-col h-[85vh]">
-                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-4">
+                <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 mb-4">
                     <button onClick={() => setViewMode('DOC')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 ${viewMode === 'DOC' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>
                         <FileText size={14}/> Documento
                     </button>
@@ -109,7 +109,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                     </button>
                 </div>
 
-                <div className="flex-1 bg-white rounded-xl border-4 border-slate-800 overflow-hidden relative shadow-2xl">
+                <div className="flex-1 bg-white rounded-lg border-4 border-slate-800 overflow-hidden relative shadow-2xl">
                     {isLoading ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50">
                             <Loader2 className="animate-spin text-indigo-600" />
@@ -118,11 +118,11 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                         <iframe srcDoc={htmlContent} className="w-full h-full border-none" title="Legal View" />
                     ) : viewMode === 'SIGNATURES' ? (
                         <div className="bg-slate-900 h-full p-6 space-y-4 overflow-y-auto custom-scrollbar">
-                            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800">
+                            <div className="bg-slate-950 p-5 rounded-lg border border-slate-800">
                                 <h4 className="text-[10px] font-black text-indigo-400 uppercase mb-4 tracking-widest flex items-center gap-2"><Scale size={14}/> Centro de Assinaturas</h4>
-                                
+
                                 <div className="space-y-3">
-                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-lg ${getSignatureStatus('CREDOR') ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
                                                 {getSignatureStatus('CREDOR') ? <Check size={16}/> : <User size={16}/>}
@@ -137,7 +137,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                                         ) : <span className="text-[9px] font-black text-emerald-500 uppercase">Confirmado</span>}
                                     </div>
 
-                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <div className="bg-slate-900 p-4 rounded-lg border border-slate-800 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-lg ${getSignatureStatus('DEVEDOR') ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
                                                 {getSignatureStatus('DEVEDOR') ? <Check size={16}/> : <User size={16}/>}
@@ -159,7 +159,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                                         const role = `TESTEMUNHA_${idx + 1}`;
                                         const sig = getSignatureStatus(role);
                                         return (
-                                            <div key={idx} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                                            <div key={idx} className="bg-slate-900 p-4 rounded-lg border border-slate-800 flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`p-2 rounded-lg ${sig ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
                                                         {sig ? <Check size={16}/> : <Users size={16}/>}
@@ -179,7 +179,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                                     })}
                                 </div>
                             </div>
-                            <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-2xl flex items-start gap-3">
+                            <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-lg flex items-start gap-3">
                                 <ShieldCheck size={18} className="text-blue-500 shrink-0 mt-0.5"/>
                                 <p className="text-[10px] text-blue-300 leading-relaxed font-medium uppercase tracking-wider">Cada parte deve assinar individualmente através do link exclusivo gerado acima.</p>
                             </div>
@@ -192,15 +192,15 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                 </div>
 
                 <div className="flex gap-3 mt-4">
-                    <button onClick={onClose} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold uppercase text-xs">Fechar Painel</button>
-                    <button onClick={() => { 
-                        const win = window.open('', '_blank'); 
+                    <button onClick={onClose} className="flex-1 py-4 bg-slate-800 text-white rounded-lg font-bold uppercase text-xs">Fechar Painel</button>
+                    <button onClick={() => {
+                        const win = window.open('', '_blank');
                         if (win) {
-                            win.document.write(htmlContent); 
-                            win.document.close(); 
-                            setTimeout(() => win.print(), 500); 
+                            win.document.write(htmlContent);
+                            win.document.close();
+                            setTimeout(() => win.print(), 500);
                         }
-                    }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"><Printer size={18}/> Imprimir PDF</button>
+                    }} className="flex-1 py-4 bg-indigo-600 text-white rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"><Printer size={18}/> Imprimir PDF</button>
                 </div>
             </div>
         </Modal>

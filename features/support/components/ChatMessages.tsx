@@ -60,7 +60,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
     if (!container) return;
 
     const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-    
+
     // Se for a primeira carga (poucas mensagens) ou estiver perto do final, rola pra baixo
     if (isNearBottom || messages.length <= 20) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -125,7 +125,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                 duration={m.metadata?.duration_ms ? m.metadata.duration_ms / 1000 : undefined}
               />
             ) : (
-              <div className="bg-white/5 p-3 rounded-xl text-[10px] opacity-70">
+              <div className="bg-white/5 p-3 rounded-lg text-[10px] opacity-70">
                 Áudio indisponível.
               </div>
             )}
@@ -142,7 +142,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
         if (!maps.url) {
           return (
-            <div className="bg-black/20 p-3 rounded-xl min-w-[220px] border border-white/5">
+            <div className="bg-black/20 p-3 rounded-lg min-w-[220px] border border-white/5">
               <div className="flex items-center gap-2">
                 <MapPin className="text-rose-400" size={18} />
                 <div className="min-w-0">
@@ -159,7 +159,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
             href={maps.url}
             target="_blank"
             rel="noreferrer"
-            className="block bg-black/20 p-3 rounded-xl min-w-[220px] border border-white/5 hover:bg-black/30 transition-colors"
+            className="block bg-black/20 p-3 rounded-lg min-w-[220px] border border-white/5 hover:bg-black/30 transition-colors"
           >
             <div className="flex items-center gap-2">
               <MapPin className="text-rose-400" size={18} />
@@ -183,7 +183,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
             href={m.file_url || '#'}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-3 bg-black/10 p-3 rounded-xl min-w-[200px] hover:bg-black/20 transition-colors"
+            className="flex items-center gap-3 bg-black/10 p-3 rounded-lg min-w-[200px] hover:bg-black/20 transition-colors"
           >
             <FileText size={20} className="shrink-0 text-blue-300" />
             <div className="min-w-0">
@@ -209,7 +209,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
       {messages.map((m, index) => {
         const isMe = m.sender_type === senderType;
         const prevM = messages[index - 1];
-        
+
         // Verifica se mudou o dia para inserir o separador
         const currentDate = new Date(m.created_at);
         const prevDate = prevM ? new Date(prevM.created_at) : null;
@@ -228,13 +228,13 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                 </div>
               </div>
             )}
-            
+
             <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-4'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}>
               <div
                 className={`max-w-[85%] px-3.5 py-2.5 shadow-xl transition-all hover:scale-[1.01] ${
                   isMe
-                    ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl rounded-tr-sm'
-                    : `${chatTheme === 'blue' ? 'bg-slate-800/80 border border-slate-700/50' : 'bg-slate-800/90 border border-slate-700/30'} text-slate-100 rounded-2xl rounded-tl-sm backdrop-blur-sm`
+                    ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-lg rounded-tr-sm'
+                    : `${chatTheme === 'blue' ? 'bg-slate-800/80 border border-slate-700/50' : 'bg-slate-800/90 border border-slate-700/30'} text-slate-100 rounded-lg rounded-tl-sm backdrop-blur-sm`
                 }`}
               >
                 <div className="relative">
@@ -248,8 +248,8 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                 >
                   {/* Botão de Deletar para Operador */}
                   {senderType === 'OPERATOR' && onDeleteMessage && (
-                      <button 
-                          onClick={(e) => { e.stopPropagation(); handleDelete(m.id); }} 
+                      <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(m.id); }}
                           className="mr-2 opacity-0 group-hover:opacity-100 transition-all hover:text-rose-400"
                           title="Apagar Mensagem"
                       >

@@ -132,7 +132,7 @@ const updateExistingProfileRow = async (profileId: string, payload: Record<strin
 };
 
 /**
- * 2. CAMADA DE LÃ“GICA (HOOKS)
+ * 2. CAMADA DE LÓGICA (HOOKS)
  */
 const useInviteFlow = (showToast: any) => {
   const [inviteToken, setInviteToken] = useState<string | null>(null);
@@ -145,7 +145,7 @@ const useInviteFlow = (showToast: any) => {
       try {
         const { data, error } = await fetchInviteByToken(token);
         if (error || !data) {
-          showToast('Convite invÃ¡lido ou expirado.', 'error');
+          showToast('Convite inválido ou expirado.', 'error');
           localStorage.removeItem('cm_invite_token');
           setInviteToken(null);
           return;
@@ -205,30 +205,30 @@ const useMemberActivation = (
       const email = normalizeEmailAddress(form.email);
 
       if (!isEmailAddressValid(email)) {
-        throw new Error('Digite um e-mail vÃ¡lido para ativar o convidado, sem aspas ou espaÃ§os ocultos.');
+        throw new Error('Digite um e-mail válido para ativar o convidado, sem aspas ou espaços ocultos.');
       }
 
-      // âœ… PIN real do app (4 dÃ­gitos)
+      // PIN real do app (4 dígitos).
       const pin = onlyDigits(form.accessCode.trim());
 
-      // âœ… Senha do Supabase Auth (mÃ­nimo 6 caracteres) - Regra Unificada
+      // Senha do Supabase Auth (mínimo 6 caracteres).
       const pinToAuthPassword = (p: string) => p.length < 6 ? p.padEnd(6, '0') : p;
       const authPass = pinToAuthPassword(pin);
 
       let authUid = '';
 
-      // OtimizaÃ§Ã£o: Tentar SignUp primeiro (esperado para novos membros)
-      // Se jÃ¡ registrado, tentamos o login para capturar o UID
+      // Otimização: Tentar SignUp primeiro (esperado para novos membros)
+      // Se já registrado, tentamos o login para capturar o UID
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password: authPass,
-        options: { 
-          data: { 
+        options: {
+          data: {
             full_name: form.name,
             owner_id: inviteData.teams?.owner_profile_id,
             supervisor_id: inviteData.teams?.owner_profile_id,
             origin: 'TEAM_INVITE'
-          } 
+          }
         }
       });
 
@@ -243,7 +243,7 @@ const useMemberActivation = (
             if (signInError.message?.toLowerCase().includes('rate limit')) {
               throw new Error('Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.');
             }
-            throw new Error('Este e-mail jÃ¡ estÃ¡ em uso com outra senha ou o limite de seguranÃ§a foi atingido.');
+            throw new Error('Este e-mail já está em uso com outra senha ou o limite de segurança foi atingido.');
           }
           authUid = signInData.user?.id || '';
         } else {
@@ -256,7 +256,7 @@ const useMemberActivation = (
         authUid = signUpData.user?.id || '';
       }
 
-      if (!authUid) throw new Error('Falha crÃ­tica ao obter identificador de seguranÃ§a.');
+      if (!authUid) throw new Error('Falha crítica ao obter identificador de segurança.');
 
       // 3) Aguarda a sessao autenticar e atualiza o perfil criado pelo trigger do banco
       const hasSessionForProfileWrite = await ensureProfileWriteSession(email, authPass);
@@ -272,7 +272,7 @@ const useMemberActivation = (
         email,
         usuario_email: email,
 
-        // âœ… mantÃ©m PIN 4 no app
+        // Mantém PIN 4 no app.
         senha_acesso: pin,
         access_code: pin,
 
@@ -289,7 +289,7 @@ const useMemberActivation = (
       localStorage.removeItem('cm_invite_token');
       showToast('Conta ativada!', 'success');
 
-      // âœ… login do fluxo de equipe continua com PIN 4
+      // Login do fluxo de equipe continua com PIN 4.
       await submitTeamLogin({ document: cleanDoc, phone: cleanPhone, code: pin }, showToast);
 
       const cleanUrl = window.location.origin + window.location.pathname;
@@ -309,7 +309,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.password) {
-      showToast('Preencha os campos obrigatÃ³rios.', 'error');
+      showToast('Preencha os campos obrigatórios.', 'error');
       return;
     }
 
@@ -319,7 +319,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
       const email = normalizeEmailAddress(form.email);
 
       if (!isEmailAddressValid(email)) {
-        throw new Error('Digite um e-mail vÃ¡lido para criar a conta.');
+        throw new Error('Digite um e-mail válido para criar a conta.');
       }
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -379,12 +379,12 @@ const useRecoveryAndSupport = (setIsRecoveringPassword: any, showToast: any, sup
     if (!form.email.trim()) return;
     const email = normalizeEmailAddress(form.email);
     if (!isEmailAddressValid(email)) {
-      showToast('Digite um e-mail vÃ¡lido para recuperar a senha.', 'error');
+      showToast('Digite um e-mail válido para recuperar a senha.', 'error');
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) showToast(error.message, 'error');
-    else showToast('E-mail de recuperaÃ§Ã£o enviado!', 'success');
+    else showToast('E-mail de recuperação enviado!', 'success');
     setIsRecoveringPassword(false);
   };
 
@@ -418,15 +418,15 @@ const GoogleIcon = () => (
 const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, onCancel }: any) => (
   <div className="space-y-4 pb-24">
     <div className="relative z-10 text-center mb-6">
-      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20 mb-4">
+      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 mb-4">
         <UserPlus className="text-white w-8 h-8" />
       </div>
       <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Ativar Acesso</h1>
-      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">VocÃª estÃ¡ entrando em: Equipe</p>
+      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Você está entrando em: Equipe</p>
     </div>
 
     {errorText && (
-      <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded-xl flex items-start gap-3 animate-in fade-in zoom-in-95">
+      <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded-lg flex items-start gap-3 animate-in fade-in zoom-in-95">
         <AlertCircle className="text-rose-500 shrink-0" size={18} />
         <p className="text-xs text-rose-200 font-bold leading-tight">{errorText}</p>
       </div>
@@ -435,21 +435,21 @@ const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, 
     <div className="space-y-3">
       <input
         type="text"
-        className="w-full bg-slate-800/50 p-4 rounded-xl text-white outline-none border border-slate-700 text-sm font-bold"
+        className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
         placeholder="Nome Completo"
         value={form.name || ''}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
       />
       <input
         type="email"
-        className="w-full bg-slate-800/50 p-4 rounded-xl text-white outline-none border border-slate-700 text-sm font-bold"
+        className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
         placeholder="Seu E-mail"
         value={form.email || ''}
         onChange={(e) => setForm({ ...form, email: normalizeEmailAddress(e.target.value) })}
       />
       <input
         type="text"
-        className="w-full bg-slate-800/50 p-4 rounded-xl text-white outline-none border border-slate-700 text-sm font-bold"
+        className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
         placeholder="CPF"
         value={form.document || ''}
         onChange={(e) => setForm({ ...form, document: maskDocument(e.target.value) })}
@@ -457,8 +457,8 @@ const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, 
       <input
         type="text"
         maxLength={4}
-        className="w-full bg-slate-800/50 p-4 rounded-xl text-white outline-none border border-slate-700 text-sm font-bold"
-        placeholder="Crie um PIN de 4 dÃ­gitos"
+        className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
+        placeholder="Crie um PIN de 4 dígitos"
         value={form.accessCode || ''}
         onChange={(e) => setForm({ ...form, accessCode: onlyDigits(e.target.value) })}
       />
@@ -467,7 +467,7 @@ const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, 
     <button
       onClick={onConfirm}
       disabled={isLoading}
-      className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-2"
+      className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
     >
       {isLoading ? <Loader2 className="animate-spin" /> : 'Ativar e Entrar'}
     </button>
@@ -497,8 +497,8 @@ const LoginView = ({
 }: any) => (
   <div className="space-y-6">
     <div className="space-y-4 animate-in fade-in">
-      <div className="bg-slate-800/50 p-2 rounded-2xl border border-slate-700 flex items-center gap-2 focus-within:border-blue-500 transition-colors">
-        <div className="p-3 bg-slate-800 rounded-xl">
+      <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700 flex items-center gap-2 focus-within:border-blue-500 transition-colors">
+        <div className="p-3 bg-slate-800 rounded-lg">
           <User className="text-slate-400 w-5 h-5" />
         </div>
         <input
@@ -510,8 +510,8 @@ const LoginView = ({
         />
       </div>
 
-      <div className="bg-slate-800/50 p-2 rounded-2xl border border-slate-700 flex items-center gap-2 relative focus-within:border-blue-500 transition-colors">
-        <div className="p-3 bg-slate-800 rounded-xl">
+      <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700 flex items-center gap-2 relative focus-within:border-blue-500 transition-colors">
+        <div className="p-3 bg-slate-800 rounded-lg">
           <KeyRound className="text-slate-400 w-5 h-5" />
         </div>
         <input
@@ -530,7 +530,7 @@ const LoginView = ({
       <button
         onClick={submitLogin}
         disabled={isLoading}
-        className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+        className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
       >
         {isLoading ? <Loader2 className="animate-spin" /> : 'Entrar'}
       </button>
@@ -538,19 +538,19 @@ const LoginView = ({
       <button
         onClick={handleGoogleLogin}
         disabled={isLoading}
-        className="w-full py-4 bg-white hover:bg-slate-100 text-slate-900 rounded-2xl text-xs font-black uppercase shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
+        className="w-full py-4 bg-white hover:bg-slate-100 text-slate-900 rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
       >
         <GoogleIcon /> Entrar com Google
       </button>
     </div>
 
     <div className="flex gap-2 pt-2 border-t border-slate-800">
-      <button onClick={() => setIsCreatingProfile(true)} className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-2xl text-[10px] font-black uppercase">
+      <button onClick={() => setIsCreatingProfile(true)} className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase">
         Criar Conta
       </button>
       <button
         onClick={() => setIsRecoveringPassword(true)}
-        className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-2xl text-[10px] font-black uppercase"
+        className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase"
       >
         Esqueci Senha
       </button>
@@ -563,7 +563,7 @@ const LoginView = ({
           {savedProfiles.map((p: any) => (
             <div
               key={p.id}
-              className="flex items-center gap-3 bg-slate-950 p-2 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-600 transition-colors group"
+              className="flex items-center gap-3 bg-slate-950 p-2 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-600 transition-colors group"
               onClick={() => handleSelectSavedProfile(p)}
             >
               <div className="w-8 h-8 rounded-lg bg-blue-900/30 flex items-center justify-center text-blue-400 font-black text-xs">
@@ -589,9 +589,9 @@ const LoginView = ({
 
     <button
       onClick={handleDemoMode}
-      className="w-full py-3 border border-dashed border-emerald-600/50 text-emerald-500 hover:bg-emerald-600/10 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
+      className="w-full py-3 border border-dashed border-emerald-600/50 text-emerald-500 hover:bg-emerald-600/10 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
     >
-      <Beaker size={14} /> Modo DemonstraÃ§Ã£o
+      <Beaker size={14} /> Modo Demonstração
     </button>
   </div>
 );
@@ -645,9 +645,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const handleGoogleLogin = async () => {
     try {
       if (isDev) console.log('[AUTH_SCREEN] Iniciando login com Google...');
-      // Limpa qualquer resquÃ­cio de sessÃ£o anterior antes de iniciar OAuth
+      // Limpa qualquer resquício de sessão anterior antes de iniciar OAuth
       localStorage.removeItem('cm_session');
-      
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -679,7 +679,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         </button>
       </div>
 
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative flex flex-col justify-center animate-in zoom-in-95 duration-300">
+      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-lg p-8 shadow-2xl relative flex flex-col justify-center animate-in zoom-in-95 duration-300">
         <div className="absolute inset-0 bg-blue-600/5 blur-3xl rounded-full pointer-events-none"></div>
 
         {inviteToken && inviteData ? (
@@ -695,7 +695,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         ) : (
           <>
             <div className="relative z-10 text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/20 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 mb-4">
                 <TrendingUp className="text-white w-8 h-8" />
               </div>
               <h1 className="text-2xl font-black text-white uppercase tracking-tighter mb-1">
@@ -730,30 +730,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <input
                   type="text"
                   placeholder="Seu Nome"
-                  className="w-full bg-slate-800 p-4 rounded-xl text-white outline-none"
+                  className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={createForm.name || ''}
                   onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                 />
                 <input
                   type="email"
                   placeholder="E-mail"
-                  className="w-full bg-slate-800 p-4 rounded-xl text-white outline-none"
+                  className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={createForm.email || ''}
                   onChange={(e) => setCreateForm({ ...createForm, email: normalizeEmailAddress(e.target.value) })}
                 />
                 <input
                   type="password"
                   placeholder="Senha"
-                  className="w-full bg-slate-800 p-4 rounded-xl text-white outline-none"
+                  className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={createForm.password || ''}
                   onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                 />
-                <button onClick={handleCreateProfile} className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-xs">
+                <button onClick={handleCreateProfile} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs">
                   Criar Perfil
                 </button>
                 <button
                   onClick={handleGoogleLogin}
-                  className="w-full py-4 bg-white hover:bg-slate-100 text-slate-900 rounded-xl font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95"
+                  className="w-full py-4 bg-white hover:bg-slate-100 text-slate-900 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95"
                 >
                   <GoogleIcon /> Criar com Google
                 </button>
@@ -769,11 +769,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <input
                   type="email"
                   placeholder="Seu e-mail cadastrado"
-                  className="w-full bg-slate-800 p-4 rounded-xl text-white outline-none"
+                  className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={recoveryForm.email || ''}
                   onChange={(e) => setRecoveryForm({ ...recoveryForm, email: normalizeEmailAddress(e.target.value) })}
                 />
-                <button onClick={handleRecovery} className="w-full py-4 bg-blue-600 text-white rounded-xl font-black uppercase text-xs">
+                <button onClick={handleRecovery} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs">
                   Enviar E-mail
                 </button>
                 <button onClick={() => setIsRecoveringPassword(false)} className="w-full text-slate-500 text-[10px] uppercase font-bold">
@@ -790,16 +790,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <div className="space-y-4">
             <button
               onClick={() => handleHelpSupport('password')}
-              className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-800 transition-all"
+              className="w-full p-4 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between hover:bg-slate-800 transition-all"
             >
               <span className="text-sm font-bold text-white">Esqueci a Senha</span>
               <ChevronRight size={16} className="text-slate-500" />
             </button>
             <button
               onClick={() => handleHelpSupport('access')}
-              className="w-full p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-800 transition-all"
+              className="w-full p-4 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between hover:bg-slate-800 transition-all"
             >
-              <span className="text-sm font-bold text-white">NÃ£o consigo entrar</span>
+              <span className="text-sm font-bold text-white">Não consigo entrar</span>
               <ChevronRight size={16} className="text-slate-500" />
             </button>
           </div>

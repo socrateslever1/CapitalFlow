@@ -307,7 +307,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
     const rulerY = (side: 'top' | 'bottom') => `${side === 'top' ? margins.top : PAGE_H - margins.bottom}mm`;
 
     return (
-        <div className="space-y-6 flex flex-col h-full bg-slate-100/30 p-4 sm:p-8 rounded-[2.5rem] border border-slate-200/60 shadow-inner backdrop-blur-sm">
+        <div className="space-y-6 flex flex-col h-full bg-slate-100/30 p-4 sm:p-8 rounded-lg border border-slate-200/60 shadow-inner backdrop-blur-sm">
             <div className="space-y-4">
                 <div className="flex items-center justify-between px-2">
                     <div className="flex items-center gap-3">
@@ -321,7 +321,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                             key={clause.id}
                             type="button"
                             onClick={() => onToggleClause(clause.id)}
-                            className={`group relative px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all border-2 flex items-center gap-3 ${clause.active ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/10' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 shadow-sm'}`}
+                            className={`group relative px-4 py-3 rounded-lg text-[10px] font-black uppercase transition-all border-2 flex items-center gap-3 ${clause.active ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-900/10' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 shadow-sm'}`}
                         >
                             <div className={`w-2.5 h-2.5 rounded-full border-2 transition-all duration-500 ${clause.active ? 'bg-white border-white scale-110' : 'bg-transparent border-slate-300 scale-90'}`} />
                             {clause.label}
@@ -331,8 +331,8 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
             </div>
 
             <div className="flex-1 relative group min-h-[600px] flex flex-col">
-                <div className="absolute -inset-2 bg-gradient-to-b from-indigo-500/5 to-transparent rounded-[2rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <div className="relative bg-white border border-slate-200 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col transition-all duration-500 group-hover:border-indigo-200/50 flex-1">
+                <div className="absolute -inset-2 bg-gradient-to-b from-indigo-500/5 to-transparent rounded-lg blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <div className="relative bg-white border border-slate-200 rounded-lg shadow-2xl overflow-hidden flex flex-col transition-all duration-500 group-hover:border-indigo-200/50 flex-1">
                     <div className="h-14 bg-slate-100 border-b border-slate-200 flex items-center px-6 gap-2 backdrop-blur-sm overflow-x-auto no-scrollbar">
                         <div className="flex items-center gap-2 mr-4">
                             <FileText size={18} className="text-indigo-600" />
@@ -459,7 +459,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                                 Pagina
                             </button>
                             {showPageSettings && (
-                                <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex items-center gap-2 mb-4">
                                         <Ruler size={14} className="text-indigo-600" />
                                         <h5 className="text-[10px] font-black uppercase text-slate-800 tracking-widest">Margens (mm)</h5>
@@ -502,7 +502,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                                             {/* Margens (Área Cinza) */}
                                             <div className="absolute left-0 top-0 bottom-0 bg-slate-300/30" style={{ width: `${margins.left}mm` }} />
                                             <div className="absolute right-0 top-0 bottom-0 bg-slate-200/50" style={{ width: `${margins.right}mm` }} />
-                                            
+
                                             {/* Graduacoes */}
                                             {Array.from({ length: 22 }).map((_, i) => (
                                                 <div key={i} className="absolute top-0 bottom-0 flex flex-col items-center z-10" style={{ left: `${i * 10}mm` }}>
@@ -516,7 +516,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                                             <div className="absolute top-0 h-[297mm] w-px bg-indigo-500/10 pointer-events-none" style={{ left: `${210 - margins.right}mm` }} />
 
                                             {/* Marcador de Recuo de Paragrafo (First Line Indent) */}
-                                            <div 
+                                            <div
                                                 className="absolute bottom-0 z-30 cursor-ew-resize group/indent"
                                                 style={{ left: `${margins.left + (paragraphIndent * 10)}mm` }}
                                                 title="Recuo da Primeira Linha"
@@ -526,14 +526,14 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                                             </div>
 
                                             {/* Controles de Arrastar Margem */}
-                                            <div 
+                                            <div
                                                 className="absolute top-0 z-20 h-full w-2 -translate-x-1/2 cursor-ew-resize group/margin-h"
                                                 style={{ left: `${margins.left}mm` }}
                                                 onPointerDown={(e) => { e.preventDefault(); setDragState({ side: 'left', axis: 'x', startClient: e.clientX, startValue: margins.left }); }}
                                             >
                                                 <div className="absolute inset-y-0 left-1/2 w-[1px] bg-indigo-500/40 group-hover/margin-h:bg-indigo-600" />
                                             </div>
-                                            <div 
+                                            <div
                                                 className="absolute top-0 z-20 h-full w-2 -translate-x-1/2 cursor-ew-resize group/margin-h"
                                                 style={{ left: `${210 - margins.right}mm` }}
                                                 onPointerDown={(e) => { e.preventDefault(); setDragState({ side: 'right', axis: 'x', startClient: e.clientX, startValue: margins.right }); }}
@@ -545,7 +545,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                                             {/* Margens (Área Cinza) */}
                                             <div className="absolute top-0 left-0 right-0 bg-slate-300/30" style={{ height: `${margins.top}mm` }} />
                                             <div className="absolute bottom-0 left-0 right-0 bg-slate-200/50" style={{ height: `${margins.bottom}mm` }} />
-                                            
+
                                             {/* Graduacoes */}
                                             {Array.from({ length: 30 }).map((_, i) => (
                                                 <div key={i} className="absolute left-0 right-0 flex items-center z-10" style={{ top: `${i * 10}mm` }}>
@@ -559,14 +559,14 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                                             <div className="absolute left-0 w-[210mm] h-px bg-indigo-500/5 pointer-events-none" style={{ top: `${297 - margins.bottom}mm` }} />
 
                                             {/* Controles de Arrastar Margem */}
-                                            <div 
+                                            <div
                                                 className="absolute left-0 z-20 w-full h-2 -translate-y-1/2 cursor-ns-resize group/margin-v"
                                                 style={{ top: `${margins.top}mm` }}
                                                 onPointerDown={(e) => { e.preventDefault(); setDragState({ side: 'top', axis: 'y', startClient: e.clientY, startValue: margins.top }); }}
                                             >
                                                 <div className="absolute inset-x-0 top-1/2 h-[1px] bg-indigo-500/40 group-hover/margin-v:bg-indigo-600" />
                                             </div>
-                                            <div 
+                                            <div
                                                 className="absolute left-0 z-20 w-full h-2 -translate-y-1/2 cursor-ns-resize group/margin-v"
                                                 style={{ top: `${297 - margins.bottom}mm` }}
                                                 onPointerDown={(e) => { e.preventDefault(); setDragState({ side: 'bottom', axis: 'y', startClient: e.clientY, startValue: margins.bottom }); }}
@@ -590,7 +590,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                     <Info size={14} className="text-amber-500" />
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Edicao manual permitida, alinhamento, listas, recuo e marcador de paragrafo ativos na minuta</p>
                 </div>
-                <button type="button" onClick={() => { onSave(editorRef.current?.innerHTML || ''); setIsDirty(false); }} className={`px-10 py-4 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl active:scale-95 ${isDirty ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-500/20' : 'bg-slate-950 hover:bg-slate-900'}`}>
+                <button type="button" onClick={() => { onSave(editorRef.current?.innerHTML || ''); setIsDirty(false); }} className={`px-10 py-4 text-white rounded-lg font-black uppercase text-[11px] tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl active:scale-95 ${isDirty ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-500/20' : 'bg-slate-950 hover:bg-slate-900'}`}>
                     <Save size={18} /> {isDirty ? 'Salvar Alteracoes' : 'Salvar Minuta'}
                 </button>
             </div>

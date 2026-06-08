@@ -1,6 +1,7 @@
 
 import { Loan } from '../types';
 import { formatMoney } from './formatters';
+import { translateBillingCycle } from './translationHelpers';
 
 export interface AuditDiff {
   [key: string]: {
@@ -65,6 +66,9 @@ export const humanizeAuditLog = (notesJson: string): string[] => {
       } else if (key.toLowerCase().includes('rate') || key.toLowerCase().includes('percent')) {
         oldDisplay = `${data.old}%`;
         newDisplay = `${data.new}%`;
+      } else if (key === 'billingCycle') {
+        oldDisplay = translateBillingCycle(String(data.old || ''));
+        newDisplay = translateBillingCycle(String(data.new || ''));
       } else if (key === 'startDate') {
         oldDisplay = new Date(data.old).toLocaleDateString('pt-BR');
         newDisplay = new Date(data.new).toLocaleDateString('pt-BR');

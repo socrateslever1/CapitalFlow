@@ -16,8 +16,8 @@ interface PaymentManagerModalProps {
     avAmount: string;
     setAvAmount: (v: string) => void;
     onConfirm: (
-        forgivePenalty: ForgivenessMode, 
-        manualDate?: Date | null, 
+        forgivePenalty: ForgivenessMode,
+        manualDate?: Date | null,
         amountPaid?: number,
         realDate?: Date | null,
         interestHandling?: 'CAPITALIZE' | 'KEEP_PENDING'
@@ -25,10 +25,10 @@ interface PaymentManagerModalProps {
     onOpenMessage: (loan: Loan) => void;
 }
 
-export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({ 
-    data, onClose, isProcessing, paymentType, setPaymentType, avAmount, setAvAmount, onConfirm, onOpenMessage 
+export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
+    data, onClose, isProcessing, paymentType, setPaymentType, avAmount, setAvAmount, onConfirm, onOpenMessage
 }) => {
-    
+
     const {
         customAmount, setCustomAmount,
         manualDateStr, setManualDateStr,
@@ -57,10 +57,10 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     // Cálculos de Display Baseados no Breakdown (Já com perdão aplicado)
     const totalInterestDue = debtBreakdown.interest + debtBreakdown.fine + debtBreakdown.dailyMora;
-    
+
     const amountEntering = safeParse(avAmount);
     const remainingInterest = Math.max(0, totalInterestDue - amountEntering);
-    
+
     // Regra: Mostrar decisão de sobra apenas se houver sobra significativa
     const showInterestDecision = remainingInterest > 0.05;
 
@@ -72,10 +72,10 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
 
         onConfirm(
-            forgivenessMode, 
-            nextDueDate, 
-            val, 
-            realPaymentDate, 
+            forgivenessMode,
+            nextDueDate,
+            val,
+            realPaymentDate,
             interestHandling
         );
     };
@@ -86,7 +86,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans h-[100dvh] pt-16 sm:pt-20 pb-28 md:pb-0">
-            
+
             {/* HEADER SUPERIOR */}
             <div className="h-16 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 sm:px-6 shrink-0">
                 <div className="flex items-center gap-3">
@@ -104,12 +104,12 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             </div>
 
             <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-                
+
                 {/* COLUNA ESQUERDA: RESUMO E DETALHES (SIDEBAR) */}
                 <div className="w-full md:w-[380px] lg:w-[420px] bg-slate-900/50 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col md:overflow-y-auto custom-scrollbar p-4 sm:p-6 shrink-0">
-                    
+
                     {/* CARD PRINCIPAL DE VALOR */}
-                    <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 text-center relative overflow-hidden shadow-2xl mb-6">
+                    <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 text-center relative overflow-hidden shadow-2xl mb-6">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500"></div>
                         <p className="text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Total a Receber</p>
                         <p className="text-4xl font-black text-white mb-2 tracking-tight">
@@ -129,7 +129,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                         <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
                             <Receipt size={14}/> Detalhamento Contábil
                         </h3>
-                        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                        <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-3">
                             <div className="flex justify-between items-center text-xs border-b border-slate-800/50 pb-2">
                                 <span className="text-slate-400 font-bold uppercase">Capital Principal</span>
                                 <span className="text-white font-bold">{formatMoney(debtBreakdown.principal)}</span>
@@ -164,13 +164,13 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 <ShieldCheck size={14}/> Gestão de Perdão
                             </h3>
                             <div className="grid grid-cols-2 gap-2">
-                                <button 
+                                <button
                                     onClick={() => setForgivenessMode(forgivenessMode === 'FINE_ONLY' ? 'NONE' : 'FINE_ONLY')}
                                     className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'FINE_ONLY' ? 'bg-rose-500 text-white border-rose-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-rose-500'}`}
                                 >
                                     Perdoar Multa
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setForgivenessMode(forgivenessMode === 'INTEREST_ONLY' ? 'NONE' : 'INTEREST_ONLY')}
                                     className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'INTEREST_ONLY' ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-orange-500'}`}
                                 >
@@ -190,13 +190,13 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                 {/* COLUNA DIREITA: ÁREA DE AÇÃO (MAIN) */}
                 <div className="flex-1 bg-slate-950 flex flex-col md:overflow-y-auto custom-scrollbar">
                     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8 w-full">
-                        
+
                         {/* Seletor de Data Real (GLOBAL PARA TODOS OS TIPOS) */}
-                        <div className="bg-slate-900/50 p-4 rounded-2xl border border-slate-800 flex items-center justify-between group focus-within:border-blue-500 transition-colors">
+                        <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800 flex items-center justify-between group focus-within:border-blue-500 transition-colors">
                             <div>
                                 <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Data do Recebimento (Auditoria)</label>
-                                <input 
-                                    type="date" 
+                                <input
+                                    type="date"
                                     value={realPaymentDateStr}
                                     onChange={e => setRealPaymentDateStr(e.target.value)}
                                     className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
@@ -207,9 +207,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
                         {/* WORKSPACE PRINCIPAL - FLUXO ÚNICO */}
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            
+
                             {(resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') ? (
-                                <FlexibleDailyScreen 
+                                <FlexibleDailyScreen
                                     amount={avAmount}
                                     setAmount={setAvAmount}
                                     manualDateStr={manualDateStr}
@@ -224,9 +224,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 />
                             ) : (
                                 /* CARD DE ENTRADA DE VALOR (GIRO/MENSAL) */
-                                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
+                                <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 blur-[60px] rounded-full"></div>
-                                    
+
                                     <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-6">
                                             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
@@ -241,20 +241,20 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
                                         <div className="flex items-baseline gap-4 mb-8">
                                             <span className="text-4xl font-black text-blue-500">R$</span>
-                                            <input 
-                                                type="text" 
-                                                inputMode="decimal" 
-                                                value={avAmount || ''} 
-                                                onChange={e => setAvAmount(e.target.value.replace(/[^0-9.,]/g, ''))} 
-                                                className="w-full bg-transparent text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter" 
-                                                placeholder="0,00" 
-                                                autoFocus 
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={avAmount || ''}
+                                                onChange={e => setAvAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                                className="w-full bg-transparent text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter"
+                                                placeholder="0,00"
+                                                autoFocus
                                             />
                                         </div>
 
                                         {/* PREVIEW DINÂMICO */}
                                         {safeParse(avAmount) > 0 && (
-                                            <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-2xl space-y-4 animate-in zoom-in-95 duration-300">
+                                            <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-lg space-y-4 animate-in zoom-in-95 duration-300">
                                                 <div className="flex items-start gap-4">
                                                     <div className="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center text-blue-500 shrink-0">
                                                         <TrendingUp size={18}/>
@@ -266,7 +266,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                                 const val = safeParse(avAmount);
                                                                 const totalDue = debtBreakdown.total;
                                                                 const interestDue = totalInterestDue;
-                                                                
+
                                                                 if (isCapitalOnlyRecovery) {
                                                                     if (val >= debtBreakdown.principal - 0.05) return "Quitação sem juros: recebe apenas o capital e encerra os encargos.";
                                                                     return `Recebimento sem juros: abate ${formatMoney(val)} diretamente do capital.`;
@@ -309,33 +309,33 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
                             {/* CONFIGURAÇÕES ADICIONAIS */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 space-y-3">
+                                <div className="bg-slate-900/50 p-5 rounded-lg border border-slate-800 space-y-3">
                                     <label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest flex items-center gap-2">
                                         <CalendarClock size={14} className="text-blue-500"/>
                                         Próximo Vencimento
                                     </label>
-                                    <input 
-                                        type="date" 
-                                        className="bg-slate-950 border border-slate-800 rounded-full p-3 text-white font-bold text-sm outline-none w-full focus:border-blue-500 transition-all" 
-                                        value={manualDateStr || ''} 
-                                        onChange={e => setManualDateStr(e.target.value)} 
+                                    <input
+                                        type="date"
+                                        className="bg-slate-950 border border-slate-800 rounded-full p-3 text-white font-bold text-sm outline-none w-full focus:border-blue-500 transition-all"
+                                        value={manualDateStr || ''}
+                                        onChange={e => setManualDateStr(e.target.value)}
                                     />
                                 </div>
 
                                 {showInterestDecision && (
-                                    <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 space-y-3">
+                                    <div className="bg-slate-900/50 p-5 rounded-lg border border-slate-800 space-y-3">
                                         <label className="text-[10px] font-black uppercase text-slate-500 block tracking-widest flex items-center gap-2">
                                             <AlertCircle size={14} className="text-amber-500"/>
                                             Saldo de Juros
                                         </label>
                                         <div className="grid grid-cols-2 gap-2">
-                                            <button 
+                                            <button
                                                 onClick={() => setInterestHandling('KEEP_PENDING')}
                                                 className={`p-3 rounded-full border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
                                             >
                                                 Manter Pendente
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => setInterestHandling('CAPITALIZE')}
                                                 className={`p-3 rounded-full border text-[10px] font-black uppercase transition-all ${interestHandling === 'CAPITALIZE' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}
                                             >
@@ -355,9 +355,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                 <button onClick={() => { onOpenMessage(loan); }} disabled={isProcessing} className="p-4 bg-slate-900 border border-slate-800 rounded-full text-slate-400 hover:text-emerald-500 hover:border-emerald-500/30 transition-all shrink-0">
                     <MessageSquare size={18}/>
                 </button>
-                <button 
-                    onClick={handleConfirmWrapper} 
-                    disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} 
+                <button
+                    onClick={handleConfirmWrapper}
+                    disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0}
                     className={`flex-1 py-4 text-white rounded-full font-black uppercase text-sm shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-500 hover:shadow-emerald-600/20`}
                 >
                     {isProcessing ? <Loader2 className="animate-spin" size={18}/> : <><CheckCircle2 size={18}/> Confirmar Recebimento</>}

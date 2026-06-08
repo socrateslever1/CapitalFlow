@@ -77,7 +77,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
         <button
           onClick={() => ui.openModal('SOURCE_FORM')}
-          className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 shrink-0"
+          className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 shrink-0"
         >
           <Plus size={16} /> Nova Fonte
         </button>
@@ -105,7 +105,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
           title={`Ajuste Manual: ${ui.editingSource.name}`}
         >
           <div className="space-y-4">
-            <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl">
+            <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-lg">
               <p className="text-[10px] text-amber-200 uppercase font-bold text-center">
                 Atenção: Use apenas para correção de inventário. Para entradas/saídas, use as funções do sistema.
               </p>
@@ -124,7 +124,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   balance: parseFloat(e.target.value) || 0
                 })
               }
-              className="w-full bg-slate-950 p-4 rounded-xl text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
+              className="w-full bg-slate-950 p-4 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
             />
 
             <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">
@@ -133,9 +133,9 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
             <div className="flex items-center gap-4">
               {ui.editingSource.logo_url ? (
-                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-700 group">
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-700 group">
                   <img src={ui.editingSource.logo_url} alt="Logo" className="w-full h-full object-cover" />
-                  <button 
+                  <button
                     onClick={() => ui.setEditingSource({ ...ui.editingSource, logo_url: '' })}
                     className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   >
@@ -143,16 +143,16 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="w-16 h-16 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700 border-dashed">
+                <div className="w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700 border-dashed">
                   <ImageIcon size={24} className="text-slate-500" />
                 </div>
               )}
 
               <div className="flex-1">
-                 <input 
-                   type="file" 
-                   ref={fileInputRef} 
-                   className="hidden" 
+                 <input
+                   type="file"
+                   ref={fileInputRef}
+                   className="hidden"
                    accept="image/*"
                    onChange={handleFileChange}
                  />
@@ -169,7 +169,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
             <button
               onClick={handleUpdateSourceBalance}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl uppercase transition-all shadow-lg mt-4"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg uppercase transition-all shadow-lg mt-4"
             >
               Salvar Correção
             </button>

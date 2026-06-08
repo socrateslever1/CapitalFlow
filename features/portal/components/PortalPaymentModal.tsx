@@ -35,7 +35,7 @@ const isInstallmentPaid = (inst: any) => {
   const principalRem = Number(inst?.principalRemaining ?? inst?.principal_remaining ?? 0);
   const interestRem = Number(inst?.interestRemaining ?? inst?.interest_remaining ?? 0);
 
-  // tolerância anti “-0.0000001”
+  // tolerância anti -0.0000001
   const eps = 0.000001;
   return principalRem <= eps && interestRem <= eps;
 };
@@ -59,7 +59,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const paidInst = isInstallmentPaid(installment as any);
   const shouldBlock = closedLoan || paidInst;
 
-  // ✅ Fonte Única de Verdade (Rules) + 🔒 Bloqueio real
+  // Fonte única de verdade (rules) com bloqueio real.
   const options = useMemo(() => {
     if (shouldBlock) {
       return {
@@ -77,7 +77,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const pixKey = (loan as any).pixKey || (loan as any).pix_key || '';
 
   const handleNotifyPayment = async () => {
-    // 🔒 BLOQUEIO ANTES DE CHAMAR O BACKEND
+    // Bloqueio antes de chamar o backend.
     if (shouldBlock) {
       setError('Este contrato/parcela já está quitado. Não é possível informar pagamento novamente.');
       setStep('BILLING');
@@ -91,7 +91,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     try {
       let comprovanteUrl = null;
 
-      // 📤 UPLOAD DO COMPROVANTE (Se houver)
+      // Upload do comprovante, se houver.
       if (receiptFile) {
         const fileExt = receiptFile.name.split('.').pop();
         const fileName = `${loan.id}_${Date.now()}.${fileExt}`;
@@ -173,7 +173,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2rem] p-6 shadow-2xl relative animate-in zoom-in-95">
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg p-6 shadow-2xl relative animate-in zoom-in-95">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"

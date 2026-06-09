@@ -19,6 +19,9 @@ interface LoanFormFinancialSectionProps {
 export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> = ({
   sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, skipWeekends, setSkipWeekends
 }) => {
+  const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
+  const strongInputClass = `${inputClass} font-bold`;
+  const dateInputClass = `${inputClass} px-4 font-black text-base tabular-nums [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer`;
 
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'MISTO';
@@ -116,7 +119,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             </div>
         )}
 
-        <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
+        <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Principal</label>
             <input required type="number" step="0.01" value={formData.principal || ''} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
@@ -127,10 +130,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           </div>}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1">
               <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Data Empréstimo</label>
-              <input required type="date" value={formData.startDate || ''} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+              <input required type="date" value={formData.startDate || ''} onChange={e => setFormData({...formData, startDate: e.target.value})} className={dateInputClass} />
           </div>
           <div className="space-y-1">
               <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1"><CalendarDays size={10}/> Vencimento (1º)</label>
@@ -139,12 +142,12 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                   type="date"
                   value={manualFirstDueDate || ''}
                   onChange={e => setManualFirstDueDate(e.target.value)}
-                  className="w-full bg-slate-950/50 border border-blue-500/30 rounded-lg px-5 py-4 text-white font-bold text-sm focus:border-blue-500/50 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                  className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
               />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
                 <input type="number" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />

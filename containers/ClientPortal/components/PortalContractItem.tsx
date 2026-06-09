@@ -13,10 +13,17 @@ interface PortalContractItemProps {
 }
 
 export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, onPay, onChat }) => {
-    const summary = useMemo(() => resolveDebtSummary(loan, loan.installments), [loan]);
+    const installmentsToShow = useMemo(() => {
+        if (loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO')) {
+            return loan.activeAgreement.installments || [];
+        }
+        return loan.installments || [];
+    }, [loan]);
+
+    const summary = useMemo(() => resolveDebtSummary(loan, installmentsToShow), [loan, installmentsToShow]);
     const { hasLateInstallments, totalDue, pendingCount, nextDueDate } = summary;
 
-    const nextInst = loan.installments.find((i: any) => !isPortalInstallmentPaid(i));
+    const nextInst = installmentsToShow.find((i: any) => !isPortalInstallmentPaid(i));
     const statusInfo = nextInst ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate) : { label: 'Quitado', variant: 'OK' };
 
     const isPaidOff = pendingCount === 0;
@@ -29,7 +36,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Contrato</span>
                         <span className="text-[10px] font-mono text-slate-500">#{loan.id.substring(0,6).toUpperCase()}</span>
                     </div>
-                    <h4 className="text-white font-bold text-sm mt-0.5">{translateBillingCycle(loan.billingCycle)}</h4>
+                    <h4 className="text-white font-bold text-sm mt-0.5">{loan.activeAgreement ? 'Renegociação Ativa' : translateBillingCycle(loan.billingCycle)}</h4>
                 </div>
                 <div className={`px-2 py-1 rounded text-[9px] font-black uppercase border ${
                     statusInfo.variant === 'OVERDUE' ? 'bg-rose-500 text-white border-rose-600' :
@@ -51,11 +58,11 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
                                 {formatMoney(totalDue)}
                             </p>
                         </div>
-                        {loan.installments && loan.installments.length > 0 && (
+                        {installmentsToShow.length > 0 && (
                             <div className="border-l border-slate-800 pl-4">
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">Valor Parcela</p>
                                 <p className="text-sm text-slate-300 font-black mt-1">
-                                    {loan.installments.length}x {formatMoney(loan.installments[0].amount || 0)}
+                                    {installmentsToShow.length}x {formatMoney(installmentsToShow[0].amount || 0)}
                                 </p>
                             </div>
                         )}
@@ -72,7 +79,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
             {/* Lista de Parcelas (Apenas as próximas 2 para economizar espaço) */}
             {!isPaidOff && (
                 <div className="space-y-2 mb-4 bg-slate-950/50 p-2 rounded-lg border border-slate-800/50">
-                    {loan.installments.filter((i:any) => !isPortalInstallmentPaid(i)).slice(0, 2).map((inst: any) => (
+                    {installmentsToShow.filter((i:any) => !isPortalInstallmentPaid(i)).slice(0, 2).map((inst: any) => (
                          <PortalInstallmentItem key={inst.id} loan={loan} installment={inst} />
                     ))}
                     {pendingCount > 2 && (

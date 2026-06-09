@@ -76,8 +76,8 @@ export function agreementAdapter(rawAgreement: any, rawInstallments?: any[]): Ag
       id: asString(p?.id),
       agreementId: asString(p?.acordo_id ?? p?.agreement_id ?? a?.id),
       number: asNumber(p?.numero ?? p?.installment_number ?? p?.n),
-      amount: asNumber(p?.amount ?? p?.valor ?? p?.valor_parcela),
-      dueDate: safeDateString(p?.due_date ?? p?.dueDate, 'dueDate'),
+      amount: asNumber(p?.valor_parcela ?? p?.amount ?? p?.valor),
+      dueDate: safeDateString(p?.data_vencimento ?? p?.due_date ?? p?.dueDate, 'dueDate'),
       paidDate: safeDateString(p?.paid_at ?? p?.paidAt ?? p?.data_pagamento),
       status: normalizeAgreementInstallmentStatus(p?.status),
       paidAmount: asNumber(p?.paid_amount ?? p?.valor_pago ?? p?.paidAmount ?? 0),
@@ -123,8 +123,8 @@ export function mapLoanFromDB(
 
     return {
       id: asString(inst?.id),
-      dueDate: safeDateString(inst?.data_vencimento ?? inst?.dueDate ?? inst?.due_date, 'dueDate'),
-      amount: asNumber(inst?.amount ?? inst?.valor_parcela),
+      dueDate: safeDateString(inst?.data_vencimento ?? inst?.due_date ?? inst?.dueDate, 'dueDate'),
+      amount: asNumber(inst?.valor_parcela ?? inst?.amount),
       scheduledPrincipal: asNumber(inst?.scheduled_principal ?? inst?.scheduledPrincipal),
       scheduledInterest: asNumber(inst?.scheduled_interest ?? inst?.scheduledInterest),
       principalRemaining: asNumber(inst?.principal_remaining ?? inst?.principalRemaining),
@@ -137,10 +137,10 @@ export function mapLoanFromDB(
       paidTotal: asNumber(inst?.paid_total ?? inst?.paidTotal),
       status,
       paidDate: safeDateString(inst?.paid_date ?? inst?.paidDate),
-      paidAmount: asNumber(inst?.paid_amount ?? inst?.paidAmount),
+      paidAmount: asNumber(inst?.paid_amount ?? inst?.valor_pago ?? inst?.paidAmount),
       logs: asArray(inst?.logs),
       renewalCount: asNumber(inst?.renewal_count ?? inst?.renewalCount),
-      number: asNumber(inst?.number ?? inst?.numero ?? inst?.n),
+      number: asNumber(inst?.numero_parcela ?? inst?.number ?? inst?.numero ?? inst?.n),
     } as Installment;
   });
 

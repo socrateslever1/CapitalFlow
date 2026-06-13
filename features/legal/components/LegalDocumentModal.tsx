@@ -91,7 +91,18 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
     };
 
     const getSignatureStatus = (role: string) => {
-        return fullAuditData?.signatures?.find((s: any) => s.role === role);
+        const normalizeRole = (r: string) => {
+            const val = String(r || '').trim().toUpperCase();
+            if (val === 'CREDOR' || val === 'CREDITOR') return 'CREDITOR';
+            if (val === 'DEVEDOR' || val === 'DEBTOR') return 'DEBTOR';
+            if (val === 'AVALISTA' || val === 'GUARANTOR') return 'AVALISTA';
+            if (val.startsWith('TESTEMUNHA_')) return val.replace('TESTEMUNHA_', 'WITNESS_');
+            if (val.startsWith('WITNESS_')) return val;
+            if (val === 'TESTEMUNHA' || val === 'WITNESS') return 'WITNESS_1';
+            return val;
+        };
+        const normTarget = normalizeRole(role);
+        return fullAuditData?.signatures?.find((s: any) => normalizeRole(s.role || s.papel) === normTarget);
     };
 
     return (

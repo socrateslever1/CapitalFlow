@@ -261,12 +261,24 @@ export const portalService = {
     const safeDocId = safeUUID(docId);
     if (!safeDocId) throw new Error('ID do documento invalido.');
 
+    const normalizeSignatureRole = (value: string) => {
+      const r = value.trim().toUpperCase();
+      if (r === 'DEVEDOR' || r === 'DEBTOR') return 'DEBTOR';
+      if (r === 'CREDOR' || r === 'CREDITOR') return 'CREDITOR';
+      if (r === 'AVALISTA' || r === 'GUARANTOR') return 'AVALISTA';
+      if (r.startsWith('TESTEMUNHA_')) return r.replace('TESTEMUNHA_', 'WITNESS_');
+      if (r.startsWith('WITNESS_')) return r;
+      if (r === 'TESTEMUNHA' || r === 'WITNESS') return 'WITNESS_1';
+      return r;
+    };
+    const normalizedRole = normalizeSignatureRole(role);
+
     const { data, error } = await supabasePortal
       .rpc('portal_sign_document', {
         p_token: token,
         p_shortcode: code,
         p_documento_id: safeDocId,
-        p_papel: role,
+        p_papel: normalizedRole,
         p_nome: name,
         p_cpf: cpf,
         p_ip: ip,

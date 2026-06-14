@@ -129,7 +129,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 <button onClick={() => setSubView('CONFISSAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex flex-col gap-3 hover:border-indigo-500 transition-all group text-left">
                     <div className="flex justify-between items-start">
                         <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all"><Scroll size={20}/></div>
-                        <span className="text-[9px] font-black uppercase bg-indigo-950 text-indigo-400 px-2 py-1 rounded">Gerar</span>
+                        <span className="text-[9px] font-black uppercase bg-indigo-950 text-indigo-400 px-2 py-1 rounded">Jurídico</span>
                     </div>
                     <div>
                         <h4 className="font-bold text-white text-sm">Confissão de Dívida</h4>

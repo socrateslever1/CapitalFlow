@@ -1,5 +1,18 @@
 ﻿# Implementacoes - JURIDICO ASSINATURAS
 
+## 2026-06-14 - Atalho Juridico do Contrato e Filtro de Quitados
+- **Objetivo:** Substituir o botao duplicado "Gerar" no detalhe do contrato por acesso direto ao modulo juridico de Confissao de Divida, com o contrato selecionado automaticamente, e impedir que contratos quitados aparecam na emissao juridica.
+- **Arquivos Alterados:**
+    - `/App.tsx`: O detalhe do contrato passou a enviar o usuario para `/legal/editor/{id}` ao acionar o botao juridico.
+    - `/pages/ContractDetailsPage.tsx`: A prop de acao foi renomeada para o fluxo juridico e o texto do botao foi alterado de "Gerar" para "Juridico".
+    - `/pages/LegalPage.tsx`: A rota `/legal/editor/{id}` agora abre diretamente a subview de Confissao de Divida, passa apenas contratos elegiveis juridicamente para emissao e altera o selo do card de Confissao de "Gerar" para "Juridico".
+    - `/features/legal/components/ConfissaoDividaView.tsx`: A tela passou a aceitar `initialLoanId` para selecao automatica do contrato vindo da rota.
+    - `/features/legal/components/ConfissaoDivida/useConfissaoDividaState.ts`: O hook passou a selecionar uma vez o contrato inicial quando ele existe na lista filtrada.
+- **Arquivos Novos:** Nenhum.
+- **Validacao:** `npx vite build` executado com sucesso.
+- **Riscos/Observacoes:** Contratos quitados continuam disponiveis no Termo de Quitacao, mas deixam de aparecer na lista de Confissao de Divida porque essa lista agora usa a regra central `loanEngine.isLegallyActionable`.
+- **Escopo:** Alteracao restrita ao fluxo juridico solicitado e ao botao do detalhe do contrato; sem refatoracao estrutural.
+
 ## 2026-05-09 (Parte 1)
 - **Objetivo:** Corrigir erro ao aplicar novo aporte causado por overload ambiguo da RPC `apply_new_aporte_atomic`.
 - **Arquivos Alterados:**

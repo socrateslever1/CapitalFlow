@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { LayoutGrid, X, User, Calendar, Calculator, ArrowRightLeft, Shield, Scale, Wallet, Briefcase, Users, LayoutDashboard, PiggyBank, Settings, Megaphone, MenuSquare, PieChart } from 'lucide-react';
+import { LayoutGrid, X, User, Calendar, Calculator, ArrowRightLeft, Shield, Scale, Wallet, Briefcase, Users, LayoutDashboard, PiggyBank, Settings, Megaphone, MenuSquare, PieChart, FolderSearch } from 'lucide-react';
 import { AppTab, UserProfile } from "../types";
 
 interface NavHubProps {
@@ -47,6 +47,7 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
     const getTabMeta = (tab: AppTab) => {
         switch (tab) {
             case 'PROFILE': return { icon: <User size={20}/>, label: 'Perfil', color: 'text-blue-500', hover: 'hover:border-blue-600' };
+            case 'DOSSIER': return { icon: <FolderSearch size={20}/>, label: 'Dossiê', color: 'text-cyan-400', hover: 'hover:border-cyan-500' };
             case 'SOURCES': return { icon: <Wallet size={20}/>, label: 'Capital', color: 'text-emerald-500', hover: 'hover:border-emerald-600' };
             case 'LEGAL': return { icon: <Scale size={20}/>, label: 'Jurídico', color: 'text-indigo-500', hover: 'hover:border-indigo-600' };
             case 'TEAM': return { icon: <Briefcase size={20}/>, label: 'Minha Equipe', color: 'text-purple-500', hover: 'hover:border-purple-600' };
@@ -59,7 +60,11 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
         }
     };
 
-    const displayOrder = ['DASHBOARD' as AppTab, ...hubOrder.filter(tab =>
+    const normalizedHubOrder = hubOrder.includes('DOSSIER' as AppTab)
+        ? hubOrder
+        : ['DOSSIER' as AppTab, ...hubOrder];
+
+    const displayOrder = ['DASHBOARD' as AppTab, ...normalizedHubOrder.filter(tab =>
         tab !== 'DASHBOARD' &&
         tab !== 'TEAM' &&
         tab !== 'LEADS' &&

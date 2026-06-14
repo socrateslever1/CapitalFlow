@@ -47,6 +47,7 @@ import { CustomerAcquisitionPage } from './pages/Comercial/CaptacaoClientes';
 import { ReportsPage } from './features/reports/pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ContractDetailsPage } from './pages/ContractDetailsPage';
+import { DossierPage } from './pages/DossierPage';
 
 import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
@@ -480,6 +481,34 @@ export const App: React.FC = () => {
                     showToast={showToast}
                     ui={ui}
                     isStealthMode={ui.isStealthMode}
+                  />
+                </motion.div>
+              )}
+
+              {activeTab === 'DOSSIER' && (
+                <motion.div
+                  key="dossier-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
+                >
+                  <DossierPage
+                    loans={loans}
+                    clients={clients}
+                    activeUser={activeUser}
+                    isStealthMode={ui.isStealthMode}
+                    onOpenLoan={(loanId) => {
+                      ui.setSelectedLoanId(loanId);
+                      navigate(`/contrato/${loanId}`);
+                    }}
+                    onOpenLegal={(loanId) => navigate(`/legal/editor/${loanId}`)}
+                    onOpenSimulator={() => handleSetActiveTab('SIMULATOR')}
+                    onRenegotiate={(loan) => {
+                      ui.setRenegotiationModalLoans([loan]);
+                      ui.openModal('RENEGOTIATION', loan);
+                    }}
+                    showToast={showToast}
                   />
                 </motion.div>
               )}

@@ -90,6 +90,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     switch (tab) {
       case 'DASHBOARD':
         return 'Painel';
+      case 'DOSSIER':
+        return 'Dossiê';
       case 'CLIENTS':
         return 'Clientes';
       case 'SOURCES':

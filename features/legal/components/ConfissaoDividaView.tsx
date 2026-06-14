@@ -28,6 +28,7 @@ import { LegalDocumentHistory } from './ConfissaoDivida/LegalDocumentHistory';
 
 interface ConfissaoDividaViewProps {
     loans: Loan[];
+    initialLoanId?: string;
     activeUser: UserProfile | null;
     onBack: () => void;
     showToast: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
@@ -36,6 +37,7 @@ interface ConfissaoDividaViewProps {
 
 export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
     loans,
+    initialLoanId,
     activeUser,
     onBack,
     showToast,
@@ -84,7 +86,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
         normalizeDocumentStatus,
         isDocumentDeletable,
         buildSigningLinks
-    } = useConfissaoDividaState({ loans, activeUser, showToast });
+    } = useConfissaoDividaState({ loans, initialLoanId, activeUser, showToast });
 
     // Efeito para geração inicial da minuta
     useEffect(() => {

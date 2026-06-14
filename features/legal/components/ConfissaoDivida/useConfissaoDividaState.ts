@@ -6,7 +6,7 @@
  * de serviços Supabase (geração, deleção e listagem de documentos).
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loan, UserProfile, LegalWitness, LegalDocumentRecord, LegalDocumentParams } from '../../../../types';
 import { safeUUID } from '../../../../utils/uuid';
 import { DocumentTemplates } from '../../templates/DocumentTemplates';
@@ -16,12 +16,14 @@ import { toast } from 'sonner';
 
 interface UseConfissaoDividaStateProps {
     loans: Loan[];
+    initialLoanId?: string;
     activeUser: UserProfile | null;
     showToast: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
-export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseConfissaoDividaStateProps) => {
+export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, showToast }: UseConfissaoDividaStateProps) => {
     const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+    const appliedInitialLoanIdRef = useRef<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showManager, setShowManager] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +61,17 @@ export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseCon
         const value = String(status || '').toUpperCase().trim();
         return value === 'PAID' || value === 'PAGO' || value === 'QUITADO' || value === 'FINALIZADO';
     };
+
+    useEffect(() => {
+        if (!initialLoanId || appliedInitialLoanIdRef.current === initialLoanId) return;
+
+        const initialLoan = loans.find((loan) => loan.id === initialLoanId);
+        if (!initialLoan) return;
+
+        setSelectedLoan(initialLoan);
+        setDocumentContent('');
+        appliedInitialLoanIdRef.current = initialLoanId;
+    }, [initialLoanId, loans]);
 
     const getInstallmentOpenAmount = (inst: any) => {
         if (!inst || isPaidStatus(inst.status)) return 0;

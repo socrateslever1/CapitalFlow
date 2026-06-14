@@ -43,7 +43,7 @@ interface ContractDetailsPageProps {
     isProcessing: boolean;
     onOpenMessage: (loan: Loan) => void;
     onRenegotiate: (loan: Loan) => void;
-    onGenerateContract: (loan: Loan) => void;
+    onOpenLegalDocument: (loan: Loan) => void;
     onExportExtrato: (loan: Loan) => void;
     onEdit: (loan: Loan) => void;
     onArchive: (loan: Loan) => void;
@@ -60,7 +60,7 @@ interface ContractDetailsPageProps {
 
 export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
     loanId, loans, sources, activeUser, onBack, onPayment, isProcessing,
-    onOpenMessage, onRenegotiate, onGenerateContract, onExportExtrato,
+    onOpenMessage, onRenegotiate, onOpenLegalDocument, onExportExtrato,
     onEdit, onArchive, onRestore, onDelete, onActivate, onReverseTransaction, onOpenReceipt,
     onAgreementPayment, onReverseAgreementPayment, onRefresh, isStealthMode, onNavigate
 }) => {
@@ -255,8 +255,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                             <button onClick={() => onRenegotiate(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-lg text-[9px] font-black uppercase text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/50 transition-all">
                                 <RefreshCcw size={14}/> Renegociar
                             </button>
-                            <button onClick={() => onGenerateContract(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-purple-950/30 border border-purple-500/30 rounded-lg text-[9px] font-black uppercase text-purple-400 hover:text-purple-300 hover:bg-purple-900/50 transition-all">
-                                <FileText size={14}/> Gerar
+                            <button onClick={() => onOpenLegalDocument(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-purple-950/30 border border-purple-500/30 rounded-lg text-[9px] font-black uppercase text-purple-400 hover:text-purple-300 hover:bg-purple-900/50 transition-all">
+                                <FileText size={14}/> Jurídico
                             </button>
                             <button onClick={() => onExportExtrato(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-amber-950/30 border border-amber-500/30 rounded-lg text-[9px] font-black uppercase text-amber-400 hover:text-amber-300 hover:bg-amber-900/50 transition-all">
                                 <Download size={14}/> Extrato

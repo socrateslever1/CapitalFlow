@@ -680,7 +680,7 @@ export const App: React.FC = () => {
                         ui.setRenegotiationModalLoans(loans);
                         ui.openModal('RENEGOTIATION', loans[0]);
                     }}
-                    onGenerateContract={(l) => loanCtrl.handleGenerateLink(l)}
+                    onOpenLegalDocument={(l) => navigate(`/legal/editor/${l.id}`)}
                     onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
                     onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
                     onArchive={(l) => loanCtrl.openConfirmation({

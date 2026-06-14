@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Scale, CheckCircle2, History, TrendingUp, HandCoins, FileText, Scroll, MessageCircle, ShieldCheck, Printer, User, ChevronLeft } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, LedgerEntry } from '../types';
 import { loanEngine } from '../domain/loanEngine';
@@ -36,9 +36,19 @@ type LegalSubView = 'OVERVIEW' | 'CONFISSAO' | 'PROMISSORIA' | 'NOTIFICACAO' | '
 
 export const LegalPage: React.FC<LegalPageProps> = (props) => {
   const [subView, setSubView] = useState<LegalSubView>('OVERVIEW');
+  const routedLegalLoanId = useMemo(() => {
+    const match = window.location.pathname.match(/^\/legal\/editor\/([a-f0-9-]+)$/i);
+    return match ? match[1] : null;
+  }, [props.ui.selectedLoanId]);
 
   // FILTRO DEFINITIVO: Usa Engine de Domínio Central
   const legalLoans = props.loans.filter(l => loanEngine.isLegallyActionable(l));
+
+  useEffect(() => {
+    if (routedLegalLoanId) {
+      setSubView('CONFISSAO');
+    }
+  }, [routedLegalLoanId]);
 
   // Estatísticas Rápidas do Setor
   const totalAgreements = legalLoans.length;
@@ -49,7 +59,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
   }, 0);
 
   // Renderização Condicional Baseada na SubView
-  if (subView === 'CONFISSAO') return <ConfissaoDividaView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
+  if (subView === 'CONFISSAO') return <ConfissaoDividaView loans={legalLoans} initialLoanId={routedLegalLoanId || undefined} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
   if (subView === 'PROMISSORIA') return <NotaPromissoriaView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} isStealthMode={props.isStealthMode} />;
   if (subView === 'NOTIFICACAO') return <NotificacaoCobrancaView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
   if (subView === 'QUITACAO') return <TermoQuitacaoView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;

@@ -13,6 +13,38 @@
 - **Riscos/Observacoes:** Contratos quitados continuam disponiveis no Termo de Quitacao, mas deixam de aparecer na lista de Confissao de Divida porque essa lista agora usa a regra central `loanEngine.isLegallyActionable`.
 - **Escopo:** Alteracao restrita ao fluxo juridico solicitado e ao botao do detalhe do contrato; sem refatoracao estrutural.
 
+## 2026-06-14 - Selecao Direta pelo Botao Juridico do Card
+- **Objetivo:** Garantir que o clique no botao Juridico dentro do card/acordo leve diretamente para a Confissao de Divida com o contrato clicado ja selecionado.
+- **Arquivos Alterados:**
+    - `/App.tsx`: A rota `/legal/editor/{id}` passou a atualizar o `selectedLoanId` mesmo quando o usuario ja esta na aba Juridico; o `LegalContainer` passou a receber o `navigate` direto para preservar rotas juridicas completas.
+- **Arquivos Novos:** Nenhum.
+- **Validacao:** `npx vite build` executado com sucesso.
+- **Riscos/Observacoes:** Mantida a navegacao normal de detalhes do contrato dentro da `LegalPage`, que continua montando `/contrato/{id}` localmente.
+- **Escopo:** Somente correcao de roteamento e selecao do contrato no fluxo Juridico.
+
+## 2026-06-14 - Restauracao de Contratos com Saldo no Juridico
+- **Objetivo:** Corrigir contratos com saldo aberto que nao apareciam no modulo Juridico por causa de filtro limitado a parcelas vencidas.
+- **Arquivos Alterados:**
+    - `/domain/loanEngine.ts`: A regra `isLegallyActionable` passou a refletir o criterio documentado: contrato aparece no Juridico quando possui saldo aberto acima do limite residual, independentemente de estar vencido; contratos quitados continuam fora.
+- **Arquivos Novos:** Nenhum.
+- **Validacao:** Simulacao local com contrato em dia e saldo aberto retornou `true`, contrato quitado retornou `false`; `npx vite build` executado com sucesso.
+- **Riscos/Observacoes:** A alteracao amplia a listagem do Juridico para contratos abertos/em dia, preservando a exclusao de quitados.
+- **Escopo:** Somente regra de elegibilidade do modulo Juridico.
+
+## 2026-06-14 - Varredura de Status e Acoes do Juridico
+- **Objetivo:** Corrigir erros logicos encontrados na varredura: filtros baseados apenas em `PAID`, acao vazia de renegociacao no card juridico e selecao incorreta de parcelas abertas.
+- **Arquivos Alterados:**
+    - `/utils/loanStatus.ts`: Criado helper central para normalizar status, identificar parcela paga/encerrada, calcular saldo aberto e detectar parcela aberta.
+    - `/features/legal/components/TermoQuitacaoView.tsx`: Termo de Quitacao passou a usar a classificacao visual central `QUITADO`, aceitando status pagos em portugues e saldo zerado sem incluir contrato vazio indevidamente.
+    - `/features/legal/components/NotificacaoCobrancaView.tsx`: Notificacao passou a usar `loanEngine.computeLoanStatus` e a primeira parcela aberta vencida, evitando depender apenas do status literal `LATE`.
+    - `/pages/LegalPage.tsx`: O botao Renegociar do card no Juridico deixou de ser acao vazia e agora abre o modal de renegociacao com o contrato selecionado.
+    - `/components/cards/LoanCardComposition/helpers.ts`, `/domain/filters/loanFilters.ts` e `/pages/ContractDetails/useContractDetailsState.ts`: Substituida a regra fragil `status !== 'PAID'` por helper de parcela aberta para proximo vencimento, ordenacao e selecao de pagamento.
+- **Arquivos Novos:**
+    - `/utils/loanStatus.ts`: Helper compartilhado de status/saldo de parcela.
+- **Validacao:** `npx tsc -b --pretty false` e `npx vite build` executados com sucesso.
+- **Riscos/Observacoes:** O helper padroniza status equivalentes (`PAID`, `PAGO`, `QUITADO`, `QUITADA`, `FINALIZADO`) e ignora parcelas renegociadas/canceladas como abertas.
+- **Escopo:** Correcoes restritas a status, filtros e acoes funcionais detectadas na varredura.
+
 ## 2026-05-09 (Parte 1)
 - **Objetivo:** Corrigir erro ao aplicar novo aporte causado por overload ambiguo da RPC `apply_new_aporte_atomic`.
 - **Arquivos Alterados:**

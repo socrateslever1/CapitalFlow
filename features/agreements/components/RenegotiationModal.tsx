@@ -127,31 +127,83 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
         try {
             if (flowMode === 'CAPITAL_ONLY_OPEN') {
+                const { syncService } = await import('../../../services/sync.service');
+
                 for (const loan of loans) {
                     const loanId = safeUUID(loan.id);
                     if (!loanId) continue;
-                    await supabase.from('contratos').update({
-                        notes: addCapitalOnlyRecoveryMarker(loan.notes),
-                        interest_rate: 0,
-                        fine_percent: 0,
-                        daily_interest_percent: 0,
-                        status: LoanStatus.ATIVO
-                    }).eq('id', loanId);
 
-                    await supabase.from('parcelas').update({
-                        interest_remaining: 0,
-                        late_fee_accrued: 0,
-                        scheduled_interest: 0
-                    }).eq('loan_id', loanId);
+                    // 1. Cancelar acordos ativos anteriores
+                    const { data: activeAgreements } = await supabase
+                        .from('acordos_inadimplencia')
+                        .select('id')
+                        .eq('loan_id', loanId)
+                        .in('status', ['ATIVO', 'ACTIVE']);
 
-                    await supabase.from('transacoes').insert({
-                        id: safeUUID(crypto.randomUUID()) || crypto.randomUUID(),
-                        loan_id: loanId,
-                        profile_id: safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id),
-                        date: new Date().toISOString(),
-                        type: 'CAPITAL_ONLY_RECOVERY_ENABLED',
-                        amount: 0,
-                        notes: 'Renegociacao aberta sem parcelamento: recuperar somente o capital.'
+                    if (activeAgreements && activeAgreements.length > 0) {
+                        for (const agg of activeAgreements) {
+                            await syncService.enqueueOperation({
+                                table: 'acordos_inadimplencia',
+                                operation: 'UPDATE',
+                                data: { id: agg.id, status: 'CANCELADO' },
+                                id: agg.id
+                            });
+                        }
+                    }
+
+                    // 2. Atualizar contrato para Somente Capital e limpar acordo ativo
+                    await syncService.enqueueOperation({
+                        table: 'contratos',
+                        operation: 'UPDATE',
+                        data: {
+                            id: loanId,
+                            notes: addCapitalOnlyRecoveryMarker(loan.notes),
+                            interest_rate: 0,
+                            fine_percent: 0,
+                            daily_interest_percent: 0,
+                            status: LoanStatus.ATIVO,
+                            acordo_ativo_id: null
+                        },
+                        id: loanId
+                    });
+
+                    // 3. Reativar parcelas pendentes e limpar juros/multas
+                    for (const inst of (loan.installments || [])) {
+                        const instId = safeUUID(inst.id);
+                        if (!instId) continue;
+                        
+                        const principalRemaining = Number(inst.principalRemaining ?? (inst as any).principal_remaining ?? 0);
+                        const nextStatus = principalRemaining > 0.05 ? 'PENDENTE' : (inst.status || 'PAID');
+
+                        await syncService.enqueueOperation({
+                            table: 'parcelas',
+                            operation: 'UPDATE',
+                            data: {
+                                id: instId,
+                                interest_remaining: 0,
+                                late_fee_accrued: 0,
+                                scheduled_interest: 0,
+                                status: nextStatus
+                            },
+                            id: instId
+                        });
+                    }
+
+                    // 4. Registrar transação no extrato
+                    const txId = crypto.randomUUID();
+                    await syncService.enqueueOperation({
+                        table: 'transacoes',
+                        operation: 'INSERT',
+                        data: {
+                            id: txId,
+                            loan_id: loanId,
+                            profile_id: safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id),
+                            date: new Date().toISOString(),
+                            type: 'CAPITAL_ONLY_RECOVERY_ENABLED',
+                            amount: 0,
+                            notes: 'Renegociacao aberta sem parcelamento: recuperar somente o capital.'
+                        },
+                        id: txId
                     });
                 }
 

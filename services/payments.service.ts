@@ -417,6 +417,11 @@ export const paymentsService = {
       lateFeeAccrued: Number(instDb?.late_fee_accrued ?? (inst as any)?.lateFeeAccrued ?? 0),
       status: String(instDb?.status ?? (inst as any)?.status ?? 'PENDING'),
     } as Installment;
+    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
+    const shouldSettleWithForgivenCharges =
+      effectiveForgivenessMode === 'BOTH' &&
+      currentPrincipalOpen > ZERO_BALANCE_THRESHOLD &&
+      amountToPay >= currentPrincipalOpen - ZERO_BALANCE_THRESHOLD;
 
     const amortization = loanEngine.calculateInstallmentAmortization(
       amountToPay,
@@ -443,8 +448,16 @@ export const paymentsService = {
 
     const renewalBuckets = resolveRenewalBuckets(loan, installmentSnapshot);
 
+    if (shouldSettleWithForgivenCharges) {
+      principalPaid = Math.min(amountToPay, currentPrincipalOpen);
+      interestPaid = 0;
+      lateFeePaid = 0;
+      totalPaid = principalPaid;
+      avExtra = roundMoney(Math.max(0, amountToPay - currentPrincipalOpen));
+    }
+
     // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Mora -> Juros -> Principal)
-    if (effectiveForgivenessMode !== 'CAPITAL_ONLY' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
+    if (!shouldSettleWithForgivenCharges && effectiveForgivenessMode !== 'CAPITAL_ONLY' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
       let remaining = amountToPay;
 
       lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
@@ -457,7 +470,6 @@ export const paymentsService = {
       totalPaid = amountToPay;
     }
 
-    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
     if (principalPaid > currentPrincipalOpen + ZERO_BALANCE_THRESHOLD) {
       avExtra = roundMoney(avExtra + principalPaid - currentPrincipalOpen);
       principalPaid = currentPrincipalOpen;
@@ -527,8 +539,8 @@ export const paymentsService = {
       p_caixa_livre_id: safeUUID(caixaLivreId),
     };
 
-    if (isOffline && effectiveForgivenessMode === 'CAPITAL_ONLY') {
-      throw new Error('Recebimento sem juros exige internet para zerar os encargos com seguranca no banco.');
+    if (isOffline && (effectiveForgivenessMode === 'CAPITAL_ONLY' || shouldSettleWithForgivenCharges)) {
+      throw new Error('Recebimento com perdao de juros/encargos exige internet para zerar os encargos com seguranca no banco.');
     }
 
     if (isOffline) {
@@ -588,7 +600,7 @@ export const paymentsService = {
       console.error('Erro ao gravar auditoria de pagamento:', auditErr);
     }
 
-    if (effectiveForgivenessMode === 'CAPITAL_ONLY') {
+    if (effectiveForgivenessMode === 'CAPITAL_ONLY' || shouldSettleWithForgivenCharges) {
       const { error: forgiveInterestError } = await supabase
         .from('parcelas')
         .update({
@@ -644,7 +656,7 @@ export const paymentsService = {
     const finalBalance = await revalidateLoanOpenBalance(loanId);
     const remainingAfterPayment = Number(finalBalance.totalRemaining || 0);
 
-    if (effectiveForgivenessMode === 'CAPITAL_ONLY' && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
+    if ((effectiveForgivenessMode === 'CAPITAL_ONLY' || shouldSettleWithForgivenCharges) && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
       await supabase
         .from('parcelas')
         .update({

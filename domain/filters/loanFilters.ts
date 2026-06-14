@@ -2,6 +2,7 @@
 import { Loan, SortOption, LoanStatusFilter } from '../../types';
 import { onlyDigits } from '../../utils/formatters';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
+import { isInstallmentOpen } from '../../utils/loanStatus';
 
 // HELPER DE ORDENAÇÃO
 const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
@@ -20,8 +21,8 @@ const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
 
             case 'DUE_DATE_ASC': // Vencimento Mais Próximo
             default:
-                const nextA = a.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
-                const nextB = b.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
+                const nextA = a.installments.find(isInstallmentOpen)?.dueDate || '9999-12-31';
+                const nextB = b.installments.find(isInstallmentOpen)?.dueDate || '9999-12-31';
                 return new Date(nextA).getTime() - new Date(nextB).getTime();
         }
     });
@@ -32,6 +33,7 @@ const isUnifiedChildLoan = (loan: Loan): boolean => {
   return (
     notes.includes('[UNIFICADO EM') ||
     notes.includes('[LEGADO_PARCELAMENTO:') ||
+    notes.includes('[LEGADO_UNIFICACAO_NORMAL:') ||
     notes.includes('Contrato migrado para a unificação') ||
     notes.includes('Contrato unificado no parcelamento')
   );

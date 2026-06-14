@@ -212,7 +212,10 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                                 onReviewSignal={props.onReviewSignal}
                                 onOpenComprovante={props.fileCtrl.handleOpenComprovante}
                                 onReverseTransaction={props.onReverseTransaction}
-                                onRenegotiate={() => {}}
+                                onRenegotiate={(loan) => {
+                                    props.ui.setRenegotiationModalLoans([loan]);
+                                    props.ui.openModal('RENEGOTIATION', loan);
+                                }}
                                 onActivate={props.loanCtrl.handleActivateLoan}
                                 onAgreementPayment={props.onAgreementPayment}
                                 onRefresh={props.onRefresh}

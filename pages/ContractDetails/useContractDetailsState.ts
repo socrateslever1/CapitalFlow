@@ -10,6 +10,7 @@ import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
 import { usePaymentManagerState, ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { parseDateOnlyUTC } from '../../utils/dateHelpers';
+import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
 
 interface UseContractDetailsStateProps {
     loanId: string;
@@ -36,7 +37,7 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         const bal = loanEngine.computeRemainingBalance(loan);
         return {
             loan,
-            inst: loan.installments.find(i => i.status !== 'PAID') || loan.installments[0] || {} as Installment,
+            inst: loan.installments.find(isInstallmentOpen) || loan.installments[0] || {} as Installment,
             calculations: {
                 total: bal.totalRemaining,
                 principal: bal.principalRemaining,
@@ -53,8 +54,7 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
 
         const lateInstallments = installments.filter(inst => {
             const due = new Date(inst.dueDate);
-            const isOpen = inst.status !== 'PAID' && inst.status !== 'PAGO' && inst.status !== 'QUITADO' && inst.status !== 'RENEGOCIADO';
-            return isOpen && due.getTime() < today.getTime();
+            return isInstallmentOpen(inst) && due.getTime() < today.getTime();
         }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
         if (lateInstallments.length === 0) return null;
@@ -127,10 +127,10 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const nextDueDateDisplay = useMemo(() => {
         if (!loan) return 'N/A';
         if (loan.activeAgreement && loan.activeAgreement.installments) {
-            const nextAgreementInst = loan.activeAgreement.installments.find(i => i.status !== 'PAID' && i.status !== 'PAGO');
+            const nextAgreementInst = loan.activeAgreement.installments.find(i => !isPaidStatus(i.status));
             if (nextAgreementInst) return new Date(nextAgreementInst.dueDate).toLocaleDateString('pt-BR');
         }
-        const nextLoanInst = loan.installments.find(i => i.status !== 'PAID');
+        const nextLoanInst = loan.installments.find(isInstallmentOpen);
         if (nextLoanInst) return new Date(nextLoanInst.dueDate).toLocaleDateString('pt-BR');
         return 'N/A';
     }, [loan]);

@@ -162,10 +162,12 @@ export const App: React.FC = () => {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(contractIdFromUrl);
       handleSetActiveTab('CONTRACT_DETAILS');
-    } else if (legalIdFromUrl && activeTab !== 'LEGAL') {
+    } else if (legalIdFromUrl) {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(legalIdFromUrl);
-      handleSetActiveTab('LEGAL');
+      if (activeTab !== 'LEGAL') {
+        handleSetActiveTab('LEGAL');
+      }
     } else if (!contractIdFromUrl && !legalIdFromUrl) {
       // Se limpou o path manualmente ou via back, e ainda estava na aba de detalhes, volta pro dashboard
       if (activeTab === 'CONTRACT_DETAILS' || activeTab === 'LEGAL') {
@@ -570,7 +572,7 @@ export const App: React.FC = () => {
                     showToast={showToast}
                     onRefresh={() => fetchFullData(activeUser?.id || '')}
                     goBack={goBack}
-                    onNavigate={(id) => navigate(`/contrato/${id}`)}
+                    onNavigate={navigate}
                   />
                 </motion.div>
               )}

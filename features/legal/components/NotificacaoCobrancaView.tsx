@@ -5,6 +5,9 @@ import { Loan, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { DocumentTemplates } from '../templates/DocumentTemplates';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
+import { loanEngine } from '../../../domain/loanEngine';
+import { getDaysDiff } from '../../../utils/dateHelpers';
+import { isInstallmentOpen } from '../../../utils/loanStatus';
 
 interface NotificacaoCobrancaViewProps {
     loans: Loan[];
@@ -15,11 +18,16 @@ interface NotificacaoCobrancaViewProps {
 }
 
 export const NotificacaoCobrancaView: React.FC<NotificacaoCobrancaViewProps> = ({ loans, activeUser, onBack, showToast, isStealthMode }) => {
-    const lateLoans = loans.filter(l => !l.isArchived && l.installments.some(i => i.status === 'LATE'));
+    const lateLoans = loans.filter(l => !l.isArchived && loanEngine.computeLoanStatus(l) === 'OVERDUE');
+
+    const getFirstOverdueInstallment = (loan: Loan) =>
+        [...(loan.installments || [])]
+            .filter(i => isInstallmentOpen(i) && getDaysDiff(i.dueDate) > 0)
+            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
 
     const handlePrintNotification = (loan: Loan) => {
         if (!activeUser) return;
-        const pending = loan.installments.find(i => i.status !== 'PAID');
+        const pending = getFirstOverdueInstallment(loan);
         if (!pending) return;
 
         const debt = calculateTotalDue(loan, pending);
@@ -41,7 +49,9 @@ export const NotificacaoCobrancaView: React.FC<NotificacaoCobrancaViewProps> = (
 
     const handleWhatsApp = (loan: Loan, type: 'AMIGAVEL' | 'EXTRA') => {
         const num = loan.debtorPhone.replace(/\D/g, '');
-        const debt = calculateTotalDue(loan, loan.installments.find(i => i.status !== 'PAID')!);
+        const pending = getFirstOverdueInstallment(loan);
+        if (!pending) return;
+        const debt = calculateTotalDue(loan, pending);
         let text = "";
 
         if (type === 'AMIGAVEL') {
@@ -80,7 +90,7 @@ export const NotificacaoCobrancaView: React.FC<NotificacaoCobrancaViewProps> = (
                                 <div className="p-4 bg-rose-500/10 text-rose-500 rounded-lg shadow-inner"><ShieldAlert size={28}/></div>
                                 <div>
                                     <h4 className="font-bold text-white text-lg uppercase">{loan.debtorName}</h4>
-                                    <p className="text-xs text-rose-400 font-black uppercase tracking-tighter">Atraso detectado: {formatMoney(loan.installments.find(i => i.status === 'LATE')?.amount, isStealthMode)}</p>
+                                    <p className="text-xs text-rose-400 font-black uppercase tracking-tighter">Atraso detectado: {formatMoney(getFirstOverdueInstallment(loan)?.amount || 0, isStealthMode)}</p>
                                 </div>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end">

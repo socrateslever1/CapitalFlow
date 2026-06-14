@@ -160,43 +160,14 @@ const engine = {
 
 /**
  * Regra de acionamento juridico (isolada):
- * - true se ainda existe saldo > 0
- * - ou se existe parcela vencida com saldo em aberto
+ * - true se ainda existe saldo em aberto
+ * - false para contratos quitados ou sem saldo devedor
  */
 export function isLegallyActionable(loan: Loan): boolean {
   if (!loan) return false;
 
   const bal = engine.computeRemainingBalance(loan);
-  if (n(bal.totalRemaining) <= ZERO_BALANCE_THRESHOLD) return false;
-
-  const today = new Date();
-  const useAgreement = hasActiveAgreement(loan);
-  const schedule = useAgreement ? getAgreementInstallments(loan) : getInstallments(loan);
-
-  for (const inst of schedule) {
-    if (useAgreement) {
-      if (isAgreementInstallmentPaid(inst)) continue;
-    } else {
-      const status = String(inst?.status || '').toUpperCase();
-      // Ignora parcelas que foram movidas para acordo ou canceladas
-      if (status === 'RENEGOCIADO' || status === 'CANCELADO') continue;
-
-      const principalOpen = n(inst?.principal_remaining ?? inst?.principalRemaining);
-      const interestOpen = n(inst?.interest_remaining ?? inst?.interestRemaining);
-      const lateFeeOpen = n(inst?.late_fee_accrued ?? inst?.lateFeeAccrued);
-      if (principalOpen + interestOpen + lateFeeOpen <= ZERO_BALANCE_THRESHOLD) continue;
-
-      if (status === 'PAID' || status === 'PAGO' || status === 'QUITADO') continue;
-    }
-
-    const due = getDueDate(inst);
-    if (!due) continue;
-
-    const overdueDays = (today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24);
-    if (overdueDays > 0) return true;
-  }
-
-  return false;
+  return n(bal.totalRemaining) > ZERO_BALANCE_THRESHOLD;
 }
 
 export const loanEngine = engine;

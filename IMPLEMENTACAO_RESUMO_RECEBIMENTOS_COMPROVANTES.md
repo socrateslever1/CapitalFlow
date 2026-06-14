@@ -1,5 +1,15 @@
 ﻿# Implementacoes - RECEBIMENTOS COMPROVANTES
 
+## 2026-06-14 - Quitacao com Perdao Total de Encargos
+- **Objetivo:** Corrigir pagamento em atraso com perdao total de juros/encargos para que, ao receber o capital aberto, a parcela/contrato nao fique com saldo residual indevido.
+- **Arquivos Alterados:**
+    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: O modo `BOTH` passou a zerar tambem o juros remuneratorio no total exibido, fazendo o valor sugerido/validado representar somente o capital quando o usuario escolhe perdoar todos os encargos.
+    - `/services/payments.service.ts`: Quando `BOTH` cobre o capital da parcela, a alocacao passa a registrar o recebimento como principal, zerar juros/multa/mora depois da RPC e marcar a parcela/contrato como pago quando o saldo revalidado do contrato fica zerado.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** Simulacao local com `npx tsx -e` reproduziu o saldo residual antigo de R$ 100 e confirmou saldo zero apos a regra nova; `npx vite build` executado com sucesso.
+- **Riscos/Observacoes:** A correcao atua apenas quando o pagamento com `Perdoar Total` cobre o capital aberto da parcela. Pagamentos parciais continuam seguindo a alocacao normal. Esse recebimento exige internet para garantir que os encargos sejam zerados no banco com seguranca.
+- **Escopo:** Alteracao limitada ao calculo visual e persistencia do recebimento com perdao total.
+
 ## 2026-06-08
 - **Objetivo:** Tornar o comprovante estavel e melhor formatado, aceitando o fluxo de impressao/salvar como PDF no lugar da geracao instavel de imagem.
 - **Arquivos Alterados:**

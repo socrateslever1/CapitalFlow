@@ -24,19 +24,34 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
 
     // Calcula sumário da carteira para a IA enriquecido com Fluxo Mensal
     const portfolioSummary = useMemo(() => {
-        const activeLoans = loans.filter(l => !l.isArchived);
-        const lateLoans = activeLoans.filter(l => l.installments.some(i => getDaysDiff(i.dueDate) > 0 && i.status !== 'PAID'));
+        const activeLoans = loans.filter(l => {
+            if (l.isArchived) return false;
+            const status = String(l.status || '').toUpperCase().trim();
+            if (['PAID', 'PAGO', 'QUITADO', 'FINALIZADO'].includes(status)) return false;
+            const notes = String(l.notes || '');
+            const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
+            if (isUnified) return false;
+            return true;
+        });
+        const lateLoans = activeLoans.filter(l => l.installments.some(i => getDaysDiff(i.dueDate) > 0 && i.status !== 'PAID' && i.status !== 'RENEGOCIADO'));
 
         const topLate = lateLoans
             .map(l => {
-                const pending = l.installments.find(i => i.status !== 'PAID');
+                const pending = l.installments.find(i => i.status !== 'PAID' && i.status !== 'RENEGOCIADO');
                 const debt = pending ? calculateTotalDue(l, pending) : { total: 0, daysLate: 0 };
                 return { name: l.debtorName, amount: debt.total, days: debt.daysLate };
             })
             .sort((a,b) => b.amount - a.amount)
             .slice(0, 3);
 
-        const totalLent = activeLoans.reduce((acc, l) => acc + l.principal, 0);
+        const totalLent = activeLoans.reduce((acc, l) => {
+            const principalRemaining = (l.installments || []).reduce((sum, inst) => {
+                const status = String(inst.status || '').toUpperCase().trim();
+                if (status === 'RENEGOCIADO' || status === 'CANCELADO' || status === 'PAID' || status === 'PAGO' || status === 'QUITADO') return sum;
+                return sum + Math.max(0, Number(inst.principalRemaining || 0));
+            }, 0);
+            return acc + principalRemaining;
+        }, 0);
 
         // Cálculo de Fluxo do Mês (DRE Simplificado)
         const now = new Date();

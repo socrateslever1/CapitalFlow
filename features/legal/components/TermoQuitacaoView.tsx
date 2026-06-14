@@ -4,6 +4,7 @@ import { ChevronLeft, ShieldCheck, Download, CheckCircle2, FileCheck, Landmark }
 import { Loan, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { DocumentTemplates } from '../templates/DocumentTemplates';
+import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
 
 interface TermoQuitacaoViewProps {
     loans: Loan[];
@@ -15,7 +16,7 @@ interface TermoQuitacaoViewProps {
 
 export const TermoQuitacaoView: React.FC<TermoQuitacaoViewProps> = ({ loans, activeUser, onBack, showToast, isStealthMode }) => {
     // Filtra contratos que estão efetivamente pagos
-    const paidLoans = loans.filter(l => l.installments.every(i => i.status === 'PAID'));
+    const paidLoans = loans.filter(l => resolveLoanVisualClassification(l) === 'QUITADO');
 
     const handleGenerateReceipt = (loan: Loan) => {
         if (!activeUser) return;

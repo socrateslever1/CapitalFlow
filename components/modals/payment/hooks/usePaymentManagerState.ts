@@ -55,6 +55,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         } else if (forgivenessMode === 'INTEREST_ONLY') {
             finalMora = 0;
         } else if (forgivenessMode === 'BOTH') {
+            freshCalc.interest = 0;
             finalFine = 0;
             finalMora = 0;
         }

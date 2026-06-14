@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { ShieldCheck, FileSignature, Loader2, AlertTriangle, CheckCircle2, Lock, Info, Scale, Gavel, Download, Eraser } from 'lucide-react';
+import { ShieldCheck, FileSignature, Loader2, AlertTriangle, CheckCircle2, Lock, Info, Scale, Gavel, Download, Eraser, Type, Upload, Image } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { legalPublicService } from '../../features/legal/services/legalPublic.service';
 import { generateConfissaoDividaHTML } from '../../features/legal/templates/ConfissaoDividaTemplate';
@@ -57,6 +57,40 @@ const buildRenderedHtml = async (doc: any, auditSignatures: any[] = []) => {
     return generateConfissaoDividaHTML(doc.snapshot, doc.id, doc.hash_sha256, auditSignatures);
 };
 
+const CURSIVE_FONTS = [
+    { name: 'Alex Brush', family: 'Alex Brush' },
+    { name: 'Great Vibes', family: 'Great Vibes' },
+    { name: 'Herr Von Muellerhoff', family: 'Herr Von Muellerhoff' },
+    { name: 'Monsieur La Doulaise', family: 'Monsieur La Doulaise' },
+    { name: 'Playball', family: 'Playball' },
+    { name: 'Sacramento', family: 'Sacramento' }
+];
+
+const generateTypedSignatureImage = (text: string, fontName: string): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 600;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#0f172a'; // Cor de assinatura escura
+    
+    let fontSize = 65;
+    ctx.font = `${fontSize}px "${fontName}", cursive`;
+    
+    while (ctx.measureText(text).width > canvas.width - 60 && fontSize > 20) {
+        fontSize -= 5;
+        ctx.font = `${fontSize}px "${fontName}", cursive`;
+    }
+    
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    return canvas.toDataURL('image/png');
+};
+
 export const PublicSignaturePage = () => {
     const [status, setStatus] = useState<'LOADING' | 'READY' | 'SIGNING' | 'SUCCESS' | 'ERROR'>('LOADING');
     const [docData, setDocData] = useState<any>(null);
@@ -75,6 +109,23 @@ export const PublicSignaturePage = () => {
 
     const sigCanvas = useRef<any>(null);
     const [hasSignature, setHasSignature] = useState(false);
+    const lastWidthRef = useRef<number>(0);
+    const [signatureMode, setSignatureMode] = useState<'DRAW' | 'TYPE' | 'UPLOAD'>('DRAW');
+    const [penWidth, setPenWidth] = useState<number>(2.0);
+    const [typedText, setTypedText] = useState('');
+    const [selectedFont, setSelectedFont] = useState('Alex Brush');
+    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+
+    // Carrega as fontes cursivas do Google Fonts para a assinatura digitada
+    useEffect(() => {
+        const link = document.createElement('link');
+        link.href = 'https://fonts.googleapis.com/css2?family=Alex+Brush&family=Great+Vibes&family=Herr+Von+Muellerhoff&family=Monsieur+La+Doulaise&family=Playball&family=Sacramento&display=swap';
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+        return () => {
+            document.head.removeChild(link);
+        };
+    }, []);
 
     // ✅ HOOKS MOVE TO TOP (Rules of Hooks compliance)
     const requiredRoles = useMemo(() => resolveRequiredRoles(docData?.snapshot), [docData]);
@@ -132,6 +183,7 @@ export const PublicSignaturePage = () => {
 
                 setRole(finalRole);
                 setExpectedName(name);
+                setTypedText(name);
 
                 const audit = await legalPublicService.getAuditByToken(t);
                 setSignatures(audit.signatures || []);
@@ -154,6 +206,14 @@ export const PublicSignaturePage = () => {
         const resizeCanvas = () => {
             if (sigCanvas.current) {
                 const canvas = sigCanvas.current.getCanvas();
+                const currentWidth = canvas.offsetWidth;
+                
+                // Se a largura horizontal não mudou, ignoramos o resize (evita limpar ao abrir/fechar teclado)
+                if (currentWidth > 0 && currentWidth === lastWidthRef.current) {
+                    return;
+                }
+                lastWidthRef.current = currentWidth;
+
                 const hasExistingSignature = !sigCanvas.current.isEmpty();
                 const signatureData = hasExistingSignature ? sigCanvas.current.toData() : [];
                 const ratio = Math.max(window.devicePixelRatio || 1, 1);
@@ -203,9 +263,25 @@ export const PublicSignaturePage = () => {
             return;
         }
 
-        if (!hasSignature || sigCanvas.current?.isEmpty()) {
-            setLocalError("Por favor, desenhe sua assinatura no campo indicado.");
-            return;
+        let signatureImage = '';
+        if (signatureMode === 'DRAW') {
+            if (!hasSignature || !sigCanvas.current || sigCanvas.current.isEmpty()) {
+                setLocalError("Por favor, desenhe sua assinatura no campo indicado.");
+                return;
+            }
+            signatureImage = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+        } else if (signatureMode === 'TYPE') {
+            if (!typedText.trim()) {
+                setLocalError("Por favor, digite seu nome para assinar.");
+                return;
+            }
+            signatureImage = generateTypedSignatureImage(typedText, selectedFont);
+        } else if (signatureMode === 'UPLOAD') {
+            if (!uploadedImage) {
+                setLocalError("Por favor, carregue um arquivo de imagem da sua assinatura.");
+                return;
+            }
+            signatureImage = uploadedImage;
         }
 
         setStatus('SIGNING');
@@ -217,9 +293,6 @@ export const PublicSignaturePage = () => {
                 ip = data.ip;
             } catch(e){}
 
-            const signatureImage = sigCanvas.current?.getTrimmedCanvas().toDataURL('image/png');
-
-            // Tenta detectar o dispositivo de forma simples no UserAgent
             const ua = navigator.userAgent;
             let device = "Desktop / Navegador";
             if (/iPhone/.test(ua)) device = "iPhone";
@@ -253,6 +326,32 @@ export const PublicSignaturePage = () => {
     const clearSignature = () => {
         sigCanvas.current?.clear();
         setHasSignature(false);
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            setLocalError("Apenas arquivos de imagem são aceitos.");
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            setLocalError("O arquivo de imagem deve ter no máximo 2MB.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setUploadedImage(reader.result as string);
+            setHasSignature(true);
+            setLocalError(null);
+        };
+        reader.onerror = () => {
+            setLocalError("Erro ao ler o arquivo de imagem.");
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleDownload = () => {
@@ -397,42 +496,176 @@ export const PublicSignaturePage = () => {
                              </div>
                         </div>
 
-                        {/* SIGNATURE PAD */}
-                        <div className="bg-slate-950 p-5 rounded-lg border border-slate-800 flex flex-col gap-3">
-                            <div className="flex items-center justify-between">
-                                <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
-                                    <FileSignature size={12}/> Desenhe sua Assinatura
-                                </label>
-                                <button
-                                    onClick={clearSignature}
-                                    className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-500 hover:text-rose-500 rounded-lg transition-all"
-                                    title="Limpar Assinatura"
-                                >
-                                    <Eraser size={14} />
-                                </button>
-                            </div>
+                        {/* SELETOR DE MODALIDADE DE ASSINATURA */}
+                        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setSignatureMode('DRAW')}
+                                className={`py-2 rounded-md text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${signatureMode === 'DRAW' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                <FileSignature size={10}/> Desenhar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSignatureMode('TYPE')}
+                                className={`py-2 rounded-md text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${signatureMode === 'TYPE' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                <Type size={10}/> Digitar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSignatureMode('UPLOAD')}
+                                className={`py-2 rounded-md text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${signatureMode === 'UPLOAD' ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-white'}`}
+                            >
+                                <Upload size={10}/> Carregar
+                            </button>
+                        </div>
 
-                            <div className="bg-white rounded-lg overflow-hidden h-40 relative border-2 border-slate-800 focus-within:border-indigo-500 transition-all">
-                                <SignatureCanvasAny
-                                    ref={(ref: any) => { (sigCanvas as any).current = ref; }}
-                                    canvasProps={{
-                                        className: "signature-canvas w-full h-full",
-                                        style: { width: '100%', height: '100%', touchAction: 'none' }
-                                    } as any}
-                                    onBegin={() => setHasSignature(true)}
-                                    onEnd={() => setHasSignature(!(sigCanvas.current?.isEmpty?.() ?? true))}
-                                    velocityFilterWeight={0.7}
-                                    minWidth={0.5}
-                                    maxWidth={2.5}
-                                />
-                                {!hasSignature && (
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                                        <p className="text-slate-900 font-black uppercase text-[10px] tracking-widest italic">Assine aqui</p>
+                        {/* ÁREAS DE ENTRADA CONFORME O MODO */}
+                        {signatureMode === 'DRAW' && (
+                            <div className="bg-slate-950 p-5 rounded-lg border border-slate-800 flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
+                                        <FileSignature size={12}/> Desenhe sua Assinatura
+                                    </label>
+                                    <button
+                                        onClick={clearSignature}
+                                        className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-500 hover:text-rose-500 rounded-lg transition-all"
+                                        title="Limpar Assinatura"
+                                    >
+                                        <Eraser size={14} />
+                                    </button>
+                                </div>
+
+                                <div className="bg-white rounded-lg overflow-hidden h-40 relative border-2 border-slate-800 focus-within:border-indigo-500 transition-all">
+                                    <SignatureCanvasAny
+                                        ref={(ref: any) => { (sigCanvas as any).current = ref; }}
+                                        canvasProps={{
+                                            className: "signature-canvas w-full h-full",
+                                            style: { width: '100%', height: '100%', touchAction: 'none' }
+                                        } as any}
+                                        onBegin={() => setHasSignature(true)}
+                                        onEnd={() => setHasSignature(!(sigCanvas.current?.isEmpty?.() ?? true))}
+                                        velocityFilterWeight={0.7}
+                                        minWidth={Math.max(0.5, penWidth - 0.7)}
+                                        maxWidth={penWidth + 0.8}
+                                    />
+                                    {!hasSignature && (
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                                            <p className="text-slate-900 font-black uppercase text-[10px] tracking-widest italic">Assine aqui</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase">
+                                        <span>Espessura do Traço</span>
+                                        <span>{penWidth.toFixed(1)}px</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0.5"
+                                        max="5.0"
+                                        step="0.5"
+                                        value={penWidth}
+                                        onChange={e => setPenWidth(parseFloat(e.target.value))}
+                                        className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 outline-none"
+                                    />
+                                </div>
+                                <p className="text-[9px] text-slate-600 font-medium text-center italic">Use o mouse ou o dedo para desenhar a assinatura acima</p>
+                            </div>
+                        )}
+
+                        {signatureMode === 'TYPE' && (
+                            <div className="bg-slate-950 p-5 rounded-lg border border-slate-800 flex flex-col gap-4">
+                                <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
+                                    <Type size={12}/> Digite sua Assinatura
+                                </label>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Seu Nome para Assinatura</label>
+                                    <input
+                                        type="text"
+                                        value={typedText}
+                                        onChange={e => setTypedText(e.target.value)}
+                                        className="w-full bg-slate-900 border-2 border-slate-800 focus:border-indigo-500 rounded-lg px-4 py-3 text-white font-bold outline-none transition-all text-sm"
+                                        placeholder="Seu nome completo"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black text-slate-500 uppercase">Escolha um Estilo Cursivo</label>
+                                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                        {CURSIVE_FONTS.map(font => (
+                                            <button
+                                                key={font.name}
+                                                type="button"
+                                                onClick={() => setSelectedFont(font.family)}
+                                                className={`p-3 rounded-lg border text-center transition-all ${selectedFont === font.family ? 'bg-indigo-600 border-indigo-500 text-white shadow' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'}`}
+                                            >
+                                                <span className="text-[10px] font-bold block">{font.name}</span>
+                                                <span style={{ fontFamily: `"${font.family}", cursive` }} className="text-lg block mt-1 truncate">
+                                                    {typedText || expectedName}
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg h-32 flex items-center justify-center border-2 border-slate-800 overflow-hidden p-4">
+                                    <p
+                                        style={{ fontFamily: `"${selectedFont}", cursive` }}
+                                        className="text-slate-900 text-3xl text-center select-none truncate w-full"
+                                    >
+                                        {typedText || "Assinatura"}
+                                    </p>
+                                </div>
+                                <p className="text-[9px] text-slate-600 font-medium text-center italic">A assinatura será gerada em formato de imagem cursiva digitalizada</p>
+                            </div>
+                        )}
+
+                        {signatureMode === 'UPLOAD' && (
+                            <div className="bg-slate-950 p-5 rounded-lg border border-slate-800 flex flex-col gap-4">
+                                <label className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2">
+                                    <Image size={12}/> Enviar Imagem da Assinatura
+                                </label>
+                                
+                                <div className="bg-slate-900 rounded-lg border-2 border-dashed border-slate-800 hover:border-indigo-500 transition-all p-6 text-center cursor-pointer relative group flex flex-col items-center justify-center gap-2 min-h-32">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileUpload}
+                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                    />
+                                    <Upload className="text-slate-500 group-hover:text-indigo-400 transition-colors" size={24}/>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors">
+                                        Selecione uma Imagem
+                                    </p>
+                                    <p className="text-[8px] text-slate-600 font-bold uppercase">PNG, JPG ou SVG (Máx. 2MB)</p>
+                                </div>
+
+                                {uploadedImage && (
+                                    <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[9px] font-black text-slate-500 uppercase">Pré-visualização</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setUploadedImage(null); setHasSignature(false); }}
+                                                className="text-[9px] font-black text-rose-500 hover:text-rose-400 uppercase tracking-widest transition-colors"
+                                            >
+                                                Remover
+                                            </button>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-4 h-32 flex items-center justify-center border-2 border-slate-800 overflow-hidden">
+                                            <img
+                                                src={uploadedImage}
+                                                alt="Assinatura enviada"
+                                                className="max-w-full max-h-full object-contain"
+                                            />
+                                        </div>
                                     </div>
                                 )}
+                                <p className="text-[9px] text-slate-600 font-medium text-center italic">Envie uma imagem nítida com fundo branco ou transparente</p>
                             </div>
-                            <p className="text-[9px] text-slate-600 font-medium text-center italic">Use o mouse ou o dedo para assinar no campo acima</p>
-                        </div>
+                        )}
 
                         <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800 space-y-4">
                              <div className="flex items-start gap-3">
@@ -465,7 +698,7 @@ export const PublicSignaturePage = () => {
                             ) : (
                                 <button
                                     onClick={handleSign}
-                                    disabled={!acceptedTerms || !signerDoc || status === 'SIGNING'}
+                                    disabled={!acceptedTerms || !signerDoc || status === 'SIGNING' || (signatureMode === 'DRAW' && (!hasSignature || sigCanvas.current?.isEmpty?.())) || (signatureMode === 'TYPE' && !typedText.trim()) || (signatureMode === 'UPLOAD' && !uploadedImage)}
                                     className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg font-black uppercase text-xs shadow-2xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-3"
                                 >
                                     {status === 'SIGNING' ? (

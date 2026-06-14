@@ -54,6 +54,17 @@
 - **Riscos/Observacoes:** Consulta de metadados no Supabase confirmou que os registros recentes estao em `documentos_juridicos` com `loan_id` e `view_token`; a falha estava no estado da tela, que nao carregava o historico ao selecionar o contrato.
 - **Escopo:** Somente carregamento/consistencia dos registros e links na Confissao de Divida.
 
+## 2026-06-14 - Constraint de Papeis em Assinaturas
+- **Objetivo:** Corrigir falha `assinaturas_documento_papel_check` ao assinar documentos juridicos.
+- **Arquivos Alterados:**
+    - `/IMPLEMENTACAO_RESUMO_JURIDICO_ASSINATURAS.md`: Registrada a correcao aplicada.
+- **Arquivos Novos:**
+    - `/supabase/migrations/20260614_fix_assinaturas_documento_papel_constraint.sql`: Atualiza a constraint `assinaturas_documento_papel_check` para aceitar os papeis normalizados pelas RPCs atuais (`DEBTOR`, `CREDITOR`, `WITNESS_1`, `WITNESS_2`) mantendo compatibilidade com os valores antigos em portugues.
+- **Alteracao de Banco Executada:** Migration aplicada no Supabase remoto via `npx supabase db query --linked --file`.
+- **Validacao:** Consulta ao catalogo confirmou a nova constraint; insercao temporaria com `papel = 'DEBTOR'` dentro de `BEGIN/ROLLBACK` executou com sucesso.
+- **Riscos/Observacoes:** A correcao nao altera a logica de assinatura; apenas alinha a restricao do banco aos valores que as RPCs ja gravam.
+- **Escopo:** Apenas constraint de banco da tabela `assinaturas_documento`.
+
 ## 2026-05-09 (Parte 1)
 - **Objetivo:** Corrigir erro ao aplicar novo aporte causado por overload ambiguo da RPC `apply_new_aporte_atomic`.
 - **Arquivos Alterados:**

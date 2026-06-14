@@ -65,6 +65,18 @@
 - **Riscos/Observacoes:** A correcao nao altera a logica de assinatura; apenas alinha a restricao do banco aos valores que as RPCs ja gravam.
 - **Escopo:** Apenas constraint de banco da tabela `assinaturas_documento`.
 
+## 2026-06-14 - Saude das Tabelas de Assinatura
+- **Objetivo:** Verificar e corrigir inconsistencias nas tabelas juridicas apos leitura via Supabase CLI.
+- **Arquivos Alterados:**
+    - `/IMPLEMENTACAO_RESUMO_JURIDICO_ASSINATURAS.md`: Registrada a auditoria e as correcoes aplicadas.
+- **Arquivos Novos:**
+    - `/supabase/migrations/20260614_fix_documentos_juridicos_signature_status.sql`: Permite `EM_ASSINATURA`, ajusta a regra de `signed_at`, corrige documentos com assinatura parcial ainda marcados como `PENDENTE` e atualiza a RPC publica para preencher `signed_at` quando finalizar como `ASSINADO`.
+    - `/supabase/migrations/20260614_fix_signature_rpc_required_roles_array.sql`: Corrige a montagem de `v_required_roles` na RPC `sign_documento_juridico_by_view_token`, usando arrays explicitos em vez de concatenar texto solto.
+- **Alteracao de Banco Executada:** Migrations aplicadas no Supabase remoto via `npx supabase db query --linked --file`.
+- **Validacao:** Teste de update para `EM_ASSINATURA` passou em rollback; chamada da RPC publica em `BEGIN/ROLLBACK` retornou `{ success: true, status: 'EM_ASSINATURA' }`; `npx tsc -b --pretty false` executado com sucesso.
+- **Riscos/Observacoes:** A leitura ainda encontrou constraints/indices duplicados herdados de migrations antigas, mas eles nao bloqueiam o fluxo de assinatura. Nao foram removidos para evitar alterar cascatas historicas sem necessidade operacional imediata.
+- **Escopo:** Banco/RPC do fluxo de assinatura juridica; sem alteracao visual.
+
 ## 2026-05-09 (Parte 1)
 - **Objetivo:** Corrigir erro ao aplicar novo aporte causado por overload ambiguo da RPC `apply_new_aporte_atomic`.
 - **Arquivos Alterados:**

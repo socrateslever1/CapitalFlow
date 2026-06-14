@@ -33,6 +33,7 @@ import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog'
 import { ProfileDangerZone } from '../features/profile/components/ProfileDangerZone';
 import { MercadoPagoConfig } from '../features/profile/components/MercadoPagoConfig';
 import { AsaasConfig } from '../features/profile/components/AsaasConfig';
+import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
 
 interface ProfilePageProps {
   activeUser: UserProfile;
@@ -733,6 +734,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <MercadoPagoConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>
                 <AsaasConfig profileId={profileEditForm.id} showToast={showToast} />
+                <div className="border-t border-slate-800 my-8"></div>
+                <WhatsAppConfig profileId={profileEditForm.id} showToast={showToast} />
              </div>
           )}
 

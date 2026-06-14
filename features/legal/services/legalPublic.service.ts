@@ -132,7 +132,7 @@ export const legalPublicService = {
   async signDocumentPublicly(
     token: string,
     signerInfo: { name: string; doc: string; role: string; signatureImage?: string },
-    deviceInfo: { ip: string; userAgent: string }
+    deviceInfo: { ip: string; userAgent: string; latitude?: number; longitude?: number }
   ) {
     const { data, error } = await supabase.rpc('get_documento_juridico_by_view_token', {
       p_view_token: token,
@@ -189,6 +189,8 @@ export const legalPublicService = {
         userAgent: deviceInfo.userAgent,
         platform: navigator.platform,
         screenResolution: `${window.screen.width}x${window.screen.height}`,
+        latitude: deviceInfo.latitude,
+        longitude: deviceInfo.longitude,
       },
     });
 

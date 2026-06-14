@@ -115,6 +115,26 @@ export const PublicSignaturePage = () => {
     const [typedText, setTypedText] = useState('');
     const [selectedFont, setSelectedFont] = useState('Alex Brush');
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+
+    // Tenta obter geolocalização de forma não bloqueante ao carregar a página
+    useEffect(() => {
+        if (typeof window !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setCoordinates({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    });
+                },
+                (err) => {
+                    console.warn("Geolocalização indisponível ou negada:", err.message);
+                },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+        }
+    }, []);
+
 
     // Carrega as fontes cursivas do Google Fonts para a assinatura digitada
     useEffect(() => {
@@ -307,7 +327,9 @@ export const PublicSignaturePage = () => {
                 signatureImage: signatureImage
             }, {
                 ip,
-                userAgent: `${device} (${ua.substring(0, 50)}...)`
+                userAgent: `${device} (${ua.substring(0, 50)}...)`,
+                latitude: coordinates?.latitude,
+                longitude: coordinates?.longitude
             });
 
             const updatedAudit = await legalPublicService.getAuditByToken(token);

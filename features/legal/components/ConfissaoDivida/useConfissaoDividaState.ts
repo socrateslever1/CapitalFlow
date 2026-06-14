@@ -166,14 +166,29 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
         };
     }, []);
 
-    const refreshLoanDocuments = useCallback(async (loanId: string) => {
+    const mergeDocumentRecords = useCallback((docs: LegalDocumentRecord[], fallbackDoc?: LegalDocumentRecord | null) => {
+        const byId = new Map<string, LegalDocumentRecord>();
+        const source = fallbackDoc ? [fallbackDoc, ...docs] : docs;
+
+        source.forEach((doc) => {
+            if (!doc?.id) return;
+            byId.set(doc.id, { ...byId.get(doc.id), ...doc });
+        });
+
+        return Array.from(byId.values()).sort((a, b) =>
+            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+    }, []);
+
+    const refreshLoanDocuments = useCallback(async (loanId: string, fallbackDoc?: LegalDocumentRecord | null) => {
         setIsLoadingDocuments(true);
         try {
             const docs = await legalService.listDocumentsByLoanId(loanId);
-            setLoanDocuments(docs);
-            setSelectedDocIds(prev => prev.filter(id => docs.some(doc => doc.id === id && isDocumentDeletable(doc))));
+            const mergedDocs = mergeDocumentRecords(docs, fallbackDoc);
+            setLoanDocuments(mergedDocs);
+            setSelectedDocIds(prev => prev.filter(id => mergedDocs.some(doc => doc.id === id && isDocumentDeletable(doc))));
 
-            const latestWithToken = docs.find((doc) => !!resolveDocumentToken(doc));
+            const latestWithToken = mergedDocs.find((doc) => !!resolveDocumentToken(doc));
             if (latestWithToken) {
                 setSigningLinks(buildSigningLinks(resolveDocumentToken(latestWithToken)));
             } else {
@@ -181,12 +196,31 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             }
         } catch (e) {
             console.error(e);
-            setLoanDocuments([]);
-            setSigningLinks(null);
+            if (fallbackDoc) {
+                const fallbackDocs = mergeDocumentRecords([], fallbackDoc);
+                setLoanDocuments(fallbackDocs);
+                const token = resolveDocumentToken(fallbackDoc);
+                setSigningLinks(token ? buildSigningLinks(token) : null);
+            } else {
+                setLoanDocuments([]);
+                setSigningLinks(null);
+            }
         } finally {
             setIsLoadingDocuments(false);
         }
-    }, [buildSigningLinks, isDocumentDeletable, resolveDocumentToken]);
+    }, [buildSigningLinks, isDocumentDeletable, mergeDocumentRecords, resolveDocumentToken]);
+
+    useEffect(() => {
+        setSelectedDocIds([]);
+
+        if (!selectedLoan?.id) {
+            setLoanDocuments([]);
+            setSigningLinks(null);
+            return;
+        }
+
+        void refreshLoanDocuments(selectedLoan.id);
+    }, [refreshLoanDocuments, selectedLoan?.id]);
 
     const deletableDocIds = useMemo(
         () => loanDocuments.filter(doc => isDocumentDeletable(doc)).map(doc => doc.id),
@@ -321,7 +355,8 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             if (token) {
                 setSigningLinks(buildSigningLinks(token));
             }
-            await refreshLoanDocuments(selectedLoan.id);
+            setLoanDocuments(prev => mergeDocumentRecords(prev, docRecord));
+            await refreshLoanDocuments(selectedLoan.id, docRecord);
 
         } catch (e: any) {
             console.error(e);

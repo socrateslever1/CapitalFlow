@@ -45,6 +45,15 @@
 - **Riscos/Observacoes:** O helper padroniza status equivalentes (`PAID`, `PAGO`, `QUITADO`, `QUITADA`, `FINALIZADO`) e ignora parcelas renegociadas/canceladas como abertas.
 - **Escopo:** Correcoes restritas a status, filtros e acoes funcionais detectadas na varredura.
 
+## 2026-06-14 - Registros de Contrato na Confissao de Divida
+- **Objetivo:** Corrigir a secao "06 Registros do Contrato" para exibir documentos juridicos ja gerados e manter disponiveis os links de assinatura para recopia.
+- **Arquivos Alterados:**
+    - `/features/legal/components/ConfissaoDivida/useConfissaoDividaState.ts`: O historico passou a recarregar automaticamente ao selecionar/trocar o contrato; o documento recem-registrado entra de forma otimista na lista e permanece como fallback se o refresh do banco demorar ou falhar.
+- **Arquivos Novos:** Nenhum.
+- **Validacao:** `npx tsc -b --pretty false` e `npx vite build` executados com sucesso.
+- **Riscos/Observacoes:** Consulta de metadados no Supabase confirmou que os registros recentes estao em `documentos_juridicos` com `loan_id` e `view_token`; a falha estava no estado da tela, que nao carregava o historico ao selecionar o contrato.
+- **Escopo:** Somente carregamento/consistencia dos registros e links na Confissao de Divida.
+
 ## 2026-05-09 (Parte 1)
 - **Objetivo:** Corrigir erro ao aplicar novo aporte causado por overload ambiguo da RPC `apply_new_aporte_atomic`.
 - **Arquivos Alterados:**

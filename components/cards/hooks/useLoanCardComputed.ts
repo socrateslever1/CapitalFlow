@@ -52,7 +52,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
         const status = String(i.status || "").toUpperCase();
         return status !== 'PAID' && status !== 'PAGO';
       })
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+      .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
 
     const dueDate = nextInst?.dueDate || null;
     const days = dueDate ? -getDaysDiff(dueDate) : 0;
@@ -124,7 +124,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
 
   const orderedInstallments = useMemo(() => {
     let all = [...loan.installments].sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      (a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime()
     );
     if (showProgress) {
       if (!isPaid) {

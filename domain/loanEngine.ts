@@ -9,6 +9,7 @@ import {
   isAgreementInstallmentPaid,
   ZERO_BALANCE_THRESHOLD,
 } from './finance/calculations';
+import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 
 /**
  * HARDENING (HMR/imports):
@@ -46,9 +47,9 @@ const getAgreementInstallments = (loan: any): any[] =>
   Array.isArray(loan?.activeAgreement?.installments) ? loan.activeAgreement.installments : [];
 
 const getDueDate = (inst: any): Date | null => {
-  const raw = inst?.due_date ?? inst?.dueDate ?? inst?.data_vencimento;
+  const raw = inst?.data_vencimento ?? inst?.dueDate ?? inst?.due_date;
   if (!raw) return null;
-  const d = new Date(raw);
+  const d = parseDateOnlyUTC(raw);
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
@@ -63,7 +64,7 @@ const engine = {
     const bal = engine.computeRemainingBalance(loan);
     if (n(bal.totalRemaining) <= ZERO_BALANCE_THRESHOLD) return 'PAID';
 
-    const today = new Date();
+    const today = todayDateOnlyUTC();
     const useAgreement = hasActiveAgreement(loan);
     const schedule = useAgreement ? getAgreementInstallments(loan) : getInstallments(loan);
 

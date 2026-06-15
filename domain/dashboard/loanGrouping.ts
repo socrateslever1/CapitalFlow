@@ -4,6 +4,7 @@ import { loanEngine } from '../../domain/loanEngine';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
 import { normalizeName, onlyDigits } from '../../utils/formatters';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
+import { parseDateOnlyUTC } from '../../utils/dateHelpers';
 
 export interface ClientGroup {
   id: string; // Unique ID for the group
@@ -104,11 +105,11 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
 
       const nextInst = isPaid ? null : loan.installments.find(i => i.status !== 'PAID');
       if (nextInst) {
-          const t = new Date(nextInst.dueDate).getTime();
+          const t = parseDateOnlyUTC(nextInst.dueDate).getTime();
           if (t < minDueDate) minDueDate = t;
       }
       
-      const createdT = new Date(loan.startDate).getTime();
+      const createdT = parseDateOnlyUTC(loan.startDate).getTime();
       if (createdT > maxCreatedAt) maxCreatedAt = createdT;
 
       const lastLedger = loan.ledger && loan.ledger.length > 0 ? loan.ledger[loan.ledger.length - 1] : null;
@@ -125,7 +126,7 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
     group.loans.sort((a, b) => {
         const nextA = a.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
         const nextB = b.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
-        return new Date(nextA).getTime() - new Date(nextB).getTime();
+        return parseDateOnlyUTC(nextA).getTime() - parseDateOnlyUTC(nextB).getTime();
     });
 
     group._sortMeta = { minDueDate, maxCreatedAt, maxUpdatedAt };

@@ -9,7 +9,7 @@ import { useState, useMemo } from 'react';
 import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
 import { usePaymentManagerState, ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
-import { parseDateOnlyUTC } from '../../utils/dateHelpers';
+import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
 
 interface UseContractDetailsStateProps {
@@ -49,13 +49,13 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
 
     const delayDetails = useMemo(() => {
         if (!loan) return null;
-        const today = new Date();
+        const today = todayDateOnlyUTC();
         const installments = loan.installments || [];
 
         const lateInstallments = installments.filter(inst => {
-            const due = new Date(inst.dueDate);
+            const due = parseDateOnlyUTC(inst.dueDate);
             return isInstallmentOpen(inst) && due.getTime() < today.getTime();
-        }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+        }).sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
 
         if (lateInstallments.length === 0) return null;
 
@@ -128,10 +128,10 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         if (!loan) return 'N/A';
         if (loan.activeAgreement && loan.activeAgreement.installments) {
             const nextAgreementInst = loan.activeAgreement.installments.find(i => !isPaidStatus(i.status));
-            if (nextAgreementInst) return new Date(nextAgreementInst.dueDate).toLocaleDateString('pt-BR');
+            if (nextAgreementInst) return formatBRDate(nextAgreementInst.dueDate);
         }
         const nextLoanInst = loan.installments.find(isInstallmentOpen);
-        if (nextLoanInst) return new Date(nextLoanInst.dueDate).toLocaleDateString('pt-BR');
+        if (nextLoanInst) return formatBRDate(nextLoanInst.dueDate);
         return 'N/A';
     }, [loan]);
 

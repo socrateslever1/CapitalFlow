@@ -3,6 +3,7 @@ import { Loan, SortOption, LoanStatusFilter } from '../../types';
 import { onlyDigits } from '../../utils/formatters';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
 import { isInstallmentOpen } from '../../utils/loanStatus';
+import { parseDateOnlyUTC } from '../../utils/dateHelpers';
 
 // HELPER DE ORDENAÇÃO
 const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
@@ -23,7 +24,7 @@ const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
             default:
                 const nextA = a.installments.find(isInstallmentOpen)?.dueDate || '9999-12-31';
                 const nextB = b.installments.find(isInstallmentOpen)?.dueDate || '9999-12-31';
-                return new Date(nextA).getTime() - new Date(nextB).getTime();
+                return parseDateOnlyUTC(nextA).getTime() - parseDateOnlyUTC(nextB).getTime();
         }
     });
 };

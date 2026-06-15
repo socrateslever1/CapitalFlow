@@ -1,6 +1,6 @@
 
 import { Loan, LoanStatus } from "../../types";
-import { getDaysDiff } from "../../utils/dateHelpers";
+import { getDaysDiff, parseDateOnlyUTC } from "../../utils/dateHelpers";
 
 export type RiskLevel = 'BAIXO' | 'MODERADO' | 'ALTO' | 'CRITICO';
 
@@ -22,7 +22,7 @@ export const calculateRiskProfile = (loan: Loan): RiskProfile => {
   // 1. Analisa Atraso Atual
   const firstLateInst = [...(loan.installments || [])]
     .filter(i => i.status !== LoanStatus.PAID && i.status !== LoanStatus.PAGO)
-    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+    .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
 
   const daysLate = firstLateInst ? Math.max(0, getDaysDiff(firstLateInst.dueDate)) : 0;
   

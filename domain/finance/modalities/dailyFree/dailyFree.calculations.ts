@@ -6,7 +6,7 @@ const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
 export const calculateDailyFree = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
     // ✅ FALLBACK: Se a parcela não tem principal individual, usa o principal do contrato (Floating Debt)
-    const principal = Number(inst?.principalRemaining) || Number(loan?.principal) || 0;
+    const principal = Number(inst?.principalRemaining ?? loan?.principal ?? 0) || 0;
     
     // Valor base da diária = (Taxa Mensal / 30) * Principal
     const dailyRatePercent = (Number(policy?.interestRate) || 0) / 30; 

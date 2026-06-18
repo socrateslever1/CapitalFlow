@@ -43,10 +43,6 @@ export const prepareInstallmentViewModel = (
     const { isDailyFree, isFixedTerm, fixedTermStats, isPaid, isZeroBalance, isFullyFinalized, showProgress, strategy } = context;
 
     const isSettledContract = context.isFullyFinalized || context.isPaid || context.isZeroBalance;
-    const rawDebt = calculateTotalDue(loan, inst);
-    const debt = isSettledContract
-        ? { ...rawDebt, principal: 0, interest: 0, lateFee: 0, total: 0 }
-        : rawDebt;
     
     // VÍNCULO DIRETO COM O CONTRATO: A data exibida é a data real da parcela no banco
     const displayDueDate = inst.dueDate;
@@ -54,9 +50,16 @@ export const prepareInstallmentViewModel = (
     // Diferença em relação a HOJE (Positivo = Atrasado)
     const daysDiff = getDaysDiff(displayDueDate);
     
-    const totalRemaining = (inst.principalRemaining || 0) + (inst.interestRemaining || 0);
+    const totalRemaining =
+        (Number(inst.principalRemaining) || 0) +
+        (Number(inst.interestRemaining) || 0) +
+        (Number(inst.lateFeeAccrued) || 0);
     const isRenegotiated = inst.status === LoanStatus.RENEGOCIADO;
     const isInstPaid = inst.status === LoanStatus.PAID || totalRemaining <= 0.05;
+    const rawDebt = calculateTotalDue(loan, inst);
+    const debt = isSettledContract || isInstPaid
+        ? { ...rawDebt, principal: 0, interest: 0, lateFee: 0, total: 0 }
+        : rawDebt;
     
     // Status de Atraso real: Se a data passou e não está pago nem renegociado
     const isLateInst = daysDiff > 0 && !isInstPaid && !isRenegotiated;

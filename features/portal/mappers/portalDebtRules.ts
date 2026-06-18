@@ -2,7 +2,7 @@
 import { Loan, Installment } from '../../../types';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from './portalAdapters';
-import { getDaysDiff } from '../../../utils/dateHelpers';
+import { getDaysDiff, parseDateOnlyUTC } from '../../../utils/dateHelpers';
 import { isDev } from '../../../utils/isDev';
 
 // Tipos de Retorno
@@ -130,7 +130,7 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
 
         return {
             totalDue,
-            nextDueDate: pending.length > 0 ? new Date(pending[0].dueDate) : null,
+            nextDueDate: pending.length > 0 ? parseDateOnlyUTC(pending[0].dueDate) : null,
             pendingCount: pending.length,
             hasLateInstallments: maxDaysLate > 0,
             maxDaysLate
@@ -153,7 +153,7 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
 
     return {
         totalDue,
-        nextDueDate: pending.length > 0 ? new Date(pending[0].dueDate) : null,
+        nextDueDate: pending.length > 0 ? parseDateOnlyUTC(pending[0].dueDate) : null,
         pendingCount: pending.length,
         hasLateInstallments: maxDaysLate > 0,
         maxDaysLate

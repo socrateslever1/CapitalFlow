@@ -25,3 +25,17 @@
     - `/domain/finance/riskAnalysis.ts`: Analise de risco ordena parcelas por data literal.
     - `/pages/ContractDetails/useContractDetailsState.ts`: Detalhes de atraso e exibicao de proximo vencimento usam data literal.
 - **Validacao de Banco:** Contrato `459f83ff-f683-4716-b03f-2fce3aa879e9` esta com `data_vencimento = 2026-06-15` e `due_date = 2026-06-15` no Supabase.
+
+## 2026-06-18 - Notificacoes Futuras e Abatimento Visual de Parcelas
+- **Objetivo:** Corrigir casos em que cliente com vencimento futuro aparecia/notificava como vencido, e casos em que parcela paga ou abatida ainda mostrava valor aberto na tela.
+- **Causa Encontrada:** O calendario/portal ainda usavam `new Date('YYYY-MM-DD')` em alguns pontos, o que pode deslocar a data por fuso. Alem disso, o card calculava a divida antes de checar se a parcela estava `PAID`, mostrando saldo antigo quando o banco tinha status quitado. Em diaria livre, `principalRemaining = 0` caia no fallback `loan.principal` por uso de `||`.
+- **Arquivos Alterados:**
+    - `/features/calendar/services/calendar.service.ts`: Classificacao de eventos usa data literal.
+    - `/features/calendar/CalendarView.tsx`: Notificacao automatica de vencidos usa data literal.
+    - `/features/calendar/components/SmartSidebar.tsx`: Reconhece `OVERDUE` e formata datas com helper.
+    - `/features/portal/mappers/portalDebtRules.ts`: Proximo vencimento do portal usa data literal.
+    - `/features/portal/hooks/usePortalTotals.ts`: Totais/proximo vencimento do portal usam data literal.
+    - `/features/portal/ClientPortalView.tsx`: Exibicao de vencimento usa `formatBRDate`.
+    - `/components/cards/components/InstallmentGrid.logic.ts`: Parcela paga/zerada mostra divida visual zero antes de renderizar valores.
+    - `/domain/finance/modalities/dailyFree/dailyFree.calculations.ts`: Respeita `principalRemaining = 0` sem voltar para o principal cheio.
+- **Validacao de Banco:** Consulta remota nao encontrou parcelas futuras com status `LATE/ATRASADO/OVERDUE`.

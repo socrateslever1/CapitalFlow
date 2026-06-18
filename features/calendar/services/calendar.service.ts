@@ -3,6 +3,7 @@ import { CalendarEvent, EventStatus } from '../types';
 import { safeUUID } from '../../../utils/uuid';
 import { mapLoanFromDB } from '../../../services/adapters/dbAdapters';
 import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
+import { parseDateOnlyUTC, todayDateOnlyUTC } from '../../../utils/dateHelpers';
 
 export const calendarService = {
 
@@ -41,11 +42,8 @@ export const calendarService = {
         loan.installments?.forEach((p) => {
           if (p.status !== 'PAID') {
             const dueDate = p.dueDate;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            const due = new Date(dueDate);
-            due.setHours(0, 0, 0, 0);
+            const today = todayDateOnlyUTC();
+            const due = parseDateOnlyUTC(dueDate);
 
             const isLate = due.getTime() < today.getTime();
             const isToday = due.getTime() === today.getTime();

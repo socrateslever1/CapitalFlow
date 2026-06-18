@@ -27,6 +27,7 @@ import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel } from '.
 import { PortalInstallmentItem } from '../../containers/ClientPortal/components/PortalInstallmentItem';
 import { formatMoney } from '../../utils/formatters';
 import { translateBillingCycle } from '../../utils/translationHelpers';
+import { formatBRDate } from '../../utils/dateHelpers';
 
 interface ContractBlockProps {
     loan: any;
@@ -77,7 +78,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
                     {nextDueDate && (
                         <div className="text-right">
                             <p className="text-[9px] text-slate-500 uppercase font-bold">Próx. Vencimento</p>
-                            <p className="text-xs text-white font-bold">{new Date(nextDueDate).toLocaleDateString('pt-BR')}</p>
+                            <p className="text-xs text-white font-bold">{formatBRDate(nextDueDate)}</p>
                         </div>
                     )}
                 </div>

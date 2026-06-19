@@ -39,3 +39,19 @@
     - `/components/cards/components/InstallmentGrid.logic.ts`: Parcela paga/zerada mostra divida visual zero antes de renderizar valores.
     - `/domain/finance/modalities/dailyFree/dailyFree.calculations.ts`: Respeita `principalRemaining = 0` sem voltar para o principal cheio.
 - **Validacao de Banco:** Consulta remota nao encontrou parcelas futuras com status `LATE/ATRASADO/OVERDUE`.
+
+## 2026-06-18 - Mensagens de Cobranca, Boas-Vindas e Lembrete
+- **Objetivo:** Fazer mensagens de WhatsApp usarem sempre a data atual do contrato/parcela, inclusive depois de editar o contrato.
+- **Causa Encontrada:** A Central de Mensagens usava a copia do contrato aberta no modal e formatava vencimento com `new Date(...)`. Se o contrato fosse editado ou a data fosse interpretada com fuso, a mensagem podia sair com vencimento antigo/divergente.
+- **Arquivos Alterados:**
+    - `/components/modals/MessageHubModal.tsx`: Ao enviar, busca o contrato mais recente em `loans`, escolhe a parcela aberta mais relevante e formata vencimento com `formatBRDate`.
+    - `/features/legal/components/NotificacaoCobrancaView.tsx`: Ordena vencimentos com `parseDateOnlyUTC` e inclui vencimento real no WhatsApp juridico.
+    - `/features/legal/templates/DocumentTemplates.ts`: PDF de notificacao formal usa `formatBRDate`.
+    - `/components/cards/components/InstallmentCard.tsx`: Exibicao curta da parcela usa a mesma formatacao literal.
+
+## 2026-06-19 - Notificacoes Menos Insistentes
+- **Objetivo:** Melhorar os textos das notificacoes e impedir que notificacoes ja lidas reaparecam antes de 48 horas.
+- **Causa Encontrada:** O silenciamento local era de 12 horas e as notificacoes lidas no banco nao eram carregadas como itens silenciados no frontend. Alguns fluxos tambem disparavam notificacao nativa antes de passar pelo filtro de leitura.
+- **Arquivos Alterados:**
+    - `/hooks/useAppNotifications.ts`: Janela de silencio aumentada para 48h, textos revisados, notificacoes nativas respeitam leitura recente e alerta juridico periodico so dispara para contrato realmente vencido.
+    - `/services/notificationCenter.service.ts`: Adicionada leitura de notificacoes marcadas como lidas recentemente para sincronizar o silencio entre sessoes/dispositivos.

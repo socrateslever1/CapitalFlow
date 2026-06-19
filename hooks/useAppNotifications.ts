@@ -7,6 +7,8 @@ import { notificationService } from '../services/notification.service';
 import { notificationCenterService } from '../services/notificationCenter.service';
 import { getInstallmentStatusLogic } from '../domain/finance/calculations';
 import { playNotificationSound } from '../utils/notificationSound';
+import { formatMoney } from '../utils/formatters';
+import { formatBRDate } from '../utils/dateHelpers';
 
 export interface InAppNotification {
   id: string;
@@ -34,6 +36,7 @@ interface NotificationProps {
 }
 
 const MAX_VISIBLE_NOTIFICATIONS = 40;
+const READ_SUPPRESSION_MS = 48 * 60 * 60 * 1000;
 const typeByItem: Record<string, InAppNotification['type']> = {
   pagamento: 'success',
   documento: 'warning',
@@ -77,8 +80,7 @@ export const useAppNotifications = ({
     if (!dismissedAt) return false;
     
     const now = Date.now();
-    const twelveHours = 12 * 60 * 60 * 1000;
-    return (now - dismissedAt) < twelveHours;
+    return (now - dismissedAt) < READ_SUPPRESSION_MS;
   };
 
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -142,7 +144,7 @@ export const useAppNotifications = ({
     const fingerprint = buildFingerprint(notif);
 
     const duplicateInState = notificationsRef.current.some((n) => {
-      return buildFingerprint(n) === fingerprint && Date.now() - n.createdAt < 12 * 60 * 60 * 1000;
+      return buildFingerprint(n) === fingerprint && Date.now() - n.createdAt < READ_SUPPRESSION_MS;
     });
     if (duplicateInState) return;
 
@@ -213,6 +215,20 @@ export const useAppNotifications = ({
       });
     });
 
+    const since = new Date(Date.now() - READ_SUPPRESSION_MS).toISOString();
+    notificationCenterService.listRecentlyRead(activeUser.id, since).then((rows) => {
+      if (cancelled || !rows.length) return;
+      setDismissedMap((prev) => {
+        const next = { ...prev };
+        rows.forEach((row: any) => {
+          if (!row.item_type || !row.item_id || !row.read_at) return;
+          next[`${row.item_type}_${row.item_id}`] = new Date(row.read_at).getTime();
+        });
+        localStorage.setItem('cm_dismissed_notifications', JSON.stringify(next));
+        return next;
+      });
+    });
+
     const channel = supabase
       .channel(`notification-center-${activeUser.id}`)
       .on(
@@ -254,24 +270,29 @@ export const useAppNotifications = ({
         },
         (payload) => {
           if (payload.new.status === 'PENDENTE') {
+            if (isDismissed('pagamento', payload.new.id)) return;
             const onClick = () => {
                 setActiveTab('CONTRACT_DETAILS');
                 setSelectedLoanId(payload.new.loan_id);
             };
+            const amount = Number(payload.new.amount || payload.new.valor || 0);
+            const message = amount > 0
+              ? `Cliente informou pagamento de ${formatMoney(amount)}. Revise o comprovante e dê baixa se estiver correto.`
+              : 'Cliente informou um pagamento pelo portal. Revise o comprovante e confirme a baixa.';
             notificationService.notify(
-              'Intenção de Pagamento Recebida!',
-              'Um cliente enviou uma intenção de pagamento.',
+              'Pagamento aguardando conferência',
+              message,
               onClick
             );
             addNotification({
-                title: 'Intenção de Pagamento Recebida!',
-                message: 'Um cliente enviou uma intenção de pagamento.',
+                title: 'Pagamento aguardando conferência',
+                message,
                 type: 'success',
                 item_type: 'pagamento',
                 item_id: payload.new.id,
                 metadata: { loan_id: payload.new.loan_id }
             });
-            showToast('Nova intenção de pagamento recebida!', 'success');
+            showToast('Novo pagamento aguardando conferência.', 'success');
           }
         }
       )
@@ -289,20 +310,24 @@ export const useAppNotifications = ({
           if (
             loan &&
             loanEngine.computeLoanStatus(loan) === 'OVERDUE' &&
-            !loan.activeAgreement
+            !loan.activeAgreement &&
+            !isDismissed('documento', loan.id)
           ) {
             const onClick = () => {
                 setActiveTab('LEGAL');
                 setSelectedLoanId(loan.id);
             };
+            const dueDate = payload.new.data_vencimento || payload.new.due_date || payload.new.dueDate;
+            const dueText = dueDate ? ` Vencimento: ${formatBRDate(dueDate)}.` : '';
+            const message = `${loan.debtorName} está em atraso e ainda não tem confissão de dívida assinada.${dueText}`;
             notificationService.notify(
-              'Ação Jurídica Necessária',
-              `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
+              'Ação jurídica pendente',
+              message,
               onClick
             );
             addNotification({
-                title: 'Ação Jurídica Necessária',
-                message: `Contrato de ${loan.debtorName} está VENCIDO e sem assinatura.`,
+                title: 'Ação jurídica pendente',
+                message,
                 type: 'warning',
                 item_type: 'documento',
                 item_id: loan.id,
@@ -402,19 +427,26 @@ export const useAppNotifications = ({
 
           // Notifica apenas no dia exato e uma única vez por sessão
           if (diff === 0 && !notifiedDueLoans.current.has(inst.id)) {
+            if (isDismissed('parcela', inst.id)) return;
             notifiedDueLoans.current.add(inst.id);
             const onClick = () => {
                 setActiveTab('CONTRACT_DETAILS');
                 setSelectedLoanId(loan.id);
             };
+            const openAmount =
+              Number(inst.principalRemaining || 0) +
+              Number(inst.interestRemaining || 0) +
+              Number(inst.lateFeeAccrued || 0);
+            const amountText = openAmount > 0 ? ` Valor em aberto: ${formatMoney(openAmount)}.` : '';
+            const message = `${loan.debtorName} tem parcela vencendo hoje (${formatBRDate(inst.dueDate)}).${amountText}`;
             notificationService.notify(
-              'Cobrança do Dia',
-              `O contrato de ${loan.debtorName} vence hoje. Fique atento!`,
+              'Parcela vence hoje',
+              message,
               onClick
             );
             addNotification({
-                title: 'Cobrança do Dia',
-                message: `O contrato de ${loan.debtorName} vence hoje. Fique atento!`,
+                title: 'Parcela vence hoje',
+                message,
                 type: 'info',
                 item_type: 'parcela',
                 item_id: inst.id,
@@ -431,22 +463,29 @@ export const useAppNotifications = ({
         // HARDENING: usa função isolada para evitar erro de HMR
         if (
           isLegallyActionable(loan) &&
+          loanEngine.computeLoanStatus(loan) === 'OVERDUE' &&
           !(loan as any).activeAgreement &&
-          !notifiedUnsignedLegal.current.has(loan.id)
+          !notifiedUnsignedLegal.current.has(loan.id) &&
+          !isDismissed('documento', loan.id)
         ) {
           notifiedUnsignedLegal.current.add(loan.id);
           const onClick = () => {
               setActiveTab('LEGAL');
               setSelectedLoanId(loan.id);
           };
+          const firstOverdue = (loan.installments || [])
+            .filter((inst: any) => getDaysDiff(inst.dueDate) > 0)
+            .sort((a: any, b: any) => getDaysDiff(b.dueDate) - getDaysDiff(a.dueDate))[0];
+          const dueText = firstOverdue?.dueDate ? ` Vencimento: ${formatBRDate(firstOverdue.dueDate)}.` : '';
+          const message = `${loan.debtorName} está vencido e ainda não tem confissão de dívida assinada.${dueText}`;
           notificationService.notify(
-            'Ação Jurídica Necessária',
-            `Contrato de ${loan.debtorName} está VENCIDO e sem confissão de dívida assinada.`,
+            'Ação jurídica pendente',
+            message,
             onClick
           );
           addNotification({
-              title: 'Ação Jurídica Necessária',
-              message: `Contrato de ${loan.debtorName} está VENCIDO e sem confissão de dívida assinada.`,
+              title: 'Ação jurídica pendente',
+              message,
               type: 'warning',
               item_type: 'documento',
               item_id: loan.id,
@@ -464,11 +503,9 @@ export const useAppNotifications = ({
       // Alerta apenas se cair abaixo de 50 reais (Extrema urgencia de caixa)
       if (balance < 50 && balance > -1000) {
         if (isDismissed('carteira', source.id)) return;
-
-        // Adiciona notificação in-app persistente
         addNotification({
-          title: 'Saldo Crítico',
-          message: `A fonte de capital "${source.name}" está com saldo muito baixo (${balance.toFixed(2)}).`,
+          title: 'Carteira com saldo crítico',
+          message: `${source.name || 'Carteira'} está com ${formatMoney(balance)} disponível. Evite novas saídas ou faça um aporte.`,
           type: 'error',
           isPersistent: true,
           item_type: 'carteira',

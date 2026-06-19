@@ -2,6 +2,7 @@
 import React, { memo } from 'react';
 import { Loan, Installment } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
+import { formatBRDate } from '../../../utils/dateHelpers';
 import { InstallmentViewModel } from './InstallmentGrid.logic';
 
 // Importação dos Componentes Atômicos
@@ -92,7 +93,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                         <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
-                            {displayDueDate ? new Date(displayDueDate).toLocaleDateString('pt-BR') : 'N/A'}
+                            {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
                         </p>
                         {!isPaid && debt.total > originalInst.amount && (
                             <>

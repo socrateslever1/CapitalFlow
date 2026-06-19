@@ -6,7 +6,7 @@ import { formatMoney } from '../../../utils/formatters';
 import { DocumentTemplates } from '../templates/DocumentTemplates';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { loanEngine } from '../../../domain/loanEngine';
-import { getDaysDiff } from '../../../utils/dateHelpers';
+import { formatBRDate, getDaysDiff, parseDateOnlyUTC } from '../../../utils/dateHelpers';
 import { isInstallmentOpen } from '../../../utils/loanStatus';
 
 interface NotificacaoCobrancaViewProps {
@@ -23,7 +23,7 @@ export const NotificacaoCobrancaView: React.FC<NotificacaoCobrancaViewProps> = (
     const getFirstOverdueInstallment = (loan: Loan) =>
         [...(loan.installments || [])]
             .filter(i => isInstallmentOpen(i) && getDaysDiff(i.dueDate) > 0)
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+            .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
 
     const handlePrintNotification = (loan: Loan) => {
         if (!activeUser) return;
@@ -53,12 +53,11 @@ export const NotificacaoCobrancaView: React.FC<NotificacaoCobrancaViewProps> = (
         if (!pending) return;
         const debt = calculateTotalDue(loan, pending);
         let text = "";
+        const dueDateText = formatBRDate(pending.dueDate);
 
-        if (type === 'AMIGAVEL') {
-            text = `Olá *${loan.debtorName}*, notamos uma pendência de ${formatMoney(debt.total)}. Podemos conversar sobre a regularização?`;
-        } else {
-            text = `⚠️ *NOTIFICAÇÃO EXTRAJUDICIAL*\n\nPrezado(a) *${loan.debtorName}*,\n\nInformamos que seu débito referente ao contrato ${loan.id.substring(0,8)} encontra-se em atraso crítico. Solicitamos contato imediato para evitar medidas jurídicas e negativação.`;
-        }
+        text = type === 'AMIGAVEL'
+            ? `Olá *${loan.debtorName}*, notamos uma pendência de ${formatMoney(debt.total)} vencida em ${dueDateText}. Podemos conversar sobre a regularização?`
+            : `⚠️ *NOTIFICAÇÃO EXTRAJUDICIAL*\n\nPrezado(a) *${loan.debtorName}*,\n\nInformamos que seu débito referente ao contrato ${loan.id.substring(0, 8)}, vencido em ${dueDateText}, encontra-se em atraso crítico. Solicitamos contato imediato para evitar medidas jurídicas e negativação.`;
 
         window.open(`https://wa.me/55${num}?text=${encodeURIComponent(text)}`, '_blank');
     };

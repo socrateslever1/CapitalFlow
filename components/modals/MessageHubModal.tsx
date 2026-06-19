@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2 } from 'lucide-react';
-import { Loan } from '../../types';
+import { Installment, Loan } from '../../types';
 import { Modal } from '../ui/Modal';
 import { calculateTotalDue } from '../../domain/finance/calculations';
-import { getDaysDiff } from '../../utils/dateHelpers';
+import { formatBRDate, getDaysDiff, parseDateOnlyUTC } from '../../utils/dateHelpers';
 import { useModal } from '../../contexts/ModalContext';
+import { isInstallmentOpen } from '../../utils/loanStatus';
 
 import { getOrCreatePortalLink } from '../../utils/portalLink';
 
@@ -19,29 +20,44 @@ const getGreeting = (): string => {
 
 export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?: any, onClose: () => void }) => {
     const [loading, setLoading] = useState(false);
-    const { showToast } = useModal();
+    const { showToast, loans } = useModal();
+
+    const currentLoan = useMemo(() => (
+        loans.find((item) => item.id === loan.id) || loan
+    ), [loans, loan]);
+
+    const getRelevantInstallment = (targetLoan: Loan): Installment | undefined => {
+        const openInstallments = [...(targetLoan.installments || [])]
+            .filter(isInstallmentOpen)
+            .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
+
+        if (!openInstallments.length) return undefined;
+
+        const overdue = openInstallments.filter((inst) => getDaysDiff(inst.dueDate) > 0);
+        if (overdue.length) return overdue[0];
+
+        return openInstallments[0];
+    };
 
     const handleSend = async (type: 'WELCOME' | 'REMINDER' | 'LATE' | 'PAID') => {
         setLoading(true);
         try {
-            const portalLink = await getOrCreatePortalLink(loan.id);
+            const freshLoan = loans.find((item) => item.id === loan.id) || currentLoan;
+            const portalLink = await getOrCreatePortalLink(freshLoan.id);
 
-            const firstName = (loan.debtorName || '').split(' ').filter(Boolean)[0] || 'Cliente';
+            const firstName = (freshLoan.debtorName || '').split(' ').filter(Boolean)[0] || 'Cliente';
             const greeting = getGreeting();
 
-            const pendingInst = loan.installments.find(i => i.status !== 'PAID');
+            const pendingInst = getRelevantInstallment(freshLoan);
 
             let dateContext = '';
             let amount = '0,00';
-            let daysLate = 0;
 
             if (pendingInst) {
-                const debt = calculateTotalDue(loan, pendingInst);
+                const debt = calculateTotalDue(freshLoan, pendingInst);
                 amount = debt.total.toFixed(2);
-                daysLate = debt.daysLate;
 
-                const dueDateObj = new Date(pendingInst.dueDate);
-                const dateStr = dueDateObj.toLocaleDateString('pt-BR');
+                const dateStr = formatBRDate(pendingInst.dueDate);
 
                 // Lógica de contexto temporal para a mensagem
                 const diff = getDaysDiff(pendingInst.dueDate); // >0 atrasado, 0 hoje, <0 futuro
@@ -80,7 +96,7 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                 case 'LATE':
                     // Mensagem de cobrança reativa
                     text =
-                      `*${greeting}, Sr(a). ${loan.debtorName}.*\n\n` +
+                      `*${greeting}, Sr(a). ${freshLoan.debtorName}.*\n\n` +
                       `⚠️ *AVISO DE COBRANÇA*\n` +
                       `Consta em nosso sistema uma pendência de *R$ ${amount}* com vencimento original no *${dateContext}*.\n` +
                       `Por favor, regularize sua situação através do link abaixo para evitar bloqueios e multas adicionais.` +
@@ -96,7 +112,7 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                     break;
             }
 
-            const cleanPhone = String(loan.debtorPhone || '').replace(/\D/g, '');
+            const cleanPhone = String(freshLoan.debtorPhone || '').replace(/\D/g, '');
             const waPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
 
             const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`;

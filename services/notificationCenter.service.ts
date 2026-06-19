@@ -32,6 +32,26 @@ export const notificationCenterService = {
     return data || [];
   },
 
+  async listRecentlyRead(profileId: string, sinceIso: string) {
+    if (!profileId || profileId === 'DEMO') return [];
+
+    const { data, error } = await supabase
+      .from('notificacoes')
+      .select('id,item_type,item_id,read_at')
+      .eq('profile_id', profileId)
+      .not('read_at', 'is', null)
+      .gte('read_at', sinceIso)
+      .order('read_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.warn('[NotificationCenter] Falha ao listar notificacoes lidas recentes:', error.message);
+      return [];
+    }
+
+    return data || [];
+  },
+
   async create(input: PersistedNotificationInput) {
     if (!input.profileId || input.profileId === 'DEMO') return null;
 

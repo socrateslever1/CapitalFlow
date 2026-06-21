@@ -10,6 +10,7 @@ import { legalService } from "../../legal/services/legalService";
 import { safeUUID } from "../../../utils/uuid";
 import { supabase } from "../../../lib/supabase";
 import { addCapitalOnlyRecoveryMarker } from "../../../utils/capitalOnlyRecovery";
+import { computeLoanRemainingBalance } from "../../../domain/finance/calculations";
 
 interface RenegotiationModalProps {
     loans: Loan[];
@@ -61,6 +62,21 @@ const buildContractBaseFromLoan = (loan: Loan, activeUser: any) => {
     };
 };
 
+const buildRenegotiationDebtSnapshot = (loans: Loan[]) => {
+    return (loans || []).reduce(
+        (acc, loan) => {
+            const balance = computeLoanRemainingBalance(loan);
+            return {
+                totalDebt: acc.totalDebt + balance.totalRemaining,
+                principalDebt: acc.principalDebt + balance.principalRemaining,
+                interestDebt: acc.interestDebt + balance.interestRemaining,
+                lateFeeDebt: acc.lateFeeDebt + balance.lateFeeRemaining,
+            };
+        },
+        { totalDebt: 0, principalDebt: 0, interestDebt: 0, lateFeeDebt: 0 }
+    );
+};
+
 export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, activeUser, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
     const [flowMode, setFlowMode] = useState<'INSTALLMENT_AGREEMENT' | 'NORMAL_UNIFICATION' | 'CAPITAL_ONLY_OPEN'>('INSTALLMENT_AGREEMENT');
@@ -88,10 +104,9 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
     useEffect(() => {
         if (!loans || loans.length === 0) return;
-        const debt = loans.reduce((total, loan) => total + (loan.installments || []).reduce((acc, i) => acc + (i.principalRemaining + i.interestRemaining + (i.lateFeeAccrued || 0)), 0), 0);
-        const principal = loans.reduce((total, loan) => total + (loan.installments || []).reduce((acc, i) => acc + (Number(i.principalRemaining) || 0), 0), 0);
-        setTotalDebt(debt);
-        setPrincipalDebt(principal);
+        const snapshot = buildRenegotiationDebtSnapshot(loans);
+        setTotalDebt(Number(snapshot.totalDebt.toFixed(2)));
+        setPrincipalDebt(Number(snapshot.principalDebt.toFixed(2)));
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         try {
@@ -124,6 +139,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         if ((!simulation && flowMode === 'INSTALLMENT_AGREEMENT') || !loans.length) return;
         setIsSaving(true);
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
+        const currentDebtSnapshot = buildRenegotiationDebtSnapshot(loans);
 
         try {
             if (flowMode === 'CAPITAL_ONLY_OPEN') {
@@ -222,11 +238,8 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     return !['PAID', 'PAGO', 'QUITADO', 'RENEGOCIADO'].includes(status) && open > 0.05;
                 }) || mainLoan.installments?.[0];
 
-                const totalUnified = loans.reduce((total, loan) => total + (loan.installments || []).reduce((acc, inst) => {
-                    const status = String(inst.status || '').toUpperCase();
-                    if (['PAID', 'PAGO', 'QUITADO', 'RENEGOCIADO'].includes(status)) return acc;
-                    return acc + Number(inst.principalRemaining || 0) + Number(inst.interestRemaining || 0) + Number(inst.lateFeeAccrued || 0);
-                }, 0), 0);
+                const snapshot = buildRenegotiationDebtSnapshot(loans);
+                const totalUnified = Number(snapshot.totalDebt.toFixed(2));
 
                 await supabase.from('contratos').update({
                     principal: totalUnified,
@@ -283,10 +296,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
             const commonAgreementData = {
                 type: finalType,
-                totalDebtAtNegotiation: totalDebt,
+                totalDebtAtNegotiation: Number(currentDebtSnapshot.totalDebt.toFixed(2)),
                 negotiatedTotal: simulation.negotiatedTotal,
                 interestRate: finalType === 'PARCELADO_COM_JUROS' ? (Number(interestRate) || 0) : 0,
-                principal_base: principalDebt,
+                principal_base: Number(currentDebtSnapshot.principalDebt.toFixed(2)),
+                interest_base: Number(currentDebtSnapshot.interestDebt.toFixed(2)),
+                late_fee_base: Number(currentDebtSnapshot.lateFeeDebt.toFixed(2)),
                 installmentsCount: simulation.installments.length,
                 frequency,
                 startDate: new Date().toISOString(),

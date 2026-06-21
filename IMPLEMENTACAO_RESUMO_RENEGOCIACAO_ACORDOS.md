@@ -1,5 +1,12 @@
 ﻿# Implementacoes - RENEGOCIACAO ACORDOS
 
+## 2026-06-20
+- **Objetivo:** Corrigir a renegociacao normal/parcelada para usar a divida total atualizada, com todos os meses vencidos e atrasos recalculados ate hoje, antes de dividir pelas parcelas definidas.
+- **Arquivos Alterados:**
+    - `/features/agreements/components/RenegotiationModal.tsx`: A base da renegociacao deixou de somar apenas `principalRemaining + interestRemaining + lateFeeAccrued` salvo na parcela e passou a usar `computeLoanRemainingBalance`, que recalcula cada parcela pelo motor financeiro (`calculateTotalDue`). A simulacao, a unificacao normal e os campos de auditoria do acordo agora usam principal, juros e multa/mora recalculados.
+- **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-build --emptyOutDir` executado com sucesso.
+- **Escopo:** Ajuste limitado a base de calculo da renegociacao/unificacao; sem alteracao no motor financeiro central.
+
 ## 2026-06-07
 - **Objetivo:** Ajustar renegociacao/unificacao e criar estado operacional `Somente Capital` para recuperar apenas principal, sem juros e sem novo credito ao cliente marcado.
 - **Arquivos Alterados:**
@@ -178,4 +185,3 @@
 - **Validacao:** `npm run build` executado com sucesso. Permanecem apenas avisos antigos de chunk/import dinamico do Vite.
 - **Riscos/Observacoes:** A edicao de acordo altera somente calendario das parcelas em aberto; nao altera valores pagos nem recibos. Para emprestimo parcelado normal, o clique neutro agora leva ao contrato, onde o fluxo de recebimento total/outro valor ja existe.
 - **Escopo:** Funcionalidade de acordo ativo, comportamento de navegacao e clique de cards; sem alteracao visual estrutural.
-

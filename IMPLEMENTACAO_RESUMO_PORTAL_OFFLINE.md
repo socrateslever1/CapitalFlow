@@ -1,5 +1,16 @@
 ﻿# Implementacoes - PORTAL OFFLINE
 
+## 2026-06-28 - Reforco Offline do App
+- **Objetivo:** Corrigir o manifesto PWA e restaurar o comportamento offline robusto do app principal, nao apenas do portal.
+- **Arquivos Alterados:**
+    - `/public/service-worker.js`: Cache atualizado para `capitalflow-v5`; instalacao passou a cachear o app shell e tambem os assets gerados pelo Vite encontrados no `index.html`, deixando o app utilizavel offline apos a primeira carga online. A mensagem padrao de push foi corrigida para portugues com acentos.
+    - `/public/manifest.json`: Corrigidos textos com acentuacao quebrada e mantidos icones locais para funcionamento offline.
+    - `/manifest.json`: Alinhado ao manifesto publico, com textos em portugues e icones locais.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx vite build --outDir C:\tmp\capitalflow-offline-build --emptyOutDir` executado com sucesso. Teste pratico em Chrome headless confirmou service worker ativo, cache `capitalflow-v5`, `index.html`, `manifest.json`, 4 assets do build cacheados e rota `/clientes` abrindo sem rede.
+- **Riscos/Observacoes:** O modo offline depende de uma primeira carga online em producao para instalar o service worker e preencher cache/dados locais. No ambiente de desenvolvimento, o app remove service workers por seguranca contra cache antigo.
+- **Escopo:** Ajuste limitado a PWA/offline e manifesto; sem alteracao de regra financeira, UI de telas ou sincronizacao de negocio.
+
 ## 2026-06-07
 - **Objetivo:** Verificar o Portal do Cliente apos as mudancas de renegociacao/Somente Capital e ajustar quadros excessivamente arredondados.
 - **Arquivos Alterados:**

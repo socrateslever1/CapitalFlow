@@ -1,10 +1,51 @@
-const CACHE_NAME = 'capitalflow-v4';
+const CACHE_NAME = 'capitalflow-v5';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
+const isCacheableAsset = (href) => {
+  try {
+    const url = new URL(href, self.location.origin);
+    if (url.origin !== self.location.origin) return false;
+    return (
+      url.pathname.startsWith('/assets/') ||
+      url.pathname.startsWith('/images/') ||
+      /\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/i.test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const extractAssetUrls = (html) => {
+  const urls = new Set();
+  const attrRegex = /\b(?:src|href)=["']([^"']+)["']/gi;
+  let match;
+
+  while ((match = attrRegex.exec(html))) {
+    if (isCacheableAsset(match[1])) {
+      urls.add(new URL(match[1], self.location.origin).pathname);
+    }
+  }
+
+  return Array.from(urls);
+};
+
+const cacheAppShell = async () => {
+  const cache = await caches.open(CACHE_NAME);
+  await cache.addAll(APP_SHELL);
+
+  const indexResponse = await fetch('/index.html', { cache: 'reload' });
+  if (!indexResponse.ok) return;
+
+  const indexCopy = indexResponse.clone();
+  await cache.put('/index.html', indexCopy);
+
+  const html = await indexResponse.text();
+  const assetUrls = extractAssetUrls(html);
+  await Promise.allSettled(assetUrls.map((url) => cache.add(url)));
+};
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
-  );
+  event.waitUntil(cacheAppShell());
   self.skipWaiting();
 });
 
@@ -59,7 +100,7 @@ self.addEventListener('fetch', (event) => {
         const copy = res.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
         return res;
-      });
+      }).catch(() => caches.match('/index.html'));
     })
   );
 });
@@ -73,7 +114,7 @@ self.addEventListener('push', (event) => {
   }
   const title = data.title || 'CapitalFlow';
   const options = {
-    body: data.body || 'Voce tem uma nova atualizacao no sistema.',
+    body: data.body || 'Você tem uma nova atualização no sistema.',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     vibrate: [100, 50, 100],

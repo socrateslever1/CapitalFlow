@@ -1,5 +1,14 @@
 ﻿# Implementacoes - RECEBIMENTOS COMPROVANTES
 
+## 2026-06-27 - Normalizacao do Comprovante
+- **Objetivo:** Remover a duplicidade de opcoes de PDF no modal de comprovante e normalizar o fluxo em tres acoes claras: texto, imagem e PDF.
+- **Arquivos Alterados:**
+    - `/components/modals/ReceiptModal.tsx`: O seletor do comprovante passou a exibir apenas `Texto`, `Imagem` e `PDF`, com um unico botao principal. O envio por texto abre o WhatsApp com a mensagem pronta. A imagem tenta usar o compartilhamento nativo do aparelho; quando o navegador nao permite compartilhar imagem, o sistema gera PDF automaticamente. O PDF e compartilhado quando o navegador suporta arquivo ou baixado localmente; se a geracao falhar, a impressao abre como fallback para salvar em PDF. Textos e acentos visiveis do comprovante foram revisados em portugues.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx tsc --noEmit --pretty false` executado com sucesso.
+- **Riscos/Observacoes:** Navegadores desktop geralmente nao permitem anexar automaticamente arquivo em conversa do WhatsApp por link. Por isso, arquivos sao compartilhados via Web Share API quando disponivel ou baixados para anexo manual.
+- **Escopo:** Alteracao limitada ao modal de comprovante e ao resumo da categoria de recebimentos/comprovantes.
+
 ## 2026-06-14 - Quitacao com Perdao Total de Encargos
 - **Objetivo:** Corrigir pagamento em atraso com perdao total de juros/encargos para que, ao receber o capital aberto, a parcela/contrato nao fique com saldo residual indevido.
 - **Arquivos Alterados:**

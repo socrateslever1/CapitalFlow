@@ -66,6 +66,22 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     handleConfirm
 }) => {
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
+    const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesMora = forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+
+    const toggleFineForgiveness = () => {
+        if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('NONE');
+        else if (forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('BOTH');
+        else if (forgivenessMode === 'BOTH') setForgivenessMode('INTEREST_ONLY');
+        else setForgivenessMode('FINE_ONLY');
+    };
+
+    const toggleMoraForgiveness = () => {
+        if (forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
+        else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('BOTH');
+        else if (forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
+        else setForgivenessMode('INTEREST_ONLY');
+    };
 
     if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') {
         return (
@@ -163,9 +179,9 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <button
-                            onClick={() => setForgivenessMode(forgivenessMode === 'FINE_ONLY' ? 'NONE' : 'FINE_ONLY')}
+                            onClick={toggleFineForgiveness}
                             className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
-                                forgivenessMode === 'FINE_ONLY'
+                                forgivesFine && forgivenessMode !== 'TOTAL_CHARGES'
                                     ? 'bg-rose-600 border-rose-500 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-500'
                             }`}
@@ -173,9 +189,9 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             Perdoar Multa
                         </button>
                         <button
-                            onClick={() => setForgivenessMode(forgivenessMode === 'INTEREST_ONLY' ? 'NONE' : 'INTEREST_ONLY')}
+                            onClick={toggleMoraForgiveness}
                             className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
-                                forgivenessMode === 'INTEREST_ONLY'
+                                forgivesMora && forgivenessMode !== 'TOTAL_CHARGES'
                                     ? 'bg-orange-600 border-orange-500 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-500'
                             }`}
@@ -183,14 +199,14 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             Perdoar Mora
                         </button>
                         <button
-                            onClick={() => setForgivenessMode(forgivenessMode === 'BOTH' ? 'NONE' : 'BOTH')}
+                            onClick={() => setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES')}
                             className={`col-span-2 p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
-                                forgivenessMode === 'BOTH'
+                                forgivenessMode === 'TOTAL_CHARGES'
                                     ? 'bg-emerald-600 border-emerald-500 text-white'
                                     : 'bg-slate-900 border-slate-800 text-slate-500'
                             }`}
                         >
-                            Perdoar Total (100% Encargos)
+                            Perdoar 100% dos Encargos
                         </button>
                     </div>
                 </div>

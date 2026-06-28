@@ -15,7 +15,7 @@ interface UsePaymentManagerProps {
     setAvAmount: (v: string) => void;
 }
 
-export type ForgivenessMode = 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'CAPITAL_ONLY';
+export type ForgivenessMode = 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY';
 
 export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAmount, setAvAmount }: UsePaymentManagerProps) => {
     const [customAmount, setCustomAmount] = useState('');
@@ -46,7 +46,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         }
 
         // Aplica perdão visual se selecionado
-        if (forgivenessMode === 'CAPITAL_ONLY') {
+        if (forgivenessMode === 'CAPITAL_ONLY' || forgivenessMode === 'TOTAL_CHARGES') {
             freshCalc.interest = 0;
             finalFine = 0;
             finalMora = 0;

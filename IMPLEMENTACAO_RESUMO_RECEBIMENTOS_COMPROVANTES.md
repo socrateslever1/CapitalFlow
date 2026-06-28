@@ -1,5 +1,19 @@
 ﻿# Implementacoes - RECEBIMENTOS COMPROVANTES
 
+## 2026-06-28 - Perdao Combinado de Encargos
+- **Objetivo:** Permitir selecionar perdão de multa e mora juntos, sem confundir essa combinação com o perdão total de encargos.
+- **Arquivos Alterados:**
+    - `/domain/finance/calculations.ts`: Adicionado o modo `TOTAL_CHARGES`. O modo `BOTH` passou a representar apenas multa + mora, enquanto `TOTAL_CHARGES` zera multa, mora e juros remuneratórios/práxis.
+    - `/domain/loanEngine.ts`: Atualizada a assinatura do motor para aceitar `TOTAL_CHARGES`.
+    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: Ajustado o cálculo visual para separar multa+mora de perdão total dos encargos.
+    - `/components/modals/PaymentManagerModal.tsx`: Botões de `Perdoar Multa` e `Perdoar Mora` agora combinam entre si; o botão verde passou a ser `Perdoar 100% dos Encargos`.
+    - `/pages/ContractDetails/PaymentRegistrationForm.tsx`: Aplicada a mesma regra de combinação no formulário de recebimento da página de detalhes.
+    - `/hooks/controllers/usePaymentController.ts` e `/services/payments.service.ts`: Atualizado o fluxo de persistência para aceitar `TOTAL_CHARGES`, não realocar encargos perdoados e zerar juros/multa/mora no banco quando o perdão total for usado.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx tsc --noEmit --pretty false`, teste lógico com `npx tsx -e` e `npx vite build --outDir C:\tmp\capitalflow-payment-build --emptyOutDir` executados com sucesso.
+- **Riscos/Observacoes:** Recebimento com `Perdoar 100% dos Encargos` exige internet, pois precisa zerar juros e encargos diretamente no banco com segurança. Perdão parcial de multa/mora segue disponível no fluxo normal.
+- **Escopo:** Alteração limitada à regra de perdão de encargos no recebimento e às telas onde essa escolha aparece.
+
 ## 2026-06-27 - Normalizacao do Comprovante
 - **Objetivo:** Remover a duplicidade de opcoes de PDF no modal de comprovante e normalizar o fluxo em tres acoes claras: texto, imagem e PDF.
 - **Arquivos Alterados:**

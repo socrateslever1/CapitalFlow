@@ -12,7 +12,7 @@ const AGREEMENT_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO"
 const LOAN_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO", "ARQUIVADO"]);
 export const ZERO_BALANCE_THRESHOLD = 0.5; // Ignora resíduos abaixo de 50 centavos
 
-export type ForgivenessMode = "NONE" | "FINE_ONLY" | "INTEREST_ONLY" | "BOTH" | "CAPITAL_ONLY";
+export type ForgivenessMode = "NONE" | "FINE_ONLY" | "INTEREST_ONLY" | "BOTH" | "TOTAL_CHARGES" | "CAPITAL_ONLY";
 
 export interface RemainingBalance {
   totalRemaining: number;
@@ -234,7 +234,9 @@ export const resolveForgivenLateFee = (
   let forgivenLateFee = 0;
   if (forgivenessMode === "FINE_ONLY") forgivenLateFee = finePart;
   if (forgivenessMode === "INTEREST_ONLY") forgivenLateFee = moraPart;
-  if (forgivenessMode === "BOTH" || forgivenessMode === "CAPITAL_ONLY") forgivenLateFee = round(finePart + moraPart);
+  if (forgivenessMode === "BOTH" || forgivenessMode === "TOTAL_CHARGES" || forgivenessMode === "CAPITAL_ONLY") {
+    forgivenLateFee = round(finePart + moraPart);
+  }
 
   return {
     forgivenLateFee: round(Math.min(Number(calc.lateFee || 0), forgivenLateFee)),
@@ -252,8 +254,9 @@ export const resolveInstallmentPaymentBuckets = (
   const { forgivenLateFee, finePart, moraPart } = resolveForgivenLateFee(calc, forgivenessMode);
 
   const principal = round(Number(calc.principal || 0));
-  const interest = forgivenessMode === "CAPITAL_ONLY" ? 0 : round(Number(calc.interest || 0));
-  const lateFee = forgivenessMode === "CAPITAL_ONLY" ? 0 : round(Math.max(0, Number(calc.lateFee || 0) - forgivenLateFee));
+  const forgivesAllCharges = forgivenessMode === "CAPITAL_ONLY" || forgivenessMode === "TOTAL_CHARGES";
+  const interest = forgivesAllCharges ? 0 : round(Number(calc.interest || 0));
+  const lateFee = forgivesAllCharges ? 0 : round(Math.max(0, Number(calc.lateFee || 0) - forgivenLateFee));
   const total = round(principal + interest + lateFee);
 
   return {

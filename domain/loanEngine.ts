@@ -131,7 +131,7 @@ const engine = {
     amount: number,
     loan: Loan,
     installment: any,
-    forgivenessMode: 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'CAPITAL_ONLY' = 'NONE'
+    forgivenessMode: 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' = 'NONE'
   ): InstallmentPaymentPlan {
     return calculateInstallmentPaymentPlan({
       loan,

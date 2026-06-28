@@ -2,6 +2,7 @@
 import { Loan, Installment, LoanPolicy } from "../../../../types";
 import { getDaysDiff } from "../../../../utils/dateHelpers";
 import { CalculationResult } from "../types";
+import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
@@ -17,8 +18,8 @@ export const calculateDailyFixedTerm = (loan: Loan, inst: Installment, policy: L
     const baseForFine = round(principalRem + interestRem);
 
     if (daysLate > 0 && baseForFine > 0) {
-        // Multa Fixa apenas sobre o saldo devedor
-        const fineFixed = baseForFine * (policy.finePercent / 100);
+        // Multa fixa recorrente: aplica ao atrasar e reaplica a cada 30 dias.
+        const fineFixed = calculateRecurringMonthlyFine(baseForFine, policy.finePercent, daysLate);
         
         // Juros de Mora Diária (após o fim do prazo)
         const fineDaily = baseForFine * (policy.dailyInterestPercent / 100) * daysLate;

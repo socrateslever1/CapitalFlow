@@ -83,22 +83,22 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     // Tem multa ou mora original para perdoar?
     const hasOriginalFine = (Number(calculations.lateFee) || 0) > 0 || debtBreakdown.fine > 0 || debtBreakdown.dailyMora > 0;
     const hasChargesToForgive = !isCapitalOnlyRecovery && ((Number(calculations.interest) || 0) > 0 || debtBreakdown.interest > 0 || hasOriginalFine);
-    const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
-    const forgivesMora = forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesMora = forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
     const forgivesInterest = forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
 
     const toggleFineForgiveness = () => {
         if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('NONE');
-        else if (forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('BOTH');
-        else if (forgivenessMode === 'BOTH') setForgivenessMode('INTEREST_ONLY');
+        else if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('FINE_AND_MORA');
+        else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('MORA_ONLY');
         else setForgivenessMode('FINE_ONLY');
     };
 
     const toggleMoraForgiveness = () => {
-        if (forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
-        else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('BOTH');
-        else if (forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
-        else setForgivenessMode('INTEREST_ONLY');
+        if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
+        else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('FINE_AND_MORA');
+        else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
+        else setForgivenessMode('MORA_ONLY');
     };
 
     return (

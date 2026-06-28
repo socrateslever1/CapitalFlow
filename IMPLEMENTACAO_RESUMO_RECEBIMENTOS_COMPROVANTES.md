@@ -1,5 +1,19 @@
 ﻿# Implementacoes - RECEBIMENTOS COMPROVANTES
 
+## 2026-06-28 - Multa Recorrente e Juros Preservado
+- **Objetivo:** Corrigir a regra de perdão para preservar o juros/lucro de 30% quando o operador perdoa apenas multa e/ou mora, e aplicar multa fixa recorrente de 2% a cada mês de atraso.
+- **Arquivos Alterados:**
+    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: Corrigido o modo combinado de multa+mora para não zerar `interest`; somente `TOTAL_CHARGES` e `CAPITAL_ONLY` zeram juros.
+    - `/components/modals/PaymentManagerModal.tsx` e `/pages/ContractDetails/PaymentRegistrationForm.tsx`: Botões passaram a usar modos explícitos `MORA_ONLY` e `FINE_AND_MORA`, evitando confusão entre mora e juros/lucro.
+    - `/domain/finance/calculations.ts`, `/domain/loanEngine.ts`, `/hooks/controllers/usePaymentController.ts` e `/services/payments.service.ts`: Tipos e cálculo de perdão atualizados para aceitar os modos explícitos mantendo compatibilidade com nomes antigos.
+    - `/domain/finance/lateFeePolicy.ts`: Novo helper central para calcular multa fixa recorrente por blocos de 30 dias de atraso.
+    - `/domain/finance/modalities/monthly/monthly.calculations.ts`, `/domain/finance/modalities/daily30/daily30.calculations.ts`, `/domain/finance/modalities/dailyFixed/dailyFixed.calculations.ts`, `/domain/finance/modalities/dailyFixedTerm/calculations.ts`, `/domain/finance/modality/giro.calculations.ts` e `/domain/finance/modality/diarioB.calculations.ts`: Multa fixa passou a ser aplicada ao atrasar e reaplicada a cada 30 dias.
+- **Arquivos Criados:**
+    - `/domain/finance/lateFeePolicy.ts`
+- **Validacao:** Teste lógico com `npx tsx -e` confirmou que multa+mora mantém o juros de 30% e que apenas `TOTAL_CHARGES` deixa somente capital; `npx tsc --noEmit --pretty false` e `npx vite build --outDir C:\tmp\capitalflow-payment-forgiveness-build --emptyOutDir` executados com sucesso.
+- **Riscos/Observacoes:** A multa recorrente usa blocos de 30 dias: 1-30 dias = 1 multa, 31-60 = 2 multas, 61-90 = 3 multas. A mora diária continua separada.
+- **Escopo:** Alteração limitada ao cálculo de multa/mora/juros no recebimento e às telas de seleção de perdão.
+
 ## 2026-06-28 - Perdao Combinado de Encargos
 - **Objetivo:** Permitir selecionar perdão de multa e mora juntos, sem confundir essa combinação com o perdão total de encargos.
 - **Arquivos Alterados:**
@@ -13,6 +27,11 @@
 - **Validacao:** `npx tsc --noEmit --pretty false`, teste lógico com `npx tsx -e` e `npx vite build --outDir C:\tmp\capitalflow-payment-build --emptyOutDir` executados com sucesso.
 - **Riscos/Observacoes:** Recebimento com `Perdoar 100% dos Encargos` exige internet, pois precisa zerar juros e encargos diretamente no banco com segurança. Perdão parcial de multa/mora segue disponível no fluxo normal.
 - **Escopo:** Alteração limitada à regra de perdão de encargos no recebimento e às telas onde essa escolha aparece.
+
+### Ajuste Posterior - Juros/Práxis Preservado
+- **Problema Corrigido:** A combinação de `Perdoar Multa` + `Perdoar Mora` ainda estava zerando visualmente o juros/lucro do ciclo por causa do modo interno ambíguo `BOTH`.
+- **Correção:** Criados modos explícitos `MORA_ONLY` e `FINE_AND_MORA`; `FINE_AND_MORA` perdoa somente multa e mora, mantendo o juros de 30%/práxis. Apenas `TOTAL_CHARGES` ou `CAPITAL_ONLY` zera também o juros e recebe só o capital.
+- **Validacao:** Teste lógico com contrato de R$ 1.000 a 30% confirmou: `FINE_AND_MORA` mantém total em R$ 1.300, enquanto `TOTAL_CHARGES` reduz para R$ 1.000; `npx tsc --noEmit --pretty false` e build Vite executados com sucesso.
 
 ## 2026-06-27 - Normalizacao do Comprovante
 - **Objetivo:** Remover a duplicidade de opcoes de PDF no modal de comprovante e normalizar o fluxo em tres acoes claras: texto, imagem e PDF.

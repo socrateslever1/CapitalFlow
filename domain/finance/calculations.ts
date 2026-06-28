@@ -12,7 +12,15 @@ const AGREEMENT_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO"
 const LOAN_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO", "ARQUIVADO"]);
 export const ZERO_BALANCE_THRESHOLD = 0.5; // Ignora resíduos abaixo de 50 centavos
 
-export type ForgivenessMode = "NONE" | "FINE_ONLY" | "INTEREST_ONLY" | "BOTH" | "TOTAL_CHARGES" | "CAPITAL_ONLY";
+export type ForgivenessMode =
+  | "NONE"
+  | "FINE_ONLY"
+  | "MORA_ONLY"
+  | "FINE_AND_MORA"
+  | "TOTAL_CHARGES"
+  | "CAPITAL_ONLY"
+  | "INTEREST_ONLY"
+  | "BOTH";
 
 export interface RemainingBalance {
   totalRemaining: number;
@@ -233,8 +241,13 @@ export const resolveForgivenLateFee = (
 
   let forgivenLateFee = 0;
   if (forgivenessMode === "FINE_ONLY") forgivenLateFee = finePart;
-  if (forgivenessMode === "INTEREST_ONLY") forgivenLateFee = moraPart;
-  if (forgivenessMode === "BOTH" || forgivenessMode === "TOTAL_CHARGES" || forgivenessMode === "CAPITAL_ONLY") {
+  if (forgivenessMode === "MORA_ONLY" || forgivenessMode === "INTEREST_ONLY") forgivenLateFee = moraPart;
+  if (
+    forgivenessMode === "FINE_AND_MORA" ||
+    forgivenessMode === "BOTH" ||
+    forgivenessMode === "TOTAL_CHARGES" ||
+    forgivenessMode === "CAPITAL_ONLY"
+  ) {
     forgivenLateFee = round(finePart + moraPart);
   }
 

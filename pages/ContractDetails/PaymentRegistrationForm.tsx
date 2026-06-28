@@ -66,21 +66,21 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     handleConfirm
 }) => {
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
-    const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
-    const forgivesMora = forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesMora = forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
 
     const toggleFineForgiveness = () => {
         if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('NONE');
-        else if (forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('BOTH');
-        else if (forgivenessMode === 'BOTH') setForgivenessMode('INTEREST_ONLY');
+        else if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('FINE_AND_MORA');
+        else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('MORA_ONLY');
         else setForgivenessMode('FINE_ONLY');
     };
 
     const toggleMoraForgiveness = () => {
-        if (forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
-        else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('BOTH');
-        else if (forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
-        else setForgivenessMode('INTEREST_ONLY');
+        if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
+        else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('FINE_AND_MORA');
+        else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
+        else setForgivenessMode('MORA_ONLY');
     };
 
     if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') {

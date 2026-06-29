@@ -235,7 +235,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 const firstOpenInstallment = (mainLoan.installments || []).find((inst) => {
                     const status = String(inst.status || '').toUpperCase();
                     const open = (Number(inst.principalRemaining) || 0) + (Number(inst.interestRemaining) || 0) + (Number(inst.lateFeeAccrued) || 0);
-                    return !['PAID', 'PAGO', 'QUITADO', 'RENEGOCIADO'].includes(status) && open > 0.05;
+                    return !['RENEGOCIADO', 'CANCELADO'].includes(status) && open > 0.05;
                 }) || mainLoan.installments?.[0];
 
                 const snapshot = buildRenegotiationDebtSnapshot(loans);

@@ -121,14 +121,7 @@ async function revalidateLoanOpenBalance(loanId: string) {
     const lateFee = Math.max(0, Number(row.late_fee_accrued || 0));
     const total = roundMoney(principal + interest + lateFee);
 
-    if (
-      status === 'PAID' ||
-      status === 'PAGO' ||
-      status === 'QUITADO' ||
-      status === 'QUITADA' ||
-      status === 'FINALIZADO' ||
-      total <= ZERO_BALANCE_THRESHOLD
-    ) {
+    if (total <= ZERO_BALANCE_THRESHOLD) {
       continue;
     }
 
@@ -163,7 +156,7 @@ async function applyPrincipalOverpaymentToLastInstallments(params: {
     .select('id,numero_parcela,principal_remaining,paid_total,status')
     .eq('loan_id', params.loanId)
     .neq('id', params.excludeInstallmentId)
-    .not('status', 'in', '("PAID","PAGO","QUITADO","RENEGOCIADO","CANCELADO")')
+    .not('status', 'in', '("RENEGOCIADO","CANCELADO")')
     .order('numero_parcela', { ascending: false });
 
   if (error) throw new Error('Falha ao buscar parcela final para abatimento: ' + error.message);
@@ -346,7 +339,7 @@ export const paymentsService = {
       Number(instDb?.interest_remaining || 0) +
       Number(instDb?.late_fee_accrued || 0);
 
-    if (!isOffline && (statusDb === 'PAID' || remainingDb <= ZERO_BALANCE_THRESHOLD)) {
+    if (!isOffline && remainingDb <= ZERO_BALANCE_THRESHOLD) {
       throw new Error('Parcela já quitada (revalidado no banco). Atualize a tela.');
     }
 

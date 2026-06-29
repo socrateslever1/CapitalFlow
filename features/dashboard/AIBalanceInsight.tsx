@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrainCircuit, Loader2, ShieldAlert, Sparkles, RefreshCw, Target, Gauge } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile } from '../../types';
 import { processNaturalLanguageCommand, AIResponse } from '../../services/geminiService';
+import { loanEngine } from '../../domain/loanEngine';
 
 export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[], activeUser: UserProfile | null }> = ({ loans, sources, activeUser }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -20,24 +21,19 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                 type: 'OPERATOR_AUDIT',
                 isDemo: activeUser?.id === 'DEMO',
                 totalLent: loans.reduce((acc, l) => {
-                    const statusStr = String(l.status || '').toUpperCase().trim();
-                    if (l.isArchived || ['QUITADO', 'PAGO', 'FINALIZADO', 'PAID'].includes(statusStr)) return acc;
+                    const balance = loanEngine.computeRemainingBalance(l);
+                    if (l.isArchived || balance.totalRemaining <= 0.5) return acc;
                     const notes = String(l.notes || '');
                     const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
                     if (isUnified) return acc;
-                    
-                    const principalRemaining = (l.installments || []).reduce((sum, inst) => {
-                        const status = String(inst.status || '').toUpperCase().trim();
-                        if (status === 'RENEGOCIADO' || status === 'CANCELADO' || status === 'PAID' || status === 'PAGO' || status === 'QUITADO') return sum;
-                        return sum + Math.max(0, Number(inst.principalRemaining || 0));
-                    }, 0);
-                    return acc + principalRemaining;
+
+                    return acc + balance.principalRemaining;
                 }, 0),
                 interestBalance: interestBalance,
                 lateCount: loans.filter(l => {
                     if (l.isArchived) return false;
                     const status = String(l.status || '').toUpperCase().trim();
-                    if (['PAID', 'PAGO', 'QUITADO', 'FINALIZADO'].includes(status)) return false;
+                    if (loanEngine.computeRemainingBalance(l).totalRemaining <= 0.5) return false;
                     const notes = String(l.notes || '');
                     const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
                     if (isUnified) return false;

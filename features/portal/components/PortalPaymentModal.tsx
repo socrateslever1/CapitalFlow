@@ -22,22 +22,23 @@ const normalizeStatus = (v: any) => String(v ?? '').trim().toUpperCase();
 
 const isLoanClosed = (loan: any) => {
   const s = normalizeStatus(loan?.status);
-  return ['ENCERRADO', 'PAID', 'PAGO', 'QUITADO', 'CLOSED', 'FINALIZADO'].includes(s);
+  const open = (loan?.installments || []).reduce((sum: number, inst: any) => {
+    return sum +
+      Number(inst?.principalRemaining ?? inst?.principal_remaining ?? 0) +
+      Number(inst?.interestRemaining ?? inst?.interest_remaining ?? 0) +
+      Number(inst?.lateFeeAccrued ?? inst?.late_fee_accrued ?? 0);
+  }, 0);
+  return ['ENCERRADO', 'PAID', 'PAGO', 'QUITADO', 'CLOSED', 'FINALIZADO'].includes(s) && open <= 0.05;
 };
 
 const isInstallmentPaid = (inst: any) => {
-  const s = normalizeStatus(inst?.status);
-
-  // 1) status (se vier certo)
-  if (['PAID', 'PAGO', 'QUITADO'].includes(s)) return true;
-
-  // 2) fallback real (fonte de verdade): remaining zerado
   const principalRem = Number(inst?.principalRemaining ?? inst?.principal_remaining ?? 0);
   const interestRem = Number(inst?.interestRemaining ?? inst?.interest_remaining ?? 0);
+  const lateFeeRem = Number(inst?.lateFeeAccrued ?? inst?.late_fee_accrued ?? 0);
 
   // tolerância anti -0.0000001
   const eps = 0.000001;
-  return principalRem <= eps && interestRem <= eps;
+  return principalRem + interestRem + lateFeeRem <= eps;
 };
 
 export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({

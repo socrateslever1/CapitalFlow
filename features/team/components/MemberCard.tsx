@@ -204,17 +204,20 @@ export const MemberCard = ({ member, onDelete, onEdit, onOpenChat, isStealthMode
                                 <div className="py-8 flex justify-center"><Clock className="animate-spin text-slate-700" size={16}/></div>
                             ) : stats?.lastTransactions.length === 0 ? (
                                 <p className="text-[10px] text-slate-500 text-center py-4 italic">Nenhuma transação registrada.</p>
-                            ) : stats?.lastTransactions.map((t: any) => (
-                                <div key={t.id} className="flex justify-between items-center p-2 hover:bg-slate-900 rounded-lg transition-colors">
-                                    <div className="min-w-0">
-                                        <p className="text-[10px] font-bold text-slate-300 truncate uppercase">{t.notes || translateTransactionType(t.type)}</p>
-                                        <p className="text-[8px] text-slate-500">{new Date(t.date).toLocaleDateString()}</p>
+                            ) : stats?.lastTransactions.map((t: any) => {
+                                const isCapitalOutflow = t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE';
+                                return (
+                                    <div key={t.id} className="flex justify-between items-center p-2 hover:bg-slate-900 rounded-lg transition-colors">
+                                        <div className="min-w-0">
+                                            <p className="text-[10px] font-bold text-slate-300 truncate uppercase">{t.notes || translateTransactionType(t.type)}</p>
+                                            <p className="text-[8px] text-slate-500">{new Date(t.date).toLocaleDateString()}</p>
+                                        </div>
+                                        <span className={`text-[10px] font-black ${isCapitalOutflow ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                            {isCapitalOutflow ? '-' : '+'} {formatMoney(t.amount, isStealthMode)}
+                                        </span>
                                     </div>
-                                    <span className={`text-[10px] font-black ${t.type === 'LEND_MORE' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                                        {t.type === 'LEND_MORE' ? '-' : '+'} {formatMoney(t.amount, isStealthMode)}
-                                    </span>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

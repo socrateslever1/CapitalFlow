@@ -1,12 +1,22 @@
 
 import { useMemo } from 'react';
-import { Loan, CapitalSource, LoanStatus } from '../../../types';
+import { Loan, CapitalSource } from '../../../types';
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { hasActiveAgreement as hasActiveAgreementData, rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { loanEngine } from '../../../domain/loanEngine';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
 import { calculateRiskProfile } from '../../../domain/finance/riskAnalysis';
+
+const hasOpenInstallmentBalance = (inst: any): boolean => {
+  const status = String(inst?.status || '').toUpperCase();
+  if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+  const open =
+    Number(inst?.principalRemaining || 0) +
+    Number(inst?.interestRemaining || 0) +
+    Number(inst?.lateFeeAccrued || 0);
+  return open > ZERO_BALANCE_THRESHOLD;
+};
 
 export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isStealthMode: boolean = false) => {
   // 1. Reconstrói o estado financeiro do contrato para garantir que parciais sejam abatidos
@@ -50,7 +60,9 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     const nextInst = [...(sourceInstallments || [])]
       .filter(i => {
         const status = String(i.status || "").toUpperCase();
-        return status !== 'PAID' && status !== 'PAGO';
+        if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+        if (status === 'PAID' || status === 'PAGO') return hasOpenInstallmentBalance(i);
+        return true;
       })
       .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
 
@@ -98,7 +110,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     iconStyle = "bg-rose-600 text-white";
   }
   else if (classification === 'EM_DIA') {
-    const nextInst = loan.installments.find(i => i.status !== LoanStatus.PAID);
+    const nextInst = loan.installments.find(hasOpenInstallmentBalance);
     const daysUntilDue = nextInst ? -getDaysDiff(nextInst.dueDate) : 999;
 
     if (daysUntilDue >= 0 && daysUntilDue <= 3) {
@@ -128,7 +140,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     );
     if (showProgress) {
       if (!isPaid) {
-        all = all.filter(i => i.status !== LoanStatus.PAID && Math.round(i.principalRemaining) > 0);
+        all = all.filter(hasOpenInstallmentBalance);
       }
     }
     return all;

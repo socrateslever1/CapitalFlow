@@ -58,7 +58,12 @@ export const usePaymentController = (
       }
 
       // 🔒 Bloqueio extra — se parcela já paga
-      if (context.inst?.status === 'PAID') {
+      const instOpenTotal =
+        Number(context.inst?.principalRemaining || 0) +
+        Number(context.inst?.interestRemaining || 0) +
+        Number(context.inst?.lateFeeAccrued || 0);
+
+      if (context.inst?.status === 'PAID' && instOpenTotal <= 0.5) {
         showToast('Esta parcela já foi quitada.', 'error');
         return;
       }

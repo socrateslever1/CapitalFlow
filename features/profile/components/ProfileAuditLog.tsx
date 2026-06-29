@@ -13,13 +13,14 @@ interface ProfileAuditLogProps {
 export const ProfileAuditLog: React.FC<ProfileAuditLogProps> = ({ logs }) => {
     const renderAuditEntry = (log: LedgerEntry & { clientName: string }) => {
         const isAudit = log.category === 'AUDIT' || log.notes?.startsWith('{');
+        const isCapitalOutflow = log.type === 'LEND_MORE' || log.type === 'NOVO_APORTE';
         const lines = isAudit ? humanizeAuditLog(log.notes || '') : [log.notes || 'Operação realizada'];
 
         return (
           <div key={log.id} className="bg-slate-950 p-4 rounded-lg border border-slate-800 hover:border-blue-500/50 transition-colors flex flex-col gap-3">
               <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${log.type === 'ADJUSTMENT' ? 'bg-indigo-500/10 text-indigo-400' : log.type === 'LEND_MORE' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                      <div className={`p-2 rounded-lg ${log.type === 'ADJUSTMENT' ? 'bg-indigo-500/10 text-indigo-400' : isCapitalOutflow ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                           <Activity size={18}/>
                       </div>
                       <div>
@@ -28,8 +29,8 @@ export const ProfileAuditLog: React.FC<ProfileAuditLogProps> = ({ logs }) => {
                       </div>
                   </div>
                   {!isAudit ? (
-                      <p className={`text-sm font-black ${log.type === 'LEND_MORE' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                          {log.type === 'LEND_MORE' ? '-' : '+'} {formatMoney(log.amount, false)}
+                      <p className={`text-sm font-black ${isCapitalOutflow ? 'text-rose-500' : 'text-emerald-500'}`}>
+                          {isCapitalOutflow ? '-' : '+'} {formatMoney(log.amount, false)}
                       </p>
                   ) : (
                       <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[8px] font-black rounded uppercase">Edição de Auditoria</span>

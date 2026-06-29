@@ -33,6 +33,11 @@
 - **Correção:** Criados modos explícitos `MORA_ONLY` e `FINE_AND_MORA`; `FINE_AND_MORA` perdoa somente multa e mora, mantendo o juros de 30%/práxis. Apenas `TOTAL_CHARGES` ou `CAPITAL_ONLY` zera também o juros e recebe só o capital.
 - **Validacao:** Teste lógico com contrato de R$ 1.000 a 30% confirmou: `FINE_AND_MORA` mantém total em R$ 1.300, enquanto `TOTAL_CHARGES` reduz para R$ 1.000; `npx tsc --noEmit --pretty false` e build Vite executados com sucesso.
 
+### Ajuste Posterior - Valor Sugerido no Recebimento
+- **Problema Corrigido:** O campo `Registrar Pagamento` abria vazio, exigindo que o operador digitasse manualmente o valor total calculado.
+- **Correção:** O campo agora abre preenchido com o total a receber e atualiza automaticamente quando o operador muda os botões de perdão. O valor permanece editável para pagamento parcial ou ajuste manual.
+- **Validacao:** `npx tsc --noEmit --pretty false` executado com sucesso.
+
 ## 2026-06-27 - Normalizacao do Comprovante
 - **Objetivo:** Remover a duplicidade de opcoes de PDF no modal de comprovante e normalizar o fluxo em tres acoes claras: texto, imagem e PDF.
 - **Arquivos Alterados:**

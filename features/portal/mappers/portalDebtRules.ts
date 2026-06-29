@@ -46,13 +46,12 @@ const SETTLED_EPSILON = 0.05;
 export const isPortalInstallmentPaid = (inst: any): boolean => {
     if (!inst) return true;
 
-    const status = String(inst.status ?? '').trim().toUpperCase();
-    if (PAID_STATUSES.has(status)) return true;
-
     if (inst.agreementId || inst.acordo_id || inst.agreement_id) {
+        const status = String(inst.status ?? '').trim().toUpperCase();
         const amount = Number(inst.amount ?? inst.valor ?? inst.valor_parcela ?? 0);
         const paidAmount = Number(inst.paidAmount ?? inst.paid_amount ?? inst.valor_pago ?? 0);
-        return amount > 0 && amount - paidAmount <= SETTLED_EPSILON;
+        const remaining = amount - paidAmount;
+        return remaining <= SETTLED_EPSILON || (PAID_STATUSES.has(status) && remaining <= SETTLED_EPSILON);
     }
 
     const hasBalanceFields =

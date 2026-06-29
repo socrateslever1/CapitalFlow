@@ -84,7 +84,15 @@ export const useAIController = (
         return;
       }
 
-      const inst = (loan.installments || []).find((i: any) => i?.status !== 'PAID');
+      const inst = (loan.installments || []).find((i: any) => {
+        const status = String(i?.status || '').toUpperCase();
+        if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+        const open =
+          Number(i?.principalRemaining || 0) +
+          Number(i?.interestRemaining || 0) +
+          Number(i?.lateFeeAccrued || 0);
+        return open > 0.5;
+      });
       if (!inst) {
         showToast('Este contrato já consta como quitado.', 'info');
         return;

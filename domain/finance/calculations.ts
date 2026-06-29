@@ -63,10 +63,10 @@ export const add30Days = (dateStr: string): string => {
 // Define o status lógico interno da parcela
 export const getInstallmentStatusLogic = (inst: Installment, parentLoanStatus?: string): LoanStatus => {
   const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  if (LOAN_PAID_STATUSES.has(pStatus)) return LoanStatus.PAID;
-
   const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
-  
+
+  if (LOAN_PAID_STATUSES.has(pStatus) && Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return LoanStatus.PAID;
+
   if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return LoanStatus.PAID;
   
   if (getDaysDiff(inst.dueDate) > 0) return LoanStatus.LATE;
@@ -77,10 +77,10 @@ export const getInstallmentStatusLogic = (inst: Installment, parentLoanStatus?: 
 // Define o texto de status que o usuário vê na interface
 export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: string): string => {
   const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  if (LOAN_PAID_STATUSES.has(pStatus)) return "Quitado";
-
   const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
-  
+
+  if (LOAN_PAID_STATUSES.has(pStatus) && Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return "Quitado";
+
   if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return "Quitado";
 
   const days = getDaysDiff(inst.dueDate);
@@ -133,12 +133,11 @@ export const isAgreementSettledByStatus = (loan: Partial<Loan> | null | undefine
 export const isAgreementInstallmentPaid = (inst: Partial<AgreementInstallment> | null | undefined, parentLoanStatus?: string): boolean => {
   if (!inst) return true;
   const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  if (LOAN_PAID_STATUSES.has(pStatus)) return true;
   const status = String(inst.status || "").toUpperCase().trim();
   const amount = Number(inst.amount || 0);
   const paidAmount = Number(inst.paidAmount || 0);
   const remaining = round(amount - paidAmount);
-  return AGREEMENT_PAID_STATUSES.has(status) || remaining <= ZERO_BALANCE_THRESHOLD;
+  return remaining <= ZERO_BALANCE_THRESHOLD || ((LOAN_PAID_STATUSES.has(pStatus) || AGREEMENT_PAID_STATUSES.has(status)) && remaining <= ZERO_BALANCE_THRESHOLD);
 };
 
 export const isInstallmentSettled = (inst: Partial<Installment> | null | undefined, parentLoanStatus?: string): boolean => {
@@ -147,7 +146,8 @@ export const isInstallmentSettled = (inst: Partial<Installment> | null | undefin
   const principal = Number(inst.principalRemaining || 0);
   const interest = Number(inst.interestRemaining || 0);
   const lateFee = Number(inst.lateFeeAccrued || 0);
-  return AGREEMENT_PAID_STATUSES.has(status) || round(principal + interest + lateFee) <= ZERO_BALANCE_THRESHOLD;
+  const total = round(principal + interest + lateFee);
+  return (AGREEMENT_PAID_STATUSES.has(status) && total <= ZERO_BALANCE_THRESHOLD) || total <= ZERO_BALANCE_THRESHOLD;
 };
 
 export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
@@ -160,7 +160,7 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
     };
   }
 
-  if (isLoanSettledByStatus(loan) || isAgreementSettledByStatus(loan)) {
+  if (isAgreementSettledByStatus(loan)) {
     return {
       totalRemaining: 0,
       principalRemaining: 0,
@@ -212,7 +212,14 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
   for (const inst of installments) {
     // Ignora parcelas que foram movidas para acordo ou canceladas
     const status = String(inst.status || "").toUpperCase();
-    if (status === 'RENEGOCIADO' || status === 'CANCELADO' || status === 'PAID' || status === 'PAGO' || status === 'QUITADO') continue;
+    if (status === 'RENEGOCIADO' || status === 'CANCELADO') continue;
+
+    const rawOpen = round(
+      Number(inst.principalRemaining || 0) +
+      Number(inst.interestRemaining || 0) +
+      Number(inst.lateFeeAccrued || 0)
+    );
+    if ((status === 'PAID' || status === 'PAGO' || status === 'QUITADO' || status === 'QUITADA' || status === 'FINALIZADO') && rawOpen <= ZERO_BALANCE_THRESHOLD) continue;
 
     const debt = calculateTotalDue(loan, inst);
     principalRemaining += Math.max(0, Number(debt.principal || 0));

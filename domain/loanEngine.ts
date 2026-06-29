@@ -81,7 +81,8 @@ const engine = {
         const lateFeeOpen = n(inst?.late_fee_accrued ?? inst?.lateFeeAccrued);
         if (principalOpen + interestOpen + lateFeeOpen <= ZERO_BALANCE_THRESHOLD) return false;
 
-        if (status === 'PAID' || status === 'PAGO' || status === 'QUITADO') return false;
+        const open = principalOpen + interestOpen + lateFeeOpen;
+        if ((status === 'PAID' || status === 'PAGO' || status === 'QUITADO') && open <= ZERO_BALANCE_THRESHOLD) return false;
       }
 
       const due = getDueDate(inst);

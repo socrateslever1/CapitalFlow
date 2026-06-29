@@ -40,7 +40,15 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const cardRef = React.useRef<HTMLDivElement>(null);
 
     const getNextOpenDueDate = (loan: any) => {
-        const next = loan.installments?.find((inst: any) => inst.status !== 'PAID');
+        const next = loan.installments?.find((inst: any) => {
+            const status = String(inst?.status || '').toUpperCase();
+            if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+            const open =
+                Number(inst?.principalRemaining || 0) +
+                Number(inst?.interestRemaining || 0) +
+                Number(inst?.lateFeeAccrued || 0);
+            return open > 0.5;
+        });
         return next?.dueDate ? parseDateOnlyUTC(next.dueDate) : null;
     };
 

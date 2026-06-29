@@ -45,3 +45,27 @@
 - **Riscos/Observacoes:** A causa provavel era o cache local recente restaurando uma configuracao antiga e impedindo nova busca no banco por ate 30s; em caso de falha real no Supabase, agora o sistema registra erro em vez de parecer salvo.
 - **Escopo:** Apenas persistencia das preferencias de menu; sem alteracao visual.
 
+## 2026-06-29 (Aporte visivel e classificacao operacional)
+- **Objetivo:** Fazer o aporte registrado pela RPC `apply_new_aporte_atomic` aparecer corretamente no contrato e nos calculos operacionais.
+- **Arquivos Alterados:**
+    - `/pages/ContractDetailsPage.tsx`: A tela do contrato agora mostra `Capital Atual` quando existe aporte, detalhando `Capital Inicial + Aportes`; o resumo financeiro ganhou cards de `Capital Inicial` e `Aportes`.
+    - `/domain/dashboard/stats.ts`: O grafico mensal passou a tratar `NOVO_APORTE` como saida de capital.
+    - `/domain/finance/dre.calculations.ts`: DRE/classificacao operacional passou a considerar `NOVO_APORTE` como `APORTE`.
+    - `/components/modals/AIAssistantModal.tsx`: Contexto financeiro da IA passou a considerar `NOVO_APORTE` nas saidas do mes.
+    - `/features/team/components/MemberCard.tsx` e `/features/profile/components/ProfileAuditLog.tsx`: Historicos visuais passam a exibir `NOVO_APORTE` como saida, com sinal negativo.
+    - `/utils/printHelpers.ts`: Relatorio impresso/PDF passa a exibir `NOVO_APORTE` como aporte/saida.
+- **Validacao:** `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-aporte-build --emptyOutDir` executados com sucesso. O build manteve apenas avisos antigos de chunks grandes/import dinamico.
+- **Escopo:** Exibicao e classificacao de aportes. Sem alterar a RPC, banco ou regra de gravacao do aporte.
+
+## 2026-06-29 (Saldo real acima do status PAID)
+- **Objetivo:** Evitar que parcelas/contratos marcados como `PAID` por erro escondam saldo real de principal, juros ou mora.
+- **Arquivos Alterados:**
+    - `/domain/finance/calculations.ts` e `/domain/loanEngine.ts`: Calculo central de saldo e status agora considera o saldo real antes de aceitar `PAID/PAGO/QUITADO` como quitado.
+    - `/services/payments.service.ts` e `/hooks/controllers/usePaymentController.ts`: Registro de pagamento deixa de bloquear parcela marcada como `PAID` se ainda houver saldo aberto.
+    - `/supabase/migrations/2026062901_fix_paid_status_with_open_balance.sql`: Nova versao da RPC `process_payment_v3_selective` permite regularizar parcela com status pago indevido, desde que exista saldo real; contrato volta para `ATIVO` se ainda houver saldo.
+    - `/components/modals/NewAporteModal.tsx`, `/features/agreements/components/RenegotiationModal.tsx`, `/components/cards/ClientGroupCard.tsx`, `/domain/dashboard/loanGrouping.ts`, `/components/cards/hooks/useLoanCardComputed.ts`: Selecao de parcelas abertas passa a usar saldo real.
+    - `/components/modals/AIAssistantModal.tsx`, `/features/dashboard/AIBalanceInsight.tsx`: IA e insight de carteira passam a usar saldo real pelo motor financeiro.
+    - `/features/portal/ClientPortalView.tsx`, `/features/portal/mappers/portalDebtRules.ts`, `/features/portal/components/PortalPaymentModal.tsx`: Portal do cliente passa a tratar parcela/contrato como quitado apenas quando o saldo real estiver zerado.
+- **Validacao:** `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-balance-status-build --emptyOutDir` executados com sucesso. O build manteve apenas avisos antigos de chunks grandes/import dinamico.
+- **Escopo:** Correcao operacional de consistencia saldo/status. Sem alterar layout visual amplo.
+

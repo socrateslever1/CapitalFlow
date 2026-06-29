@@ -190,9 +190,9 @@ export const openDreReportPrint = async (args: {
                     <tr>
                         <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${new Date(t.date).toLocaleDateString()}</td>
                         <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><strong>${t.clientName}</strong></td>
-                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${t.type === 'LEND_MORE' ? 'Empréstimo' : 'Pagamento'}</td>
-                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: ${t.type === 'LEND_MORE' ? '#f43f5e' : '#10b981'}">
-                            ${t.type === 'LEND_MORE' ? '-' : '+'} ${fmt(t.amount)}
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' ? 'Aporte' : 'Pagamento'}</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: ${t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' ? '#f43f5e' : '#10b981'}">
+                            ${t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' ? '-' : '+'} ${fmt(t.amount)}
                         </td>
                     </tr>
                 `).join('')}

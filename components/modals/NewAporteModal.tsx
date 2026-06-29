@@ -35,7 +35,14 @@ export const NewAporteModal: React.FC<Props> = ({
   const [err, setErr] = useState<string>('');
 
   const pendingInstallments = useMemo(() => {
-    return (installments || []).filter((i: any) => String(i.status || '').toUpperCase() !== 'PAID');
+    return (installments || []).filter((i: any) => {
+      const status = String(i.status || '').toUpperCase();
+      const open =
+        Number(i.principalRemaining ?? i.principal_remaining ?? 0) +
+        Number(i.interestRemaining ?? i.interest_remaining ?? 0) +
+        Number(i.lateFeeAccrued ?? i.late_fee_accrued ?? 0);
+      return status !== 'PAID' || open > 0.5;
+    });
   }, [installments]);
 
   const defaultTargetInstallmentId = useMemo(() => {

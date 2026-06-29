@@ -119,7 +119,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
           receivedThisMonth += (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
       }
 
-      if (t.type === 'LEND_MORE' || t.type === 'NEW_LOAN') {
+      if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' || t.type === 'NEW_LOAN') {
         monthlyDataMap[key].Saidas += t.amount;
       } else if (t.type?.includes('PAYMENT')) {
         monthlyDataMap[key].Entradas += t.amount;

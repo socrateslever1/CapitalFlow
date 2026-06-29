@@ -7,6 +7,7 @@ import { startDictation } from '../../utils/speech';
 import { processNaturalLanguageCommand } from '../../services/geminiService';
 import { Loan, CapitalSource } from '../../types';
 import { getDaysDiff, calculateTotalDue } from '../../domain/finance/calculations';
+import { loanEngine } from '../../domain/loanEngine';
 
 interface AIAssistantModalProps {
     onClose: () => void;
@@ -26,18 +27,26 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
     const portfolioSummary = useMemo(() => {
         const activeLoans = loans.filter(l => {
             if (l.isArchived) return false;
-            const status = String(l.status || '').toUpperCase().trim();
-            if (['PAID', 'PAGO', 'QUITADO', 'FINALIZADO'].includes(status)) return false;
+            if (loanEngine.computeRemainingBalance(l).totalRemaining <= 0.5) return false;
             const notes = String(l.notes || '');
             const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
             if (isUnified) return false;
             return true;
         });
-        const lateLoans = activeLoans.filter(l => l.installments.some(i => getDaysDiff(i.dueDate) > 0 && i.status !== 'PAID' && i.status !== 'RENEGOCIADO'));
+        const isOpenInstallment = (i: any) => {
+            const status = String(i.status || '').toUpperCase();
+            const open =
+                Number(i.principalRemaining || 0) +
+                Number(i.interestRemaining || 0) +
+                Number(i.lateFeeAccrued || 0);
+            return status !== 'RENEGOCIADO' && status !== 'CANCELADO' && open > 0.5;
+        };
+
+        const lateLoans = activeLoans.filter(l => l.installments.some(i => getDaysDiff(i.dueDate) > 0 && isOpenInstallment(i)));
 
         const topLate = lateLoans
             .map(l => {
-                const pending = l.installments.find(i => i.status !== 'PAID' && i.status !== 'RENEGOCIADO');
+                const pending = l.installments.find(isOpenInstallment);
                 const debt = pending ? calculateTotalDue(l, pending) : { total: 0, daysLate: 0 };
                 return { name: l.debtorName, amount: debt.total, days: debt.daysLate };
             })
@@ -45,12 +54,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
             .slice(0, 3);
 
         const totalLent = activeLoans.reduce((acc, l) => {
-            const principalRemaining = (l.installments || []).reduce((sum, inst) => {
-                const status = String(inst.status || '').toUpperCase().trim();
-                if (status === 'RENEGOCIADO' || status === 'CANCELADO' || status === 'PAID' || status === 'PAGO' || status === 'QUITADO') return sum;
-                return sum + Math.max(0, Number(inst.principalRemaining || 0));
-            }, 0);
-            return acc + principalRemaining;
+            return acc + loanEngine.computeRemainingBalance(l).principalRemaining;
         }, 0);
 
         // Cálculo de Fluxo do Mês (DRE Simplificado)
@@ -62,7 +66,7 @@ export const AIAssistantModal: React.FC<AIAssistantModalProps> = ({ onClose, onC
         loans.forEach(l => {
             (l.ledger || []).forEach(t => {
                 if (new Date(t.date).getTime() >= startOfMonth) {
-                    if (t.type === 'LEND_MORE') monthOut += t.amount;
+                    if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE') monthOut += t.amount;
                     else if (t.type?.includes('PAYMENT')) monthIn += t.amount;
                 }
             });

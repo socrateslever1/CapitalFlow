@@ -2,7 +2,7 @@ import { Installment, LoanStatus } from '../types';
 import { ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
 
 const PAID_STATUSES = new Set(['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'FINALIZADO']);
-const CLOSED_INSTALLMENT_STATUSES = new Set([...PAID_STATUSES, 'RENEGOCIADO', 'CANCELADO']);
+const CLOSED_INSTALLMENT_STATUSES = new Set(['RENEGOCIADO', 'CANCELADO']);
 
 export const normalizeStatus = (status: unknown): string =>
   String(status || '').toUpperCase().trim();
@@ -29,14 +29,17 @@ export const getInstallmentOpenAmount = (inst: Partial<Installment> | any): numb
 };
 
 export const isInstallmentOpen = (inst: Partial<Installment> | any): boolean => {
-  if (!inst || isClosedInstallmentStatus(inst.status)) return false;
-  return getInstallmentOpenAmount(inst) > ZERO_BALANCE_THRESHOLD;
+  if (!inst) return false;
+  const openAmount = getInstallmentOpenAmount(inst);
+  if (isClosedInstallmentStatus(inst.status)) return false;
+  if (isPaidStatus(inst.status)) return openAmount > ZERO_BALANCE_THRESHOLD;
+  return openAmount > ZERO_BALANCE_THRESHOLD;
 };
 
 export const isInstallmentPaidOrSettled = (inst: Partial<Installment> | any): boolean => {
   if (!inst) return false;
-  if (isPaidStatus(inst.status)) return true;
-  return getInstallmentOpenAmount(inst) <= ZERO_BALANCE_THRESHOLD;
+  const openAmount = getInstallmentOpenAmount(inst);
+  return openAmount <= ZERO_BALANCE_THRESHOLD;
 };
 
 export const isLoanPaidStatus = (status: unknown): boolean =>

@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
-import { calculateTotalDue, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
+import { calculateTotalDue, getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
 import { todayDateOnlyUTC, parseDateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
@@ -403,10 +403,15 @@ export const paymentsService = {
       throw new Error('O valor do pagamento deve ser maior que zero.');
     }
 
+    const principalReconciliationDelta = getLoanPrincipalReconciliationDelta(loan);
+    const interestReconciliationDelta = getLoanInterestReconciliationDelta(loan);
     const installmentSnapshot = {
       ...inst,
-      principalRemaining: Number(instDb?.principal_remaining ?? (inst as any)?.principalRemaining ?? 0),
-      interestRemaining: Number(instDb?.interest_remaining ?? (inst as any)?.interestRemaining ?? 0),
+      principalRemaining: Number(instDb?.principal_remaining ?? (inst as any)?.principalRemaining ?? 0) + principalReconciliationDelta,
+      scheduledPrincipal: Number((inst as any)?.scheduledPrincipal ?? (inst as any)?.scheduled_principal ?? 0) + principalReconciliationDelta,
+      amount: Number((inst as any)?.amount ?? (inst as any)?.valor_parcela ?? 0) + principalReconciliationDelta + interestReconciliationDelta,
+      interestRemaining: Number(instDb?.interest_remaining ?? (inst as any)?.interestRemaining ?? 0) + interestReconciliationDelta,
+      scheduledInterest: Number((inst as any)?.scheduledInterest ?? (inst as any)?.scheduled_interest ?? 0) + interestReconciliationDelta,
       lateFeeAccrued: Number(instDb?.late_fee_accrued ?? (inst as any)?.lateFeeAccrued ?? 0),
       status: String(instDb?.status ?? (inst as any)?.status ?? 'PENDING'),
     } as Installment;
@@ -621,7 +626,7 @@ export const paymentsService = {
       const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
       const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
-      if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining) {
+      if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && isInterestRenewal) {
         // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
         const currentDueDate = parseDateOnlyUTC(inst.dueDate);
         const diffDays = (manualDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);

@@ -8,6 +8,7 @@
 import { useState, useMemo } from 'react';
 import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
+import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta } from '../../domain/finance/calculations';
 import { usePaymentManagerState, ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
@@ -35,9 +36,22 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const data = useMemo(() => {
         if (!loan) return null;
         const bal = loanEngine.computeRemainingBalance(loan);
+        const principalDelta = getLoanPrincipalReconciliationDelta(loan);
+        const interestDelta = getLoanInterestReconciliationDelta(loan);
+        const baseInst = loan.installments.find(isInstallmentOpen) || loan.installments[0] || {} as Installment;
+        const adjustedInst = principalDelta > 0.5 || interestDelta > 0.5
+            ? {
+                ...baseInst,
+                principalRemaining: Number((baseInst as any).principalRemaining || 0) + principalDelta,
+                scheduledPrincipal: Number((baseInst as any).scheduledPrincipal || 0) + principalDelta,
+                interestRemaining: Number((baseInst as any).interestRemaining || 0) + interestDelta,
+                scheduledInterest: Number((baseInst as any).scheduledInterest || 0) + interestDelta,
+                amount: Number((baseInst as any).amount || 0) + principalDelta + interestDelta,
+            } as Installment
+            : baseInst;
         return {
             loan,
-            inst: loan.installments.find(isInstallmentOpen) || loan.installments[0] || {} as Installment,
+            inst: adjustedInst,
             calculations: {
                 total: bal.totalRemaining,
                 principal: bal.principalRemaining,

@@ -49,6 +49,39 @@ export interface InstallmentPaymentPlan {
   moraPart: number;
 }
 
+const isPaymentLikeLedgerType = (type: unknown): boolean => {
+  const value = String(type || '').toUpperCase();
+  return value.includes('PAYMENT') || value === 'ESTORNO';
+};
+
+export const getLoanPrincipalReconciliationDelta = (loan: Partial<Loan> | null | undefined): number => {
+  if (!loan) return 0;
+
+  const contractPrincipal = round(Number(loan.principal || 0));
+  if (contractPrincipal <= ZERO_BALANCE_THRESHOLD) return 0;
+
+  const paidPrincipal = (loan.ledger || []).reduce((sum, entry: any) => {
+    if (!isPaymentLikeLedgerType(entry?.type)) return sum;
+    return round(sum + Number(entry?.principalDelta ?? entry?.principal_delta ?? 0));
+  }, 0);
+
+  const openPrincipalInInstallments = (loan.installments || []).reduce((sum, inst: any) => {
+    const status = String(inst?.status || '').toUpperCase();
+    if (status === 'RENEGOCIADO' || status === 'CANCELADO') return sum;
+    return round(sum + Math.max(0, Number(inst?.principalRemaining ?? inst?.principal_remaining ?? 0)));
+  }, 0);
+
+  const expectedOpenPrincipal = round(Math.max(0, contractPrincipal - paidPrincipal));
+  return round(Math.max(0, expectedOpenPrincipal - openPrincipalInInstallments));
+};
+
+export const getLoanInterestReconciliationDelta = (loan: Partial<Loan> | null | undefined): number => {
+  const principalDelta = getLoanPrincipalReconciliationDelta(loan);
+  const rate = Number(loan?.interestRate || 0);
+  if (principalDelta <= ZERO_BALANCE_THRESHOLD || rate <= 0) return 0;
+  return round(principalDelta * (rate / 100));
+};
+
 export const getDaysDiff = (dueDateStr: string): number => getDaysDiffHelper(dueDateStr);
 
 export const add30Days = (dateStr: string): string => {
@@ -230,6 +263,16 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
   principalRemaining = round(principalRemaining);
   interestRemaining = round(interestRemaining);
   lateFeeRemaining = round(lateFeeRemaining);
+
+  const principalReconciliationDelta = getLoanPrincipalReconciliationDelta(loan);
+  if (principalReconciliationDelta > ZERO_BALANCE_THRESHOLD) {
+    principalRemaining = round(principalRemaining + principalReconciliationDelta);
+  }
+
+  const interestReconciliationDelta = getLoanInterestReconciliationDelta(loan);
+  if (interestReconciliationDelta > ZERO_BALANCE_THRESHOLD) {
+    interestRemaining = round(interestRemaining + interestReconciliationDelta);
+  }
 
   return {
     totalRemaining: round(principalRemaining + interestRemaining + lateFeeRemaining),

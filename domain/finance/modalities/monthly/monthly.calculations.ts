@@ -13,9 +13,15 @@ export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPoli
     // Se o banco retornar 0, mas houver principal, nós assumimos o juro do ciclo atual.
     const principal = inst?.principalRemaining ?? loan?.principal ?? 0;
     let interest = inst?.interestRemaining ?? 0;
-    
-    if (interest <= 0.05 && principal > 0 && loan.interestRate > 0) {
-        interest = round(principal * (loan.interestRate / 100));
+    const paidInterest = Number((inst as any)?.paidInterest ?? (inst as any)?.paid_interest ?? 0);
+    const contractedInterest = principal > 0 && loan.interestRate > 0
+        ? round(principal * (loan.interestRate / 100))
+        : 0;
+
+    if (paidInterest > 0.05 && contractedInterest > 0) {
+        interest = contractedInterest;
+    } else if (interest <= 0.05 && contractedInterest > 0) {
+        interest = contractedInterest;
     }
     
     let fineFixed = 0;

@@ -69,3 +69,44 @@
 - **Validacao:** `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-balance-status-build --emptyOutDir` executados com sucesso. O build manteve apenas avisos antigos de chunks grandes/import dinamico.
 - **Escopo:** Correcao operacional de consistencia saldo/status. Sem alterar layout visual amplo.
 
+## 2026-06-29 (Aporte soma no total do contrato)
+- **Objetivo:** Garantir que aporte registrado no historico entre no principal restante e no total atual, mesmo quando a parcela antiga ainda nao recebeu esse acrescimo no banco/cache.
+- **Arquivos Alterados:**
+    - `/domain/finance/calculations.ts`: Criada reconciliacao entre `contratos.principal`, capital ja recebido no ledger e principal aberto nas parcelas; diferenca positiva entra no saldo restante.
+    - `/pages/ContractDetails/useContractDetailsState.ts`: Parcela usada no detalhe/recebimento recebe ajuste de principal quando existe diferenca de aporte nao refletida nas parcelas.
+    - `/services/payments.service.ts`: Registro de pagamento considera a mesma diferenca no snapshot da parcela, evitando receber menos capital do que o contrato realmente possui.
+    - `/utils/loanStatus.ts`: Parcela com status `PAID/PAGO` so e considerada fechada se o saldo real estiver zerado.
+- **Validacao:** `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-aporte-total-build --emptyOutDir` executados com sucesso. O build manteve apenas avisos antigos de chunks grandes/import dinamico.
+- **Escopo:** Correcao de calculo e recebimento. A exibicao do aporte pode permanecer, mas o registro oficial dele continua sendo o historico/extrato.
+
+## 2026-06-29 (Aporte somando no total do contrato)
+- **Objetivo:** Garantir que aporte registrado no historico some ao saldo principal/total mesmo quando a parcela ainda nao refletiu o valor do aporte.
+- **Arquivos Alterados:**
+    - `/domain/finance/calculations.ts`: Criada reconciliacao entre `principal` do contrato, principal ja recebido no historico e principal aberto nas parcelas; a diferenca passa a entrar no `principalRemaining` e no `totalRemaining`.
+    - `/pages/ContractDetails/useContractDetailsState.ts`: A parcela usada na tela de detalhes/recebimento recebe a diferenca reconciliada para o total exibido bater com o capital atual.
+    - `/services/payments.service.ts`: A baixa de pagamento usa a mesma diferenca reconciliada, evitando receber apenas o valor antigo da parcela quando existe aporte no contrato.
+    - `/utils/loanStatus.ts`: Parcela marcada como `PAID/PAGO/QUITADO` so deixa de ser aberta se o saldo real estiver zerado.
+- **Validacao:** Teste direto com principal `900`, parcela `800`, juros `240` e aporte `100` retornou principal restante `900` e total `1140`. `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-aporte-total-build --emptyOutDir` executados com sucesso.
+- **Escopo:** Regra de soma/baixa do aporte. O registro do aporte permanece no historico; a exibicao detalhada pode existir, mas nao interfere no calculo.
+
+### Ajuste Posterior - Aporte sem excesso visual e juros recalculado
+- **Objetivo:** Remover cards/linhas extras de aporte da tela de contrato e manter o aporte apenas no historico, enquanto o valor soma ao capital principal.
+- **Arquivos Alterados:**
+    - `/pages/ContractDetailsPage.tsx`: Removidos `Capital Inicial`, `Aportes` e a linha `Inicial + Aportes`; o topo volta a mostrar somente `Valor Principal`.
+    - `/domain/finance/calculations.ts`: Adicionada reconciliacao de juros sobre o capital reconciliado do aporte.
+    - `/pages/ContractDetails/useContractDetailsState.ts` e `/services/payments.service.ts`: A parcela ajustada usada na tela e na baixa passa a receber tanto o capital do aporte quanto o juro proporcional.
+- **Validacao:** Teste direto com principal `900`, parcela `800`, juros antigo `240`, taxa `30%` e aporte `100` retornou principal restante `900`, juros `270` e total `1170`. `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-aporte-clean-build --emptyOutDir` executados com sucesso.
+
+### Ajuste Posterior - Sobra apos pagamento parcial
+- **Objetivo:** Evitar que o sistema recrie juros apos pagamento com amortizacao de principal.
+- **Arquivos Alterados:**
+    - `/services/payments.service.ts`: A reposicao de juros do proximo ciclo agora so ocorre quando a operacao for renovacao de juros, sem abatimento de principal.
+    - `/domain/finance/modalities/monthly/monthly.calculations.ts`: Se a parcela ja teve pagamento de juros e amortizacao de principal, juros reintroduzido indevidamente e ignorado no calculo.
+- **Validacao:** Teste direto com principal restante `130`, juros indevido gravado `300`, `paidPrincipal 770` e `paidInterest 270` retornou total `130`, juros `0`. `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-payment-remainder-build --emptyOutDir` executados com sucesso.
+
+### Ajuste Posterior - Juros contratado do ciclo subsequente
+- **Objetivo:** Em contratos mensais, quando ainda existir capital aberto apos pagamento de juros, exibir imediatamente o juro contratado do proximo ciclo sobre o principal restante.
+- **Arquivos Alterados:**
+    - `/domain/finance/modalities/monthly/monthly.calculations.ts`: O juro mensal passa a ser recalculado sobre o principal restante quando ha `paidInterest`, evitando tanto juros zerado quanto juros antigo maior sobre capital anterior.
+- **Validacao:** Teste direto com principal `500` e taxa `30%` retornou juros `150` e total `650`; teste com principal `130`, juro antigo `300` e taxa `30%` retornou juros `39` e total `169`. `npx tsc --noEmit --pretty false`, `git diff --check` e `npx vite build --outDir C:\tmp\capitalflow-monthly-interest-build --emptyOutDir` executados com sucesso.
+

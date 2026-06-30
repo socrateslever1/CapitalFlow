@@ -93,25 +93,6 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         nextDueDateDisplay
     } = useContractDetailsState({ loanId, loans, onPayment });
 
-    const aporteSummary = React.useMemo(() => {
-        if (!loan) {
-            return { total: 0, count: 0, originalPrincipal: 0, hasAportes: false };
-        }
-
-        const aportes = (loan.ledger || []).filter((entry) => {
-            const type = String(entry.type || '').toUpperCase();
-            return type === 'NOVO_APORTE' || type === 'LEND_MORE';
-        });
-        const total = aportes.reduce((sum, entry) => sum + Math.abs(Number(entry.amount || 0)), 0);
-
-        return {
-            total,
-            count: aportes.length,
-            originalPrincipal: Math.max(0, Number(loan.principal || 0) - total),
-            hasAportes: total > 0,
-        };
-    }, [loan]);
-
     if (!loan) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -168,15 +149,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
                 <div className="grid grid-cols-2 md:flex items-center gap-3 md:gap-6">
                     <div className="space-y-0.5">
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">
-                            {aporteSummary.hasAportes ? 'Capital Atual' : 'Valor Principal'}
-                        </p>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Valor Principal</p>
                         <p className="text-sm font-black text-white">{formatMoney(loan.principal, isStealthMode)}</p>
-                        {aporteSummary.hasAportes && (
-                            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                                Inicial {formatMoney(aporteSummary.originalPrincipal, isStealthMode)} + Aportes {formatMoney(aporteSummary.total, isStealthMode)}
-                            </p>
-                        )}
                     </div>
                     <div className="space-y-0.5 text-right md:text-left">
                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Próximo Vencimento</p>
@@ -216,20 +190,6 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                             </h3>
 
                             <div className="grid grid-cols-2 gap-4">
-                                {aporteSummary.hasAportes && (
-                                    <>
-                                        <div className="bg-slate-950 border border-slate-800 p-4 rounded-lg">
-                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Capital Inicial</p>
-                                            <p className="text-xl font-black text-white">{formatMoney(aporteSummary.originalPrincipal, isStealthMode)}</p>
-                                        </div>
-                                        <div className="bg-slate-950 border border-amber-500/30 p-4 rounded-lg">
-                                            <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1">
-                                                Aportes ({aporteSummary.count})
-                                            </p>
-                                            <p className="text-xl font-black text-amber-300">{formatMoney(aporteSummary.total, isStealthMode)}</p>
-                                        </div>
-                                    </>
-                                )}
                                 <div className="bg-slate-950 border border-slate-800 p-4 rounded-lg">
                                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Principal Restante</p>
                                     <p className="text-xl font-black text-white">{formatMoney(debtBreakdown.principal, isStealthMode)}</p>

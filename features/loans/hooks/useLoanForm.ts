@@ -9,8 +9,39 @@ import { mapFormToLoan, LoanFormState } from '../domain/loanForm.mapper';
 import { calculateAutoDueDate } from '../domain/loanForm.preview';
 import { getInitialFormState } from './loanForm.defaults';
 import { safeIsoDateOnly, safeSourceId, safeFileFirst } from '../utils/formHelpers';
-import { parseDateOnlyUTC, toISODateOnlyUTC, addDaysUTC } from '../../../utils/dateHelpers';
+import { parseDateOnlyUTC, toISODateOnlyUTC, addDaysUTC, addMonthsUTC } from '../../../utils/dateHelpers';
 
+
+const getInstallmentNumber = (inst: any, fallback: number) => {
+  const parsed = Number(inst?.number ?? inst?.numero_parcela ?? inst?.installmentNumber);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const getFirstInstallmentDueDate = (loan: Loan): string => {
+  const installments = [...(loan.installments || [])];
+  if (!installments.length) return '';
+
+  const sorted = loan.billingCycle === 'INSTALLMENT_FIXED'
+    ? installments.sort((a, b) => getInstallmentNumber(a, 0) - getInstallmentNumber(b, 0))
+    : installments.sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
+
+  return safeIsoDateOnly(sorted[0]?.dueDate);
+};
+
+const getSuggestedFirstDueDate = (
+  startDate: string,
+  billingCycle: LoanBillingModality,
+  fixedDuration: string,
+  skipWeekends: boolean
+): string => {
+  const start = parseDateOnlyUTC(startDate);
+  if (billingCycle === 'DAILY_FREE') return toISODateOnlyUTC(addDaysUTC(start, 1, false));
+  if (billingCycle === 'DAILY_FIXED_TERM') {
+    const days = Math.max(1, Math.floor(Number(fixedDuration) || 1));
+    return toISODateOnlyUTC(addDaysUTC(start, days, skipWeekends));
+  }
+  return toISODateOnlyUTC(addMonthsUTC(start, 1));
+};
 interface UseLoanFormProps {
   initialData?: Loan | null;
   clients: Client[];
@@ -39,15 +70,17 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Efeito para sugerir data de vencimento quando a data do contrato ou modalidade muda
+  // Sugere vencimento subsequente real: mensal/parcelado = mês seguinte, diário = dia/prazo seguinte.
   useEffect(() => {
     if (!initialData) {
-        const start = parseDateOnlyUTC(formData.startDate);
-        let daysToAdd = formData.billingCycle === 'DAILY_FREE' || formData.billingCycle === 'DAILY_FIXED_TERM' ? 1 : 30;
-        const suggested = toISODateOnlyUTC(addDaysUTC(start, daysToAdd, skipWeekends));
-        setManualFirstDueDate(suggested);
+        setManualFirstDueDate(getSuggestedFirstDueDate(
+          formData.startDate,
+          formData.billingCycle,
+          fixedDuration,
+          skipWeekends
+        ));
     }
-  }, [formData.startDate, formData.billingCycle, skipWeekends, initialData]);
+  }, [formData.startDate, formData.billingCycle, fixedDuration, skipWeekends, initialData]);
 
   const isDailyModality = formData.billingCycle === 'DAILY_FREE' || formData.billingCycle === 'DAILY_FIXED_TERM';
 
@@ -80,10 +113,13 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
         customerMarginPercent: initialData.customerMarginPercent != null ? String(initialData.customerMarginPercent) : '30'
       });
 
-      // Se estiver editando, carrega o vencimento real da parcela 1
-      if (initialData.installments?.[0]) {
-          setManualFirstDueDate(safeIsoDateOnly(initialData.installments[0].dueDate));
-      }
+      // Se estiver editando, carrega o vencimento real da primeira parcela operacional.
+      setManualFirstDueDate(getFirstInstallmentDueDate(initialData) || getSuggestedFirstDueDate(
+        safeIsoDateOnly(initialData.startDate),
+        initialData.billingCycle || 'MONTHLY',
+        String(initialData.installments?.length || 30),
+        !!initialData.skipWeekends
+      ));
 
       setFixedDuration('30');
       setSkipWeekends(initialData.skipWeekends || false);
@@ -248,9 +284,16 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
         );
         loanPayload.skipWeekends = skipWeekends;
 
-        // CORREÇÃO CRÍTICA: Aplica a data manual na primeira parcela
-        if (loanPayload.installments?.[0] && manualFirstDueDate) {
-            loanPayload.installments[0].dueDate = manualFirstDueDate;
+        // Aplica o vencimento escolhido respeitando a periodicidade da modalidade.
+        if (loanPayload.installments?.length && manualFirstDueDate) {
+            if (formData.billingCycle === 'INSTALLMENT_FIXED') {
+                loanPayload.installments = loanPayload.installments.map((inst, index) => ({
+                    ...inst,
+                    dueDate: toISODateOnlyUTC(addMonthsUTC(manualFirstDueDate, index)),
+                }));
+            } else {
+                loanPayload.installments[0].dueDate = manualFirstDueDate;
+            }
         }
 
         await onAdd(loanPayload);

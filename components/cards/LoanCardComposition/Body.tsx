@@ -11,8 +11,10 @@ interface BodyProps {
     activeUser: UserProfile | null;
     activeAgreement?: Agreement;
     onRefresh: () => void;
-    onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
+    onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
     onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+    onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number) => void;
+    onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
     orderedInstallments: Installment[];
     fixedTermStats: any;
     isPaid: boolean;
@@ -34,7 +36,7 @@ interface BodyProps {
 
 export const Body: React.FC<BodyProps> = ({
     hasActiveAgreement, loan, activeUser, activeAgreement, onRefresh, onAgreementPayment, onReverseAgreementPayment,
-    orderedInstallments, fixedTermStats, isPaid, isLate, isZeroBalance, isFullyFinalized, daysUntilDue,
+    onInstallmentPayment, onReverseInstallmentPayment, orderedInstallments, fixedTermStats, isPaid, isLate, isZeroBalance, isFullyFinalized, daysUntilDue,
     showProgress, strategy, isDailyFree, isFixedTerm, isStealthMode, allLoans, onNavigate, onLegalDocument
 }) => {
     // Encontrar contratos que foram unificados neste aqui
@@ -135,7 +137,7 @@ export const Body: React.FC<BodyProps> = ({
                         loan={loan}
                         activeUser={activeUser}
                         onUpdate={onRefresh}
-                        onPayment={(inst, amount) => onAgreementPayment(loan, activeAgreement!, inst, amount)}
+                        onPayment={(inst, amount, forgiveLateFee) => onAgreementPayment(loan, activeAgreement!, inst, amount, forgiveLateFee)}
                         onReversePayment={(inst) => onReverseAgreementPayment?.(loan, activeAgreement!, inst)}
                         onNavigate={onLegalDocument}
                     />
@@ -163,6 +165,8 @@ export const Body: React.FC<BodyProps> = ({
                         isDailyFree={isDailyFree}
                         isFixedTerm={isFixedTerm}
                         onAgreementPayment={onAgreementPayment}
+                        onInstallmentPayment={onInstallmentPayment}
+                        onReverseInstallmentPayment={onReverseInstallmentPayment}
                         isStealthMode={isStealthMode}
                         onNavigate={onNavigate}
                     />

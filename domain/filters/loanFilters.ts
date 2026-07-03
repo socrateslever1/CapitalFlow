@@ -1,7 +1,7 @@
 
 import { Loan, SortOption, LoanStatusFilter } from '../../types';
 import { onlyDigits } from '../../utils/formatters';
-import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
+import { resolveLoanVisualClassification, getLoanNextDueDate } from '../../utils/loanFilterResolver';
 
 // HELPER DE ORDENAÇÃO
 const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
@@ -20,8 +20,8 @@ const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
 
             case 'DUE_DATE_ASC': // Vencimento Mais Próximo
             default:
-                const nextA = a.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
-                const nextB = b.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
+                const nextA = getLoanNextDueDate(a);
+                const nextB = getLoanNextDueDate(b);
                 return new Date(nextA).getTime() - new Date(nextB).getTime();
         }
     });

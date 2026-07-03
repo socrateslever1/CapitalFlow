@@ -26,8 +26,10 @@ export interface LoanCardProps {
   onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
   onRenegotiate: (loan: Loan) => void;
   onActivate: (loan: Loan) => void;
-  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
+  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+  onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number) => void;
+  onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
   onRefresh: () => void;
   onMarkAsBilled?: (loan: Loan) => void;
   onNewAporte?: (loan: Loan) => void;

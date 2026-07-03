@@ -14,10 +14,13 @@ import { InstallmentCardAction } from './installmentCard/InstallmentCardAction';
 
 interface InstallmentCardProps {
     vm: InstallmentViewModel;
-    loan: Loan; 
-    fixedTermStats: any; 
-    strategy: any; 
+    loan: Loan;
+    fixedTermStats: any;
+    strategy: any;
     isStealthMode?: boolean;
+    inlinePaymentEnabled?: boolean;
+    onPayInstallment?: (loan: Loan, inst: Installment, debt: any) => void;
+    onReverseInstallment?: (loan: Loan, inst: Installment) => void;
     onNavigate?: () => void;
 }
 
@@ -27,9 +30,12 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     fixedTermStats,
     strategy,
     isStealthMode,
+    inlinePaymentEnabled,
+    onPayInstallment,
+    onReverseInstallment,
     onNavigate
 }) => {
-    const { 
+    const {
         originalInst, isFixedTerm, isFixedTermDone, isZeroBalance, isLateInst, isPrepaid, isActionDisabled, isPaid,
         statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, isFullyFinalized
     } = vm;
@@ -38,9 +44,9 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
 
     const containerClasses = `responsive-card rounded-lg border flex flex-col justify-between h-full ${
         isRenegotiated ? 'bg-slate-900/80 border-slate-700/50' :
-        isPaid || isFixedTermDone || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/20' : 
-        isLateInst ? 'bg-rose-500/5 border-rose-500/20' : 
-        isPrepaid ? 'bg-emerald-500/10 border-emerald-500/30' : 
+        isPaid || isFixedTermDone || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/20' :
+        isLateInst ? 'bg-rose-500/5 border-rose-500/20' :
+        isPrepaid ? 'bg-emerald-500/10 border-emerald-500/30' :
         'bg-slate-950 border-slate-800'
     }`;
 
@@ -49,15 +55,15 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
             <div id={originalInst.id} className={containerClasses}>
                 <InstallmentCardFixedTermPanel fixedTermStats={fixedTermStats} isStealthMode={isStealthMode} />
                 <InstallmentCardStatus text={statusText} colorClass={statusColor} />
-                <InstallmentCardAmounts 
-                    debt={debt} 
+                <InstallmentCardAmounts
+                    debt={debt}
                     originalAmount={originalInst.amount}
-                    isPrepaid={isPrepaid} 
-                    isLateInst={isLateInst} 
-                    isPaid={isPaid} 
-                    isStealthMode={isStealthMode} 
+                    isPrepaid={isPrepaid}
+                    isLateInst={isLateInst}
+                    isPaid={isPaid}
+                    isStealthMode={isStealthMode}
                 />
-                <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} onNavigate={onNavigate} />
+                <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} inlinePaymentEnabled={inlinePaymentEnabled} onPayInstallment={onPayInstallment} onReverseInstallment={onReverseInstallment} onNavigate={onNavigate} />
             </div>
         );
     }
@@ -65,9 +71,9 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     return (
         <div id={originalInst.id} className={`flex justify-between items-center px-3 py-2.5 rounded-lg border transition-all ${
             isRenegotiated ? 'bg-slate-900/80 border-slate-700/50 opacity-60' :
-            isPaid || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 
-            isLateInst ? 'bg-rose-500/5 border-rose-500/20' : 
-            isPrepaid ? 'bg-emerald-500/5 border-emerald-500/20' : 
+            isPaid || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' :
+            isLateInst ? 'bg-rose-500/5 border-rose-500/20' :
+            isPrepaid ? 'bg-emerald-500/5 border-emerald-500/20' :
             'bg-slate-900/40 border-slate-800/50 hover:bg-slate-900/60'
         }`}>
             <div className="flex items-center gap-3">
@@ -107,13 +113,16 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
             </div>
 
             <div className="text-right flex items-center gap-2 shrink-0">
-                <InstallmentCardAction 
-                    isDisabled={isActionDisabled} 
-                    isFullyFinalized={isFullyFinalized} 
-                    loan={loan} 
-                    originalInst={originalInst} 
-                    debt={debt} 
-                    onNavigate={onNavigate} 
+                <InstallmentCardAction
+                    isDisabled={isActionDisabled}
+                    isFullyFinalized={isFullyFinalized}
+                    loan={loan}
+                    originalInst={originalInst}
+                    debt={debt}
+                    inlinePaymentEnabled={inlinePaymentEnabled}
+                    onPayInstallment={onPayInstallment}
+                    onReverseInstallment={onReverseInstallment}
+                    onNavigate={onNavigate}
                 />
             </div>
         </div>
@@ -127,7 +136,7 @@ const arePropsEqual = (prev: InstallmentCardProps, next: InstallmentCardProps) =
     // Correção: Verificar se as datas mudaram (ex: renovação altera start_date e due_date)
     // Se a data de vencimento calculada mudou, deve renderizar
     if (prev.vm.displayDueDate !== next.vm.displayDueDate) return false;
-    
+
     // Se a data do contrato mudou (renovação mensal move o start_date), deve renderizar a Timeline
     if (prev.loan.startDate !== next.loan.startDate) return false;
 

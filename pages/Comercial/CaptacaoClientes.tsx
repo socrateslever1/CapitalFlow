@@ -6,10 +6,37 @@ import { useCampaignChat } from '../../hooks/useCampaignChat';
 import { supabase } from '../../lib/supabase';
 import { formatMoney, maskPhone } from '../../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY_HELP, getGeminiApiKey } from '../../utils/geminiConfig';
+import { getGeminiApiKey } from '../../utils/geminiConfig';
 
 const DEFAULT_VALUES = [300, 500, 800, 1000, 1500];
 const DEFAULT_TEMPLATE = "Olá! Me chamo {NOME}. Vim pela campanha {CAMPANHA}. Tenho interesse no valor de R$ {VALOR}. Link: {LINK}";
+const createInternalCampaignImage = (campaignName: string) => {
+  const safeName = (campaignName || 'Campanha de Crédito')
+    .replace(/[<>&"]/g, '')
+    .slice(0, 42);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#07111f"/>
+          <stop offset="0.55" stop-color="#0f2a4a"/>
+          <stop offset="1" stop-color="#0b5cff"/>
+        </linearGradient>
+      </defs>
+      <rect width="1080" height="1080" fill="url(#bg)"/>
+      <rect x="72" y="72" width="936" height="936" rx="36" fill="rgba(2,6,23,0.38)" stroke="rgba(255,255,255,0.16)" stroke-width="3"/>
+      <circle cx="850" cy="220" r="120" fill="rgba(16,185,129,0.22)"/>
+      <circle cx="170" cy="870" r="170" fill="rgba(59,130,246,0.22)"/>
+      <text x="96" y="168" fill="#93c5fd" font-family="Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="8">CAPITALFLOW</text>
+      <text x="96" y="342" fill="#ffffff" font-family="Arial, sans-serif" font-size="82" font-weight="900">${safeName}</text>
+      <text x="96" y="456" fill="#ffffff" font-family="Arial, sans-serif" font-size="70" font-weight="900">Simule seu crédito</text>
+      <text x="96" y="542" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="38" font-weight="700">Escolha o valor e fale no WhatsApp</text>
+      <rect x="96" y="650" width="620" height="118" rx="24" fill="#16a34a"/>
+      <text x="140" y="724" fill="#ffffff" font-family="Arial, sans-serif" font-size="42" font-weight="900">ATENDIMENTO RÁPIDO</text>
+      <text x="96" y="884" fill="#dbeafe" font-family="Arial, sans-serif" font-size="30" font-weight="700">Condições sujeitas à análise cadastral.</text>
+    </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
 
 export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null, goBack?: () => void, isStealthMode?: boolean }> = ({ activeUser, goBack, isStealthMode }) => {
   const [activeMode, setActiveMode] = useState<'CHAT' | 'CAMPAIGNS'>('CHAT');
@@ -160,7 +187,8 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
     try {
       const googleApiKey = getGeminiApiKey();
       if (!googleApiKey) {
-        throw new Error(GEMINI_API_KEY_HELP);
+        setGeneratedImage(createInternalCampaignImage(form.name || 'Campanha de Crédito'));
+        return;
       }
       const ai = new GoogleGenAI({ apiKey: googleApiKey });
       const prompt = `Create a professional, clean, and trustworthy social media image for a financial service campaign named "${form.name}".
@@ -195,7 +223,7 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
       }
     } catch (e) {
       console.error(e);
-      alert('Erro ao gerar imagem.');
+      setGeneratedImage(createInternalCampaignImage(form.name || 'Campanha de Crédito'));
     } finally {
       setGeneratingImage(false);
     }

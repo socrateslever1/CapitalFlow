@@ -1,12 +1,14 @@
 
 import React, { useMemo, useState } from 'react';
 import { DashboardPage } from '../pages/DashboardPage';
-import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment } from '../types';
+import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, Installment } from '../types';
 import { filterLoans } from '../domain/filters/loanFilters';
 import { buildDashboardStats } from '../domain/dashboard/stats';
 import { agreementService } from '../features/agreements/services/agreementService';
 import { contractsService } from '../services/contracts.service';
+import { paymentsService } from '../services/payments.service';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
+import { calculateTotalDue } from '../domain/finance/calculations';
 
 interface DashboardContainerProps {
   loans: Loan[];
@@ -52,11 +54,11 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   const filteredLoans = useMemo(() => filterLoans(scopeLoans, searchTerm, statusFilter), [scopeLoans, searchTerm, statusFilter]);
   const stats = useMemo(() => buildDashboardStats(scopeLoans, sources, activeUser), [scopeLoans, sources, activeUser]);
 
-  const handleAgreementPayment = async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => {
+  const handleAgreementPayment = async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => {
       if (!activeUser) return;
       const paidAmount = Number(amount ?? inst.amount) || 0;
       try {
-          await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser);
+          await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser, forgiveLateFee);
           showToast("Parcela do acordo recebida!", "success");
           ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: paidAmount, type: 'AGREEMENT_PAYMENT' });
           ui.openModal('RECEIPT');
@@ -77,6 +79,53 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
       }
   };
 
+
+  const handleInstallmentPayment = async (loan: Loan, inst: Installment, debt?: any, amount?: number) => {
+      if (!activeUser) return;
+      const calculations = debt || calculateTotalDue(loan, inst);
+      const amountToReceive = Number(amount ?? calculations?.total ?? inst.amount ?? 0) || 0;
+
+      try {
+          const result = await paymentsService.processPayment({
+              loan,
+              inst,
+              calculations,
+              amountPaid: amountToReceive,
+              activeUser,
+              sources,
+              forgivenessMode: 'NONE',
+              realDate: new Date(),
+              paymentType: 'FULL'
+          });
+
+          showToast('Recebimento registrado com sucesso!', 'success');
+          ui.setShowReceipt({
+              loan,
+              inst,
+              amountPaid: result.amountToPay || amountToReceive,
+              type: result.paymentType || 'PAYMENT'
+          });
+          ui.openModal('RECEIPT');
+          onRefresh();
+      } catch (e: any) {
+          showToast('Erro ao registrar recebimento: ' + (e?.message || 'desconhecido'), 'error');
+      }
+  };
+  const handleReverseInstallmentPayment = (loan: Loan, inst: Installment) => {
+      const tx = [...(loan.ledger || [])]
+          .filter((entry: any) => {
+              const type = String(entry.type || '').toUpperCase();
+              return type.includes('PAYMENT') && Number(entry.amount || 0) > 0 && String(entry.installmentId || '') === String(inst.id || '');
+          })
+          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+      if (!tx) {
+          showToast('Nao encontrei o pagamento dessa parcela no extrato para estornar.', 'error');
+          return;
+      }
+
+      loanCtrl.openReverseTransaction(tx, loan);
+  };
   const handleNewAporte = (loan: Loan) => {
       if (isCapitalOnlyRecoveryLoan(loan)) {
           showToast("Cliente marcado como Somente Capital nao pode receber novo aporte.", "error");
@@ -147,6 +196,8 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         onMarkAsBilled={handleMarkAsBilled}
         onAgreementPayment={handleAgreementPayment}
         onReverseAgreementPayment={handleReverseAgreementPayment}
+        onInstallmentPayment={handleInstallmentPayment}
+        onReverseInstallmentPayment={handleReverseInstallmentPayment}
         onNavigate={onNavigate}
         onOpenClient={onOpenClient}
         onRefresh={onRefresh}

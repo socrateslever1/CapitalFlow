@@ -81,6 +81,15 @@ export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: str
   return "Em dia";
 };
 
+export const calculateAgreementInstallmentLateFee = (inst: Partial<AgreementInstallment>): number => {
+  if (!inst || !inst.dueDate) return 0;
+  const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
+  if (daysLate <= 0) return 0;
+  const paidAmount = Number(inst.paidAmount) || 0;
+  const amount = Number(inst.amount) || 0;
+  const remainingPrincipal = Math.max(0, amount - paidAmount);
+  return round(remainingPrincipal * 0.01 * daysLate);
+};
 
 // --- FACHADA DE CÁLCULO DE DÍVIDA ---
 
@@ -164,26 +173,24 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
   if (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments)) {
     const agreement = loan.activeAgreement;
     const pendingInstallments = agreement.installments.filter((inst) => !isAgreementInstallmentPaid(inst));
-    const totalRemaining = round(
-      pendingInstallments.reduce((acc, inst) => acc + Math.max(0, Number(inst.amount || 0) - Number(inst.paidAmount || 0)), 0)
-    );
-
-    // Tenta preservar a natureza da dívida baseada no débito original no momento da negociação
-    const totalOriginal = Math.max(1, agreement.totalDebtAtNegotiation || totalRemaining);
-    const negotiatedTotal = Math.max(1, agreement.negotiatedTotal || totalRemaining);
     
-    // Calcula o saldo "virtual" sem o acordo para pegar a proporção
-    const virtualBalance = computeLoanRemainingBalance({ ...loan, activeAgreement: undefined });
+    let principalRemaining = 0;
+    let lateFeeRemaining = 0;
     
-    const pRatio = virtualBalance.principalRemaining / (virtualBalance.totalRemaining || 1);
-    const iRatio = virtualBalance.interestRemaining / (virtualBalance.totalRemaining || 1);
-    const lRatio = virtualBalance.lateFeeRemaining / (virtualBalance.totalRemaining || 1);
+    pendingInstallments.forEach(inst => {
+      principalRemaining += Math.max(0, Number(inst.amount || 0) - Number(inst.paidAmount || 0));
+      lateFeeRemaining += calculateAgreementInstallmentLateFee(inst);
+    });
+    
+    principalRemaining = round(principalRemaining);
+    lateFeeRemaining = round(lateFeeRemaining);
+    const totalRemaining = round(principalRemaining + lateFeeRemaining);
 
     return {
       totalRemaining,
-      principalRemaining: round(totalRemaining * pRatio),
-      interestRemaining: round(totalRemaining * iRatio),
-      lateFeeRemaining: round(totalRemaining * lRatio),
+      principalRemaining,
+      interestRemaining: 0,
+      lateFeeRemaining,
     };
   }
 

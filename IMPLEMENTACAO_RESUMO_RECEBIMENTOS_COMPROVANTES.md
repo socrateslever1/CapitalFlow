@@ -1,5 +1,15 @@
-﻿# Implementacoes - RECEBIMENTOS COMPROVANTES
+# Implementacoes - RECEBIMENTOS COMPROVANTES
 
+## 2026-07-03
+- **Objetivo:** Corrigir recebimento visual do contrato parcelado fixo para operar como um unico contrato com parcelas, sem abrir um contrato por parcela.
+- **Arquivos Alterados:**
+    - `/components/cards/components/InstallmentGrid.logic.ts`: A numeracao exibida passou a usar o numero real da parcela (`numero_parcela`/`number`) antes do indice visual da lista, evitando parecer que 12 parcelas comecam em 2 e terminam em 13.
+    - `/components/cards/components/installmentCard/InstallmentCardAction.tsx`, `/components/cards/components/InstallmentCard.tsx`, `/components/cards/components/InstallmentGrid.tsx`, `/components/cards/LoanCardComposition/Body.tsx`, `/components/cards/LoanCard.tsx`, `/components/cards/LoanCardComposition/types.ts`: O parcelado fixo agora aciona pagamento inline por parcela aberta e estorno por parcela paga, preservando o contrato unico.
+    - `/containers/DashboardContainer.tsx` e `/pages/DashboardPage.tsx`: Ligadas as acoes de pagamento/estorno ao modal de recebimento existente e ao estorno pelo ledger da parcela.
+- **Arquivos Criados:** Nenhum.
+- **Riscos/Observacoes:** Contratos antigos que ja tenham sido gravados com numeracao errada no banco podem precisar de saneamento de dados para trocar `numero_parcela` existente; a tela passa a exibir o numero real recebido do banco.
+- **Validacao:** `npm run build` executado com sucesso.
+- **Ajuste Posterior:** Padronizado o termo operacional para `Receber/Recebimento`; o parcelado fixo passou a usar modal simples de recebimento, no padrao do acordo, sem abrir a tela completa de recebimento; o historico do card passa a agrupar capital + lucro do mesmo recebimento em uma linha visual unica.`n- **Ajuste de Vencimento:** O formulario passou a sugerir vencimento subsequente por modalidade (`+1 mes` para mensal/parcelado, prazo em dias para prazo fixo e dia seguinte para diaria), e na edicao carrega a primeira parcela operacional por numero/data em vez de confiar na primeira posicao do array.`n- **Escopo:** Ajuste restrito ao recebimento/estorno e numeracao de parcelas do parcelado fixo; sem mudanca de layout global, rotas ou schema.
 ## 2026-06-08
 - **Objetivo:** Tornar o comprovante estavel e melhor formatado, aceitando o fluxo de impressao/salvar como PDF no lugar da geracao instavel de imagem.
 - **Arquivos Alterados:**

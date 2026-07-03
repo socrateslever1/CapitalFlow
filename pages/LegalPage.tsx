@@ -22,7 +22,7 @@ interface LegalPageProps {
   loanCtrl: any;
   fileCtrl: any;
   onRefresh: () => void;
-  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
+  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReviewSignal: (signalId: string, status: 'APROVADO' | 'NEGADO') => void;
   onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
   isStealthMode: boolean;

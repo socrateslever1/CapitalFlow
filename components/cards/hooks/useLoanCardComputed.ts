@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { Loan, CapitalSource, LoanStatus } from '../../../types';
+import { Loan, CapitalSource, LoanStatus, Installment } from '../../../types';
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { hasActiveAgreement as hasActiveAgreementData, rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { loanEngine } from '../../../domain/loanEngine';
@@ -123,16 +123,49 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
   }, [loan.ledger]);
 
   const orderedInstallments = useMemo(() => {
-    let all = [...loan.installments].sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-    );
+    const installmentNumber = (inst: any, fallback: number) => {
+      const parsed = Number(inst?.number ?? inst?.numero_parcela ?? inst?.installmentNumber);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    };
+
+    const installmentDueTime = (inst: any) => {
+      const time = new Date(inst?.dueDate).getTime();
+      return Number.isFinite(time) ? time : 0;
+    };
+
+    const isInstallmentSettled = (inst: any) => {
+      const status = String(inst?.status || '').toUpperCase();
+      const remaining =
+        (Number(inst?.principalRemaining) || 0) +
+        (Number(inst?.interestRemaining) || 0) +
+        (Number(inst?.lateFeeAccrued) || 0);
+      return status === LoanStatus.PAID || status === 'PAGO' || remaining <= ZERO_BALANCE_THRESHOLD;
+    };
+
+    let all: Installment[];
+
+    if (loan.billingCycle === 'INSTALLMENT_FIXED') {
+      all = [...loan.installments]
+        .sort((a, b) => {
+          const byNumber = installmentNumber(a, 0) - installmentNumber(b, 0);
+          return byNumber !== 0 ? byNumber : installmentDueTime(a) - installmentDueTime(b);
+        })
+        .map((inst, scheduleIndex) => ({ ...inst, __scheduleIndex: scheduleIndex } as Installment))
+        .sort((a: any, b: any) => {
+          const bySettlement = Number(isInstallmentSettled(a)) - Number(isInstallmentSettled(b));
+          return bySettlement !== 0 ? bySettlement : Number(a.__scheduleIndex) - Number(b.__scheduleIndex);
+        });
+    } else {
+      all = [...loan.installments].sort((a, b) => installmentDueTime(a) - installmentDueTime(b));
+    }
+
     if (showProgress) {
       if (!isPaid) {
         all = all.filter(i => i.status !== LoanStatus.PAID && Math.round(i.principalRemaining) > 0);
       }
     }
     return all;
-  }, [loan.installments, showProgress, isPaid]);
+  }, [loan.billingCycle, loan.installments, showProgress, isPaid]);
 
   return {
     strategy,

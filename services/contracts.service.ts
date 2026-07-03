@@ -181,6 +181,26 @@ export const contractsService = {
           late_fee_accrued: safeFloat(inst.lateFeeAccrued),
         }));
 
+        if (loan.billingCycle === 'INSTALLMENT_FIXED') {
+          const { data: existingRows, error: existingRowsErr } = await supabase
+            .from('parcelas')
+            .select('id, numero_parcela')
+            .eq('loan_id', safeUUID(loanId))
+            .order('numero_parcela', { ascending: true });
+
+          if (existingRowsErr) throw existingRowsErr;
+
+          for (let index = 0; index < (existingRows || []).length; index++) {
+            const row = existingRows[index] as any;
+            const { error: tempNumberErr } = await supabase
+              .from('parcelas')
+              .update({ numero_parcela: 100000 + index })
+              .eq('id', row.id);
+
+            if (tempNumberErr) throw tempNumberErr;
+          }
+        }
+
         const { error: upsertErr } = await supabase.from('parcelas').upsert(instPayload, { onConflict: 'id' });
         if (upsertErr) throw upsertErr;
       }

@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { MoreHorizontal, Lock } from 'lucide-react';
+import { DollarSign, Lock, RefreshCcw } from 'lucide-react';
 import { Loan, Installment } from '../../../../types';
 import { CalculationResult } from '../../../../domain/finance/modalities/types';
 
@@ -10,6 +9,9 @@ interface InstallmentCardActionProps {
     loan: Loan;
     originalInst: Installment;
     debt: CalculationResult;
+    inlinePaymentEnabled?: boolean;
+    onPayInstallment?: (loan: Loan, inst: Installment, debt: CalculationResult) => void;
+    onReverseInstallment?: (loan: Loan, inst: Installment) => void;
     onNavigate?: () => void;
 }
 
@@ -19,27 +21,58 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
     loan,
     originalInst,
     debt,
+    inlinePaymentEnabled,
+    onPayInstallment,
+    onReverseInstallment,
     onNavigate
 }) => {
+    const isRenegotiated = originalInst.status === 'RENEGOCIADO';
+
     if (!isDisabled) {
+        const handleClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (inlinePaymentEnabled && onPayInstallment) {
+                onPayInstallment(loan, originalInst, debt);
+                return;
+            }
+            onNavigate?.();
+        };
+
         return (
-            <button 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onNavigate?.();
-                }}
+            <button
+                onClick={handleClick}
                 className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                title="Abrir Contrato para Pagar"
+                title={inlinePaymentEnabled ? 'Registrar recebimento da parcela' : 'Abrir contrato'}
             >
-                <MoreHorizontal size={12} /> Abrir
+                <DollarSign size={12} /> {inlinePaymentEnabled ? 'Receber' : 'Abrir'}
             </button>
         );
     }
 
-    const isRenegotiated = originalInst.status === 'RENEGOCIADO';
+    const canReverse = inlinePaymentEnabled && !isFullyFinalized && !isRenegotiated && onReverseInstallment;
+
+    if (canReverse) {
+        return (
+            <div className="flex flex-col items-end">
+                <span className="text-[9px] font-black uppercase flex items-center gap-1 text-emerald-500">
+                    <Lock size={10} /> Pago
+                </span>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onReverseInstallment?.(loan, originalInst);
+                    }}
+                    className="text-[8px] font-black uppercase text-rose-500/60 hover:text-rose-500 transition-colors mt-0.5 flex items-center gap-1"
+                    title="Estornar pagamento desta parcela"
+                >
+                    <RefreshCcw size={9} /> Estornar
+                </button>
+            </div>
+        );
+    }
 
     return (
-        <div 
+        <div
             onClick={(e) => {
                 e.stopPropagation();
                 onNavigate?.();
@@ -47,7 +80,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
             className="flex flex-col items-end cursor-pointer group"
         >
             <span className="text-[9px] font-black uppercase flex items-center gap-1 text-emerald-500">
-                <Lock size={10} className="group-hover:opacity-70 transition-opacity" /> 
+                <Lock size={10} className="group-hover:opacity-70 transition-opacity" />
                 {isFullyFinalized ? 'Finalizado' : isRenegotiated ? 'Renegociado' : 'Pago'}
             </span>
         </div>

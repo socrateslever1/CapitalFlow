@@ -1,7 +1,7 @@
 // /app/applet/features/agreements/services/agreementService.ts
 import { supabase } from "../../../lib/supabase";
 import { Agreement, AgreementInstallment, UserProfile } from "../../../types";
-import { allocatePaymentFromBuckets, isAgreementInstallmentPaid } from "../../../domain/finance/calculations";
+import { allocatePaymentFromBuckets, isAgreementInstallmentPaid, calculateAgreementInstallmentLateFee } from "../../../domain/finance/calculations";
 import { generateUUID } from "../../../utils/generators";
 import { safeUUID } from "../../../utils/uuid";
 
@@ -742,14 +742,28 @@ export const agreementService = {
     });
   },
 
-  async processPayment(agreement: any, installment: any, amount: number, sourceId: string, activeUser: any) {
+  async processPayment(agreement: any, installment: any, amount: number, sourceId: string, activeUser: any, forgiveLateFee: boolean = false) {
     const idempotencyKey = generateUUID();
     const paymentId = generateUUID();
     const paymentAmount = Math.max(0, Number(amount) || 0);
     const installmentAmount = Number(installment.amount ?? installment.valor ?? 0) || 0;
     const previousPaid = Number(installment.paidAmount ?? installment.paid_amount ?? installment.valor_pago ?? 0) || 0;
-    const totalPaidForInstallment = previousPaid + paymentAmount;
-    const installmentStatus = totalPaidForInstallment + 0.05 >= installmentAmount ? 'PAGO' : 'PARCIAL';
+    const remainingPrincipal = Math.max(0, installmentAmount - previousPaid);
+
+    // Calcular juros de atraso da parcela antes deste pagamento
+    const mappedInst = {
+      dueDate: installment.dueDate ?? installment.due_date ?? installment.data_vencimento,
+      amount: installmentAmount,
+      paidAmount: previousPaid
+    };
+    const lateFeeDue = forgiveLateFee ? 0 : calculateAgreementInstallmentLateFee(mappedInst);
+
+    // Alocar pagamento: primeiro juros de atraso, depois principal da parcela
+    const paidLateFee = Math.min(paymentAmount, lateFeeDue);
+    const paidPrincipal = Math.min(paymentAmount - paidLateFee, remainingPrincipal);
+    const newPaidPrincipal = previousPaid + paidPrincipal;
+
+    const installmentStatus = newPaidPrincipal + 0.05 >= installmentAmount ? 'PAGO' : 'PARCIAL';
 
     // 1. Registra na tabela de pagamentos de acordo (Audit Log)
     const { error: txAuditError } = await supabase.from('acordo_pagamentos').insert({
@@ -771,8 +785,8 @@ export const agreementService = {
       .from('acordo_parcelas')
       .update({
         status: installmentStatus,
-        valor_pago: totalPaidForInstallment,
-        paid_amount: totalPaidForInstallment,
+        valor_pago: newPaidPrincipal,
+        paid_amount: newPaidPrincipal,
         data_pagamento: installmentStatus === 'PAGO' ? new Date().toISOString() : null,
         paid_at: installmentStatus === 'PAGO' ? new Date().toISOString() : null
       })
@@ -790,9 +804,9 @@ export const agreementService = {
         date: new Date().toISOString(),
         type: 'AGREEMENT_PAYMENT',
         amount: paymentAmount,
-        principal_delta: paymentAmount,
+        principal_delta: paidPrincipal,
         interest_delta: 0,
-        late_fee_delta: 0,
+        late_fee_delta: paidLateFee,
         source_id: sourceId,
         installment_id: null,
         payment_type: 'ACORDO',
@@ -807,7 +821,7 @@ export const agreementService = {
 
       if (txError) throw new Error(`Falha ao registrar transação no ledger: ${txError.message}`);
 
-      const overpaid = Math.max(0, totalPaidForInstallment - installmentAmount);
+      const overpaid = Math.max(0, paymentAmount - (paidPrincipal + paidLateFee));
       if (overpaid > 0.05) {
         const { data: openInstallments, error: openError } = await supabase
           .from('acordo_parcelas')

@@ -21,7 +21,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     onRestore, onDelete, onNote, onPortalLink, onUploadPromissoria,
     onUploadDoc, onViewPromissoria, onViewDoc, onReviewSignal, onOpenComprovante,
     onReverseTransaction, onOpenReceipt, onRenegotiate, onActivate, onNewAporte, onAgreementPayment,
-    onReverseAgreementPayment, onNavigate, onLegalDocument, onRefresh, allLoans, onToggleCapitalOnly,
+    onReverseAgreementPayment, onInstallmentPayment, onReverseInstallmentPayment, onNavigate, onLegalDocument, onRefresh, allLoans, onToggleCapitalOnly,
     isExpanded: isExpandedProp, onToggleExpand
   } = props;
 
@@ -155,6 +155,8 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               onRefresh={onRefresh}
               onAgreementPayment={onAgreementPayment}
               onReverseAgreementPayment={onReverseAgreementPayment}
+              onInstallmentPayment={onInstallmentPayment}
+              onReverseInstallmentPayment={onReverseInstallmentPayment}
               orderedInstallments={orderedInstallments}
               fixedTermStats={fixedTermStats}
               isPaid={isPaid}

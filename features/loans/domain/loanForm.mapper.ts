@@ -15,37 +15,65 @@ function preserveExistingDueDates(
 
   const existingById = new Map<string, Installment>();
   const existingByNumber = new Map<number, Installment>();
+  const toInstallmentNumber = (value: any, fallback: number) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
 
-  existing.forEach((e, idx) => {
-    if ((e as any)?.id) existingById.set((e as any).id, e);
+  const existingWithNumber = existing.map((inst, idx) => ({
+    inst,
+    num: toInstallmentNumber(
+      (inst as any).number ??
+      (inst as any).numero_parcela ??
+      (inst as any).installmentNumber,
+      idx + 1
+    ),
+  }));
 
-    const num =
-      (e as any).number ??
-      (e as any).numero_parcela ??
-      (e as any).installmentNumber ??
-      idx + 1;
-
-    if (typeof num === 'number') existingByNumber.set(num, e);
+  existingWithNumber.forEach(({ inst, num }) => {
+    if ((inst as any)?.id) existingById.set((inst as any).id, inst);
+    existingByNumber.set(num, inst);
   });
 
+  const sortedExisting = [...existingWithNumber].sort((a, b) => a.num - b.num).map(item => item.inst);
+  const existingNums = existingWithNumber.map(item => item.num).sort((a, b) => a - b);
+  const isShiftedSameSchedule =
+    existing.length === generated.length &&
+    existingNums.length > 0 &&
+    existingNums[0] !== 1 &&
+    existingNums.every((num, idx) => idx === 0 || num === existingNums[idx - 1] + 1);
+
   return generated.map((g, idx) => {
-    const gNum =
+    const gNum = toInstallmentNumber(
       (g as any).number ??
       (g as any).numero_parcela ??
-      (g as any).installmentNumber ??
-      idx + 1;
+      (g as any).installmentNumber,
+      idx + 1
+    );
 
     const prev =
+      (isShiftedSameSchedule ? sortedExisting[idx] : null) ||
       ((g as any)?.id ? existingById.get((g as any).id) : null) ||
-      (typeof gNum === 'number' ? existingByNumber.get(gNum) : null);
+      existingByNumber.get(gNum);
 
-    if (prev?.dueDate) {
-      return { ...g, dueDate: prev.dueDate };
+    if (prev) {
+      return {
+        ...g,
+        id: prev.id || g.id,
+        dueDate: prev.dueDate || g.dueDate,
+        status: prev.status || g.status,
+        paidDate: prev.paidDate || g.paidDate,
+        paidAmount: prev.paidAmount ?? g.paidAmount,
+        paidTotal: prev.paidTotal ?? g.paidTotal,
+        paidPrincipal: prev.paidPrincipal ?? g.paidPrincipal,
+        paidInterest: prev.paidInterest ?? g.paidInterest,
+        paidLateFee: prev.paidLateFee ?? g.paidLateFee,
+        logs: prev.logs?.length ? prev.logs : g.logs,
+      };
     }
     return g;
   });
 }
-
 export interface LoanFormState {
   clientId: string;
   status?: LoanStatus; // Adicionado status para o formulário, pode ser opcional se for definido no backend ou com default

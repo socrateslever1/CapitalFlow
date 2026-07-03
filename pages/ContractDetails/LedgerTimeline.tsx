@@ -10,6 +10,54 @@ import { Loan, LedgerEntry } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { translateTransactionType } from '../../utils/translationHelpers';
 
+
+const mergeSplitReceipts = (entries: LedgerEntry[]): LedgerEntry[] => {
+    const consumed = new Set<string>();
+    return [...(entries || [])].reduce<LedgerEntry[]>((acc, entry, _idx, items) => {
+        if (consumed.has(entry.id)) return acc;
+        const notes = String(entry.notes || '').toLowerCase();
+        const isPrincipalReceipt =
+            String(entry.type || '').includes('PAYMENT') &&
+            Number(entry.amount || 0) > 0 &&
+            Number(entry.principalDelta || 0) > 0 &&
+            notes.includes('retorno de capital');
+
+        if (!isPrincipalReceipt) {
+            acc.push(entry);
+            return acc;
+        }
+
+        const sameDay = String(entry.date || '').slice(0, 10);
+        const profit = items.find((candidate) => {
+            if (candidate.id === entry.id || consumed.has(candidate.id)) return false;
+            const candidateNotes = String(candidate.notes || '').toLowerCase();
+            return (
+                String(candidate.type || '').includes('PAYMENT') &&
+                String(candidate.date || '').slice(0, 10) === sameDay &&
+                Number(candidate.amount || 0) > 0 &&
+                Number(candidate.principalDelta || 0) === 0 &&
+                (Number(candidate.interestDelta || 0) > 0 || Number(candidate.lateFeeDelta || 0) > 0) &&
+                (candidate.category === 'LUCRO' || candidateNotes.includes('lucro recebido'))
+            );
+        });
+
+        if (!profit) {
+            acc.push(entry);
+            return acc;
+        }
+
+        consumed.add(profit.id);
+        acc.push({
+            ...entry,
+            amount: Number(entry.amount || 0) + Number(profit.amount || 0),
+            interestDelta: Number(entry.interestDelta || 0) + Number(profit.interestDelta || 0),
+            lateFeeDelta: Number(entry.lateFeeDelta || 0) + Number(profit.lateFeeDelta || 0),
+            notes: 'Recebimento registrado (capital + lucro).',
+            category: 'RECEBIMENTO',
+        });
+        return acc;
+    }, []);
+};
 interface LedgerTimelineProps {
     loan: Loan;
     groupedLedger: Record<string, LedgerEntry[]>;
@@ -83,7 +131,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                 <div className="h-[1px] flex-1 bg-slate-800/30"></div>
                             </div>
                             <div className="space-y-1">
-                                {entries.map((entry) => (
+                                {mergeSplitReceipts(entries).map((entry) => (
                                     <div
                                         key={entry.id}
                                         className="flex items-center justify-between p-2 rounded-lg bg-slate-950/30 border border-transparent hover:border-slate-800 hover:bg-slate-950/50 transition-all group"

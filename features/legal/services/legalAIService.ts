@@ -1,7 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { LegalDocumentParams, Agreement, Loan, UserProfile } from "../../../types";
-import { GEMINI_API_KEY_HELP, getGeminiApiKey } from "../../../utils/geminiConfig";
+import { getGeminiApiKey } from "../../../utils/geminiConfig";
+import { buildLegalConfessionFallback } from "../../../services/internalAI.service";
 
 export const legalAIService = {
   generateConfissaoPayload: async (
@@ -13,7 +14,7 @@ export const legalAIService = {
     const googleApiKey = getGeminiApiKey();
 
     if (!googleApiKey) {
-      throw new Error(GEMINI_API_KEY_HELP);
+      return buildLegalConfessionFallback(agreement, loan, activeUser, options) as LegalDocumentParams;
     }
 
     const ai = new GoogleGenAI({ apiKey: googleApiKey });
@@ -25,19 +26,19 @@ export const legalAIService = {
           parts: [{
             text: `
               Você é um ANALISTA JURÍDICO SÊNIOR. Sua tarefa é gerar um PAYLOAD JSON para um documento de CONFISSÃO DE DÍVIDA com NOTA PROMISSÓRIA vinculada.
-              
+
               DADOS DO ACORDO:
               ${JSON.stringify(agreement, null, 2)}
-              
+
               DADOS DO EMPRÉSTIMO:
               ${JSON.stringify(loan, null, 2)}
-              
+
               DADOS DO CREDOR (USUÁRIO ATUAL):
               ${JSON.stringify(activeUser, null, 2)}
-              
+
               OPÇÕES CONFIGURADAS:
               ${JSON.stringify(options, null, 2)}
-              
+
               REGRAS:
               1. O retorno deve ser APENAS o JSON, sem explicações.
               2. Use "[PREENCHER]" para qualquer dado obrigatório que não esteja presente nos objetos acima.
@@ -108,10 +109,18 @@ export const legalAIService = {
       }
     });
 
-    const result = await model;
-    const response = result.text;
-    if (!response) throw new Error("IA não retornou dados.");
-    
-    return JSON.parse(response) as LegalDocumentParams;
+    try {
+      const result = await model;
+      const response = result.text;
+      if (!response) throw new Error("IA não retornou dados.");
+
+      return JSON.parse(response) as LegalDocumentParams;
+    } catch (error: any) {
+      const msg = String(error?.message || error || "");
+      if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("xhr")) {
+        return buildLegalConfessionFallback(agreement, loan, activeUser, options) as LegalDocumentParams;
+      }
+      throw error;
+    }
   }
 };

@@ -231,7 +231,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                         <div className="flex items-center justify-between mb-6">
                                             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
                                                 <Banknote size={16} className="text-blue-500"/>
-                                                Registrar Pagamento
+                                                Registrar Recebimento
                                             </h2>
                                             <div className="flex items-center gap-2 px-3 py-1 bg-slate-950 border border-slate-800 rounded-full">
                                                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -277,7 +277,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                                     if (amort > 0.05) return `Encargos + Amortização: Quita os juros e abate ${formatMoney(amort)} do capital principal.`;
                                                                     return "Renovação: Quita os juros/multas do período e mantém o capital principal.";
                                                                 }
-                                                                return `Pagamento Parcial: Abate ${formatMoney(val)} apenas dos juros/encargos acumulados.`;
+                                                                return `Recebimento Parcial: Abate ${formatMoney(val)} apenas dos juros/encargos acumulados.`;
                                                             })()}
                                                         </p>
                                                     </div>

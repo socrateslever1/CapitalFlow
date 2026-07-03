@@ -719,11 +719,11 @@ export const App: React.FC = () => {
                       ui.openModal('RECEIPT');
                     }}
                     onActivate={loanCtrl.handleActivateLoan}
-                    onAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => {
+                    onAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => {
                       if (!activeUser) return;
                       const paidAmount = Number(amount ?? inst.amount) || 0;
                       try {
-                          await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser);
+                          await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser, forgiveLateFee);
                           showToast("Parcela do acordo recebida!", "success");
                           ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: paidAmount, type: 'AGREEMENT_PAYMENT' });
                           ui.openModal('RECEIPT');

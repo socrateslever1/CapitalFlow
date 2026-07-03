@@ -5,6 +5,57 @@ import { humanizeAuditLog } from '../../../utils/auditHelpers';
 import { formatMoney } from '../../../utils/formatters';
 import { translateTransactionType } from '../../../utils/translationHelpers';
 
+
+const mergeSplitReceipts = (ledger: LedgerEntry[]): LedgerEntry[] => {
+  const items = [...(ledger || [])];
+  const consumed = new Set<string>();
+
+  return items.reduce<LedgerEntry[]>((acc, entry) => {
+    if (consumed.has(entry.id)) return acc;
+
+    const notes = String(entry.notes || '').toLowerCase();
+    const isPrincipalReceipt =
+      String(entry.type || '').includes('PAYMENT') &&
+      Number(entry.amount || 0) > 0 &&
+      Number(entry.principalDelta || 0) > 0 &&
+      notes.includes('retorno de capital');
+
+    if (!isPrincipalReceipt) {
+      acc.push(entry);
+      return acc;
+    }
+
+    const sameDay = String(entry.date || '').slice(0, 10);
+    const profit = items.find((candidate) => {
+      if (candidate.id === entry.id || consumed.has(candidate.id)) return false;
+      const candidateNotes = String(candidate.notes || '').toLowerCase();
+      return (
+        String(candidate.type || '').includes('PAYMENT') &&
+        String(candidate.date || '').slice(0, 10) === sameDay &&
+        Number(candidate.amount || 0) > 0 &&
+        Number(candidate.principalDelta || 0) === 0 &&
+        (Number(candidate.interestDelta || 0) > 0 || Number(candidate.lateFeeDelta || 0) > 0) &&
+        (candidate.category === 'LUCRO' || candidateNotes.includes('lucro recebido'))
+      );
+    });
+
+    if (!profit) {
+      acc.push(entry);
+      return acc;
+    }
+
+    consumed.add(profit.id);
+    acc.push({
+      ...entry,
+      amount: Number(entry.amount || 0) + Number(profit.amount || 0),
+      interestDelta: Number(entry.interestDelta || 0) + Number(profit.interestDelta || 0),
+      lateFeeDelta: Number(entry.lateFeeDelta || 0) + Number(profit.lateFeeDelta || 0),
+      notes: 'Recebimento registrado (capital + lucro).',
+      category: 'RECEBIMENTO',
+    });
+    return acc;
+  }, []);
+};
 interface LedgerListProps {
   ledger: LedgerEntry[];
   loan: Loan;
@@ -54,7 +105,7 @@ const LedgerItem: React.FC<{
 
   const titleText =
     isAgreementPayment
-      ? 'Pagamento de Acordo'
+      ? 'Recebimento de Acordo'
       : isAudit
       ? 'Sistema / Auditoria'
       : translateTransactionType(t.type);
@@ -128,7 +179,7 @@ export const LedgerList: React.FC<LedgerListProps> = ({ ledger = [], loan, onRev
   return (
     <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
       {ledger && ledger.length > 0 ? (
-        ledger.map((t) => (
+        mergeSplitReceipts(ledger).map((t) => (
           <LedgerItem
             key={t.id}
             t={t}

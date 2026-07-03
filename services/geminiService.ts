@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GEMINI_API_KEY_HELP, getGeminiApiKey } from "../utils/geminiConfig";
+import { buildInternalAIText, processInternalAICommand } from "./internalAI.service";
 
 /**
  * Tipos e Interfaces existentes para manter compatibilidade com o sistema atual.
@@ -65,26 +66,23 @@ export const processNaturalLanguageCommand = async (
 
     const googleApiKey = getGeminiApiKey();
     if (!googleApiKey) {
-      return {
-        intent: 'ERROR',
-        feedback: GEMINI_API_KEY_HELP,
-      };
+      return processInternalAICommand(text, context);
     }
 
     const callWithRetry = async (maxRetries = 5, initialDelay = 3000) => {
       let lastError: any;
       const models = ["gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
-      
+
       const accountId = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
       const gatewayName = import.meta.env.VITE_GATEWAY_NAME;
       const aigToken = import.meta.env.VITE_CF_AIG_TOKEN;
-      
-      const isGatewayConfigured = !!(accountId && gatewayName && 
-                                 !accountId.includes('SEU_') && 
+
+      const isGatewayConfigured = !!(accountId && gatewayName &&
+                                 !accountId.includes('SEU_') &&
                                  !gatewayName.includes('GATEWAY'));
 
       const generate = async (useGateway: boolean, modelIndex: number) => {
-        const ai = new GoogleGenAI({ 
+        const ai = new GoogleGenAI({
           apiKey: googleApiKey,
           httpOptions: useGateway ? {
             baseUrl: `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayName}/google-ai-studio`,
@@ -145,7 +143,7 @@ export const processNaturalLanguageCommand = async (
       for (let i = 0; i < maxRetries; i++) {
         try {
           // Alterna entre modelos se houver erro de quota
-          const modelIdx = i >= 2 ? (i - 1) : 0; 
+          const modelIdx = i >= 2 ? (i - 1) : 0;
           return await generate(false, modelIdx);
         } catch (err: any) {
           lastError = err;
@@ -193,6 +191,10 @@ export const processNaturalLanguageCommand = async (
       feedback = 'Erro de conexão com o serviço de IA. Verifique sua internet ou configurações de rede.';
     }
 
+    if (isQuotaError || isNetworkError) {
+      return processInternalAICommand(text, context);
+    }
+
     return {
       intent: 'ERROR',
       feedback,
@@ -209,7 +211,7 @@ import { fetchWithRetry } from "../utils/fetchWithRetry";
 /**
  * Nova função solicitada para integração direta via Cloudflare AI Gateway.
  * Utiliza fetch nativo e variáveis de ambiente do Vite.
- * 
+ *
  * @param prompt Texto a ser enviado para a IA
  * @returns Resposta em texto da IA ou mensagem de erro
  */
@@ -219,15 +221,18 @@ export async function askGemini(prompt: string): Promise<string> {
   const googleApiKey = getGeminiApiKey();
   const cfAigToken = import.meta.env.VITE_CF_AIG_TOKEN;
 
-  const isGatewayConfigured = !!(accountId && gatewayName && 
-                             !accountId.includes('SEU_') && 
+  const isGatewayConfigured = !!(accountId && gatewayName &&
+                             !accountId.includes('SEU_') &&
                              !gatewayName.includes('GATEWAY'));
+
+
+  if (!googleApiKey) return buildInternalAIText(prompt);
 
   const performFetch = async (useGateway: boolean, modelIndex: number) => {
     const models = ["gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
     const selectedModel = models[modelIndex % models.length];
 
-    const endpoint = useGateway 
+    const endpoint = useGateway
       ? `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayName}/google-ai-studio/v1/models/${selectedModel}:generateContent?key=${googleApiKey}`
       : `https://generativelanguage.googleapis.com/v1/models/${selectedModel}:generateContent?key=${googleApiKey}`;
 
@@ -270,8 +275,8 @@ export async function askGemini(prompt: string): Promise<string> {
       }
     }
 
-    if (!googleApiKey) throw new Error(GEMINI_API_KEY_HELP);
-    
+    if (!googleApiKey) return buildInternalAIText(prompt);
+
     // Retry logic for askGemini
     let lastError: any;
     for (let i = 0; i < 5; i++) {
@@ -282,7 +287,7 @@ export async function askGemini(prompt: string): Promise<string> {
         lastError = err;
         const errorMessage = err.message || String(err);
         const isQuotaError = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED');
-        
+
         if (isQuotaError && i < 4) {
           const jitter = Math.random() * 1000;
           const delay = (3000 * Math.pow(2, i)) + jitter;
@@ -297,6 +302,9 @@ export async function askGemini(prompt: string): Promise<string> {
   } catch (error: any) {
     console.error("Erro ao consultar Gemini:", error);
     const isNetworkError = error.message?.includes('Failed to fetch') || error.name === 'TypeError';
-    return "Erro ao consultar IA: " + (isNetworkError ? "Falha na conexão de rede" : (error.message || "Falha desconhecida"));
+    if (isNetworkError || String(error?.message || '').includes(GEMINI_API_KEY_HELP)) {
+      return buildInternalAIText(prompt);
+    }
+    return "Erro ao consultar IA: " + (error.message || "Falha desconhecida");
   }
 }

@@ -1,7 +1,7 @@
 import { Loan, SortOption } from '../../types';
 import { rebuildLoanStateFromLedger } from '../../domain/finance/calculations';
 import { loanEngine } from '../../domain/loanEngine';
-import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
+import { resolveLoanVisualClassification, getLoanNextDueDate } from '../../utils/loanFilterResolver';
 import { normalizeName, onlyDigits } from '../../utils/formatters';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
@@ -102,9 +102,9 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
       else if (!isPaid) worstStatusPriority = Math.max(worstStatusPriority, 1);
       else worstStatusPriority = Math.max(worstStatusPriority, 0);
 
-      const nextInst = isPaid ? null : loan.installments.find(i => i.status !== 'PAID');
-      if (nextInst) {
-          const t = new Date(nextInst.dueDate).getTime();
+      const nextDueDateStr = isPaid ? null : getLoanNextDueDate(loan);
+      if (nextDueDateStr && nextDueDateStr !== '9999-12-31') {
+          const t = new Date(nextDueDateStr).getTime();
           if (t < minDueDate) minDueDate = t;
       }
       
@@ -123,15 +123,14 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
     else group.status = 'PAID';
 
     group.loans.sort((a, b) => {
-        const nextA = a.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
-        const nextB = b.installments.find(i => i.status !== 'PAID')?.dueDate || '9999-12-31';
+        const nextA = getLoanNextDueDate(a);
+        const nextB = getLoanNextDueDate(b);
         return new Date(nextA).getTime() - new Date(nextB).getTime();
     });
 
     group._sortMeta = { minDueDate, maxCreatedAt, maxUpdatedAt };
 
     return group;
-
   }).sort((a, b) => {
      if (sortOption === 'NAME_ASC') return a.clientName.localeCompare(b.clientName);
      if (sortOption === 'CREATED_DESC') return (b._sortMeta?.maxCreatedAt || 0) - (a._sortMeta?.maxCreatedAt || 0);

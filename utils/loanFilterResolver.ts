@@ -12,6 +12,22 @@ export type LoanVisualClassification =
   | 'ARQUIVADO'
   | 'IGNORAR';
 
+export const getLoanNextDueDate = (loan: Loan): string => {
+  const hasActiveAgreement = !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
+  const installments = (hasActiveAgreement && Array.isArray(loan.activeAgreement?.installments))
+    ? loan.activeAgreement.installments
+    : loan.installments;
+    
+  const nextInst = [...(installments || [])]
+    .filter(i => {
+      const status = String(i.status || "").toUpperCase();
+      return status !== 'PAID' && status !== 'PAGO';
+    })
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+    
+  return nextInst?.dueDate || '9999-12-31';
+};
+
 /**
  * Funcao unica para classificar contratos para fins de filtro visual.
  * Centraliza a regra de negocio do CapitalFlow.
@@ -35,10 +51,29 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     return 'QUITADO';
   }
 
-  // Renegociacao.
+  // Atraso para acordos ativos
   const hasActiveAgreement =
     !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
 
+  if (hasActiveAgreement && Array.isArray(loan.activeAgreement?.installments)) {
+    const pendingInsts = loan.activeAgreement.installments.filter(i => {
+      const status = String(i.status || "").toUpperCase();
+      return status !== 'PAID' && status !== 'PAGO';
+    });
+
+    let maxDelay = 0;
+    pendingInsts.forEach(i => {
+      const delay = getDaysDiff(i.dueDate);
+      if (delay > maxDelay) maxDelay = delay;
+    });
+
+    if (maxDelay > 0) {
+      return maxDelay >= 30 ? 'CRITICO' : 'ATRASADO';
+    }
+    return 'RENEGOCIADO';
+  }
+
+  // Renegociacao padrão
   if (loan.status === LoanStatus.RENEGOCIADO || loan.status === LoanStatus.EM_ACORDO || hasActiveAgreement) {
     return 'RENEGOCIADO';
   }

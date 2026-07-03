@@ -52,7 +52,7 @@ interface ContractDetailsPageProps {
     onActivate: (loan: Loan) => void;
     onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
     onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
-    onAgreementPayment?: (loan: Loan, agreement: any, inst: any, amount?: number) => void;
+    onAgreementPayment?: (loan: Loan, agreement: any, inst: any, amount?: number, forgiveLateFee?: boolean) => void;
     onReverseAgreementPayment?: (loan: Loan, agreement: any, inst: any) => void;
     onRefresh?: () => void;
     isStealthMode: boolean;
@@ -177,7 +177,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 loan={loan}
                                 activeUser={activeUser}
                                 onUpdate={onRefresh || (() => {})}
-                                onPayment={(inst, amount) => onAgreementPayment?.(loan, loan.activeAgreement!, inst, amount)}
+                                onPayment={(inst, amount, forgiveLateFee) => onAgreementPayment?.(loan, loan.activeAgreement!, inst, amount, forgiveLateFee)}
                                 onReversePayment={(inst) => onReverseAgreementPayment?.(loan, loan.activeAgreement!, inst)}
                                 isStealthMode={isStealthMode}
                                 onNavigate={onNavigate}

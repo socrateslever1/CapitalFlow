@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, RefreshCw, ShieldAlert, Skull } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile } from '../types';
+import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile, Installment } from '../types';
 import { LoanCard } from '../components/cards/LoanCard';
 import { ClientGroupCard } from '../components/cards/ClientGroupCard';
 import { StatCard } from '../components/StatCard';
@@ -54,8 +54,10 @@ interface DashboardPageProps {
   onRenegotiate: (loan: Loan | Loan[]) => void;
   onNewAporte: (loan: Loan) => void;
   onMarkAsBilled: (loan: Loan) => void;
-  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
+  onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReverseAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
+  onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number) => void;
+  onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
   onNavigate: (path: string) => void;
   onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;
   onRefresh: () => void;
@@ -69,7 +71,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore,
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria,
   onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, onOpenReceipt, setWithdrawModal, showToast,
-  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onNavigate, onOpenClient, onRefresh, ui, loanCtrl
+  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onInstallmentPayment, onReverseInstallmentPayment, onNavigate, onOpenClient, onRefresh, ui, loanCtrl
 }) => {
 
   // Agrupa os empréstimos filtrados por cliente, respeitando a ordenação selecionada
@@ -80,7 +82,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       sources, activeUser, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive,
       onRestore, onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc,
       onViewPromissoria, onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, onOpenReceipt,
-      onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment,
+      onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onInstallmentPayment, onReverseInstallmentPayment,
       onToggleCapitalOnly: loanCtrl.handleToggleCapitalOnlyRecovery,
       onNavigate: (id: string) => onNavigate(`/contrato/${id}`),
       onLegalDocument: onNavigate,

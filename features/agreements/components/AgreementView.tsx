@@ -4,13 +4,14 @@ import { Agreement, AgreementInstallment, Loan } from "../../../types";
 import { formatMoney } from "../../../utils/formatters";
 import { Calendar, CheckCircle2, AlertTriangle, XCircle, DollarSign, History, Scale, ArrowLeft, RefreshCcw, Pencil, Save } from "lucide-react";
 import { agreementService } from "../services/agreementService";
+import { calculateAgreementInstallmentLateFee } from "../../../domain/finance/calculations";
 
 interface AgreementViewProps {
     agreement: Agreement;
     loan: Loan;
     activeUser: any;
     onUpdate: () => void;
-    onPayment: (inst: AgreementInstallment, amount?: number) => void;
+    onPayment: (inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
     onReversePayment?: (inst: AgreementInstallment) => void;
     isStealthMode?: boolean;
     onNavigate?: (path: string) => void;
@@ -20,6 +21,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
     const [isProcessing, setIsProcessing] = useState(false);
     const [confirmAction, setConfirmAction] = useState<'BREAK' | 'ACTIVATE' | 'PAY' | 'REVERSE' | null>(null);
     const [selectedInst, setSelectedInst] = useState<AgreementInstallment | null>(null);
+    const [forgiveLateFee, setForgiveLateFee] = useState<boolean>(false);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [showCustomAmount, setShowCustomAmount] = useState(false);
     const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -272,17 +274,20 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                     return (a?.number || 0) - (b?.number || 0);
                 }).map(inst => {
                     const paidAmount = Number((inst as any)?.paidAmount ?? (inst as any)?.paid_amount ?? 0) || 0;
-                    const remainingAmount = Math.max(0, Number(inst.amount || 0) - paidAmount);
-                    const isPaid = inst?.status === 'PAID' || inst?.status === 'PAGO' || remainingAmount <= 0.05;
+                    const remainingPrincipal = Math.max(0, Number(inst.amount || 0) - paidAmount);
+                    const isPaid = inst?.status === 'PAID' || inst?.status === 'PAGO' || remainingPrincipal <= 0.05;
+                    const lateFee = isPaid ? 0 : calculateAgreementInstallmentLateFee(inst);
+                    const remainingAmountTotal = remainingPrincipal + lateFee;
                     return (
                     <div id={inst.id} key={inst.id} className={`flex justify-between items-center px-3 py-2.5 rounded-lg border transition-all ${isPaid ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 'bg-slate-900/40 border-slate-800/50 hover:bg-slate-900/60'}`}>
                         <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-slate-500 w-4">{inst.number}</span>
                             <div>
                                 <p className={`text-[12px] font-bold ${isPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
-                                    {formatMoney(remainingAmount || inst.amount, isStealthMode)}
+                                    {formatMoney(remainingAmountTotal, isStealthMode)}
                                 </p>
                                 {paidAmount > 0 && !isPaid && <p className="text-[8px] text-amber-400 font-black uppercase">Parcial: {formatMoney(paidAmount, isStealthMode)}</p>}
+                                {lateFee > 0 && <p className="text-[8px] text-rose-400 font-black uppercase">Atraso (+1%/dia): +{formatMoney(lateFee, isStealthMode)}</p>}
                                 <p className="text-[9px] text-slate-500 font-medium">
                                     {new Date(inst.dueDate).toLocaleDateString('pt-BR')}
                                 </p>
@@ -294,13 +299,14 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setSelectedInst(inst);
-                                        setPaymentAmount(String(remainingAmount || inst.amount));
+                                        setPaymentAmount(String(remainingAmountTotal));
                                         setShowCustomAmount(false);
+                                        setForgiveLateFee(false);
                                         setConfirmAction('PAY');
                                     }}
                                     className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-md hover:bg-blue-600 hover:text-white transition-all"
                                 >
-                                    Pagar
+                                    Receber
                                 </button>
                             ) : (
                                 <div className="flex flex-col items-end">
@@ -334,7 +340,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
 
                         <div className="text-center">
                             <h5 className="text-white font-black uppercase text-xs tracking-tight">
-                                {confirmAction === 'PAY' ? 'Confirmar Pagamento?' : 'Confirmar Estorno?'}
+                                {confirmAction === 'PAY' ? 'Confirmar Recebimento?' : 'Confirmar Estorno?'}
                             </h5>
                             <p className="text-slate-400 text-[10px] mt-1">
                                 {confirmAction === 'PAY'
@@ -344,44 +350,97 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                             </p>
                         </div>
 
-                        {confirmAction === 'PAY' && (
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => {
-                                        const alreadyPaid = Number((selectedInst as any).paidAmount ?? 0) || 0;
-                                        setPaymentAmount(String(Math.max(0, Number(selectedInst.amount || 0) - alreadyPaid)));
-                                        setShowCustomAmount(false);
-                                    }}
-                                    className="w-full py-2 rounded-lg text-[10px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
-                                >
-                                    Pagou tudo
-                                </button>
-                                <button
-                                    onClick={() => setShowCustomAmount(true)}
-                                    className="w-full py-2 rounded-lg text-[10px] font-black uppercase bg-slate-950 text-slate-300 border border-slate-700"
-                                >
-                                    Outro valor
-                                </button>
-                                {showCustomAmount && (
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={paymentAmount}
-                                        onChange={e => setPaymentAmount(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white font-bold outline-none"
-                                        autoFocus
-                                    />
-                                )}
-                            </div>
-                        )}
+                        {confirmAction === 'PAY' && (() => {
+                            const alreadyPaid = Number((selectedInst as any).paidAmount ?? (selectedInst as any).paid_amount ?? 0) || 0;
+                            const principalRemaining = Math.max(0, Number(selectedInst.amount || 0) - alreadyPaid);
+                            const lf = calculateAgreementInstallmentLateFee(selectedInst);
+
+                            return (
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setPaymentAmount(String(forgiveLateFee ? principalRemaining : (principalRemaining + lf)));
+                                                setShowCustomAmount(false);
+                                            }}
+                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${
+                                                !showCustomAmount
+                                                    ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500'
+                                                    : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-white'
+                                            }`}
+                                        >
+                                            Recebeu tudo
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowCustomAmount(true);
+                                            }}
+                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${
+                                                showCustomAmount
+                                                    ? 'bg-blue-600/20 text-blue-400 border-blue-500'
+                                                    : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-white'
+                                            }`}
+                                        >
+                                            Outro valor
+                                        </button>
+                                    </div>
+
+                                    {/* Checkbox para perdão de juros se houver atraso */}
+                                    {lf > 0 && (
+                                        <label className="flex items-center gap-2 p-2.5 bg-slate-950/60 rounded-lg border border-slate-800 cursor-pointer select-none animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <input
+                                                type="checkbox"
+                                                checked={forgiveLateFee}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setForgiveLateFee(checked);
+                                                    if (!showCustomAmount) {
+                                                        setPaymentAmount(String(checked ? principalRemaining : (principalRemaining + lf)));
+                                                    }
+                                                }}
+                                                className="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                            />
+                                            <span className="text-[9px] text-slate-300 font-bold uppercase tracking-tight">
+                                                Receber sem juros (Perdoar {formatMoney(lf, isStealthMode)})
+                                            </span>
+                                        </label>
+                                    )}
+
+                                    {/* Detalhe do Valor a Receber */}
+                                    {!showCustomAmount ? (
+                                        <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800/80 text-center animate-in fade-in duration-200">
+                                            <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Valor a Receber</p>
+                                            <p className="text-sm font-black text-emerald-400">
+                                                {formatMoney(Number(paymentAmount) || 0, isStealthMode)}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 animate-in fade-in duration-200">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={paymentAmount}
+                                                onChange={e => setPaymentAmount(e.target.value)}
+                                                className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white font-bold text-center text-sm outline-none focus:border-blue-500 transition-colors"
+                                                placeholder="Digite o valor..."
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         <div className="flex flex-col gap-2">
                             <button
                                 onClick={() => {
-                                    if (confirmAction === 'PAY') onPayment(selectedInst, Number(paymentAmount) || selectedInst.amount);
+                                    if (confirmAction === 'PAY') onPayment(selectedInst, Number(paymentAmount) || selectedInst.amount, forgiveLateFee);
                                     else onReversePayment?.(selectedInst);
                                     setConfirmAction(null);
                                     setSelectedInst(null);
+                                    setForgiveLateFee(false);
                                 }}
                                 className={`w-full py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${confirmAction === 'PAY' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
                             >

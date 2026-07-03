@@ -1,6 +1,6 @@
 
 import { Loan, Installment } from '../../../types';
-import { calculateTotalDue } from '../../../domain/finance/calculations';
+import { calculateTotalDue, calculateAgreementInstallmentLateFee } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from './portalAdapters';
 import { getDaysDiff } from '../../../utils/dateHelpers';
 import { isDev } from '../../../utils/isDev';
@@ -111,6 +111,42 @@ export const getPortalDueLabel = (daysLate: number, dueDateISO: string) => {
 };
 
 /**
+export const getPortalDueLabel = (daysLate: number, dueDateISO: string) => {
+    // 1. Atrasado real (multa aplicável ou passado)
+    if (daysLate > 0) {
+        return { 
+            label: `Vencido há ${daysLate} dia${daysLate === 1 ? '' : 's'}`, 
+            detail: '(+ Taxas e Multas inclusas)',
+            variant: 'OVERDUE' 
+        };
+    }
+
+    // Calcula diferença real (negativo = futuro) para labels de "Vence em..."
+    const rawDiff = -getDaysDiff(dueDateISO); // getDaysDiff retorna (hoje - data). Invertemos para (data - hoje).
+
+    // 2. Vence Hoje
+    if (rawDiff === 0) {
+        return { 
+            label: 'Vence hoje', 
+            detail: '',
+            variant: 'DUE_TODAY' 
+        };
+    }
+
+    // 3. Futuro
+    if (rawDiff > 0) {
+        return { 
+            label: `Vence em ${rawDiff} dia${rawDiff === 1 ? '' : 's'}`, 
+            detail: '',
+            variant: 'DUE_SOON' 
+        };
+    }
+
+    // Fallback (passado mas sem daysLate > 0, ex: pago ou tolerância)
+    return { label: 'Em dia', detail: '', variant: 'OK' };
+};
+
+/**
  * 1. RESUMO GERAL DA DÍVIDA (Card Principal)
  */
 export const resolveDebtSummary = (loan: Loan, installments: Installment[]): PortalDebtSummary => {
@@ -120,10 +156,13 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
     if (loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO')) {
         const agreementInsts = loan.activeAgreement.installments || [];
         const pending = agreementInsts.filter(i => !isPortalInstallmentPaid(i));
-        const totalDue = pending.reduce((acc, i) => acc + (Number(i.amount) - Number(i.paidAmount || 0)), 0);
         
+        let totalDue = 0;
         let maxDaysLate = 0;
         pending.forEach(inst => {
+            const remainingPrincipal = Math.max(0, Number(inst.amount) - Number(inst.paidAmount || 0));
+            const lateFee = calculateAgreementInstallmentLateFee(inst);
+            totalDue += remainingPrincipal + lateFee;
             const daysLate = getDaysDiff(inst.dueDate);
             if (daysLate > maxDaysLate) maxDaysLate = daysLate;
         });
@@ -188,11 +227,13 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
             statusColor = 'text-amber-500';
         }
 
+        const lateFee = isPaidOff ? 0 : calculateAgreementInstallmentLateFee(inst);
+
         return {
-            total: isPaidOff ? 0 : remaining,
+            total: isPaidOff ? 0 : remaining + lateFee,
             principal: isPaidOff ? 0 : remaining,
             interest: 0,
-            lateFee: 0,
+            lateFee: lateFee,
             isLate,
             daysLate,
             dueDateISO: inst.dueDate,
@@ -251,14 +292,15 @@ export const resolvePaymentOptions = (loan: Loan, inst: any): PaymentOptions => 
         const paidAmount = Number(inst.paidAmount || 0);
         const remaining = amount - paidAmount;
         const daysLate = getDaysDiff(inst.dueDate);
+        const lateFee = calculateAgreementInstallmentLateFee(inst);
 
         return {
-            totalToPay: remaining,
+            totalToPay: remaining + lateFee,
             renewToPay: 0, // Acordos geralmente não permitem renovação da parcela individual
             breakdown: {
                 principal: remaining,
                 interest: 0,
-                fine: 0
+                fine: lateFee
             },
             canRenew: false,
             daysLate,

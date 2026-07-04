@@ -1,6 +1,5 @@
 # Implementacoes - RECEBIMENTOS COMPROVANTES
 
-<<<<<<< HEAD
 ## 2026-07-03
 - **Objetivo:** Corrigir recebimento visual do contrato parcelado fixo para operar como um unico contrato com parcelas, sem abrir um contrato por parcela.
 - **Arquivos Alterados:**
@@ -11,7 +10,7 @@
 - **Riscos/Observacoes:** Contratos antigos que ja tenham sido gravados com numeracao errada no banco podem precisar de saneamento de dados para trocar `numero_parcela` existente; a tela passa a exibir o numero real recebido do banco.
 - **Validacao:** `npm run build` executado com sucesso.
 - **Ajuste Posterior:** Padronizado o termo operacional para `Receber/Recebimento`; o parcelado fixo passou a usar modal simples de recebimento, no padrao do acordo, sem abrir a tela completa de recebimento; o historico do card passa a agrupar capital + lucro do mesmo recebimento em uma linha visual unica.`n- **Ajuste de Vencimento:** O formulario passou a sugerir vencimento subsequente por modalidade (`+1 mes` para mensal/parcelado, prazo em dias para prazo fixo e dia seguinte para diaria), e na edicao carrega a primeira parcela operacional por numero/data em vez de confiar na primeira posicao do array.`n- **Escopo:** Ajuste restrito ao recebimento/estorno e numeracao de parcelas do parcelado fixo; sem mudanca de layout global, rotas ou schema.
-=======
+
 ## 2026-06-28 - Multa Recorrente e Juros Preservado
 - **Objetivo:** Corrigir a regra de perdão para preservar o juros/lucro de 30% quando o operador perdoa apenas multa e/ou mora, e aplicar multa fixa recorrente de 2% a cada mês de atraso.
 - **Arquivos Alterados:**
@@ -46,7 +45,7 @@
 - **Validacao:** Teste lógico com contrato de R$ 1.000 a 30% confirmou: `FINE_AND_MORA` mantém total em R$ 1.300, enquanto `TOTAL_CHARGES` reduz para R$ 1.000; `npx tsc --noEmit --pretty false` e build Vite executados com sucesso.
 
 ### Ajuste Posterior - Valor Sugerido no Recebimento
-- **Problema Corrigido:** O campo `Registrar Pagamento` abria vazio, exigindo que o operador digitasse manualmente o valor total calculado.
+- **Problema Corrigido:** O campo `Registrar Pagamento` abria vazio, exigindo que o operador digitasse manualmente o valor total calculated.
 - **Correção:** O campo agora abre preenchido com o total a receber e atualiza automaticamente quando o operador muda os botões de perdão. O valor permanece editável para pagamento parcial ou ajuste manual.
 - **Validacao:** `npx tsc --noEmit --pretty false` executado com sucesso.
 
@@ -68,8 +67,6 @@
 - **Validacao:** Simulacao local com `npx tsx -e` reproduziu o saldo residual antigo de R$ 100 e confirmou saldo zero apos a regra nova; `npx vite build` executado com sucesso.
 - **Riscos/Observacoes:** A correcao atua apenas quando o pagamento com `Perdoar Total` cobre o capital aberto da parcela. Pagamentos parciais continuam seguindo a alocacao normal. Esse recebimento exige internet para garantir que os encargos sejam zerados no banco com seguranca.
 - **Escopo:** Alteracao limitada ao calculo visual e persistencia do recebimento com perdao total.
-
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 ## 2026-06-08
 - **Objetivo:** Tornar o comprovante estavel e melhor formatado, aceitando o fluxo de impressao/salvar como PDF no lugar da geracao instavel de imagem.
 - **Arquivos Alterados:**

@@ -1,10 +1,6 @@
 
 import { useMemo } from 'react';
-<<<<<<< HEAD
 import { Loan, CapitalSource, LoanStatus, Installment } from '../../../types';
-=======
-import { Loan, CapitalSource } from '../../../types';
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { hasActiveAgreement as hasActiveAgreementData, rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { loanEngine } from '../../../domain/loanEngine';
@@ -139,14 +135,13 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
   }, [loan.ledger]);
 
   const orderedInstallments = useMemo(() => {
-<<<<<<< HEAD
     const installmentNumber = (inst: any, fallback: number) => {
       const parsed = Number(inst?.number ?? inst?.numero_parcela ?? inst?.installmentNumber);
       return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
     };
 
     const installmentDueTime = (inst: any) => {
-      const time = new Date(inst?.dueDate).getTime();
+      const time = parseDateOnlyUTC(inst?.dueDate).getTime();
       return Number.isFinite(time) ? time : 0;
     };
 
@@ -175,12 +170,6 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     } else {
       all = [...loan.installments].sort((a, b) => installmentDueTime(a) - installmentDueTime(b));
     }
-
-=======
-    let all = [...loan.installments].sort(
-      (a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime()
-    );
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
     if (showProgress) {
       if (!isPaid) {
         all = all.filter(hasOpenInstallmentBalance);

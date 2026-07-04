@@ -113,40 +113,9 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
       else if (!isPaid) worstStatusPriority = Math.max(worstStatusPriority, 1);
       else worstStatusPriority = Math.max(worstStatusPriority, 0);
 
-<<<<<<< HEAD
       const nextDueDateStr = isPaid ? null : getLoanNextDueDate(loan);
       if (nextDueDateStr && nextDueDateStr !== '9999-12-31') {
-          const t = new Date(nextDueDateStr).getTime();
-          if (t < minDueDate) minDueDate = t;
-      }
-      
-      const createdT = new Date(loan.startDate).getTime();
-      if (createdT > maxCreatedAt) maxCreatedAt = createdT;
-
-      const lastLedger = loan.ledger && loan.ledger.length > 0 ? loan.ledger[loan.ledger.length - 1] : null;
-      const updatedT = lastLedger ? new Date(lastLedger.date).getTime() : createdT;
-      if (updatedT > maxUpdatedAt) maxUpdatedAt = updatedT;
-    });
-
-    if (worstStatusPriority === 4) group.status = 'CRITICAL';
-    else if (worstStatusPriority === 3) group.status = 'LATE';
-    else if (worstStatusPriority === 2) group.status = 'WARNING';
-    else if (worstStatusPriority === 1) group.status = 'OK';
-    else group.status = 'PAID';
-
-    group.loans.sort((a, b) => {
-        const nextA = getLoanNextDueDate(a);
-        const nextB = getLoanNextDueDate(b);
-        return new Date(nextA).getTime() - new Date(nextB).getTime();
-    });
-
-    group._sortMeta = { minDueDate, maxCreatedAt, maxUpdatedAt };
-
-    return group;
-=======
-      const nextInst = isPaid ? null : loan.installments.find(hasOpenInstallmentBalance);
-      if (nextInst) {
-          const t = parseDateOnlyUTC(nextInst.dueDate).getTime();
+          const t = parseDateOnlyUTC(nextDueDateStr).getTime();
           if (t < minDueDate) minDueDate = t;
       }
       
@@ -165,16 +134,14 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
     else group.status = 'PAID';
 
     group.loans.sort((a, b) => {
-        const nextA = a.installments.find(hasOpenInstallmentBalance)?.dueDate || '9999-12-31';
-        const nextB = b.installments.find(hasOpenInstallmentBalance)?.dueDate || '9999-12-31';
+        const nextA = getLoanNextDueDate(a);
+        const nextB = getLoanNextDueDate(b);
         return parseDateOnlyUTC(nextA).getTime() - parseDateOnlyUTC(nextB).getTime();
     });
 
     group._sortMeta = { minDueDate, maxCreatedAt, maxUpdatedAt };
 
     return group;
-
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   }).sort((a, b) => {
      if (sortOption === 'NAME_ASC') return a.clientName.localeCompare(b.clientName);
      if (sortOption === 'CREATED_DESC') return (b._sortMeta?.maxCreatedAt || 0) - (a._sortMeta?.maxCreatedAt || 0);

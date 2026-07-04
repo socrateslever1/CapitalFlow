@@ -1,5 +1,3 @@
-
-<<<<<<< HEAD
 import { Loan, SortOption, LoanStatusFilter } from '../../types';
 import { onlyDigits } from '../../utils/formatters';
 import { resolveLoanVisualClassification, getLoanNextDueDate } from '../../utils/loanFilterResolver';
@@ -24,34 +22,6 @@ const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
                 const nextA = getLoanNextDueDate(a);
                 const nextB = getLoanNextDueDate(b);
                 return new Date(nextA).getTime() - new Date(nextB).getTime();
-=======
-import { Loan, SortOption, LoanStatusFilter } from '../../types';
-import { onlyDigits } from '../../utils/formatters';
-import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
-import { isInstallmentOpen } from '../../utils/loanStatus';
-import { parseDateOnlyUTC } from '../../utils/dateHelpers';
-
-// HELPER DE ORDENAÇÃO
-const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
-    return [...loans].sort((a, b) => {
-        switch (sortOption) {
-            case 'NAME_ASC':
-                return (a.debtorName || '').localeCompare(b.debtorName || '');
-            
-            case 'CREATED_DESC': // Entrada Mais Recente
-                return new Date(b.createdAt || b.startDate).getTime() - new Date(a.createdAt || a.startDate).getTime();
-            
-            case 'UPDATED_DESC': // Alterado Mais Recente (Baseado em Last Payment ou Update)
-                const lastA = a.ledger && a.ledger.length > 0 ? new Date(a.ledger[a.ledger.length-1].date).getTime() : new Date(a.createdAt || a.startDate).getTime();
-                const lastB = b.ledger && b.ledger.length > 0 ? new Date(b.ledger[b.ledger.length-1].date).getTime() : new Date(b.createdAt || b.startDate).getTime();
-                return lastB - lastA;
-
-            case 'DUE_DATE_ASC': // Vencimento Mais Próximo
-            default:
-                const nextA = a.installments.find(isInstallmentOpen)?.dueDate || '9999-12-31';
-                const nextB = b.installments.find(isInstallmentOpen)?.dueDate || '9999-12-31';
-                return parseDateOnlyUTC(nextA).getTime() - parseDateOnlyUTC(nextB).getTime();
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
         }
     });
 };

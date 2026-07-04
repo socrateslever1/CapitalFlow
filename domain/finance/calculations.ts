@@ -1,4 +1,3 @@
-
 import { AgreementInstallment, Installment, Loan, LoanPolicy, LoanStatus } from "../../types";
 import { getDaysDiff as getDaysDiffHelper } from "../../utils/dateHelpers";
 import { financeDispatcher } from "./dispatch";
@@ -11,90 +10,6 @@ const AGREEMENT_ACTIVE_STATUSES = new Set(["ACTIVE", "ATIVO"]);
 const AGREEMENT_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO"]);
 const LOAN_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "FINALIZADO", "ARQUIVADO"]);
 export const ZERO_BALANCE_THRESHOLD = 0.5; // Ignora resíduos abaixo de 50 centavos
-<<<<<<< HEAD
-
-export type ForgivenessMode = "NONE" | "FINE_ONLY" | "INTEREST_ONLY" | "BOTH" | "CAPITAL_ONLY";
-
-export interface RemainingBalance {
-  totalRemaining: number;
-  principalRemaining: number;
-  interestRemaining: number;
-  lateFeeRemaining: number;
-}
-
-export interface PaymentBuckets {
-  principal: number;
-  interest: number;
-  lateFee: number;
-  total: number;
-}
-
-export interface InstallmentPaymentPlan {
-  paidPrincipal: number;
-  paidInterest: number;
-  paidLateFee: number;
-  avGenerated: number;
-  forgivenLateFee: number;
-  totalDueBeforeForgiveness: number;
-  totalDueAfterForgiveness: number;
-  remainingAfterPayment: number;
-  finePart: number;
-  moraPart: number;
-}
-
-export const getDaysDiff = (dueDateStr: string): number => getDaysDiffHelper(dueDateStr);
-
-export const add30Days = (dateStr: string): string => {
-  const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
-  const date = new Date(y, m - 1, d, 12, 0, 0);
-  date.setDate(date.getDate() + 30);
-  return date.toISOString();
-};
-
-// --- FUNÇÕES DE STATUS (CORRIGIDAS) ---
-
-// Define o status lógico interno da parcela
-export const getInstallmentStatusLogic = (inst: Installment, parentLoanStatus?: string): LoanStatus => {
-  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  if (LOAN_PAID_STATUSES.has(pStatus)) return LoanStatus.PAID;
-
-  const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
-  
-  if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return LoanStatus.PAID;
-  
-  if (getDaysDiff(inst.dueDate) > 0) return LoanStatus.LATE;
-  if (inst.paidTotal > 0) return LoanStatus.PARTIAL;
-  return LoanStatus.PENDING;
-};
-
-// Define o texto de status que o usuário vê na interface
-export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: string): string => {
-  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  if (LOAN_PAID_STATUSES.has(pStatus)) return "Quitado";
-
-  const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
-  
-  if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return "Quitado";
-
-  const days = getDaysDiff(inst.dueDate);
-  if (days === 0) return "Vence Hoje";
-  if (days > 0) return `${days} dias vencidos`;
-  return "Em dia";
-};
-
-export const calculateAgreementInstallmentLateFee = (inst: Partial<AgreementInstallment>): number => {
-  if (!inst || !inst.dueDate) return 0;
-  const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
-  if (daysLate <= 0) return 0;
-  const paidAmount = Number(inst.paidAmount) || 0;
-  const amount = Number(inst.amount) || 0;
-  const remainingPrincipal = Math.max(0, amount - paidAmount);
-  return round(remainingPrincipal * 0.01 * daysLate);
-};
-
-// --- FACHADA DE CÁLCULO DE DÍVIDA ---
-
-=======
 
 export type ForgivenessMode =
   | "NONE"
@@ -206,10 +121,18 @@ export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: str
   return "Em dia";
 };
 
+export const calculateAgreementInstallmentLateFee = (inst: Partial<AgreementInstallment>): number => {
+  if (!inst || !inst.dueDate) return 0;
+  const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
+  if (daysLate <= 0) return 0;
+  const paidAmount = Number(inst.paidAmount) || 0;
+  const amount = Number(inst.amount) || 0;
+  const remainingPrincipal = Math.max(0, amount - paidAmount);
+  return round(remainingPrincipal * 0.01 * daysLate);
+};
 
 // --- FACHADA DE CÁLCULO DE DÍVIDA ---
 
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 export const calculateTotalDue = (loan: Loan, inst: Installment): CalculationResult => {
   if (isCapitalOnlyRecoveryLoan(loan)) {
     const principal = round(Number(inst.principalRemaining || 0));
@@ -247,49 +170,29 @@ export const isAgreementSettledByStatus = (loan: Partial<Loan> | null | undefine
   const status = String(loan?.activeAgreement?.status || "").toUpperCase().trim();
   return !!loan?.activeAgreement && AGREEMENT_PAID_STATUSES.has(status);
 };
-<<<<<<< HEAD
 
 export const isAgreementInstallmentPaid = (inst: Partial<AgreementInstallment> | null | undefined, parentLoanStatus?: string): boolean => {
   if (!inst) return true;
   const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
   if (LOAN_PAID_STATUSES.has(pStatus)) return true;
-=======
-
-export const isAgreementInstallmentPaid = (inst: Partial<AgreementInstallment> | null | undefined, parentLoanStatus?: string): boolean => {
-  if (!inst) return true;
-  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   const status = String(inst.status || "").toUpperCase().trim();
   const amount = Number(inst.amount || 0);
   const paidAmount = Number(inst.paidAmount || 0);
   const remaining = round(amount - paidAmount);
-<<<<<<< HEAD
   return AGREEMENT_PAID_STATUSES.has(status) || remaining <= ZERO_BALANCE_THRESHOLD;
 };
 
-=======
-  return remaining <= ZERO_BALANCE_THRESHOLD || ((LOAN_PAID_STATUSES.has(pStatus) || AGREEMENT_PAID_STATUSES.has(status)) && remaining <= ZERO_BALANCE_THRESHOLD);
-};
-
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 export const isInstallmentSettled = (inst: Partial<Installment> | null | undefined, parentLoanStatus?: string): boolean => {
   if (!inst) return true;
   const status = String(inst.status || "").toUpperCase().trim();
   const principal = Number(inst.principalRemaining || 0);
   const interest = Number(inst.interestRemaining || 0);
   const lateFee = Number(inst.lateFeeAccrued || 0);
-<<<<<<< HEAD
-  return AGREEMENT_PAID_STATUSES.has(status) || round(principal + interest + lateFee) <= ZERO_BALANCE_THRESHOLD;
-};
-
-export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
-=======
   const total = round(principal + interest + lateFee);
-  return (AGREEMENT_PAID_STATUSES.has(status) && total <= ZERO_BALANCE_THRESHOLD) || total <= ZERO_BALANCE_THRESHOLD;
+  return AGREEMENT_PAID_STATUSES.has(status) || total <= ZERO_BALANCE_THRESHOLD;
 };
 
 export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   if (!loan) {
     return {
       totalRemaining: 0,
@@ -309,7 +212,6 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
   }
 
   if (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments)) {
-<<<<<<< HEAD
     const agreement = loan.activeAgreement;
     const pendingInstallments = agreement.installments.filter((inst) => !isAgreementInstallmentPaid(inst));
     
@@ -350,57 +252,6 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
   for (const inst of installments) {
     // Ignora parcelas que foram movidas para acordo ou canceladas
     const status = String(inst.status || "").toUpperCase();
-    if (status === 'RENEGOCIADO' || status === 'CANCELADO' || status === 'PAID' || status === 'PAGO' || status === 'QUITADO') continue;
-
-    const debt = calculateTotalDue(loan, inst);
-    principalRemaining += Math.max(0, Number(debt.principal || 0));
-    interestRemaining += Math.max(0, Number(debt.interest || 0));
-    lateFeeRemaining += Math.max(0, Number(debt.lateFee || 0));
-  }
-
-=======
-    const agreement = loan.activeAgreement;
-    const pendingInstallments = agreement.installments.filter((inst) => !isAgreementInstallmentPaid(inst));
-    const totalRemaining = round(
-      pendingInstallments.reduce((acc, inst) => acc + Math.max(0, Number(inst.amount || 0) - Number(inst.paidAmount || 0)), 0)
-    );
-
-    // Tenta preservar a natureza da dívida baseada no débito original no momento da negociação
-    const totalOriginal = Math.max(1, agreement.totalDebtAtNegotiation || totalRemaining);
-    const negotiatedTotal = Math.max(1, agreement.negotiatedTotal || totalRemaining);
-    
-    // Calcula o saldo "virtual" sem o acordo para pegar a proporção
-    const virtualBalance = computeLoanRemainingBalance({ ...loan, activeAgreement: undefined });
-    
-    const pRatio = virtualBalance.principalRemaining / (virtualBalance.totalRemaining || 1);
-    const iRatio = virtualBalance.interestRemaining / (virtualBalance.totalRemaining || 1);
-    const lRatio = virtualBalance.lateFeeRemaining / (virtualBalance.totalRemaining || 1);
-
-    return {
-      totalRemaining,
-      principalRemaining: round(totalRemaining * pRatio),
-      interestRemaining: round(totalRemaining * iRatio),
-      lateFeeRemaining: round(totalRemaining * lRatio),
-    };
-  }
-
-  const installments = Array.isArray(loan.installments) ? loan.installments : [];
-  if (installments.length === 0) {
-    return {
-      totalRemaining: 0,
-      principalRemaining: 0,
-      interestRemaining: 0,
-      lateFeeRemaining: 0,
-    };
-  }
-
-  let principalRemaining = 0;
-  let interestRemaining = 0;
-  let lateFeeRemaining = 0;
-
-  for (const inst of installments) {
-    // Ignora parcelas que foram movidas para acordo ou canceladas
-    const status = String(inst.status || "").toUpperCase();
     if (status === 'RENEGOCIADO' || status === 'CANCELADO') continue;
 
     const rawOpen = round(
@@ -416,48 +267,10 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
     lateFeeRemaining += Math.max(0, Number(debt.lateFee || 0));
   }
 
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   principalRemaining = round(principalRemaining);
   interestRemaining = round(interestRemaining);
   lateFeeRemaining = round(lateFeeRemaining);
 
-<<<<<<< HEAD
-  return {
-    totalRemaining: round(principalRemaining + interestRemaining + lateFeeRemaining),
-    principalRemaining,
-    interestRemaining,
-    lateFeeRemaining,
-  };
-};
-
-export const resolveForgivenLateFee = (
-  calc: CalculationResult,
-  forgivenessMode: ForgivenessMode = "NONE"
-): { forgivenLateFee: number; finePart: number; moraPart: number } => {
-  const finePart = round(Number(calc.finePart ?? calc.lateFee ?? 0));
-  const moraPart = round(Number(calc.moraPart ?? 0));
-
-  let forgivenLateFee = 0;
-  if (forgivenessMode === "FINE_ONLY") forgivenLateFee = finePart;
-  if (forgivenessMode === "INTEREST_ONLY") forgivenLateFee = moraPart;
-  if (forgivenessMode === "BOTH" || forgivenessMode === "CAPITAL_ONLY") forgivenLateFee = round(finePart + moraPart);
-
-  return {
-    forgivenLateFee: round(Math.min(Number(calc.lateFee || 0), forgivenLateFee)),
-    finePart,
-    moraPart,
-  };
-};
-
-export const resolveInstallmentPaymentBuckets = (
-  loan: Loan,
-  installment: Installment,
-  forgivenessMode: ForgivenessMode = "NONE"
-): PaymentBuckets & { forgivenLateFee: number; finePart: number; moraPart: number; totalBeforeForgiveness: number } => {
-  const calc = calculateTotalDue(loan, installment);
-  const { forgivenLateFee, finePart, moraPart } = resolveForgivenLateFee(calc, forgivenessMode);
-
-=======
   const principalReconciliationDelta = getLoanPrincipalReconciliationDelta(loan);
   if (principalReconciliationDelta > ZERO_BALANCE_THRESHOLD) {
     principalRemaining = round(principalRemaining + principalReconciliationDelta);
@@ -510,7 +323,6 @@ export const resolveInstallmentPaymentBuckets = (
   const calc = calculateTotalDue(loan, installment);
   const { forgivenLateFee, finePart, moraPart } = resolveForgivenLateFee(calc, forgivenessMode);
 
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   const principal = round(Number(calc.principal || 0));
   const forgivesAllCharges = forgivenessMode === "CAPITAL_ONLY" || forgivenessMode === "TOTAL_CHARGES";
   const interest = forgivesAllCharges ? 0 : round(Number(calc.interest || 0));
@@ -597,7 +409,6 @@ export const calculateInstallmentPaymentPlan = (params: {
   };
 };
 
-
 // --- ALOCAÇÃO DE PAGAMENTO ---
 
 export interface PaymentResult {
@@ -627,6 +438,7 @@ export const allocatePayment = (params: {
     avGenerated: allocation.avGenerated,
   };
 };
+
 // --- RECONSTRUÇÃO DE ESTADO ---
 
 export const rebuildLoanStateFromLedger = (loan: Loan): Loan => {
@@ -708,7 +520,6 @@ export const rebuildLoanStateFromLedger = (loan: Loan): Loan => {
 
   return { ...loan, installments: rebuiltInstallments };
 };
-
 
 // --- ATUALIZAÇÃO EM LOTE ---
 

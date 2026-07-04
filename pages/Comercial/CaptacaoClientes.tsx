@@ -6,12 +6,8 @@ import { useCampaignChat } from '../../hooks/useCampaignChat';
 import { supabase } from '../../lib/supabase';
 import { formatMoney, maskPhone } from '../../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
-<<<<<<< HEAD
-import { getGeminiApiKey } from '../../utils/geminiConfig';
-=======
 import { GEMINI_API_KEY_HELP, getGeminiApiKey } from '../../utils/geminiConfig';
 import { whatsappConfigService, WhatsAppConfigData } from '../../services/whatsappConfig.service';
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 
 const DEFAULT_VALUES = [300, 500, 800, 1000, 1500];
 const DEFAULT_TEMPLATE = "Olá! Me chamo {NOME}. Vim pela campanha {CAMPANHA}. Tenho interesse no valor de R$ {VALOR}. Link: {LINK}";

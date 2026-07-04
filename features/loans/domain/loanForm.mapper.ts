@@ -60,9 +60,8 @@ function preserveExistingInstallmentFields(
     if (prev) {
       return {
         ...g,
-<<<<<<< HEAD
         id: prev.id || g.id,
-        dueDate: prev.dueDate || g.dueDate,
+        dueDate: shouldPreserveDueDates && prev.dueDate ? prev.dueDate : g.dueDate,
         status: prev.status || g.status,
         paidDate: prev.paidDate || g.paidDate,
         paidAmount: prev.paidAmount ?? g.paidAmount,
@@ -71,10 +70,6 @@ function preserveExistingInstallmentFields(
         paidInterest: prev.paidInterest ?? g.paidInterest,
         paidLateFee: prev.paidLateFee ?? g.paidLateFee,
         logs: prev.logs?.length ? prev.logs : g.logs,
-=======
-        id: prev.id, // ✅ Preserva o ID original para evitar duplicados no Supabase (upsert)
-        dueDate: shouldPreserveDueDates && prev.dueDate ? prev.dueDate : g.dueDate
->>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
       };
     }
     return g;

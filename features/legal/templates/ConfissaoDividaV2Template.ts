@@ -64,6 +64,20 @@ export const generateConfissaoDividaV2HTML = (
     const sig = findSig(role);
     const displayRole = role.replace('DEBTOR', 'DEVEDOR').replace('CREDITOR', 'CREDOR').replace('WITNESS', 'TESTEMUNHA').replace('_', ' ');
 
+    let geoText = '';
+    if (sig?.dispositivo_info) {
+      try {
+        const info = typeof sig.dispositivo_info === 'string' 
+          ? JSON.parse(sig.dispositivo_info) 
+          : sig.dispositivo_info;
+        if (info && info.latitude && info.longitude) {
+          geoText = ` • GEO: ${Number(info.latitude).toFixed(5)}, ${Number(info.longitude).toFixed(5)}`;
+        }
+      } catch (err) {
+        console.warn("Erro ao fazer parse de dispositivo_info:", err);
+      }
+    }
+
     return `
       <div style="text-align: center; border-top: 1.5pt solid #000; padding-top: 10px; position: relative; page-break-inside: avoid; margin-top: 60px; min-height: 80px;">
         ${sig ? `
@@ -74,7 +88,7 @@ export const generateConfissaoDividaV2HTML = (
                 <div style="border: 1px solid #059669; color: #059669; padding: 6px 10px; font-family: sans-serif; font-size: 6pt; font-weight: bold; background: rgba(236, 253, 245, 0.95); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); line-height: 1.3; text-align: center; border-left: 4px solid #059669;">
                     <span style="font-size: 7pt;">✓ ASSINATURA DIGITAL VÁLIDA</span><br/>
                     <span style="opacity: 0.8;">MP 2.200-2/2001 • DATA: ${new Date(sig.signed_at).toLocaleString('pt-BR')}</span><br/>
-                    <span style="opacity: 0.8;">IP: ${sig.ip_origem} • HASH: ${sig.assinatura_hash?.substring(0, 12).toUpperCase()}</span>
+                    <span style="opacity: 0.8;">IP: ${sig.ip_origem || sig.ip || '---'}${geoText} • HASH: ${sig.assinatura_hash?.substring(0, 12).toUpperCase()}</span>
                 </div>
             </div>
         ` : ''}

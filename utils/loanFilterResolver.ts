@@ -38,6 +38,14 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     return 'ARQUIVADO';
   }
 
+  // Renegociacao.
+  const hasActiveAgreement =
+    !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
+
+  if (loan.status === LoanStatus.RENEGOCIADO || loan.status === LoanStatus.EM_ACORDO || hasActiveAgreement) {
+    return 'RENEGOCIADO';
+  }
+
   // Verificacoes de quitacao.
   const hasPaidStatus = [LoanStatus.QUITADO, LoanStatus.PAGO, LoanStatus.PAID].includes(loan.status);
   const allInstallmentsPaid =
@@ -51,6 +59,7 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     return 'QUITADO';
   }
 
+<<<<<<< HEAD
   // Atraso para acordos ativos
   const hasActiveAgreement =
     !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
@@ -78,6 +87,8 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     return 'RENEGOCIADO';
   }
 
+=======
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   // Atraso para contratos normais
   const engineStatus = loanEngine.computeLoanStatus(loan);
   if (engineStatus === 'OVERDUE') {

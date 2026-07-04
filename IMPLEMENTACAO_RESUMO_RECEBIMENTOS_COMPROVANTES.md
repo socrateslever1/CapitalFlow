@@ -1,5 +1,6 @@
 # Implementacoes - RECEBIMENTOS COMPROVANTES
 
+<<<<<<< HEAD
 ## 2026-07-03
 - **Objetivo:** Corrigir recebimento visual do contrato parcelado fixo para operar como um unico contrato com parcelas, sem abrir um contrato por parcela.
 - **Arquivos Alterados:**
@@ -10,6 +11,65 @@
 - **Riscos/Observacoes:** Contratos antigos que ja tenham sido gravados com numeracao errada no banco podem precisar de saneamento de dados para trocar `numero_parcela` existente; a tela passa a exibir o numero real recebido do banco.
 - **Validacao:** `npm run build` executado com sucesso.
 - **Ajuste Posterior:** Padronizado o termo operacional para `Receber/Recebimento`; o parcelado fixo passou a usar modal simples de recebimento, no padrao do acordo, sem abrir a tela completa de recebimento; o historico do card passa a agrupar capital + lucro do mesmo recebimento em uma linha visual unica.`n- **Ajuste de Vencimento:** O formulario passou a sugerir vencimento subsequente por modalidade (`+1 mes` para mensal/parcelado, prazo em dias para prazo fixo e dia seguinte para diaria), e na edicao carrega a primeira parcela operacional por numero/data em vez de confiar na primeira posicao do array.`n- **Escopo:** Ajuste restrito ao recebimento/estorno e numeracao de parcelas do parcelado fixo; sem mudanca de layout global, rotas ou schema.
+=======
+## 2026-06-28 - Multa Recorrente e Juros Preservado
+- **Objetivo:** Corrigir a regra de perdão para preservar o juros/lucro de 30% quando o operador perdoa apenas multa e/ou mora, e aplicar multa fixa recorrente de 2% a cada mês de atraso.
+- **Arquivos Alterados:**
+    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: Corrigido o modo combinado de multa+mora para não zerar `interest`; somente `TOTAL_CHARGES` e `CAPITAL_ONLY` zeram juros.
+    - `/components/modals/PaymentManagerModal.tsx` e `/pages/ContractDetails/PaymentRegistrationForm.tsx`: Botões passaram a usar modos explícitos `MORA_ONLY` e `FINE_AND_MORA`, evitando confusão entre mora e juros/lucro.
+    - `/domain/finance/calculations.ts`, `/domain/loanEngine.ts`, `/hooks/controllers/usePaymentController.ts` e `/services/payments.service.ts`: Tipos e cálculo de perdão atualizados para aceitar os modos explícitos mantendo compatibilidade com nomes antigos.
+    - `/domain/finance/lateFeePolicy.ts`: Novo helper central para calcular multa fixa recorrente por blocos de 30 dias de atraso.
+    - `/domain/finance/modalities/monthly/monthly.calculations.ts`, `/domain/finance/modalities/daily30/daily30.calculations.ts`, `/domain/finance/modalities/dailyFixed/dailyFixed.calculations.ts`, `/domain/finance/modalities/dailyFixedTerm/calculations.ts`, `/domain/finance/modality/giro.calculations.ts` e `/domain/finance/modality/diarioB.calculations.ts`: Multa fixa passou a ser aplicada ao atrasar e reaplicada a cada 30 dias.
+- **Arquivos Criados:**
+    - `/domain/finance/lateFeePolicy.ts`
+- **Validacao:** Teste lógico com `npx tsx -e` confirmou que multa+mora mantém o juros de 30% e que apenas `TOTAL_CHARGES` deixa somente capital; `npx tsc --noEmit --pretty false` e `npx vite build --outDir C:\tmp\capitalflow-payment-forgiveness-build --emptyOutDir` executados com sucesso.
+- **Riscos/Observacoes:** A multa recorrente usa blocos de 30 dias: 1-30 dias = 1 multa, 31-60 = 2 multas, 61-90 = 3 multas. A mora diária continua separada.
+- **Escopo:** Alteração limitada ao cálculo de multa/mora/juros no recebimento e às telas de seleção de perdão.
+
+## 2026-06-28 - Perdao Combinado de Encargos
+- **Objetivo:** Permitir selecionar perdão de multa e mora juntos, sem confundir essa combinação com o perdão total de encargos.
+- **Arquivos Alterados:**
+    - `/domain/finance/calculations.ts`: Adicionado o modo `TOTAL_CHARGES`. O modo `BOTH` passou a representar apenas multa + mora, enquanto `TOTAL_CHARGES` zera multa, mora e juros remuneratórios/práxis.
+    - `/domain/loanEngine.ts`: Atualizada a assinatura do motor para aceitar `TOTAL_CHARGES`.
+    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: Ajustado o cálculo visual para separar multa+mora de perdão total dos encargos.
+    - `/components/modals/PaymentManagerModal.tsx`: Botões de `Perdoar Multa` e `Perdoar Mora` agora combinam entre si; o botão verde passou a ser `Perdoar 100% dos Encargos`.
+    - `/pages/ContractDetails/PaymentRegistrationForm.tsx`: Aplicada a mesma regra de combinação no formulário de recebimento da página de detalhes.
+    - `/hooks/controllers/usePaymentController.ts` e `/services/payments.service.ts`: Atualizado o fluxo de persistência para aceitar `TOTAL_CHARGES`, não realocar encargos perdoados e zerar juros/multa/mora no banco quando o perdão total for usado.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx tsc --noEmit --pretty false`, teste lógico com `npx tsx -e` e `npx vite build --outDir C:\tmp\capitalflow-payment-build --emptyOutDir` executados com sucesso.
+- **Riscos/Observacoes:** Recebimento com `Perdoar 100% dos Encargos` exige internet, pois precisa zerar juros e encargos diretamente no banco com segurança. Perdão parcial de multa/mora segue disponível no fluxo normal.
+- **Escopo:** Alteração limitada à regra de perdão de encargos no recebimento e às telas onde essa escolha aparece.
+
+### Ajuste Posterior - Juros/Práxis Preservado
+- **Problema Corrigido:** A combinação de `Perdoar Multa` + `Perdoar Mora` ainda estava zerando visualmente o juros/lucro do ciclo por causa do modo interno ambíguo `BOTH`.
+- **Correção:** Criados modos explícitos `MORA_ONLY` e `FINE_AND_MORA`; `FINE_AND_MORA` perdoa somente multa e mora, mantendo o juros de 30%/práxis. Apenas `TOTAL_CHARGES` ou `CAPITAL_ONLY` zera também o juros e recebe só o capital.
+- **Validacao:** Teste lógico com contrato de R$ 1.000 a 30% confirmou: `FINE_AND_MORA` mantém total em R$ 1.300, enquanto `TOTAL_CHARGES` reduz para R$ 1.000; `npx tsc --noEmit --pretty false` e build Vite executados com sucesso.
+
+### Ajuste Posterior - Valor Sugerido no Recebimento
+- **Problema Corrigido:** O campo `Registrar Pagamento` abria vazio, exigindo que o operador digitasse manualmente o valor total calculado.
+- **Correção:** O campo agora abre preenchido com o total a receber e atualiza automaticamente quando o operador muda os botões de perdão. O valor permanece editável para pagamento parcial ou ajuste manual.
+- **Validacao:** `npx tsc --noEmit --pretty false` executado com sucesso.
+
+## 2026-06-27 - Normalizacao do Comprovante
+- **Objetivo:** Remover a duplicidade de opcoes de PDF no modal de comprovante e normalizar o fluxo em tres acoes claras: texto, imagem e PDF.
+- **Arquivos Alterados:**
+    - `/components/modals/ReceiptModal.tsx`: O seletor do comprovante passou a exibir apenas `Texto`, `Imagem` e `PDF`, com um unico botao principal. O envio por texto abre o WhatsApp com a mensagem pronta. A imagem tenta usar o compartilhamento nativo do aparelho; quando o navegador nao permite compartilhar imagem, o sistema gera PDF automaticamente. O PDF e compartilhado quando o navegador suporta arquivo ou baixado localmente; se a geracao falhar, a impressao abre como fallback para salvar em PDF. Textos e acentos visiveis do comprovante foram revisados em portugues.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** `npx tsc --noEmit --pretty false` executado com sucesso.
+- **Riscos/Observacoes:** Navegadores desktop geralmente nao permitem anexar automaticamente arquivo em conversa do WhatsApp por link. Por isso, arquivos sao compartilhados via Web Share API quando disponivel ou baixados para anexo manual.
+- **Escopo:** Alteracao limitada ao modal de comprovante e ao resumo da categoria de recebimentos/comprovantes.
+
+## 2026-06-14 - Quitacao com Perdao Total de Encargos
+- **Objetivo:** Corrigir pagamento em atraso com perdao total de juros/encargos para que, ao receber o capital aberto, a parcela/contrato nao fique com saldo residual indevido.
+- **Arquivos Alterados:**
+    - `/components/modals/payment/hooks/usePaymentManagerState.ts`: O modo `BOTH` passou a zerar tambem o juros remuneratorio no total exibido, fazendo o valor sugerido/validado representar somente o capital quando o usuario escolhe perdoar todos os encargos.
+    - `/services/payments.service.ts`: Quando `BOTH` cobre o capital da parcela, a alocacao passa a registrar o recebimento como principal, zerar juros/multa/mora depois da RPC e marcar a parcela/contrato como pago quando o saldo revalidado do contrato fica zerado.
+- **Arquivos Criados:** Nenhum.
+- **Validacao:** Simulacao local com `npx tsx -e` reproduziu o saldo residual antigo de R$ 100 e confirmou saldo zero apos a regra nova; `npx vite build` executado com sucesso.
+- **Riscos/Observacoes:** A correcao atua apenas quando o pagamento com `Perdoar Total` cobre o capital aberto da parcela. Pagamentos parciais continuam seguindo a alocacao normal. Esse recebimento exige internet para garantir que os encargos sejam zerados no banco com seguranca.
+- **Escopo:** Alteracao limitada ao calculo visual e persistencia do recebimento com perdao total.
+
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 ## 2026-06-08
 - **Objetivo:** Tornar o comprovante estavel e melhor formatado, aceitando o fluxo de impressao/salvar como PDF no lugar da geracao instavel de imagem.
 - **Arquivos Alterados:**

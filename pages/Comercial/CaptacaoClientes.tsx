@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Megaphone, Link as LinkIcon, Copy, CheckCircle2, ArrowRight, Trash2, Calendar, MousePointer2, Image as ImageIcon, Loader2, MessageCircle, Share2, Plus, Search, User, Send, Paperclip, X, ChevronLeft } from 'lucide-react';
+import { Megaphone, Link as LinkIcon, Copy, CheckCircle2, ArrowRight, Trash2, Calendar, MousePointer2, Image as ImageIcon, Loader2, MessageCircle, Share2, Plus, Search, User, Send, Paperclip, X, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { Campaign, Lead, UserProfile } from "../../types";
 import { campaignService } from '../../services/campaign.service';
 import { useCampaignChat } from '../../hooks/useCampaignChat';
 import { supabase } from '../../lib/supabase';
 import { formatMoney, maskPhone } from '../../utils/formatters';
 import { GoogleGenAI } from "@google/genai";
+<<<<<<< HEAD
 import { getGeminiApiKey } from '../../utils/geminiConfig';
+=======
+import { GEMINI_API_KEY_HELP, getGeminiApiKey } from '../../utils/geminiConfig';
+import { whatsappConfigService, WhatsAppConfigData } from '../../services/whatsappConfig.service';
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 
 const DEFAULT_VALUES = [300, 500, 800, 1000, 1500];
 const DEFAULT_TEMPLATE = "Olá! Me chamo {NOME}. Vim pela campanha {CAMPANHA}. Tenho interesse no valor de R$ {VALOR}. Link: {LINK}";
@@ -40,6 +45,14 @@ const createInternalCampaignImage = (campaignName: string) => {
 
 export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null, goBack?: () => void, isStealthMode?: boolean }> = ({ activeUser, goBack, isStealthMode }) => {
   const [activeMode, setActiveMode] = useState<'CHAT' | 'CAMPAIGNS'>('CHAT');
+
+  // --- STATE PARA WHATSAPP ---
+  const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfigData | null>(null);
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [selectedCampaignForTest, setSelectedCampaignForTest] = useState<Campaign | null>(null);
+  const [testPhone, setTestPhone] = useState('');
+  const [sendingTest, setSendingTest] = useState(false);
+  const [sendAlsoToWhatsApp, setSendAlsoToWhatsApp] = useState(false);
 
   // --- STATE PARA CAMPANHAS ---
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -78,6 +91,14 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (activeUser?.profile_id) {
+      whatsappConfigService.getConfig(activeUser.profile_id).then(config => {
+        setWhatsappConfig(config);
+      });
+    }
+  }, [activeUser]);
+
+  useEffect(() => {
     if (activeMode === 'CAMPAIGNS') {
       loadCampaigns();
     } else {
@@ -111,6 +132,15 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
     try {
       await sendMessage(inputText);
+      
+      if (sendAlsoToWhatsApp && whatsappConfig?.token && activeUser?.profile_id) {
+        await whatsappConfigService.sendMessage(
+          activeUser.profile_id,
+          selectedSession.whatsapp,
+          inputText
+        );
+      }
+      
       setInputText('');
     } catch (e) {
       alert('Erro ao enviar mensagem');
@@ -235,13 +265,49 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
   };
 
   const shareWhatsApp = (campaign: Campaign) => {
-    const msg = campaign.messageTemplate
+    const msg = (campaign.messageTemplate || DEFAULT_TEMPLATE)
       .replace('{NOME}', 'Cliente')
       .replace('{VALOR}', campaign.values[0].toString())
-      .replace('{LINK}', campaign.link)
+      .replace('{LINK}', campaign.link || '')
       .replace('{CAMPANHA}', campaign.name);
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    if (whatsappConfig?.token) {
+      setSelectedCampaignForTest(campaign);
+      setTestPhone(activeUser?.contato_whatsapp || '');
+      setTestModalOpen(true);
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+  };
+
+  const handleSendApiTest = async () => {
+    if (!activeUser || !selectedCampaignForTest || !testPhone.trim() || sendingTest) return;
+    setSendingTest(true);
+    try {
+      const msg = (selectedCampaignForTest.messageTemplate || DEFAULT_TEMPLATE)
+        .replace('{NOME}', 'Cliente')
+        .replace('{VALOR}', selectedCampaignForTest.values[0].toString())
+        .replace('{LINK}', selectedCampaignForTest.link || '')
+        .replace('{CAMPANHA}', selectedCampaignForTest.name);
+
+      const res = await whatsappConfigService.sendMessage(
+        activeUser.profile_id,
+        testPhone,
+        msg
+      );
+
+      if (res.success) {
+        alert('Mensagem enviada com sucesso via API!');
+        setTestModalOpen(false);
+        setSelectedCampaignForTest(null);
+      } else {
+        alert(`Erro ao enviar: ${res.message || 'Erro desconhecido'}`);
+      }
+    } catch (err: any) {
+      alert(`Falha no envio: ${err.message || err}`);
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   return (
@@ -421,6 +487,18 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
 
                 {/* Input de Mensagem */}
                 <div className="p-4 bg-slate-950/50 border-t border-slate-800">
+                  {whatsappConfig?.token && (
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 select-none cursor-pointer hover:text-white transition-colors mb-3 w-fit">
+                      <input
+                        type="checkbox"
+                        checked={sendAlsoToWhatsApp}
+                        onChange={(e) => setSendAlsoToWhatsApp(e.target.checked)}
+                        className="rounded border-slate-850 bg-slate-950 text-blue-600 focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <MessageCircle size={12} className="text-emerald-500" />
+                      Enviar também via WhatsApp (API)
+                    </label>
+                  )}
                   <div className="flex items-end gap-3">
                     <input
                       type="file"
@@ -669,6 +747,109 @@ export const CustomerAcquisitionPage: React.FC<{ activeUser: UserProfile | null,
                 )}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE TESTE DE WHATSAPP DA CAMPANHA */}
+      {testModalOpen && selectedCampaignForTest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-4 bg-slate-950/50 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <MessageCircle size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white uppercase tracking-tight">Disparar Campanha</h3>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Envio de Teste do WhatsApp</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setTestModalOpen(false); setSelectedCampaignForTest(null); }}
+                className="text-slate-500 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="p-5 space-y-4 font-sans">
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Campanha Selecionada</p>
+                <p className="text-sm font-semibold text-white">{selectedCampaignForTest.name}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Texto da Mensagem</p>
+                <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-300 font-medium whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {(selectedCampaignForTest.messageTemplate || DEFAULT_TEMPLATE)
+                    .replace('{NOME}', 'Cliente')
+                    .replace('{VALOR}', selectedCampaignForTest.values[0].toString())
+                    .replace('{LINK}', selectedCampaignForTest.link || '')
+                    .replace('{CAMPANHA}', selectedCampaignForTest.name)}
+                </div>
+              </div>
+
+              <div className="border-t border-slate-800/60 pt-4 space-y-4">
+                {/* Opção API */}
+                <div className="bg-slate-950/30 border border-slate-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Enviar pelo Servidor (API)</span>
+                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[8px] font-bold rounded border border-emerald-500/20 uppercase tracking-widest">Recomendado</span>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-slate-500 ml-1 mb-1 block">Número de Destino (com DDD)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 11999999999"
+                      value={testPhone}
+                      onChange={e => setTestPhone(maskPhone(e.target.value))}
+                      className="w-full bg-slate-950 border border-slate-800 px-3 py-2 rounded-lg text-sm font-semibold text-white outline-none focus:border-blue-500 transition-colors"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSendApiTest}
+                    disabled={sendingTest || !testPhone.trim()}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2 transition-all active:scale-98"
+                  >
+                    {sendingTest ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
+                    Disparar pelo Servidor
+                  </button>
+                </div>
+
+                {/* Separador */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-[1px] bg-slate-800"></div>
+                  <span className="text-[9px] font-black uppercase text-slate-600 tracking-widest">ou</span>
+                  <div className="flex-1 h-[1px] bg-slate-800"></div>
+                </div>
+
+                {/* Opção Manual */}
+                <div className="flex items-center justify-between bg-slate-950/30 border border-slate-800 rounded-lg p-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">WhatsApp Web (Manual)</h4>
+                    <p className="text-[10px] text-slate-500 font-medium">Abre uma nova aba no seu navegador.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const msg = (selectedCampaignForTest.messageTemplate || DEFAULT_TEMPLATE)
+                        .replace('{NOME}', 'Cliente')
+                        .replace('{VALOR}', selectedCampaignForTest.values[0].toString())
+                        .replace('{LINK}', selectedCampaignForTest.link || '')
+                        .replace('{CAMPANHA}', selectedCampaignForTest.name);
+                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                      setTestModalOpen(false);
+                      setSelectedCampaignForTest(null);
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold uppercase text-xs transition-colors border border-slate-700"
+                  >
+                    Abrir manual
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

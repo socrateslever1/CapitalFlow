@@ -1,12 +1,26 @@
 
 import { useMemo } from 'react';
+<<<<<<< HEAD
 import { Loan, CapitalSource, LoanStatus, Installment } from '../../../types';
+=======
+import { Loan, CapitalSource } from '../../../types';
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { hasActiveAgreement as hasActiveAgreementData, rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { loanEngine } from '../../../domain/loanEngine';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
 import { calculateRiskProfile } from '../../../domain/finance/riskAnalysis';
+
+const hasOpenInstallmentBalance = (inst: any): boolean => {
+  const status = String(inst?.status || '').toUpperCase();
+  if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+  const open =
+    Number(inst?.principalRemaining || 0) +
+    Number(inst?.interestRemaining || 0) +
+    Number(inst?.lateFeeAccrued || 0);
+  return open > ZERO_BALANCE_THRESHOLD;
+};
 
 export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isStealthMode: boolean = false) => {
   // 1. Reconstrói o estado financeiro do contrato para garantir que parciais sejam abatidos
@@ -50,9 +64,11 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     const nextInst = [...(sourceInstallments || [])]
       .filter(i => {
         const status = String(i.status || "").toUpperCase();
-        return status !== 'PAID' && status !== 'PAGO';
+        if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+        if (status === 'PAID' || status === 'PAGO') return hasOpenInstallmentBalance(i);
+        return true;
       })
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
+      .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
 
     const dueDate = nextInst?.dueDate || null;
     const days = dueDate ? -getDaysDiff(dueDate) : 0;
@@ -98,7 +114,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
     iconStyle = "bg-rose-600 text-white";
   }
   else if (classification === 'EM_DIA') {
-    const nextInst = loan.installments.find(i => i.status !== LoanStatus.PAID);
+    const nextInst = loan.installments.find(hasOpenInstallmentBalance);
     const daysUntilDue = nextInst ? -getDaysDiff(nextInst.dueDate) : 999;
 
     if (daysUntilDue >= 0 && daysUntilDue <= 3) {
@@ -123,6 +139,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
   }, [loan.ledger]);
 
   const orderedInstallments = useMemo(() => {
+<<<<<<< HEAD
     const installmentNumber = (inst: any, fallback: number) => {
       const parsed = Number(inst?.number ?? inst?.numero_parcela ?? inst?.installmentNumber);
       return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -159,9 +176,14 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
       all = [...loan.installments].sort((a, b) => installmentDueTime(a) - installmentDueTime(b));
     }
 
+=======
+    let all = [...loan.installments].sort(
+      (a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime()
+    );
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
     if (showProgress) {
       if (!isPaid) {
-        all = all.filter(i => i.status !== LoanStatus.PAID && Math.round(i.principalRemaining) > 0);
+        all = all.filter(hasOpenInstallmentBalance);
       }
     }
     return all;

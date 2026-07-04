@@ -1,6 +1,7 @@
 
 import { generateNotaPromissoriaHTML } from "./NotaPromissoriaTemplate";
 import { generateConfissaoDividaV2HTML } from "./ConfissaoDividaV2Template";
+import { formatBRDate } from "../../../utils/dateHelpers";
 
 export const DocumentTemplates = {
     /**
@@ -26,7 +27,7 @@ export const DocumentTemplates = {
             
             <p><strong>A/C Sr(a). ${data.debtorName}</strong><br/>CPF/CNPJ: ${data.debtorDoc}</p>
             
-            <p style="margin-top: 30px;">Pela presente notificação, informamos que consta em aberto o débito referente ao contrato <strong>${data.loanId.substring(0,8)}</strong>, vencido em ${new Date(data.dueDate).toLocaleDateString('pt-BR')}, no valor total atualizado de <strong>${(data.totalDue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>.</p>
+            <p style="margin-top: 30px;">Pela presente notificação, informamos que consta em aberto o débito referente ao contrato <strong>${data.loanId.substring(0,8)}</strong>, vencido em ${formatBRDate(data.dueDate)}, no valor total atualizado de <strong>${(data.totalDue || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>.</p>
             
             <p>Solicitamos a regularização do pagamento em até 48 horas para evitar a adoção de medidas judiciais cabíveis e registro em órgãos de proteção ao crédito.</p>
             

@@ -170,6 +170,7 @@ export const contractsService = {
 
           numero_parcela: (inst as any).number ?? (inst as any).numero_parcela ?? index + 1,
           data_vencimento: inst.dueDate,
+          due_date: inst.dueDate,
           valor_parcela: safeFloat(inst.amount),
 
           // colunas extras (se existirem)
@@ -221,6 +222,7 @@ export const contractsService = {
 
           numero_parcela: (inst as any).number ?? (inst as any).numero_parcela ?? index + 1,
           data_vencimento: inst.dueDate,
+          due_date: inst.dueDate,
           valor_parcela: safeFloat(inst.amount),
 
           amount: safeFloat(inst.amount),

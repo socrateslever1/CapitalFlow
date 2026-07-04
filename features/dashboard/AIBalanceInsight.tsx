@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrainCircuit, Loader2, ShieldAlert, Sparkles, RefreshCw, Target, Gauge } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile } from '../../types';
 import { processNaturalLanguageCommand, AIResponse } from '../../services/geminiService';
+import { loanEngine } from '../../domain/loanEngine';
 
 export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[], activeUser: UserProfile | null }> = ({ loans, sources, activeUser }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -19,9 +20,25 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
             const context = {
                 type: 'OPERATOR_AUDIT',
                 isDemo: activeUser?.id === 'DEMO',
-                totalLent: loans.reduce((acc, l) => acc + (l.isArchived ? 0 : l.principal), 0),
+                totalLent: loans.reduce((acc, l) => {
+                    const balance = loanEngine.computeRemainingBalance(l);
+                    if (l.isArchived || balance.totalRemaining <= 0.5) return acc;
+                    const notes = String(l.notes || '');
+                    const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
+                    if (isUnified) return acc;
+
+                    return acc + balance.principalRemaining;
+                }, 0),
                 interestBalance: interestBalance,
-                lateCount: loans.filter(l => !l.isArchived && l.installments.some(i => i.status === 'LATE')).length,
+                lateCount: loans.filter(l => {
+                    if (l.isArchived) return false;
+                    const status = String(l.status || '').toUpperCase().trim();
+                    if (loanEngine.computeRemainingBalance(l).totalRemaining <= 0.5) return false;
+                    const notes = String(l.notes || '');
+                    const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
+                    if (isUnified) return false;
+                    return l.installments.some(i => i.status === 'LATE');
+                }).length,
                 sourceLiquidity: sources.reduce((acc, s) => acc + s.balance, 0),
                 portfolioHealth: loans.map(l => ({ name: l.debtorName, status: l.isArchived ? 'ARCHIVED' : 'ACTIVE' }))
             };

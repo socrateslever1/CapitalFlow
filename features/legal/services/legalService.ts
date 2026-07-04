@@ -13,6 +13,19 @@ const PENDING_DOCUMENT_STATUSES = new Set(['PENDENTE', 'PENDING']);
 const normalizeDocumentStatus = (status: any): string =>
   String(status || 'PENDENTE').toUpperCase().trim();
 
+const normalizeSignatureRole = (value: string | null | undefined): string => {
+  const role = String(value || '').trim().toUpperCase();
+
+  if (role === 'DEVEDOR' || role === 'DEBTOR') return 'DEBTOR';
+  if (role === 'CREDOR' || role === 'CREDITOR') return 'CREDITOR';
+  if (role === 'AVALISTA' || role === 'GUARANTOR') return 'AVALISTA';
+  if (role.startsWith('TESTEMUNHA_')) return role.replace('TESTEMUNHA_', 'WITNESS_');
+  if (role.startsWith('WITNESS_')) return role;
+  if (role === 'TESTEMUNHA' || role === 'WITNESS') return 'WITNESS_1';
+
+  return role;
+};
+
 const mapLegalDocumentRecord = (row: any): LegalDocumentRecord => ({
   id: row.id,
   loanId: row.loan_id,
@@ -295,7 +308,8 @@ export const legalService = {
       ip = d.ip; 
     } catch {}
     const timestamp = new Date().toISOString();
-    const payload = `${safeDocId}|${signerInfo.doc}|${role}|${timestamp}`;
+    const normalizedRole = normalizeSignatureRole(role);
+    const payload = `${safeDocId}|${signerInfo.doc}|${normalizedRole}|${timestamp}`;
     const hash = await generateSHA256(payload);
 
     const { error: signError } = await supabase.from('assinaturas_documento').insert({
@@ -307,8 +321,8 @@ export const legalService = {
       ip,
       signer_name: signerInfo.name.toUpperCase(),
       signer_document: signerInfo.doc,
-      role,
-      papel: role, // CREDOR, DEVEDOR, TESTEMUNHA_1, TESTEMUNHA_2
+      role: normalizedRole,
+      papel: normalizedRole, // CREDITOR, DEBTOR, AVALISTA, WITNESS_1, WITNESS_2
       assinatura_hash: hash,
       hash_assinado: hash,
       ip_origem: ip,

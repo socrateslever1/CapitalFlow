@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Scale, CheckCircle2, History, TrendingUp, HandCoins, FileText, Scroll, MessageCircle, ShieldCheck, Printer, User, ChevronLeft } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, LedgerEntry } from '../types';
 import { loanEngine } from '../domain/loanEngine';
@@ -36,9 +36,19 @@ type LegalSubView = 'OVERVIEW' | 'CONFISSAO' | 'PROMISSORIA' | 'NOTIFICACAO' | '
 
 export const LegalPage: React.FC<LegalPageProps> = (props) => {
   const [subView, setSubView] = useState<LegalSubView>('OVERVIEW');
+  const routedLegalLoanId = useMemo(() => {
+    const match = window.location.pathname.match(/^\/legal\/editor\/([a-f0-9-]+)$/i);
+    return match ? match[1] : null;
+  }, [props.ui.selectedLoanId]);
 
   // FILTRO DEFINITIVO: Usa Engine de Domínio Central
   const legalLoans = props.loans.filter(l => loanEngine.isLegallyActionable(l));
+
+  useEffect(() => {
+    if (routedLegalLoanId) {
+      setSubView('CONFISSAO');
+    }
+  }, [routedLegalLoanId]);
 
   // Estatísticas Rápidas do Setor
   const totalAgreements = legalLoans.length;
@@ -49,7 +59,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
   }, 0);
 
   // Renderização Condicional Baseada na SubView
-  if (subView === 'CONFISSAO') return <ConfissaoDividaView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
+  if (subView === 'CONFISSAO') return <ConfissaoDividaView loans={legalLoans} initialLoanId={routedLegalLoanId || undefined} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
   if (subView === 'PROMISSORIA') return <NotaPromissoriaView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} isStealthMode={props.isStealthMode} />;
   if (subView === 'NOTIFICACAO') return <NotificacaoCobrancaView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
   if (subView === 'QUITACAO') return <TermoQuitacaoView loans={props.loans} activeUser={props.activeUser} onBack={() => setSubView('OVERVIEW')} showToast={props.showToast} isStealthMode={props.isStealthMode} />;
@@ -119,7 +129,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 <button onClick={() => setSubView('CONFISSAO')} className="bg-slate-950 border border-slate-800 p-4 rounded-lg flex flex-col gap-3 hover:border-indigo-500 transition-all group text-left">
                     <div className="flex justify-between items-start">
                         <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all"><Scroll size={20}/></div>
-                        <span className="text-[9px] font-black uppercase bg-indigo-950 text-indigo-400 px-2 py-1 rounded">Gerar</span>
+                        <span className="text-[9px] font-black uppercase bg-indigo-950 text-indigo-400 px-2 py-1 rounded">Jurídico</span>
                     </div>
                     <div>
                         <h4 className="font-bold text-white text-sm">Confissão de Dívida</h4>
@@ -202,7 +212,10 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                                 onReviewSignal={props.onReviewSignal}
                                 onOpenComprovante={props.fileCtrl.handleOpenComprovante}
                                 onReverseTransaction={props.onReverseTransaction}
-                                onRenegotiate={() => {}}
+                                onRenegotiate={(loan) => {
+                                    props.ui.setRenegotiationModalLoans([loan]);
+                                    props.ui.openModal('RENEGOTIATION', loan);
+                                }}
                                 onActivate={props.loanCtrl.handleActivateLoan}
                                 onAgreementPayment={props.onAgreementPayment}
                                 onRefresh={props.onRefresh}

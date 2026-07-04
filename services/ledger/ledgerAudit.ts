@@ -5,9 +5,13 @@ import { generateUUID } from '../../utils/generators';
 import { safeUUID } from '../../utils/uuid';
 
 export async function logArchive(ownerId: string, loanId: string, sourceId?: string | null) {
-  const { error } = await supabase.from('transacoes').insert([
-    {
-      id: generateUUID(),
+  const { syncService } = await import('../sync.service');
+  const txId = generateUUID();
+  await syncService.enqueueOperation({
+    table: 'transacoes',
+    operation: 'INSERT',
+    data: {
+      id: txId,
       loan_id: safeUUID(loanId),
       profile_id: safeUUID(ownerId),
       source_id: safeUUID(sourceId),
@@ -20,14 +24,18 @@ export async function logArchive(ownerId: string, loanId: string, sourceId?: str
       notes: 'Contrato Arquivado',
       category: 'GERAL',
     },
-  ]);
-  if (error) throw error;
+    id: txId
+  });
 }
 
 export async function logRestore(ownerId: string, loanId: string, sourceId?: string | null) {
-  const { error } = await supabase.from('transacoes').insert([
-    {
-      id: generateUUID(),
+  const { syncService } = await import('../sync.service');
+  const txId = generateUUID();
+  await syncService.enqueueOperation({
+    table: 'transacoes',
+    operation: 'INSERT',
+    data: {
+      id: txId,
       loan_id: safeUUID(loanId),
       profile_id: safeUUID(ownerId),
       source_id: safeUUID(sourceId),
@@ -40,8 +48,8 @@ export async function logRestore(ownerId: string, loanId: string, sourceId?: str
       notes: 'Contrato Restaurado',
       category: 'GERAL',
     },
-  ]);
-  if (error) throw error;
+    id: txId
+  });
 }
 
 /**

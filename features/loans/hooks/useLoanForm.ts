@@ -280,7 +280,8 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
             attachments,
             documentPhotos,
             customDocuments,
-            userProfile?.id || ''
+            userProfile?.id || '',
+            manualFirstDueDate
         );
         loanPayload.skipWeekends = skipWeekends;
 

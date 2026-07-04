@@ -8,8 +8,10 @@
 import { useState, useMemo } from 'react';
 import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
+import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta } from '../../domain/finance/calculations';
 import { usePaymentManagerState, ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
-import { parseDateOnlyUTC } from '../../utils/dateHelpers';
+import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
+import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
 
 interface UseContractDetailsStateProps {
     loanId: string;
@@ -34,9 +36,22 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const data = useMemo(() => {
         if (!loan) return null;
         const bal = loanEngine.computeRemainingBalance(loan);
+        const principalDelta = getLoanPrincipalReconciliationDelta(loan);
+        const interestDelta = getLoanInterestReconciliationDelta(loan);
+        const baseInst = loan.installments.find(isInstallmentOpen) || loan.installments[0] || {} as Installment;
+        const adjustedInst = principalDelta > 0.5 || interestDelta > 0.5
+            ? {
+                ...baseInst,
+                principalRemaining: Number((baseInst as any).principalRemaining || 0) + principalDelta,
+                scheduledPrincipal: Number((baseInst as any).scheduledPrincipal || 0) + principalDelta,
+                interestRemaining: Number((baseInst as any).interestRemaining || 0) + interestDelta,
+                scheduledInterest: Number((baseInst as any).scheduledInterest || 0) + interestDelta,
+                amount: Number((baseInst as any).amount || 0) + principalDelta + interestDelta,
+            } as Installment
+            : baseInst;
         return {
             loan,
-            inst: loan.installments.find(i => i.status !== 'PAID') || loan.installments[0] || {} as Installment,
+            inst: adjustedInst,
             calculations: {
                 total: bal.totalRemaining,
                 principal: bal.principalRemaining,
@@ -48,14 +63,13 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
 
     const delayDetails = useMemo(() => {
         if (!loan) return null;
-        const today = new Date();
+        const today = todayDateOnlyUTC();
         const installments = loan.installments || [];
 
         const lateInstallments = installments.filter(inst => {
-            const due = new Date(inst.dueDate);
-            const isOpen = inst.status !== 'PAID' && inst.status !== 'PAGO' && inst.status !== 'QUITADO' && inst.status !== 'RENEGOCIADO';
-            return isOpen && due.getTime() < today.getTime();
-        }).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+            const due = parseDateOnlyUTC(inst.dueDate);
+            return isInstallmentOpen(inst) && due.getTime() < today.getTime();
+        }).sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
 
         if (lateInstallments.length === 0) return null;
 
@@ -127,11 +141,11 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const nextDueDateDisplay = useMemo(() => {
         if (!loan) return 'N/A';
         if (loan.activeAgreement && loan.activeAgreement.installments) {
-            const nextAgreementInst = loan.activeAgreement.installments.find(i => i.status !== 'PAID' && i.status !== 'PAGO');
-            if (nextAgreementInst) return new Date(nextAgreementInst.dueDate).toLocaleDateString('pt-BR');
+            const nextAgreementInst = loan.activeAgreement.installments.find(i => !isPaidStatus(i.status));
+            if (nextAgreementInst) return formatBRDate(nextAgreementInst.dueDate);
         }
-        const nextLoanInst = loan.installments.find(i => i.status !== 'PAID');
-        if (nextLoanInst) return new Date(nextLoanInst.dueDate).toLocaleDateString('pt-BR');
+        const nextLoanInst = loan.installments.find(isInstallmentOpen);
+        if (nextLoanInst) return formatBRDate(nextLoanInst.dueDate);
         return 'N/A';
     }, [loan]);
 

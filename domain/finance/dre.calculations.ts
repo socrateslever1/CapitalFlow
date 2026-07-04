@@ -13,7 +13,7 @@ export interface DreResult {
 export type OperationClassification = 'APORTE' | 'RECEITA_OPERACIONAL' | 'RECUPERACAO_PRINCIPAL' | 'MOVIMENTO_TECNICO' | 'OUTRO';
 
 export const classifyLedgerEntry = (t: LedgerEntry): OperationClassification => {
-  if (t.type === 'LEND_MORE') return 'APORTE';
+  if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE') return 'APORTE';
   if (t.type === 'PAYMENT' || t.type === 'AGREEMENT_PAYMENT') {
     const interest = Number(t.interestDelta) || 0;
     const lateFee = Number(t.lateFeeDelta) || 0;
@@ -33,7 +33,7 @@ export const calculateFlowDre = (transactions: LedgerEntry[]): DreResult => {
   let investment = 0;
 
   transactions.forEach(t => {
-    if (t.type === 'LEND_MORE') {
+    if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE') {
       investment += t.amount;
     } else if (t.type?.includes('PAYMENT')) {
       if (t.interestDelta !== undefined && t.principalDelta !== undefined) {

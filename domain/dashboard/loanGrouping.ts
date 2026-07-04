@@ -4,6 +4,17 @@ import { loanEngine } from '../../domain/loanEngine';
 import { resolveLoanVisualClassification, getLoanNextDueDate } from '../../utils/loanFilterResolver';
 import { normalizeName, onlyDigits } from '../../utils/formatters';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
+import { parseDateOnlyUTC } from '../../utils/dateHelpers';
+
+const hasOpenInstallmentBalance = (inst: any): boolean => {
+  const status = String(inst?.status || '').toUpperCase();
+  if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+  const open =
+    Number(inst?.principalRemaining || 0) +
+    Number(inst?.interestRemaining || 0) +
+    Number(inst?.lateFeeAccrued || 0);
+  return open > 0.5;
+};
 
 export interface ClientGroup {
   id: string; // Unique ID for the group
@@ -102,6 +113,7 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
       else if (!isPaid) worstStatusPriority = Math.max(worstStatusPriority, 1);
       else worstStatusPriority = Math.max(worstStatusPriority, 0);
 
+<<<<<<< HEAD
       const nextDueDateStr = isPaid ? null : getLoanNextDueDate(loan);
       if (nextDueDateStr && nextDueDateStr !== '9999-12-31') {
           const t = new Date(nextDueDateStr).getTime();
@@ -131,6 +143,38 @@ export const groupLoansByClient = (loans: Loan[], sortOption: SortOption = 'DUE_
     group._sortMeta = { minDueDate, maxCreatedAt, maxUpdatedAt };
 
     return group;
+=======
+      const nextInst = isPaid ? null : loan.installments.find(hasOpenInstallmentBalance);
+      if (nextInst) {
+          const t = parseDateOnlyUTC(nextInst.dueDate).getTime();
+          if (t < minDueDate) minDueDate = t;
+      }
+      
+      const createdT = parseDateOnlyUTC(loan.startDate).getTime();
+      if (createdT > maxCreatedAt) maxCreatedAt = createdT;
+
+      const lastLedger = loan.ledger && loan.ledger.length > 0 ? loan.ledger[loan.ledger.length - 1] : null;
+      const updatedT = lastLedger ? new Date(lastLedger.date).getTime() : createdT;
+      if (updatedT > maxUpdatedAt) maxUpdatedAt = updatedT;
+    });
+
+    if (worstStatusPriority === 4) group.status = 'CRITICAL';
+    else if (worstStatusPriority === 3) group.status = 'LATE';
+    else if (worstStatusPriority === 2) group.status = 'WARNING';
+    else if (worstStatusPriority === 1) group.status = 'OK';
+    else group.status = 'PAID';
+
+    group.loans.sort((a, b) => {
+        const nextA = a.installments.find(hasOpenInstallmentBalance)?.dueDate || '9999-12-31';
+        const nextB = b.installments.find(hasOpenInstallmentBalance)?.dueDate || '9999-12-31';
+        return parseDateOnlyUTC(nextA).getTime() - parseDateOnlyUTC(nextB).getTime();
+    });
+
+    group._sortMeta = { minDueDate, maxCreatedAt, maxUpdatedAt };
+
+    return group;
+
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
   }).sort((a, b) => {
      if (sortOption === 'NAME_ASC') return a.clientName.localeCompare(b.clientName);
      if (sortOption === 'CREATED_DESC') return (b._sortMeta?.maxCreatedAt || 0) - (a._sortMeta?.maxCreatedAt || 0);

@@ -15,7 +15,15 @@ interface UsePaymentManagerProps {
     setAvAmount: (v: string) => void;
 }
 
-export type ForgivenessMode = 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'CAPITAL_ONLY';
+export type ForgivenessMode =
+    | 'NONE'
+    | 'FINE_ONLY'
+    | 'MORA_ONLY'
+    | 'FINE_AND_MORA'
+    | 'TOTAL_CHARGES'
+    | 'CAPITAL_ONLY'
+    | 'INTEREST_ONLY'
+    | 'BOTH';
 
 export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAmount, setAvAmount }: UsePaymentManagerProps) => {
     const [customAmount, setCustomAmount] = useState('');
@@ -46,15 +54,15 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         }
 
         // Aplica perdão visual se selecionado
-        if (forgivenessMode === 'CAPITAL_ONLY') {
+        if (forgivenessMode === 'CAPITAL_ONLY' || forgivenessMode === 'TOTAL_CHARGES') {
             freshCalc.interest = 0;
             finalFine = 0;
             finalMora = 0;
         } else if (forgivenessMode === 'FINE_ONLY') {
             finalFine = 0;
-        } else if (forgivenessMode === 'INTEREST_ONLY') {
+        } else if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') {
             finalMora = 0;
-        } else if (forgivenessMode === 'BOTH') {
+        } else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') {
             finalFine = 0;
             finalMora = 0;
         }
@@ -180,10 +188,17 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
                 setPaymentType(paymentModalityDispatcher.getConfig(data.loan).defaultAction);
             }
 
-            if (resolvedBillingCycle !== 'DAILY_FIXED_TERM') setAvAmount('');
             setCustomAmount('');
         }
     }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle]);
+
+    useEffect(() => {
+        if (!data) return;
+        if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') return;
+
+        const nextAmount = Number(debtBreakdown.total || 0);
+        setAvAmount(nextAmount > 0 ? nextAmount.toFixed(2) : '');
+    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle, forgivenessMode, debtBreakdown.total]);
 
     // Sugestão de próxima data baseada na data de recebimento
     useEffect(() => {

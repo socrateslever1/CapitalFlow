@@ -3,12 +3,13 @@ import { ShieldAlert, Clock, Calendar } from 'lucide-react';
 import { Loan, Installment } from '../../../types';
 import { asString } from '../../../utils/safe';
 import { getDaysDiff } from '../../../utils/dateHelpers';
+import { isInstallmentOpen } from '../../../utils/loanStatus';
 
 export const getDebtorNameSafe = (loan: Loan) =>
   asString(loan.debtorName, 'Sem Nome');
 
 export const getNextInstallment = (orderedInstallments: Installment[]) => {
-  return orderedInstallments.find(i => i.status !== 'PAID');
+  return orderedInstallments.find(isInstallmentOpen);
 };
 
 export const getNextDueDate = (nextInstallment?: Installment) => {

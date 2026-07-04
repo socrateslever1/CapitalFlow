@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from '../mappers/portalAdapters';
 import { isPortalInstallmentPaid } from '../mappers/portalDebtRules';
+import { parseDateOnlyUTC } from '../../../utils/dateHelpers';
 
 export const usePortalTotals = (loan: any, installments: any[]) => {
     
@@ -13,7 +14,7 @@ export const usePortalTotals = (loan: any, installments: any[]) => {
         if (!loan) {
             return { 
                 totalJuridicoDevido: pending.reduce((acc: number, i: any) => acc + Number(i.valor_parcela || 0), 0),
-                nextDueDate: pending.length > 0 ? new Date(pending[0].data_vencimento) : null
+                nextDueDate: pending.length > 0 ? parseDateOnlyUTC(pending[0].data_vencimento ?? pending[0].dueDate) : null
             };
         }
 
@@ -25,7 +26,7 @@ export const usePortalTotals = (loan: any, installments: any[]) => {
             return acc + Number(debt.total || 0);
         }, 0);
 
-        const nextDate = pending.length > 0 ? new Date(pending[0].data_vencimento) : null;
+        const nextDate = pending.length > 0 ? parseDateOnlyUTC(pending[0].data_vencimento ?? pending[0].dueDate) : null;
 
         return { totalJuridicoDevido: total, nextDueDate: nextDate };
     }, [loan, installments]);

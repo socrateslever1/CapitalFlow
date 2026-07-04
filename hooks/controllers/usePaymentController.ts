@@ -33,7 +33,7 @@ export const usePaymentController = (
   const lockRef = useRef(false);
 
   const handlePayment = async (
-    forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'CAPITAL_ONLY',
+    forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH',
     manualDate?: Date | null,
     customAmount?: number,
     realDate?: Date | null,
@@ -58,7 +58,12 @@ export const usePaymentController = (
       }
 
       // 🔒 Bloqueio extra — se parcela já paga
-      if (context.inst?.status === 'PAID') {
+      const instOpenTotal =
+        Number(context.inst?.principalRemaining || 0) +
+        Number(context.inst?.interestRemaining || 0) +
+        Number(context.inst?.lateFeeAccrued || 0);
+
+      if (context.inst?.status === 'PAID' && instOpenTotal <= 0.5) {
         showToast('Esta parcela já foi quitada.', 'error');
         return;
       }

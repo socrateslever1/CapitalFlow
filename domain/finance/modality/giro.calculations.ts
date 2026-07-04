@@ -2,6 +2,7 @@
 import { Loan, Installment, LoanPolicy } from "../../../types";
 import { getDaysDiff } from "../../../utils/dateHelpers";
 import { CalculationResult } from "./types";
+import { calculateRecurringMonthlyFine } from "../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
@@ -12,7 +13,7 @@ export const calculateGiro = (loan: Loan, inst: Installment, policy: LoanPolicy)
     
     let currentLateFee = 0;
     if (daysLate > 0 && (principal + interest) > 0) {
-        const fineFixed = (principal + interest) * (policy.finePercent / 100);
+        const fineFixed = calculateRecurringMonthlyFine(principal + interest, policy.finePercent, daysLate);
         const fineDaily = (principal + interest) * (policy.dailyInterestPercent / 100) * daysLate;
         currentLateFee = round(fineFixed + fineDaily);
     }

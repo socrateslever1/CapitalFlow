@@ -5,6 +5,17 @@ import { calculateRiskProfile } from '../finance/riskAnalysis';
 import { rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../finance/calculations';
 import { resolveProfitBalance } from '../../utils/profitBalance';
 
+const isUnifiedChildLoan = (loan: Loan): boolean => {
+  const notes = String(loan.notes || '');
+  return (
+    notes.includes('[UNIFICADO EM') ||
+    notes.includes('[LEGADO_PARCELAMENTO:') ||
+    notes.includes('[LEGADO_UNIFICACAO_NORMAL:') ||
+    notes.includes('Contrato migrado para a unificação') ||
+    notes.includes('Contrato unificado no parcelamento')
+  );
+};
+
 export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activeUser: any = null) => {
   // Reconstroi todos os contratos do ledger para garantir precisão total nos contadores
   const loans = loansRaw.map(l => rebuildLoanStateFromLedger(l));
@@ -18,9 +29,9 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
     riskProfile: calculateRiskProfile(l)
   }));
 
-  // Filtra empréstimos operacionais (Ativos)
+  // Filtra empréstimos operacionais (Ativos) - desconsiderando contratos unificados legados
   const activeLoans = classifiedLoans.filter(c =>
-    ['EM_DIA', 'ATRASADO', 'CRITICO', 'RENEGOCIADO'].includes(c.classification)
+    ['EM_DIA', 'ATRASADO', 'CRITICO', 'RENEGOCIADO'].includes(c.classification) && !isUnifiedChildLoan(c.loan)
   );
 
   // 1. CAPITAL NA RUA & CONTAGEM
@@ -68,11 +79,11 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
 
   const interestBalance = resolveProfitBalance(sources, activeUser).balance;
 
-  // Contagens para o gráfico de pizza
-  const paidCount = classifiedLoans.filter(c => c.classification === 'QUITADO').length;
-  const renegotiatedCount = classifiedLoans.filter(c => c.classification === 'RENEGOCIADO').length;
-  const lateCount = classifiedLoans.filter(c => c.classification === 'ATRASADO' || c.classification === 'CRITICO').length;
-  const onTimeCount = classifiedLoans.filter(c => c.classification === 'EM_DIA').length;
+  // Contagens para o gráfico de pizza - desconsiderando contratos unificados legados
+  const paidCount = classifiedLoans.filter(c => c.classification === 'QUITADO' && !isUnifiedChildLoan(c.loan)).length;
+  const renegotiatedCount = classifiedLoans.filter(c => c.classification === 'RENEGOCIADO' && !isUnifiedChildLoan(c.loan)).length;
+  const lateCount = classifiedLoans.filter(c => (c.classification === 'ATRASADO' || c.classification === 'CRITICO') && !isUnifiedChildLoan(c.loan)).length;
+  const onTimeCount = classifiedLoans.filter(c => c.classification === 'EM_DIA' && !isUnifiedChildLoan(c.loan)).length;
 
   const pieData = [
       { name: 'Em Dia', value: onTimeCount, color: '#3b82f6' },
@@ -108,7 +119,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
           receivedThisMonth += (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
       }
 
-      if (t.type === 'LEND_MORE' || t.type === 'NEW_LOAN') {
+      if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' || t.type === 'NEW_LOAN') {
         monthlyDataMap[key].Saidas += t.amount;
       } else if (t.type?.includes('PAYMENT')) {
         monthlyDataMap[key].Entradas += t.amount;

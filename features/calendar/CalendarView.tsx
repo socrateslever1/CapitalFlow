@@ -16,6 +16,7 @@ import { useCalendar } from './hooks/useCalendar';
 import { UserProfile } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { notificationService } from '../../services/notification.service';
+import { parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 
 interface CalendarViewProps {
   activeUser: UserProfile | null;
@@ -62,7 +63,7 @@ export default function CalendarView({
   const agendaItems = useMemo(() => {
     return events.map((ev) => ({
       id: ev.id,
-      date: new Date(ev.start_time),
+      date: parseDateOnlyUTC(ev.start_time),
       title: ev.meta?.clientName || ev.title || 'Cliente',
       subtitle: ev.description || 'Parcela',
       status: ev.status,
@@ -79,12 +80,10 @@ export default function CalendarView({
 
   // Notificação automática para vencidos
   useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = todayDateOnlyUTC();
 
     const lateItems = agendaItems.filter((item) => {
-      const d = new Date(item.date);
-      d.setHours(0, 0, 0, 0);
+      const d = parseDateOnlyUTC(item.date);
       return (item.status === 'OVERDUE' || d < today) && !notifiedIds.has(item.id);
     });
 

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ClientGroup } from '../../domain/dashboard/loanGrouping';
 import { formatMoney, formatShortName } from '../../utils/formatters';
+import { parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { LoanCard } from './LoanCard';
 
 interface ClientGroupCardProps {
@@ -39,12 +40,19 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const cardRef = React.useRef<HTMLDivElement>(null);
 
     const getNextOpenDueDate = (loan: any) => {
-        const next = loan.installments?.find((inst: any) => inst.status !== 'PAID');
-        return next?.dueDate ? new Date(next.dueDate) : null;
+        const next = loan.installments?.find((inst: any) => {
+            const status = String(inst?.status || '').toUpperCase();
+            if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+            const open =
+                Number(inst?.principalRemaining || 0) +
+                Number(inst?.interestRemaining || 0) +
+                Number(inst?.lateFeeAccrued || 0);
+            return open > 0.5;
+        });
+        return next?.dueDate ? parseDateOnlyUTC(next.dueDate) : null;
     };
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = todayDateOnlyUTC();
 
     const overdueLoans = group.loans.filter((loan) => {
         const due = getNextOpenDueDate(loan);

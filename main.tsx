@@ -73,6 +73,15 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      console.log('CapitalFlow: Novo service worker ativo. Recarregando a pagina para atualizar assets...');
+      window.location.reload();
+    }
+  });
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((registration) => {
@@ -84,6 +93,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
           if (!worker) return;
           worker.addEventListener('statechange', () => {
             if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('CapitalFlow: Nova versao baixada em background. Forcando ativacao imediata...');
               worker.postMessage({ type: 'SKIP_WAITING' });
             }
           });

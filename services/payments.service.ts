@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
-import { calculateTotalDue, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
+import { calculateTotalDue, getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
 import { todayDateOnlyUTC, parseDateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
@@ -121,14 +121,7 @@ async function revalidateLoanOpenBalance(loanId: string) {
     const lateFee = Math.max(0, Number(row.late_fee_accrued || 0));
     const total = roundMoney(principal + interest + lateFee);
 
-    if (
-      status === 'PAID' ||
-      status === 'PAGO' ||
-      status === 'QUITADO' ||
-      status === 'QUITADA' ||
-      status === 'FINALIZADO' ||
-      total <= ZERO_BALANCE_THRESHOLD
-    ) {
+    if (total <= ZERO_BALANCE_THRESHOLD) {
       continue;
     }
 
@@ -163,7 +156,7 @@ async function applyPrincipalOverpaymentToLastInstallments(params: {
     .select('id,numero_parcela,principal_remaining,paid_total,status')
     .eq('loan_id', params.loanId)
     .neq('id', params.excludeInstallmentId)
-    .not('status', 'in', '("PAID","PAGO","QUITADO","RENEGOCIADO","CANCELADO")')
+    .not('status', 'in', '("RENEGOCIADO","CANCELADO")')
     .order('numero_parcela', { ascending: false });
 
   if (error) throw new Error('Falha ao buscar parcela final para abatimento: ' + error.message);
@@ -296,7 +289,7 @@ export const paymentsService = {
     amountPaid: number;
     activeUser: UserProfile;
     sources: CapitalSource[];
-    forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'INTEREST_ONLY' | 'BOTH' | 'CAPITAL_ONLY';
+    forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
     manualDate?: Date | null;
     realDate?: Date | null;
     capitalizeRemaining?: boolean;
@@ -346,7 +339,7 @@ export const paymentsService = {
       Number(instDb?.interest_remaining || 0) +
       Number(instDb?.late_fee_accrued || 0);
 
-    if (!isOffline && (statusDb === 'PAID' || remainingDb <= ZERO_BALANCE_THRESHOLD)) {
+    if (!isOffline && remainingDb <= ZERO_BALANCE_THRESHOLD) {
       throw new Error('Parcela já quitada (revalidado no banco). Atualize a tela.');
     }
 
@@ -410,13 +403,23 @@ export const paymentsService = {
       throw new Error('O valor do pagamento deve ser maior que zero.');
     }
 
+    const principalReconciliationDelta = getLoanPrincipalReconciliationDelta(loan);
+    const interestReconciliationDelta = getLoanInterestReconciliationDelta(loan);
     const installmentSnapshot = {
       ...inst,
-      principalRemaining: Number(instDb?.principal_remaining ?? (inst as any)?.principalRemaining ?? 0),
-      interestRemaining: Number(instDb?.interest_remaining ?? (inst as any)?.interestRemaining ?? 0),
+      principalRemaining: Number(instDb?.principal_remaining ?? (inst as any)?.principalRemaining ?? 0) + principalReconciliationDelta,
+      scheduledPrincipal: Number((inst as any)?.scheduledPrincipal ?? (inst as any)?.scheduled_principal ?? 0) + principalReconciliationDelta,
+      amount: Number((inst as any)?.amount ?? (inst as any)?.valor_parcela ?? 0) + principalReconciliationDelta + interestReconciliationDelta,
+      interestRemaining: Number(instDb?.interest_remaining ?? (inst as any)?.interestRemaining ?? 0) + interestReconciliationDelta,
+      scheduledInterest: Number((inst as any)?.scheduledInterest ?? (inst as any)?.scheduled_interest ?? 0) + interestReconciliationDelta,
       lateFeeAccrued: Number(instDb?.late_fee_accrued ?? (inst as any)?.lateFeeAccrued ?? 0),
       status: String(instDb?.status ?? (inst as any)?.status ?? 'PENDING'),
     } as Installment;
+    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
+    const shouldSettleWithForgivenCharges =
+      effectiveForgivenessMode === 'TOTAL_CHARGES' &&
+      currentPrincipalOpen > ZERO_BALANCE_THRESHOLD &&
+      amountToPay >= currentPrincipalOpen - ZERO_BALANCE_THRESHOLD;
 
     const amortization = loanEngine.calculateInstallmentAmortization(
       amountToPay,
@@ -443,8 +446,16 @@ export const paymentsService = {
 
     const renewalBuckets = resolveRenewalBuckets(loan, installmentSnapshot);
 
+    if (shouldSettleWithForgivenCharges) {
+      principalPaid = Math.min(amountToPay, currentPrincipalOpen);
+      interestPaid = 0;
+      lateFeePaid = 0;
+      totalPaid = principalPaid;
+      avExtra = roundMoney(Math.max(0, amountToPay - currentPrincipalOpen));
+    }
+
     // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Mora -> Juros -> Principal)
-    if (effectiveForgivenessMode !== 'CAPITAL_ONLY' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
+    if (!shouldSettleWithForgivenCharges && effectiveForgivenessMode === 'NONE' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
       let remaining = amountToPay;
 
       lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
@@ -457,7 +468,6 @@ export const paymentsService = {
       totalPaid = amountToPay;
     }
 
-    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
     if (principalPaid > currentPrincipalOpen + ZERO_BALANCE_THRESHOLD) {
       avExtra = roundMoney(avExtra + principalPaid - currentPrincipalOpen);
       principalPaid = currentPrincipalOpen;
@@ -527,8 +537,8 @@ export const paymentsService = {
       p_caixa_livre_id: safeUUID(caixaLivreId),
     };
 
-    if (isOffline && effectiveForgivenessMode === 'CAPITAL_ONLY') {
-      throw new Error('Recebimento sem juros exige internet para zerar os encargos com seguranca no banco.');
+    if (isOffline && (effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges)) {
+      throw new Error('Recebimento com perdao de juros/encargos exige internet para zerar os encargos com seguranca no banco.');
     }
 
     if (isOffline) {
@@ -588,7 +598,7 @@ export const paymentsService = {
       console.error('Erro ao gravar auditoria de pagamento:', auditErr);
     }
 
-    if (effectiveForgivenessMode === 'CAPITAL_ONLY') {
+    if (effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges) {
       const { error: forgiveInterestError } = await supabase
         .from('parcelas')
         .update({
@@ -616,7 +626,7 @@ export const paymentsService = {
       const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
       const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
-      if (effectiveForgivenessMode !== 'CAPITAL_ONLY' && isMonthlyOrGiro && hasPrincipalRemaining) {
+      if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && isInterestRenewal) {
         // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
         const currentDueDate = parseDateOnlyUTC(inst.dueDate);
         const diffDays = (manualDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
@@ -644,7 +654,7 @@ export const paymentsService = {
     const finalBalance = await revalidateLoanOpenBalance(loanId);
     const remainingAfterPayment = Number(finalBalance.totalRemaining || 0);
 
-    if (effectiveForgivenessMode === 'CAPITAL_ONLY' && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
+    if ((effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges) && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
       await supabase
         .from('parcelas')
         .update({

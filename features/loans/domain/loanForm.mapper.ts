@@ -7,9 +7,10 @@ import { parseCurrency } from '../../../utils/formatters';
    Trava de vencimento manual
    - Ao editar (initialData existe), preserva dueDate do banco
 ========================= */
-function preserveExistingDueDates(
+function preserveExistingInstallmentFields(
   generated: Installment[],
-  existing: Installment[]
+  existing: Installment[],
+  shouldPreserveDueDates: boolean
 ): Installment[] {
   if (!generated?.length || !existing?.length) return generated;
 
@@ -59,6 +60,7 @@ function preserveExistingDueDates(
     if (prev) {
       return {
         ...g,
+<<<<<<< HEAD
         id: prev.id || g.id,
         dueDate: prev.dueDate || g.dueDate,
         status: prev.status || g.status,
@@ -69,6 +71,10 @@ function preserveExistingDueDates(
         paidInterest: prev.paidInterest ?? g.paidInterest,
         paidLateFee: prev.paidLateFee ?? g.paidLateFee,
         logs: prev.logs?.length ? prev.logs : g.logs,
+=======
+        id: prev.id, // ✅ Preserva o ID original para evitar duplicados no Supabase (upsert)
+        dueDate: shouldPreserveDueDates && prev.dueDate ? prev.dueDate : g.dueDate
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
       };
     }
     return g;
@@ -120,7 +126,8 @@ export const mapFormToLoan = (
   attachments: string[],
   documentPhotos: string[],
   customDocuments: LoanDocument[],
-  profileId: string
+  profileId: string,
+  manualFirstDueDate?: string
 ): Loan => {
   const principal = parseCurrency(form.principal);
   const rate = parseCurrency(form.interestRate);
@@ -163,11 +170,31 @@ export const mapFormToLoan = (
     }
   });
 
-  // ✅ TRAVA: se está editando e já existem parcelas, preserve o dueDate do banco
+  const startDateChanged = initialData && initialData.startDate !== form.startDate;
+  const firstDueDateChanged = initialData && initialData.installments?.[0] && manualFirstDueDate && initialData.installments[0].dueDate !== manualFirstDueDate;
+
+  const shouldPreserveDueDates = !startDateChanged && !firstDueDateChanged;
+
+  // Se a primeira data de vencimento manual foi informada e mudou/recalculou, aplicamos ela e propagamos o deslocamento nas parcelas geradas
+  let adjustedGeneratedInstallments = generatedInstallments;
+  if (adjustedGeneratedInstallments[0] && manualFirstDueDate && firstDueDateChanged && initialData?.installments?.[0]) {
+    const originalFirst = new Date(initialData.installments[0].dueDate).getTime();
+    const newFirst = new Date(manualFirstDueDate).getTime();
+    const diffMs = newFirst - originalFirst;
+
+    adjustedGeneratedInstallments = generatedInstallments.map((g, idx) => {
+      if (idx === 0) return { ...g, dueDate: manualFirstDueDate };
+      const currentDueDateMs = new Date(g.dueDate).getTime();
+      const adjustedDate = new Date(currentDueDateMs + diffMs);
+      return { ...g, dueDate: adjustedDate.toISOString().split('T')[0] };
+    });
+  }
+
+  // ✅ TRAVA DE DADOS ANTERIORES: Mapeia IDs e opcionalmente preserva dueDates
   const finalInstallments =
     initialData?.installments?.length
-      ? preserveExistingDueDates(generatedInstallments, initialData.installments)
-      : generatedInstallments;
+      ? preserveExistingInstallmentFields(adjustedGeneratedInstallments, initialData.installments, shouldPreserveDueDates)
+      : adjustedGeneratedInstallments;
 
   return {
     id: initialData?.id || generateUUID(),

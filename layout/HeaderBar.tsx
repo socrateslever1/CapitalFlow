@@ -19,6 +19,7 @@ import {
   Bell,
   X,
   Trash2,
+  FolderSearch,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { Tooltip } from '../components/ui/Tooltip';
@@ -246,6 +247,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     switch (tab) {
       case 'DASHBOARD':
         return <LayoutDashboard size={14} className="text-blue-500" />;
+      case 'DOSSIER':
+        return <FolderSearch size={14} className="text-cyan-400" />;
       case 'CLIENTS':
         return <Users size={14} className="text-indigo-500" />;
       case 'TEAM':
@@ -275,6 +278,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     switch (tab) {
       case 'DASHBOARD':
         return 'Painel';
+      case 'DOSSIER':
+        return 'Dossiê';
       case 'CLIENTS':
         return 'Clientes';
       case 'TEAM':

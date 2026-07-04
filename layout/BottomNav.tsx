@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { LayoutDashboard, Users, Wallet, LayoutGrid, Plus, Briefcase, ChevronLeft, Calendar, Calculator, ArrowRightLeft, Megaphone, Gavel, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Wallet, LayoutGrid, Plus, Briefcase, ChevronLeft, Calendar, Calculator, ArrowRightLeft, Megaphone, Gavel, MessageSquare, FolderSearch } from 'lucide-react';
 import { Tooltip } from '../components/ui/Tooltip';
 
 interface BottomNavProps {
@@ -53,6 +53,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     const size = 20;
     switch (tab) {
       case 'DASHBOARD': return <LayoutDashboard size={size} className={active ? 'text-blue-400' : ''}/>;
+      case 'DOSSIER': return <FolderSearch size={size} className={active ? 'text-cyan-400' : ''}/>;
       case 'CLIENTS': return <Users size={size} className={active ? 'text-emerald-400' : ''}/>;
       case 'TEAM': return <Briefcase size={size} className={active ? 'text-indigo-400' : ''}/>;
       case 'SOURCES': return <Wallet size={size} className={active ? 'text-amber-400' : ''}/>;
@@ -69,6 +70,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const getTabLabel = (tab: string) => {
     switch (tab) {
       case 'DASHBOARD': return 'Painel';
+      case 'DOSSIER': return 'Dossiê';
       case 'CLIENTS': return 'Clientes';
       case 'TEAM': return 'Equipe';
       case 'SOURCES': return 'Capital';
@@ -85,7 +87,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   // Lista completa de abas para a barra de tarefas mobile
-  const mobileTabs = ['DASHBOARD', 'SIMULATOR', 'CLIENTS', 'SOURCES', 'LEGAL', 'SUPPORT'];
+  const mobileTabs = ['DASHBOARD', 'DOSSIER', 'SIMULATOR', 'CLIENTS', 'SOURCES', 'LEGAL', 'SUPPORT'];
 
   return (
     <div

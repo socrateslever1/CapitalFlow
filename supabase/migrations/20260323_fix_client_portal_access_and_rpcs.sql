@@ -485,6 +485,7 @@ DECLARE
   v_client_id uuid;
   v_loan_id uuid;
   v_role_column text;
+  v_role text;
 BEGIN
   IF p_token ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
     v_token_uuid := p_token::uuid;
@@ -531,11 +532,25 @@ BEGIN
   END
   INTO v_role_column;
 
+  -- Normalização de papéis
+  v_role := upper(trim(coalesce(p_papel, '')));
+  IF v_role IN ('DEVEDOR', 'DEBTOR') THEN
+    v_role := 'DEBTOR';
+  ELSIF v_role IN ('CREDOR', 'CREDITOR') THEN
+    v_role := 'CREDITOR';
+  ELSIF v_role IN ('AVALISTA', 'GUARANTOR') THEN
+    v_role := 'AVALISTA';
+  ELSIF v_role LIKE 'TESTEMUNHA_%' THEN
+    v_role := REPLACE(v_role, 'TESTEMUNHA_', 'WITNESS_');
+  ELSIF v_role = 'TESTEMUNHA' OR v_role = 'WITNESS' THEN
+    v_role := 'WITNESS_1';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM assinaturas_documento s
     WHERE s.document_id = p_documento_id
-      AND upper(COALESCE(to_jsonb(s) ->> v_role_column, '')) = upper(COALESCE(p_papel, ''))
+      AND upper(COALESCE(to_jsonb(s) ->> v_role_column, '')) = v_role
   ) THEN
     RETURN jsonb_build_object('success', false, 'message', 'Este papel já assinou o documento');
   END IF;
@@ -547,7 +562,7 @@ BEGIN
   )
   USING
     p_documento_id,
-    p_papel,
+    v_role,
     p_nome,
     p_cpf,
     COALESCE(p_ip, '0.0.0.0'),
@@ -556,7 +571,7 @@ BEGIN
     p_phone,
     p_hash_assinado;
 
-  IF upper(COALESCE(p_papel, '')) IN ('DEVEDOR', 'DEBTOR') THEN
+  IF v_role = 'DEBTOR' THEN
     UPDATE documentos_juridicos
     SET status_assinatura = 'ASSINADO'
     WHERE id = p_documento_id;

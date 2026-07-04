@@ -2,7 +2,7 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { AppTab } from '../types';
 
-const HUB_TABS: AppTab[] = ['SOURCES', 'LEGAL', 'PROFILE', 'SETTINGS', 'TEAM', 'CLIENTS'];
+const HUB_TABS: AppTab[] = ['DOSSIER', 'SOURCES', 'LEGAL', 'PROFILE', 'SETTINGS', 'TEAM', 'CLIENTS'];
 
 /**
  * Hook central de navegação com STACK REAL.

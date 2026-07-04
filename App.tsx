@@ -47,6 +47,7 @@ import { CustomerAcquisitionPage } from './pages/Comercial/CaptacaoClientes';
 import { ReportsPage } from './features/reports/pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ContractDetailsPage } from './pages/ContractDetailsPage';
+import { DossierPage } from './pages/DossierPage';
 
 import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
@@ -162,10 +163,12 @@ export const App: React.FC = () => {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(contractIdFromUrl);
       handleSetActiveTab('CONTRACT_DETAILS');
-    } else if (legalIdFromUrl && activeTab !== 'LEGAL') {
+    } else if (legalIdFromUrl) {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(legalIdFromUrl);
-      handleSetActiveTab('LEGAL');
+      if (activeTab !== 'LEGAL') {
+        handleSetActiveTab('LEGAL');
+      }
     } else if (!contractIdFromUrl && !legalIdFromUrl) {
       // Se limpou o path manualmente ou via back, e ainda estava na aba de detalhes, volta pro dashboard
       if (activeTab === 'CONTRACT_DETAILS' || activeTab === 'LEGAL') {
@@ -482,6 +485,34 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
+              {activeTab === 'DOSSIER' && (
+                <motion.div
+                  key="dossier-view"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.1, ease: 'linear' }}
+                >
+                  <DossierPage
+                    loans={loans}
+                    clients={clients}
+                    activeUser={activeUser}
+                    isStealthMode={ui.isStealthMode}
+                    onOpenLoan={(loanId) => {
+                      ui.setSelectedLoanId(loanId);
+                      navigate(`/contrato/${loanId}`);
+                    }}
+                    onOpenLegal={(loanId) => navigate(`/legal/editor/${loanId}`)}
+                    onOpenSimulator={() => handleSetActiveTab('SIMULATOR')}
+                    onRenegotiate={(loan) => {
+                      ui.setRenegotiationModalLoans([loan]);
+                      ui.openModal('RENEGOTIATION', loan);
+                    }}
+                    showToast={showToast}
+                  />
+                </motion.div>
+              )}
+
               {/* Desativado temporariamente: TEAM
               {activeTab === 'TEAM' && !activeUser?.supervisor_id && (
                 <motion.div
@@ -570,7 +601,7 @@ export const App: React.FC = () => {
                     showToast={showToast}
                     onRefresh={() => fetchFullData(activeUser?.id || '')}
                     goBack={goBack}
-                    onNavigate={(id) => navigate(`/contrato/${id}`)}
+                    onNavigate={navigate}
                   />
                 </motion.div>
               )}
@@ -680,7 +711,7 @@ export const App: React.FC = () => {
                         ui.setRenegotiationModalLoans(loans);
                         ui.openModal('RENEGOTIATION', loans[0]);
                     }}
-                    onGenerateContract={(l) => loanCtrl.handleGenerateLink(l)}
+                    onOpenLegalDocument={(l) => navigate(`/legal/editor/${l.id}`)}
                     onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
                     onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
                     onArchive={(l) => loanCtrl.openConfirmation({

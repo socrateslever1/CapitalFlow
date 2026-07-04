@@ -23,10 +23,11 @@ import { useClientPortalLogic } from './hooks/useClientPortalLogic';
 import { usePortalClientNotifications } from './hooks/usePortalClientNotifications';
 import { PortalPaymentModal } from './components/PortalPaymentModal';
 import { PortalChatDrawer } from './components/PortalChatDrawer';
-import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel } from './mappers/portalDebtRules';
+import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel, isPortalInstallmentPaid } from './mappers/portalDebtRules';
 import { PortalInstallmentItem } from '../../containers/ClientPortal/components/PortalInstallmentItem';
 import { formatMoney } from '../../utils/formatters';
 import { translateBillingCycle } from '../../utils/translationHelpers';
+import { formatBRDate } from '../../utils/dateHelpers';
 
 interface ContractBlockProps {
     loan: any;
@@ -40,7 +41,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
     const { hasLateInstallments, totalDue, pendingCount, nextDueDate } = summary;
 
     // Pega o status da próxima parcela ou da mais atrasada
-    const nextInst = loan.installments.find((i: any) => i.status !== 'PAID');
+    const nextInst = loan.installments.find((i: any) => !isPortalInstallmentPaid(i));
     const statusInfo = nextInst ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate) : { label: 'Quitado', variant: 'OK' };
 
     const isPaidOff = pendingCount === 0;
@@ -77,7 +78,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
                     {nextDueDate && (
                         <div className="text-right">
                             <p className="text-[9px] text-slate-500 uppercase font-bold">Próx. Vencimento</p>
-                            <p className="text-xs text-white font-bold">{new Date(nextDueDate).toLocaleDateString('pt-BR')}</p>
+                            <p className="text-xs text-white font-bold">{formatBRDate(nextDueDate)}</p>
                         </div>
                     )}
                 </div>
@@ -86,7 +87,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
             {/* Lista de Parcelas (Apenas as próximas 2 para economizar espaço) */}
             {!isPaidOff && (
                 <div className="space-y-2 mb-4 bg-slate-950/50 p-2 rounded-lg border border-slate-800/50">
-                    {loan.installments.filter((i:any) => i.status !== 'PAID').slice(0, 2).map((inst: any) => (
+                    {loan.installments.filter((i:any) => !isPortalInstallmentPaid(i)).slice(0, 2).map((inst: any) => (
                          <PortalInstallmentItem key={inst.id} loan={loan} installment={inst} />
                     ))}
                     {pendingCount > 2 && (

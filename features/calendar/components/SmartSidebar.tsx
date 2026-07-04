@@ -2,6 +2,7 @@
 import React from 'react';
 import { CalendarEvent } from '../types';
 import { AlertCircle, Clock, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../../utils/dateHelpers';
 
 interface SmartSidebarProps {
     events: CalendarEvent[];
@@ -10,18 +11,18 @@ interface SmartSidebarProps {
 }
 
 export const SmartSidebar: React.FC<SmartSidebarProps> = ({ events, onAction, currentDate }) => {
-    const todayStr = new Date().toDateString();
+    const today = todayDateOnlyUTC();
 
     // Filtros
     const urgentEvents = events.filter(e => e.priority === 'URGENT');
-    const lateEvents = events.filter(e => e.status === 'LATE');
+    const lateEvents = events.filter(e => e.status === 'LATE' || e.status === 'OVERDUE');
     const todayEvents = events.filter(e => {
-        const d = new Date(e.start_time);
-        return d.toDateString() === todayStr && e.priority !== 'URGENT' && e.status !== 'LATE';
+        const d = parseDateOnlyUTC(e.start_time);
+        return d.getTime() === today.getTime() && e.priority !== 'URGENT' && e.status !== 'LATE' && e.status !== 'OVERDUE';
     });
 
     const renderCard = (e: CalendarEvent, badge?: string) => (
-        <div key={e.id} onClick={() => onAction(e)} className={`p-3 rounded-lg border mb-2 cursor-pointer transition-all active:scale-95 group ${e.priority === 'URGENT' ? 'bg-emerald-950/30 border-emerald-500/50 hover:bg-emerald-900/40' : e.status === 'LATE' ? 'bg-rose-950/20 border-rose-500/30 hover:bg-rose-900/30' : 'bg-slate-900 border-slate-800 hover:border-blue-500'}`}>
+        <div key={e.id} onClick={() => onAction(e)} className={`p-3 rounded-lg border mb-2 cursor-pointer transition-all active:scale-95 group ${e.priority === 'URGENT' ? 'bg-emerald-950/30 border-emerald-500/50 hover:bg-emerald-900/40' : (e.status === 'LATE' || e.status === 'OVERDUE') ? 'bg-rose-950/20 border-rose-500/30 hover:bg-rose-900/30' : 'bg-slate-900 border-slate-800 hover:border-blue-500'}`}>
             <div className="flex justify-between items-start">
                 <h4 className="text-xs font-bold text-white line-clamp-1">{e.title}</h4>
                 {badge && <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${e.priority === 'URGENT' ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'}`}>{badge}</span>}
@@ -30,7 +31,7 @@ export const SmartSidebar: React.FC<SmartSidebarProps> = ({ events, onAction, cu
             <div className="flex items-center gap-1 mt-2 text-[9px] font-bold uppercase text-slate-500">
                 {e.type === 'SYSTEM_INSTALLMENT' && <Clock size={10}/>}
                 {e.type === 'SYSTEM_PORTAL_REQUEST' && <ShieldAlert size={10} className="text-emerald-500"/>}
-                <span>{new Date(e.start_time).toLocaleDateString()}</span>
+                <span>{formatBRDate(e.start_time)}</span>
             </div>
         </div>
     );

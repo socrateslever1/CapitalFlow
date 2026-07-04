@@ -2,6 +2,7 @@
 import { Loan, Installment, LoanPolicy } from "../../../types";
 import { getDaysDiff } from "../../../utils/dateHelpers";
 import { CalculationResult } from "./types";
+import { calculateRecurringMonthlyFine } from "../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
@@ -23,8 +24,8 @@ export const calculateDiarioB = (loan: Loan, inst: Installment, policy: LoanPoli
     let currentLateFee = 0;
 
     if (daysLate > 0) {
-        // Multa apenas se estourar o prazo combinado
-        const fineFixed = inst.principalRemaining * (policy.finePercent / 100);
+        // Multa fixa recorrente: aplica ao atrasar e reaplica a cada 30 dias.
+        const fineFixed = calculateRecurringMonthlyFine(inst.principalRemaining, policy.finePercent, daysLate);
         currentLateFee = round(fineFixed);
     }
 

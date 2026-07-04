@@ -83,6 +83,23 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     // Tem multa ou mora original para perdoar?
     const hasOriginalFine = (Number(calculations.lateFee) || 0) > 0 || debtBreakdown.fine > 0 || debtBreakdown.dailyMora > 0;
     const hasChargesToForgive = !isCapitalOnlyRecovery && ((Number(calculations.interest) || 0) > 0 || debtBreakdown.interest > 0 || hasOriginalFine);
+    const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesMora = forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+    const forgivesInterest = forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
+
+    const toggleFineForgiveness = () => {
+        if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('NONE');
+        else if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('FINE_AND_MORA');
+        else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('MORA_ONLY');
+        else setForgivenessMode('FINE_ONLY');
+    };
+
+    const toggleMoraForgiveness = () => {
+        if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
+        else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('FINE_AND_MORA');
+        else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
+        else setForgivenessMode('MORA_ONLY');
+    };
 
     return (
         <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans h-[100dvh] pt-16 sm:pt-20 pb-28 md:pb-0">
@@ -134,17 +151,17 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 <span className="text-slate-400 font-bold uppercase">Capital Principal</span>
                                 <span className="text-white font-bold">{formatMoney(debtBreakdown.principal)}</span>
                             </div>
-                            <div className={`flex justify-between items-center text-xs border-b border-slate-800/50 pb-2 ${isCapitalOnlyRecovery ? 'line-through opacity-50' : ''}`}>
+                            <div className={`flex justify-between items-center text-xs border-b border-slate-800/50 pb-2 ${forgivesInterest ? 'line-through opacity-50' : ''}`}>
                                 <span className="text-blue-400 font-bold uppercase flex items-center gap-1"><TrendingUp size={12}/> Lucro (Juros)</span>
                                 <span className="text-blue-400 font-bold">{formatMoney(debtBreakdown.interest)}</span>
                             </div>
                             {(calculations.lateFee > 0) && (
                                 <>
-                                    <div className={`flex justify-between items-center text-xs ${forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'BOTH' || isCapitalOnlyRecovery ? 'line-through opacity-50' : ''}`}>
+                                    <div className={`flex justify-between items-center text-xs ${forgivesFine ? 'line-through opacity-50' : ''}`}>
                                         <span className="text-rose-400 font-bold uppercase flex items-center gap-1"><AlertTriangle size={12}/> Multa Fixa</span>
                                         <span className="text-rose-400 font-bold">{formatMoney(debtBreakdown.fine)}</span>
                                     </div>
-                                    <div className={`flex justify-between items-center text-xs ${forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'BOTH' || isCapitalOnlyRecovery ? 'line-through opacity-50' : ''}`}>
+                                    <div className={`flex justify-between items-center text-xs ${forgivesMora ? 'line-through opacity-50' : ''}`}>
                                         <span className="text-orange-400 font-bold uppercase flex items-center gap-1"><Clock size={12}/> Juros Mora</span>
                                         <span className="text-orange-400 font-bold">{formatMoney(debtBreakdown.dailyMora)}</span>
                                     </div>
@@ -165,22 +182,22 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                             </h3>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
-                                    onClick={() => setForgivenessMode(forgivenessMode === 'FINE_ONLY' ? 'NONE' : 'FINE_ONLY')}
-                                    className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'FINE_ONLY' ? 'bg-rose-500 text-white border-rose-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-rose-500'}`}
+                                    onClick={toggleFineForgiveness}
+                                    className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivesFine && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-rose-500 text-white border-rose-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-rose-500'}`}
                                 >
                                     Perdoar Multa
                                 </button>
                                 <button
-                                    onClick={() => setForgivenessMode(forgivenessMode === 'INTEREST_ONLY' ? 'NONE' : 'INTEREST_ONLY')}
-                                    className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'INTEREST_ONLY' ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-orange-500'}`}
+                                    onClick={toggleMoraForgiveness}
+                                    className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivesMora && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-orange-500'}`}
                                 >
                                     Perdoar Mora
                                 </button>
                                 <button
-                                    onClick={() => setForgivenessMode(forgivenessMode === 'BOTH' ? 'NONE' : 'BOTH')}
-                                    className={`col-span-2 px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'BOTH' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-emerald-500'}`}
+                                    onClick={() => setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES')}
+                                    className={`col-span-2 px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'TOTAL_CHARGES' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-emerald-500'}`}
                                 >
-                                    Perdoar Total (100% Encargos)
+                                    Perdoar 100% dos Encargos
                                 </button>
                             </div>
                         </div>

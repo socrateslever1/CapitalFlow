@@ -29,12 +29,16 @@ export async function executeLedgerAction(params: {
     if (remainingPrincipal > 0) {
       const source = sources.find((s) => s.id === loan.sourceId);
       if (source) {
-        const { error: refundError } = await supabase
-          .from('fontes')
-          .update({ balance: toNumber(source.balance) + remainingPrincipal })
-          .eq('id', safeUUID(source.id))
-          .eq('profile_id', safeUUID(ownerId));
-        if (refundError) throw refundError;
+        const { syncService } = await import('../sync.service');
+        await syncService.enqueueOperation({
+          table: 'fontes',
+          operation: 'UPDATE',
+          data: {
+            id: safeUUID(source.id),
+            balance: toNumber(source.balance) + remainingPrincipal
+          },
+          id: safeUUID(source.id)
+        });
       }
     }
   }
@@ -102,23 +106,31 @@ export async function executeLedgerAction(params: {
   }
 
   if (type === 'ARCHIVE') {
-    const { error } = await supabase
-      .from('contratos')
-      .update({ is_archived: true })
-      .eq('id', safeUUID(targetId))
-      .eq('owner_id', safeUUID(ownerId));
-    if (error) throw error;
+    const { syncService } = await import('../sync.service');
+    await syncService.enqueueOperation({
+      table: 'contratos',
+      operation: 'UPDATE',
+      data: {
+        id: safeUUID(targetId),
+        is_archived: true
+      },
+      id: safeUUID(targetId)
+    });
     await logArchive(ownerId, targetId, loan?.sourceId);
     return 'Contrato Arquivado.';
   }
 
   if (type === 'RESTORE') {
-    const { error } = await supabase
-      .from('contratos')
-      .update({ is_archived: false })
-      .eq('id', safeUUID(targetId))
-      .eq('owner_id', safeUUID(ownerId));
-    if (error) throw error;
+    const { syncService } = await import('../sync.service');
+    await syncService.enqueueOperation({
+      table: 'contratos',
+      operation: 'UPDATE',
+      data: {
+        id: safeUUID(targetId),
+        is_archived: false
+      },
+      id: safeUUID(targetId)
+    });
     await logRestore(ownerId, targetId, loan?.sourceId);
     return 'Contrato Restaurado.';
   }

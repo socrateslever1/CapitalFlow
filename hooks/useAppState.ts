@@ -6,7 +6,7 @@ import { mapLoanFromDB } from '../services/adapters/dbAdapters';
 import { asString, asNumber } from '../utils/safe';
 
 const DEFAULT_NAV: AppTab[] = ['DASHBOARD', 'CLIENTS'] as AppTab[];
-const DEFAULT_HUB: AppTab[] = ['SOURCES', 'LEGAL', 'PROFILE'] as AppTab[];
+const DEFAULT_HUB: AppTab[] = ['DOSSIER', 'SOURCES', 'LEGAL', 'PROFILE'] as AppTab[];
 
 const CACHE_KEY = (profileId: string) => `cm_cache_${profileId}`;
 const CACHE_MAX_AGE = 12 * 60 * 60 * 1000; // 12 horas
@@ -333,6 +333,50 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       fetchFullData(activeProfileId);
     }
   }, [activeProfileId]);
+
+  // Sincronização Automática em Tempo Real (Offline Prevention)
+  useEffect(() => {
+    if (!activeUser || !activeProfileId || activeUser.id === 'DEMO') return;
+
+    const ownerId = activeUser.supervisor_id || activeUser.id;
+    let syncTimeout: any = null;
+
+    const triggerRealtimeSync = () => {
+      if (syncTimeout) clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(async () => {
+        try {
+          console.log('[REALTIME] Alteração remota detectada. Sincronizando dados imediatamente...');
+          const { syncService } = await import('../services/sync.service');
+          await syncService.syncFullData(activeProfileId, ownerId);
+          const updated = await syncService.getLocalData(ownerId);
+          setLoans(updated.loans);
+          setClients(updated.clients);
+          setSources(updated.sources);
+          if ((updated as any).staffMembers) setStaffMembers((updated as any).staffMembers);
+        } catch (err) {
+          console.warn('[REALTIME] Falha ao processar sincronização automática:', err);
+        }
+      }, 500); // 500ms debounce
+    };
+
+    console.log('[REALTIME] Registrando canais em tempo real para supervisor:', ownerId);
+    const channel = supabase
+      .channel(`realtime-sync-${ownerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, triggerRealtimeSync)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, triggerRealtimeSync)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fontes' }, triggerRealtimeSync)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parcelas' }, triggerRealtimeSync)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, triggerRealtimeSync)
+      .subscribe((status) => {
+        console.log(`[REALTIME] Canal de sincronização ativa: ${status}`);
+      });
+
+    return () => {
+      if (syncTimeout) clearTimeout(syncTimeout);
+      console.log('[REALTIME] Removendo escuta em tempo real do canal:', ownerId);
+      supabase.removeChannel(channel);
+    };
+  }, [activeUser, activeProfileId]);
 
   const saveNavConfig = async (newNav: AppTab[], newHub: AppTab[]) => {
     if (!activeUser) return;

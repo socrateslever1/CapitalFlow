@@ -6,7 +6,7 @@
  * de serviços Supabase (geração, deleção e listagem de documentos).
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loan, UserProfile, LegalWitness, LegalDocumentRecord, LegalDocumentParams } from '../../../../types';
 import { safeUUID } from '../../../../utils/uuid';
 import { DocumentTemplates } from '../../templates/DocumentTemplates';
@@ -16,12 +16,14 @@ import { toast } from 'sonner';
 
 interface UseConfissaoDividaStateProps {
     loans: Loan[];
+    initialLoanId?: string;
     activeUser: UserProfile | null;
     showToast: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
-export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseConfissaoDividaStateProps) => {
+export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, showToast }: UseConfissaoDividaStateProps) => {
     const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+    const appliedInitialLoanIdRef = useRef<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showManager, setShowManager] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +61,17 @@ export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseCon
         const value = String(status || '').toUpperCase().trim();
         return value === 'PAID' || value === 'PAGO' || value === 'QUITADO' || value === 'FINALIZADO';
     };
+
+    useEffect(() => {
+        if (!initialLoanId || appliedInitialLoanIdRef.current === initialLoanId) return;
+
+        const initialLoan = loans.find((loan) => loan.id === initialLoanId);
+        if (!initialLoan) return;
+
+        setSelectedLoan(initialLoan);
+        setDocumentContent('');
+        appliedInitialLoanIdRef.current = initialLoanId;
+    }, [initialLoanId, loans]);
 
     const getInstallmentOpenAmount = (inst: any) => {
         if (!inst || isPaidStatus(inst.status)) return 0;
@@ -153,14 +166,29 @@ export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseCon
         };
     }, []);
 
-    const refreshLoanDocuments = useCallback(async (loanId: string) => {
+    const mergeDocumentRecords = useCallback((docs: LegalDocumentRecord[], fallbackDoc?: LegalDocumentRecord | null) => {
+        const byId = new Map<string, LegalDocumentRecord>();
+        const source = fallbackDoc ? [fallbackDoc, ...docs] : docs;
+
+        source.forEach((doc) => {
+            if (!doc?.id) return;
+            byId.set(doc.id, { ...byId.get(doc.id), ...doc });
+        });
+
+        return Array.from(byId.values()).sort((a, b) =>
+            new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+    }, []);
+
+    const refreshLoanDocuments = useCallback(async (loanId: string, fallbackDoc?: LegalDocumentRecord | null) => {
         setIsLoadingDocuments(true);
         try {
             const docs = await legalService.listDocumentsByLoanId(loanId);
-            setLoanDocuments(docs);
-            setSelectedDocIds(prev => prev.filter(id => docs.some(doc => doc.id === id && isDocumentDeletable(doc))));
+            const mergedDocs = mergeDocumentRecords(docs, fallbackDoc);
+            setLoanDocuments(mergedDocs);
+            setSelectedDocIds(prev => prev.filter(id => mergedDocs.some(doc => doc.id === id && isDocumentDeletable(doc))));
 
-            const latestWithToken = docs.find((doc) => !!resolveDocumentToken(doc));
+            const latestWithToken = mergedDocs.find((doc) => !!resolveDocumentToken(doc));
             if (latestWithToken) {
                 setSigningLinks(buildSigningLinks(resolveDocumentToken(latestWithToken)));
             } else {
@@ -168,12 +196,31 @@ export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseCon
             }
         } catch (e) {
             console.error(e);
-            setLoanDocuments([]);
-            setSigningLinks(null);
+            if (fallbackDoc) {
+                const fallbackDocs = mergeDocumentRecords([], fallbackDoc);
+                setLoanDocuments(fallbackDocs);
+                const token = resolveDocumentToken(fallbackDoc);
+                setSigningLinks(token ? buildSigningLinks(token) : null);
+            } else {
+                setLoanDocuments([]);
+                setSigningLinks(null);
+            }
         } finally {
             setIsLoadingDocuments(false);
         }
-    }, [buildSigningLinks, isDocumentDeletable, resolveDocumentToken]);
+    }, [buildSigningLinks, isDocumentDeletable, mergeDocumentRecords, resolveDocumentToken]);
+
+    useEffect(() => {
+        setSelectedDocIds([]);
+
+        if (!selectedLoan?.id) {
+            setLoanDocuments([]);
+            setSigningLinks(null);
+            return;
+        }
+
+        void refreshLoanDocuments(selectedLoan.id);
+    }, [refreshLoanDocuments, selectedLoan?.id]);
 
     const deletableDocIds = useMemo(
         () => loanDocuments.filter(doc => isDocumentDeletable(doc)).map(doc => doc.id),
@@ -308,7 +355,8 @@ export const useConfissaoDividaState = ({ loans, activeUser, showToast }: UseCon
             if (token) {
                 setSigningLinks(buildSigningLinks(token));
             }
-            await refreshLoanDocuments(selectedLoan.id);
+            setLoanDocuments(prev => mergeDocumentRecords(prev, docRecord));
+            await refreshLoanDocuments(selectedLoan.id, docRecord);
 
         } catch (e: any) {
             console.error(e);

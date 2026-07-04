@@ -1,8 +1,14 @@
 
 import { Loan, Installment } from '../../../types';
+<<<<<<< HEAD
 import { calculateTotalDue, calculateAgreementInstallmentLateFee } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from './portalAdapters';
 import { getDaysDiff } from '../../../utils/dateHelpers';
+=======
+import { calculateTotalDue } from '../../../domain/finance/calculations';
+import { normalizeLoanForCalc, normalizeInstallmentForCalc } from './portalAdapters';
+import { getDaysDiff, parseDateOnlyUTC } from '../../../utils/dateHelpers';
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
 import { isDev } from '../../../utils/isDev';
 
 // Tipos de Retorno
@@ -46,13 +52,12 @@ const SETTLED_EPSILON = 0.05;
 export const isPortalInstallmentPaid = (inst: any): boolean => {
     if (!inst) return true;
 
-    const status = String(inst.status ?? '').trim().toUpperCase();
-    if (PAID_STATUSES.has(status)) return true;
-
     if (inst.agreementId || inst.acordo_id || inst.agreement_id) {
+        const status = String(inst.status ?? '').trim().toUpperCase();
         const amount = Number(inst.amount ?? inst.valor ?? inst.valor_parcela ?? 0);
         const paidAmount = Number(inst.paidAmount ?? inst.paid_amount ?? inst.valor_pago ?? 0);
-        return amount > 0 && amount - paidAmount <= SETTLED_EPSILON;
+        const remaining = amount - paidAmount;
+        return remaining <= SETTLED_EPSILON || (PAID_STATUSES.has(status) && remaining <= SETTLED_EPSILON);
     }
 
     const hasBalanceFields =
@@ -156,6 +161,7 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
     if (loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO')) {
         const agreementInsts = loan.activeAgreement.installments || [];
         const pending = agreementInsts.filter(i => !isPortalInstallmentPaid(i));
+<<<<<<< HEAD
         
         let totalDue = 0;
         let maxDaysLate = 0;
@@ -178,6 +184,27 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
 
     if (!installments) return { totalDue: 0, nextDueDate: null, pendingCount: 0, hasLateInstallments: false, maxDaysLate: 0 };
 
+=======
+        const totalDue = pending.reduce((acc, i) => acc + (Number(i.amount) - Number(i.paidAmount || 0)), 0);
+        
+        let maxDaysLate = 0;
+        pending.forEach(inst => {
+            const daysLate = getDaysDiff(inst.dueDate);
+            if (daysLate > maxDaysLate) maxDaysLate = daysLate;
+        });
+
+        return {
+            totalDue,
+            nextDueDate: pending.length > 0 ? parseDateOnlyUTC(pending[0].dueDate) : null,
+            pendingCount: pending.length,
+            hasLateInstallments: maxDaysLate > 0,
+            maxDaysLate
+        };
+    }
+
+    if (!installments) return { totalDue: 0, nextDueDate: null, pendingCount: 0, hasLateInstallments: false, maxDaysLate: 0 };
+
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
     const pending = installments.filter(i => !isPortalInstallmentPaid(i));
 
     const loanCalc = normalizeLoanForCalc(loan);
@@ -192,6 +219,7 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
 
     return {
         totalDue,
+<<<<<<< HEAD
         nextDueDate: pending.length > 0 ? new Date(pending[0].dueDate) : null,
         pendingCount: pending.length,
         hasLateInstallments: maxDaysLate > 0,
@@ -208,6 +236,24 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
         const amount = Number(inst.amount || 0);
         const paidAmount = Number(inst.paidAmount || 0);
         const remaining = amount - paidAmount;
+=======
+        nextDueDate: pending.length > 0 ? parseDateOnlyUTC(pending[0].dueDate) : null,
+        pendingCount: pending.length,
+        hasLateInstallments: maxDaysLate > 0,
+        maxDaysLate
+    };
+};
+
+/**
+ * 2. DETALHE DA PARCELA (Lista e Badges)
+ */
+export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDetail => {
+    // Se for uma parcela de acordo (AgreementInstallment)
+    if (inst.agreementId) {
+        const amount = Number(inst.amount || 0);
+        const paidAmount = Number(inst.paidAmount || 0);
+        const remaining = amount - paidAmount;
+>>>>>>> f53f97feddc390165301c4f85523b4f1416a7f10
         const isPaidOff = isPortalInstallmentPaid(inst);
         const daysLate = isPaidOff ? 0 : getDaysDiff(inst.dueDate);
         const isLate = !isPaidOff && daysLate > 0;

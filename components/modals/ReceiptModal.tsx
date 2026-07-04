@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { FileText, MessageCircle, Printer, Share2 } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { FileText, Image as ImageIcon, MessageCircle, Share2 } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { Modal } from '../ui/Modal';
 
-type ReceiptSendFormat = 'TEXT' | 'PRINT';
+type ReceiptSendFormat = 'TEXT' | 'IMAGE' | 'PDF';
 
 const escapeHtml = (value: unknown) =>
     String(value ?? '')
@@ -156,8 +156,10 @@ export const ReceiptModal = ({
     userName: string;
     userDoc?: string;
 }) => {
-    const [sendFormat, setSendFormat] = useState<ReceiptSendFormat>('PRINT');
+    const receiptRef = useRef<HTMLDivElement>(null);
+    const [sendFormat, setSendFormat] = useState<ReceiptSendFormat>('TEXT');
     const [sendStatus, setSendStatus] = useState('');
+    const [isPreparing, setIsPreparing] = useState(false);
 
     const issuedAt = useMemo(() => new Date(), []);
     const receiptNumber = useMemo(() => {
@@ -265,7 +267,7 @@ export const ReceiptModal = ({
                         <p class="label">Autenticação eletrônica</p>
                         <p class="auth">${escapeHtml(authCode)}</p>
                     </div>
-                    <p class="muted">Documento gerado pelo CapitalFlow. Salve esta página como PDF pela janela de impressão.</p>
+                    <p class="muted">Documento gerado pelo CapitalFlow.</p>
                 </footer>
             </section>
         `;
@@ -331,7 +333,7 @@ export const ReceiptModal = ({
             </head>
             <body>
                 <div class="print-actions">
-                    <button onclick="window.print()">Imprimir / Salvar PDF</button>
+                    <button onclick="window.print()">Imprimir ou salvar em PDF</button>
                 </div>
                 ${receiptBodyHtml}
                 <script>setTimeout(() => window.print(), 300);</script>
@@ -348,32 +350,153 @@ export const ReceiptModal = ({
         win.document.open();
         win.document.write(printDocumentHtml());
         win.document.close();
-        setSendStatus('Janela de impressão aberta. Use "Salvar como PDF" se desejar.');
+        setSendStatus('Não foi possível gerar o arquivo. Abri a impressão para salvar em PDF.');
     };
 
-    const sendToWhatsApp = () => {
-        if (sendFormat === 'PRINT') {
-            printReceipt();
+    const downloadBlob = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const canShareFile = (file: File) => {
+        if (!navigator.share || !navigator.canShare) return false;
+        return navigator.canShare({ files: [file] });
+    };
+
+    const shareFile = async (file: File, fallbackMessage: string) => {
+        if (canShareFile(file)) {
+            await navigator.share({
+                files: [file],
+                title: 'Comprovante de pagamento',
+                text: 'Comprovante de pagamento CapitalFlow',
+            });
+            setSendStatus('Arquivo enviado para o compartilhamento do aparelho.');
             return;
         }
+
+        downloadBlob(file, file.name);
+        setSendStatus(fallbackMessage);
+    };
+
+    const renderReceiptCanvas = async () => {
+        if (!receiptRef.current) throw new Error('Prévia do comprovante não encontrada.');
+        const html2canvas = (await import('html2canvas')).default;
+        return html2canvas(receiptRef.current, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+        });
+    };
+
+    const canvasToBlob = (canvas: HTMLCanvasElement, type: string): Promise<Blob> =>
+        new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('Não foi possível gerar o arquivo.'));
+            }, type);
+        });
+
+    const buildFileName = (extension: 'png' | 'pdf') =>
+        `comprovante-${authCode.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.${extension}`;
+
+    const generateImageFile = async () => {
+        const canvas = await renderReceiptCanvas();
+        const blob = await canvasToBlob(canvas, 'image/png');
+        return new File([blob], buildFileName('png'), { type: 'image/png' });
+    };
+
+    const generatePdfFile = async () => {
+        const canvas = await renderReceiptCanvas();
+        const { jsPDF } = await import('jspdf');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const margin = 10;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imageWidth = pageWidth - (margin * 2);
+        const imageHeight = Math.min((canvas.height * imageWidth) / canvas.width, pageHeight - (margin * 2));
+        const imageData = canvas.toDataURL('image/png');
+
+        pdf.addImage(imageData, 'PNG', margin, margin, imageWidth, imageHeight);
+        return new File([pdf.output('blob')], buildFileName('pdf'), { type: 'application/pdf' });
+    };
+
+    const sendTextToWhatsApp = () => {
         window.open(buildWhatsAppUrl(), '_blank');
         setSendStatus('');
     };
+
+    const generateAndDeliverPdf = async () => {
+        try {
+            const pdfFile = await generatePdfFile();
+            await shareFile(pdfFile, 'PDF gerado e baixado. Anexe no WhatsApp se precisar enviar ao cliente.');
+        } catch {
+            printReceipt();
+        }
+    };
+
+    const sendImageOrFallback = async () => {
+        try {
+            const imageFile = await generateImageFile();
+            if (!canShareFile(imageFile)) {
+                setSendStatus('Envio de imagem indisponível neste navegador. Gerando PDF...');
+                await generateAndDeliverPdf();
+                return;
+            }
+            await shareFile(imageFile, 'Imagem enviada para o compartilhamento do aparelho.');
+        } catch {
+            await generateAndDeliverPdf();
+        }
+    };
+
+    const handlePrimaryAction = async () => {
+        if (isPreparing) return;
+        setSendStatus('');
+
+        if (sendFormat === 'TEXT') {
+            sendTextToWhatsApp();
+            return;
+        }
+
+        setIsPreparing(true);
+        try {
+            if (sendFormat === 'IMAGE') await sendImageOrFallback();
+            else await generateAndDeliverPdf();
+        } finally {
+            setIsPreparing(false);
+        }
+    };
+
+    const primaryLabel = isPreparing
+        ? 'Preparando...'
+        : sendFormat === 'TEXT'
+            ? 'Enviar texto no WhatsApp'
+            : sendFormat === 'IMAGE'
+                ? 'Enviar imagem'
+                : 'Gerar PDF';
 
     return (
         <Modal onClose={onClose} title="Comprovante Oficial">
             <div className="flex flex-col items-center">
                 <style>{receiptCss}</style>
                 <div
+                    ref={receiptRef}
                     className="w-full max-w-sm bg-white text-slate-900 border border-slate-200 shadow-xl overflow-hidden mb-6"
                     dangerouslySetInnerHTML={{ __html: receiptBodyHtml }}
                 />
 
                 <div className="flex flex-col w-full gap-3">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                         {[
-                            { value: 'PRINT' as const, label: 'Imprimir / PDF', icon: Printer },
-                            { value: 'TEXT' as const, label: 'Texto WhatsApp', icon: MessageCircle },
+                            { value: 'TEXT' as const, label: 'Texto', icon: MessageCircle },
+                            { value: 'IMAGE' as const, label: 'Imagem', icon: ImageIcon },
+                            { value: 'PDF' as const, label: 'PDF', icon: FileText },
                         ].map((option) => {
                             const Icon = option.icon;
                             const active = sendFormat === option.value;
@@ -397,16 +520,11 @@ export const ReceiptModal = ({
                         })}
                     </div>
                     <button
-                        onClick={sendToWhatsApp}
-                        className="w-full py-4 bg-emerald-600 text-white rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20"
+                        onClick={handlePrimaryAction}
+                        disabled={isPreparing}
+                        className="w-full py-4 bg-emerald-600 text-white rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-500 disabled:opacity-70 transition-all shadow-lg shadow-emerald-600/20"
                     >
-                        <Share2 size={18} /> {sendFormat === 'PRINT' ? 'Abrir impressão / PDF' : 'Enviar texto no WhatsApp'}
-                    </button>
-                    <button
-                        onClick={printReceipt}
-                        className="w-full py-3 bg-slate-900 text-slate-200 rounded-lg font-black uppercase text-[10px] flex items-center justify-center gap-1.5 hover:bg-slate-800 transition-all"
-                    >
-                        <FileText size={14} /> Imprimir ou salvar em PDF
+                        <Share2 size={18} /> {primaryLabel}
                     </button>
                     {sendStatus && <p className="text-center text-[11px] font-bold text-slate-400">{sendStatus}</p>}
                 </div>

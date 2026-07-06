@@ -106,7 +106,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
       onDoubleClick={handleNavigate}
     >
       {/* Container Principal com Padding */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         <Header
           loan={loan}
           debtorNameSafe={debtorNameSafe}
@@ -127,7 +127,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
         />
 
         {isExpanded && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
             <QuickActions
               hasNotes={!!loan.notes}
               onMessage={(e) => {

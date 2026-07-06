@@ -1,10 +1,10 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Agreement, AgreementInstallment, Loan } from "../../../types";
 import { formatMoney } from "../../../utils/formatters";
 import { Calendar, CheckCircle2, AlertTriangle, XCircle, DollarSign, History, Scale, ArrowLeft, RefreshCcw, Pencil, Save } from "lucide-react";
-import { agreementService } from "../services/agreementService";
 import { calculateAgreementInstallmentLateFee } from "../../../domain/finance/calculations";
+import { useAgreementView } from "../hooks/useAgreementView";
 
 interface AgreementViewProps {
     agreement: Agreement;
@@ -18,74 +18,29 @@ interface AgreementViewProps {
 }
 
 export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, activeUser, onUpdate, onPayment, onReversePayment, isStealthMode, onNavigate }) => {
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [confirmAction, setConfirmAction] = useState<'BREAK' | 'ACTIVATE' | 'PAY' | 'REVERSE' | null>(null);
-    const [selectedInst, setSelectedInst] = useState<AgreementInstallment | null>(null);
-    const [forgiveLateFee, setForgiveLateFee] = useState<boolean>(false);
-    const [paymentAmount, setPaymentAmount] = useState('');
-    const [showCustomAmount, setShowCustomAmount] = useState(false);
-    const [isEditingSchedule, setIsEditingSchedule] = useState(false);
-    const [scheduleFrequency, setScheduleFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
-    const [firstOpenDueDate, setFirstOpenDueDate] = useState('');
-
-    const openInstallments = (agreement.installments || [])
-        .filter(inst => {
-            const paidAmount = Number((inst as any)?.paidAmount ?? (inst as any)?.paid_amount ?? 0) || 0;
-            const amount = Number(inst?.amount || 0) || 0;
-            const status = String(inst?.status || '').toUpperCase();
-            return !['PAID', 'PAGO', 'QUITADO', 'QUITADA'].includes(status) && paidAmount + 0.05 < amount;
-        })
-        .sort((a, b) => (a?.number || 0) - (b?.number || 0));
-
-    useEffect(() => {
-        const rawFrequency = String((agreement as any)?.frequency || '').toUpperCase();
-        const normalizedFrequency =
-            rawFrequency === 'WEEKLY' || rawFrequency === 'SEMANAL' ? 'WEEKLY' :
-            rawFrequency === 'BIWEEKLY' || rawFrequency === 'QUINZENAL' ? 'BIWEEKLY' :
-            'MONTHLY';
-        setScheduleFrequency(normalizedFrequency);
-        setFirstOpenDueDate(openInstallments[0]?.dueDate ? String(openInstallments[0].dueDate).slice(0, 10) : '');
-    }, [agreement?.id, agreement?.frequency, agreement?.installments?.length, openInstallments[0]?.dueDate]);
-
-    const handleBreak = async () => {
-        setIsProcessing(true);
-        try {
-            await agreementService.breakAgreement(agreement.id);
-            onUpdate();
-            setConfirmAction(null);
-        } catch (e) {
-            console.error("Erro ao quebrar acordo:", e);
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleActivate = async () => {
-        setIsProcessing(true);
-        try {
-            await agreementService.activateAgreement(agreement.id);
-            onUpdate();
-            setConfirmAction(null);
-        } catch (e) {
-            console.error("Erro ao reativar acordo:", e);
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleScheduleUpdate = async () => {
-        if (!firstOpenDueDate) return;
-        setIsProcessing(true);
-        try {
-            await agreementService.updateAgreementSchedule(agreement.id, scheduleFrequency, firstOpenDueDate);
-            setIsEditingSchedule(false);
-            onUpdate();
-        } catch (e) {
-            console.error("Erro ao atualizar acordo:", e);
-        } finally {
-            setIsProcessing(false);
-        }
-    };
+    const {
+        isProcessing,
+        confirmAction,
+        setConfirmAction,
+        selectedInst,
+        setSelectedInst,
+        forgiveLateFee,
+        setForgiveLateFee,
+        paymentAmount,
+        setPaymentAmount,
+        showCustomAmount,
+        setShowCustomAmount,
+        isEditingSchedule,
+        setIsEditingSchedule,
+        scheduleFrequency,
+        setScheduleFrequency,
+        firstOpenDueDate,
+        setFirstOpenDueDate,
+        openInstallments,
+        handleBreak,
+        handleActivate,
+        handleScheduleUpdate
+    } = useAgreementView({ agreement, onUpdate });
 
     if (!agreement) return null;
 

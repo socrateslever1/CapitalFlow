@@ -17,6 +17,7 @@ import { RiskProfile } from '../../../domain/finance/riskAnalysis';
 import { formatMoney, formatShortName } from '../../../utils/formatters';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
+import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 
 interface HeaderProps {
   loan: Loan;
@@ -115,6 +116,13 @@ export const Header: React.FC<HeaderProps> = ({
   
   const displayAmount = currentDebt ?? loan.totalToReceive ?? loan.principal;
   const amountLabel = 'Total';
+  const amountBreakdown = React.useMemo(() => {
+    const balance = computeLoanRemainingBalance(loan);
+    const capital = Math.max(0, Number(balance.principalRemaining) || 0);
+    const juros = Math.max(0, (Number(balance.interestRemaining) || 0) + (Number(balance.lateFeeRemaining) || 0));
+    const total = Math.max(0, Number(balance.totalRemaining) || capital + juros);
+    return { capital, juros, total, shouldShow: total > ZERO_BALANCE_THRESHOLD };
+  }, [loan]);
 
   // Badges refinados
   let Badge = null;
@@ -284,6 +292,13 @@ export const Header: React.FC<HeaderProps> = ({
           }`}>
             {formatMoney(displayAmount, isStealthMode)}
           </span>
+          {isExpanded && amountBreakdown.shouldShow && (
+            <div className="mt-0.5 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0 text-[8px] font-black uppercase leading-tight tracking-tight text-slate-500 max-w-[190px]">
+              <span>Cap <b className="text-slate-300">{formatMoney(amountBreakdown.capital, isStealthMode)}</b></span>
+              <span className="text-slate-700">•</span>
+              <span>Juros <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>
+            </div>
+          )}
         </div>
       </div>
     </div>

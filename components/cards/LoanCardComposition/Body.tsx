@@ -55,7 +55,7 @@ export const Body: React.FC<BodyProps> = ({
     }, [allLoans, loan.id]);
 
     return (
-        <div className="space-y-6 pt-2">
+        <div className="space-y-4 pt-1">
             {/* Seção de resumo de status, visível apenas se expandido. */}
             <div className="flex flex-wrap items-center gap-2 pb-2">
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-900/50 rounded-lg border border-slate-800/50">
@@ -131,7 +131,7 @@ export const Body: React.FC<BodyProps> = ({
 
             {/* Se tem acordo ativo, o contrato SE TORNA O ACORDO VISUALMENTE */}
             {hasActiveAgreement ? (
-                <div className="pt-2">
+                <div className="pt-1">
                     <AgreementView
                         agreement={activeAgreement!}
                         loan={loan}
@@ -143,8 +143,8 @@ export const Body: React.FC<BodyProps> = ({
                     />
                 </div>
             ) : (
-                <div className="pt-2">
-                    <div className="flex items-center gap-4 mb-6">
+                <div className="pt-1">
+                    <div className="flex items-center gap-4 mb-4">
                         <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-800 to-transparent"></div>
                         <span className="text-[9px] font-black uppercase text-slate-500 tracking-[0.25em] whitespace-nowrap">
                             Cronograma de Parcelas

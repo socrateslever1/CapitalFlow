@@ -1,5 +1,5 @@
 import { Loan, Installment } from '../../../types';
-import { calculateTotalDue, calculateAgreementInstallmentLateFee } from '../../../domain/finance/calculations';
+import { calculateTotalDue, calculateAgreementInstallmentLateFee, isInstallmentPaid, getInstallmentDueLabel } from '../../../domain/finance/calculations';
 import { normalizeLoanForCalc, normalizeInstallmentForCalc } from './portalAdapters';
 import { getDaysDiff, parseDateOnlyUTC } from '../../../utils/dateHelpers';
 import { isDev } from '../../../utils/isDev';
@@ -38,109 +38,15 @@ export interface PaymentOptions {
     dueDateISO: string;
 }
 
-const PAID_STATUSES = new Set(['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'FINALIZADO', 'CLOSED', 'ENCERRADO']);
-const SETTLED_EPSILON = 0.05;
-
 export const isPortalInstallmentPaid = (inst: any): boolean => {
-    if (!inst) return true;
-
-    if (inst.agreementId || inst.acordo_id || inst.agreement_id) {
-        const status = String(inst.status ?? '').trim().toUpperCase();
-        const amount = Number(inst.amount ?? inst.valor ?? inst.valor_parcela ?? 0);
-        const paidAmount = Number(inst.paidAmount ?? inst.paid_amount ?? inst.valor_pago ?? 0);
-        const remaining = amount - paidAmount;
-        return remaining <= SETTLED_EPSILON || (PAID_STATUSES.has(status) && remaining <= SETTLED_EPSILON);
-    }
-
-    const hasBalanceFields =
-        inst.principalRemaining !== undefined ||
-        inst.principal_remaining !== undefined ||
-        inst.interestRemaining !== undefined ||
-        inst.interest_remaining !== undefined ||
-        inst.lateFeeAccrued !== undefined ||
-        inst.late_fee_accrued !== undefined;
-
-    if (!hasBalanceFields) return false;
-
-    const principalRemaining = Number(inst.principalRemaining ?? inst.principal_remaining ?? 0);
-    const interestRemaining = Number(inst.interestRemaining ?? inst.interest_remaining ?? 0);
-    const lateFeeAccrued = Number(inst.lateFeeAccrued ?? inst.late_fee_accrued ?? 0);
-
-    return principalRemaining + interestRemaining + lateFeeAccrued <= SETTLED_EPSILON;
+    return isInstallmentPaid(inst);
 };
 
 /**
  * HELPER DE LABEL DE VENCIMENTO (Regra Centralizada)
  */
 export const getPortalDueLabel = (daysLate: number, dueDateISO: string) => {
-    // 1. Atrasado real (multa aplicável ou passado)
-    if (daysLate > 0) {
-        return { 
-            label: `Vencido há ${daysLate} dia${daysLate === 1 ? '' : 's'}`, 
-            detail: '(+ Taxas e Multas inclusas)',
-            variant: 'OVERDUE' 
-        };
-    }
-
-    // Calcula diferença real (negativo = futuro) para labels de "Vence em..."
-    const rawDiff = -getDaysDiff(dueDateISO); // getDaysDiff retorna (hoje - data). Invertemos para (data - hoje).
-
-    // 2. Vence Hoje
-    if (rawDiff === 0) {
-        return { 
-            label: 'Vence hoje', 
-            detail: '',
-            variant: 'DUE_TODAY' 
-        };
-    }
-
-    // 3. Futuro
-    if (rawDiff > 0) {
-        return { 
-            label: `Vence em ${rawDiff} dia${rawDiff === 1 ? '' : 's'}`, 
-            detail: '',
-            variant: 'DUE_SOON' 
-        };
-    }
-
-    // Fallback (passado mas sem daysLate > 0, ex: pago ou tolerância)
-    return { label: 'Em dia', detail: '', variant: 'OK' };
-};
-
-/**
-export const getPortalDueLabel = (daysLate: number, dueDateISO: string) => {
-    // 1. Atrasado real (multa aplicável ou passado)
-    if (daysLate > 0) {
-        return { 
-            label: `Vencido há ${daysLate} dia${daysLate === 1 ? '' : 's'}`, 
-            detail: '(+ Taxas e Multas inclusas)',
-            variant: 'OVERDUE' 
-        };
-    }
-
-    // Calcula diferença real (negativo = futuro) para labels de "Vence em..."
-    const rawDiff = -getDaysDiff(dueDateISO); // getDaysDiff retorna (hoje - data). Invertemos para (data - hoje).
-
-    // 2. Vence Hoje
-    if (rawDiff === 0) {
-        return { 
-            label: 'Vence hoje', 
-            detail: '',
-            variant: 'DUE_TODAY' 
-        };
-    }
-
-    // 3. Futuro
-    if (rawDiff > 0) {
-        return { 
-            label: `Vence em ${rawDiff} dia${rawDiff === 1 ? '' : 's'}`, 
-            detail: '',
-            variant: 'DUE_SOON' 
-        };
-    }
-
-    // Fallback (passado mas sem daysLate > 0, ex: pago ou tolerância)
-    return { label: 'Em dia', detail: '', variant: 'OK' };
+    return getInstallmentDueLabel(dueDateISO);
 };
 
 /**

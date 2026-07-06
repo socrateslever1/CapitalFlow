@@ -92,33 +92,81 @@ export const add30Days = (dateStr: string): string => {
 
 // --- FUNÇÕES DE STATUS (CORRIGIDAS) ---
 
-// Define o status lógico interno da parcela
-export const getInstallmentStatusLogic = (inst: Installment, parentLoanStatus?: string): LoanStatus => {
-  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
+export interface InstallmentDueLabel {
+  label: string;
+  detail: string;
+  variant: 'OVERDUE' | 'DUE_TODAY' | 'DUE_SOON' | 'OK';
+  daysLate: number;
+}
 
-  if (LOAN_PAID_STATUSES.has(pStatus) && Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return LoanStatus.PAID;
-
-  if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return LoanStatus.PAID;
+export const getInstallmentDueLabel = (dueDateStr: string): InstallmentDueLabel => {
+  const daysLate = getDaysDiff(dueDateStr);
   
-  if (getDaysDiff(inst.dueDate) > 0) return LoanStatus.LATE;
-  if (inst.paidTotal > 0) return LoanStatus.PARTIAL;
+  if (daysLate > 0) {
+    return {
+      label: `Vencido há ${daysLate} dia${daysLate === 1 ? '' : 's'}`,
+      detail: '(+ Taxas e Multas inclusas)',
+      variant: 'OVERDUE',
+      daysLate
+    };
+  }
+
+  const daysToDue = -daysLate;
+
+  if (daysToDue === 0) {
+    return {
+      label: 'Vence hoje',
+      detail: '',
+      variant: 'DUE_TODAY',
+      daysLate: 0
+    };
+  }
+
+  if (daysToDue > 0) {
+    return {
+      label: `Vence em ${daysToDue} dia${daysToDue === 1 ? '' : 's'}`,
+      detail: '',
+      variant: 'DUE_SOON',
+      daysLate: 0
+    };
+  }
+
+  return {
+    label: 'Em dia',
+    detail: '',
+    variant: 'OK',
+    daysLate: 0
+  };
+};
+
+// Define o status lógico interno da parcela
+export const getInstallmentStatusLogic = (inst: any, parentLoanStatus?: string): LoanStatus => {
+  if (isInstallmentPaid(inst, parentLoanStatus)) return LoanStatus.PAID;
+  
+  const dueDate = inst.dueDate ?? inst.due_date ?? inst.data_vencimento;
+  if (dueDate && getDaysDiff(String(dueDate)) > 0) return LoanStatus.LATE;
+  
+  const paidTotal = Number(inst.paidTotal ?? inst.paid_total ?? inst.valor_pago ?? inst.paidAmount ?? inst.paid_amount ?? 0);
+  if (paidTotal > ZERO_BALANCE_THRESHOLD) return LoanStatus.PARTIAL;
+  
   return LoanStatus.PENDING;
 };
 
 // Define o texto de status que o usuário vê na interface
-export const deriveUserFacingStatus = (inst: Installment, parentLoanStatus?: string): string => {
-  const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  const totalRemaining = round((inst.principalRemaining || 0) + (inst.interestRemaining || 0) + (inst.lateFeeAccrued || 0));
+export const deriveUserFacingStatus = (inst: any, parentLoanStatus?: string): string => {
+  if (isInstallmentPaid(inst, parentLoanStatus)) {
+    return "Quitado";
+  }
 
-  if (LOAN_PAID_STATUSES.has(pStatus) && Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return "Quitado";
+  const dueDate = inst.dueDate ?? inst.due_date ?? inst.data_vencimento;
+  if (!dueDate) return "Em dia";
 
-  if (Math.abs(totalRemaining) <= ZERO_BALANCE_THRESHOLD) return "Quitado";
-
-  const days = getDaysDiff(inst.dueDate);
-  if (days === 0) return "Vence Hoje";
-  if (days > 0) return `${days} dias vencidos`;
-  return "Em dia";
+  const info = getInstallmentDueLabel(String(dueDate));
+  
+  if (info.variant === 'OVERDUE') {
+    return `${info.daysLate} dias vencidos`;
+  }
+  return info.label;
 };
 
 export const calculateAgreementInstallmentLateFee = (inst: Partial<AgreementInstallment>): number => {
@@ -171,25 +219,51 @@ export const isAgreementSettledByStatus = (loan: Partial<Loan> | null | undefine
   return !!loan?.activeAgreement && AGREEMENT_PAID_STATUSES.has(status);
 };
 
-export const isAgreementInstallmentPaid = (inst: Partial<AgreementInstallment> | null | undefined, parentLoanStatus?: string): boolean => {
+export const isInstallmentPaid = (inst: any, parentLoanStatus?: string): boolean => {
   if (!inst) return true;
+
   const pStatus = String(parentLoanStatus || "").toUpperCase().trim();
-  if (LOAN_PAID_STATUSES.has(pStatus)) return true;
+  if (pStatus && LOAN_PAID_STATUSES.has(pStatus)) return true;
+
   const status = String(inst.status || "").toUpperCase().trim();
-  const amount = Number(inst.amount || 0);
-  const paidAmount = Number(inst.paidAmount || 0);
-  const remaining = round(amount - paidAmount);
-  return AGREEMENT_PAID_STATUSES.has(status) || remaining <= ZERO_BALANCE_THRESHOLD;
+  if (AGREEMENT_PAID_STATUSES.has(status)) return true;
+
+  const isAgreement = !!(inst.agreementId || inst.acordo_id || inst.agreement_id);
+
+  if (isAgreement) {
+    const amount = Number(inst.amount ?? inst.valor ?? inst.valor_parcela ?? 0);
+    const paidAmount = Number(inst.paidAmount ?? inst.paid_amount ?? inst.valor_pago ?? 0);
+    const remaining = round(amount - paidAmount);
+    return remaining <= ZERO_BALANCE_THRESHOLD;
+  }
+
+  // Check normal installment balance fields
+  const hasBalanceFields =
+    inst.principalRemaining !== undefined ||
+    inst.principal_remaining !== undefined ||
+    inst.interestRemaining !== undefined ||
+    inst.interest_remaining !== undefined ||
+    inst.lateFeeAccrued !== undefined ||
+    inst.late_fee_accrued !== undefined;
+
+  if (!hasBalanceFields) {
+    return ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO"].includes(status);
+  }
+
+  const principal = Number(inst.principalRemaining ?? inst.principal_remaining ?? 0);
+  const interest = Number(inst.interestRemaining ?? inst.interest_remaining ?? 0);
+  const lateFee = Number(inst.lateFeeAccrued ?? inst.late_fee_accrued ?? 0);
+  const total = round(principal + interest + lateFee);
+
+  return total <= ZERO_BALANCE_THRESHOLD;
+};
+
+export const isAgreementInstallmentPaid = (inst: Partial<AgreementInstallment> | null | undefined, parentLoanStatus?: string): boolean => {
+  return isInstallmentPaid(inst, parentLoanStatus);
 };
 
 export const isInstallmentSettled = (inst: Partial<Installment> | null | undefined, parentLoanStatus?: string): boolean => {
-  if (!inst) return true;
-  const status = String(inst.status || "").toUpperCase().trim();
-  const principal = Number(inst.principalRemaining || 0);
-  const interest = Number(inst.interestRemaining || 0);
-  const lateFee = Number(inst.lateFeeAccrued || 0);
-  const total = round(principal + interest + lateFee);
-  return AGREEMENT_PAID_STATUSES.has(status) || total <= ZERO_BALANCE_THRESHOLD;
+  return isInstallmentPaid(inst, parentLoanStatus);
 };
 
 export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {

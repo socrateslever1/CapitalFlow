@@ -1,7 +1,7 @@
 import { Loan, LoanStatus } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { getDaysDiff } from './dateHelpers';
-import { ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
+import { ZERO_BALANCE_THRESHOLD, isInstallmentPaid } from '../domain/finance/calculations';
 
 export type LoanVisualClassification =
   | 'EM_DIA'
@@ -19,10 +19,7 @@ export const getLoanNextDueDate = (loan: Loan): string => {
     : loan.installments;
     
   const nextInst = [...(installments || [])]
-    .filter(i => {
-      const status = String(i.status || "").toUpperCase();
-      return status !== 'PAID' && status !== 'PAGO';
-    })
+    .filter(i => !isInstallmentPaid(i, loan.status))
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
     
   return nextInst?.dueDate || '9999-12-31';
@@ -49,7 +46,7 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
   // Verificacoes de quitacao.
   const hasPaidStatus = [LoanStatus.QUITADO, LoanStatus.PAGO, LoanStatus.PAID].includes(loan.status);
   const allInstallmentsPaid =
-    loan.installments.length > 0 && loan.installments.every((i) => i.status === LoanStatus.PAID);
+    loan.installments.length > 0 && loan.installments.every((i) => isInstallmentPaid(i, loan.status));
   const totalRemaining = loanEngine.computeRemainingBalance(loan).totalRemaining;
   const isZeroBalance = totalRemaining <= ZERO_BALANCE_THRESHOLD;
   const isAgreementFinalized =
@@ -61,10 +58,7 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
 
   // Atraso para acordos ativos
   if (hasActiveAgreement && Array.isArray(loan.activeAgreement?.installments)) {
-    const pendingInsts = loan.activeAgreement.installments.filter(i => {
-      const status = String(i.status || "").toUpperCase();
-      return status !== 'PAID' && status !== 'PAGO';
-    });
+    const pendingInsts = loan.activeAgreement.installments.filter(i => !isInstallmentPaid(i, loan.status));
 
     let maxDelay = 0;
     pendingInsts.forEach(i => {
@@ -84,7 +78,7 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     const maxDelay = Math.max(
       0,
       ...loan.installments.map((i) => {
-        if (i.status === LoanStatus.PAID || i.status === LoanStatus.RENEGOCIADO) return 0;
+        if (isInstallmentPaid(i, loan.status) || i.status === LoanStatus.RENEGOCIADO) return 0;
         return getDaysDiff(i.dueDate);
       })
     );

@@ -90,6 +90,13 @@ const fetchRemoteSnapshot = async (ownerId: string) => {
   ]);
 };
 
+const mapClientFromDB = (client: any) => ({
+  ...client,
+  phone: maskPhone(client.phone),
+  document: maskDocument(client.document),
+  fotoUrl: client.foto_url || client.fotoUrl || null,
+});
+
 export const syncService = {
   /**
    * Sincroniza todos os dados de um perfil do Supabase para o Dexie
@@ -116,11 +123,7 @@ export const syncService = {
       if (staffRes.error) throw staffRes.error;
 
       // 2. Salvar Clientes
-      const mappedClients = (clientsRes.data || []).map(c => ({
-        ...c,
-        phone: maskPhone(c.phone),
-        document: maskDocument(c.document)
-      }));
+      const mappedClients = (clientsRes.data || []).map(mapClientFromDB);
       await db.clientes.bulkPut(mappedClients);
 
       // 3. Salvar Fontes
@@ -216,7 +219,7 @@ export const syncService = {
 
     return {
       loans: enrichedLoans,
-      clients,
+      clients: clients.map(mapClientFromDB),
       sources
     };
   },

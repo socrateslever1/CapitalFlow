@@ -39,6 +39,36 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
     const cardRef = React.useRef<HTMLDivElement>(null);
 
+    React.useEffect(() => {
+        if (!isExpanded) return;
+        const element = cardRef.current;
+        if (!element) return;
+
+        const keepInView = () => {
+            const rect = element.getBoundingClientRect();
+            const topLimit = 88;
+            const bottomLimit = window.innerHeight - 96;
+            const isAboveView = rect.top < topLimit;
+            const isBelowView = rect.bottom > bottomLimit && rect.top > topLimit;
+
+            if (isAboveView || isBelowView) {
+                element.scrollIntoView({
+                    behavior: 'smooth',
+                    block: isAboveView ? 'start' : 'nearest',
+                    inline: 'nearest',
+                });
+            }
+        };
+
+        const frameId = window.requestAnimationFrame(keepInView);
+        const timeoutId = window.setTimeout(keepInView, 180);
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+            window.clearTimeout(timeoutId);
+        };
+    }, [isExpanded, group.id]);
+
     const getNextOpenDueDate = (loan: any) => {
         const next = loan.installments?.find((inst: any) => {
             const status = String(inst?.status || '').toUpperCase();

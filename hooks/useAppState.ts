@@ -80,6 +80,12 @@ const markSyncPaused = (reason: string) => {
 const hasLocalPayload = (local: { loans: Loan[]; clients: Client[]; sources: CapitalSource[] }) =>
   local.loans.length > 0 || local.clients.length > 0 || local.sources.length > 0;
 
+const normalizeClients = (clients: any[] | undefined): Client[] =>
+  (clients || []).map((client: any) => ({
+    ...client,
+    fotoUrl: client.foto_url || client.fotoUrl || null,
+  })) as Client[];
+
 const DEMO_USER: UserProfile = {
   id: 'DEMO',
   profile_id: 'DEMO',
@@ -208,7 +214,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
           setProfileEditForm(cached.activeUser);
           setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));
           setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
-          setClients(cached.clients);
+          setClients(normalizeClients(cached.clients));
           setSources(cached.sources);
           setLoans(cached.loans);
           setStaffMembers(cached.staffMembers);
@@ -242,7 +248,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         const cached = readCache(searchId);
         if (cached) {
           setLoans(cached.loans);
-          setClients(cached.clients);
+          setClients(normalizeClients(cached.clients));
           setSources(cached.sources);
           setStaffMembers(cached.staffMembers);
         }
@@ -293,7 +299,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         setProfileEditForm(cached.activeUser);
         setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));
         setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
-        setClients(cached.clients);
+        setClients(normalizeClients(cached.clients));
         setSources(cached.sources);
         setLoans(cached.loans);
         setStaffMembers(cached.staffMembers);
@@ -320,7 +326,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setProfileEditForm(cached.activeUser);
       setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));
       setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
-      setClients(cached.clients);
+      setClients(normalizeClients(cached.clients));
       setSources(cached.sources);
       setLoans(cached.loans);
       setStaffMembers(cached.staffMembers);

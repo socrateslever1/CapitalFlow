@@ -676,7 +676,6 @@ export const App: React.FC = () => {
                     sources={sources}
                     activeUser={activeUser}
                     onBack={() => {
-                      ui.setSelectedLoanId(null);
                       if (window.location.pathname.startsWith('/contrato/')) {
                         routerNavigate('/', { replace: true });
                       }

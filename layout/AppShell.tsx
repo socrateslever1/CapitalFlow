@@ -42,6 +42,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
   const mainRef = useRef<HTMLElement | null>(null);
+  const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
   const { unreadCampaignCount } = useCampaignNotifications(activeUser);
 
@@ -135,6 +136,22 @@ export const AppShell: React.FC<AppShellProps> = ({
   }, []);
 
   useLayoutEffect(() => {
+    const previousView = previousViewRef.current;
+    const currentView = {
+      activeTab,
+      pathname: location.pathname,
+      search: location.search,
+    };
+    previousViewRef.current = currentView;
+
+    const preservesDashboardPosition = (tab: string) => tab === 'DASHBOARD' || tab === 'CONTRACT_DETAILS';
+    const isDashboardContractTransition =
+      previousView &&
+      preservesDashboardPosition(previousView.activeTab) &&
+      preservesDashboardPosition(activeTab);
+
+    if (isDashboardContractTransition) return;
+
     const scrollTop = () => {
       mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });

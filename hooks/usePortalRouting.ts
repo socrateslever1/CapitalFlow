@@ -30,22 +30,25 @@ export const usePortalRouting = () => {
 
             setPortalToken('VALIDATING');
             setPortalCode(null);
-            
+
             try {
                 const { data, error } = await supabasePortal.rpc('validate_portal_access', {
                     p_token: portal,
                     p_shortcode: code
                 });
 
-                if (error || data !== true) {
-                    setPortalToken('INVALID_ACCESS');
-                } else {
+                if (!error && data === true) {
                     await portalService.markViewed(portal, code);
-                    setPortalToken(portal);
-                    setPortalCode(code);
+                } else if (error) {
+                    console.warn('Portal Access: validacao inicial falhou, tentando carregar dados diretamente.', error);
                 }
+
+                setPortalToken(portal);
+                setPortalCode(code);
             } catch (e) {
-                setPortalToken('PORTAL_UNAVAILABLE');
+                console.warn('Portal Access: validacao indisponivel, tentando carregar dados diretamente.', e);
+                setPortalToken(portal);
+                setPortalCode(code);
             }
         }
 
@@ -54,7 +57,7 @@ export const usePortalRouting = () => {
             setLegalSignToken(legalParam);
         }
 
-        // 🔐 ATENÇÃO: Desabilitamos a limpeza da URL via window.history.replaceState 
+        // 🔐 ATENÇÃO: Desabilitamos a limpeza da URL via window.history.replaceState
         // para garantir que o componente App.tsx consiga ler o parâmetro logo após o boot.
     };
 

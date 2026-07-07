@@ -7,17 +7,21 @@ export type AsaasPaymentInput = {
   installment_id: string;
   amount: number;
   payment_method: 'CREDIT_CARD' | 'PIX' | 'BOLETO';
+  installmentCount?: number;
   credit_card?: {
     holderName: string;
     number: string;
     expiryMonth: string;
     expiryYear: string;
     ccv: string;
+    holderCpf?: string;
+    holderCep?: string;
   };
   payer: {
     name: string;
     email: string;
     cpfCnpj: string;
+    phone?: string;
   };
 };
 

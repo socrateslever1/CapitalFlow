@@ -116,6 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
   
   const displayAmount = currentDebt ?? loan.totalToReceive ?? loan.principal;
   const amountLabel = 'Total';
+  const clientAvatarUrl = String(loan.clientAvatarUrl || '').trim();
   const amountBreakdown = React.useMemo(() => {
     const balance = computeLoanRemainingBalance(loan);
     const capital = Math.max(0, Number(balance.principalRemaining) || 0);
@@ -200,7 +201,15 @@ export const Header: React.FC<HeaderProps> = ({
               className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 shadow-sm transition-all hover:scale-105 active:scale-95 border border-slate-700/50 ${iconStyle}`}
               title="Abrir Contrato"
             >
-              {isFullyFinalized ? <CheckCircle2 size={18} /> : isCapitalOnlyRecovery ? <ShieldAlert size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />}
+              {clientAvatarUrl ? (
+                <img
+                  src={clientAvatarUrl}
+                  alt={debtorNameSafe}
+                  className="w-full h-full rounded-lg object-cover"
+                />
+              ) : (
+                isFullyFinalized ? <CheckCircle2 size={18} /> : isCapitalOnlyRecovery ? <ShieldAlert size={18} /> : (isOverdueByDays || isLate) ? <AlertTriangle size={18} /> : <Calendar size={18} />
+              )}
             </button>
             <button 
               onClick={(e) => {

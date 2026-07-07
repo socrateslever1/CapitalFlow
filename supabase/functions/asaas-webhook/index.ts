@@ -45,14 +45,14 @@ function allocatePaymentAmount(
 async function resolveCaixaLivreId(supabase: any, profileId: string) {
   const { data, error } = await supabase
     .from("fontes")
-    .select("id,nome")
+    .select("id,name")
     .eq("profile_id", profileId)
     .limit(50);
 
   if (error || !data) return null;
 
   const found = data.find((item: any) => {
-    const name = normalize(item?.nome);
+    const name = normalize(item?.name);
     return name.includes("caixa livre") || name.includes("lucro") || name.includes("disponivel") || name.includes("balance");
   });
 
@@ -119,7 +119,7 @@ serve(async (req) => {
     // 1. Localizar a cobrança no nosso banco
     const { data: charge } = await supabase
       .from("payment_charges")
-      .select("profile_id, loan_id, installment_id")
+      .select("id, loan_id, installment_id")
       .eq("provider_payment_id", String(payment.id))
       .maybeSingle();
 
@@ -170,26 +170,32 @@ serve(async (req) => {
       lateFee: Number(installment.late_fee_accrued || 0),
     });
 
+    // 5. Buscar dados do Contrato
+    const { data: contract } = await supabase
+      .from("contratos")
+      .select("profile_id, owner_id, source_id")
+      .eq("id", charge.loan_id)
+      .single();
+
+    if (!contract) {
+       return json({ ok: false, error: "Contract not found" }, 404);
+    }
+
+    const targetProfileId = contract.profile_id || contract.owner_id;
+
     // 4. Buscar Caixa Livre do Operador
-    const caixaLivreId = await resolveCaixaLivreId(supabase, charge.profile_id);
+    const caixaLivreId = await resolveCaixaLivreId(supabase, targetProfileId);
     if (!caixaLivreId) {
        return json({ ok: false, error: "Caixa Livre source not found for profile" }, 400);
     }
 
-    // 5. Buscar Source ID do Contrato
-    const { data: contract } = await supabase
-      .from("contratos")
-      .select("source_id")
-      .eq("id", charge.loan_id)
-      .single();
-
     // 6. Baixar parcela via RPC
     const { error: rpcError } = await supabase.rpc("process_payment_v3_selective", {
-      p_idempotency_key: `asaas-${payment.id}`,
+      p_idempotency_key: charge.id,
       p_loan_id: charge.loan_id,
       p_installment_id: charge.installment_id,
-      p_profile_id: charge.profile_id,
-      p_operator_id: charge.profile_id,
+      p_profile_id: targetProfileId,
+      p_operator_id: targetProfileId,
       p_principal_paid: allocation.principalPaid,
       p_interest_paid: allocation.interestPaid,
       p_late_fee_paid: allocation.lateFeePaid,
@@ -209,7 +215,7 @@ serve(async (req) => {
     if (fee > 0) {
       console.log(`Recording Asaas fee: R$ ${fee} for payment ${payment.id}`);
       await supabase.from("transacoes").insert({
-        profile_id: charge.profile_id,
+        profile_id: targetProfileId,
         loan_id: charge.loan_id,
         installment_id: charge.installment_id,
         amount: -fee, // Valor negativo para representar saída/despesa
@@ -239,7 +245,7 @@ serve(async (req) => {
     await supabase.from("payment_intents").insert({
       loan_id: charge.loan_id,
       installment_id: charge.installment_id,
-      profile_id: charge.profile_id,
+      profile_id: targetProfileId,
       amount: approvedAmount,
       method: payment.billingType === 'PIX' ? 'PIX' : (payment.billingType === 'BOLETO' ? 'BOLETO' : 'CREDIT_CARD'),
       status: "APPROVED",

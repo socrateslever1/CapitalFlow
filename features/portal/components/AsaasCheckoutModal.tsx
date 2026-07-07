@@ -30,14 +30,80 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
     number: '',
     expiry: '',
     ccv: '',
+    holderCpf: '',
+    holderCep: '',
+    installments: '1'
   });
 
   const amountToPay = Number(installment?.principal_remaining || installment?.principalRemaining || 0) +
                     Number(installment?.interest_remaining || installment?.interestRemaining || 0);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Calcula o valor final cobrando as taxas do Asaas (taxa fixa de R$ 0.49 + 2.99% base + 1.99% por parcela adicional)
+  const calculateCardValue = (baseAmount: number, installments: number) => {
+    const fixedFee = 0.49;
+    let percentageRate = 0.0299; // 2.99% base do Asaas
+    if (installments > 1) {
+      percentageRate += 0.0199 * (installments - 1); // Taxa de antecipação/parcelamento
+    }
+    const finalAmount = (baseAmount + fixedFee) / (1 - percentageRate);
+    return Math.round(finalAmount * 100) / 100;
+  };
+
+  const maxInstallments = Math.min(12, Math.floor(amountToPay / 5)) || 1;
+  const installmentOptions = [];
+  for (let i = 1; i <= maxInstallments; i++) {
+    const finalAmountWithFee = calculateCardValue(amountToPay, i);
+    const installmentValue = finalAmountWithFee / i;
+    installmentOptions.push({
+      value: i,
+      label: i === 1
+        ? `À vista - R$ ${finalAmountWithFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : `${i}x de R$ ${installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (total R$ ${finalAmountWithFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+    });
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === 'number') {
+      const digitsOnly = value.replace(/\D/g, '').substring(0, 16);
+      const formatted = digitsOnly.match(/.{1,4}/g)?.join(' ') || digitsOnly;
+      setFormData(prev => ({ ...prev, number: formatted }));
+    } else if (name === 'expiry') {
+      const digitsOnly = value.replace(/\D/g, '').substring(0, 4);
+      let formatted = digitsOnly;
+      if (digitsOnly.length > 2) {
+        formatted = `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}`;
+      }
+      setFormData(prev => ({ ...prev, expiry: formatted }));
+    } else if (name === 'ccv') {
+      const digitsOnly = value.replace(/\D/g, '').substring(0, 4);
+      setFormData(prev => ({ ...prev, ccv: digitsOnly }));
+    } else if (name === 'holderName') {
+      setFormData(prev => ({ ...prev, holderName: value.toUpperCase() }));
+    } else if (name === 'holderCpf') {
+      const digits = value.replace(/\D/g, '').substring(0, 14);
+      let formatted = digits;
+      if (digits.length > 11) {
+        formatted = digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+      } else if (digits.length > 9) {
+        formatted = digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+      } else if (digits.length > 6) {
+        formatted = digits.replace(/^(\d{3})(\d{3})(\d{3})$/, "$1.$2.$3");
+      } else if (digits.length > 3) {
+        formatted = digits.replace(/^(\d{3})(\d{3})$/, "$1.$2");
+      }
+      setFormData(prev => ({ ...prev, holderCpf: formatted }));
+    } else if (name === 'holderCep') {
+      const digits = value.replace(/\D/g, '').substring(0, 8);
+      let formatted = digits;
+      if (digits.length > 5) {
+        formatted = `${digits.substring(0, 5)}-${digits.substring(5, 8)}`;
+      }
+      setFormData(prev => ({ ...prev, holderCep: formatted }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,24 +112,54 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
     setError(null);
 
     try {
-      const [expiryMonth, expiryYear] = formData.expiry.split('/');
+      // Normalização robusta de data de expiração (MM/AA, MM/AAAA ou formatos compactos como MMAA/MMAAAA)
+      const cleanExpiry = formData.expiry.replace(/[^\d/]/g, '').trim();
+      let expiryMonth = '';
+      let expiryYear = '';
+
+      if (cleanExpiry.includes('/')) {
+        const parts = cleanExpiry.split('/');
+        expiryMonth = (parts[0] || '').trim();
+        expiryYear = (parts[1] || '').trim();
+      } else if (cleanExpiry.length === 4) {
+        expiryMonth = cleanExpiry.substring(0, 2);
+        expiryYear = cleanExpiry.substring(2, 4);
+      } else if (cleanExpiry.length === 6) {
+        expiryMonth = cleanExpiry.substring(0, 2);
+        expiryYear = cleanExpiry.substring(2, 6);
+      }
+
+      if (expiryYear.length === 2) {
+        expiryYear = '20' + expiryYear;
+      }
+
+      if (!expiryMonth || !expiryYear || expiryMonth.length !== 2 || expiryYear.length !== 4) {
+        throw new Error('Data de validade inválida. Por favor, use o formato MM/AA.');
+      }
+
+      const selectedInstallments = Number(formData.installments);
+      const amountWithFees = calculateCardValue(amountToPay, selectedInstallments);
 
       const payload: AsaasPaymentInput = {
         loan_id: loan.id,
         installment_id: installment.id,
-        amount: amountToPay,
+        amount: amountWithFees,
         payment_method: 'CREDIT_CARD',
+        installmentCount: selectedInstallments,
         credit_card: {
           holderName: formData.holderName,
           number: formData.number.replace(/\s/g, ''),
-          expiryMonth: expiryMonth.trim(),
-          expiryYear: '20' + expiryYear.trim(),
-          ccv: formData.ccv
+          expiryMonth: expiryMonth,
+          expiryYear: expiryYear,
+          ccv: formData.ccv,
+          holderCpf: formData.holderCpf.replace(/\D/g, ''),
+          holderCep: formData.holderCep.replace(/\D/g, '')
         },
         payer: {
           name: clientData.name,
           email: clientData.email || 'cliente@capitalflow.com.br',
-          cpfCnpj: clientData.doc || ''
+          cpfCnpj: clientData.doc || '',
+          phone: clientData.phone || ''
         }
       };
 
@@ -141,6 +237,22 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
               </div>
             </div>
 
+            <div>
+              <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Opções de Parcelamento</label>
+              <select
+                name="installments"
+                value={formData.installments}
+                onChange={handleInputChange}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold"
+              >
+                {installmentOptions.map(option => (
+                  <option key={option.value} value={option.value} className="bg-slate-900 text-white font-bold">
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">Validade</label>
@@ -172,6 +284,31 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
                     <Lock size={16} />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">CPF do Titular</label>
+                <input
+                  required
+                  name="holderCpf"
+                  value={formData.holderCpf}
+                  onChange={handleInputChange}
+                  placeholder="000.000.000-00"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700 text-center"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-500 uppercase ml-2 mb-1 block">CEP de Cobrança</label>
+                <input
+                  required
+                  name="holderCep"
+                  value={formData.holderCep}
+                  onChange={handleInputChange}
+                  placeholder="00000-000"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-amber-500 transition-all font-bold placeholder:text-slate-700 text-center"
+                />
               </div>
             </div>
           </div>

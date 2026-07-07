@@ -92,4 +92,19 @@ export const notificationCenterService = {
       console.warn('[NotificationCenter] Falha ao marcar notificacao como lida:', error.message);
     }
   },
+
+  async markItemAsRead(profileId: string, itemType: string, itemId: string) {
+    if (!profileId || !itemType || !itemId) return;
+    const { error } = await supabase
+      .from('notificacoes')
+      .update({ read_at: new Date().toISOString() })
+      .eq('profile_id', profileId)
+      .eq('item_type', itemType)
+      .eq('item_id', itemId)
+      .is('read_at', null);
+
+    if (error) {
+      console.warn('[NotificationCenter] Falha ao marcar item como lido:', error.message);
+    }
+  },
 };

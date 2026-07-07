@@ -41,14 +41,14 @@ function allocatePaymentAmount(
 async function resolveCaixaLivreId(supabase: any, profileId: string) {
   const { data, error } = await supabase
     .from("fontes")
-    .select("id,nome")
+    .select("id,name")
     .eq("profile_id", profileId)
     .limit(50);
 
   if (error || !data) return null;
 
   const found = data.find((item: any) => {
-    const name = normalize(item?.nome);
+    const name = normalize(item?.name);
     return name.includes("caixa livre") || name.includes("lucro") || name.includes("disponivel") || name.includes("balance");
   });
 
@@ -219,7 +219,7 @@ serve(async (req) => {
     const finalMethod = methodMap[mpMethod] || "CREDIT_CARD";
 
     const { error: rpcError } = await supabase.rpc("process_payment_v3_selective", {
-      p_idempotency_key: `mp-${paymentId}`,
+      p_idempotency_key: charge.id,
       p_loan_id: loanId,
       p_installment_id: instId,
       p_profile_id: ownerProfileId,

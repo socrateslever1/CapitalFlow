@@ -77,12 +77,12 @@ serve(async (req) => {
     if (loan_id) {
       const { data: loan, error: loanErr } = await supabaseAdmin
         .from("contratos")
-        .select("id, profile_id, source_id")
+        .select("id, profile_id, owner_id, source_id")
         .eq("id", loan_id)
         .single();
 
       if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
-      targetProfileId = loan.profile_id;
+      targetProfileId = loan.profile_id || loan.owner_id;
       targetSourceId = targetSourceId || loan.source_id;
     }
 

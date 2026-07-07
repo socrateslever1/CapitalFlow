@@ -612,7 +612,13 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           installment={
             activeLoanForPayment.installments.find((i: any) => !isPortalInstallmentPaid(i)) || activeLoanForPayment.installments[0]
           }
-          clientData={{ name: loggedClient.name, doc: loggedClient.document, id: loggedClient.id }}
+          clientData={{
+            name: loggedClient.name,
+            doc: loggedClient.document,
+            email: loggedClient.email,
+            phone: loggedClient.phone,
+            id: loggedClient.id
+          }}
           onClose={() => {
             setActiveLoanForPayment(null);
             loadFullPortalData();

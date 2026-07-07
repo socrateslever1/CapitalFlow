@@ -160,3 +160,33 @@
   transform-origin: top center;
   backface-visibility: hidden;
 }
+
+@keyframes cf-overdue-card-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
+    border-color: rgb(30 41 59);
+  }
+  50% {
+    box-shadow: 0 0 14px -8px rgba(244, 63, 94, 0.7);
+    border-color: rgba(244, 63, 94, 0.45);
+  }
+}
+
+.cf-overdue-card-pulse {
+  animation: cf-overdue-card-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes cf-overdue-container-pulse {
+  0%, 100% {
+    outline: 1px solid rgba(244, 63, 94, 0);
+    background-color: rgba(244, 63, 94, 0);
+  }
+  50% {
+    outline: 1px solid rgba(244, 63, 94, 0.18);
+    background-color: rgba(244, 63, 94, 0.035);
+  }
+}
+
+.cf-overdue-container-pulse {
+  animation: cf-overdue-container-pulse 3.2s ease-in-out infinite;
+}

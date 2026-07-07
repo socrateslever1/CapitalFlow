@@ -27,7 +27,7 @@ CREATE POLICY "Operadores podem ver suas próprias mensagens na fila"
 ON public.whatsapp_queue
 FOR SELECT
 TO authenticated
-USING (profile_id = auth.uid());ç
+USING (profile_id = auth.uid());
 
 DROP POLICY IF EXISTS "Operadores podem inserir mensagens na sua fila" ON public.whatsapp_queue;
 CREATE POLICY "Operadores podem inserir mensagens na sua fila"

@@ -33,6 +33,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
   if (req.method !== "POST") return json(req, { success: false, error: "Method Not Allowed" }, 405);
 
+  let requestBody: any = null;
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -43,9 +44,13 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Parse body da requisição
-    const body = await req.json();
-    const { profile_id, phone, message, queue_id, is_test } = body || {};
+    try {
+      requestBody = await req.json();
+    } catch {
+      return json(req, { success: false, error: "Invalid JSON body" }, 400);
+    }
+
+    const { profile_id, phone, message, queue_id, is_test } = requestBody || {};
 
     let targetProfileId = profile_id;
     let targetPhone = phone;
@@ -192,7 +197,6 @@ serve(async (req) => {
     console.error("[whatsapp-send] Error:", error?.message || error);
     
     // Em caso de falha e se for envio de fila, atualiza na fila como erro
-    const requestBody = await req.clone().json().catch(() => ({}));
     if (requestBody?.queue_id) {
       const supabaseAdmin = createClient(
         Deno.env.get("SUPABASE_URL") || "",

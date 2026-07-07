@@ -62,17 +62,19 @@ serve(async (req) => {
     // 1. Buscar o Dono do Contrato (Operador)
     const { data: loan, error: loanErr } = await supabaseAdmin
       .from("contratos")
-      .select("id, profile_id, source_id")
+      .select("id, profile_id, owner_id, source_id")
       .eq("id", loan_id)
       .single();
 
     if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
 
+    const targetProfileId = loan.profile_id || loan.owner_id;
+
     // 2. Buscar Credenciais MP do Operador (Multi-Conta)
     const { data: mpConfig } = await supabaseAdmin
       .from("perfis_config_mp")
       .select("mp_access_token")
-      .eq("profile_id", loan.profile_id)
+      .eq("profile_id", targetProfileId)
       .maybeSingle();
 
     const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;

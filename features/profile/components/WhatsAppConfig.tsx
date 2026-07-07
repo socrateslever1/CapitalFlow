@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Save, ShieldCheck, MessageSquare, Send, CheckCircle2, AlertCircle, HelpCircle, Key, Link } from 'lucide-react';
-import { whatsappConfigService, WhatsAppConfigData } from '../../../services/whatsappConfig.service';
+import React, { useEffect, useState } from 'react';
+import { HelpCircle, Key, Link, MessageSquare, Save, Send, ShieldCheck } from 'lucide-react';
+import {
+  DEFAULT_WHATSAPP_TEMPLATES,
+  whatsappConfigService,
+  withDefaultWhatsAppTemplates,
+} from '../../../services/whatsappConfig.service';
 
 interface WhatsAppConfigProps {
   profileId: string;
@@ -13,13 +17,13 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
   const [token, setToken] = useState('');
   const [instanceId, setInstanceId] = useState('');
 
-  // Templates
-  const [templateOverdue3d, setTemplateOverdue3d] = useState('');
-  const [templateDueToday, setTemplateDueToday] = useState('');
-  const [templateLate, setTemplateLate] = useState('');
-  const [templatePaymentReceived, setTemplatePaymentReceived] = useState('');
+  const [templateOverdue3d, setTemplateOverdue3d] = useState<string>(DEFAULT_WHATSAPP_TEMPLATES.template_overdue_3d);
+  const [templateDueToday, setTemplateDueToday] = useState<string>(DEFAULT_WHATSAPP_TEMPLATES.template_due_today);
+  const [templateLate, setTemplateLate] = useState<string>(DEFAULT_WHATSAPP_TEMPLATES.template_late);
+  const [templatePaymentReceived, setTemplatePaymentReceived] = useState<string>(
+    DEFAULT_WHATSAPP_TEMPLATES.template_payment_received
+  );
 
-  // Statuses
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -35,13 +39,19 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
           setApiUrl(config.api_url || '');
           setToken(config.token || '');
           setInstanceId(config.instance_id || '');
-          setTemplateOverdue3d(config.template_overdue_3d || '');
-          setTemplateDueToday(config.template_due_today || '');
-          setTemplateLate(config.template_late || '');
-          setTemplatePaymentReceived(config.template_payment_received || '');
+          const templates = withDefaultWhatsAppTemplates(config);
+          setTemplateOverdue3d(templates.template_overdue_3d);
+          setTemplateDueToday(templates.template_due_today);
+          setTemplateLate(templates.template_late);
+          setTemplatePaymentReceived(templates.template_payment_received);
+        } else {
+          setTemplateOverdue3d(DEFAULT_WHATSAPP_TEMPLATES.template_overdue_3d);
+          setTemplateDueToday(DEFAULT_WHATSAPP_TEMPLATES.template_due_today);
+          setTemplateLate(DEFAULT_WHATSAPP_TEMPLATES.template_late);
+          setTemplatePaymentReceived(DEFAULT_WHATSAPP_TEMPLATES.template_payment_received);
         }
       } catch (err) {
-        console.error('Erro ao carregar configurações do WhatsApp:', err);
+        console.error('Erro ao carregar configuracoes do WhatsApp:', err);
       } finally {
         setIsLoading(false);
       }
@@ -52,12 +62,22 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
 
   const handleSave = async () => {
     if (!token.trim()) {
-      showToast('O Token de Acesso é obrigatório.', 'error');
+      showToast('O token de acesso e obrigatorio.', 'error');
+      return;
+    }
+
+    if (!instanceId.trim()) {
+      showToast(
+        apiType === 'META'
+          ? 'O ID do numero de telefone da Meta e obrigatorio.'
+          : 'O ID da instancia e obrigatorio.',
+        'error'
+      );
       return;
     }
 
     if (apiType !== 'META' && !apiUrl.trim()) {
-      showToast('A URL da API é obrigatória para este tipo de conexão.', 'error');
+      showToast('A URL da API e obrigatoria para este tipo de conexao.', 'error');
       return;
     }
 
@@ -66,14 +86,14 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
       await whatsappConfigService.saveConfig(profileId, {
         api_type: apiType,
         api_url: apiUrl,
-        token: token,
+        token,
         instance_id: instanceId,
         template_overdue_3d: templateOverdue3d,
         template_due_today: templateDueToday,
         template_late: templateLate,
         template_payment_received: templatePaymentReceived,
       });
-      showToast('Configurações do WhatsApp salvas com sucesso!', 'success');
+      showToast('Configuracoes do WhatsApp salvas com sucesso!', 'success');
     } catch (err: any) {
       showToast('Erro ao salvar: ' + (err.message || 'Erro desconhecido'), 'error');
     } finally {
@@ -103,68 +123,52 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
   };
 
   if (isLoading) {
-    return <div className="animate-pulse h-60 bg-slate-800 rounded-lg"></div>;
+    return <div className="animate-pulse h-60 bg-slate-800 rounded-lg" />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 text-indigo-500">
         <MessageSquare size={24} className="fill-indigo-500/20 text-indigo-500" />
-        <h3 className="text-lg font-black uppercase">Notificações e API do WhatsApp</h3>
+        <h3 className="text-lg font-black uppercase">Notificacoes e API do WhatsApp</h3>
       </div>
 
       <div className="bg-indigo-950/20 border border-indigo-900/30 p-4 rounded-lg flex gap-3">
         <ShieldCheck className="text-indigo-400 shrink-0" size={20} />
         <div className="text-[10px] text-slate-400 leading-relaxed font-medium">
-          <p className="text-indigo-400 font-bold uppercase mb-1">Cobranças Inteligentes por Mensagem</p>
-          Configure o disparo automático de mensagens para alertar seus clientes sobre vencimentos pendentes, atrasos e para enviar o recibo de pagamento em tempo real.
+          <p className="text-indigo-400 font-bold uppercase mb-1">Cobrancas Inteligentes por Mensagem</p>
+          Configure o disparo automatico de mensagens para alertar seus clientes sobre vencimentos pendentes,
+          atrasos e para enviar o recibo de pagamento em tempo real.
         </div>
       </div>
 
       <div className="space-y-6 bg-slate-950 p-6 rounded-lg border border-slate-800 shadow-xl">
-        {/* API TYPE */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">
-            Tipo de Integração / Gateway
+            Tipo de Integracao / Gateway
           </label>
           <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setApiType('META')}
-              className={`p-3 rounded-lg border text-center font-bold text-xs uppercase transition-all ${
-                apiType === 'META'
-                  ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-              }`}
-            >
-              API Oficial (Meta)
-            </button>
-            <button
-              type="button"
-              onClick={() => setApiType('EVOLUTION')}
-              className={`p-3 rounded-lg border text-center font-bold text-xs uppercase transition-all ${
-                apiType === 'EVOLUTION'
-                  ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-              }`}
-            >
-              Evolution API
-            </button>
-            <button
-              type="button"
-              onClick={() => setApiType('Z_API')}
-              className={`p-3 rounded-lg border text-center font-bold text-xs uppercase transition-all ${
-                apiType === 'Z_API'
-                  ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-              }`}
-            >
-              Z-API
-            </button>
+            {[
+              ['META', 'API Oficial (Meta)'],
+              ['EVOLUTION', 'Evolution API'],
+              ['Z_API', 'Z-API'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setApiType(value as 'META' | 'EVOLUTION' | 'Z_API')}
+                className={`p-3 rounded-lg border text-center font-bold text-xs uppercase transition-all ${
+                  apiType === value
+                    ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* DINAMIC CREDENTIALS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {apiType !== 'META' && (
             <div className="md:col-span-2">
@@ -181,7 +185,7 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
             </div>
           )}
 
-          <div className={apiType === 'META' ? 'md:col-span-2' : ''}>
+          <div>
             <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center gap-1 mb-2">
               <Key size={12} /> Token de Acesso (API Key / Bearer)
             </label>
@@ -189,34 +193,37 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Digite o token de autenticação..."
+              placeholder="Digite o token de autenticacao..."
               className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-all"
             />
           </div>
 
-          {apiType !== 'META' && (
-            <div>
-              <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">
-                ID da Instância (Instance ID / Token Instância)
-              </label>
-              <input
-                type="text"
-                value={instanceId}
-                onChange={(e) => setInstanceId(e.target.value)}
-                placeholder="Ex: minha-instancia-1"
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-all"
-              />
-            </div>
-          )}
+          <div>
+            <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">
+              {apiType === 'META'
+                ? 'ID do Numero de Telefone (Phone Number ID)'
+                : 'ID da Instancia (Instance ID / Token Instancia)'}
+            </label>
+            <input
+              type="text"
+              value={instanceId}
+              onChange={(e) => setInstanceId(e.target.value)}
+              placeholder={apiType === 'META' ? 'Ex: 123456789012345' : 'Ex: minha-instancia-1'}
+              className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-xs outline-none focus:border-indigo-500 transition-all"
+            />
+          </div>
         </div>
 
-        {/* TEMPLATES EDITOR */}
         <div className="pt-6 border-t border-slate-900 space-y-4">
           <h4 className="text-xs font-black text-white uppercase flex items-center gap-2">
-            <HelpCircle size={14} className="text-indigo-400" /> Templates das Mensagens (Régua de Cobrança)
+            <HelpCircle size={14} className="text-indigo-400" /> Templates das Mensagens (Regua de Cobranca)
           </h4>
           <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider leading-relaxed">
-            Variáveis suportadas: <span className="text-indigo-400">{'{nome_cliente}'}</span>, <span className="text-indigo-400">{'{valor_parcela}'}</span>, <span className="text-indigo-400">{'{data_vencimento}'}</span>, <span className="text-indigo-400">{'{copia_e_cola_pix}'}</span>, <span className="text-indigo-400">{'{link_portal}'}</span>
+            Variaveis suportadas: <span className="text-indigo-400">{'{nome_cliente}'}</span>,{' '}
+            <span className="text-indigo-400">{'{valor_parcela}'}</span>,{' '}
+            <span className="text-indigo-400">{'{data_vencimento}'}</span>,{' '}
+            <span className="text-indigo-400">{'{copia_e_cola_pix}'}</span>,{' '}
+            <span className="text-indigo-400">{'{link_portal}'}</span>
           </p>
 
           <div className="space-y-4">
@@ -234,7 +241,7 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
 
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase ml-1 block mb-1">
-                Cobrança no Dia do Vencimento
+                Cobranca no Dia do Vencimento
               </label>
               <textarea
                 value={templateDueToday}
@@ -246,7 +253,7 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
 
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase ml-1 block mb-1">
-                Cobrança de Parcela Vencida (Em Atraso)
+                Cobranca de Parcela Vencida (Em Atraso)
               </label>
               <textarea
                 value={templateLate}
@@ -258,7 +265,7 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
 
             <div>
               <label className="text-[10px] font-black text-slate-400 uppercase ml-1 block mb-1">
-                Confirmação de Pagamento Recebido (Recibo)
+                Confirmacao de Pagamento Recebido (Recibo)
               </label>
               <textarea
                 value={templatePaymentReceived}
@@ -270,7 +277,6 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
           </div>
         </div>
 
-        {/* SAVE BUTTON */}
         <button
           onClick={handleSave}
           disabled={isSaving}
@@ -285,17 +291,16 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
           )}
         </button>
 
-        {/* TEST CONNECTION */}
         <div className="pt-6 border-t border-slate-900 space-y-4">
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block">
-            Testar Envio Instantâneo
+            Testar Envio Instantaneo
           </label>
           <div className="flex gap-2">
             <input
               type="text"
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
-              placeholder="DDD + Número (ex: 11999999999)"
+              placeholder="DDD + Numero (ex: 11999999999)"
               className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none text-xs focus:border-indigo-500"
             />
             <button

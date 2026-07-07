@@ -27,23 +27,25 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
-    const { loan_id, installment_id, amount, payment_method, credit_card, payer, portal_token, portal_code } = body;
+    const { loan_id, installment_id, amount, payment_method, credit_card, payer, portal_token, portal_code, installmentCount } = body;
 
     // 1. Validar Acesso (via Portal Token se for do portal)
-    // Para simplificar aqui, vamos buscar o profile_id do contrato
+    // Para simplificar aqui, vamos buscar o profile_id e o owner_id do contrato
     const { data: loan, error: loanErr } = await supabase
       .from("contratos")
-      .select("id, profile_id, client_id")
+      .select("id, profile_id, owner_id, client_id")
       .eq("id", loan_id)
       .single();
 
     if (loanErr || !loan) throw new Error("Contrato não encontrado");
 
+    const targetProfileId = loan.profile_id || loan.owner_id;
+
     // 2. Buscar API Key do Operador
     const { data: asaasConfig } = await supabase
       .from("perfis_config_asaas")
       .select("asaas_api_key")
-      .eq("profile_id", loan.profile_id)
+      .eq("profile_id", targetProfileId)
       .maybeSingle();
 
     if (!asaasConfig?.asaas_api_key) {
@@ -51,17 +53,19 @@ serve(async (req: Request) => {
     }
 
     const API_KEY = asaasConfig.asaas_api_key;
+    const isSandbox = API_KEY.includes("hmlg") || API_KEY.includes("sandbox") || !API_KEY.includes("prod");
+    const asaasUrl = isSandbox ? "https://sandbox.asaas.com/api/v3" : "https://www.asaas.com/api/v3";
 
     // 3. Buscar ou Criar Cliente no Asaas
     // O Asaas exige um Customer ID. Vamos buscar por CPF/CNPJ
-    const customerRes = await fetch(`${ASAAS_API_URL}/customers?cpfCnpj=${payer.cpfCnpj.replace(/\D/g, "")}`, {
+    const customerRes = await fetch(`${asaasUrl}/customers?cpfCnpj=${payer.cpfCnpj.replace(/\D/g, "")}`, {
         headers: { "access_token": API_KEY }
     });
     const customerData = await customerRes.json();
     let asaasCustomerId = customerData.data?.[0]?.id;
 
     if (!asaasCustomerId) {
-        const createCustRes = await fetch(`${ASAAS_API_URL}/customers`, {
+        const createCustRes = await fetch(`${asaasUrl}/customers`, {
             method: "POST",
             headers: { 
                 "access_token": API_KEY,
@@ -82,11 +86,17 @@ serve(async (req: Request) => {
     const paymentPayload: any = {
         customer: asaasCustomerId,
         billingType: payment_method, // 'CREDIT_CARD', 'PIX', 'BOLETO'
-        value: amount,
         dueDate: new Date().toISOString().split("T")[0],
         externalReference: installment_id || loan_id,
         description: `Pagamento CapitalFlow - Contrato ${loan_id.slice(0,8)}`
     };
+
+    if (installmentCount && installmentCount > 1) {
+        paymentPayload.installmentCount = installmentCount;
+        paymentPayload.value = amount; // Valor total do parcelamento
+    } else {
+        paymentPayload.value = amount;
+    }
 
     if (payment_method === 'CREDIT_CARD' && credit_card) {
         paymentPayload.creditCard = {
@@ -97,17 +107,18 @@ serve(async (req: Request) => {
             ccv: credit_card.ccv
         };
         // Para cartão, o Asaas exige os dados do titular também
+        const cleanPhone = (payer.phone || "").replace(/\D/g, "");
         paymentPayload.creditCardHolderInfo = {
-            name: payer.name,
+            name: credit_card.holderName,
             email: payer.email,
-            cpfCnpj: payer.cpfCnpj.replace(/\D/g, ""),
-            postalCode: "00000000", // Placeholder ou carregar do cliente
+            cpfCnpj: credit_card.holderCpf ? credit_card.holderCpf.replace(/\D/g, "") : payer.cpfCnpj.replace(/\D/g, ""),
+            postalCode: credit_card.holderCep ? credit_card.holderCep.replace(/\D/g, "") : "01001000", // CEP do titular ou fallback
             addressNumber: "0",
-            phone: "0000000000"
+            phone: cleanPhone.length >= 10 ? cleanPhone : "11999999999" // Fallback seguro
         };
     }
 
-    const paymentRes = await fetch(`${ASAAS_API_URL}/payments`, {
+    const paymentRes = await fetch(`${asaasUrl}/payments`, {
         method: "POST",
         headers: {
             "access_token": API_KEY,
@@ -120,17 +131,23 @@ serve(async (req: Request) => {
     if (!paymentRes.ok) throw new Error(paymentData.errors?.[0]?.description || "Erro ao criar cobrança no Asaas");
 
     // 5. Salvar na payment_charges para rastreio
-    await supabase.from("payment_charges").insert({
-        profile_id: loan.profile_id,
+    const { error: insertErr } = await supabase.from("payment_charges").insert({
         loan_id: loan.id,
         installment_id: installment_id,
         provider: "ASAAS",
-        provider_payment_id: paymentData.id,
+        provider_payment_id: String(paymentData.id),
         amount: amount,
         status: "PENDING",
         provider_status: paymentData.status,
-        checkout_url: paymentData.invoiceUrl
+        checkout_url: paymentData.invoiceUrl,
+        currency: "BRL",
+        external_reference: loan.id + "_" + installment_id
     });
+
+    if (insertErr) {
+        console.error("Erro ao salvar payment_charges:", insertErr);
+        throw new Error("Erro interno ao registrar transação no banco: " + insertErr.message);
+    }
 
     return new Response(JSON.stringify({
         ok: true,
@@ -144,7 +161,7 @@ serve(async (req: Request) => {
 
   } catch (err: any) {
     return new Response(JSON.stringify({ ok: false, error: err.message }), {
-      status: 400,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }

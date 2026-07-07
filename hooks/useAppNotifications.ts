@@ -180,11 +180,20 @@ export const useAppNotifications = ({
         const newMap = { ...dismissedMap, [key]: Date.now() };
         setDismissedMap(newMap);
         localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
+
+        if (activeUser?.id && activeUser.id !== 'DEMO') {
+          void notificationCenterService.markItemAsRead(activeUser.id, target.item_type, target.item_id);
+        }
       }
-      void notificationCenterService.markAsRead(target?.dbId || target?.id || id);
+
+      const targetDbId = target?.dbId || (id && id.length === 36 ? id : null);
+      if (targetDbId) {
+        void notificationCenterService.markAsRead(targetDbId);
+      }
+
       return prev.filter(n => n.id !== id);
     });
-  }, [dismissedMap]);
+  }, [dismissedMap, activeUser?.id]);
 
   const resetNotifiedCaches = () => {
     notifiedDueLoans.current = new Set();
@@ -202,7 +211,16 @@ export const useAppNotifications = ({
     let cancelled = false;
     notificationCenterService.listUnread(activeUser.id).then((rows) => {
       if (cancelled) return;
-      const mapped = rows.map(mapDbNotification);
+      
+      // Filter out notifications that were dismissed within 48h
+      const mapped = rows.map(mapDbNotification).filter(item => {
+        if (!item.item_type || !item.item_id) return true;
+        const key = `${item.item_type}_${item.item_id}`;
+        const dismissedAt = dismissedMap[key];
+        if (!dismissedAt) return true;
+        return (Date.now() - dismissedAt) >= READ_SUPPRESSION_MS;
+      });
+
       setNotifications((prev) => {
         const next = [...mapped, ...prev];
         const seen = new Set<string>();

@@ -118,8 +118,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               {groupedLoans.length > 0 ? (
                   <div className="columns-1 md:columns-2 xl:columns-3 gap-4">
                       {groupedLoans.map(group => {
+                          const isOverdueGroup = group.status === 'LATE' || group.status === 'CRITICAL';
                           return (
-                              <div key={group.id} className="break-inside-avoid mb-4">
+                              <div key={group.id} className={`break-inside-avoid mb-4 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}>
                                   <ClientGroupCard
                                       group={group}
                                       passThroughProps={loanCardProps}

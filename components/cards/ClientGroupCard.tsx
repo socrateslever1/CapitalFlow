@@ -164,12 +164,12 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         statusText = 'Somente Capital';
         statusTextColor = 'text-rose-500';
     } else if (group.status === 'CRITICAL') {
-        borderLeftColor = 'border-l-rose-500';
+        borderLeftColor = 'border-l-rose-500 cf-overdue-card-pulse';
         icon = <ShieldAlert className="text-rose-500" size={20} />;
         statusText = 'Risco Crítico';
         statusTextColor = 'text-rose-500';
     } else if (group.status === 'LATE') {
-        borderLeftColor = 'border-l-amber-500';
+        borderLeftColor = 'border-l-amber-500 cf-overdue-card-pulse';
         icon = <AlertCircle className="text-amber-500" size={20} />;
         statusText = 'Em Atraso';
         statusTextColor = 'text-amber-500';

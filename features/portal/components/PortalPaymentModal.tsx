@@ -14,7 +14,7 @@ interface PortalPaymentModalProps {
   portalCode: string;
   loan: Loan;
   installment: Installment;
-  clientData: { name: string; email?: string; doc?: string; id?: string };
+  clientData: { name: string; email?: string; doc?: string; phone?: string; id?: string };
   onClose: () => void;
 }
 

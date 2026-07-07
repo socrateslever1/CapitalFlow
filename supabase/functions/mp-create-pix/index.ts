@@ -41,11 +41,11 @@ serve(async (req) => {
     const GLOBAL_MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN") || "";
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
-      return json(req, { ok: false, error: "Missing env vars" }, 500);
+      return json(req, { ok: false, error: "Missing env vars" });
     }
 
     const token = getBearerToken(req);
-    if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
+    if (!token) return json(req, { ok: false, error: "Unauthorized" });
 
     const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } },
@@ -54,7 +54,7 @@ serve(async (req) => {
 
     const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
     if (authErr || !authData?.user?.id) {
-      return json(req, { ok: false, error: "Unauthorized: invalid token" }, 401);
+      return json(req, { ok: false, error: "Unauthorized: invalid token" });
     }
 
     const { data: callerProfile, error: callerErr } = await supabaseAdmin
@@ -64,7 +64,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (callerErr || !callerProfile?.id) {
-      return json(req, { ok: false, error: "Forbidden: profile not found" }, 403);
+      return json(req, { ok: false, error: "Forbidden: profile not found" });
     }
 
     const body = await req.json();
@@ -81,7 +81,7 @@ serve(async (req) => {
         .eq("id", loan_id)
         .single();
 
-      if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
+      if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" });
       targetProfileId = loan.profile_id || loan.owner_id;
       targetSourceId = targetSourceId || loan.source_id;
     }
@@ -96,7 +96,7 @@ serve(async (req) => {
     const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;
 
     if (!accessToken) {
-      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas para este perfil" }, 400);
+      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas para este perfil" });
     }
 
     const external_reference = crypto.randomUUID();
@@ -134,7 +134,7 @@ serve(async (req) => {
     });
 
     const mpData = await mpRes.json();
-    if (!mpRes.ok) return json(req, { ok: false, error: mpData?.message || "Erro no Mercado Pago" }, 502);
+    if (!mpRes.ok) return json(req, { ok: false, error: mpData?.message || "Erro no Mercado Pago" });
 
     return json(req, {
       ok: true,
@@ -146,6 +146,6 @@ serve(async (req) => {
       external_reference,
     });
   } catch (err: any) {
-    return json(req, { ok: false, error: err?.message || "Internal error" }, 500);
+    return json(req, { ok: false, error: err?.message || "Internal error" });
   }
 });

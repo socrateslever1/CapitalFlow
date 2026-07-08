@@ -9,6 +9,7 @@ type PortalSnapshot = {
     fullLoanData: any;
     installments: any[];
     signals: any[];
+    files: any[];
     documents: any[];
   };
 };

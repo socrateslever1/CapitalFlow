@@ -116,12 +116,14 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
             </label>
 
             <input
-              type="number"
-              value={ui.editingSource.balance}
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={ui.editingSource.balance === 0 ? '' : ui.editingSource.balance}
               onChange={e =>
                 ui.setEditingSource({
                   ...ui.editingSource,
-                  balance: parseFloat(e.target.value) || 0
+                  balance: e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
                 })
               }
               className="w-full bg-slate-950 p-4 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"

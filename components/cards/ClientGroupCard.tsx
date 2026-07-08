@@ -97,6 +97,54 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     });
 
     const activeLoans = group.loans.filter((loan) => !loan.isArchived);
+    const getLoanOpenAmount = (loan: any) => {
+        const installmentsTotal = (loan.installments || []).reduce((total: number, inst: any) => {
+            const status = String(inst?.status || '').toUpperCase();
+            if (['PAID', 'PAGO', 'QUITADO', 'CANCELADO', 'RENEGOCIADO'].includes(status)) return total;
+            return total +
+                Number(inst?.principalRemaining || 0) +
+                Number(inst?.interestRemaining || 0) +
+                Number(inst?.lateFeeAccrued || 0);
+        }, 0);
+
+        return installmentsTotal > 0.5
+            ? installmentsTotal
+            : Number(loan?.totalDebt || loan?.currentDebt || loan?.amount || 0);
+    };
+
+    const activeLoanIndicators = activeLoans
+        .filter((loan) => getLoanOpenAmount(loan) > 0.5)
+        .map((loan, index) => {
+            const due = getNextOpenDueDate(loan);
+            const diffDays = due ? Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+            const status = due && due.getTime() < today.getTime()
+                ? 'OVERDUE'
+                : diffDays !== null && diffDays >= 0 && diffDays <= 3
+                    ? 'DUE_SOON'
+                    : 'OK';
+            const colorClass = status === 'OVERDUE'
+                ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                : status === 'DUE_SOON'
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    : 'border-blue-500/40 bg-blue-500/10 text-blue-300';
+
+            return {
+                id: loan.id,
+                label: `${index + 1}. ${formatMoney(getLoanOpenAmount(loan), isStealthMode)}`,
+                colorClass,
+            };
+        });
+    const hasPendingPortalAction = group.loans.some((loan: any) => {
+        const hasPaymentSignal = (loan.paymentSignals || []).some((signal: any) => {
+            const status = String(signal?.status || '').toUpperCase();
+            return ['PENDENTE', 'PENDING'].includes(status) || !!signal?.comprovante_url || !!signal?.comprovanteUrl;
+        });
+        const hasPortalFile = (loan.portalFiles || []).some((file: any) => {
+            const status = String(file?.status || '').toUpperCase();
+            return file?.direction === 'CLIENT_TO_OPERATOR' && ['PENDING', 'PENDENTE'].includes(status);
+        });
+        return hasPaymentSignal || hasPortalFile || Number(loan.supportUnreadCount || 0) > 0;
+    });
 
     const handleRenegotiateAll = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -200,7 +248,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     };
 
     return (
-        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
+        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div
                 className="flex flex-col min-h-[6rem] justify-between relative"
                 onClick={handleCardClick}
@@ -208,9 +256,6 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                 <div className="flex justify-between items-start gap-3">
                     <div
                         className="flex items-center gap-3 min-w-0 flex-1"
-                        onClick={handleOpenClient}
-                        role={onOpenClient ? 'button' : undefined}
-                        title={onOpenClient ? 'Abrir cliente' : undefined}
                     >
                         <div className="relative shrink-0">
                             {group.avatarUrl ? (
@@ -245,6 +290,25 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                         </div>
                     </div>
                 </div>
+
+                {activeLoanIndicators.length > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5 overflow-hidden">
+                        {activeLoanIndicators.slice(0, 3).map((item) => (
+                            <span
+                                key={item.id}
+                                className={`min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
+                                title={item.label}
+                            >
+                                {item.label}
+                            </span>
+                        ))}
+                        {activeLoanIndicators.length > 3 && (
+                            <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
+                                +{activeLoanIndicators.length - 3}
+                            </span>
+                        )}
+                    </div>
+                )}
 
                 <div className="flex items-end justify-between pt-2 border-t border-slate-800/30 mt-1">
                     <div className="flex flex-col gap-0.5">

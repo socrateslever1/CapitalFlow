@@ -242,6 +242,24 @@ export interface LedgerEntry {
   receiptCode?: string;
 }
 
+export interface PortalFile {
+  id: string;
+  profile_id?: string;
+  client_id?: string;
+  loan_id: string;
+  payment_intent_id?: string | null;
+  direction: 'CLIENT_TO_OPERATOR' | 'OPERATOR_TO_CLIENT';
+  category: 'PAYMENT_PROOF' | 'DOCUMENT' | 'NOTE' | 'OTHER';
+  file_name?: string | null;
+  file_url: string;
+  mime_type?: string | null;
+  file_size?: number | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'VISIBLE' | 'ARCHIVED';
+  metadata?: any;
+  created_at?: string;
+  updated_at?: string;
+}
+
 /* =====================================================
    LOAN
 ===================================================== */
@@ -278,6 +296,8 @@ export interface Loan {
   activeAgreement?: Agreement;
   pastAgreements?: Agreement[];
   paymentSignals?: any[];
+  portalFiles?: PortalFile[];
+  supportUnreadCount?: number;
   customDocuments?: LoanDocument[];
   createdAt?: string;
   updatedAt?: string;

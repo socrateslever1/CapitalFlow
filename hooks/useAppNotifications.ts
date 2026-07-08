@@ -32,6 +32,7 @@ interface NotificationProps {
   showToast: any;
   setActiveTab: (tab: any) => void;
   setSelectedLoanId: (id: string | null) => void;
+  onDataChanged?: () => void;
   disabled?: boolean;
 }
 
@@ -54,6 +55,7 @@ export const useAppNotifications = ({
   showToast,
   setActiveTab,
   setSelectedLoanId,
+  onDataChanged,
   disabled,
 }: NotificationProps) => {
   const checkTimer = useRef<any>(null);
@@ -87,6 +89,9 @@ export const useAppNotifications = ({
   useEffect(() => {
     notificationsRef.current = notifications;
   }, [notifications]);
+  const notificationProfileId = activeUser
+    ? ((activeUser as any).supervisor_id || (activeUser as any).owner_profile_id || activeUser.id)
+    : null;
 
   const mapDbNotification = useCallback((row: any): InAppNotification => ({
     id: row.id,
@@ -154,9 +159,9 @@ export const useAppNotifications = ({
     const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     queueRef.current.push({ ...notif, id: clientId, createdAt: Date.now() });
     flushQueue();
-    if (activeUser?.id && activeUser.id !== 'DEMO') {
+    if (notificationProfileId && notificationProfileId !== 'DEMO') {
       void notificationCenterService.create({
-        profileId: activeUser.id,
+        profileId: notificationProfileId,
         title: notif.title,
         message: notif.message,
         actionUrl: notif.action_url || null,
@@ -170,7 +175,7 @@ export const useAppNotifications = ({
         )));
       });
     }
-  }, [activeUser?.id, dismissedMap, flushQueue]);
+  }, [notificationProfileId, dismissedMap, flushQueue]);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => {
@@ -181,8 +186,8 @@ export const useAppNotifications = ({
         setDismissedMap(newMap);
         localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
 
-        if (activeUser?.id && activeUser.id !== 'DEMO') {
-          void notificationCenterService.markItemAsRead(activeUser.id, target.item_type, target.item_id);
+        if (notificationProfileId && notificationProfileId !== 'DEMO') {
+          void notificationCenterService.markItemAsRead(notificationProfileId, target.item_type, target.item_id);
         }
       }
 
@@ -193,7 +198,7 @@ export const useAppNotifications = ({
 
       return prev.filter(n => n.id !== id);
     });
-  }, [dismissedMap, activeUser?.id]);
+  }, [dismissedMap, notificationProfileId]);
 
   const resetNotifiedCaches = () => {
     notifiedDueLoans.current = new Set();
@@ -206,10 +211,10 @@ export const useAppNotifications = ({
   }, [loans]);
 
   useEffect(() => {
-    if (!activeUser?.id || disabled || activeUser.id === 'DEMO') return;
+    if (!notificationProfileId || disabled || notificationProfileId === 'DEMO') return;
 
     let cancelled = false;
-    notificationCenterService.listUnread(activeUser.id).then((rows) => {
+    notificationCenterService.listUnread(notificationProfileId).then((rows) => {
       if (cancelled) return;
       
       // Filter out notifications that were dismissed within 48h
@@ -234,7 +239,7 @@ export const useAppNotifications = ({
     });
 
     const since = new Date(Date.now() - READ_SUPPRESSION_MS).toISOString();
-    notificationCenterService.listRecentlyRead(activeUser.id, since).then((rows) => {
+    notificationCenterService.listRecentlyRead(notificationProfileId, since).then((rows) => {
       if (cancelled || !rows.length) return;
       setDismissedMap((prev) => {
         const next = { ...prev };
@@ -248,14 +253,14 @@ export const useAppNotifications = ({
     });
 
     const channel = supabase
-      .channel(`notification-center-${activeUser.id}`)
+      .channel(`notification-center-${notificationProfileId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'notificacoes',
-          filter: `profile_id=eq.${activeUser.id}`,
+          filter: `profile_id=eq.${notificationProfileId}`,
         },
         (payload) => {
           const mapped = mapDbNotification(payload.new);
@@ -270,21 +275,21 @@ export const useAppNotifications = ({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [activeUser?.id, disabled, flushQueue, mapDbNotification, dismissedMap]);
+  }, [notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap]);
 
   // 1. Monitoramento em Tempo Real (Eventos Críticos de Negócio)
   useEffect(() => {
-    if (!activeUser || disabled) return;
+    if (!activeUser || !notificationProfileId || disabled) return;
 
     const channel = supabase
-      .channel('global-urgent-alerts')
+      .channel(`global-urgent-alerts-${notificationProfileId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'payment_intents',
-          filter: `profile_id=eq.${activeUser.id}`,
+          filter: `profile_id=eq.${notificationProfileId}`,
         },
         (payload) => {
           if (payload.new.status === 'PENDENTE') {
@@ -318,10 +323,68 @@ export const useAppNotifications = ({
       .on(
         'postgres_changes',
         {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'portal_files',
+          filter: `profile_id=eq.${notificationProfileId}`,
+        },
+        (payload) => {
+          if (payload.new.direction !== 'CLIENT_TO_OPERATOR') return;
+          if (isDismissed('portal_file', payload.new.id)) return;
+          const onClick = () => {
+              setActiveTab('CONTRACT_DETAILS');
+              setSelectedLoanId(payload.new.loan_id);
+          };
+          const message = payload.new.category === 'PAYMENT_PROOF'
+            ? 'Cliente enviou um comprovante pelo portal. Revise antes de dar baixa.'
+            : 'Cliente enviou um arquivo pelo portal. Revise no contrato.';
+          notificationService.notify('Arquivo recebido pelo portal', message, onClick);
+          addNotification({
+              title: 'Arquivo recebido pelo portal',
+              message,
+              type: 'warning',
+              item_type: 'portal_file',
+              item_id: payload.new.id,
+              metadata: { loan_id: payload.new.loan_id, portal_file_id: payload.new.id }
+          });
+          onDataChanged?.();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mensagens_suporte',
+          filter: `profile_id=eq.${notificationProfileId}`,
+        },
+        (payload) => {
+          if (payload.new.sender_type !== 'CLIENT' && payload.new.sender !== 'CLIENT') return;
+          if (isDismissed('suporte', payload.new.id)) return;
+          const onClick = () => {
+              setActiveTab('CONTRACT_DETAILS');
+              setSelectedLoanId(payload.new.loan_id);
+          };
+          const message = 'Cliente enviou uma mensagem pelo portal. Abra o atendimento para responder.';
+          notificationService.notify('Mensagem do cliente', message, onClick);
+          addNotification({
+              title: 'Mensagem do cliente',
+              message,
+              type: 'info',
+              item_type: 'suporte',
+              item_id: payload.new.id,
+              metadata: { loan_id: payload.new.loan_id }
+          });
+          onDataChanged?.();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
           event: 'UPDATE',
           schema: 'public',
           table: 'parcelas',
-          filter: `profile_id=eq.${activeUser.id}`,
+          filter: `profile_id=eq.${notificationProfileId}`,
         },
         (payload) => {
           const loan = loansRef.current.find((l) => l.id === payload.new.loan_id);
@@ -418,7 +481,7 @@ export const useAppNotifications = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeUser, disabled, setActiveTab, setSelectedLoanId, showToast]);
+  }, [activeUser, notificationProfileId, disabled, setActiveTab, setSelectedLoanId, showToast, onDataChanged, addNotification]);
 
   // 2. Monitoramento Periódico (Vencimentos e Saldo)
   const runScan = async () => {

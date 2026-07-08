@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { supabasePortal } from '../../../lib/supabasePortal';
 
 export const usePortalUnread = (loanId: string | undefined, isChatOpen: boolean) => {
     const [unreadCount, setUnreadCount] = useState(0);
@@ -12,18 +12,23 @@ export const usePortalUnread = (loanId: string | undefined, isChatOpen: boolean)
         }
 
         const fetchUnread = async () => {
-            const { count } = await supabase
+            const { count, error } = await supabasePortal
                 .from('mensagens_suporte')
                 .select('*', { count: 'exact', head: true })
                 .eq('loan_id', loanId)
-                .eq('sender', 'OPERATOR')
-                .eq('read', false);
+                .or('sender.eq.OPERATOR,sender_type.eq.OPERATOR')
+                .or('read.eq.false,read.is.null');
+            if (error) {
+                console.warn('[usePortalUnread] Falha ao contar mensagens:', error.message);
+                setUnreadCount(0);
+                return;
+            }
             setUnreadCount(count || 0);
         };
 
         fetchUnread();
 
-        const channel = supabase.channel(`portal-unread-${loanId}`)
+        const channel = supabasePortal.channel(`portal-unread-${loanId}`)
             .on(
                 'postgres_changes',
                 { 
@@ -34,14 +39,14 @@ export const usePortalUnread = (loanId: string | undefined, isChatOpen: boolean)
                 },
                 (payload) => {
                     // Incrementa apenas se for do operador e chat fechado
-                    if (payload.new.sender === 'OPERATOR') {
+                    if (payload.new.sender === 'OPERATOR' || payload.new.sender_type === 'OPERATOR') {
                         fetchUnread();
                     }
                 }
             )
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        return () => { supabasePortal.removeChannel(channel); };
     }, [loanId, isChatOpen]);
 
     return unreadCount;

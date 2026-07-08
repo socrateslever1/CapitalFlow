@@ -33,6 +33,7 @@ export const portalService = {
         fullLoanData: payload?.fullLoanData ?? null,
         installments: asRpcArray(payload?.installments),
         signals: asRpcArray(payload?.signals),
+        files: asRpcArray(payload?.files),
         documents: asRpcArray(payload?.documents),
       },
     });
@@ -99,6 +100,14 @@ export const portalService = {
     return { installments: asRpcArray(installments), signals };
   },
 
+  async fetchPortalFiles(token: string, code: string) {
+    const { data, error } = await supabasePortal
+      .rpc('portal_get_files', { p_token: token, p_shortcode: code });
+
+    if (error) throw new Error('Falha ao listar arquivos do portal.');
+    return asRpcArray(data);
+  },
+
   /**
    * Busca o contrato completo com parcelas e sinalizacoes usando credenciais do portal.
    */
@@ -131,7 +140,7 @@ export const portalService = {
 
     if (error) {
       await enqueuePortalPaymentIntent(token, code, tipo, comprovanteUrl);
-      return { queued: true, offline: false, reason: error.message || 'sync_failed' };
+      throw new Error(error.message || 'Falha ao notificar o operador. A tentativa ficou na fila para sincronizar.');
     }
 
     return data;

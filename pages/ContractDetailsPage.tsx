@@ -104,6 +104,22 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         );
     }
 
+    const portalFiles = Array.isArray((loan as any).portalFiles) ? (loan as any).portalFiles : [];
+    const clientPortalFiles = portalFiles.filter((file: any) => file.direction === 'CLIENT_TO_OPERATOR');
+    const clientVisibleFiles = [
+        ...portalFiles.filter((file: any) => file.direction === 'OPERATOR_TO_CLIENT' && ['VISIBLE', 'APPROVED'].includes(String(file.status || '').toUpperCase())),
+        ...(loan.customDocuments || []).filter((doc: any) => doc.visibleToClient).map((doc: any) => ({
+            id: doc.id,
+            file_name: doc.name,
+            file_url: doc.url,
+            status: 'VISIBLE',
+        })),
+    ];
+    const openPortalFile = (url?: string | null) => {
+        if (!url) return;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
     return (
         <div className="flex flex-col gap-3 animate-in fade-in duration-500 pb-24 md:pb-6">
 
@@ -273,6 +289,56 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                             <button onClick={() => onDelete(loan)} className="col-span-2 flex items-center justify-center gap-1.5 p-3 bg-rose-950/30 border border-rose-500/30 rounded-lg text-[9px] font-black uppercase text-rose-400 hover:text-rose-300 hover:bg-rose-900/50 transition-all">
                                 <AlertTriangle size={14}/> Excluir
                             </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4">
+                        <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                            <FileText size={16} className="text-cyan-400"/> Arquivos do Portal
+                        </h3>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-[120px]">
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Cliente enviou para mim</p>
+                                    <span className="text-[10px] font-black text-cyan-400">{clientPortalFiles.length}</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {clientPortalFiles.length === 0 ? (
+                                        <p className="text-[10px] text-slate-500 font-bold">Nenhum arquivo enviado pelo cliente neste contrato.</p>
+                                    ) : clientPortalFiles.map((file: any) => (
+                                        <button
+                                            key={file.id}
+                                            onClick={() => openPortalFile(file.file_url)}
+                                            className="w-full flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-left hover:border-cyan-500/40 transition-colors"
+                                        >
+                                            <span className="text-[10px] font-bold text-white truncate">{file.file_name || 'Arquivo do cliente'}</span>
+                                            <span className="text-[8px] font-black uppercase text-slate-500">{file.status || 'PENDING'}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 min-h-[120px]">
+                                <div className="flex items-center justify-between mb-3">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Visivel para o cliente</p>
+                                    <span className="text-[10px] font-black text-emerald-400">{clientVisibleFiles.length}</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {clientVisibleFiles.length === 0 ? (
+                                        <p className="text-[10px] text-slate-500 font-bold">Nenhum arquivo liberado para o cliente neste contrato.</p>
+                                    ) : clientVisibleFiles.map((file: any) => (
+                                        <button
+                                            key={file.id}
+                                            onClick={() => openPortalFile(file.file_url)}
+                                            className="w-full flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-left hover:border-emerald-500/40 transition-colors"
+                                        >
+                                            <span className="text-[10px] font-bold text-white truncate">{file.file_name || 'Documento'}</span>
+                                            <Download size={12} className="shrink-0 text-slate-500" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
 

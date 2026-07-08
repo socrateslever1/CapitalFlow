@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, lazy, Suspense, useCallback, useRef } from 'react';
+import React, { useEffect, lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AppShell } from './layout/AppShell';
 import { NavHubController } from './layout/NavHubController';
@@ -16,6 +16,7 @@ import { useAppNotifications } from './hooks/useAppNotifications';
 import { useExitGuard } from './hooks/useExitGuard';
 import { useNavigationStack } from './hooks/useNavigationStack';
 import { Toaster } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
 import { notificationService } from './services/notification.service';
 import { pushSubscriptionService } from './services/pushSubscription.service';
@@ -53,6 +54,10 @@ import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
 
 export const App: React.FC = () => {
+  const [operatorUploadStatus, setOperatorUploadStatus] = useState<{
+    state: 'IDLE' | 'UPLOADING' | 'SUCCESS' | 'ERROR';
+    message: string;
+  }>({ state: 'IDLE', message: '' });
   if (isDev) console.log('[App] Component body execution started');
   // ✅ SEMPRE calcular params, mas NÃO dar return antes dos hooks
   const urlParams = new URLSearchParams(window.location.search);
@@ -228,8 +233,41 @@ export const App: React.FC = () => {
     showToast,
     setActiveTab,
     setSelectedLoanId: ui.setSelectedLoanId,
+    onDataChanged: () => {
+      if (activeProfileId) fetchFullData(activeProfileId);
+    },
     disabled: isPublicView,
   });
+
+  const handleOperatorFileUpload = useCallback(async (
+    file: File | undefined,
+    kind: 'PROMISSORIA' | 'CONFISSAO',
+    input?: HTMLInputElement | null
+  ) => {
+    if (!file) return;
+
+    setOperatorUploadStatus({
+      state: 'UPLOADING',
+      message: `Enviando ${kind === 'PROMISSORIA' ? 'promissoria' : 'documento'}...`,
+    });
+
+    const result = kind === 'PROMISSORIA'
+      ? await filesService.handlePromissoriaUpload(file, activeUser, String(ui?.promissoriaUploadLoanId), showToast, fetchFullData)
+      : await filesService.handleExtraDocUpload(file, activeUser, String(ui?.extraDocUploadLoanId), 'CONFISSAO', showToast, fetchFullData);
+
+    if (input) input.value = '';
+
+    setOperatorUploadStatus({
+      state: result?.success ? 'SUCCESS' : 'ERROR',
+      message: result?.success ? 'Arquivo carregado com sucesso.' : (result?.message || 'Falha ao carregar arquivo.'),
+    });
+
+    window.setTimeout(() => {
+      setOperatorUploadStatus((current) => (
+        current.state === 'UPLOADING' ? current : { state: 'IDLE', message: '' }
+      ));
+    }, 3500);
+  }, [activeUser, fetchFullData, showToast, ui?.extraDocUploadLoanId, ui?.promissoriaUploadLoanId]);
 
   useExitGuard(activeUser, activeTab, setActiveTab, isPublicView, showToast, ui);
 
@@ -859,19 +897,32 @@ export const App: React.FC = () => {
         <div className="relative z-[9999]">
           <ModalHost />
 
+            {operatorUploadStatus.state !== 'IDLE' && (
+              <div className={`fixed bottom-5 left-1/2 z-[10000] flex -translate-x-1/2 items-center gap-2 rounded-lg border px-4 py-3 text-xs font-black uppercase shadow-2xl ${
+                operatorUploadStatus.state === 'UPLOADING'
+                  ? 'border-amber-500/30 bg-slate-900 text-amber-300'
+                  : operatorUploadStatus.state === 'SUCCESS'
+                    ? 'border-emerald-500/30 bg-slate-900 text-emerald-300'
+                    : 'border-rose-500/30 bg-slate-900 text-rose-300'
+              }`}>
+                {operatorUploadStatus.state === 'UPLOADING' && <Loader2 size={16} className="animate-spin" />}
+                <span>{operatorUploadStatus.message}</span>
+              </div>
+            )}
+
             <input
               type="file"
               ref={ui?.promissoriaFileInputRef}
               className="hidden"
               accept="image/*,application/pdf"
-              onChange={(e) => filesService.handlePromissoriaUpload(e.target.files?.[0] as File, activeUser, String(ui?.promissoriaUploadLoanId), showToast, fetchFullData)}
+              onChange={(e) => handleOperatorFileUpload(e.target.files?.[0] as File, 'PROMISSORIA', e.currentTarget)}
             />
             <input
               type="file"
               ref={ui?.extraDocFileInputRef}
               className="hidden"
               accept="image/*,application/pdf"
-              onChange={(e) => filesService.handleExtraDocUpload(e.target.files?.[0] as File, activeUser, String(ui?.extraDocUploadLoanId), 'CONFISSAO', showToast, fetchFullData)}
+              onChange={(e) => handleOperatorFileUpload(e.target.files?.[0] as File, 'CONFISSAO', e.currentTarget)}
             />
           </div>
         </ModalProvider>

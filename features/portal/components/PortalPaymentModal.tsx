@@ -55,6 +55,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const [isProcessingOnline, setIsProcessingOnline] = useState(false);
   const [showAsaasModal, setShowAsaasModal] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'IDLE' | 'UPLOADING' | 'UPLOADED' | 'ERROR'>('IDLE');
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
   const closedLoan = isLoanClosed(loan as any);
   const paidInst = isInstallmentPaid(installment as any);
@@ -88,6 +90,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     setStep('NOTIFYING');
     setError(null);
     setIsProcessing(true);
+    setUploadStatus(receiptFile ? 'UPLOADING' : 'IDLE');
+    setUploadMessage(receiptFile ? 'Enviando comprovante...' : null);
 
     try {
       let comprovanteUrl = null;
@@ -116,17 +120,28 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
             .from('comprovantes')
             .getPublicUrl(filePath);
           comprovanteUrl = publicUrl;
+          setUploadStatus('UPLOADED');
+          setUploadMessage('Comprovante carregado. Notificando operador...');
         }
       }
 
-      await portalService.submitPaymentIntentByPortalToken(
+      const result = await portalService.submitPaymentIntentByPortalToken(
         portalToken,
         portalCode,
         'COMPROVANTE',
         comprovanteUrl ?? null
       );
+
+      if (result && typeof result === 'object' && 'success' in result && result.success === false) {
+        throw new Error(result.message || 'Nao foi possivel notificar o operador.');
+      }
+
       setStep('SUCCESS');
     } catch (e: any) {
+      if (receiptFile) {
+        setUploadStatus('ERROR');
+        setUploadMessage('Falha ao carregar o comprovante.');
+      }
       setError(e?.message || 'Erro ao notificar operador.');
       setStep('BILLING');
     } finally {
@@ -204,14 +219,20 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
             isInstallmentPaid={shouldBlock}
             isProcessing={isProcessing}
             isProcessingOnline={isProcessingOnline}
+            uploadStatus={uploadStatus}
+            uploadMessage={uploadMessage}
             onMercadoPago={handleMercadoPago}
             receiptFile={receiptFile}
-            onFileChange={setReceiptFile}
+            onFileChange={(file) => {
+              setReceiptFile(file);
+              setUploadStatus('IDLE');
+              setUploadMessage(null);
+            }}
             onAsaas={() => setShowAsaasModal(true)}
           />
         )}
 
-        {step === 'NOTIFYING' && <NotifyingView />}
+        {step === 'NOTIFYING' && <NotifyingView message={uploadMessage || undefined} />}
         {step === 'SUCCESS' && <SuccessView onClose={onClose} />}
 
         {showAsaasModal && (

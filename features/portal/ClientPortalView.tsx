@@ -16,11 +16,13 @@ import {
   LogOut,
   Building,
   CheckCircle2,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 
 import { useClientPortalLogic } from './hooks/useClientPortalLogic';
 import { usePortalClientNotifications } from './hooks/usePortalClientNotifications';
+import { usePortalUnread } from './hooks/usePortalUnread';
 import { PortalPaymentModal } from './components/PortalPaymentModal';
 import { PortalChatDrawer } from './components/PortalChatDrawer';
 import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel, isPortalInstallmentPaid } from './mappers/portalDebtRules';
@@ -33,18 +35,31 @@ interface ContractBlockProps {
     loan: any;
     onPay: () => void;
     onChat: () => void;
+    isChatOpen: boolean;
 }
 
 // Componente Interno: Bloco de Contrato Individual
-const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) => {
+const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isChatOpen }) => {
     const summary = useMemo(() => resolveDebtSummary(loan, loan.installments), [loan]);
     const { hasLateInstallments, totalDue, pendingCount, nextDueDate } = summary;
+    const unreadCount = usePortalUnread(loan?.id, isChatOpen);
 
     // Pega o status da próxima parcela ou da mais atrasada
     const nextInst = loan.installments.find((i: any) => !isPortalInstallmentPaid(i));
     const statusInfo = nextInst ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate) : { label: 'Quitado', variant: 'OK' };
 
     const isPaidOff = pendingCount === 0;
+    const portalFiles = Array.isArray((loan as any).portalFiles) ? (loan as any).portalFiles : [];
+    const operatorFiles = portalFiles
+      .filter((file: any) => file.direction === 'OPERATOR_TO_CLIENT' && ['VISIBLE', 'APPROVED'].includes(String(file.status || '').toUpperCase()))
+      .slice(0, 3);
+    const clientFiles = portalFiles
+      .filter((file: any) => file.direction === 'CLIENT_TO_OPERATOR')
+      .slice(0, 3);
+    const openFile = (url: string) => {
+      if (!url) return;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
 
     return (
         <div className={`border rounded-lg p-4 transition-all ${hasLateInstallments ? 'bg-rose-950/10 border-rose-500/30' : isPaidOff ? 'bg-emerald-950/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}`}>
@@ -97,6 +112,45 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
             )}
 
             {/* Ações */}
+            {(operatorFiles.length > 0 || clientFiles.length > 0) && (
+                <div className="mb-4 space-y-2">
+                    {operatorFiles.length > 0 && (
+                        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mb-1">Arquivos do contrato</p>
+                            <div className="space-y-1">
+                                {operatorFiles.map((file: any) => (
+                                    <button
+                                        key={file.id}
+                                        onClick={() => openFile(file.file_url)}
+                                        className="w-full flex items-center justify-between gap-2 rounded-md bg-slate-900/80 px-2 py-1.5 text-left text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-800"
+                                    >
+                                        <span className="flex items-center gap-1.5 truncate"><FileText size={12} /> {file.file_name || 'Documento'}</span>
+                                        <ChevronRight size={12} className="shrink-0 text-slate-500" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {clientFiles.length > 0 && (
+                        <div className="rounded-lg border border-emerald-500/15 bg-emerald-950/10 p-2">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-emerald-400 mb-1">Enviado por voce</p>
+                            <div className="space-y-1">
+                                {clientFiles.map((file: any) => (
+                                    <button
+                                        key={file.id}
+                                        onClick={() => openFile(file.file_url)}
+                                        className="w-full flex items-center justify-between gap-2 rounded-md bg-slate-900/80 px-2 py-1.5 text-left text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-800"
+                                    >
+                                        <span className="flex items-center gap-1.5 truncate"><FileText size={12} /> {file.file_name || 'Comprovante'}</span>
+                                        <span className="shrink-0 text-[8px] font-black uppercase text-slate-500">{String(file.status || 'PENDENTE')}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                     onClick={onPay}
@@ -111,9 +165,14 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
                 </button>
                 <button
                     onClick={onChat}
-                    className="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
+                    className="relative py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
                 >
                     <MessageCircle size={14}/> Ajuda
+                    {unreadCount > 0 && (
+                        <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-slate-900 shadow-lg shadow-rose-950/30 animate-pulse">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                    )}
                 </button>
             </div>
         </div>
@@ -281,6 +340,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                             loan={contract}
                             onPay={() => setActiveLoanForPayment(contract)}
                             onChat={() => setActiveLoanForChat(contract)}
+                            isChatOpen={activeLoanForChat?.id === contract.id}
                         />
                     ))
                 )}

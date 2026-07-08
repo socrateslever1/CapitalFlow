@@ -18,6 +18,8 @@ interface BillingViewProps {
     isInstallmentPaid?: boolean;
     isProcessing?: boolean;
     isProcessingOnline?: boolean;
+    uploadStatus?: 'IDLE' | 'UPLOADING' | 'UPLOADED' | 'ERROR';
+    uploadMessage?: string | null;
     onMercadoPago?: () => void;
     onAsaas?: () => void;
     isProcessingAsaas?: boolean;
@@ -26,7 +28,7 @@ interface BillingViewProps {
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({
-    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, onMercadoPago, onAsaas, isProcessingAsaas = false, receiptFile, onFileChange
+    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onAsaas, isProcessingAsaas = false, receiptFile, onFileChange
 }) => {
     // Usa o helper centralizado para determinar a mensagem
     const { label, variant, detail } = getPortalDueLabel(daysLateRaw, dueDateISO);
@@ -122,23 +124,56 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             />
                         </label>
                     ) : (
-                        <div className="bg-slate-900 border border-blue-500/30 p-3 rounded-lg flex items-center justify-between">
+                        <div className={`bg-slate-900 border p-3 rounded-lg flex items-center justify-between ${
+                            uploadStatus === 'UPLOADING' ? 'border-amber-500/40' :
+                            uploadStatus === 'UPLOADED' ? 'border-emerald-500/40' :
+                            uploadStatus === 'ERROR' ? 'border-rose-500/40' :
+                            'border-blue-500/30'
+                        }`}>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
-                                    <FileText size={18} />
+                                    {uploadStatus === 'UPLOADING' ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
                                 </div>
                                 <div className="overflow-hidden">
                                     <p className="text-xs text-white font-bold truncate max-w-[180px]">{receiptFile.name}</p>
-                                    <p className="text-[9px] text-slate-500 uppercase">{(receiptFile.size / 1024).toFixed(0)} KB</p>
+                                    <p className={`text-[9px] uppercase ${
+                                        uploadStatus === 'UPLOADING' ? 'text-amber-400' :
+                                        uploadStatus === 'UPLOADED' ? 'text-emerald-400' :
+                                        uploadStatus === 'ERROR' ? 'text-rose-400' :
+                                        'text-amber-400'
+                                    }`}>
+                                        {uploadMessage || `${(receiptFile.size / 1024).toFixed(0)} KB selecionado. Ainda nao enviado.`}
+                                    </p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => onFileChange?.(null)}
+                                disabled={uploadStatus === 'UPLOADING'}
                                 className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
                             >
                                 <X size={16} />
                             </button>
                         </div>
+                    )}
+
+                    {uploadStatus === 'UPLOADED' ? (
+                        <div className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
+                            <CheckCircle2 size={16} /> Comprovante enviado ao operador
+                        </div>
+                    ) : (
+                        <button
+                            onClick={onNotify}
+                            disabled={isProcessing}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            {isProcessing ? (
+                                <><Loader2 size={16} className="animate-spin" /> {receiptFile ? 'Enviando comprovante...' : 'Processando...'}</>
+                            ) : receiptFile ? (
+                                <><CheckCircle2 size={16} /> Enviar comprovante e informar pagamento</>
+                            ) : (
+                                <><CheckCircle2 size={16} /> Informar pagamento sem comprovante</>
+                            )}
+                        </button>
                     )}
                 </div>
             )}
@@ -178,25 +213,11 @@ export const BillingView: React.FC<BillingViewProps> = ({
                 </div>
             )}
 
-            <div className="space-y-3">
-                {isInstallmentPaid ? (
-                    <div className="w-full bg-slate-800 text-slate-400 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 cursor-not-allowed">
-                        <CheckCircle2 size={16} className="text-emerald-500" /> Parcela Quitada
-                    </div>
-                ) : (
-                    <button
-                        onClick={onNotify}
-                        disabled={isProcessing}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        {isProcessing ? (
-                            <><Loader2 size={16} className="animate-spin" /> Processando...</>
-                        ) : (
-                            <><CheckCircle2 size={16} /> Informar Pagamento Realizado</>
-                        )}
-                    </button>
-                )}
-            </div>
+            {isInstallmentPaid && (
+                <div className="w-full bg-slate-800 text-slate-400 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2 cursor-not-allowed">
+                    <CheckCircle2 size={16} className="text-emerald-500" /> Parcela Quitada
+                </div>
+            )}
 
             {error && (
                 <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-lg flex items-center gap-2 text-rose-400 text-xs">
@@ -214,12 +235,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
 };
 
 // VIEW: NOTIFYING (Loading)
-export const NotifyingView = () => (
+export const NotifyingView = ({ message = 'Enviando notificação ao gestor' }: { message?: string }) => (
     <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
         <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
         <div>
             <p className="text-white font-bold text-lg">Processando...</p>
-            <p className="text-slate-500 text-xs">Enviando notificação ao gestor</p>
+            <p className="text-slate-500 text-xs">{message}</p>
         </div>
     </div>
 );

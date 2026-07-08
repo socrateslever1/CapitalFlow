@@ -15,7 +15,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
 
   const [isSigning, setIsSigning] = useState(false);
 
-  const hydratePortalLoan = useCallback((rawLoan: any, fallbackSignals: any[] = []) => {
+  const hydratePortalLoan = useCallback((rawLoan: any, fallbackSignals: any[] = [], fallbackFiles: any[] = []) => {
     if (!rawLoan) return null;
 
     const rawInstallments =
@@ -40,8 +40,14 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
       rawLoan.payment_intents ??
       fallbackSignals;
 
+    const loanId = rawLoan.id || rawLoan.loan_id || rawLoan.loanId;
+    const portalFiles =
+      rawLoan.portalFiles ??
+      rawLoan.portal_files ??
+      fallbackFiles.filter((file: any) => !loanId || file.loan_id === loanId || file.loanId === loanId);
+
     return mapLoanFromDB(
-      { ...rawLoan, paymentSignals },
+      { ...rawLoan, paymentSignals, portalFiles },
       rawInstallments,
       rawAgreement,
       rawAgreementInstallments
@@ -83,6 +89,12 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
       });
 
       const { installments, signals } = await portalService.fetchLoanDetailsByPortal(initialToken, initialCode);
+      let files: any[] = [];
+      try {
+        files = await portalService.fetchPortalFiles(initialToken, initialCode);
+      } catch (fileErr) {
+        console.error('Erro ao buscar arquivos do portal:', fileErr);
+      }
 
       const primaryLoanId = fullLoanData?.id ?? normalizedContractsList[0]?.id ?? null;
 
@@ -90,17 +102,24 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         .map((contractHeader: any) => {
           if (primaryLoanId && contractHeader?.id === primaryLoanId && fullLoanData) {
             return hydratePortalLoan(
-              {
-                ...contractHeader,
-                ...fullLoanData,
-                installments,
-                paymentSignals: signals,
-              },
-              signals
+          {
+            ...contractHeader,
+            ...fullLoanData,
+            installments,
+            paymentSignals: signals,
+            portalFiles: files.filter((file: any) => file.loan_id === contractHeader?.id),
+          },
+              signals,
+              files.filter((file: any) => file.loan_id === contractHeader?.id)
             );
           }
 
-          return hydratePortalLoan(contractHeader);
+          return hydratePortalLoan(
+            {
+              ...contractHeader,
+              portalFiles: files.filter((file: any) => file.loan_id === contractHeader?.id),
+            }
+          );
         })
         .filter((contract): contract is Loan => !!contract);
 
@@ -110,8 +129,10 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
             ...fullLoanData,
             installments,
             paymentSignals: signals,
+            portalFiles: files.filter((file: any) => file.loan_id === fullLoanData?.id),
           },
-          signals
+          signals,
+          files.filter((file: any) => file.loan_id === fullLoanData?.id)
         );
 
         if (fallbackLoan) {
@@ -161,6 +182,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         fullLoanData,
         installments,
         signals,
+        files,
         documents: docs,
       });
     } catch (err: any) {
@@ -171,7 +193,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
           const offlineClient = snapshot.payload.clientData || null;
           const offlineContractsRaw = Array.isArray(snapshot.payload.contracts) ? snapshot.payload.contracts : [];
           const offlineContracts = offlineContractsRaw
-            .map((contract: any) => hydratePortalLoan(contract, snapshot.payload.signals || []))
+            .map((contract: any) => hydratePortalLoan(contract, snapshot.payload.signals || [], snapshot.payload.files || []))
             .filter((contract): contract is Loan => !!contract);
 
           setLoggedClient(offlineClient);

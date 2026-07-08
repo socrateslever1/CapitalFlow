@@ -86,7 +86,19 @@ const fetchRemoteSnapshot = async (ownerId: string) => {
       .from('contratos')
       .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
       .eq('owner_id', ownerId),
-    supabase.from('perfis').select('*').eq('owner_profile_id', ownerId)
+    supabase.from('perfis').select('*').eq('owner_profile_id', ownerId),
+    supabase
+      .from('portal_files')
+      .select('*')
+      .eq('profile_id', ownerId)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('mensagens_suporte')
+      .select('id, loan_id, read, sender_type')
+      .eq('profile_id', ownerId)
+      .eq('sender_type', 'CLIENT')
+      .eq('read', false)
+      .limit(1000)
   ]);
 };
 
@@ -109,18 +121,20 @@ export const syncService = {
       await this.processQueue();
 
       // 1. Buscar tudo em paralelo para velocidade
-      let [clientsRes, sourcesRes, loansRes, staffRes] = await fetchRemoteSnapshot(ownerId);
+      let [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes] = await fetchRemoteSnapshot(ownerId);
 
       const firstError = clientsRes.error || sourcesRes.error || loansRes.error || staffRes.error;
       if (firstError && isAuthSyncError(firstError)) {
         await ensureFreshAuth(true);
-        [clientsRes, sourcesRes, loansRes, staffRes] = await fetchRemoteSnapshot(ownerId);
+        [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes] = await fetchRemoteSnapshot(ownerId);
       }
 
       if (clientsRes.error) throw clientsRes.error;
       if (sourcesRes.error) throw sourcesRes.error;
       if (loansRes.error) throw loansRes.error;
       if (staffRes.error) throw staffRes.error;
+      if (portalFilesRes.error) console.warn('[SYNC] portal_files indisponivel:', portalFilesRes.error);
+      if (supportUnreadRes.error) console.warn('[SYNC] mensagens_suporte indisponivel:', supportUnreadRes.error);
 
       // 2. Salvar Clientes
       const mappedClients = (clientsRes.data || []).map(mapClientFromDB);
@@ -142,12 +156,29 @@ export const syncService = {
       const allLoans: any[] = [];
       const allInstallments: any[] = [];
       const allTransactions: any[] = [];
+      const portalFilesByLoan = new Map<string, any[]>();
+      (portalFilesRes.data || []).forEach((file: any) => {
+        if (!file?.loan_id) return;
+        const current = portalFilesByLoan.get(file.loan_id) || [];
+        current.push(file);
+        portalFilesByLoan.set(file.loan_id, current);
+      });
+
+      const unreadByLoan = new Map<string, number>();
+      (supportUnreadRes.data || []).forEach((message: any) => {
+        if (!message?.loan_id) return;
+        unreadByLoan.set(message.loan_id, (unreadByLoan.get(message.loan_id) || 0) + 1);
+      });
 
       (loansRes.data || []).forEach(l => {
         // O contrato em si (sem o aninhamento pesado para a tabela de busca)
         // Mantemos acordos_inadimplencia no loanBase pois são pequenos e vitais para a UI
         const { parcelas, transacoes, ...loanBase } = l;
-        allLoans.push(loanBase);
+        allLoans.push({
+          ...loanBase,
+          portal_files: portalFilesByLoan.get(l.id) || [],
+          support_unread_count: unreadByLoan.get(l.id) || 0,
+        });
 
         if (parcelas) allInstallments.push(...parcelas);
         if (transacoes) allTransactions.push(...transacoes);
@@ -156,6 +187,7 @@ export const syncService = {
       await db.contratos.bulkPut(allLoans);
       if (allInstallments.length > 0) await db.parcelas.bulkPut(allInstallments);
       if (allTransactions.length > 0) await db.transacoes.bulkPut(allTransactions);
+      if (portalFilesRes.data?.length) await db.portal_files.bulkPut(portalFilesRes.data as any[]);
 
       // 5. Atualizar metadados de sincronização
       const remoteLoanIds = new Set(allLoans.map((loan) => loan.id).filter(Boolean));
@@ -214,7 +246,7 @@ export const syncService = {
       ]);
 
       // Mapeia para o formato do Frontend usando o adapter existente
-      return mapLoanFromDB({ ...l, parcelas, transacoes }, clients);
+      return mapLoanFromDB({ ...l, parcelas, transacoes, portal_files: l.portal_files || [] }, clients);
     }));
 
     return {

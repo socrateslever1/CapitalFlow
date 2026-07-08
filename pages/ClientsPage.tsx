@@ -2,8 +2,10 @@ import React from 'react';
 import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, ChevronLeft, Users, ShieldAlert } from 'lucide-react';
 import { Client, Loan } from '../types';
 import { startDictation } from '../utils/speech';
-import { formatShortName, maskPhone, maskDocument } from '../utils/formatters';
+import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
+import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
+import { loanEngine } from '../domain/loanEngine';
 
 interface ClientsPageProps {
   filteredClients: Client[];
@@ -31,6 +33,75 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   goBack,
   isStealthMode
 }) => {
+  const today = todayDateOnlyUTC();
+
+  const getLoanOpenAmount = (loan: Loan) => {
+    const loanStatus = String((loan as any).status || '').toUpperCase();
+    if (['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'FINALIZADO'].includes(loanStatus)) return 0;
+
+    const engineTotal = loanEngine.computeRemainingBalance(loan).totalRemaining;
+    if (engineTotal > 0.5) return engineTotal;
+
+    const hasInstallments = (loan.installments || []).length > 0;
+    const installmentTotal = (loan.installments || []).reduce((total, inst: any) => {
+      const status = String(inst?.status || '').toUpperCase();
+      if (['PAID', 'PAGO', 'QUITADO', 'CANCELADO', 'RENEGOCIADO'].includes(status)) return total;
+
+      return total +
+        Number(inst?.principalRemaining || 0) +
+        Number(inst?.interestRemaining || 0) +
+        Number(inst?.lateFeeAccrued || 0);
+    }, 0);
+
+    return installmentTotal > 0.5
+      ? installmentTotal
+      : hasInstallments
+        ? 0
+      : Number((loan as any).totalDebt || (loan as any).currentDebt || loan.totalToReceive || loan.principal || 0);
+  };
+
+  const getNextOpenDueDate = (loan: Loan) => {
+    const next = (loan.installments || []).find((inst: any) => {
+      const status = String(inst?.status || '').toUpperCase();
+      if (['PAID', 'PAGO', 'QUITADO', 'CANCELADO', 'RENEGOCIADO'].includes(status)) return false;
+
+      const open =
+        Number(inst?.principalRemaining || 0) +
+        Number(inst?.interestRemaining || 0) +
+        Number(inst?.lateFeeAccrued || 0);
+
+      return open > 0.5;
+    });
+
+    return (next as any)?.dueDate ? parseDateOnlyUTC((next as any).dueDate) : null;
+  };
+
+  const getClientContractIndicators = (client: Client) => loans
+    .filter((loan) => loan.clientId === client.id && !loan.isArchived)
+    .map((loan) => ({ loan, amount: getLoanOpenAmount(loan) }))
+    .filter(({ amount }) => amount > 0.5)
+    .map(({ loan, amount }, index) => {
+      const due = getNextOpenDueDate(loan);
+      const diffDays = due ? Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+      const status = due && due.getTime() < today.getTime()
+        ? 'OVERDUE'
+        : diffDays !== null && diffDays >= 0 && diffDays <= 3
+          ? 'DUE_SOON'
+          : 'OK';
+
+      const colorClass = status === 'OVERDUE'
+        ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+        : status === 'DUE_SOON'
+          ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+          : 'border-blue-500/40 bg-blue-500/10 text-blue-300';
+
+      return {
+        id: loan.id,
+        label: `${index + 1}. ${formatMoney(amount, isStealthMode)}`,
+        colorClass,
+      };
+    });
+
   return (
     <div className="space-y-6 animate-in fade-in">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -77,7 +148,10 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
         {/* GRID COMPACTA E MODERNA */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[...filteredClients].sort((a, b) => a.name.localeCompare(b.name)).map(client => (
+            {[...filteredClients].sort((a, b) => a.name.localeCompare(b.name)).map(client => {
+                const contractIndicators = getClientContractIndicators(client);
+
+                return (
                 <div
                     key={client.id}
                     className={`bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
@@ -125,6 +199,25 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         )}
                     </div>
 
+                    {contractIndicators.length > 0 && (
+                        <div className="mb-3 flex items-center gap-1.5 overflow-hidden">
+                            {contractIndicators.slice(0, 3).map((item) => (
+                                <span
+                                    key={item.id}
+                                    className={`min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
+                                    title={item.label}
+                                >
+                                    {item.label}
+                                </span>
+                            ))}
+                            {contractIndicators.length > 3 && (
+                                <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
+                                    +{contractIndicators.length - 3}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     <div className="space-y-1.5 mt-auto">
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
                             <Phone size={12} className="text-blue-500"/>
@@ -150,7 +243,8 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         )}
                     </div>
                 </div>
-            ))}
+                );
+            })}
         </div>
     </div>
   );

@@ -44,6 +44,9 @@ USING (
     WHERE user_id = auth.uid()
        OR email = auth.jwt() ->> 'email'
        OR usuario_email = auth.jwt() ->> 'email'
+       OR id IN (
+          SELECT supervisor_id FROM perfis WHERE user_id = auth.uid()
+       )
        OR supervisor_id IN (
           SELECT id FROM perfis WHERE user_id = auth.uid()
        )
@@ -56,6 +59,9 @@ WITH CHECK (
     WHERE user_id = auth.uid()
        OR email = auth.jwt() ->> 'email'
        OR usuario_email = auth.jwt() ->> 'email'
+       OR id IN (
+          SELECT supervisor_id FROM perfis WHERE user_id = auth.uid()
+       )
        OR supervisor_id IN (
           SELECT id FROM perfis WHERE user_id = auth.uid()
        )
@@ -142,6 +148,150 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION notify_portal_file_operator()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_client_name text;
+  v_title text;
+  v_message text;
+BEGIN
+  IF NEW.profile_id IS NULL OR NEW.direction <> 'CLIENT_TO_OPERATOR' OR NEW.payment_intent_id IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM notificacoes n
+    WHERE n.item_type = 'portal_file'
+      AND n.item_id = NEW.id::text
+  ) THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT COALESCE(NULLIF(TRIM(c.debtor_name), ''), NULLIF(TRIM(cli.name), ''), 'Cliente')
+  INTO v_client_name
+  FROM contratos c
+  LEFT JOIN clientes cli ON cli.id = c.client_id
+  WHERE c.id = NEW.loan_id
+  LIMIT 1;
+
+  v_title := CASE
+    WHEN NEW.category = 'PAYMENT_PROOF' THEN 'Comprovante recebido'
+    ELSE 'Arquivo recebido pelo portal'
+  END;
+
+  v_message := CASE
+    WHEN NEW.category = 'PAYMENT_PROOF'
+      THEN COALESCE(v_client_name, 'Cliente') || ' enviou um comprovante pelo portal do cliente.'
+    ELSE COALESCE(v_client_name, 'Cliente') || ' enviou um arquivo pelo portal do cliente.'
+  END;
+
+  INSERT INTO notificacoes (
+    profile_id,
+    titulo,
+    mensagem,
+    item_type,
+    item_id,
+    metadata,
+    created_at
+  ) VALUES (
+    NEW.profile_id,
+    v_title,
+    v_message,
+    'portal_file',
+    NEW.id::text,
+    jsonb_build_object(
+      'loan_id', NEW.loan_id,
+      'client_id', NEW.client_id,
+      'portal_file_id', NEW.id,
+      'payment_intent_id', NEW.payment_intent_id,
+      'file_url', NEW.file_url,
+      'category', NEW.category,
+      'origem', 'portal_files'
+    ),
+    NOW()
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rpc_register_operator_portal_file(
+  p_loan_id uuid,
+  p_file_name text,
+  p_file_url text,
+  p_mime_type text DEFAULT NULL,
+  p_file_size bigint DEFAULT NULL,
+  p_category text DEFAULT 'DOCUMENT',
+  p_status text DEFAULT 'VISIBLE',
+  p_metadata jsonb DEFAULT '{}'::jsonb
+) RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_profile_id uuid;
+  v_client_id uuid;
+  v_file_id uuid;
+BEGIN
+  IF p_loan_id IS NULL OR COALESCE(TRIM(p_file_url), '') = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Arquivo ou contrato invalido.');
+  END IF;
+
+  SELECT c.client_id, COALESCE(c.profile_id, c.owner_id)
+  INTO v_client_id, v_profile_id
+  FROM contratos c
+  WHERE c.id = p_loan_id
+    AND public.portal_status_allows_access(c.status, c.is_archived)
+    AND COALESCE(c.profile_id, c.owner_id) IN (
+      SELECT p.id
+      FROM perfis p
+      WHERE p.user_id = auth.uid()
+         OR p.email = auth.jwt() ->> 'email'
+         OR p.usuario_email = auth.jwt() ->> 'email'
+         OR p.id IN (SELECT supervisor_id FROM perfis WHERE user_id = auth.uid())
+         OR p.supervisor_id IN (SELECT id FROM perfis WHERE user_id = auth.uid())
+    )
+  LIMIT 1;
+
+  IF v_profile_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Sem permissao para registrar arquivo neste contrato.');
+  END IF;
+
+  INSERT INTO portal_files (
+    profile_id,
+    client_id,
+    loan_id,
+    direction,
+    category,
+    file_name,
+    file_url,
+    mime_type,
+    file_size,
+    status,
+    metadata
+  ) VALUES (
+    v_profile_id,
+    v_client_id,
+    p_loan_id,
+    'OPERATOR_TO_CLIENT',
+    CASE WHEN p_category IN ('DOCUMENT', 'NOTE', 'OTHER') THEN p_category ELSE 'DOCUMENT' END,
+    NULLIF(TRIM(COALESCE(p_file_name, '')), ''),
+    p_file_url,
+    p_mime_type,
+    p_file_size,
+    CASE WHEN p_status IN ('VISIBLE', 'APPROVED', 'ARCHIVED') THEN p_status ELSE 'VISIBLE' END,
+    COALESCE(p_metadata, '{}'::jsonb)
+  )
+  RETURNING id INTO v_file_id;
+
+  RETURN jsonb_build_object('success', true, 'portal_file_id', v_file_id);
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal_get_files(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -195,6 +345,12 @@ CREATE TRIGGER trg_payment_intents_operator_notification
 AFTER INSERT ON payment_intents
 FOR EACH ROW
 EXECUTE FUNCTION notify_payment_intent_operator();
+
+DROP TRIGGER IF EXISTS trg_portal_files_operator_notification ON portal_files;
+CREATE TRIGGER trg_portal_files_operator_notification
+AFTER INSERT ON portal_files
+FOR EACH ROW
+EXECUTE FUNCTION notify_portal_file_operator();
 
 CREATE OR REPLACE FUNCTION portal_registrar_intencao(
   p_token text,
@@ -390,6 +546,8 @@ $$;
 
 GRANT EXECUTE ON FUNCTION portal_registrar_intencao(text, text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION notify_payment_intent_operator() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION notify_portal_file_operator() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION rpc_register_operator_portal_file(uuid, text, text, text, bigint, text, text, jsonb) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION portal_get_files(text, text) TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON portal_files TO authenticated, service_role;
 

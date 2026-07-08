@@ -78,6 +78,17 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   const debtorNameSafe = getDebtorNameSafe(loan);
 
   // Definição da cor da borda lateral baseada no status
+  const hasPendingPaymentSignal = (loan.paymentSignals || []).some((signal: any) => {
+    const status = String(signal?.status || '').toUpperCase();
+    return ['PENDENTE', 'PENDING'].includes(status) || !!signal?.comprovante_url || !!signal?.comprovanteUrl;
+  });
+  const hasPendingPortalFile = (loan.portalFiles || []).some((file: any) => {
+    const status = String(file?.status || '').toUpperCase();
+    return file?.direction === 'CLIENT_TO_OPERATOR' && ['PENDING', 'PENDENTE'].includes(status);
+  });
+  const hasUnreadClientMessage = Number((loan as any).supportUnreadCount || 0) > 0;
+  const hasPendingPortalAction = hasPendingPaymentSignal || hasPendingPortalFile || hasUnreadClientMessage;
+
   let borderLeftColor = "border-l-slate-700"; // Padrão
   if (isFullyFinalized) borderLeftColor = "border-l-emerald-500";
   else if (isCapitalOnlyRecovery) borderLeftColor = "border-l-rose-600";
@@ -131,7 +142,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   return (
     <div
       ref={cardRef}
-      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
+      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
       onClick={handleCardClick}
       onDoubleClick={handleNavigate}
     >

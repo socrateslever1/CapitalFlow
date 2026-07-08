@@ -30,15 +30,57 @@ export type PixChargeCreateResponse = {
   step?: string;
 };
 
-export async function createPixCharge(input: PixChargeCreateInput): Promise<PixChargeCreateResponse> {
-  const { data, error } = await supabase.functions.invoke("mp-create-pix", {
-    body: input,
+function readSupabaseEnv() {
+  const env = (import.meta as any).env || {};
+  return {
+    url: String(env.VITE_SUPABASE_URL || 'https://hzchchbxkhryextaymkn.supabase.co').trim(),
+    anonKey: String(env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6Y2hjaGJ4a2hyeWV4dGF5bWtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NTk2ODcsImV4cCI6MjA4MzMzNTY4N30.kX6FlTuPkl7XfycwVuZN2mI6e3ed8NaDUoyAHy9L3nc').trim(),
+  };
+}
+
+async function invokeFunctionWithReadableError(functionName: string, body: Record<string, any>) {
+  const { url, anonKey } = readSupabaseEnv();
+  const { data: { session } } = await supabase.auth.getSession();
+  const bearer = session?.access_token || anonKey;
+
+  const response = await fetch(`${url}/functions/v1/${functionName}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: anonKey,
+      Authorization: `Bearer ${bearer}`,
+    },
+    body: JSON.stringify(body),
   });
 
-  if (error) {
-    return { ok: false, step: "invoke_mp-create-pix", error: error.message };
+  const raw = await response.text();
+  let payload: any = null;
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
   }
-  return data as PixChargeCreateResponse;
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      step: `invoke_${functionName}`,
+      error: payload?.error || payload?.message || raw || `Falha na funcao ${functionName}.`,
+    };
+  }
+
+  return payload;
+}
+
+export async function createPixCharge(input: PixChargeCreateInput): Promise<PixChargeCreateResponse> {
+  const result = await invokeFunctionWithReadableError("mp-create-pix", input) as PixChargeCreateResponse;
+  if (!result?.ok && result?.error?.includes("Sessao expirada")) {
+    return {
+      ...result,
+      error: "Sessao expirada. Saia e entre novamente para gerar o PIX do Mercado Pago.",
+    };
+  }
+  return result;
 }
 
 export async function fetchChargeById(chargeId: string) {

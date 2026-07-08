@@ -183,4 +183,126 @@ export const whatsappConfigService = {
       return { success: false, message: err.message || 'Falha ao enviar mensagem.' };
     }
   },
+
+  async listTemplates(profileId: string) {
+    if (!profileId) return [];
+    const { data, error } = await supabase
+      .from('whatsapp_templates')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao listar templates:', error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  async saveTemplate(profileId: string, template: { id?: string; category: 'AVISO' | 'COBRANCA' | 'CONFIRMACAO' | 'ATENDIMENTO' | 'JURIDICO'; name: string; content: string; requires_approval: boolean }) {
+    if (!profileId) throw new Error('ID do perfil nao informado.');
+
+    const payload = {
+      profile_id: profileId,
+      category: template.category,
+      name: template.name.trim(),
+      content: template.content.trim(),
+      requires_approval: template.category === 'JURIDICO' ? true : template.requires_approval,
+      updated_at: new Date().toISOString()
+    };
+
+    let error;
+    if (template.id) {
+      const { error: err } = await supabase
+        .from('whatsapp_templates')
+        .update(payload)
+        .eq('id', template.id);
+      error = err;
+    } else {
+      const { error: err } = await supabase
+        .from('whatsapp_templates')
+        .insert({ ...payload, created_at: new Date().toISOString() });
+      error = err;
+    }
+
+    if (error) {
+      console.error('Erro ao salvar template:', error);
+      throw error;
+    }
+    return true;
+  },
+
+  async deleteTemplate(templateId: string) {
+    if (!templateId) throw new Error('ID do template nao informado.');
+    const { error } = await supabase
+      .from('whatsapp_templates')
+      .delete()
+      .eq('id', templateId);
+
+    if (error) {
+      console.error('Erro ao deletar template:', error);
+      throw error;
+    }
+    return true;
+  },
+
+  async listQueue(profileId: string) {
+    if (!profileId) return [];
+    const { data, error } = await supabase
+      .from('whatsapp_queue')
+      .select('*')
+      .eq('profile_id', profileId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao listar fila/logs:', error);
+      throw error;
+    }
+    return data || [];
+  },
+
+  async approveMessage(queueId: string, approvedByProfileId: string) {
+    if (!queueId) throw new Error('ID do item de fila nao informado.');
+    const { error } = await supabase
+      .from('whatsapp_queue')
+      .update({
+        status: 'PENDING',
+        approved_by: approvedByProfileId,
+        approved_at: new Date().toISOString(),
+        error_message: null
+      })
+      .eq('id', queueId);
+
+    if (error) {
+      console.error('Erro ao aprovar mensagem:', error);
+      throw error;
+    }
+    return true;
+  },
+
+  async rejectMessage(queueId: string) {
+    if (!queueId) throw new Error('ID do item de fila nao informado.');
+    const { error } = await supabase
+      .from('whatsapp_queue')
+      .update({
+        status: 'ERROR',
+        error_message: 'Envio recusado manualmente pelo operador'
+      })
+      .eq('id', queueId);
+
+    if (error) {
+      console.error('Erro ao recusar mensagem:', error);
+      throw error;
+    }
+    return true;
+  },
+
+  async triggerBillingReminders(): Promise<{ success: boolean; processed_count?: number; message?: string }> {
+    const { data, error } = await supabase.rpc('rpc_process_billing_reminders');
+    if (error) {
+      console.error('Erro ao disparar regua de cobranca:', error);
+      return { success: false, message: error.message };
+    }
+    return { success: true, processed_count: (data as any)?.processed_count || 0 };
+  }
 };

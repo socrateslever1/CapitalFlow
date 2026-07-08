@@ -1,0 +1,3981 @@
+[
+  {
+    "name": "acordo_assinaturas",
+    "columns": [
+      {
+        "name": "documento_id",
+        "type": "string | null"
+      },
+      {
+        "name": "email",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip_address",
+        "type": "string | null"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "provider_signer_id",
+        "type": "string | null"
+      },
+      {
+        "name": "role",
+        "type": "string"
+      },
+      {
+        "name": "signed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "telefone",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "acordo_documentos",
+    "columns": [
+      {
+        "name": "acordo_id",
+        "type": "string | null"
+      },
+      {
+        "name": "assinatura_envelope_id",
+        "type": "string | null"
+      },
+      {
+        "name": "assinatura_provider",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "payload",
+        "type": "Json"
+      },
+      {
+        "name": "pdf_hash",
+        "type": "string | null"
+      },
+      {
+        "name": "pdf_url",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "template_version",
+        "type": "string"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "acordo_pagamentos",
+    "columns": [
+      {
+        "name": "acordo_id",
+        "type": "string"
+      },
+      {
+        "name": "amount",
+        "type": "number"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "paid_at",
+        "type": "string"
+      },
+      {
+        "name": "parcela_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "source_id",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "acordo_parcelas",
+    "columns": [
+      {
+        "name": "acordo_id",
+        "type": "string"
+      },
+      {
+        "name": "amount",
+        "type": "number"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "data_pagamento",
+        "type": "string | null"
+      },
+      {
+        "name": "data_vencimento",
+        "type": "string | null"
+      },
+      {
+        "name": "due_date",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "numero",
+        "type": "number"
+      },
+      {
+        "name": "paid_amount",
+        "type": "number"
+      },
+      {
+        "name": "paid_at",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "valor",
+        "type": "number | null"
+      },
+      {
+        "name": "valor_pago",
+        "type": "number | null"
+      }
+    ]
+  },
+  {
+    "name": "acordos_inadimplencia",
+    "columns": [
+      {
+        "name": "calculation_mode",
+        "type": "string | null"
+      },
+      {
+        "name": "calculation_result",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "discount",
+        "type": "number | null"
+      },
+      {
+        "name": "down_payment",
+        "type": "number | null"
+      },
+      {
+        "name": "first_due_date",
+        "type": "string"
+      },
+      {
+        "name": "grace_days",
+        "type": "number | null"
+      },
+      {
+        "name": "grace_period",
+        "type": "number | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "installment_value",
+        "type": "number | null"
+      },
+      {
+        "name": "installments",
+        "type": "number"
+      },
+      {
+        "name": "interest_base",
+        "type": "number"
+      },
+      {
+        "name": "interest_rate",
+        "type": "number"
+      },
+      {
+        "name": "juros_aplicado",
+        "type": "number | null"
+      },
+      {
+        "name": "juros_mensal_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "juros_modo",
+        "type": "string"
+      },
+      {
+        "name": "late_fee_base",
+        "type": "number"
+      },
+      {
+        "name": "legal_document_id",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "num_parcelas",
+        "type": "number"
+      },
+      {
+        "name": "periodicidade",
+        "type": "string"
+      },
+      {
+        "name": "principal_base",
+        "type": "number"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "qtd_parcelas",
+        "type": "number | null"
+      },
+      {
+        "name": "signature_status",
+        "type": "string | null"
+      },
+      {
+        "name": "signature_token",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "tipo_acordo",
+        "type": "string | null"
+      },
+      {
+        "name": "total_amount",
+        "type": "number"
+      },
+      {
+        "name": "total_base",
+        "type": "number"
+      },
+      {
+        "name": "total_divida_base",
+        "type": "number | null"
+      },
+      {
+        "name": "total_negociado",
+        "type": "number"
+      },
+      {
+        "name": "updated_at",
+        "type": "string"
+      },
+      {
+        "name": "valor_parcela",
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "name": "agenda",
+    "columns": [
+      {
+        "name": "categoria",
+        "type": "string | null"
+      },
+      {
+        "name": "concluido",
+        "type": "boolean | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data_hora",
+        "type": "string"
+      },
+      {
+        "name": "descricao",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "status_cor",
+        "type": "string | null"
+      },
+      {
+        "name": "titulo",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "assinaturas_documento",
+    "columns": [
+      {
+        "name": "aceitou",
+        "type": "boolean | null"
+      },
+      {
+        "name": "assinatura_hash",
+        "type": "string | null"
+      },
+      {
+        "name": "assinatura_imagem",
+        "type": "string | null"
+      },
+      {
+        "name": "cpf",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "dispositivo_info",
+        "type": "Json | null"
+      },
+      {
+        "name": "document_id",
+        "type": "string"
+      },
+      {
+        "name": "hash_assinado",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip",
+        "type": "string | null"
+      },
+      {
+        "name": "ip_origem",
+        "type": "string | null"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "papel",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "role",
+        "type": "string | null"
+      },
+      {
+        "name": "signed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "signer_document",
+        "type": "string | null"
+      },
+      {
+        "name": "signer_email",
+        "type": "string | null"
+      },
+      {
+        "name": "signer_name",
+        "type": "string | null"
+      },
+      {
+        "name": "user_agent",
+        "type": "string | null"
+      },
+      {
+        "name": "user_id",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "audit_perfis_sensiveis",
+    "columns": [
+      {
+        "name": "actor_uid",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "evento",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "new_row",
+        "type": "Json | null"
+      },
+      {
+        "name": "old_row",
+        "type": "Json | null"
+      },
+      {
+        "name": "perfil_id",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "backups",
+    "columns": [
+      {
+        "name": "backup_version",
+        "type": "number"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "payload",
+        "type": "Json"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "balance_adjustments",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "created_by",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "principal_amount",
+        "type": "number"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "profit_amount",
+        "type": "number"
+      },
+      {
+        "name": "reason",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "bkp_pf_cartoes",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "dia_fechamento",
+        "type": "number | null"
+      },
+      {
+        "name": "dia_vencimento",
+        "type": "number | null"
+      },
+      {
+        "name": "id",
+        "type": "string | null"
+      },
+      {
+        "name": "limite",
+        "type": "number | null"
+      },
+      {
+        "name": "nome",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "bkp_pf_categorias",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "icone",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string | null"
+      },
+      {
+        "name": "nome",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "tipo",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "bkp_pf_contas",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string | null"
+      },
+      {
+        "name": "nome",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "saldo",
+        "type": "number | null"
+      },
+      {
+        "name": "tipo",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "bkp_pf_objetivos",
+    "columns": [
+      {
+        "name": "cor",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data_meta",
+        "type": "string | null"
+      },
+      {
+        "name": "descricao",
+        "type": "string | null"
+      },
+      {
+        "name": "icone",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "titulo",
+        "type": "string | null"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_alvo",
+        "type": "number | null"
+      },
+      {
+        "name": "valor_atual",
+        "type": "number | null"
+      }
+    ]
+  },
+  {
+    "name": "bkp_pf_transacoes",
+    "columns": [
+      {
+        "name": "cartao_id",
+        "type": "string | null"
+      },
+      {
+        "name": "categoria_id",
+        "type": "string | null"
+      },
+      {
+        "name": "conta_destino_id",
+        "type": "string | null"
+      },
+      {
+        "name": "conta_id",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data",
+        "type": "string | null"
+      },
+      {
+        "name": "data_pagamento",
+        "type": "string | null"
+      },
+      {
+        "name": "descricao",
+        "type": "string | null"
+      },
+      {
+        "name": "fixo",
+        "type": "boolean | null"
+      },
+      {
+        "name": "id",
+        "type": "string | null"
+      },
+      {
+        "name": "installment_number",
+        "type": "number | null"
+      },
+      {
+        "name": "is_operation_transfer",
+        "type": "boolean | null"
+      },
+      {
+        "name": "observacoes",
+        "type": "string | null"
+      },
+      {
+        "name": "operation_source_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "tipo",
+        "type": "string | null"
+      },
+      {
+        "name": "total_installments",
+        "type": "number | null"
+      },
+      {
+        "name": "valor",
+        "type": "number | null"
+      }
+    ]
+  },
+  {
+    "name": "calendar_events",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "description",
+        "type": "string | null"
+      },
+      {
+        "name": "end_time",
+        "type": "string"
+      },
+      {
+        "name": "google_event_id",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "is_all_day",
+        "type": "boolean | null"
+      },
+      {
+        "name": "priority",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "recurrence",
+        "type": "string | null"
+      },
+      {
+        "name": "related_client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "related_loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "start_time",
+        "type": "string"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "type",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "campaign_leads",
+    "columns": [
+      {
+        "name": "campaign_id",
+        "type": "string"
+      },
+      {
+        "name": "cpf",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip",
+        "type": "string | null"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "owner_id",
+        "type": "string"
+      },
+      {
+        "name": "session_token",
+        "type": "string"
+      },
+      {
+        "name": "user_agent",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_escolhido",
+        "type": "number"
+      },
+      {
+        "name": "whatsapp",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "campaign_messages",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "message",
+        "type": "string"
+      },
+      {
+        "name": "sender",
+        "type": "string"
+      },
+      {
+        "name": "session_token",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "campaigns",
+    "columns": [
+      {
+        "name": "ativa",
+        "type": "boolean"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "descricao",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "owner_id",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "categorias_financeiras",
+    "columns": [
+      {
+        "name": "cor",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "icone",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "clientes",
+    "columns": [
+      {
+        "name": "access_code",
+        "type": "string | null"
+      },
+      {
+        "name": "address",
+        "type": "string | null"
+      },
+      {
+        "name": "city",
+        "type": "string | null"
+      },
+      {
+        "name": "client_number",
+        "type": "string | null"
+      },
+      {
+        "name": "cnpj",
+        "type": "string | null"
+      },
+      {
+        "name": "cpf",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "document",
+        "type": "string | null"
+      },
+      {
+        "name": "email",
+        "type": "string | null"
+      },
+      {
+        "name": "foto_url",
+        "type": "string | null"
+      },
+      {
+        "name": "gender",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "owner_id",
+        "type": "string"
+      },
+      {
+        "name": "phone",
+        "type": "string | null"
+      },
+      {
+        "name": "photo",
+        "type": "string | null"
+      },
+      {
+        "name": "portal_token",
+        "type": "string | null"
+      },
+      {
+        "name": "state",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "clientes_financeiro",
+    "columns": [
+      {
+        "name": "cpf",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "email",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "telefone",
+        "type": "string | null"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "clientes_old",
+    "columns": [
+      {
+        "name": "access_code",
+        "type": "string | null"
+      },
+      {
+        "name": "access_level",
+        "type": "number | null"
+      },
+      {
+        "name": "address",
+        "type": "string | null"
+      },
+      {
+        "name": "city",
+        "type": "string | null"
+      },
+      {
+        "name": "client_number",
+        "type": "string | null"
+      },
+      {
+        "name": "cnpj",
+        "type": "string | null"
+      },
+      {
+        "name": "cpf",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "document",
+        "type": "string | null"
+      },
+      {
+        "name": "email",
+        "type": "string | null"
+      },
+      {
+        "name": "foto_url",
+        "type": "string | null"
+      },
+      {
+        "name": "gender",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "nome_operador",
+        "type": "string | null"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "phone",
+        "type": "string | null"
+      },
+      {
+        "name": "photo",
+        "type": "string | null"
+      },
+      {
+        "name": "portal_token",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "state",
+        "type": "string | null"
+      },
+      {
+        "name": "usuario_email",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "contas_caixa",
+    "columns": [
+      {
+        "name": "ativo",
+        "type": "boolean | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "saldo_inicial",
+        "type": "number | null"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "contratos",
+    "columns": [
+      {
+        "name": "acordo_ativo_id",
+        "type": "string | null"
+      },
+      {
+        "name": "amortization_type",
+        "type": "string | null"
+      },
+      {
+        "name": "billing_cycle",
+        "type": "string | null"
+      },
+      {
+        "name": "client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "cliente_foto_url",
+        "type": "string | null"
+      },
+      {
+        "name": "confissao_divida_url",
+        "type": "string | null"
+      },
+      {
+        "name": "cor_alerta",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "custom_documents",
+        "type": "Json | null"
+      },
+      {
+        "name": "daily_interest_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "debtor_address",
+        "type": "string | null"
+      },
+      {
+        "name": "debtor_document",
+        "type": "string | null"
+      },
+      {
+        "name": "debtor_name",
+        "type": "string | null"
+      },
+      {
+        "name": "debtor_phone",
+        "type": "string | null"
+      },
+      {
+        "name": "documentos",
+        "type": "Json | null"
+      },
+      {
+        "name": "fine_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "funding_cost",
+        "type": "number | null"
+      },
+      {
+        "name": "funding_fee_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "funding_provider",
+        "type": "string | null"
+      },
+      {
+        "name": "funding_total_payable",
+        "type": "number | null"
+      },
+      {
+        "name": "guarantee_description",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "interest_rate",
+        "type": "number | null"
+      },
+      {
+        "name": "is_archived",
+        "type": "boolean | null"
+      },
+      {
+        "name": "is_daily",
+        "type": "boolean | null"
+      },
+      {
+        "name": "loan_mode",
+        "type": "string | null"
+      },
+      {
+        "name": "modalidade",
+        "type": "string | null"
+      },
+      {
+        "name": "mode",
+        "type": "string | null"
+      },
+      {
+        "name": "next_due_date",
+        "type": "string | null"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "observacoes",
+        "type": "string | null"
+      },
+      {
+        "name": "operador_responsavel_id",
+        "type": "string | null"
+      },
+      {
+        "name": "owner_id",
+        "type": "string"
+      },
+      {
+        "name": "payment_signals",
+        "type": "Json | null"
+      },
+      {
+        "name": "payment_type",
+        "type": "string | null"
+      },
+      {
+        "name": "pix_key",
+        "type": "string | null"
+      },
+      {
+        "name": "policies_snapshot",
+        "type": "Json | null"
+      },
+      {
+        "name": "portal_shortcode",
+        "type": "string | null"
+      },
+      {
+        "name": "portal_token",
+        "type": "string | null"
+      },
+      {
+        "name": "preferred_payment_method",
+        "type": "string | null"
+      },
+      {
+        "name": "principal",
+        "type": "number | null"
+      },
+      {
+        "name": "promissoria_url",
+        "type": "string | null"
+      },
+      {
+        "name": "source_id",
+        "type": "string | null"
+      },
+      {
+        "name": "start_date",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "total_to_receive",
+        "type": "number | null"
+      }
+    ]
+  },
+  {
+    "name": "contratos_credito",
+    "columns": [
+      {
+        "name": "cliente_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data_inicio",
+        "type": "string"
+      },
+      {
+        "name": "data_vencimento",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "juros_total",
+        "type": "number"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "prazo_parcelas",
+        "type": "number"
+      },
+      {
+        "name": "saldo_devedor_atual",
+        "type": "number"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "taxa_aplicada",
+        "type": "number"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_principal",
+        "type": "number"
+      },
+      {
+        "name": "valor_total",
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "name": "contratos_old",
+    "columns": [
+      {
+        "name": "amortization_type",
+        "type": "string | null"
+      },
+      {
+        "name": "billing_cycle",
+        "type": "string | null"
+      },
+      {
+        "name": "client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "cliente_foto_url",
+        "type": "string | null"
+      },
+      {
+        "name": "confissao_divida_url",
+        "type": "string | null"
+      },
+      {
+        "name": "cor_alerta",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "custom_documents",
+        "type": "Json | null"
+      },
+      {
+        "name": "daily_interest_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "debtor_address",
+        "type": "string | null"
+      },
+      {
+        "name": "debtor_document",
+        "type": "string | null"
+      },
+      {
+        "name": "debtor_name",
+        "type": "string | null"
+      },
+      {
+        "name": "debtor_phone",
+        "type": "string | null"
+      },
+      {
+        "name": "documentos",
+        "type": "Json | null"
+      },
+      {
+        "name": "fine_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "funding_cost",
+        "type": "number | null"
+      },
+      {
+        "name": "funding_fee_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "funding_provider",
+        "type": "string | null"
+      },
+      {
+        "name": "funding_total_payable",
+        "type": "number | null"
+      },
+      {
+        "name": "guarantee_description",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "interest_rate",
+        "type": "number | null"
+      },
+      {
+        "name": "is_archived",
+        "type": "boolean | null"
+      },
+      {
+        "name": "is_daily",
+        "type": "boolean | null"
+      },
+      {
+        "name": "loan_mode",
+        "type": "string | null"
+      },
+      {
+        "name": "modalidade",
+        "type": "string | null"
+      },
+      {
+        "name": "mode",
+        "type": "string | null"
+      },
+      {
+        "name": "next_due_date",
+        "type": "string | null"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "observacoes",
+        "type": "string | null"
+      },
+      {
+        "name": "operador_responsavel_id",
+        "type": "string | null"
+      },
+      {
+        "name": "payment_signals",
+        "type": "Json | null"
+      },
+      {
+        "name": "payment_type",
+        "type": "string | null"
+      },
+      {
+        "name": "pix_key",
+        "type": "string | null"
+      },
+      {
+        "name": "policies_snapshot",
+        "type": "Json | null"
+      },
+      {
+        "name": "portal_token",
+        "type": "string"
+      },
+      {
+        "name": "preferred_payment_method",
+        "type": "string | null"
+      },
+      {
+        "name": "principal",
+        "type": "number"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "promissoria_url",
+        "type": "string | null"
+      },
+      {
+        "name": "source_id",
+        "type": "string | null"
+      },
+      {
+        "name": "start_date",
+        "type": "string | null"
+      },
+      {
+        "name": "total_to_receive",
+        "type": "number | null"
+      }
+    ]
+  },
+  {
+    "name": "documentos_juridicos",
+    "columns": [
+      {
+        "name": "acordo_id",
+        "type": "string | null"
+      },
+      {
+        "name": "client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "codigo_cliente",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "dono_id",
+        "type": "string | null"
+      },
+      {
+        "name": "hash_sha256",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip_origem",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "metadata_assinatura",
+        "type": "Json | null"
+      },
+      {
+        "name": "numero_cliente",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "public_access_token",
+        "type": "string | null"
+      },
+      {
+        "name": "signed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "snapshot",
+        "type": "Json | null"
+      },
+      {
+        "name": "snapshot_json",
+        "type": "Json"
+      },
+      {
+        "name": "snapshot_rendered_html",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "status_assinatura",
+        "type": "string | null"
+      },
+      {
+        "name": "template_version",
+        "type": "string | null"
+      },
+      {
+        "name": "testemunhas",
+        "type": "Json"
+      },
+      {
+        "name": "tipo",
+        "type": "string | null"
+      },
+      {
+        "name": "tipo_documento",
+        "type": "string | null"
+      },
+      {
+        "name": "token_expires_at",
+        "type": "string | null"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "url_storage",
+        "type": "string | null"
+      },
+      {
+        "name": "user_agent",
+        "type": "string | null"
+      },
+      {
+        "name": "view_token",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "emprestimos",
+    "columns": [
+      {
+        "name": "cliente_nome",
+        "type": "string"
+      },
+      {
+        "name": "data_inicio",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "parcelas",
+        "type": "number | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_total",
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "name": "equipes",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "fontes",
+    "columns": [
+      {
+        "name": "balance",
+        "type": "number | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "logo_url",
+        "type": "string | null"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "operador_permitido_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "type",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "fontes_capital",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "saldo_atual",
+        "type": "number | null"
+      },
+      {
+        "name": "saldo_inicial",
+        "type": "number | null"
+      },
+      {
+        "name": "tipo",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "import_batches",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "filename",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "kind",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "import_rows",
+    "columns": [
+      {
+        "name": "batch_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "normalized",
+        "type": "Json | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "raw",
+        "type": "Json"
+      },
+      {
+        "name": "row_number",
+        "type": "number"
+      },
+      {
+        "name": "sheet_name",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "validation_errors",
+        "type": "Json | null"
+      }
+    ]
+  },
+  {
+    "name": "importacoes_funcionarios",
+    "columns": [
+      {
+        "name": "arquivo_nome",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "erros",
+        "type": "Json | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "operador_id",
+        "type": "string | null"
+      },
+      {
+        "name": "preview",
+        "type": "Json | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "ledger_entries",
+    "columns": [
+      {
+        "name": "amount",
+        "type": "number"
+      },
+      {
+        "name": "category",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "idempotency_key",
+        "type": "string | null"
+      },
+      {
+        "name": "installment_id",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "operator_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "source_id",
+        "type": "string"
+      },
+      {
+        "name": "type",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "legal_document_templates",
+    "columns": [
+      {
+        "name": "ativo",
+        "type": "boolean | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "estrutura_json",
+        "type": "Json"
+      },
+      {
+        "name": "html_base",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "versao",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "loan_events",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "effective_date",
+        "type": "string | null"
+      },
+      {
+        "name": "event_type",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "payload",
+        "type": "Json | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "logs_acesso_cliente",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "data_acesso",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip_address",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "logs_assinatura",
+    "columns": [
+      {
+        "name": "action",
+        "type": "string | null"
+      },
+      {
+        "name": "actor_role",
+        "type": "string | null"
+      },
+      {
+        "name": "documento_id",
+        "type": "string"
+      },
+      {
+        "name": "hash_no_momento",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip_address",
+        "type": "string | null"
+      },
+      {
+        "name": "ip_origem",
+        "type": "string | null"
+      },
+      {
+        "name": "metadata_extra",
+        "type": "Json | null"
+      },
+      {
+        "name": "metodo_assinatura",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "timestamp_assinatura",
+        "type": "string | null"
+      },
+      {
+        "name": "user_agent",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "logs_sistema",
+    "columns": [
+      {
+        "name": "action_type",
+        "type": "string | null"
+      },
+      {
+        "name": "actor_id",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "details",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "target_id",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "mensagens_internas",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "read",
+        "type": "boolean | null"
+      },
+      {
+        "name": "receiver_id",
+        "type": "string | null"
+      },
+      {
+        "name": "sender_id",
+        "type": "string | null"
+      },
+      {
+        "name": "text",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "mensagens_suporte",
+    "columns": [
+      {
+        "name": "content",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "file_url",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "metadata",
+        "type": "Json | null"
+      },
+      {
+        "name": "operator_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "read",
+        "type": "boolean | null"
+      },
+      {
+        "name": "read_at",
+        "type": "string | null"
+      },
+      {
+        "name": "read_by",
+        "type": "string | null"
+      },
+      {
+        "name": "sender",
+        "type": "string | null"
+      },
+      {
+        "name": "sender_type",
+        "type": "string | null"
+      },
+      {
+        "name": "sender_user_id",
+        "type": "string | null"
+      },
+      {
+        "name": "text",
+        "type": "string | null"
+      },
+      {
+        "name": "type",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "notificacoes",
+    "columns": [
+      {
+        "name": "action_url",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "item_id",
+        "type": "string | null"
+      },
+      {
+        "name": "item_type",
+        "type": "string | null"
+      },
+      {
+        "name": "mensagem",
+        "type": "string"
+      },
+      {
+        "name": "metadata",
+        "type": "Json | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "read_at",
+        "type": "string | null"
+      },
+      {
+        "name": "titulo",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "pagamentos",
+    "columns": [
+      {
+        "name": "conta_caixa_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data_pagamento",
+        "type": "string"
+      },
+      {
+        "name": "forma_pagamento",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "juros_pago",
+        "type": "number"
+      },
+      {
+        "name": "observacao",
+        "type": "string | null"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "parcela_id",
+        "type": "string"
+      },
+      {
+        "name": "principal_pago",
+        "type": "number"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_pago",
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "name": "parcelas",
+    "columns": [
+      {
+        "name": "amount",
+        "type": "number | null"
+      },
+      {
+        "name": "av_applied",
+        "type": "number | null"
+      },
+      {
+        "name": "data_vencimento",
+        "type": "string | null"
+      },
+      {
+        "name": "due_date",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "interest_remaining",
+        "type": "number | null"
+      },
+      {
+        "name": "last_payment_date",
+        "type": "string | null"
+      },
+      {
+        "name": "late_fee_accrued",
+        "type": "number | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "logs",
+        "type": "Json | null"
+      },
+      {
+        "name": "numero_parcela",
+        "type": "number | null"
+      },
+      {
+        "name": "paid_date",
+        "type": "string | null"
+      },
+      {
+        "name": "paid_interest",
+        "type": "number | null"
+      },
+      {
+        "name": "paid_late_fee",
+        "type": "number | null"
+      },
+      {
+        "name": "paid_principal",
+        "type": "number | null"
+      },
+      {
+        "name": "paid_total",
+        "type": "number | null"
+      },
+      {
+        "name": "principal_remaining",
+        "type": "number | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "renewal_count",
+        "type": "number"
+      },
+      {
+        "name": "scheduled_interest",
+        "type": "number | null"
+      },
+      {
+        "name": "scheduled_principal",
+        "type": "number | null"
+      },
+      {
+        "name": "start_date",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_parcela",
+        "type": "number | null"
+      }
+    ]
+  },
+  {
+    "name": "parcelas_contrato",
+    "columns": [
+      {
+        "name": "contrato_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "juros_pago",
+        "type": "number | null"
+      },
+      {
+        "name": "juros_previsto",
+        "type": "number"
+      },
+      {
+        "name": "numero_parcela",
+        "type": "number"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "principal_pago",
+        "type": "number | null"
+      },
+      {
+        "name": "principal_previsto",
+        "type": "number"
+      },
+      {
+        "name": "saldo_restante",
+        "type": "number"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "valor_parcela",
+        "type": "number"
+      },
+      {
+        "name": "vencimento",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "payment_charges",
+    "columns": [
+      {
+        "name": "acordo_id",
+        "type": "string | null"
+      },
+      {
+        "name": "acordo_parcela_id",
+        "type": "string | null"
+      },
+      {
+        "name": "amount",
+        "type": "number"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "currency",
+        "type": "string"
+      },
+      {
+        "name": "external_reference",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "installment_id",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "paid_at",
+        "type": "string | null"
+      },
+      {
+        "name": "payer_doc",
+        "type": "string | null"
+      },
+      {
+        "name": "payer_email",
+        "type": "string | null"
+      },
+      {
+        "name": "payer_name",
+        "type": "string | null"
+      },
+      {
+        "name": "provider",
+        "type": "string"
+      },
+      {
+        "name": "provider_payload",
+        "type": "Json | null"
+      },
+      {
+        "name": "provider_payment_id",
+        "type": "string | null"
+      },
+      {
+        "name": "provider_status",
+        "type": "string | null"
+      },
+      {
+        "name": "qr_code",
+        "type": "string | null"
+      },
+      {
+        "name": "qr_code_base64",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "payment_events",
+    "columns": [
+      {
+        "name": "acordo_id",
+        "type": "string | null"
+      },
+      {
+        "name": "acordo_parcela_id",
+        "type": "string | null"
+      },
+      {
+        "name": "amount",
+        "type": "number | null"
+      },
+      {
+        "name": "currency",
+        "type": "string | null"
+      },
+      {
+        "name": "event_id",
+        "type": "string"
+      },
+      {
+        "name": "event_type",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "installment_id",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "payload",
+        "type": "Json"
+      },
+      {
+        "name": "process_result",
+        "type": "Json | null"
+      },
+      {
+        "name": "provider",
+        "type": "string"
+      },
+      {
+        "name": "received_at",
+        "type": "string"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "payment_idempotency",
+    "columns": [
+      {
+        "name": "action",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "installment_id",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "payment_intents",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string"
+      },
+      {
+        "name": "client_viewed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "comprovante_url",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "review_note",
+        "type": "string | null"
+      },
+      {
+        "name": "reviewed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "payment_reversals",
+    "columns": [
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "installment_id",
+        "type": "string"
+      },
+      {
+        "name": "payment_id",
+        "type": "string"
+      },
+      {
+        "name": "reversal_reason",
+        "type": "string | null"
+      },
+      {
+        "name": "reversed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "reversed_by",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "payment_transactions",
+    "columns": [
+      {
+        "name": "amount",
+        "type": "number"
+      },
+      {
+        "name": "contract_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "idempotency_key",
+        "type": "string | null"
+      },
+      {
+        "name": "installment_id",
+        "type": "string"
+      },
+      {
+        "name": "operator_profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "paid_at",
+        "type": "string | null"
+      },
+      {
+        "name": "payment_method",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "perfis",
+    "columns": [
+      {
+        "name": "access_code",
+        "type": "string | null"
+      },
+      {
+        "name": "access_level",
+        "type": "number | null"
+      },
+      {
+        "name": "address",
+        "type": "string | null"
+      },
+      {
+        "name": "address_number",
+        "type": "string | null"
+      },
+      {
+        "name": "avatar_url",
+        "type": "string | null"
+      },
+      {
+        "name": "brand_color",
+        "type": "string | null"
+      },
+      {
+        "name": "city",
+        "type": "string | null"
+      },
+      {
+        "name": "contato_whatsapp",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "default_daily_interest_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "default_fine_percent",
+        "type": "number | null"
+      },
+      {
+        "name": "default_interest_rate",
+        "type": "number | null"
+      },
+      {
+        "name": "document",
+        "type": "string | null"
+      },
+      {
+        "name": "dono_id",
+        "type": "string | null"
+      },
+      {
+        "name": "email",
+        "type": "string | null"
+      },
+      {
+        "name": "escola_id",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "interest_balance",
+        "type": "number | null"
+      },
+      {
+        "name": "last_active_at",
+        "type": "string | null"
+      },
+      {
+        "name": "logo_url",
+        "type": "string | null"
+      },
+      {
+        "name": "mp_access_token",
+        "type": "string | null"
+      },
+      {
+        "name": "neighborhood",
+        "type": "string | null"
+      },
+      {
+        "name": "nome_completo",
+        "type": "string | null"
+      },
+      {
+        "name": "nome_empresa",
+        "type": "string | null"
+      },
+      {
+        "name": "nome_exibicao",
+        "type": "string | null"
+      },
+      {
+        "name": "nome_operador",
+        "type": "string | null"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "perfil",
+        "type": "string"
+      },
+      {
+        "name": "phone",
+        "type": "string | null"
+      },
+      {
+        "name": "photo",
+        "type": "string | null"
+      },
+      {
+        "name": "pix_key",
+        "type": "string | null"
+      },
+      {
+        "name": "recovery_phrase",
+        "type": "string | null"
+      },
+      {
+        "name": "senha_acesso",
+        "type": "string | null"
+      },
+      {
+        "name": "state",
+        "type": "string | null"
+      },
+      {
+        "name": "supervisor_id",
+        "type": "string | null"
+      },
+      {
+        "name": "target_capital",
+        "type": "number | null"
+      },
+      {
+        "name": "target_profit",
+        "type": "number | null"
+      },
+      {
+        "name": "total_available_capital",
+        "type": "number | null"
+      },
+      {
+        "name": "ui_hub_order",
+        "type": "Json | null"
+      },
+      {
+        "name": "ui_nav_order",
+        "type": "Json | null"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "user_id",
+        "type": "string | null"
+      },
+      {
+        "name": "usuario_email",
+        "type": "string"
+      },
+      {
+        "name": "zip_code",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "perfis_config_asaas",
+    "columns": [
+      {
+        "name": "asaas_api_key",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "perfis_config_mp",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "mp_access_token",
+        "type": "string"
+      },
+      {
+        "name": "mp_public_key",
+        "type": "string | null"
+      },
+      {
+        "name": "mp_webhook_secret",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "pf_accounts",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "saldo",
+        "type": "number"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "wallet_type",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "pf_transactions",
+    "columns": [
+      {
+        "name": "cartao_id",
+        "type": "string | null"
+      },
+      {
+        "name": "categoria_id",
+        "type": "string | null"
+      },
+      {
+        "name": "conta_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data",
+        "type": "string"
+      },
+      {
+        "name": "data_pagamento",
+        "type": "string | null"
+      },
+      {
+        "name": "descricao",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "installment_number",
+        "type": "number | null"
+      },
+      {
+        "name": "is_operation_transfer",
+        "type": "boolean | null"
+      },
+      {
+        "name": "operation_source_id",
+        "type": "string | null"
+      },
+      {
+        "name": "owner_id",
+        "type": "string"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "total_installments",
+        "type": "number | null"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "valor",
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "name": "portal_client_links",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "created_by",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "last_used_at",
+        "type": "string | null"
+      },
+      {
+        "name": "token",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "portal_doc_tokens",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "created_by",
+        "type": "string | null"
+      },
+      {
+        "name": "documento_id",
+        "type": "string"
+      },
+      {
+        "name": "expires_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "token",
+        "type": "string"
+      },
+      {
+        "name": "used_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "portal_sessions",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "expires_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "ip",
+        "type": "string | null"
+      },
+      {
+        "name": "last_seen_at",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "user_agent",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "portal_tokens",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "expires_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "last_accessed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "shortcode",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "profiles",
+    "columns": [
+      {
+        "name": "avatar_url",
+        "type": "string | null"
+      },
+      {
+        "name": "email",
+        "type": "string | null"
+      },
+      {
+        "name": "full_name",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "sinalizacoes_pagamento",
+    "columns": [
+      {
+        "name": "client_id",
+        "type": "string | null"
+      },
+      {
+        "name": "client_viewed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "comprovante_url",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "review_note",
+        "type": "string | null"
+      },
+      {
+        "name": "reviewed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string | null"
+      },
+      {
+        "name": "tipo_intencao",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "support_calls",
+    "columns": [
+      {
+        "name": "answer_sdp",
+        "type": "string | null"
+      },
+      {
+        "name": "call_type",
+        "type": "string"
+      },
+      {
+        "name": "callee_role",
+        "type": "string"
+      },
+      {
+        "name": "caller_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "ended_at",
+        "type": "string | null"
+      },
+      {
+        "name": "ice_candidates",
+        "type": "Json"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "offer_sdp",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "support_presence",
+    "columns": [
+      {
+        "name": "last_seen_at",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "role",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "support_signals",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "from_user_id",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "payload",
+        "type": "Json"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "to_user_id",
+        "type": "string"
+      },
+      {
+        "name": "type",
+        "type": "Database[\"public\"][\"Enums\"][\"support_signal_type\"]"
+      }
+    ]
+  },
+  {
+    "name": "support_tickets",
+    "columns": [
+      {
+        "name": "closed_at",
+        "type": "string | null"
+      },
+      {
+        "name": "closed_by",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "loan_id",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "reopened_at",
+        "type": "string | null"
+      },
+      {
+        "name": "reopened_by",
+        "type": "string | null"
+      },
+      {
+        "name": "status",
+        "type": "Database[\"public\"][\"Enums\"][\"support_ticket_status\"]"
+      },
+      {
+        "name": "updated_at",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "team_invites",
+    "columns": [
+      {
+        "name": "accepted_at",
+        "type": "string | null"
+      },
+      {
+        "name": "accepted_profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "expires_at",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "invited_email",
+        "type": "string | null"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean | null"
+      },
+      {
+        "name": "level",
+        "type": "number"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "revoked_at",
+        "type": "string | null"
+      },
+      {
+        "name": "role",
+        "type": "string"
+      },
+      {
+        "name": "team_id",
+        "type": "string"
+      },
+      {
+        "name": "token",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "team_members",
+    "columns": [
+      {
+        "name": "cpf",
+        "type": "string"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "expires_at",
+        "type": "string | null"
+      },
+      {
+        "name": "full_name",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "invite_status",
+        "type": "string | null"
+      },
+      {
+        "name": "invite_token",
+        "type": "string | null"
+      },
+      {
+        "name": "linked_profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      },
+      {
+        "name": "role",
+        "type": "string | null"
+      },
+      {
+        "name": "team_id",
+        "type": "string"
+      },
+      {
+        "name": "username_or_email",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "teams",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "name": "testemunhas",
+    "columns": [
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "documento",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "nome",
+        "type": "string"
+      },
+      {
+        "name": "profile_id",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "transacoes",
+    "columns": [
+      {
+        "name": "amount",
+        "type": "number | null"
+      },
+      {
+        "name": "category",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "date",
+        "type": "string | null"
+      },
+      {
+        "name": "description",
+        "type": "string | null"
+      },
+      {
+        "name": "edit_reason",
+        "type": "string | null"
+      },
+      {
+        "name": "edited_at",
+        "type": "string | null"
+      },
+      {
+        "name": "edited_by",
+        "type": "string | null"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "idempotency_key",
+        "type": "string | null"
+      },
+      {
+        "name": "installment_id",
+        "type": "string | null"
+      },
+      {
+        "name": "interest_delta",
+        "type": "number | null"
+      },
+      {
+        "name": "late_fee_delta",
+        "type": "number | null"
+      },
+      {
+        "name": "loan_id",
+        "type": "string | null"
+      },
+      {
+        "name": "meta",
+        "type": "Json | null"
+      },
+      {
+        "name": "notes",
+        "type": "string | null"
+      },
+      {
+        "name": "operator_id",
+        "type": "string | null"
+      },
+      {
+        "name": "original_tx_id",
+        "type": "string | null"
+      },
+      {
+        "name": "payment_charge_id",
+        "type": "string | null"
+      },
+      {
+        "name": "payment_type",
+        "type": "string | null"
+      },
+      {
+        "name": "principal_delta",
+        "type": "number | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "request_id",
+        "type": "string | null"
+      },
+      {
+        "name": "reversed_of_transaction_id",
+        "type": "string | null"
+      },
+      {
+        "name": "source_id",
+        "type": "string | null"
+      },
+      {
+        "name": "type",
+        "type": "string | null"
+      }
+    ]
+  },
+  {
+    "name": "transacoes_financeiras",
+    "columns": [
+      {
+        "name": "categoria_id",
+        "type": "string | null"
+      },
+      {
+        "name": "conta_caixa_id",
+        "type": "string | null"
+      },
+      {
+        "name": "created_at",
+        "type": "string | null"
+      },
+      {
+        "name": "data",
+        "type": "string"
+      },
+      {
+        "name": "descricao",
+        "type": "string"
+      },
+      {
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "name": "owner_profile_id",
+        "type": "string"
+      },
+      {
+        "name": "referencia_id",
+        "type": "string | null"
+      },
+      {
+        "name": "referencia_tipo",
+        "type": "string | null"
+      },
+      {
+        "name": "tipo",
+        "type": "string"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      },
+      {
+        "name": "valor",
+        "type": "number"
+      }
+    ]
+  },
+  {
+    "name": "user_integrations",
+    "columns": [
+      {
+        "name": "google_access_token",
+        "type": "string | null"
+      },
+      {
+        "name": "google_calendar_id",
+        "type": "string | null"
+      },
+      {
+        "name": "google_refresh_token",
+        "type": "string | null"
+      },
+      {
+        "name": "google_token_expiry",
+        "type": "number | null"
+      },
+      {
+        "name": "last_sync_at",
+        "type": "string | null"
+      },
+      {
+        "name": "profile_id",
+        "type": "string"
+      },
+      {
+        "name": "sync_enabled",
+        "type": "boolean | null"
+      },
+      {
+        "name": "updated_at",
+        "type": "string | null"
+      }
+    ]
+  }
+]

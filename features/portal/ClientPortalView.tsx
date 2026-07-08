@@ -16,7 +16,8 @@ import {
   LogOut,
   Building,
   CheckCircle2,
-  Trash2
+  Trash2,
+  ExternalLink
 } from 'lucide-react';
 
 import { useClientPortalLogic } from './hooks/useClientPortalLogic';
@@ -45,6 +46,35 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
     const statusInfo = nextInst ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate) : { label: 'Quitado', variant: 'OK' };
 
     const isPaidOff = pendingCount === 0;
+    const uploadedReceipts = [
+        ...(loan.portalFiles || [])
+            .filter((file: any) => file.direction === 'CLIENT_TO_OPERATOR' && !!(file.file_url || file.fileUrl))
+            .map((file: any) => ({
+                id: file.id,
+                status: file.status || 'PENDING',
+                date: file.created_at || file.createdAt,
+                url: file.file_url || file.fileUrl,
+                label: file.file_name || file.fileName || 'Comprovante enviado',
+            })),
+        ...(loan.paymentSignals || [])
+            .filter((signal: any) => !!(signal.comprovanteUrl || signal.comprovante_url))
+            .map((signal: any) => ({
+                id: `signal-${signal.id}`,
+                status: signal.status || 'PENDENTE',
+                date: signal.date || signal.created_at,
+                url: signal.comprovanteUrl || signal.comprovante_url,
+                label: 'Comprovante enviado',
+            })),
+    ]
+        .filter((item, index, arr) => item.url && arr.findIndex((other) => other.url === item.url) === index)
+        .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+
+    const formatSignalDate = (value?: string | null) => {
+        if (!value) return 'Enviado';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return 'Enviado';
+        return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    };
 
     return (
         <div className={`border rounded-lg p-4 transition-all ${hasLateInstallments ? 'bg-rose-950/10 border-rose-500/30' : isPaidOff ? 'bg-emerald-950/10 border-emerald-500/20' : 'bg-slate-900 border-slate-800'}`}>
@@ -96,7 +126,75 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat }) =>
                 </div>
             )}
 
+            {/* Parcelas Pagas / Histórico de Comprovantes */}
+            {loan.installments.some(isPortalInstallmentPaid) && (
+                <div className="mb-4 border-t border-slate-800/80 pt-3">
+                    <details className="group">
+                        <summary className="text-[10px] text-slate-400 font-bold uppercase tracking-wider cursor-pointer list-none flex justify-between items-center hover:text-white transition-all select-none">
+                            <span>Comprovantes de Pagamento</span>
+                            <span className="text-[9px] text-slate-500 font-black group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="space-y-2 mt-2 bg-slate-950/40 p-2 rounded-lg border border-slate-850">
+                            {loan.installments.filter(isPortalInstallmentPaid).map((inst: any) => {
+                                const amountPaid = Number(inst.paid_total || inst.valor_parcela || 0);
+                                return (
+                                    <div key={inst.id} className="flex justify-between items-center p-2 border border-slate-800/40 rounded bg-slate-900/50 text-[10px]">
+                                        <div>
+                                            <p className="text-white font-bold">Parcela #{inst.numero_parcela}</p>
+                                            <p className="text-slate-500 text-[8px]">{inst.paid_date ? formatBRDate(inst.paid_date) : 'Paga'}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-400 font-bold font-mono">{formatMoney(amountPaid)}</span>
+                                            <button
+                                                onClick={() => {
+                                                    const portalTokenParam = new URLSearchParams(window.location.search).get('portal') || '';
+                                                    const codeParam = new URLSearchParams(window.location.search).get('code') || new URLSearchParams(window.location.search).get('portal_code') || '';
+                                                    window.open(`/portal/comprovante?portal=${portalTokenParam}&code=${codeParam}&installment_id=${inst.id}`, '_blank');
+                                                }}
+                                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded font-black uppercase text-[8px]"
+                                            >
+                                                Comprovante
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </details>
+                </div>
+            )}
+
             {/* Ações */}
+            {uploadedReceipts.length > 0 && (
+                <div className="mb-4 border-t border-slate-800/80 pt-3">
+                    <details className="group" open>
+                        <summary className="text-[10px] text-slate-400 font-bold uppercase tracking-wider cursor-pointer list-none flex justify-between items-center hover:text-white transition-all select-none">
+                            <span>Arquivos enviados por você</span>
+                            <span className="text-[9px] text-slate-500 font-black group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="space-y-2 mt-2 bg-slate-950/40 p-2 rounded-lg border border-slate-800">
+                            {uploadedReceipts.map((file: any) => {
+                                const status = String(file.status || 'PENDENTE').toUpperCase();
+                                return (
+                                    <div key={file.id} className="flex justify-between items-center p-2 border border-slate-800/40 rounded bg-slate-900/50 text-[10px]">
+                                        <div className="min-w-0">
+                                            <p className="text-white font-bold truncate">{file.label}</p>
+                                            <p className="text-slate-500 text-[8px]">{formatSignalDate(file.date)} · {status}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}
+                                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded font-black uppercase text-[8px] flex items-center gap-1 shrink-0"
+                                        >
+                                            <ExternalLink size={10}/> Abrir
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </details>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                     onClick={onPay}
@@ -177,10 +275,35 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
   if (portalError || !loggedClient) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center">
-            <ShieldCheck size={48} className="mx-auto text-rose-500 mb-4" />
-            <h2 className="text-white font-black text-xl mb-2">Acesso Indisponível</h2>
-            <p className="text-slate-400 text-sm mb-4">{portalError || "Link inválido ou expirado."}</p>
+        <div className="bg-slate-900 border border-slate-800/80 rounded-xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+            {/* Efeito Glow */}
+            <div className="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl"></div>
+            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl"></div>
+
+            <div className="mx-auto w-16 h-16 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-6">
+                <AlertTriangle size={32} />
+            </div>
+
+            <h2 className="text-white font-black text-xl mb-3 uppercase tracking-wide">Acesso Expirado</h2>
+            
+            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+              {portalError || "Este link seguro de acesso expirou devido ao limite de visualizações excedido, prazo de validade esgotado ou porque o contrato correspondente já foi assinado com sucesso."}
+            </p>
+
+            <div className="space-y-3">
+              <a
+                href="https://wa.me/?text=Olá!%20Meu%20link%20de%20acesso%20ao%20portal%20do%20cliente%20expirou.%20Poderia%20gerar%20um%20novo%20link%20para%20mim?"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all text-white rounded-lg font-bold uppercase text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/20"
+              >
+                <MessageCircle size={16} /> Solicitar Novo Link
+              </a>
+              
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider pt-2">
+                CapitalFlow • Segurança Digital
+              </p>
+            </div>
         </div>
       </div>
     );

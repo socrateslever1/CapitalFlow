@@ -51,6 +51,7 @@ import { DossierPage } from './pages/DossierPage';
 
 import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
+import { PortalReceiptViewer } from './features/portal/components/PortalReceiptViewer';
 
 export const App: React.FC = () => {
   if (isDev) console.log('[App] Component body execution started');
@@ -152,8 +153,10 @@ export const App: React.FC = () => {
   // ✅ token público de assinatura vem ou do hook (portal) ou do querystring
   const legalSignToken = legalSignTokenParam || legalSignTokenFromHook;
 
-  // ✅ view pública: portalToken OU rota pública de campanha OU assinatura pública
-  const isPublicView = hasPortalAccessParams || !!portalToken || !!campaignId || !!legalSignToken;
+  // ✅ view pública: portalToken, campanha, assinatura pública, /login ou raiz deslogada
+  const isLoginPath = window.location.pathname === '/login';
+  const isRootPath = window.location.pathname === '/';
+  const isPublicView = hasPortalAccessParams || !!portalToken || !!campaignId || !!legalSignToken || isLoginPath || (isRootPath && !activeProfileId);
 
   useEffect(() => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
@@ -221,6 +224,13 @@ export const App: React.FC = () => {
     }
   }, [clients, clientCtrl, handleSetActiveTab, setClientSearchTerm, showToast]);
 
+  const handleNotificationDataChanged = useCallback(() => {
+    const ownerId = (activeUser as any)?.supervisor_id || (activeUser as any)?.owner_profile_id || activeUser?.id;
+    if (ownerId) {
+      void fetchFullData(ownerId);
+    }
+  }, [activeUser?.id, (activeUser as any)?.supervisor_id, (activeUser as any)?.owner_profile_id, fetchFullData]);
+
   const { notifications, removeNotification, addNotification } = useAppNotifications({
     loans,
     sources,
@@ -228,6 +238,7 @@ export const App: React.FC = () => {
     showToast,
     setActiveTab,
     setSelectedLoanId: ui.setSelectedLoanId,
+    onDataChanged: handleNotificationDataChanged,
     disabled: isPublicView,
   });
 
@@ -300,6 +311,13 @@ export const App: React.FC = () => {
   if (legalSignToken) return (
     <Suspense fallback={<LoadingScreen />}>
       <PublicSignaturePage />
+    </Suspense>
+  );
+
+  const isComprovantePath = window.location.pathname === '/portal/comprovante';
+  if (isComprovantePath) return (
+    <Suspense fallback={<LoadingScreen />}>
+      <PortalReceiptViewer />
     </Suspense>
   );
 
@@ -734,6 +752,8 @@ export const App: React.FC = () => {
                         message: 'Todos os dados, parcelas e histórico serão apagados para sempre.'
                     })}
                     onReverseTransaction={loanCtrl.openReverseTransaction}
+                    onOpenComprovante={fileCtrl.handleOpenComprovante}
+                    onReviewSignal={loanCtrl.handleReviewSignal}
                     onOpenReceipt={(transaction: LedgerEntry, loan: Loan) => {
                       ui.setShowReceipt({
                         loan,

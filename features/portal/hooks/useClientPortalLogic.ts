@@ -35,13 +35,21 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
       rawAgreement?.installments ??
       [];
 
-    const paymentSignals =
+    const paymentSignals = (
       rawLoan.paymentSignals ??
       rawLoan.payment_intents ??
-      fallbackSignals;
+      fallbackSignals
+    ).map((signal: any) => ({
+      ...signal,
+      date: signal?.date ?? signal?.created_at,
+      type: signal?.type ?? signal?.method ?? signal?.tipo,
+      comprovanteUrl: signal?.comprovanteUrl ?? signal?.comprovante_url ?? signal?.proof_url,
+      reviewNote: signal?.reviewNote ?? signal?.review_note,
+      clientViewedAt: signal?.clientViewedAt ?? signal?.client_viewed_at,
+    }));
 
     return mapLoanFromDB(
-      { ...rawLoan, paymentSignals },
+      { ...rawLoan, paymentSignals, portalFiles: rawLoan.portalFiles ?? rawLoan.portal_files ?? [] },
       rawInstallments,
       rawAgreement,
       rawAgreementInstallments
@@ -83,6 +91,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
       });
 
       const { installments, signals } = await portalService.fetchLoanDetailsByPortal(initialToken, initialCode);
+      const portalFiles = await portalService.fetchPortalFiles(initialToken, initialCode);
 
       const primaryLoanId = fullLoanData?.id ?? normalizedContractsList[0]?.id ?? null;
 
@@ -95,12 +104,16 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
                 ...fullLoanData,
                 installments,
                 paymentSignals: signals,
+                portalFiles: portalFiles.filter((file: any) => file.loan_id === contractHeader.id),
               },
               signals
             );
           }
 
-          return hydratePortalLoan(contractHeader);
+          return hydratePortalLoan({
+            ...contractHeader,
+            portalFiles: portalFiles.filter((file: any) => file.loan_id === contractHeader.id),
+          });
         })
         .filter((contract): contract is Loan => !!contract);
 
@@ -110,6 +123,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
             ...fullLoanData,
             installments,
             paymentSignals: signals,
+            portalFiles: portalFiles.filter((file: any) => file.loan_id === fullLoanData.id),
           },
           signals
         );
@@ -161,6 +175,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         fullLoanData,
         installments,
         signals,
+        portalFiles,
         documents: docs,
       });
     } catch (err: any) {
@@ -252,6 +267,10 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         ip = d.ip;
       } catch {}
 
+      const clientTimezone = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+      const doc = portalDocuments.find(d => d.id === docId);
+      const documentVersion = doc ? String(doc.version || doc.versao || doc.document_version || '1.0') : '1.0';
+
       await portalService.signDocument(
         initialToken,
         initialCode,
@@ -260,7 +279,10 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         loggedClient.name,
         loggedClient.document,
         ip,
-        navigator.userAgent
+        navigator.userAgent,
+        clientTimezone,
+        documentVersion,
+        initialToken
       );
 
       await loadFullPortalData();

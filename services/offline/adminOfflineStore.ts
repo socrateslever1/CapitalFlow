@@ -7,6 +7,8 @@ export class CapitalFlowDB extends Dexie {
   contratos!: Table<any>; // Usando any para facilitar o mapeamento do DB
   parcelas!: Table<any>;
   transacoes!: Table<any>;
+  payment_intents!: Table<any>;
+  portal_files!: Table<any>;
   clientes!: Table<Client>;
   fontes!: Table<CapitalSource>;
   sync_metadata!: Table<{ key: string; last_sync: string; profile_id: string }>;
@@ -23,6 +25,14 @@ export class CapitalFlowDB extends Dexie {
       fontes: 'id, profile_id, name',
       sync_metadata: 'key, profile_id',
       write_queue: 'id, table, operation, status, nextRetryAt, timestamp'
+    });
+
+    this.version(2).stores({
+      payment_intents: 'id, loan_id, profile_id, status, created_at'
+    });
+
+    this.version(3).stores({
+      portal_files: 'id, loan_id, profile_id, payment_intent_id, created_at, status'
     });
   }
 }

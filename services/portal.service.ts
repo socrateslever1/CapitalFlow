@@ -99,18 +99,6 @@ export const portalService = {
     return { installments: asRpcArray(installments), signals };
   },
 
-  async fetchPortalFiles(token: string, code: string) {
-    try {
-      const { data, error } = await supabasePortal
-        .rpc('portal_get_files', { p_token: token, p_shortcode: code });
-
-      if (error) return [];
-      return asRpcArray(data);
-    } catch {
-      return [];
-    }
-  },
-
   /**
    * Busca o contrato completo com parcelas e sinalizacoes usando credenciais do portal.
    */
@@ -142,7 +130,8 @@ export const portalService = {
     });
 
     if (error) {
-      throw new Error(error.message || 'Falha ao registrar o pagamento no portal.');
+      await enqueuePortalPaymentIntent(token, code, tipo, comprovanteUrl);
+      return { queued: true, offline: false, reason: error.message || 'sync_failed' };
     }
 
     return data;
@@ -268,19 +257,7 @@ export const portalService = {
   /**
    * Assina o documento
    */
-  async signDocument(
-    token: string, 
-    code: string, 
-    docId: string, 
-    role: string, 
-    name: string, 
-    cpf: string, 
-    ip: string, 
-    userAgent: string,
-    clientTimezone?: string,
-    documentVersion?: string,
-    portalToken?: string
-  ) {
+  async signDocument(token: string, code: string, docId: string, role: string, name: string, cpf: string, ip: string, userAgent: string) {
     const safeDocId = safeUUID(docId);
     if (!safeDocId) throw new Error('ID do documento invalido.');
 
@@ -305,10 +282,7 @@ export const portalService = {
         p_nome: name,
         p_cpf: cpf,
         p_ip: ip,
-        p_user_agent: userAgent,
-        p_client_timezone: clientTimezone || null,
-        p_document_version: documentVersion || null,
-        p_portal_token: portalToken || null
+        p_user_agent: userAgent
       });
 
     if (error) throw new Error('Erro ao assinar documento: ' + error.message);
@@ -327,9 +301,7 @@ export const portalService = {
         installment_id: installmentId,
         amount: amount,
         payment_type: 'PORTAL_PAYMENT',
-        return_url: window.location.href,
-        portal_token: token,
-        portal_code: code
+        return_url: window.location.href
       },
     });
 

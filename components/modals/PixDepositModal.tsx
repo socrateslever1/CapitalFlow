@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Modal } from "../ui/Modal";
+import { supabase } from "../../lib/supabase";
 import { CheckCircle2, Copy, RefreshCw, AlertCircle } from "lucide-react";
-import { createPixCharge, fetchChargeById } from "../../services/pix.service";
+import { fetchChargeById } from "../../services/pix.service";
 
 type PixDepositModalProps = {
   isOpen: boolean;
@@ -85,12 +86,17 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
 
     setLoading(true);
     try {
-      const data = await createPixCharge({
-        amount: amountNumber,
-        payer_name: payerName,
-        payer_email: payerEmail,
-        source_id: sourceId ?? null,
+      // CHAMA SUA EDGE FUNCTION (a que você já testou no AI Studio)
+      const { data, error } = await supabase.functions.invoke("mp-create-pix", {
+        body: {
+          amount: amountNumber,
+          payer_name: payerName,
+          payer_email: payerEmail,
+          source_id: sourceId ?? null,
+        },
       });
+
+      if (error) throw error;
       if (!data?.ok) {
         throw new Error(data?.error || "Falha ao criar PIX.");
       }

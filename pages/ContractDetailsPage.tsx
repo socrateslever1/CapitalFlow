@@ -13,8 +13,7 @@
 import React from 'react';
 import {
     TrendingUp, AlertTriangle, MessageSquare, ShieldCheck,
-    FileText, Download, RefreshCcw, Loader2, User, FileEdit, History, ArrowLeft,
-    ExternalLink, CheckCircle2, XCircle
+    FileText, Download, RefreshCcw, Loader2, User, FileEdit, History, ArrowLeft
 } from 'lucide-react';
 import { Loan, LedgerEntry, UserProfile, CapitalSource } from '../types';
 import { formatMoney } from '../utils/formatters';
@@ -53,8 +52,6 @@ interface ContractDetailsPageProps {
     onActivate: (loan: Loan) => void;
     onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
     onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
-    onOpenComprovante?: (url: string) => void;
-    onReviewSignal?: (signalId: string, status: 'APROVADO' | 'NEGADO') => void;
     onAgreementPayment?: (loan: Loan, agreement: any, inst: any, amount?: number, forgiveLateFee?: boolean) => void;
     onReverseAgreementPayment?: (loan: Loan, agreement: any, inst: any) => void;
     onRefresh?: () => void;
@@ -65,7 +62,6 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
     loanId, loans, sources, activeUser, onBack, onPayment, isProcessing,
     onOpenMessage, onRenegotiate, onOpenLegalDocument, onExportExtrato,
     onEdit, onArchive, onRestore, onDelete, onActivate, onReverseTransaction, onOpenReceipt,
-    onOpenComprovante, onReviewSignal,
     onAgreementPayment, onReverseAgreementPayment, onRefresh, isStealthMode, onNavigate
 }) => {
     const {
@@ -107,53 +103,6 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
             </div>
         );
     }
-
-    const clientUploads = [
-        ...(loan.portalFiles || [])
-            .filter((file: any) => file.direction === 'CLIENT_TO_OPERATOR' && !!(file.file_url || file.fileUrl))
-            .map((file: any) => ({
-                id: file.id,
-                status: file.status || 'PENDING',
-                date: file.created_at || file.createdAt,
-                comprovanteUrl: file.file_url || file.fileUrl,
-                reviewNote: file.metadata?.review_note || '',
-                label: file.file_name || file.fileName || 'Comprovante do cliente',
-                paymentIntentId: file.payment_intent_id || file.paymentIntentId,
-            })),
-        ...(loan.paymentSignals || [])
-            .filter((signal: any) => !!signal?.comprovanteUrl)
-            .map((signal: any) => ({
-                ...signal,
-                id: `signal-${signal.id}`,
-                paymentIntentId: signal.id,
-                label: 'Comprovante do cliente',
-            })),
-    ]
-        .filter((item, index, arr) => item.comprovanteUrl && arr.findIndex((other) => other.comprovanteUrl === item.comprovanteUrl) === index)
-        .sort((a: any, b: any) => new Date(b.date || b.created_at || 0).getTime() - new Date(a.date || a.created_at || 0).getTime());
-
-    const clientVisibleDocuments = (loan.customDocuments || [])
-        .filter((doc: any) => doc?.visibleToClient && doc?.url)
-        .sort((a: any, b: any) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
-
-    const openFile = (url?: string | null) => {
-        if (!url) return;
-        if (onOpenComprovante) {
-            onOpenComprovante(url);
-            return;
-        }
-        window.open(url, '_blank', 'noopener,noreferrer');
-    };
-
-    const isPendingSignal = (statusValue: any) =>
-        ['PENDENTE', 'PENDING', 'AGUARDANDO'].includes(String(statusValue || '').toUpperCase());
-
-    const formatDateTime = (value?: string | null) => {
-        if (!value) return 'Sem data';
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return 'Sem data';
-        return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    };
 
     return (
         <div className="flex flex-col gap-3 animate-in fade-in duration-500 pb-24 md:pb-6">
@@ -338,93 +287,6 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
                 {/* COLUNA DIREITA: PAGAMENTO */}
                 <div className="space-y-6">
-                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-5">
-                        <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
-                            <FileText size={16} className="text-cyan-500"/> Arquivos do Portal
-                        </h3>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Cliente enviou para mim</p>
-                                <span className="text-[10px] font-black text-slate-400">{clientUploads.length}</span>
-                            </div>
-                            {clientUploads.length === 0 ? (
-                                <p className="text-[11px] text-slate-500 font-bold">Nenhum comprovante enviado pelo cliente neste contrato.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {clientUploads.map((signal: any) => (
-                                        <div key={signal.id} className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex items-center justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-black text-white uppercase truncate">{signal.label || 'Comprovante do cliente'}</p>
-                                                <p className="text-[10px] text-slate-500 font-bold uppercase">{formatDateTime(signal.date || signal.created_at)} • {signal.status || 'PENDENTE'}</p>
-                                                {signal.reviewNote && <p className="text-[10px] text-slate-400 mt-1 truncate">{signal.reviewNote}</p>}
-                                            </div>
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openFile(signal.comprovanteUrl)}
-                                                    className="p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 text-blue-400 hover:text-blue-300 transition-colors"
-                                                    title="Abrir comprovante"
-                                                >
-                                                    <ExternalLink size={14} />
-                                                </button>
-                                                {isPendingSignal(signal.status) && onReviewSignal && (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => onReviewSignal(signal.paymentIntentId || signal.id, 'APROVADO')}
-                                                            className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 transition-colors"
-                                                            title="Aprovar comprovante"
-                                                        >
-                                                            <CheckCircle2 size={14} />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => onReviewSignal(signal.paymentIntentId || signal.id, 'NEGADO')}
-                                                            className="p-2 rounded-lg bg-rose-950/40 border border-rose-500/30 text-rose-400 hover:text-rose-300 transition-colors"
-                                                            title="Negar comprovante"
-                                                        >
-                                                            <XCircle size={14} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-3 pt-4 border-t border-slate-800">
-                            <div className="flex items-center justify-between">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Visível para o cliente</p>
-                                <span className="text-[10px] font-black text-slate-400">{clientVisibleDocuments.length}</span>
-                            </div>
-                            {clientVisibleDocuments.length === 0 ? (
-                                <p className="text-[11px] text-slate-500 font-bold">Nenhum arquivo marcado como visível ao cliente neste contrato.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {clientVisibleDocuments.map((doc: any) => (
-                                        <div key={doc.id} className="bg-slate-950 border border-slate-800 rounded-lg p-3 flex items-center justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-black text-white uppercase truncate">{doc.name || 'Arquivo do contrato'}</p>
-                                                <p className="text-[10px] text-slate-500 font-bold uppercase">{formatDateTime(doc.uploadedAt)} • {doc.type || 'ARQUIVO'}</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => openFile(doc.url)}
-                                                className="p-2 rounded-lg bg-blue-950/40 border border-blue-500/30 text-blue-400 hover:text-blue-300 transition-colors shrink-0"
-                                                title="Abrir arquivo"
-                                            >
-                                                <ExternalLink size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
                     <PaymentRegistrationForm
                         loan={loan}
                         resolvedBillingCycle={resolvedBillingCycle}

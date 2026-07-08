@@ -6,7 +6,6 @@ import { PublicLoanLeadPage } from '../pages/PublicLoanLeadPage';
 import { CampanhaLanding } from '../pages/Campanha/CampanhaLanding';
 import { CampanhaChat } from '../pages/Campanha/CampanhaChat';
 import { AuthScreen } from '../features/auth/AuthScreen';
-import { CommercialLandingPage } from '../pages/Public/CommercialLandingPage';
 import { Lock, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
@@ -137,56 +136,8 @@ export const AppGate: React.FC<AppGateProps> = ({
   };
 
   // =========================
-  // Rotas públicas e de Login
+  // Rotas públicas
   // =========================
-  const isLoginPath = path === '/login';
-
-  // Se acessar o login e já estiver logado, redireciona para a raiz "/"
-  if (isLoginPath && activeUser) {
-    window.location.pathname = '/';
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <Loader2 className="animate-spin text-indigo-500" size={32} />
-      </div>
-    );
-  }
-
-  // Se acessar o login e NÃO estiver logado, exibe a AuthScreen
-  if (isLoginPath && !activeUser) {
-    return (
-      <AuthScreen
-        loginUser={loginUser}
-        setLoginUser={setLoginUser}
-        loginPassword={loginPassword}
-        setLoginPassword={setLoginPassword}
-        submitLogin={() => submitLogin(setIsLoadingData, showToast)}
-        submitTeamLogin={submitTeamLogin}
-        savedProfiles={savedProfiles}
-        handleSelectSavedProfile={(p) => handleSelectSavedProfile(p, showToast)}
-        handleRemoveSavedProfile={handleRemoveSavedProfile}
-        isLoading={isLoadingData}
-        showToast={showToast}
-        toast={toast}
-        supportNumber={savedProfiles[0]?.contato_whatsapp}
-      />
-    );
-  }
-
-  // Se for a raiz "/" e não estiver logado, exibe a Landing Page Comercial
-  if (path === '/' && !activeUser) {
-    return <CommercialLandingPage />;
-  }
-
-  // Se não estiver logado e não for nenhuma das outras rotas públicas, força redirecionamento para o login
-  if (!activeUser && !isPublicLoanLead && path !== '/campanha/chat' && path !== '/campanha' && !campaignId && !portalToken && !legalSignToken) {
-    window.location.pathname = '/login';
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <Loader2 className="animate-spin text-indigo-500" size={32} />
-      </div>
-    );
-  }
-
   if (isPublicLoanLead) {
     return <PublicLoanLeadPage />;
   }

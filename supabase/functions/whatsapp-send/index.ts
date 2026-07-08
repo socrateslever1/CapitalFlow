@@ -75,11 +75,6 @@ serve(async (req) => {
       targetMessage = queueItem.message;
     }
 
-    // Resolve o domínio do portal nas mensagens
-    if (targetMessage && targetMessage.includes("{link_portal}")) {
-      targetMessage = targetMessage.replace(/\{link_portal\}/g, APP_ORIGIN);
-    }
-
     if (!targetProfileId || !targetPhone || !targetMessage) {
       const errText = "Parâmetros obrigatórios ausentes: profile_id, phone, message.";
       if (queue_id) {

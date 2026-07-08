@@ -86,9 +86,7 @@ const fetchRemoteSnapshot = async (ownerId: string) => {
       .from('contratos')
       .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
       .eq('owner_id', ownerId),
-    supabase.from('perfis').select('*').eq('owner_profile_id', ownerId),
-    supabase.from('payment_intents').select('*').eq('profile_id', ownerId),
-    supabase.from('portal_files').select('*').eq('profile_id', ownerId)
+    supabase.from('perfis').select('*').eq('owner_profile_id', ownerId)
   ]);
 };
 
@@ -111,20 +109,18 @@ export const syncService = {
       await this.processQueue();
 
       // 1. Buscar tudo em paralelo para velocidade
-      let [clientsRes, sourcesRes, loansRes, staffRes, paymentIntentsRes, portalFilesRes] = await fetchRemoteSnapshot(ownerId);
+      let [clientsRes, sourcesRes, loansRes, staffRes] = await fetchRemoteSnapshot(ownerId);
 
-      const firstError = clientsRes.error || sourcesRes.error || loansRes.error || staffRes.error || paymentIntentsRes.error || portalFilesRes.error;
+      const firstError = clientsRes.error || sourcesRes.error || loansRes.error || staffRes.error;
       if (firstError && isAuthSyncError(firstError)) {
         await ensureFreshAuth(true);
-        [clientsRes, sourcesRes, loansRes, staffRes, paymentIntentsRes, portalFilesRes] = await fetchRemoteSnapshot(ownerId);
+        [clientsRes, sourcesRes, loansRes, staffRes] = await fetchRemoteSnapshot(ownerId);
       }
 
       if (clientsRes.error) throw clientsRes.error;
       if (sourcesRes.error) throw sourcesRes.error;
       if (loansRes.error) throw loansRes.error;
       if (staffRes.error) throw staffRes.error;
-      if (paymentIntentsRes.error) throw paymentIntentsRes.error;
-      if (portalFilesRes.error) throw portalFilesRes.error;
 
       // 2. Salvar Clientes
       const mappedClients = (clientsRes.data || []).map(mapClientFromDB);
@@ -160,14 +156,6 @@ export const syncService = {
       await db.contratos.bulkPut(allLoans);
       if (allInstallments.length > 0) await db.parcelas.bulkPut(allInstallments);
       if (allTransactions.length > 0) await db.transacoes.bulkPut(allTransactions);
-      await db.payment_intents.where('profile_id').equals(ownerId).delete();
-      if (paymentIntentsRes.data?.length) {
-        await db.payment_intents.bulkPut(paymentIntentsRes.data as any[]);
-      }
-      await db.portal_files.where('profile_id').equals(ownerId).delete();
-      if (portalFilesRes.data?.length) {
-        await db.portal_files.bulkPut(portalFilesRes.data as any[]);
-      }
 
       // 5. Atualizar metadados de sincronização
       const remoteLoanIds = new Set(allLoans.map((loan) => loan.id).filter(Boolean));
@@ -211,26 +199,22 @@ export const syncService = {
    * Obtém os dados do Dexie de forma reativa (Source of Truth)
    */
   async getLocalData(ownerId: string) {
-    const [loans, clients, sources, paymentIntents, portalFiles] = await Promise.all([
+    const [loans, clients, sources] = await Promise.all([
       db.contratos.where('owner_id').equals(ownerId).toArray(),
       db.clientes.where('owner_id').equals(ownerId).toArray(),
-      db.fontes.where('profile_id').equals(ownerId).toArray(),
-      db.payment_intents.where('profile_id').equals(ownerId).toArray(),
-      db.portal_files.where('profile_id').equals(ownerId).toArray()
+      db.fontes.where('profile_id').equals(ownerId).toArray()
     ]);
 
     // Precisamos remontar os contratos com suas parcelas para manter compatibilidade com o frontend
     // Nota: Em um app gigante, faríamos isso sob demanda, mas aqui mantemos o contrato "gordo"
     const enrichedLoans = await Promise.all(loans.map(async (l) => {
-      const [parcelas, transacoes, loanPaymentIntents, loanPortalFiles] = await Promise.all([
+      const [parcelas, transacoes] = await Promise.all([
         db.parcelas.where('loan_id').equals(l.id).toArray(),
-        db.transacoes.where('loan_id').equals(l.id).toArray(),
-        Promise.resolve(paymentIntents.filter((intent: any) => intent.loan_id === l.id)),
-        Promise.resolve(portalFiles.filter((file: any) => file.loan_id === l.id))
+        db.transacoes.where('loan_id').equals(l.id).toArray()
       ]);
 
       // Mapeia para o formato do Frontend usando o adapter existente
-      return mapLoanFromDB({ ...l, parcelas, transacoes, payment_intents: loanPaymentIntents, portal_files: loanPortalFiles }, clients);
+      return mapLoanFromDB({ ...l, parcelas, transacoes }, clients);
     }));
 
     return {

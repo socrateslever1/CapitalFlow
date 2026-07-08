@@ -127,7 +127,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
       );
       setStep('SUCCESS');
     } catch (e: any) {
-      setError(e?.message || 'Erro ao notificar operador. O arquivo nao foi vinculado ao contrato.');
+      setError(e?.message || 'Erro ao notificar operador.');
       setStep('BILLING');
     } finally {
       setIsProcessing(false);

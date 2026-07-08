@@ -29,14 +29,6 @@ function getBearerToken(req: Request): string | null {
   return auth.slice(7).trim();
 }
 
-async function readJson(req: Request) {
-  try {
-    return await req.json();
-  } catch {
-    return null;
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
   if (req.method !== "POST") return json(req, { ok: false, error: "Method Not Allowed" }, 405);
@@ -51,85 +43,34 @@ serve(async (req) => {
       return json(req, { ok: false, error: "Missing env vars" }, 500);
     }
 
-    const body = await readJson(req);
-    if (!body) return json(req, { ok: false, error: "Corpo da requisicao invalido" }, 400);
+    const token = getBearerToken(req);
+    if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
 
-    const {
-      amount,
-      payer_name,
-      payer_email,
-      loan_id,
-      installment_id,
-      payment_type,
-      return_url,
-      portal_token,
-      portal_code,
-    } = body || {};
-
-    if (!loan_id) return json(req, { ok: false, error: "Contrato nao informado" }, 400);
-    if (!amount || Number(amount) <= 0) return json(req, { ok: false, error: "Valor invalido para pagamento" }, 400);
-
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    let authenticatedUserId: string | null = null;
-    const bearer = getBearerToken(req);
-    if (bearer && bearer !== SUPABASE_ANON_KEY) {
-      const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${bearer}` } },
-      });
-
-      const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
-      if (!authErr && authData?.user?.id) {
-        authenticatedUserId = authData.user.id;
-      }
+    const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
+    if (authErr || !authData?.user?.id) {
+      return json(req, { ok: false, error: "Unauthorized: invalid token" }, 401);
     }
 
-    if (!authenticatedUserId && (!portal_token || !portal_code)) {
-      return json(req, { ok: false, error: "Acesso nao autorizado para gerar pagamento" }, 401);
-    }
+    const body = await req.json();
+    const { amount, payer_name, payer_email, loan_id, installment_id, payment_type, return_url } = body || {};
 
+    // 1. Buscar o Dono do Contrato (Operador)
     const { data: loan, error: loanErr } = await supabaseAdmin
       .from("contratos")
-      .select("id, profile_id, owner_id, source_id, portal_token, portal_shortcode, status, is_archived")
+      .select("id, profile_id, owner_id, source_id")
       .eq("id", loan_id)
       .single();
 
-    if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato nao encontrado" }, 404);
+    if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
 
     const targetProfileId = loan.profile_id || loan.owner_id;
 
-    if (authenticatedUserId) {
-      const { data: allowedProfile } = await supabaseAdmin
-        .from("perfis")
-        .select("id")
-        .eq("id", targetProfileId)
-        .eq("user_id", authenticatedUserId)
-        .maybeSingle();
-
-      if (!allowedProfile?.id) {
-        return json(req, { ok: false, error: "Usuario sem permissao para este contrato" }, 403);
-      }
-    } else {
-      const tokenMatches = String(loan.portal_token || "").toLowerCase() === String(portal_token || "").toLowerCase();
-      const codeMatches = String(loan.portal_shortcode || "") === String(portal_code || "");
-      const archived = Boolean(loan.is_archived);
-      const blockedStatuses = [
-        "ARQUIVADO",
-        "ARCHIVED",
-        "CANCELADO",
-        "CANCELED",
-        "DELETADO",
-        "DELETED",
-        "EXCLUIDO",
-        "EXCLUÍDO",
-      ];
-      const statusBlocked = blockedStatuses.includes(String(loan.status || "").toUpperCase());
-
-      if (!tokenMatches || !codeMatches || archived || statusBlocked) {
-        return json(req, { ok: false, error: "Acesso do portal invalido para este contrato" }, 403);
-      }
-    }
-
+    // 2. Buscar Credenciais MP do Operador (Multi-Conta)
     const { data: mpConfig } = await supabaseAdmin
       .from("perfis_config_mp")
       .select("mp_access_token")
@@ -137,50 +78,56 @@ serve(async (req) => {
       .maybeSingle();
 
     const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;
+
     if (!accessToken) {
-      return json(req, { ok: false, error: "Credenciais Mercado Pago nao configuradas" }, 400);
+      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas" }, 400);
     }
 
     const external_reference = crypto.randomUUID();
-    const safeReturnUrl = return_url || "https://capitalflow.app/portal";
 
+    // 3. Montar o Payload da Preference (Checkout Pro)
     const mpPayload = {
       items: [
         {
-          id: String(installment_id || loan.id),
+          id: String(installment_id || loan_id),
           title: `Pagamento Contrato ${String(loan.id).slice(0, 8)}`,
           quantity: 1,
           unit_price: Number(amount),
-          currency_id: "BRL",
-        },
+          currency_id: "BRL"
+        }
       ],
       payer: {
         name: payer_name || "Cliente",
-        email: payer_email || "cliente@capitalflow.app",
+        email: payer_email || "cliente@capitalflow.app"
       },
       external_reference,
       statement_descriptor: "CAPITALFLOW",
       payment_methods: {
-        excluded_payment_methods: [],
-        excluded_payment_types: [],
-        installments: 12,
+        excluded_payment_methods: [
+          // Excluir metodos de pagamento em dinheiro (loteria, etc) se quiser forçar apenas CC e PIX
+          // { id: "ticket" }
+        ],
+        excluded_payment_types: [
+            // { id: "ticket" }
+        ],
+        installments: 12 // Permite até 12x
       },
       metadata: {
         loan_id: loan.id,
-        installment_id: installment_id || null,
-        payment_type: payment_type || "PORTAL_PAYMENT",
-        profile_id: targetProfileId,
+        installment_id,
+        payment_type: payment_type || "RENEW_INTEREST",
+        profile_id: loan.profile_id,
         source_id: loan.source_id,
-        portal_payment: !authenticatedUserId,
       },
       back_urls: {
-        success: safeReturnUrl,
-        failure: safeReturnUrl,
-        pending: safeReturnUrl,
+        success: return_url || "https://capitalflow.app/sucesso",
+        failure: return_url || "https://capitalflow.app/falha",
+        pending: return_url || "https://capitalflow.app/pendente"
       },
-      auto_return: "approved",
+      auto_return: "approved"
     };
 
+    // 4. Criar a Preference na API do Mercado Pago
     const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
       headers: {
@@ -190,24 +137,14 @@ serve(async (req) => {
       body: JSON.stringify(mpPayload),
     });
 
-    const responseText = await mpRes.text();
-    let mpData: any = null;
-    try {
-      mpData = responseText ? JSON.parse(responseText) : null;
-    } catch {
-      mpData = null;
-    }
+    const mpData = await mpRes.json();
+    if (!mpRes.ok) return json(req, { ok: false, error: mpData?.message || "Erro no Mercado Pago" }, 502);
 
-    if (!mpRes.ok) {
-      const mpMessage = mpData?.message || mpData?.error || responseText || "Erro no Mercado Pago";
-      return json(req, { ok: false, error: mpMessage, provider_status: mpRes.status }, 502);
-    }
-
+    // 5. Retornar a URL de Pagamento (init_point)
     return json(req, {
       ok: true,
-      preference_id: mpData?.id,
-      init_point: mpData?.init_point,
-      sandbox_init_point: mpData?.sandbox_init_point,
+      preference_id: mpData.id,
+      init_point: mpData.init_point, // URL de pagamento
       external_reference,
     });
   } catch (err: any) {

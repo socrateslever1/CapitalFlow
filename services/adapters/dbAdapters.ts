@@ -73,7 +73,6 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
   const rawParcelas = asArray(l.parcelas);
   const rawTransacoes = asArray(l.transacoes);
   const rawSinais = asArray(l.payment_intents);
-  const rawPortalFiles = asArray(l.portal_files);
 
   /* =============================
      NORMALIZAÇÃO DEFINITIVA STATUS (PARCELAS)
@@ -137,7 +136,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
   const signals = rawSinais.map((s: any) => ({
     id: asString(s.id),
     date: safeDateString(s.created_at),
-    type: asString(s.method || s.type || s.tipo_intencao || s.tipo),
+    type: asString(s.method || s.type || s.tipo_intencao),
     status: asString(s.status),
     comprovanteUrl: asString(s.comprovante_url || s.proof_url),
     clientViewedAt: safeDateString(s.client_viewed_at),
@@ -231,7 +230,6 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     installments,
     ledger,
     paymentSignals: signals,
-    portalFiles: rawPortalFiles as any,
     customDocuments: asArray(l.policies_snapshot?.customDocuments),
     isArchived: !!l.is_archived,
 

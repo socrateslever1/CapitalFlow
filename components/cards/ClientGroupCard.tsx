@@ -7,7 +7,6 @@ import {
     ChevronUp,
     Clock,
     Copy,
-    FileText,
     Link as LinkIcon,
     Layers,
     MessageSquare,
@@ -98,11 +97,6 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     });
 
     const activeLoans = group.loans.filter((loan) => !loan.isArchived);
-    const hasPendingPortalAction = group.loans.some((loan: any) => (
-        (loan.paymentSignals || []).some((signal: any) => (
-            ['PENDENTE', 'PENDING', 'AGUARDANDO'].includes(String(signal?.status || '').toUpperCase())
-        ))
-    ));
 
     const handleRenegotiateAll = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -179,11 +173,6 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         icon = <AlertCircle className="text-amber-500" size={20} />;
         statusText = 'Em Atraso';
         statusTextColor = 'text-amber-500';
-    } else if (hasPendingPortalAction) {
-        borderLeftColor = 'border-l-cyan-500 cf-portal-action-pulse';
-        icon = <FileText className="text-cyan-500" size={20} />;
-        statusText = 'Ação do Portal';
-        statusTextColor = 'text-cyan-500';
     } else if (group.status === 'PAID') {
         borderLeftColor = 'border-l-emerald-500';
         icon = <CheckCircle2 className="text-emerald-500" size={20} />;
@@ -211,7 +200,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     };
 
     return (
-        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 h-full min-h-[112px] ${borderLeftColor} ${hasPendingPortalAction && (group.status === 'CRITICAL' || group.status === 'LATE') ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
+        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div
                 className="flex flex-col min-h-[6rem] justify-between relative"
                 onClick={handleCardClick}

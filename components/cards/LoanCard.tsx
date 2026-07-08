@@ -76,9 +76,6 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
 
   // Helpers de Apresentação
   const debtorNameSafe = getDebtorNameSafe(loan);
-  const hasPendingPortalAction = (loan.paymentSignals || []).some((signal: any) => (
-    ['PENDENTE', 'PENDING', 'AGUARDANDO'].includes(String(signal?.status || '').toUpperCase())
-  ));
 
   // Definição da cor da borda lateral baseada no status
   let borderLeftColor = "border-l-slate-700"; // Padrão
@@ -86,7 +83,6 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   else if (isCapitalOnlyRecovery) borderLeftColor = "border-l-rose-600";
   else if (hasActiveAgreement) borderLeftColor = "border-l-indigo-500";
   else if (isLate) borderLeftColor = "border-l-rose-500 cf-overdue-card-pulse";
-  else if (hasPendingPortalAction) borderLeftColor = "border-l-cyan-500 cf-portal-action-pulse";
   else if (daysUntilDue <= 3) borderLeftColor = "border-l-amber-500";
   else borderLeftColor = "border-l-blue-500";
 
@@ -135,12 +131,12 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   return (
     <div
       ref={cardRef}
-      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 h-full min-h-[112px] ${borderLeftColor} ${hasPendingPortalAction && isLate ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
+      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
       onClick={handleCardClick}
       onDoubleClick={handleNavigate}
     >
       {/* Container Principal com Padding */}
-      <div className="space-y-4 h-full">
+      <div className="space-y-4">
         <Header
           loan={loan}
           debtorNameSafe={debtorNameSafe}

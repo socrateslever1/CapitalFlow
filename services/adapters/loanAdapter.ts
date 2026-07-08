@@ -208,7 +208,6 @@ export function mapLoanFromDB(
 
     ledger: asArray(l?.ledger),
     paymentSignals: asArray(l?.paymentSignals ?? l?.sinalizacoes_pagamento),
-    portalFiles: asArray(l?.portalFiles ?? l?.portal_files),
 
     notes: asString(l?.notes),
 

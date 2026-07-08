@@ -32,7 +32,6 @@ interface NotificationProps {
   showToast: any;
   setActiveTab: (tab: any) => void;
   setSelectedLoanId: (id: string | null) => void;
-  onDataChanged?: () => void;
   disabled?: boolean;
 }
 
@@ -55,7 +54,6 @@ export const useAppNotifications = ({
   showToast,
   setActiveTab,
   setSelectedLoanId,
-  onDataChanged,
   disabled,
 }: NotificationProps) => {
   const checkTimer = useRef<any>(null);
@@ -86,10 +84,6 @@ export const useAppNotifications = ({
   };
 
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
-  const notificationProfileId =
-    activeUser && activeUser.id !== 'DEMO'
-      ? ((activeUser as any).supervisor_id || (activeUser as any).owner_profile_id || activeUser.id)
-      : null;
   useEffect(() => {
     notificationsRef.current = notifications;
   }, [notifications]);
@@ -160,9 +154,9 @@ export const useAppNotifications = ({
     const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     queueRef.current.push({ ...notif, id: clientId, createdAt: Date.now() });
     flushQueue();
-    if (notificationProfileId) {
+    if (activeUser?.id && activeUser.id !== 'DEMO') {
       void notificationCenterService.create({
-        profileId: notificationProfileId,
+        profileId: activeUser.id,
         title: notif.title,
         message: notif.message,
         actionUrl: notif.action_url || null,
@@ -176,7 +170,7 @@ export const useAppNotifications = ({
         )));
       });
     }
-  }, [notificationProfileId, dismissedMap, flushQueue]);
+  }, [activeUser?.id, dismissedMap, flushQueue]);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => {
@@ -187,8 +181,8 @@ export const useAppNotifications = ({
         setDismissedMap(newMap);
         localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
 
-        if (notificationProfileId) {
-          void notificationCenterService.markItemAsRead(notificationProfileId, target.item_type, target.item_id);
+        if (activeUser?.id && activeUser.id !== 'DEMO') {
+          void notificationCenterService.markItemAsRead(activeUser.id, target.item_type, target.item_id);
         }
       }
 
@@ -199,7 +193,7 @@ export const useAppNotifications = ({
 
       return prev.filter(n => n.id !== id);
     });
-  }, [dismissedMap, notificationProfileId]);
+  }, [dismissedMap, activeUser?.id]);
 
   const resetNotifiedCaches = () => {
     notifiedDueLoans.current = new Set();
@@ -212,10 +206,10 @@ export const useAppNotifications = ({
   }, [loans]);
 
   useEffect(() => {
-    if (!notificationProfileId || disabled) return;
+    if (!activeUser?.id || disabled || activeUser.id === 'DEMO') return;
 
     let cancelled = false;
-    notificationCenterService.listUnread(notificationProfileId).then((rows) => {
+    notificationCenterService.listUnread(activeUser.id).then((rows) => {
       if (cancelled) return;
       
       // Filter out notifications that were dismissed within 48h
@@ -240,7 +234,7 @@ export const useAppNotifications = ({
     });
 
     const since = new Date(Date.now() - READ_SUPPRESSION_MS).toISOString();
-    notificationCenterService.listRecentlyRead(notificationProfileId, since).then((rows) => {
+    notificationCenterService.listRecentlyRead(activeUser.id, since).then((rows) => {
       if (cancelled || !rows.length) return;
       setDismissedMap((prev) => {
         const next = { ...prev };
@@ -254,14 +248,14 @@ export const useAppNotifications = ({
     });
 
     const channel = supabase
-      .channel(`notification-center-${notificationProfileId}`)
+      .channel(`notification-center-${activeUser.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'notificacoes',
-          filter: `profile_id=eq.${notificationProfileId}`,
+          filter: `profile_id=eq.${activeUser.id}`,
         },
         (payload) => {
           const mapped = mapDbNotification(payload.new);
@@ -276,11 +270,11 @@ export const useAppNotifications = ({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [activeUser?.id, notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap]);
+  }, [activeUser?.id, disabled, flushQueue, mapDbNotification, dismissedMap]);
 
   // 1. Monitoramento em Tempo Real (Eventos Críticos de Negócio)
   useEffect(() => {
-    if (!activeUser || !notificationProfileId || disabled) return;
+    if (!activeUser || disabled) return;
 
     const channel = supabase
       .channel('global-urgent-alerts')
@@ -290,7 +284,7 @@ export const useAppNotifications = ({
           event: 'INSERT',
           schema: 'public',
           table: 'payment_intents',
-          filter: `profile_id=eq.${notificationProfileId}`,
+          filter: `profile_id=eq.${activeUser.id}`,
         },
         (payload) => {
           if (payload.new.status === 'PENDENTE') {
@@ -309,14 +303,13 @@ export const useAppNotifications = ({
               onClick
             );
             addNotification({
-                title: 'Pagamento aguardando conferencia',
+                title: 'Pagamento aguardando conferência',
                 message,
                 type: 'success',
                 item_type: 'pagamento',
                 item_id: payload.new.id,
                 metadata: { loan_id: payload.new.loan_id }
             });
-            onDataChanged?.();
             showToast('Novo pagamento aguardando conferência.', 'success');
           }
         }
@@ -328,7 +321,7 @@ export const useAppNotifications = ({
           event: 'UPDATE',
           schema: 'public',
           table: 'parcelas',
-          filter: `profile_id=eq.${notificationProfileId}`,
+          filter: `profile_id=eq.${activeUser.id}`,
         },
         (payload) => {
           const loan = loansRef.current.find((l) => l.id === payload.new.loan_id);
@@ -425,7 +418,7 @@ export const useAppNotifications = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeUser, notificationProfileId, disabled, setActiveTab, setSelectedLoanId, showToast, onDataChanged]);
+  }, [activeUser, disabled, setActiveTab, setSelectedLoanId, showToast]);
 
   // 2. Monitoramento Periódico (Vencimentos e Saldo)
   const runScan = async () => {
@@ -434,55 +427,6 @@ export const useAppNotifications = ({
     if (!permissionAsked.current) {
       permissionAsked.current = true;
       notificationService.requestPermission();
-    }
-
-    if (notificationProfileId) {
-      const { data: portalPayments } = await supabase
-        .from('payment_intents')
-        .select('id,loan_id,status,created_at,comprovante_url,amount,valor,method,tipo')
-        .eq('profile_id', notificationProfileId)
-        .in('status', ['PENDENTE', 'PENDING', 'AGUARDANDO', 'APPROVED', 'APROVADO'])
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      let shouldRefreshData = false;
-      (portalPayments || []).forEach((intent: any) => {
-        if (!intent?.id || isDismissed('pagamento', intent.id)) return;
-        const loan = loansRef.current.find((item) => item.id === intent.loan_id);
-        const onClick = () => {
-          setActiveTab('CONTRACT_DETAILS');
-          setSelectedLoanId(intent.loan_id);
-        };
-        const amount = Number(intent.amount || intent.valor || 0);
-        const hasProof = !!intent.comprovante_url;
-        const isApproved = ['APPROVED', 'APROVADO'].includes(String(intent.status || '').toUpperCase());
-        const title = isApproved ? 'Pagamento confirmado' : 'Pagamento aguardando conferencia';
-        const message = isApproved
-          ? `${loan?.debtorName || 'Cliente'} teve um pagamento confirmado. Confira a baixa no contrato.`
-          : hasProof
-            ? `${loan?.debtorName || 'Cliente'} enviou comprovante pelo portal. Revise o arquivo e confirme a baixa.`
-            : amount > 0
-              ? `${loan?.debtorName || 'Cliente'} informou pagamento de ${formatMoney(amount)} pelo portal.`
-              : `${loan?.debtorName || 'Cliente'} informou um pagamento pelo portal.`;
-
-        addNotification({
-          title,
-          message,
-          type: 'success',
-          item_type: 'pagamento',
-          item_id: intent.id,
-          metadata: {
-            loan_id: intent.loan_id,
-            comprovante_url: intent.comprovante_url || null,
-          },
-          onClick,
-        });
-        shouldRefreshData = true;
-      });
-
-      if (shouldRefreshData) {
-        onDataChanged?.();
-      }
     }
 
     // A) Contratos vencendo HOJE (Alerta Matinal)

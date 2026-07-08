@@ -176,21 +176,11 @@ export const useFileController = (
     }
   };
 
-  const handleOpenComprovante = (url: string) => {
-    if (!url) {
-      showToast('Comprovante sem arquivo vinculado.', 'warning');
-      return;
-    }
-
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   return {
     handleFilePick,
     startMapping,
     generatePreview,
     executeImport,
-    handleOpenComprovante,
     cancel: () => ui.closeModal(),
   };
 };

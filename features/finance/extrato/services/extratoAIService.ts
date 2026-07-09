@@ -15,7 +15,7 @@ export const getExtratoAIResponse = async (action: ActionType, context: any, use
   const fullPrompt = `${prompt}\n\n${JSON.stringify(context, null, 2)}`;
 
   const chat = ai.chats.create({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     config: {
       systemInstruction: baseSystemPrompt,
     },

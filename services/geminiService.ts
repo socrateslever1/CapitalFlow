@@ -71,7 +71,7 @@ export const processNaturalLanguageCommand = async (
 
     const callWithRetry = async (maxRetries = 5, initialDelay = 3000) => {
       let lastError: any;
-      const models = ["gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
+      const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
 
       const accountId = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID;
       const gatewayName = import.meta.env.VITE_GATEWAY_NAME;
@@ -229,7 +229,7 @@ export async function askGemini(prompt: string): Promise<string> {
   if (!googleApiKey) return buildInternalAIText(prompt);
 
   const performFetch = async (useGateway: boolean, modelIndex: number) => {
-    const models = ["gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
+    const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
     const selectedModel = models[modelIndex % models.length];
 
     const endpoint = useGateway

@@ -44,7 +44,7 @@ export const parseDateOnlyUTC = (input: DateInput): Date => {
 };
 
 export const isWeekendUTC = (date: Date): boolean => {
-  const day = date.getDay(); // Fuso Local
+  const day = date.getUTCDay(); // UTC Timezone
   return day === 0 || day === 6;
 };
 

@@ -70,24 +70,29 @@ export async function logReversalAudit(params: {
   notes?: string;
 }) {
   const { ownerId, loanId, sourceId, installmentId, originalTxId, originalType, amount, reversedPrincipal, reversedProfit, notes } = params;
+  const { syncService } = await import('../sync.service');
 
-  const { error } = await supabase.from('transacoes').insert({
-    id: generateUUID(),
-    loan_id: safeUUID(loanId),
-    profile_id: safeUUID(ownerId),
-    source_id: safeUUID(sourceId),
-    installment_id: safeUUID(installmentId),
-    date: new Date().toISOString(),
-    type: 'ESTORNO',
-    amount: amount, // Valor negativo para anular a soma
-    principal_delta: reversedPrincipal,
-    interest_delta: reversedProfit,
-    late_fee_delta: 0,
-    category: 'ESTORNO', // Categoria específica
-    notes:
-      `Estorno aplicado. Ref=${originalTxId}` +
-      (notes ? ` | Obs Original: ${notes}` : ''),
+  const txId = generateUUID();
+  await syncService.enqueueOperation({
+    table: 'transacoes',
+    operation: 'INSERT',
+    data: {
+      id: txId,
+      loan_id: safeUUID(loanId),
+      profile_id: safeUUID(ownerId),
+      source_id: safeUUID(sourceId),
+      installment_id: safeUUID(installmentId),
+      date: new Date().toISOString(),
+      type: 'ESTORNO',
+      amount: amount, // Valor negativo para anular a soma
+      principal_delta: reversedPrincipal,
+      interest_delta: reversedProfit,
+      late_fee_delta: 0,
+      category: 'ESTORNO', // Categoria específica
+      notes:
+        `Estorno aplicado. Ref=${originalTxId}` +
+        (notes ? ` | Obs Original: ${notes}` : ''),
+    },
+    id: txId,
   });
-
-  if (error) throw error;
 }

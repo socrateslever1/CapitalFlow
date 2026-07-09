@@ -48,6 +48,9 @@ export async function reverseTransaction(
     throw new Error('Apenas Pagamentos, Empréstimos, Aportes e Acordos podem ser estornados.');
   }
 
+  const { syncService } = await import('../sync.service');
+  const { db } = await import('../offline/adminOfflineStore');
+
   /**
    * 1) Ajuste de caixa (fonte): SOMENTE capital
    * - Pagamento: remove do caixa o principal que tinha entrado (delta negativo)
@@ -56,11 +59,26 @@ export async function reverseTransaction(
   const balanceDelta = calcSourceBalanceDelta(tx);
 
   if (tx.sourceId && balanceDelta !== 0 && isUUID(tx.sourceId)) {
-    const { error: balanceError } = await supabase.rpc('adjust_source_balance', {
-      p_source_id: tx.sourceId,
-      p_delta: balanceDelta,
+    // Atualização otimista no Dexie local
+    try {
+      const prevSource = await db.fontes.get(tx.sourceId);
+      if (prevSource) {
+        await db.fontes.update(tx.sourceId, { balance: Number(prevSource.balance || 0) + balanceDelta });
+      }
+    } catch (err) {
+      console.warn('Falha ao atualizar fonte localmente:', err);
+    }
+
+    // Enfileira RPC no Supabase
+    await syncService.enqueueOperation({
+      table: '__rpc',
+      operation: 'RPC',
+      data: {
+        fn: 'adjust_source_balance',
+        args: { p_source_id: tx.sourceId, p_delta: balanceDelta }
+      },
+      id: generateUUID()
     });
-    if (balanceError) throw new Error('Erro ao reverter saldo da fonte: ' + balanceError.message);
   }
 
   /**
@@ -71,23 +89,38 @@ export async function reverseTransaction(
   const profitToRemove = Math.abs(calcProfitToRemove(tx)); // Força valor positivo para garantir subtração
 
   if (profitToRemove > 0) {
-    const { data: profile, error: profileErr } = await supabase
-      .from('perfis')
-      .select('interest_balance')
-      .eq('id', ownerId)
-      .maybeSingle();
+    let currentProfit = 0;
+    try {
+      const profile = await db.perfis.get(ownerId);
+      currentProfit = profile ? toNumber((profile as any).interest_balance) : 0;
+    } catch {}
 
-    if (profileErr) throw profileErr;
+    // Fallback se estiver online e não achou no Dexie
+    if (currentProfit === 0 && navigator.onLine) {
+      try {
+        const { data: profile } = await supabase
+          .from('perfis')
+          .select('interest_balance')
+          .eq('id', ownerId)
+          .maybeSingle();
+        currentProfit = profile ? toNumber(profile.interest_balance) : 0;
+      } catch {}
+    }
 
-    const currentProfit = toNumber((profile as any)?.interest_balance);
     const nextProfit = currentProfit - profitToRemove; // Permite ficar negativo se necessário para correção
 
-    const { error: updProfitErr } = await supabase
-      .from('perfis')
-      .update({ interest_balance: nextProfit })
-      .eq('id', ownerId);
+    try {
+      await db.perfis.update(ownerId, { interest_balance: nextProfit } as any);
+    } catch (err) {
+      console.warn('Falha ao atualizar perfil localmente:', err);
+    }
 
-    if (updProfitErr) throw updProfitErr;
+    await syncService.enqueueOperation({
+      table: 'perfis',
+      operation: 'UPDATE',
+      data: { id: ownerId, interest_balance: nextProfit },
+      id: ownerId
+    });
   }
 
   /**
@@ -97,7 +130,7 @@ export async function reverseTransaction(
    */
   if (tx.installmentId) {
     // Para pagamento, podemos usar o objeto do loan pra restaurar paid_*,
-    // mas para APORTE é obrigatório ler do banco pra não usar estado antigo do frontend.
+    // mas para APORTE é obrigatório ler do banco/Dexie pra não usar estado antigo do frontend.
     const instFromLoan: any = (loan.installments || []).find(
       (i: any) => i.id === tx.installmentId
     );
@@ -130,9 +163,11 @@ export async function reverseTransaction(
             ? 'PARTIAL'
             : 'PENDING';
 
-      const { error: instErr } = await supabase
-        .from('parcelas')
-        .update({
+      await syncService.enqueueOperation({
+        table: 'parcelas',
+        operation: 'UPDATE',
+        data: {
+          id: tx.installmentId,
           principal_remaining: restoredPrincipalRemaining,
           interest_remaining: restoredInterestRemaining,
           late_fee_accrued: restoredLateFeeRemaining,
@@ -141,52 +176,53 @@ export async function reverseTransaction(
           paid_interest: restoredPaidInterest,
           paid_late_fee: restoredPaidLateFee,
           status: restoredStatus,
-        })
-        .eq('id', tx.installmentId);
+        },
+        id: tx.installmentId
+      });
 
-      if (instErr) throw instErr;
-
-      const { error: loanStatusErr } = await supabase
-        .from('contratos')
-        .update({ status: 'ATIVO' })
-        .eq('id', loan.id);
-
-      if (loanStatusErr) throw loanStatusErr;
+      await syncService.enqueueOperation({
+        table: 'contratos',
+        operation: 'UPDATE',
+        data: { id: loan.id, status: 'ATIVO' },
+        id: loan.id
+      });
     }
 
     // --- 3C) Reversão de PAGAMENTO DE ACORDO ---
     if (isAgreementPayment && isUUID(agreementInstallmentId)) {
-      const { error: instErr } = await supabase
-        .from('acordo_parcelas')
-        .update({
+      await syncService.enqueueOperation({
+        table: 'acordo_parcelas',
+        operation: 'UPDATE',
+        data: {
+          id: agreementInstallmentId,
           status: 'PENDENTE',
           valor_pago: 0,
           paid_amount: 0,
           data_pagamento: null,
           paid_at: null
-        })
-        .eq('id', agreementInstallmentId);
-
-      if (instErr) throw instErr;
+        },
+        id: agreementInstallmentId
+      });
 
       const agreementId = tx.meta?.agreement_id;
       if (agreementId && isUUID(agreementId)) {
-        const { error: agreementErr } = await supabase
-          .from('acordos_inadimplencia')
-          .update({ status: 'ATIVO' })
-          .eq('id', agreementId);
+        await syncService.enqueueOperation({
+          table: 'acordos_inadimplencia',
+          operation: 'UPDATE',
+          data: { id: agreementId, status: 'ATIVO' },
+          id: agreementId
+        });
 
-        if (agreementErr) throw agreementErr;
-
-        const { error: loanStatusErr } = await supabase
-          .from('contratos')
-          .update({
+        await syncService.enqueueOperation({
+          table: 'contratos',
+          operation: 'UPDATE',
+          data: {
+            id: loan.id,
             status: 'EM_ACORDO',
             acordo_ativo_id: agreementId,
-          })
-          .eq('id', loan.id);
-
-        if (loanStatusErr) throw loanStatusErr;
+          },
+          id: loan.id
+        });
       }
     }
 
@@ -195,19 +231,27 @@ export async function reverseTransaction(
       const deltaPrincipal = toNumber(tx.principalDelta || tx.amount);
       const deltaAmount = toNumber(tx.amount);
 
-      // ✅ FONTE DA VERDADE: busca no banco
-      const { data: dbInst, error: dbErr } = await supabase
-        .from('parcelas')
-        .select('principal_remaining, scheduled_principal, valor_parcela')
-        .eq('id', tx.installmentId)
-        .maybeSingle();
+      let dbInst: any = null;
+      try {
+        dbInst = await db.parcelas.get(tx.installmentId);
+      } catch {}
 
-      if (dbErr) throw dbErr;
+      if (!dbInst && navigator.onLine) {
+        try {
+          const { data } = await supabase
+            .from('parcelas')
+            .select('principal_remaining, scheduled_principal, valor_parcela')
+            .eq('id', tx.installmentId)
+            .maybeSingle();
+          dbInst = data;
+        } catch {}
+      }
+
       if (!dbInst) throw new Error('Parcela não encontrada para estorno do aporte.');
 
-      const currentPrincipalRemaining = toNumber((dbInst as any).principal_remaining);
-      const currentScheduledPrincipal = toNumber((dbInst as any).scheduled_principal);
-      const currentValorParcela = toNumber((dbInst as any).valor_parcela);
+      const currentPrincipalRemaining = toNumber(dbInst.principal_remaining ?? dbInst.principalRemaining ?? 0);
+      const currentScheduledPrincipal = toNumber(dbInst.scheduled_principal ?? dbInst.scheduledPrincipal ?? 0);
+      const currentValorParcela = toNumber(dbInst.valor_parcela ?? dbInst.amount ?? 0);
 
       const nextPrincipalRemaining = clampNonNegative(
         currentPrincipalRemaining - deltaPrincipal
@@ -217,34 +261,63 @@ export async function reverseTransaction(
       );
       const nextValorParcela = clampNonNegative(currentValorParcela - deltaAmount);
 
-      const { error: instErr } = await supabase
-        .from('parcelas')
-        .update({
+      await syncService.enqueueOperation({
+        table: 'parcelas',
+        operation: 'UPDATE',
+        data: {
+          id: tx.installmentId,
           principal_remaining: nextPrincipalRemaining,
           scheduled_principal: nextScheduledPrincipal,
           valor_parcela: nextValorParcela,
           status: 'PENDING',
-        })
-        .eq('id', tx.installmentId);
-
-      if (instErr) throw instErr;
-
-      // ✅ Também reduz o principal do contrato (aporte aumentou no header)
-      const { error: adjErr } = await supabase.rpc('adjust_loan_principal', {
-        p_loan_id: loan.id,
-        p_delta: -deltaAmount,
+        },
+        id: tx.installmentId
       });
 
-      if (adjErr) throw new Error('Erro ao ajustar principal do contrato: ' + adjErr.message);
+      // Atualiza o principal no header do contrato localmente
+      try {
+        const prevLoan = await db.contratos.get(loan.id);
+        if (prevLoan) {
+          const nextPrincipal = clampNonNegative(toNumber(prevLoan.principal || 0) - deltaAmount);
+          await db.contratos.update(loan.id, { principal: nextPrincipal });
+        }
+      } catch (err) {
+        console.warn('Falha ao atualizar principal do contrato localmente:', err);
+      }
+
+      // Também reduz o principal do contrato no Supabase
+      await syncService.enqueueOperation({
+        table: '__rpc',
+        operation: 'RPC',
+        data: {
+          fn: 'adjust_loan_principal',
+          args: { p_loan_id: loan.id, p_delta: -deltaAmount }
+        },
+        id: generateUUID()
+      });
     }
   } else if (isLendMore) {
     // ✅ Estorno de LEND_MORE sem parcela: reduz principal total do contrato
-    const { error: adjErr } = await supabase.rpc('adjust_loan_principal', {
-      p_loan_id: loan.id,
-      p_delta: -toNumber(tx.amount),
-    });
+    // Atualiza localmente no Dexie
+    try {
+      const prevLoan = await db.contratos.get(loan.id);
+      if (prevLoan) {
+        const nextPrincipal = clampNonNegative(toNumber(prevLoan.principal || 0) - toNumber(tx.amount));
+        await db.contratos.update(loan.id, { principal: nextPrincipal });
+      }
+    } catch (err) {
+      console.warn('Falha ao reverter principal lend_more localmente:', err);
+    }
 
-    if (adjErr) throw new Error('Erro ao ajustar principal do contrato: ' + adjErr.message);
+    await syncService.enqueueOperation({
+      table: '__rpc',
+      operation: 'RPC',
+      data: {
+        fn: 'adjust_loan_principal',
+        args: { p_loan_id: loan.id, p_delta: -toNumber(tx.amount) }
+      },
+      id: generateUUID()
+    });
   }
 
   /**
@@ -262,61 +335,69 @@ export async function reverseTransaction(
   // Se for acordo, usamos o tipo específico solicitado pelo usuário
   const reversalType = isAgreementPayment ? 'AGREEMENT_PAYMENT_REVERSED' : 'ESTORNO';
 
-  await supabase.from('transacoes').insert({
-    id: generateUUID(),
-    loan_id: safeUUID(loan.id),
-    profile_id: safeUUID(ownerId),
-    source_id: safeUUID(tx.sourceId),
-    installment_id: isAgreementPayment ? null : safeUUID(tx.installmentId),
-    date: new Date().toISOString(),
-    type: reversalType,
-    amount: totalReversedAmount,
-    principal_delta: reversedPrincipal,
-    interest_delta: reversedProfit,
-    late_fee_delta: 0,
-    category: 'ESTORNO',
-    payment_type: isAgreementPayment ? 'ACORDO' : undefined,
-    meta: isAgreementPayment ? {
-      agreement_id: tx.meta?.agreement_id,
-      agreement_installment_id: agreementInstallmentId,
-      origem: 'acordo_pagamentos',
-      reversal: true
-    } : undefined,
-    notes: `Estorno aplicado. Ref=${tx.id}` + (tx.notes ? ` | Obs Original: ${tx.notes}` : ''),
+  const txId = generateUUID();
+  await syncService.enqueueOperation({
+    table: 'transacoes',
+    operation: 'INSERT',
+    data: {
+      id: txId,
+      loan_id: safeUUID(loan.id),
+      profile_id: safeUUID(ownerId),
+      source_id: safeUUID(tx.sourceId),
+      installment_id: isAgreementPayment ? null : safeUUID(tx.installmentId),
+      date: new Date().toISOString(),
+      type: reversalType,
+      amount: totalReversedAmount,
+      principal_delta: reversedPrincipal,
+      interest_delta: reversedProfit,
+      late_fee_delta: 0,
+      category: 'ESTORNO',
+      payment_type: isAgreementPayment ? 'ACORDO' : undefined,
+      meta: isAgreementPayment ? {
+        agreement_id: tx.meta?.agreement_id,
+        agreement_installment_id: agreementInstallmentId,
+        origem: 'acordo_pagamentos',
+        reversal: true
+      } : undefined,
+      notes: `Estorno aplicado. Ref=${tx.id}` + (tx.notes ? ` | Obs Original: ${tx.notes}` : ''),
+    },
+    id: txId
   });
 
-  // 5) Auditoria de Estorno nas novas tabelas
-  try {
-    if (isPayment && tx.installmentId) {
-      // Buscar o pagamento original na tabela de auditoria
-      const { data: originalPayment } = await supabase
-        .from('payment_transactions')
-        .select('id')
-        .eq('installment_id', tx.installmentId)
-        .eq('status', 'PAID')
-        .order('paid_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (originalPayment) {
-        // Marcar como estornado
-        await supabase
+  // 5) Auditoria de Estorno nas novas tabelas (Apenas online-only, sem bloqueio se offline)
+  if (navigator.onLine) {
+    try {
+      if (isPayment && tx.installmentId) {
+        // Buscar o pagamento original na tabela de auditoria
+        const { data: originalPayment } = await supabase
           .from('payment_transactions')
-          .update({ status: 'REVERSED' })
-          .eq('id', originalPayment.id);
+          .select('id')
+          .eq('installment_id', tx.installmentId)
+          .eq('status', 'PAID')
+          .order('paid_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        // Registrar o estorno
-        await supabase.from('payment_reversals').insert({
-          payment_id: originalPayment.id,
-          installment_id: tx.installmentId,
-          reversed_by: activeUser.id,
-          reversal_reason: 'Estorno via Ledger',
-          reversed_at: new Date().toISOString()
-        });
+        if (originalPayment) {
+          // Marcar como estornado
+          await supabase
+            .from('payment_transactions')
+            .update({ status: 'REVERSED' })
+            .eq('id', originalPayment.id);
+
+          // Registrar o estorno
+          await supabase.from('payment_reversals').insert({
+            payment_id: originalPayment.id,
+            installment_id: tx.installmentId,
+            reversed_by: activeUser.id,
+            reversal_reason: 'Estorno via Ledger',
+            reversed_at: new Date().toISOString()
+          });
+        }
       }
+    } catch (auditErr) {
+      console.error('Erro ao gravar auditoria de estorno:', auditErr);
     }
-  } catch (auditErr) {
-    console.error('Erro ao gravar auditoria de estorno:', auditErr);
   }
 
   return 'Estorno realizado com sucesso. Saldos ajustados.';

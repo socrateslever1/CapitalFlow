@@ -19,7 +19,7 @@ export const legalAIService = {
 
     const ai = new GoogleGenAI({ apiKey: googleApiKey });
     const model = ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash",
       contents: [
         {
           role: "user",

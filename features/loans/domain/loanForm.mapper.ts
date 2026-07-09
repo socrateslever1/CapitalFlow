@@ -102,6 +102,7 @@ export interface LoanFormState {
   fundingInstallmentsCount?: string;
   fundingMonthlyRate?: string;
   customerMarginPercent?: string;
+  fundingOperatorAbsorbsInterest?: boolean;
 }
 
 function calculateFundingTotalFromRate(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
@@ -159,6 +160,7 @@ export const mapFormToLoan = (
     fundingMonthlyRate,
     fundingCalculationMode,
     customerMarginPercent,
+    operatorAbsorbsInterest: form.fundingOperatorAbsorbsInterest,
     initialData: {
       ...initialData,
       skipWeekends: form.skipWeekends
@@ -223,6 +225,7 @@ export const mapFormToLoan = (
     customerMarginPercent: form.billingCycle === 'INSTALLMENT_FIXED' ? customerMarginPercent : undefined,
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
+    fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? form.fundingOperatorAbsorbsInterest : undefined,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',

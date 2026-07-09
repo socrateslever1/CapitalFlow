@@ -37,7 +37,8 @@ export const installmentFixedStrategy: ModalityStrategy = {
             bankInstallmentValue = pmt(principal, bankMonthlyRate, count);
         }
 
-        const customerInstallmentValue = round(bankInstallmentValue * (1 + (marginPercent / 100)));
+        const baseForClient = params.operatorAbsorbsInterest ? (principal / count) : bankInstallmentValue;
+        const customerInstallmentValue = round(baseForClient * (1 + (marginPercent / 100)));
         const totalToReceive = round(customerInstallmentValue * count);
         const principalPart = round(principal / count);
 

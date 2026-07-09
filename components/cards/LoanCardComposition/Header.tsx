@@ -189,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   return (
-    <div className="w-full flex flex-col min-h-[6rem] justify-between relative">
+    <div className="w-full flex flex-col h-[6.5rem] justify-between relative">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="relative shrink-0">

@@ -42,6 +42,7 @@ export interface InstallmentGenerationParams {
     fundingMonthlyRate?: number;
     fundingCalculationMode?: 'TOTAL' | 'RATE';
     customerMarginPercent?: number;
+    operatorAbsorbsInterest?: boolean;
 }
 
 export interface InstallmentGenerationResult {

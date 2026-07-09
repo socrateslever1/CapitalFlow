@@ -250,7 +250,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     return (
         <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div
-                className="flex flex-col min-h-[6rem] justify-between relative"
+                className="flex flex-col h-[6.5rem] justify-between relative"
                 onClick={handleCardClick}
             >
                 <div className="flex justify-between items-start gap-3">
@@ -281,6 +281,24 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-slate-950/50 ${statusTextColor} border-current opacity-80 whitespace-nowrap`}>
                                     {statusText}
                                 </span>
+                                {activeLoanIndicators.length > 0 && (
+                                    <>
+                                        {activeLoanIndicators.slice(0, 3).map((item) => (
+                                            <span
+                                                key={item.id}
+                                                className={`min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
+                                                title={item.label}
+                                            >
+                                                {item.label}
+                                            </span>
+                                        ))}
+                                        {activeLoanIndicators.length > 3 && (
+                                            <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
+                                                +{activeLoanIndicators.length - 3}
+                                            </span>
+                                        )}
+                                    </>
+                                )}
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-[8px] text-slate-500 font-bold uppercase flex items-center gap-1 whitespace-nowrap">
@@ -291,24 +309,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                     </div>
                 </div>
 
-                {activeLoanIndicators.length > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 overflow-hidden">
-                        {activeLoanIndicators.slice(0, 3).map((item) => (
-                            <span
-                                key={item.id}
-                                className={`min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
-                                title={item.label}
-                            >
-                                {item.label}
-                            </span>
-                        ))}
-                        {activeLoanIndicators.length > 3 && (
-                            <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
-                                +{activeLoanIndicators.length - 3}
-                            </span>
-                        )}
-                    </div>
-                )}
+
 
                 <div className="flex items-end justify-between pt-2 border-t border-slate-800/30 mt-1">
                     <div className="flex flex-col gap-0.5">

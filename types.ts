@@ -316,6 +316,7 @@ export interface Loan {
   customerMarginPercent?: number;
   customerInstallmentValue?: number;
   customerTotalPayable?: number;
+  fundingOperatorAbsorbsInterest?: boolean;
   portalToken?: string;
   portalShortcode?: string;
   contato_whatsapp?: string;

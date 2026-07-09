@@ -51,10 +51,14 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           ? (monthlyRate > 0 ? principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -count))) : principal / count)
           : bankTotalInput / count;
       const bankTotal = bankInstallment * count;
-      const customerInstallment = bankInstallment * (1 + margin / 100);
+      
+      const absorbsInterest = formData.fundingOperatorAbsorbsInterest === true;
+      const baseForClient = absorbsInterest ? (principal / count) : bankInstallment;
+
+      const customerInstallment = baseForClient * (1 + margin / 100);
       const customerTotal = customerInstallment * count;
       return { bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
-  }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.customerMarginPercent, formData.fundingCalculationMode]);
+  }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -62,9 +66,9 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       <div className="space-y-4">
 
         <div className="flex bg-slate-950/50 p-1 rounded-lg border border-slate-800/80">
-            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'MONTHLY'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${formData.billingCycle === 'MONTHLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Mensal</button>
-            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'INSTALLMENT_FIXED', fundingInstallmentsCount: formData.fundingInstallmentsCount || '10', customerMarginPercent: formData.customerMarginPercent || '30'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${isInstallmentFixed ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Parcelado</button>
-            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'DAILY_FREE'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all ${isDailyModality ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>Diário</button>
+            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'MONTHLY'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'MONTHLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><CalendarDays size={13}/> Mensal</button>
+            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'INSTALLMENT_FIXED', fundingInstallmentsCount: formData.fundingInstallmentsCount || '10', customerMarginPercent: formData.customerMarginPercent || '30'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isInstallmentFixed ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><CreditCard size={13}/> Parcelado</button>
+            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'DAILY_FREE'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isDailyModality ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Clock size={13}/> Diário</button>
         </div>
 
         {isDailyModality && (
@@ -253,6 +257,31 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                                     />
                                 </div>
                             )}
+
+                            {/* Toggle Operator Absorbs Interest */}
+                            <div className="pt-1">
+                                <label className="flex items-center gap-3 cursor-pointer group bg-slate-900/50 p-3 rounded-lg border border-slate-800/50 hover:border-rose-500/30 transition-all">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only"
+                                            checked={formData.fundingOperatorAbsorbsInterest || false}
+                                            onChange={(e) => setFormData({...formData, fundingOperatorAbsorbsInterest: e.target.checked})}
+                                        />
+                                        <div className={`w-9 h-5 rounded-full transition-colors ${formData.fundingOperatorAbsorbsInterest ? 'bg-rose-500' : 'bg-slate-700'}`}>
+                                            <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${formData.fundingOperatorAbsorbsInterest ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider group-hover:text-rose-400 transition-colors">
+                                            Operador assume juros banco?
+                                        </span>
+                                        <span className="text-[9px] text-slate-500 font-medium">
+                                            O cliente pagará apenas o Principal + Margem.
+                                        </span>
+                                    </div>
+                                </label>
+                            </div>
 
                             {/* Custo Calculado Display */}
                             <div className="space-y-1">

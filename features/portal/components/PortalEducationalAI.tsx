@@ -92,7 +92,10 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
             };
             const contextualFallback = buildEducationalFallback(contracts, clientName);
             const res = await processNaturalLanguageCommand("Gere um guia de educação e prosperidade para este cliente.", context);
-            if (res.intent === 'ERROR' && isGeminiConfigError(res.feedback)) {
+            
+            const isOperatorFallback = res.analysis?.includes('Leitura interna') || res.feedback?.includes('Leitura interna');
+            
+            if (res.intent === 'ERROR' || isOperatorFallback) {
                 setResult(contextualFallback);
                 return;
             }

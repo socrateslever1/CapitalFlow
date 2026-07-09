@@ -89,9 +89,7 @@ export const useAppNotifications = ({
   useEffect(() => {
     notificationsRef.current = notifications;
   }, [notifications]);
-  const notificationProfileId = activeUser
-    ? ((activeUser as any).supervisor_id || (activeUser as any).owner_profile_id || activeUser.id)
-    : null;
+  const notificationProfileId = activeUser ? activeUser.id : null;
 
   const mapDbNotification = useCallback((row: any): InAppNotification => ({
     id: row.id,
@@ -316,6 +314,7 @@ export const useAppNotifications = ({
                 metadata: { loan_id: payload.new.loan_id }
             });
             showToast('Novo pagamento aguardando conferência.', 'success');
+            onDataChanged?.();
           }
         }
       )

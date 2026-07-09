@@ -190,3 +190,18 @@
 .cf-overdue-container-pulse {
   animation: cf-overdue-container-pulse 3.2s ease-in-out infinite;
 }
+
+@keyframes cf-portal-action-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+    border-color: rgb(30 41 59);
+  }
+  50% {
+    box-shadow: 0 0 16px -4px rgba(6, 182, 212, 0.6);
+    border-color: rgba(6, 182, 212, 0.45);
+  }
+}
+
+.cf-portal-action-pulse {
+  animation: cf-portal-action-pulse 2s ease-in-out infinite;
+}

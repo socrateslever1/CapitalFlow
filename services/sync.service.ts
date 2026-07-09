@@ -84,7 +84,7 @@ const fetchRemoteSnapshot = async (ownerId: string) => {
     supabase.from('fontes').select('*').eq('profile_id', ownerId),
     supabase
       .from('contratos')
-      .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
+      .select('*, parcelas(*), transacoes(*), payment_intents(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
       .eq('owner_id', ownerId),
     supabase.from('perfis').select('*').eq('owner_profile_id', ownerId),
     supabase

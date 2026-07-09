@@ -31,7 +31,7 @@ import { SYSTEM_VERSION } from '../src/constants/version';
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';
 import { ProfileDangerZone } from '../features/profile/components/ProfileDangerZone';
-import { MercadoPagoConfig } from '../features/profile/components/MercadoPagoConfig';
+import { InfinitePayConfig } from '../features/profile/components/InfinitePayConfig';
 import { AsaasConfig } from '../features/profile/components/AsaasConfig';
 import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
 
@@ -733,7 +733,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* PAYMENTS */}
           {activeSection === 'PAYMENTS' && (
              <div className="animate-in fade-in slide-in-from-right space-y-12">
-                <MercadoPagoConfig profileId={profileEditForm.id} showToast={showToast} />
+                <InfinitePayConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>
                 <AsaasConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>

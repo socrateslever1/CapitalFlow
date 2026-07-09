@@ -1,7 +1,7 @@
 // src/features/portal/components/PortalPaymentModal.tsx
 
 import React, { useState, useMemo } from 'react';
-import { X, Wallet, CheckCircle2 } from 'lucide-react';
+import { X, Wallet, CheckCircle2, QrCode, Copy } from 'lucide-react';
 import { Loan, Installment } from '../../../types';
 import { portalService } from '../../../services/portal.service';
 import { supabasePortal } from '../../../lib/supabasePortal';
@@ -49,7 +49,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   clientData,
   onClose,
 }) => {
-  const [step, setStep] = useState<'BILLING' | 'NOTIFYING' | 'SUCCESS'>('BILLING');
+  const [step, setStep] = useState<'BILLING' | 'PIX_AUTO' | 'NOTIFYING' | 'SUCCESS'>('BILLING');
+  const [pixData, setPixData] = useState<{ qrCode: string; qrCodeBase64: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessingOnline, setIsProcessingOnline] = useState(false);
@@ -149,7 +150,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     }
   };
 
-  const handleMercadoPago = async () => {
+  const handleInfinitePay = async () => {
     if (shouldBlock) {
       setError('Este contrato/parcela já está quitado.');
       return;
@@ -159,8 +160,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     setIsProcessingOnline(true);
 
     try {
-      // 1. Chama a Edge function e obtém o link seguro
-      const initPoint = await portalService.createMercadoPagoPreference(
+      // 1. Chama a Edge function para gerar o link do Checkout InfinitePay
+      const checkoutUrl = await portalService.createInfinitePayCheckout(
         portalToken,
         portalCode,
         loan.id,
@@ -168,14 +169,14 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
         options.totalToPay
       );
 
-      // 2. Redireciona o cliente para o Mercado Pago
-      if (initPoint) {
-        window.location.href = initPoint;
+      if (checkoutUrl) {
+        // Redireciona o usuário para o Checkout Seguro do InfinitePay
+        window.location.href = checkoutUrl;
       } else {
-         throw new Error('Link não retornado');
+        throw new Error('Link de checkout não retornado.');
       }
     } catch (e: any) {
-      setError(e?.message || 'Falha ao conectar com Mercado Pago.');
+      setError(e?.message || 'Falha ao gerar link de pagamento online.');
       setIsProcessingOnline(false);
     }
   };
@@ -221,7 +222,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
             isProcessingOnline={isProcessingOnline}
             uploadStatus={uploadStatus}
             uploadMessage={uploadMessage}
-            onMercadoPago={handleMercadoPago}
+            onMercadoPago={handleInfinitePay}
             receiptFile={receiptFile}
             onFileChange={(file) => {
               setReceiptFile(file);
@@ -230,6 +231,75 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
             }}
             onAsaas={() => setShowAsaasModal(true)}
           />
+        )}
+
+         {step === 'PIX_AUTO' && pixData && (
+          <div className="py-2 flex flex-col items-center text-center space-y-4 animate-in zoom-in duration-300">
+            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
+              <QrCode size={36} />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black text-white uppercase">PIX Gerado com Sucesso!</h3>
+              <p className="text-slate-400 text-xs mt-1">
+                Escaneie o QR Code abaixo ou copie o código Copia e Cola para pagar.
+              </p>
+            </div>
+
+            {/* QR Code Image */}
+            {pixData.qrCodeBase64 ? (
+              <div className="p-3 bg-white rounded-lg inline-block shadow-xl">
+                <img
+                  src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                  alt="QR Code Pix"
+                  className="w-44 h-44"
+                />
+              </div>
+            ) : (
+              <div className="w-44 h-44 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 border border-slate-700">
+                Sem imagem do QR Code
+              </div>
+            )}
+
+            {/* Copia e Cola Text */}
+            <div className="w-full space-y-2">
+              <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest pl-1 text-left">Código Copia e Cola</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 relative overflow-hidden text-left">
+                  <p className="text-white text-[10px] font-mono truncate pr-6">
+                    {pixData.qrCode}
+                  </p>
+                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent"></div>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixData.qrCode);
+                    alert('Código Pix Copia e Cola copiado!');
+                  }}
+                  className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all shadow-md shrink-0"
+                  title="Copiar Código"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Ações */}
+            <div className="w-full pt-4 border-t border-slate-800 flex gap-2">
+              <button
+                onClick={() => setStep('BILLING')}
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase rounded-lg transition-colors"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 size={12} /> Já paguei
+              </button>
+            </div>
+          </div>
         )}
 
         {step === 'NOTIFYING' && <NotifyingView message={uploadMessage || undefined} />}

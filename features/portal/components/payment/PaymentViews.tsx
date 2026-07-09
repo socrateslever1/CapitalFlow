@@ -146,13 +146,24 @@ export const BillingView: React.FC<BillingViewProps> = ({
                                     </p>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => onFileChange?.(null)}
-                                disabled={uploadStatus === 'UPLOADING'}
-                                className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
-                            >
-                                <X size={16} />
-                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                {uploadStatus !== 'UPLOADED' && (
+                                    <button
+                                        onClick={onNotify}
+                                        disabled={uploadStatus === 'UPLOADING' || isProcessing}
+                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 text-white rounded text-[10px] font-black uppercase transition-all shadow-md flex items-center gap-1"
+                                    >
+                                        Enviar
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => onFileChange?.(null)}
+                                    disabled={uploadStatus === 'UPLOADING'}
+                                    className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -160,16 +171,14 @@ export const BillingView: React.FC<BillingViewProps> = ({
                         <div className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
                             <CheckCircle2 size={16} /> Comprovante enviado ao operador
                         </div>
-                    ) : (
+                    ) : receiptFile ? null : (
                         <button
                             onClick={onNotify}
                             disabled={isProcessing}
                             className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
                             {isProcessing ? (
-                                <><Loader2 size={16} className="animate-spin" /> {receiptFile ? 'Enviando comprovante...' : 'Processando...'}</>
-                            ) : receiptFile ? (
-                                <><CheckCircle2 size={16} /> Enviar comprovante e informar pagamento</>
+                                <><Loader2 size={16} className="animate-spin" /> Processando...</>
                             ) : (
                                 <><CheckCircle2 size={16} /> Informar pagamento sem comprovante</>
                             )}
@@ -198,12 +207,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     <button
                         onClick={onMercadoPago}
                         disabled={isProcessingOnline || isProcessing}
-                        className="w-full bg-[#009EE3] hover:bg-[#0089C9] disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-indigo-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         {isProcessingOnline ? (
                             <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
                         ) : (
-                            <><QrCode size={18} /> Pagar com PIX Online</>
+                            <><CreditCard size={18} /> Pagar Online (PIX / Cartão)</>
                         )}
                     </button>
 

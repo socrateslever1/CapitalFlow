@@ -21,7 +21,7 @@ export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ lo
                    'bg-slate-800 text-slate-400';
 
     return (
-        <div className="flex justify-between items-center p-4 border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors">
+        <div className="flex justify-between items-center p-2 px-3 border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors">
             <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${bgIcon}`}>
                     {installment.number || installment.numero_parcela}

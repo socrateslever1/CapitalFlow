@@ -44,33 +44,60 @@ serve(async (req) => {
       return json(req, { ok: false, error: "Missing env vars" });
     }
 
-    const token = getBearerToken(req);
-    if (!token) return json(req, { ok: false, error: "Unauthorized" });
+    const body = await req.json();
+    const { amount, payer_name, payer_email, payer_doc, loan_id, installment_id, payment_type, source_id: body_source_id, portal_token, portal_code } = body || {};
 
-    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
-    if (authErr || !authData?.user?.id) {
-      return json(req, { ok: false, error: "Unauthorized: invalid token" });
+    let isAuthorized = false;
+    let callerProfileId = null;
+
+    // Se vier do Portal do Cliente, validamos via portal_token e portal_code
+    if (portal_token && portal_code) {
+      const { data: isValid } = await supabaseAdmin.rpc('validate_portal_access', {
+        p_token: portal_token,
+        p_shortcode: portal_code
+      });
+      if (isValid === true) {
+        // Confirma se o portal_token pertence ao loan_id
+        const { data: loanCheck } = await supabaseAdmin
+          .from('contratos')
+          .select('id, portal_token')
+          .eq('id', loan_id)
+          .maybeSingle();
+        
+        if (loanCheck && (loanCheck.portal_token === portal_token || String(loanCheck.portal_token).toLowerCase() === String(portal_token).toLowerCase())) {
+          isAuthorized = true;
+        }
+      }
     }
 
-    const { data: callerProfile, error: callerErr } = await supabaseAdmin
-      .from("perfis")
-      .select("id, user_id")
-      .eq("user_id", authData.user.id)
-      .maybeSingle();
+    if (!isAuthorized) {
+      const token = getBearerToken(req);
+      if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
 
-    if (callerErr || !callerProfile?.id) {
-      return json(req, { ok: false, error: "Forbidden: profile not found" });
+      const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+
+      const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
+      if (authErr || !authData?.user?.id) {
+        return json(req, { ok: false, error: "Unauthorized: invalid token" }, 401);
+      }
+
+      const { data: callerProfile, error: callerErr } = await supabaseAdmin
+        .from("perfis")
+        .select("id, user_id")
+        .eq("user_id", authData.user.id)
+        .maybeSingle();
+
+      if (callerErr || !callerProfile?.id) {
+        return json(req, { ok: false, error: "Forbidden: profile not found" });
+      }
+      callerProfileId = callerProfile.id;
     }
 
-    const body = await req.json();
-    const { amount, payer_name, payer_email, payer_doc, loan_id, installment_id, payment_type, source_id: body_source_id } = body || {};
-
-    let targetProfileId = callerProfile.id;
+    let targetProfileId = callerProfileId;
     let targetSourceId = body_source_id || null;
 
     // 1. Se informou loan_id, buscamos o Dono do Contrato (Operador)

@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   FileText,
   User,
-  ArrowRight
+  ArrowRight,
+  FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useClientPortalLogic } from '../../features/portal/hooks/useClientPortalLogic';
@@ -66,9 +67,17 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
     : { label: 'Quitado', variant: 'OK' };
   const isPaidOff = pendingCount === 0;
 
+  const statusColorText = statusInfo.variant === 'OVERDUE'
+    ? 'text-rose-400'
+    : statusInfo.variant === 'DUE_TODAY'
+    ? 'text-amber-400'
+    : isPaidOff
+    ? 'text-emerald-400'
+    : 'text-blue-400';
+
   return (
     <div
-      className={`relative group border rounded-lg p-6 transition-all duration-500 overflow-hidden ${
+      className={`relative group border rounded-lg p-3 transition-all duration-300 overflow-hidden flex items-center justify-between gap-4 ${
         hasLateInstallments
           ? 'bg-rose-950/10 border-rose-500/20 hover:border-rose-500/40'
           : isPaidOff
@@ -77,91 +86,61 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
       }`}
     >
       {/* Background Glow Effect */}
-      <div className={`absolute -top-10 -right-10 w-32 h-32 blur-[50px] opacity-10 rounded-full transition-all duration-700 group-hover:scale-150 ${
+      <div className={`absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-10 rounded-full transition-all duration-500 group-hover:scale-125 ${
         hasLateInstallments ? 'bg-rose-500' : isPaidOff ? 'bg-emerald-500' : 'bg-blue-500'
       }`}></div>
 
-      <div className="flex justify-between items-start mb-4 relative z-10">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Contrato</span>
-            <span className="text-[10px] font-mono text-slate-600 bg-slate-950/50 px-2 py-0.5 rounded-md border border-slate-800/50">#{loan.id.substring(0, 6).toUpperCase()}</span>
-          </div>
-          <h4 className="text-white font-black text-sm uppercase tracking-tight">
-            {loan.activeAgreement ? 'Renegociação Ativa' : translateBillingCycle(loan.billingCycle)}
-          </h4>
+      {/* Lado Esquerdo: Info do Contrato */}
+      <div className="flex-1 min-w-0 space-y-1 relative z-10">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
+            {loan.activeAgreement ? 'Renegociação' : translateBillingCycle(loan.billingCycle)}
+          </span>
+          <span className="text-[9px] font-mono text-slate-400 bg-slate-950/60 px-1.5 py-0.5 rounded border border-slate-800/40">
+            #{loan.id.substring(0, 6).toUpperCase()}
+          </span>
         </div>
 
-        <div
-          className={`px-3 py-1 rounded-full text-[8px] font-black uppercase border tracking-widest ${
-            statusInfo.variant === 'OVERDUE'
-              ? 'bg-rose-500/10 text-rose-500 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]'
-              : statusInfo.variant === 'DUE_TODAY'
-              ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-              : isPaidOff
-              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-          }`}
-        >
-          {isPaidOff ? 'Finalizado' : statusInfo.label}
+        <div className="flex items-baseline gap-1.5">
+          <span className={`text-lg font-black tracking-tight ${hasLateInstallments ? 'text-rose-400' : 'text-white'}`}>
+            {formatMoney(totalDue)}
+          </span>
+          {!isPaidOff && nextDueDate && (
+            <span className="text-[9px] text-slate-500 font-bold">em aberto</span>
+          )}
         </div>
+
+        {!isPaidOff && nextDueDate && (
+          <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
+            <Calendar size={10} className="opacity-50 shrink-0" />
+            <span>Vence {new Date(nextDueDate).toLocaleDateString('pt-BR')}</span>
+            <span className="text-slate-600 font-bold">•</span>
+            <span className={`font-black ${statusColorText}`}>{statusInfo.label}</span>
+          </div>
+        )}
+
+        {isPaidOff && (
+          <span className="text-[9px] font-black uppercase text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 size={10} /> Liquidado
+          </span>
+        )}
       </div>
 
-      {!isPaidOff && (
-        <div className="flex justify-between items-end mb-6 relative z-10">
-          <div>
-            <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-1">Saldo Aberto</p>
-            <p className={`text-2xl font-black tracking-tighter ${hasLateInstallments ? 'text-rose-400 drop-shadow-[0_0_8px_rgba(244,63,94,0.2)]' : 'text-white'}`}>
-              {formatMoney(totalDue)}
-            </p>
-          </div>
-
-          {nextDueDate && (
-            <div className="text-right">
-              <p className="text-[9px] text-slate-500 uppercase font-bold tracking-widest mb-1 text-right">Vencimento</p>
-              <div className="flex items-center gap-1.5 justify-end text-white/90">
-                <Calendar size={12} className="opacity-50" />
-                <p className="text-xs font-black">{new Date(nextDueDate).toLocaleDateString('pt-BR')}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!isPaidOff && (
-        <div className="space-y-2 mb-6 bg-slate-950/40 p-3 rounded-lg border border-slate-800/30 backdrop-blur-sm relative z-10">
-          {installmentsToShow
-            .filter((i: any) => !isPortalInstallmentPaid(i))
-            .slice(0, 2)
-            .map((inst: any) => (
-              <PortalInstallmentItem key={inst.id} loan={loan} installment={inst} />
-            ))}
-
-          {pendingCount > 2 && (
-            <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/20 mt-1">
-                <div className="h-px flex-1 bg-slate-800/30"></div>
-                <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest">Contém mais {pendingCount - 2} parcelas</p>
-                <div className="h-px flex-1 bg-slate-800/30"></div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="relative z-10">
+      {/* Lado Direito: Botão Compacto de Pagamento */}
+      <div className="shrink-0 relative z-10">
         <button
           onClick={onPay}
           disabled={isPaidOff}
-          className={`w-full py-4 rounded-lg text-[11px] font-black uppercase flex items-center justify-center gap-3 transition-all duration-300 ${
+          className={`px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300 shadow-md ${
             isPaidOff
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'
+              ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50 shadow-none'
               : hasLateInstallments
-              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-xl shadow-rose-900/30 active:scale-95'
-              : 'bg-white hover:bg-blue-50 text-slate-950 shadow-xl shadow-white/5 active:scale-95'
+              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/25 active:scale-95'
+              : 'bg-white hover:bg-blue-50 text-slate-950 shadow-white/5 active:scale-95'
           }`}
         >
-          <Wallet size={16} /> 
-          {isPaidOff ? 'Contrato Liquidado' : 'Regularizar Agora'}
-          <ArrowRight size={14} className="ml-1 opacity-50" />
+          <span>Pagar</span>
+          <ArrowRight size={11} className="opacity-60" />
         </button>
       </div>
     </div>
@@ -232,10 +211,33 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
 
   const [activeLoanForPayment, setActiveLoanForPayment] = useState<any>(null);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
+  const [isFilesOpen, setIsFilesOpen] = useState(false);
   const [docList, setDocList] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [legalDocsError, setLegalDocsError] = useState<string | null>(null);
   const portalHistoryReadyRef = useRef(false);
+
+  const openFile = (url: string) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const allOperatorFiles = useMemo(() => {
+    const filesList: any[] = [];
+    clientContracts.forEach(contract => {
+      const pFiles = Array.isArray((contract as any).portalFiles) ? (contract as any).portalFiles : [];
+      pFiles.forEach((file: any) => {
+        if (file.direction === 'OPERATOR_TO_CLIENT' && ['VISIBLE', 'APPROVED'].includes(String(file.status || '').toUpperCase())) {
+          filesList.push({
+            ...file,
+            contractId: contract.id,
+            billingCycle: contract.billingCycle
+          });
+        }
+      });
+    });
+    return filesList;
+  }, [clientContracts]);
 
   const exitPortal = useCallback(() => {
     window.history.replaceState(null, '', '/');
@@ -309,6 +311,12 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         return;
       }
 
+      if (isFilesOpen) {
+        setIsFilesOpen(false);
+        restorePortalGuard();
+        return;
+      }
+
       if (activeLoanForPayment) {
         setActiveLoanForPayment(null);
         loadFullPortalData();
@@ -334,6 +342,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
     return () => window.removeEventListener('popstate', handlePopState);
   }, [
     isLegalOpen,
+    isFilesOpen,
     activeLoanForPayment,
     isChatOpen,
     loadFullPortalData,
@@ -459,15 +468,15 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
       )}
 
       <div className="w-full max-w-lg bg-slate-900/10 sm:rounded-lg flex flex-col h-full sm:h-[92vh] sm:border border-slate-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative backdrop-blur-3xl">
-        <div className="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 p-6 flex items-center justify-between shrink-0 relative z-10">
+        <div className="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 p-4 flex items-center justify-between shrink-0 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-lg shadow-xl border-2 border-slate-900 relative">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-xl border-2 border-slate-900 relative">
               {loggedClient.name.charAt(0)}
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-950 rounded-full"></div>
+              <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full"></div>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.25em] mb-0.5">Área do Cliente</p>
-              <h3 className="text-white font-black text-base tracking-tight leading-none truncate max-w-[180px]">
+              <h3 className="text-white font-black text-sm tracking-tight leading-none truncate max-w-[180px]">
                 Olá, {loggedClient.name.split(' ')[0]}
               </h3>
             </div>
@@ -479,18 +488,18 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 exitPortal();
               }
             }}
-            className="p-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:text-rose-400 hover:border-rose-500/20 transition-all active:scale-90"
+            className="p-2.5 bg-slate-900 border border-slate-800 text-slate-400 rounded-lg hover:text-rose-400 hover:border-rose-500/20 transition-all active:scale-90"
             title="Sair do Portal"
           >
-            <LogOut size={20} />
+            <LogOut size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8 relative pb-32">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3 relative pb-20">
           {alertTheme && <div className="absolute top-0 right-0 w-full h-80 bg-rose-500/5 blur-[120px] pointer-events-none"></div>}
 
           <div
-            className={`p-8 rounded-lg border relative overflow-hidden transition-all duration-700 shadow-2xl ${
+            className={`p-4 rounded-lg border relative overflow-hidden transition-all duration-700 shadow-2xl ${
               alertTheme 
                 ? 'bg-gradient-to-br from-rose-950/30 to-slate-900/50 border-rose-500/20' 
                 : 'bg-gradient-to-br from-slate-800/20 to-slate-900 border-slate-800'
@@ -500,63 +509,77 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
             <div className="absolute top-0 left-0 w-full h-1/2 bg-white/5 skew-y-[-10deg] -translate-y-full -translate-x-1/2 rotate-12 blur-2xl"></div>
 
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-2">
-                <p className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${alertTheme ? 'text-rose-300' : 'text-slate-500'}`}>
-                  {alertTheme ? <AlertTriangle size={14} className="animate-pulse" /> : <ShieldCheck size={14} className="text-blue-500" />} 
+              <div className="flex items-center justify-between mb-1">
+                <p className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${alertTheme ? 'text-rose-300' : 'text-slate-500'}`}>
+                  {alertTheme ? <AlertTriangle size={12} className="animate-pulse" /> : <ShieldCheck size={12} className="text-blue-500" />} 
                   Posição Financeira
                 </p>
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
-                    <ArrowRight size={12} className="text-white/30" />
+                <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
+                    <ArrowRight size={10} className="text-white/30" />
                 </div>
               </div>
 
-              <div className="flex items-baseline gap-2">
-                <span className="text-white text-lg font-black opacity-30 tracking-widest">R$</span>
-                <p className="text-4xl font-black text-white tracking-tighter leading-none">
+              <div className="flex items-baseline gap-1">
+                <span className="text-white text-sm font-black opacity-30 tracking-widest">R$</span>
+                <p className="text-2xl font-black text-white tracking-tighter leading-none">
                     {formatMoney(globalSummary.total).replace('R$', '').trim()}
                 </p>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {globalSummary.lateCount > 0 ? (
-                  <span className="text-[9px] font-black uppercase bg-rose-500 text-white px-3 py-1.5 rounded-full shadow-lg shadow-rose-900/30">
+                  <span className="text-[8px] font-black uppercase bg-rose-500 text-white px-2 py-0.5 rounded-full shadow-lg shadow-rose-900/30">
                     {globalSummary.lateCount} em atraso
                   </span>
                 ) : (
-                  <span className="text-[9px] font-black uppercase bg-emerald-500 text-white px-3 py-1.5 rounded-full shadow-lg shadow-emerald-900/20 flex items-center gap-1.5">
-                    <CheckCircle2 size={12} /> Situação Regular
+                  <span className="text-[8px] font-black uppercase bg-emerald-500 text-white px-2 py-0.5 rounded-full shadow-lg shadow-emerald-900/20 flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Situação Regular
                   </span>
                 )}
 
-                <span className="text-[9px] font-black uppercase bg-slate-950/60 text-slate-400 px-3 py-1.5 rounded-full border border-slate-800 shadow-sm">
+                <span className="text-[8px] font-black uppercase bg-slate-950/60 text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 shadow-sm">
                   {clientContracts.length} Ativos
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setIsLegalOpen(true)}
-                className="group relative bg-slate-900/50 border border-slate-800 p-5 rounded-lg flex items-center justify-between hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 overflow-hidden"
+                className="group bg-slate-900/50 border border-slate-800 p-2.5 rounded-lg flex items-center gap-2.5 hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 text-left w-full"
               >
-                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-3xl rounded-full group-hover:bg-indigo-500/10 transition-all"></div>
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all transform group-hover:scale-110 shadow-lg">
-                    <FileSignature size={22} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[11px] font-black text-white uppercase tracking-wider">Centro Jurídico</p>
-                    <p className="text-[10px] text-slate-500 font-bold">Ver contratos e termos assinados</p>
-                  </div>
+                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all transform group-hover:scale-105 shadow-md shrink-0">
+                  <FileSignature size={15} />
                 </div>
-                <ChevronRight size={18} className="text-slate-600 group-hover:translate-x-1 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black text-white uppercase truncate tracking-tight">Documentos</p>
+                  <p className="text-[8px] text-slate-500 truncate mt-0.5">Contratos e termos</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setIsFilesOpen(true)}
+                className="group bg-slate-900/50 border border-slate-800 p-2.5 rounded-lg flex items-center gap-2.5 hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 text-left w-full"
+              >
+                <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-all transform group-hover:scale-105 shadow-md shrink-0 relative">
+                  <FolderOpen size={15} />
+                  {allOperatorFiles.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-slate-950 shadow-md">
+                      {allOperatorFiles.length}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black text-white uppercase truncate tracking-tight">Arquivos</p>
+                  <p className="text-[8px] text-slate-500 truncate mt-0.5">Promissórias e recibos</p>
+                </div>
               </button>
           </div>
 
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] pl-2 mb-2 flex items-center gap-2">
-               <div className="w-1 h-1 bg-slate-500 rounded-full"></div> Seus Contratos
+          <div className="space-y-2.5">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] pl-2 mb-1 flex items-center gap-2">
+               <div className="w-1.5 h-1.5 bg-slate-700 rounded-full"></div> Seus Contratos
             </h3>
 
             {clientContracts.length === 0 ? (
@@ -725,6 +748,66 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isFilesOpen && (
+        <div className="fixed inset-0 bg-slate-950/98 flex items-center justify-center z-[250] p-4 backdrop-blur-xl animate-in fade-in duration-500">
+          <div className="bg-slate-900 border border-blue-500/20 rounded-lg shadow-2xl relative w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400">
+                        <FolderOpen size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-white font-black uppercase text-base tracking-tight leading-none">Arquivos Recebidos</h2>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Download e Conferência</p>
+                    </div>
+                </div>
+                <button
+                  onClick={() => setIsFilesOpen(false)}
+                  className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg text-slate-500 hover:text-white transition-all shadow-inner"
+                >
+                  <X size={20} />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
+                <div className="space-y-4">
+                  {allOperatorFiles.length === 0 ? (
+                    <div className="py-20 text-center">
+                        <FolderOpen size={32} className="mx-auto text-slate-800 mb-3" />
+                        <p className="text-slate-600 text-xs font-black uppercase tracking-widest">Nenhum arquivo disponível para download</p>
+                    </div>
+                  ) : (
+                    allOperatorFiles.map((file) => (
+                      <button
+                        key={file.id}
+                        onClick={() => openFile(file.file_url)}
+                        className="w-full p-5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800/50 rounded-lg flex items-center justify-between group transition-all"
+                      >
+                        <div className="flex items-center gap-4 text-left min-w-0 flex-1 pr-3">
+                          <div className="p-3 rounded-lg shadow-lg bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors shrink-0">
+                            <FileText size={20} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-black text-white uppercase tracking-tight truncate">{file.file_name || 'Documento'}</p>
+                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                              Contrato #{file.contractId.substring(0, 6).toUpperCase()} • {new Date(file.created_at || Date.now()).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-full shadow-lg shadow-blue-900/20 shrink-0">
+                           <span className="text-[8px] uppercase font-black tracking-widest">Baixar</span>
+                           <ChevronRight size={12} />
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
             </div>
           </div>
         </div>

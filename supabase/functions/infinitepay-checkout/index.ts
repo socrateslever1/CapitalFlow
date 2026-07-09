@@ -37,20 +37,20 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const GLOBAL_MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN") || "";
+    const GLOBAL_INFINITEPAY_TAG = Deno.env.get("INFINITEPAY_TAG") || "";
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       return json(req, { ok: false, error: "Missing env vars" }, 500);
     }
 
     const body = await req.json();
-    const { amount, payer_name, payer_email, loan_id, installment_id, payment_type, return_url, portal_token, portal_code } = body || {};
+    const { amount, loan_id, installment_id, payment_type, return_url, portal_token, portal_code } = body || {};
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     let isAuthorized = false;
 
-    // Se vier do Portal do Cliente, validamos via portal_token e portal_code
+    // 1. Se vier do Portal do Cliente, validamos via portal_token e portal_code
     if (portal_token && portal_code) {
       const { data: isValid } = await supabaseAdmin.rpc('validate_portal_access', {
         p_token: portal_token,
@@ -70,7 +70,7 @@ serve(async (req) => {
       }
     }
 
-    // Se não for do Portal, exige autenticação padrão de operador
+    // 2. Se não for do Portal, exige autenticação de operador
     if (!isAuthorized) {
       const token = getBearerToken(req);
       if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
@@ -85,7 +85,7 @@ serve(async (req) => {
       }
     }
 
-    // 1. Buscar o Dono do Contrato (Operador)
+    // 3. Buscar o Dono do Contrato (Operador)
     const { data: loan, error: loanErr } = await supabaseAdmin
       .from("contratos")
       .select("id, profile_id, owner_id, source_id")
@@ -93,87 +93,97 @@ serve(async (req) => {
       .single();
 
     if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato não encontrado" }, 404);
-
     const targetProfileId = loan.profile_id || loan.owner_id;
 
-    // 2. Buscar Credenciais MP do Operador (Multi-Conta)
-    const { data: mpConfig } = await supabaseAdmin
-      .from("perfis_config_mp")
-      .select("mp_access_token")
+    // 4. Buscar Credenciais InfinitePay do Perfil alvo (Multi-Conta)
+    const { data: ipConfig } = await supabaseAdmin
+      .from("perfis_config_infinitepay")
+      .select("infinite_tag")
       .eq("profile_id", targetProfileId)
       .maybeSingle();
 
-    const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;
+    const infiniteTag = ipConfig?.infinite_tag || GLOBAL_INFINITEPAY_TAG;
 
-    if (!accessToken) {
-      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas" }, 400);
+    if (!infiniteTag) {
+      return json(req, { ok: false, error: "InfiniteTag não configurada para este perfil de operador" }, 400);
     }
 
     const external_reference = crypto.randomUUID();
+    const webhookUrl = `${SUPABASE_URL}/functions/v1/infinitepay-webhook`;
 
-    // 3. Montar o Payload da Preference (Checkout Pro)
-    const mpPayload = {
+    // 5. Salvar na payment_charges para rastreio
+    const { error: insertErr } = await supabaseAdmin
+      .from("payment_charges")
+      .insert({
+        id: external_reference,
+        provider: "INFINITEPAY",
+        status: "PENDING",
+        loan_id,
+        installment_id,
+        amount: Number(amount),
+        currency: "BRL",
+        external_reference,
+        payer_name: "Cliente Portal",
+        payer_email: "cliente@capitalflow.app",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+    if (insertErr) {
+      console.error("Erro ao salvar payment_charges:", insertErr);
+      return json(req, { ok: false, error: "Falha ao registrar intenção de pagamento no sistema." }, 500);
+    }
+
+    const payload = {
+      handle: infiniteTag,
+      redirect_url: return_url || "https://capitalflow.app/obrigado",
+      webhook_url: webhookUrl,
+      order_nsu: external_reference,
       items: [
         {
-          id: String(installment_id || loan_id),
-          title: `Pagamento Contrato ${String(loan.id).slice(0, 8)}`,
-          quantity: 1,
-          unit_price: Number(amount),
-          currency_id: "BRL"
+          name: `Pagamento Contrato #${String(loan_id).slice(0, 6).toUpperCase()}`,
+          price: Math.round(Number(amount) * 100), // InfinitePay quer centavos
+          quantity: 1
         }
-      ],
-      payer: {
-        name: payer_name || "Cliente",
-        email: payer_email || "cliente@capitalflow.app"
-      },
-      external_reference,
-      statement_descriptor: "CAPITALFLOW",
-      payment_methods: {
-        excluded_payment_methods: [
-          // Excluir metodos de pagamento em dinheiro (loteria, etc) se quiser forçar apenas CC e PIX
-          // { id: "ticket" }
-        ],
-        excluded_payment_types: [
-            // { id: "ticket" }
-        ],
-        installments: 12 // Permite até 12x
-      },
-      metadata: {
-        loan_id: loan.id,
-        installment_id,
-        payment_type: payment_type || "RENEW_INTEREST",
-        profile_id: loan.profile_id,
-        source_id: loan.source_id,
-      },
-      back_urls: {
-        success: return_url || "https://capitalflow.app/sucesso",
-        failure: return_url || "https://capitalflow.app/falha",
-        pending: return_url || "https://capitalflow.app/pendente"
-      },
-      auto_return: "approved"
+      ]
     };
 
-    // 4. Criar a Preference na API do Mercado Pago
-    const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
+    // 6. Criar o link no InfinitePay
+    const ipRes = await fetch("https://api.checkout.infinitepay.io/links", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(mpPayload),
+      body: JSON.stringify(payload),
     });
 
-    const mpData = await mpRes.json();
-    if (!mpRes.ok) return json(req, { ok: false, error: mpData?.message || "Erro no Mercado Pago" }, 502);
+    const ipData = await ipRes.json();
+    if (!ipRes.ok) {
+      console.error("Erro na API do InfinitePay:", ipData);
+      return json(req, { ok: false, error: ipData?.message || "Erro ao conectar com InfinitePay" }, 502);
+    }
 
-    // 5. Retornar a URL de Pagamento (init_point)
+    const paymentLink = ipData.payment_link || ipData.url || "";
+
+    // 7. Atualizar payment_charges com a checkout_url
+    if (paymentLink) {
+      await supabaseAdmin
+        .from("payment_charges")
+        .update({
+          checkout_url: paymentLink,
+          provider_payment_id: ipData.slug || null
+        })
+        .eq("id", external_reference);
+    }
+
     return json(req, {
       ok: true,
-      preference_id: mpData.id,
-      init_point: mpData.init_point, // URL de pagamento
+      checkout_url: paymentLink,
       external_reference,
     });
+
   } catch (err: any) {
+    console.error("Erro interno no checkout:", err);
     return json(req, { ok: false, error: err?.message || "Internal error" }, 500);
   }
 });

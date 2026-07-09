@@ -310,7 +310,9 @@ export const portalService = {
         installment_id: installmentId,
         amount: amount,
         payment_type: 'PORTAL_PAYMENT',
-        return_url: window.location.href
+        return_url: window.location.href,
+        portal_token: token,
+        portal_code: code
       },
     });
 
@@ -327,6 +329,79 @@ export const portalService = {
     }
 
     return data.init_point;
+  },
+
+  /**
+   * Cria uma cobrança imediata via PIX no Mercado Pago (retorna QR Code e Copia e Cola)
+   */
+  async createMercadoPagoPix(token: string, code: string, loanId: string, installmentId: string, amount: number, clientData: any) {
+    if (!token || !code) throw new Error('Credenciais do portal incompletas.');
+
+    const { data, error } = await supabasePortal.functions.invoke('mp-create-pix', {
+      body: {
+        loan_id: loanId,
+        installment_id: installmentId,
+        amount: amount,
+        payment_type: 'PORTAL_PAYMENT',
+        payer_name: clientData.name,
+        payer_email: clientData.email || 'cliente@capitalflow.app',
+        payer_doc: clientData.doc || '',
+        portal_token: token,
+        portal_code: code
+      },
+    });
+
+    if (error) {
+      const msg = String((error as any)?.message || '');
+      if (msg.includes('Failed to send a request to the Edge Function') || msg.includes('NOT_FOUND')) {
+        throw new Error('Função de PIX automático indisponível no servidor. Solicite o deploy da Edge Function mp-create-pix.');
+      }
+      throw new Error(error.message || 'Falha ao gerar o PIX automático.');
+    }
+
+    if (!data?.ok) {
+      throw new Error(data?.error || 'Erro ao gerar o PIX automático.');
+    }
+
+    return {
+      qrCode: data.qr_code,
+      qrCodeBase64: data.qr_code_base64,
+      externalReference: data.external_reference,
+      providerPaymentId: data.provider_payment_id
+    };
+  },
+
+  /**
+   * Cria uma sessão de checkout no InfinitePay (Cartão/PIX)
+   */
+  async createInfinitePayCheckout(token: string, code: string, loanId: string, installmentId: string, amount: number) {
+    if (!token || !code) throw new Error('Credenciais do portal incompletas.');
+
+    const { data, error } = await supabasePortal.functions.invoke('infinitepay-checkout', {
+      body: {
+        loan_id: loanId,
+        installment_id: installmentId,
+        amount: amount,
+        payment_type: 'PORTAL_PAYMENT',
+        return_url: window.location.href,
+        portal_token: token,
+        portal_code: code
+      },
+    });
+
+    if (error) {
+      const msg = String((error as any)?.message || '');
+      if (msg.includes('Failed to send a request to the Edge Function') || msg.includes('NOT_FOUND')) {
+        throw new Error('Função de pagamento InfinitePay indisponível no servidor. Solicite o deploy da Edge Function.');
+      }
+      throw new Error(error.message || 'Falha ao iniciar pagamento online.');
+    }
+
+    if (!data?.ok || !data?.checkout_url) {
+      throw new Error(data?.error || 'Erro ao gerar link de pagamento InfinitePay.');
+    }
+
+    return data.checkout_url;
   },
 
   /**

@@ -17,7 +17,8 @@ import {
   Building,
   CheckCircle2,
   Trash2,
-  FileText
+  FileText,
+  FolderOpen
 } from 'lucide-react';
 
 import { useClientPortalLogic } from './hooks/useClientPortalLogic';
@@ -196,6 +197,29 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
   const [activeLoanForPayment, setActiveLoanForPayment] = useState<any>(null);
   const [activeLoanForChat, setActiveLoanForChat] = useState<any>(null);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
+  const [isFilesOpen, setIsFilesOpen] = useState(false);
+
+  const openFile = (url: string) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const allOperatorFiles = useMemo(() => {
+    const filesList: any[] = [];
+    clientContracts.forEach(contract => {
+      const pFiles = Array.isArray((contract as any).portalFiles) ? (contract as any).portalFiles : [];
+      pFiles.forEach((file: any) => {
+        if (file.direction === 'OPERATOR_TO_CLIENT' && ['VISIBLE', 'APPROVED'].includes(String(file.status || '').toUpperCase())) {
+          filesList.push({
+            ...file,
+            contractId: contract.id,
+            billingCycle: contract.billingCycle
+          });
+        }
+      });
+    });
+    return filesList;
+  }, [clientContracts]);
 
   // --- RESUMO GLOBAL DO CLIENTE ---
   const globalSummary = useMemo(() => {
@@ -315,16 +339,29 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
             )}
 
             {/* AÇÕES GERAIS */}
-            <button onClick={() => setIsLegalOpen(true)} className="w-full bg-slate-800 border border-slate-700 p-4 rounded-lg flex items-center justify-between group hover:bg-slate-700 transition-all">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all"><FileSignature size={18}/></div>
+            <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => setIsLegalOpen(true)} className="bg-slate-850 border border-slate-800 p-4 rounded-lg flex flex-col justify-between items-start gap-4 group hover:bg-slate-700/60 transition-all">
+                    <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-all shrink-0"><FileSignature size={18}/></div>
                     <div className="text-left">
                         <p className="text-xs font-bold text-white uppercase">Meus Documentos</p>
-                        <p className="text-[10px] text-slate-500">Visualizar contratos e termos</p>
+                        <p className="text-[9px] text-slate-500 mt-0.5">Assinar contratos e termos</p>
                     </div>
-                </div>
-                <ChevronRight size={16} className="text-slate-500"/>
-            </button>
+                </button>
+                <button onClick={() => setIsFilesOpen(true)} className="bg-slate-850 border border-slate-800 p-4 rounded-lg flex flex-col justify-between items-start gap-4 group hover:bg-slate-700/60 transition-all">
+                    <div className="flex justify-between items-center w-full">
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-all shrink-0"><FolderOpen size={18}/></div>
+                        {allOperatorFiles.length > 0 && (
+                            <span className="bg-blue-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                                {allOperatorFiles.length}
+                            </span>
+                        )}
+                    </div>
+                    <div className="text-left">
+                        <p className="text-xs font-bold text-white uppercase">Arquivos Recebidos</p>
+                        <p className="text-[9px] text-slate-500 mt-0.5">Baixar promissórias e recibos</p>
+                    </div>
+                </button>
+            </div>
 
             {/* LISTA DE CONTRATOS */}
             <div className="space-y-4">
@@ -455,6 +492,49 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                 <p className="text-[10px] text-slate-500 leading-relaxed px-4">
                     Ao assinar, você concorda com os termos e condições estabelecidos nos instrumentos jurídicos acima.
                 </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ARQUIVOS RECEBIDOS */}
+      {isFilesOpen && (
+        <div className="fixed inset-0 bg-slate-950/95 flex items-center justify-center z-[150] p-4 backdrop-blur-sm">
+          <div className="bg-slate-900 p-6 rounded-lg border border-blue-500/30 max-w-lg w-full shadow-2xl animate-in zoom-in-95 relative">
+            <button onClick={() => setIsFilesOpen(false)} className="absolute top-6 right-6 p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white"><X size={18}/></button>
+            <div className="flex flex-col items-center text-center py-6 w-full">
+                <FolderOpen size={40} className="text-blue-500 mb-4"/>
+                <h2 className="text-white font-black uppercase text-lg mb-2">Arquivos e Documentos</h2>
+                <p className="text-xs text-slate-500 mb-6">Todos os arquivos anexados pelo credor para download e conferência.</p>
+
+                <div className="w-full space-y-3 mb-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                    {allOperatorFiles.length === 0 ? (
+                        <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 text-slate-500 text-xs font-bold uppercase">
+                            Nenhum documento disponível para download.
+                        </div>
+                    ) : (
+                        allOperatorFiles.map((file: any) => (
+                            <div key={file.id} className="bg-slate-950/50 p-4 rounded-lg border border-slate-800 text-left flex justify-between items-center group hover:border-blue-500/50 transition-all backdrop-blur-sm">
+                                <div className="flex-1 min-w-0 pr-3">
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="text-white font-bold text-xs uppercase truncate">{file.file_name || 'Documento'}</h4>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">
+                                        Contrato #{file.contractId.substring(0, 6).toUpperCase()} ({translateBillingCycle(file.billingCycle)})
+                                        <span className="mx-1">•</span>
+                                        {new Date(file.created_at || Date.now()).toLocaleDateString('pt-BR')}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => openFile(file.file_url)}
+                                    className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 shadow-lg shadow-blue-600/20 transition-all flex items-center gap-1.5 shrink-0"
+                                >
+                                    Visualizar
+                                </button>
+                            </div>
+                        ))
+                    )}
+                </div>
             </div>
           </div>
         </div>

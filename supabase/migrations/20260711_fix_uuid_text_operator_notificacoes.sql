@@ -1,73 +1,9 @@
+-- Migration: 20260711_fix_uuid_text_operator_notificacoes.sql
+-- Descrição: Corrige comparação inválida de tipos (uuid = text) nas triggers de notificações do portal.
+
 SET search_path = public;
 
-CREATE TABLE IF NOT EXISTS portal_files (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  profile_id uuid NOT NULL,
-  client_id uuid,
-  loan_id uuid NOT NULL,
-  payment_intent_id uuid,
-  direction text NOT NULL DEFAULT 'CLIENT_TO_OPERATOR'
-    CHECK (direction IN ('CLIENT_TO_OPERATOR', 'OPERATOR_TO_CLIENT')),
-  category text NOT NULL DEFAULT 'PAYMENT_PROOF'
-    CHECK (category IN ('PAYMENT_PROOF', 'DOCUMENT', 'NOTE', 'OTHER')),
-  file_name text,
-  file_url text NOT NULL,
-  mime_type text,
-  file_size bigint,
-  status text NOT NULL DEFAULT 'PENDING'
-    CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'VISIBLE', 'ARCHIVED')),
-  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-ALTER TABLE portal_files ENABLE ROW LEVEL SECURITY;
-
-CREATE INDEX IF NOT EXISTS idx_portal_files_profile_id
-ON portal_files(profile_id);
-
-CREATE INDEX IF NOT EXISTS idx_portal_files_loan_id_created_at
-ON portal_files(loan_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_portal_files_payment_intent_id
-ON portal_files(payment_intent_id);
-
-DROP POLICY IF EXISTS "portal_files_manage_by_profile" ON portal_files;
-CREATE POLICY "portal_files_manage_by_profile"
-ON portal_files
-FOR ALL
-TO authenticated
-USING (
-  profile_id IN (
-    SELECT id
-    FROM perfis
-    WHERE user_id = auth.uid()
-       OR email = auth.jwt() ->> 'email'
-       OR usuario_email = auth.jwt() ->> 'email'
-       OR id IN (
-          SELECT supervisor_id FROM perfis WHERE user_id = auth.uid()
-       )
-       OR supervisor_id IN (
-          SELECT id FROM perfis WHERE user_id = auth.uid()
-       )
-  )
-)
-WITH CHECK (
-  profile_id IN (
-    SELECT id
-    FROM perfis
-    WHERE user_id = auth.uid()
-       OR email = auth.jwt() ->> 'email'
-       OR usuario_email = auth.jwt() ->> 'email'
-       OR id IN (
-          SELECT supervisor_id FROM perfis WHERE user_id = auth.uid()
-       )
-       OR supervisor_id IN (
-          SELECT id FROM perfis WHERE user_id = auth.uid()
-       )
-  )
-);
-
+-- 1. Recriar trigger function notify_payment_intent_operator
 CREATE OR REPLACE FUNCTION notify_payment_intent_operator()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -148,6 +84,7 @@ BEGIN
 END;
 $$;
 
+-- 2. Recriar trigger function notify_portal_file_operator
 CREATE OR REPLACE FUNCTION notify_portal_file_operator()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -219,139 +156,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION rpc_register_operator_portal_file(
-  p_loan_id uuid,
-  p_file_name text,
-  p_file_url text,
-  p_mime_type text DEFAULT NULL,
-  p_file_size bigint DEFAULT NULL,
-  p_category text DEFAULT 'DOCUMENT',
-  p_status text DEFAULT 'VISIBLE',
-  p_metadata jsonb DEFAULT '{}'::jsonb
-) RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_profile_id uuid;
-  v_client_id uuid;
-  v_file_id uuid;
-BEGIN
-  IF p_loan_id IS NULL OR COALESCE(TRIM(p_file_url), '') = '' THEN
-    RETURN jsonb_build_object('success', false, 'message', 'Arquivo ou contrato invalido.');
-  END IF;
-
-  SELECT c.client_id, COALESCE(c.profile_id, c.owner_id)
-  INTO v_client_id, v_profile_id
-  FROM contratos c
-  WHERE c.id = p_loan_id
-    AND public.portal_status_allows_access(c.status, c.is_archived)
-    AND COALESCE(c.profile_id, c.owner_id) IN (
-      SELECT p.id
-      FROM perfis p
-      WHERE p.user_id = auth.uid()
-         OR p.email = auth.jwt() ->> 'email'
-         OR p.usuario_email = auth.jwt() ->> 'email'
-         OR p.id IN (SELECT supervisor_id FROM perfis WHERE user_id = auth.uid())
-         OR p.supervisor_id IN (SELECT id FROM perfis WHERE user_id = auth.uid())
-    )
-  LIMIT 1;
-
-  IF v_profile_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'message', 'Sem permissao para registrar arquivo neste contrato.');
-  END IF;
-
-  INSERT INTO portal_files (
-    profile_id,
-    client_id,
-    loan_id,
-    direction,
-    category,
-    file_name,
-    file_url,
-    mime_type,
-    file_size,
-    status,
-    metadata
-  ) VALUES (
-    v_profile_id,
-    v_client_id,
-    p_loan_id,
-    'OPERATOR_TO_CLIENT',
-    CASE WHEN p_category IN ('DOCUMENT', 'NOTE', 'OTHER') THEN p_category ELSE 'DOCUMENT' END,
-    NULLIF(TRIM(COALESCE(p_file_name, '')), ''),
-    p_file_url,
-    p_mime_type,
-    p_file_size,
-    CASE WHEN p_status IN ('VISIBLE', 'APPROVED', 'ARCHIVED') THEN p_status ELSE 'VISIBLE' END,
-    COALESCE(p_metadata, '{}'::jsonb)
-  )
-  RETURNING id INTO v_file_id;
-
-  RETURN jsonb_build_object('success', true, 'portal_file_id', v_file_id);
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION portal_get_files(p_token text, p_shortcode text)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_token_uuid uuid;
-  v_client_id uuid;
-  v_payload jsonb;
-BEGIN
-  IF p_token ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
-    v_token_uuid := p_token::uuid;
-  END IF;
-
-  IF v_token_uuid IS NULL OR NOT public.validate_portal_access(p_token, p_shortcode) THEN
-    RETURN '[]'::jsonb;
-  END IF;
-
-  SELECT client_id
-  INTO v_client_id
-  FROM contratos
-  WHERE portal_token = v_token_uuid
-    AND portal_shortcode = p_shortcode
-    AND public.portal_status_allows_access(status, is_archived)
-  LIMIT 1;
-
-  IF v_client_id IS NULL THEN
-    RETURN '[]'::jsonb;
-  END IF;
-
-  SELECT COALESCE(
-    jsonb_agg(to_jsonb(f) ORDER BY f.created_at DESC),
-    '[]'::jsonb
-  )
-  INTO v_payload
-  FROM portal_files f
-  JOIN contratos c ON c.id = f.loan_id
-  WHERE c.client_id = v_client_id
-    AND public.portal_status_allows_access(c.status, c.is_archived)
-    AND (
-      f.direction = 'CLIENT_TO_OPERATOR'
-      OR (f.direction = 'OPERATOR_TO_CLIENT' AND f.status IN ('VISIBLE', 'APPROVED'))
-    );
-
-  RETURN v_payload;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_payment_intents_operator_notification ON payment_intents;
-CREATE TRIGGER trg_payment_intents_operator_notification
-AFTER INSERT ON payment_intents
-FOR EACH ROW
-EXECUTE FUNCTION notify_payment_intent_operator();
-
-DROP TRIGGER IF EXISTS trg_portal_files_operator_notification ON portal_files;
-CREATE TRIGGER trg_portal_files_operator_notification
-AFTER INSERT ON portal_files
-FOR EACH ROW
-EXECUTE FUNCTION notify_portal_file_operator();
-
+-- 3. Recriar RPC portal_registrar_intencao
 CREATE OR REPLACE FUNCTION portal_registrar_intencao(
   p_token text,
   p_shortcode text,
@@ -544,11 +349,17 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION portal_registrar_intencao(text, text, text, text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION notify_payment_intent_operator() TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION notify_portal_file_operator() TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION rpc_register_operator_portal_file(uuid, text, text, text, bigint, text, text, jsonb) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION portal_get_files(text, text) TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON portal_files TO authenticated, service_role;
+-- Vincular triggers para disparo automático de notificações
+DROP TRIGGER IF EXISTS trg_payment_intents_operator_notification ON payment_intents;
+CREATE TRIGGER trg_payment_intents_operator_notification
+AFTER INSERT ON payment_intents
+FOR EACH ROW
+EXECUTE FUNCTION notify_payment_intent_operator();
+
+DROP TRIGGER IF EXISTS trg_portal_files_operator_notification ON portal_files;
+CREATE TRIGGER trg_portal_files_operator_notification
+AFTER INSERT ON portal_files
+FOR EACH ROW
+EXECUTE FUNCTION notify_portal_file_operator();
 
 NOTIFY pgrst, 'reload schema';

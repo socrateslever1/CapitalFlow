@@ -4,6 +4,30 @@ import { Loan, UserProfile, CapitalSource } from '../../types';
 import { getOwnerId, toNumber } from './ledgerHelpers';
 import { logArchive, logRestore } from './ledgerAudit';
 import { isUUID, safeUUID } from '../../utils/uuid';
+import { markDeletedContract } from '../deletedContracts.service';
+
+const deleteLocalLoanSnapshot = async (loanId: string) => {
+  try {
+    const { db } = await import('../offline/adminOfflineStore');
+    await Promise.all([
+      db.contratos.delete(loanId),
+      db.parcelas.where('loan_id').equals(loanId).delete(),
+      db.transacoes.where('loan_id').equals(loanId).delete(),
+      db.portal_files.where('loan_id').equals(loanId).delete(),
+    ]);
+  } catch (error) {
+    console.warn('[LedgerActions] Falha ao limpar snapshot local do contrato excluido:', error);
+  }
+};
+
+const isAlreadyDeletedContractError = (error: any) => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return (
+    message.includes('contrato nao encontrado ou ja excluido') ||
+    message.includes('contrato não encontrado ou já excluido') ||
+    message.includes('contrato não encontrado ou já excluído')
+  );
+};
 
 export async function executeLedgerAction(params: {
   type: 'DELETE' | 'ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'ACTIVATE';
@@ -54,10 +78,39 @@ export async function executeLedgerAction(params: {
       p_refund: !!refundChecked,
     });
 
-    if (error) throw new Error('Falha ao apagar contrato: ' + error.message);
+    if (error) {
+      if (isAlreadyDeletedContractError(error)) {
+        const { data: existingLoan } = await supabase
+          .from('contratos')
+          .select('id')
+          .eq('id', loanId)
+          .maybeSingle();
+
+        if (!existingLoan?.id) {
+          markDeletedContract(ownerId, loanId);
+          await deleteLocalLoanSnapshot(loanId);
+          return 'Contrato removido do painel. Ele ja nao existia no banco.';
+        }
+      }
+
+      throw new Error('Falha ao apagar contrato: ' + error.message);
+    }
     if (!(data as any)?.deleted) {
       throw new Error('Contrato nao foi excluido. Recarregue a pagina e tente novamente.');
     }
+
+    const { data: stillExists, error: verifyError } = await supabase
+      .from('contratos')
+      .select('id')
+      .eq('id', loanId)
+      .maybeSingle();
+
+    if (!verifyError && stillExists?.id) {
+      throw new Error('O banco retornou sucesso, mas o contrato ainda existe. Reaplique a migration de exclusao e tente novamente.');
+    }
+
+    markDeletedContract(ownerId, loanId);
+    await deleteLocalLoanSnapshot(loanId);
 
     return 'Contrato e dados associados foram excluidos.';
   }

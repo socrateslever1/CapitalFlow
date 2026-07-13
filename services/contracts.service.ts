@@ -25,6 +25,49 @@ const safeFloat = (v: any): number => {
   return parseFloat(str) || 0;
 };
 
+const stripUndefined = (payload: Record<string, any>) => (
+  Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
+);
+
+const extractMissingColumn = (error: any): string | null => {
+  const message = String(error?.message || error?.details || error || '');
+  return (
+    message.match(/column "([^"]+)"/i)?.[1] ||
+    message.match(/'([^']+)' column/i)?.[1] ||
+    null
+  );
+};
+
+const isSchemaColumnError = (error: any) => {
+  const message = String(error?.message || error?.details || error || '').toLowerCase();
+  return message.includes('does not exist') || message.includes('schema cache') || message.includes('could not find');
+};
+
+const runContractMutationWithSchemaFallback = async (
+  payload: Record<string, any>,
+  mutate: (nextPayload: Record<string, any>) => any
+) => {
+  let nextPayload = stripUndefined(payload);
+  const removedColumns = new Set<string>();
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const { error } = await mutate(nextPayload);
+    if (!error) return;
+
+    const missingColumn = extractMissingColumn(error);
+    if (!missingColumn || removedColumns.has(missingColumn) || !(missingColumn in nextPayload) || !isSchemaColumnError(error)) {
+      throw new Error(error.message || String(error));
+    }
+
+    removedColumns.add(missingColumn);
+    const { [missingColumn]: _removed, ...fallbackPayload } = nextPayload;
+    nextPayload = fallbackPayload;
+    console.warn(`[ContractsService] Coluna opcional ausente em contratos: ${missingColumn}. Tentando salvar sem ela.`);
+  }
+
+  throw new Error('Falha ao salvar contrato por incompatibilidade de schema.');
+};
+
 export const contractsService = {
   async saveLoan(loan: Loan, activeUser: UserProfile, _sources: CapitalSource[], editingLoan: Loan | null, options?: { skipTransaction?: boolean }) {
     if (!activeUser?.id) throw new Error('Usuário não autenticado.');
@@ -140,6 +183,7 @@ export const contractsService = {
       notes: loan.notes,
       guarantee_description: loan.guaranteeDescription,
       is_archived: loan.isArchived || false,
+      skip_weekends: loan.skipWeekends || false,
 
       funding_total_payable: loan.fundingTotalPayable,
       funding_cost: loan.fundingCost,
@@ -158,8 +202,9 @@ export const contractsService = {
     };
 
     if (editingLoan) {
-      const { error } = await supabase.from('contratos').update(loanPayload).eq('id', safeUUID(loanId));
-      if (error) throw new Error(error.message);
+      await runContractMutationWithSchemaFallback(loanPayload, (payload) =>
+        supabase.from('contratos').update(payload).eq('id', safeUUID(loanId))
+      );
 
       // ✅ parcelas = profile_id (conforme seu schema)
       if (loan.installments?.length) {
@@ -206,13 +251,12 @@ export const contractsService = {
         if (upsertErr) throw upsertErr;
       }
     } else {
-      const { error } = await supabase.from('contratos').insert({
+      await runContractMutationWithSchemaFallback({
         ...loanPayload,
         portal_token: loan.portalToken || crypto.randomUUID(),
         portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
         created_at: new Date().toISOString(),
-      });
-      if (error) throw new Error(error.message);
+      }, (payload) => supabase.from('contratos').insert(payload));
 
       if (loan.installments?.length) {
         const instPayload = loan.installments.map((inst, index) => ({

@@ -4,6 +4,7 @@ import { db } from './offline/adminOfflineStore';
 import { mapLoanFromDB } from './adapters/dbAdapters';
 import { maskPhone, maskDocument } from '../utils/formatters';
 import { asNumber } from '../utils/safe';
+import { filterDeletedLoans, readDeletedContractIds } from './deletedContracts.service';
 
 const AUTH_ERROR_PATTERNS = [
   'jwt expired',
@@ -156,6 +157,7 @@ export const syncService = {
       const allLoans: any[] = [];
       const allInstallments: any[] = [];
       const allTransactions: any[] = [];
+      const deletedLoanIds = readDeletedContractIds(ownerId);
       const portalFilesByLoan = new Map<string, any[]>();
       (portalFilesRes.data || []).forEach((file: any) => {
         if (!file?.loan_id) return;
@@ -171,6 +173,8 @@ export const syncService = {
       });
 
       (loansRes.data || []).forEach(l => {
+        if (deletedLoanIds.has(String(l.id))) return;
+
         // O contrato em si (sem o aninhamento pesado para a tabela de busca)
         // Mantemos acordos_inadimplencia no loanBase pois são pequenos e vitais para a UI
         const { parcelas, transacoes, ...loanBase } = l;
@@ -188,6 +192,16 @@ export const syncService = {
       if (allInstallments.length > 0) await db.parcelas.bulkPut(allInstallments);
       if (allTransactions.length > 0) await db.transacoes.bulkPut(allTransactions);
       if (portalFilesRes.data?.length) await db.portal_files.bulkPut(portalFilesRes.data as any[]);
+
+      if (deletedLoanIds.size > 0) {
+        const ids = Array.from(deletedLoanIds);
+        await Promise.all([
+          db.contratos.bulkDelete(ids),
+          ...ids.map((id: string) => db.parcelas.where('loan_id').equals(id).delete()),
+          ...ids.map((id: string) => db.transacoes.where('loan_id').equals(id).delete()),
+          ...ids.map((id: string) => db.portal_files.where('loan_id').equals(id).delete()),
+        ]);
+      }
 
       // 5. Atualizar metadados de sincronização
       const remoteLoanIds = new Set(allLoans.map((loan) => loan.id).filter(Boolean));
@@ -236,10 +250,11 @@ export const syncService = {
       db.clientes.where('owner_id').equals(ownerId).toArray(),
       db.fontes.where('profile_id').equals(ownerId).toArray()
     ]);
+    const visibleLoans = filterDeletedLoans(ownerId, loans);
 
     // Precisamos remontar os contratos com suas parcelas para manter compatibilidade com o frontend
     // Nota: Em um app gigante, faríamos isso sob demanda, mas aqui mantemos o contrato "gordo"
-    const enrichedLoans = await Promise.all(loans.map(async (l) => {
+    const enrichedLoans = await Promise.all(visibleLoans.map(async (l) => {
       const [parcelas, transacoes] = await Promise.all([
         db.parcelas.where('loan_id').equals(l.id).toArray(),
         db.transacoes.where('loan_id').equals(l.id).toArray()

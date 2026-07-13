@@ -8,6 +8,7 @@ import { getOrCreatePortalLink } from '../../utils/portalLink';
 import { maintenanceService } from '../../services/maintenance.service';
 import type { Loan, UserProfile, CapitalSource, Client, LedgerEntry } from '../../types';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
+import { markDeletedContract, markDeletedContracts } from '../../services/deletedContracts.service';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -17,6 +18,24 @@ const safeOwnerId = (activeUser: UserProfile | null) => {
   if (!activeUser?.id) return null;
   const ownerId = (activeUser as any).supervisor_id || activeUser.id;
   return isUUID(ownerId) ? ownerId : null;
+};
+
+const pruneCache = (
+  profileId: string | null | undefined,
+  updater: (cache: any) => any
+) => {
+  if (!profileId || typeof localStorage === 'undefined') return;
+
+  try {
+    const key = `cm_cache_${profileId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    localStorage.setItem(key, JSON.stringify(updater(parsed)));
+  } catch (error) {
+    console.warn('[LoanController] Falha ao atualizar cache local apos acao:', error);
+  }
 };
 
 export const useLoanController = (
@@ -32,6 +51,68 @@ export const useLoanController = (
   showToast: (msg: string, type?: 'success' | 'error') => void
 ) => {
   const getOwnerId = () => safeOwnerId(activeUser);
+
+  const applyLocalActionResult = async (type: string, targetId: string) => {
+    const cacheIds = Array.from(new Set([getOwnerId(), activeUser?.id].filter(Boolean))) as string[];
+
+    if (type === 'DELETE') {
+      cacheIds.forEach((cacheId) => markDeletedContract(cacheId, targetId));
+      setLoans((prev: Loan[]) => prev.filter((loan) => loan.id !== targetId));
+      cacheIds.forEach((cacheId) => pruneCache(cacheId, (cache) => ({
+        ...cache,
+        loans: (cache.loans || []).filter((loan: Loan) => loan.id !== targetId),
+      })));
+
+      try {
+        const { db } = await import('../../services/offline/adminOfflineStore');
+        await Promise.all([
+          db.contratos.delete(targetId),
+          db.parcelas.where('loan_id').equals(targetId).delete(),
+          db.transacoes.where('loan_id').equals(targetId).delete(),
+          db.portal_files.where('loan_id').equals(targetId).delete(),
+        ]);
+      } catch (error) {
+        console.warn('[LoanController] Falha ao limpar Dexie apos exclusao:', error);
+      }
+    }
+
+    if (type === 'DELETE_CLIENT') {
+      const removedLoanIds = loans
+        .filter((loan) => loan.clientId === targetId)
+        .map((loan) => loan.id);
+
+      cacheIds.forEach((cacheId) => markDeletedContracts(cacheId, removedLoanIds));
+
+      setClients((prev: Client[]) => prev.filter((client) => client.id !== targetId));
+      setLoans((prev: Loan[]) => prev.filter((loan) => loan.clientId !== targetId));
+      cacheIds.forEach((cacheId) => pruneCache(cacheId, (cache) => ({
+        ...cache,
+        clients: (cache.clients || []).filter((client: Client) => client.id !== targetId),
+        loans: (cache.loans || []).filter((loan: Loan) => loan.clientId !== targetId),
+      })));
+
+      try {
+        const { db } = await import('../../services/offline/adminOfflineStore');
+        await Promise.all([
+          db.clientes.delete(targetId),
+          ...removedLoanIds.map((loanId) => db.contratos.delete(loanId)),
+          ...removedLoanIds.map((loanId) => db.parcelas.where('loan_id').equals(loanId).delete()),
+          ...removedLoanIds.map((loanId) => db.transacoes.where('loan_id').equals(loanId).delete()),
+          ...removedLoanIds.map((loanId) => db.portal_files.where('loan_id').equals(loanId).delete()),
+        ]);
+      } catch (error) {
+        console.warn('[LoanController] Falha ao limpar Dexie apos excluir cliente:', error);
+      }
+    }
+
+    if (type === 'DELETE_SOURCE') {
+      setSources((prev: CapitalSource[]) => prev.filter((source) => source.id !== targetId));
+      cacheIds.forEach((cacheId) => pruneCache(cacheId, (cache) => ({
+        ...cache,
+        sources: (cache.sources || []).filter((source: CapitalSource) => source.id !== targetId),
+      })));
+    }
+  };
 
   const handleSaveLoan = async (loan: Loan) => {
     if (!activeUser) return;
@@ -228,6 +309,7 @@ export const useLoanController = (
           refundChecked: ui.confirmation.showRefundOption ? ui.refundChecked : false,
         });
 
+        await applyLocalActionResult(ui.confirmation.type, targetId);
         showToast(msg, 'success');
       }
     } catch (err: any) {
@@ -243,7 +325,11 @@ export const useLoanController = (
         // Não podemos usar routerNavigate direto aqui sem o hook, mas o App.tsx cuidará da limpeza de URL ao ver selectedLoanId=null se ajustarmos
       }
       
-      await fetchFullData(ownerId);
+      try {
+        await fetchFullData(ownerId);
+      } catch (syncErr) {
+        console.warn('[LoanController] Acao concluida, mas a sincronizacao posterior falhou:', syncErr);
+      }
     }
   };
 

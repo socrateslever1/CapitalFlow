@@ -12,7 +12,7 @@ function normalizeLoanStatus(statusRaw: unknown): LoanStatus {
   if (['ATIVO', 'ACTIVE', 'OPEN', 'ABERTO'].includes(s)) return LoanStatus.ATIVO;
   if (['EM_ACORDO', 'AGREEMENT', 'IN_AGREEMENT'].includes(s)) return LoanStatus.EM_ACORDO;
   if (['RENEGOCIADO', 'RENEGOTIATED'].includes(s)) return LoanStatus.RENEGOCIADO;
-  if (['PAGO', 'PAID', 'QUITADO', 'FINALIZADO'].includes(s)) return LoanStatus.PAGO;
+  if (['PAGO', 'PAID', 'QUITADO', 'QUITADA', 'FINALIZADO'].includes(s)) return LoanStatus.PAGO;
   if (['CANCELADO', 'CANCELLED'].includes(s)) return LoanStatus.CANCELADO;
   if (['ATRASADO', 'LATE', 'OVERDUE'].includes(s)) return LoanStatus.ATRASADO;
   return LoanStatus.ATIVO;
@@ -24,7 +24,7 @@ function normalizeLoanStatus(statusRaw: unknown): LoanStatus {
 function normalizeAgreementStatus(statusRaw: unknown): 'ACTIVE' | 'PAID' | 'BROKEN' {
   const s = asString(statusRaw).toUpperCase().trim();
   if (!s) return 'ACTIVE';
-  if (['PAGO', 'PAID', 'QUITADO', 'FINALIZADO', 'SETTLED'].includes(s)) return 'PAID';
+  if (['PAGO', 'PAID', 'QUITADO', 'QUITADA', 'FINALIZADO', 'SETTLED'].includes(s)) return 'PAID';
   if (['BROKEN', 'QUEBRADO', 'CANCELADO', 'INATIVO', 'QUEBROU'].includes(s)) return 'BROKEN';
   if (['ATIVO', 'ACTIVE', 'ABERTO', 'OPEN'].includes(s)) return 'ACTIVE';
   return 'ACTIVE';
@@ -58,7 +58,7 @@ function normalizeAgreementInstallmentStatus(
 function normalizeLoanInstallmentStatus(statusRaw: unknown): LoanStatus {
   const s = asString(statusRaw).toUpperCase().trim();
   if (!s) return LoanStatus.PENDING;
-  if (s === 'PAID' || s === 'PAGO') return LoanStatus.PAID;
+  if (s === 'PAID' || s === 'PAGO' || s === 'QUITADO' || s === 'QUITADA' || s === 'FINALIZADO') return LoanStatus.PAID;
   if (s === 'OPEN' || s === 'ABERTO') return LoanStatus.PENDING;
   if (s === 'LATE' || s === 'ATRASADO') return LoanStatus.LATE;
   if (s === 'PARTIAL' || s === 'PARCIAL') return LoanStatus.PARTIAL;

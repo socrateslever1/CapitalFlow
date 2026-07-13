@@ -111,6 +111,12 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               paymentType: 'FULL'
           });
 
+          if (result.paymentType === 'ALREADY_PAID_SYNCED') {
+              showToast('Parcela ja estava quitada. Status sincronizado na tela.', 'success');
+              onRefresh();
+              return;
+          }
+
           showToast('Recebimento registrado com sucesso!', 'success');
           ui.setShowReceipt({
               loan,

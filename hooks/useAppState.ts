@@ -4,6 +4,7 @@ import { Loan, Client, CapitalSource, UserProfile, SortOption, AppTab, LoanStatu
 import { maskPhone, maskDocument } from '../utils/formatters';
 import { mapLoanFromDB } from '../services/adapters/dbAdapters';
 import { asString, asNumber } from '../utils/safe';
+import { filterDeletedLoans } from '../services/deletedContracts.service';
 
 const DEFAULT_NAV: AppTab[] = ['DASHBOARD', 'CLIENTS'] as AppTab[];
 const DEFAULT_HUB: AppTab[] = ['DOSSIER', 'SOURCES', 'LEGAL', 'PROFILE'] as AppTab[];
@@ -22,6 +23,19 @@ type AppCacheSnapshot = {
   hubOrder: AppTab[];
 };
 
+const filterDeletedForProfile = (
+  profileId: string,
+  loans: Loan[] | undefined,
+  activeUser?: UserProfile | null
+) => {
+  const ownerId = activeUser?.supervisor_id || (activeUser as any)?.owner_profile_id || activeUser?.id;
+  let filtered = filterDeletedLoans(profileId, loans || []);
+  if (ownerId && ownerId !== profileId) {
+    filtered = filterDeletedLoans(ownerId, filtered);
+  }
+  return filtered;
+};
+
 const readCache = (profileId: string): AppCacheSnapshot | null => {
   try {
     const raw = localStorage.getItem(CACHE_KEY(profileId));
@@ -37,7 +51,11 @@ const readCache = (profileId: string): AppCacheSnapshot | null => {
 
 const writeCache = (profileId: string, snap: Omit<AppCacheSnapshot, 'ts'>) => {
   try {
-    const payload: AppCacheSnapshot = { ...snap, ts: Date.now() };
+    const payload: AppCacheSnapshot = {
+      ...snap,
+      loans: filterDeletedForProfile(profileId, snap.loans, snap.activeUser),
+      ts: Date.now()
+    };
     localStorage.setItem(CACHE_KEY(profileId), JSON.stringify(payload));
   } catch (e) {
     console.warn('Falha ao salvar cache local', e);
@@ -216,7 +234,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
           setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
           setClients(normalizeClients(cached.clients));
           setSources(cached.sources);
-          setLoans(cached.loans);
+          setLoans(filterDeletedForProfile(searchId, cached.loans, cached.activeUser));
           setStaffMembers(cached.staffMembers);
           setLoadError(null);
           markSyncPaused('CACHE_RECOVERY');
@@ -247,7 +265,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       } else {
         const cached = readCache(searchId);
         if (cached) {
-          setLoans(cached.loans);
+          setLoans(filterDeletedForProfile(searchId, cached.loans, cached.activeUser));
           setClients(normalizeClients(cached.clients));
           setSources(cached.sources);
           setStaffMembers(cached.staffMembers);
@@ -292,7 +310,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         if (cached?.activeUser) {
           setActiveUser(cached.activeUser);
           setProfileEditForm(cached.activeUser);
-          setLoans(cached.loans || []);
+          setLoans(filterDeletedForProfile(searchId, cached.loans || [], cached.activeUser));
         }
       } else if (isRecoverableSyncError(err) && cached?.activeUser) {
         setActiveUser(cached.activeUser);
@@ -301,7 +319,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
         setClients(normalizeClients(cached.clients));
         setSources(cached.sources);
-        setLoans(cached.loans);
+        setLoans(filterDeletedForProfile(searchId, cached.loans, cached.activeUser));
         setStaffMembers(cached.staffMembers);
         setLoadError(null);
         markSyncPaused('CACHE_RECOVERY');
@@ -328,7 +346,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
       setClients(normalizeClients(cached.clients));
       setSources(cached.sources);
-      setLoans(cached.loans);
+      setLoans(filterDeletedForProfile(activeProfileId, cached.loans, cached.activeUser));
       setStaffMembers(cached.staffMembers);
 
       const cacheAge = Date.now() - cached.ts;

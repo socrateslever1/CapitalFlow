@@ -104,6 +104,7 @@ export const App: React.FC = () => {
     setSelectedStaffId,
     isLoadingData,
     setIsLoadingData,
+    isDataReady,
     fetchFullData,
     activeTab,
     setActiveTab,
@@ -313,7 +314,7 @@ export const App: React.FC = () => {
   const effectiveSelectedStaffId =
     activeUser && (activeUser.accessLevel === 'OPERATOR' || (activeUser as any).accessLevel === 2) ? activeUser.id : selectedStaffId;
 
-  const isInitializing = !bootFinished || (!!activeProfileId && !activeUser && !loadError);
+  const isInitializing = !bootFinished || (!!activeProfileId && !activeUser && !loadError) || (!!activeUser && !isDataReady);
 
   if (isDev) {
     console.log('[APP_STATE]', {

@@ -106,6 +106,24 @@
   }
 }
 
+/* Hover: salto lateral + neon — apenas web/mouse, não afeta mobile touch */
+@media (hover: hover) and (pointer: fine) {
+  .responsive-card {
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow 0.22s ease,
+      border-color 0.2s ease;
+    will-change: transform;
+  }
+
+  .responsive-card:hover {
+    transform: translateX(4px);
+    box-shadow:
+      -5px 0 20px rgba(59, 130, 246, 0.13),
+      0 8px 28px rgba(0, 0, 0, 0.35);
+  }
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -131,13 +149,13 @@
 }
 
 @keyframes bell-ring {
-  0% { transform: rotate(0); }
-  10% { transform: rotate(15deg); }
-  20% { transform: rotate(-15deg); }
-  30% { transform: rotate(10deg); }
-  40% { transform: rotate(-10deg); }
-  50% { transform: rotate(5deg); }
-  60% { transform: rotate(-5deg); }
+  0%   { transform: rotate(0); }
+  10%  { transform: rotate(15deg); }
+  20%  { transform: rotate(-15deg); }
+  30%  { transform: rotate(10deg); }
+  40%  { transform: rotate(-10deg); }
+  50%  { transform: rotate(5deg); }
+  60%  { transform: rotate(-5deg); }
   100% { transform: rotate(0); }
 }
 
@@ -206,4 +224,85 @@
 
 .cf-portal-action-pulse {
   animation: cf-portal-action-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cf-contract-card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.002);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cf-contract-card-enter {
+  opacity: 0;
+  animation: cf-contract-card-enter 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cf-card-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.003);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cf-card-reveal {
+  opacity: 0;
+  animation: cf-card-reveal 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Todos os cards aparecem juntos de uma vez — estilo pisada */
+@keyframes cf-cards-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.985) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.cf-cards-flash {
+  animation: cf-cards-flash 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cf-splash-pulse {
+  0%, 100% {
+    box-shadow: 0 0 40px rgba(37, 99, 235, 0.4), 0 0 80px rgba(37, 99, 235, 0.15);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 60px rgba(37, 99, 235, 0.6), 0 0 120px rgba(37, 99, 235, 0.25);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes cf-progress-bar {
+  0% {
+    transform: translateX(-100%);
+    width: 40%;
+  }
+  50% {
+    width: 60%;
+  }
+  100% {
+    transform: translateX(350%);
+    width: 40%;
+  }
 }

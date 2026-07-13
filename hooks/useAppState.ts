@@ -174,6 +174,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
   const [navOrder, setNavOrder] = useState<AppTab[]>(DEFAULT_NAV);
   const [hubOrder, setHubOrder] = useState<AppTab[]>(DEFAULT_HUB);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isDataReady, setIsDataReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedStaffId, setSelectedStaffId] = useState<string>('ALL');
@@ -242,6 +243,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         return;
       } finally {
         setIsLoadingData(false);
+        setIsDataReady(true);
       }
     }
 
@@ -373,6 +375,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       }
     } finally {
       setIsLoadingData(false);
+      setIsDataReady(true);
     }
   }, []);
 
@@ -397,6 +400,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setStaffMembers(cached.staffMembers);
 
       markSyncPaused('OFFLINE_CACHE');
+      setIsDataReady(true);
     } else {
       fetchFullData(activeProfileId);
     }
@@ -485,6 +489,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     navOrder,
     hubOrder,
     isLoadingData, setIsLoadingData,
+    isDataReady,
     loadError, setLoadError,
     fetchFullData,
     selectedStaffId, setSelectedStaffId,

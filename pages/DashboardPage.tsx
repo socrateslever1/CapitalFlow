@@ -157,11 +157,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
-                  <div className="columns-1 xl:columns-2 2xl:columns-3 gap-4">
-                      {groupedLoans.map(group => {
+                  <div key={groupedLoans.length} className="columns-1 xl:columns-2 2xl:columns-3 gap-4 cf-cards-flash">
+                      {groupedLoans.map((group) => {
                           const isOverdueGroup = group.status === 'LATE' || group.status === 'CRITICAL';
                           return (
-                              <div key={group.id} className={`mb-4 break-inside-avoid min-w-0 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}>
+                              <div
+                                key={group.id}
+                                className={`mb-4 break-inside-avoid min-w-0 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}
+                              >
                                   <ClientGroupCard
                                       group={group}
                                       passThroughProps={loanCardProps}

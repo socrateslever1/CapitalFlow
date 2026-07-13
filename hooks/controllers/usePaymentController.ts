@@ -1,8 +1,6 @@
-// hooks/controllers/usePaymentController.ts
 import React, { useRef } from 'react';
 import { paymentsService } from '../../services/payments.service';
-import { demoService } from '../../services/demo.service';
-import { UserProfile, Loan, CapitalSource, UIController, PaymentType } from '../../types';
+import { UserProfile, Loan, CapitalSource, UIController } from '../../types';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -31,6 +29,9 @@ export const usePaymentController = (
   showToast: (msg: string, type?: 'success' | 'error') => void
 ) => {
   const lockRef = useRef(false);
+  void loans;
+  void setLoans;
+  void setActiveUser;
 
   const handlePayment = async (
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH',
@@ -42,66 +43,75 @@ export const usePaymentController = (
     avAmountOverride?: string,
     contextOverride?: { loan: Loan, inst: any, calculations: any }
   ) => {
-    const context = contextOverride || ui.paymentModal;
+    const maybeContext = paymentTypeOverride as any;
+    const inferredContext =
+      maybeContext &&
+      typeof maybeContext === 'object' &&
+      maybeContext.loan &&
+      maybeContext.inst
+        ? maybeContext as { loan: Loan, inst: any, calculations: any }
+        : null;
+    const effectivePaymentType = inferredContext ? undefined : paymentTypeOverride;
+    const context = contextOverride || inferredContext || ui.paymentModal;
     if (!activeUser || !context) return;
 
-    // 🔐 BLOQUEIO ABSOLUTO
     if (lockRef.current) return;
     lockRef.current = true;
     ui.setIsProcessingPayment(true);
 
     try {
-      const ownerId = safeUUID(activeUser.supervisor_id) || safeUUID(activeUser.id);
+      const ownerId =
+        safeUUID((context.loan as any).profile_id) ||
+        safeUUID((context.loan as any).profileId) ||
+        safeUUID(activeUser.supervisor_id) ||
+        safeUUID(activeUser.id);
       if (!ownerId) {
-        showToast('Perfil inválido.', 'error');
+        showToast('Perfil invalido.', 'error');
         return;
       }
 
-      // 🔒 Bloqueio extra — se parcela já paga
       const instOpenTotal =
         Number(context.inst?.principalRemaining || 0) +
         Number(context.inst?.interestRemaining || 0) +
         Number(context.inst?.lateFeeAccrued || 0);
 
       if (context.inst?.status === 'PAID' && instOpenTotal <= 0.5) {
-        showToast('Esta parcela já foi quitada.', 'error');
+        showToast('Esta parcela ja foi quitada.', 'error');
         return;
       }
 
-      const { amountToPay, paymentType } =
-        await paymentsService.processPayment({
-          loan: context.loan,
-          inst: context.inst,
-          calculations: context.calculations,
-          amountPaid: customAmount || parseMoney(avAmountOverride || ui.avAmount),
-          activeUser: activeUser,
-          sources,
-          forgivenessMode,
-          manualDate,
-          realDate,
-          capitalizeRemaining: interestHandling === 'CAPITALIZE',
-          paymentType: paymentTypeOverride,
-          avAmount: avAmountOverride
-        });
+      const { amountToPay, paymentType } = await paymentsService.processPayment({
+        loan: context.loan,
+        inst: context.inst,
+        calculations: context.calculations,
+        amountPaid: customAmount || parseMoney(avAmountOverride || ui.avAmount),
+        activeUser,
+        sources,
+        forgivenessMode,
+        manualDate,
+        realDate,
+        capitalizeRemaining: interestHandling === 'CAPITALIZE',
+        paymentType: effectivePaymentType,
+        avAmount: avAmountOverride,
+      });
 
       showToast('Pagamento realizado com sucesso!', 'success');
 
       ui.closeModal();
       ui.setAvAmount('');
-
-      // 🔥 FORÇA SINCRONIZAÇÃO REAL
-      if (typeof navigator === 'undefined' || navigator.onLine) {
-        await fetchFullData(ownerId);
-      }
-
       ui.setShowReceipt({
         loan: context.loan,
         inst: context.inst,
         amountPaid: amountToPay,
         type: paymentType,
       });
-
       ui.openModal('RECEIPT');
+
+      if (typeof navigator === 'undefined' || navigator.onLine) {
+        void fetchFullData(ownerId).catch((syncError) => {
+          console.warn('[Payment] Recebimento gravado, mas a atualizacao da tela falhou:', syncError);
+        });
+      }
     } catch (error: any) {
       console.error(error);
       showToast(error?.message || 'Erro ao processar pagamento.', 'error');

@@ -8,19 +8,17 @@ const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
     const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
     
-    // ✅ Lógica de Juros "Instantâneos": Em contratos mensais, o juro do mês 
-    // é cobrado assim que o ciclo inicia (ou logo após a renovação).
-    // Se o banco retornar 0, mas houver principal, nós assumimos o juro do ciclo atual.
-    const principal = inst?.principalRemaining ?? loan?.principal ?? 0;
-    let interest = inst?.interestRemaining ?? 0;
+    // Juros do ciclo atual: só inferimos quando a parcela ainda não teve
+    // juros pagos. Depois de receber juros, o próximo ciclo deve vir do saldo
+    // persistido em interest_remaining, evitando cobrança imediata repetida.
+    const principal = Number(inst?.principalRemaining ?? loan?.principal ?? 0) || 0;
+    let interest = Number(inst?.interestRemaining ?? 0) || 0;
     const paidInterest = Number((inst as any)?.paidInterest ?? (inst as any)?.paid_interest ?? 0);
     const contractedInterest = principal > 0 && loan.interestRate > 0
         ? round(principal * (loan.interestRate / 100))
         : 0;
 
-    if (paidInterest > 0.05 && contractedInterest > 0) {
-        interest = contractedInterest;
-    } else if (interest <= 0.05 && contractedInterest > 0) {
+    if (interest <= 0.05 && paidInterest <= 0.05 && contractedInterest > 0) {
         interest = contractedInterest;
     }
     

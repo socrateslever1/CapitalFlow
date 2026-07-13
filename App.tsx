@@ -721,7 +721,6 @@ export const App: React.FC = () => {
                     }}
                     onPayment={async (forgive, date, amount, realDate, interest, contextOverride) => {
                       await paymentCtrl.handlePayment(forgive, date, amount, realDate, interest, undefined, undefined, contextOverride);
-                      fetchFullData(activeUser?.id || '');
                     }}
                     isProcessing={ui.isProcessingPayment}
                     onOpenMessage={(l) => {

@@ -80,10 +80,23 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   };
 
 
-  const handleInstallmentPayment = async (loan: Loan, inst: Installment, debt?: any, amount?: number) => {
+  const handleInstallmentPayment = async (
+      loan: Loan,
+      inst: Installment,
+      debt?: any,
+      amount?: number,
+      options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }
+  ) => {
       if (!activeUser) return;
       const calculations = debt || calculateTotalDue(loan, inst);
       const amountToReceive = Number(amount ?? calculations?.total ?? inst.amount ?? 0) || 0;
+
+      if (amount === undefined) {
+          ui.setPaymentModal({ loan, inst, calculations });
+          ui.setAvAmount(amountToReceive > 0 ? amountToReceive.toFixed(2) : '');
+          ui.openModal('PAYMENT');
+          return;
+      }
 
       try {
           const result = await paymentsService.processPayment({
@@ -93,7 +106,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               amountPaid: amountToReceive,
               activeUser,
               sources,
-              forgivenessMode: 'NONE',
+              forgivenessMode: options?.forgivenessMode || 'NONE',
               realDate: new Date(),
               paymentType: 'FULL'
           });

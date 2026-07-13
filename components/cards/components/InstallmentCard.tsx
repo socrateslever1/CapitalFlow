@@ -69,19 +69,19 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     }
 
     return (
-        <div id={originalInst.id} className={`flex justify-between items-center px-3 py-2.5 rounded-lg border transition-all ${
+        <div id={originalInst.id} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
             isRenegotiated ? 'bg-slate-900/80 border-slate-700/50 opacity-60' :
             isPaid || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' :
             isLateInst ? 'bg-rose-500/5 border-rose-500/20' :
             isPrepaid ? 'bg-emerald-500/5 border-emerald-500/20' :
             'bg-slate-900/40 border-slate-800/50 hover:bg-slate-900/60'
         }`}>
-            <div className="flex items-center gap-3">
-                <span className={`text-[10px] font-black w-4 text-center ${isLateInst ? 'text-rose-500' : isPaid ? 'text-emerald-500' : 'text-slate-500'}`}>
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+                <span className={`text-[10px] font-black w-4 text-center pt-0.5 shrink-0 ${isLateInst ? 'text-rose-500' : isPaid ? 'text-emerald-500' : 'text-slate-500'}`}>
                     {realIndex + 1}
                 </span>
-                <div>
-                    <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <p className={`text-[12px] font-bold ${isLateInst ? 'text-rose-400' : isPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
                             {formatMoney(debt.total, isStealthMode)}
                         </p>
@@ -96,14 +96,14 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-x-1.5 gap-y-0.5 mt-0.5 flex-wrap">
                         <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
                             {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
                         </p>
                         {!isPaid && debt.total > originalInst.amount && (
                             <>
                                 <span className="text-slate-700">•</span>
-                                <p className="text-[8px] text-rose-400/80 font-bold">
+                                <p className="text-[8px] text-rose-400/80 font-bold leading-tight">
                                     +{formatMoney(debt.total - originalInst.amount, isStealthMode)} juros
                                 </p>
                             </>
@@ -112,7 +112,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                 </div>
             </div>
 
-            <div className="text-right flex items-center gap-2 shrink-0">
+            <div className="w-full sm:w-auto flex items-center justify-end gap-2 shrink-0">
                 <InstallmentCardAction
                     isDisabled={isActionDisabled}
                     isFullyFinalized={isFullyFinalized}

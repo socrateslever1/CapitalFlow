@@ -29,7 +29,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
 
     if (!isDisabled) {
-        const handleClick = (e: React.MouseEvent) => {
+        const handleReceive = (e: React.MouseEvent) => {
             e.stopPropagation();
             if (inlinePaymentEnabled && onPayInstallment) {
                 onPayInstallment(loan, originalInst, debt);
@@ -38,13 +38,39 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
             onNavigate?.();
         };
 
+        const handleOpen = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            onNavigate?.();
+        };
+
+        if (inlinePaymentEnabled && onPayInstallment) {
+            return (
+                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    <button
+                        onClick={handleReceive}
+                        className="text-[9px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-1.5"
+                        title="Registrar recebimento da parcela"
+                    >
+                        <DollarSign size={12} /> Receber
+                    </button>
+                    <button
+                        onClick={handleOpen}
+                        className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-2.5 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
+                        title="Abrir contrato"
+                    >
+                        Abrir
+                    </button>
+                </div>
+            );
+        }
+
         return (
             <button
-                onClick={handleClick}
+                onClick={handleReceive}
                 className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                title={inlinePaymentEnabled ? 'Registrar recebimento da parcela' : 'Abrir contrato'}
+                title="Abrir contrato"
             >
-                <DollarSign size={12} /> {inlinePaymentEnabled ? 'Receber' : 'Abrir'}
+                <DollarSign size={12} /> Abrir
             </button>
         );
     }

@@ -198,7 +198,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
 
         const nextAmount = Number(debtBreakdown.total || 0);
         setAvAmount(nextAmount > 0 ? nextAmount.toFixed(2) : '');
-    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle, forgivenessMode, debtBreakdown.total]);
+    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle]);
 
     // Sugestão de próxima data baseada na data de recebimento
     useEffect(() => {

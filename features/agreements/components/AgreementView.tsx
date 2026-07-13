@@ -287,8 +287,11 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
 
             {/* MODAL DE CONFIRMAÇÃO INTERNO */}
             {confirmAction && (confirmAction === 'PAY' || confirmAction === 'REVERSE') && selectedInst && (
-                <div className="absolute inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-[280px] shadow-2xl space-y-4">
+                <div
+                    className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-[280px] shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar">
                         <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto ${confirmAction === 'PAY' ? 'bg-blue-500/20 text-blue-500' : 'bg-rose-500/20 text-rose-500'}`}>
                             {confirmAction === 'PAY' ? <DollarSign size={24}/> : <RefreshCcw size={24}/>}
                         </div>

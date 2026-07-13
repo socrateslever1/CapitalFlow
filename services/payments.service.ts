@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { calculateTotalDue, getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
-import { todayDateOnlyUTC, parseDateOnlyUTC } from '../utils/dateHelpers';
+import { addDaysUTC, todayDateOnlyUTC, parseDateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
@@ -521,6 +521,12 @@ export const paymentsService = {
        }
     }
 
+    // Calcula quanto de juros foi perdoado para que a RPC não o deixe como pendente.
+    let forgivenInterest = 0;
+    if (forgivenessMode === 'TOTAL_CHARGES' || forgivenessMode === 'INTEREST_ONLY' || isCapitalOnlyRecoveryLoan(loan)) {
+        forgivenInterest = Number(installmentSnapshot.interestRemaining || 0);
+    }
+
     const paymentRpcArgs = {
       p_idempotency_key: idempotencyKey,
       p_loan_id: loanId,
@@ -531,6 +537,7 @@ export const paymentsService = {
       p_interest_paid: interestPaid,
       p_late_fee_paid: lateFeePaid,
       p_late_fee_forgiven: forgivenLateFee,
+      p_interest_forgiven: forgivenInterest,
       p_payment_date: paymentDateStr,
       p_capitalize_remaining: !!capitalizeRemaining,
       p_source_id: sourceId,
@@ -558,10 +565,11 @@ export const paymentsService = {
         interestPaid,
         lateFeePaid,
         forgivenLateFee,
+        forgivenInterest,
         paymentDateStr,
         installmentSnapshot,
         rpcArgs: paymentRpcArgs,
-      });
+      } as any);
 
       return { amountToPay, paymentType: 'OFFLINE_PENDING', amortization };
     }
@@ -614,8 +622,9 @@ export const paymentsService = {
       balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
     }
 
-    if (manualDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
-      const nextDueDate = manualDate.toISOString().split('T')[0];
+    const renewalDate = manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null);
+    if (renewalDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
+      const nextDueDate = renewalDate.toISOString().split('T')[0];
       const updatePayload: any = {
         data_vencimento: nextDueDate,
         due_date: nextDueDate,
@@ -629,7 +638,7 @@ export const paymentsService = {
       if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && isInterestRenewal) {
         // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
         const currentDueDate = parseDateOnlyUTC(inst.dueDate);
-        const diffDays = (manualDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
+        const diffDays = (renewalDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
 
         if (diffDays >= 15) {
           updatePayload.interest_remaining = nextCycleInterest;

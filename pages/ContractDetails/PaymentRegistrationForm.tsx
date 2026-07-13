@@ -6,7 +6,7 @@
  * integrado a cobranças diárias flexíveis.
  */
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Banknote, TrendingUp, ShieldCheck, CheckCircle2, Loader2 } from 'lucide-react';
 import { Loan } from '../../types';
 import { formatMoney } from '../../utils/formatters';
@@ -66,6 +66,16 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     handleConfirm
 }) => {
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
+    const [autoFillMode, setAutoFillMode] = useState<'NONE' | 'TOTAL' | 'INTEREST'>('TOTAL');
+    const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
+
+    useEffect(() => {
+        if (autoFillMode === 'TOTAL') {
+            setAvAmount(debtBreakdown.total > 0 ? debtBreakdown.total.toFixed(2) : '');
+        } else if (autoFillMode === 'INTEREST') {
+            setAvAmount(totalInterestDue.toFixed(2));
+        }
+    }, [debtBreakdown.total, totalInterestDue, autoFillMode, setAvAmount]);
     const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
     const forgivesMora = forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
 
@@ -81,6 +91,25 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
         else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('FINE_AND_MORA');
         else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
         else setForgivenessMode('MORA_ONLY');
+    };
+
+    const toggleInterestAutoFill = () => {
+        if (autoFillMode === 'INTEREST') {
+            const previous = previousAutoFillRef.current;
+            const nextMode = previous?.mode ?? 'TOTAL';
+            setAutoFillMode(nextMode);
+            if (nextMode === 'NONE') {
+                setAvAmount(previous?.amount ?? '');
+            } else {
+                setAvAmount(debtBreakdown.total > 0 ? debtBreakdown.total.toFixed(2) : '');
+            }
+            previousAutoFillRef.current = null;
+            return;
+        }
+
+        previousAutoFillRef.current = { mode: autoFillMode, amount: avAmount || '' };
+        setAutoFillMode('INTEREST');
+        setAvAmount(totalInterestDue.toFixed(2));
     };
 
     if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') {
@@ -125,10 +154,27 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                         type="text"
                         inputMode="decimal"
                         value={avAmount || ''}
-                        onChange={(e) => setAvAmount(e.target.value.replace(/[^0-9.,]/g, ''))}
+                        onChange={(e) => {
+                            setAvAmount(e.target.value.replace(/[^0-9.,]/g, ''));
+                            setAutoFillMode('NONE');
+                            previousAutoFillRef.current = null;
+                        }}
                         className="w-full bg-transparent text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter"
                         placeholder="0,00"
                     />
+                </div>
+
+                <div className="flex gap-2 mb-8">
+                    <button
+                        onClick={toggleInterestAutoFill}
+                        className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                            autoFillMode === 'INTEREST'
+                                ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]'
+                                : 'border-orange-900/50 bg-orange-900/20 text-orange-400 hover:bg-orange-800 hover:text-white'
+                        }`}
+                    >
+                        <span>Somente Juros/Encargos</span>
+                    </button>
                 </div>
 
                 {/* PREVIEW DINÂMICO */}

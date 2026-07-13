@@ -28,7 +28,7 @@ export interface LoanCardProps {
   onActivate: (loan: Loan) => void;
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
-  onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number) => void;
+  onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }) => void;
   onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
   onRefresh: () => void;
   onMarkAsBilled?: (loan: Loan) => void;

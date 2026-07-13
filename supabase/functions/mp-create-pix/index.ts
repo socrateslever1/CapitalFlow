@@ -47,17 +47,20 @@ serve(async (req) => {
     const body = await req.json();
     const { amount, payer_name, payer_email, payer_doc, loan_id, installment_id, payment_type, source_id: body_source_id, portal_token, portal_code } = body || {};
 
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     let isAuthorized = false;
     let callerProfileId = null;
 
-    const isPortalRequest = !!(portal_token && portal_code);
-    if (isPortalRequest) {
+    // A) É portal do cliente?
+    if (portal_token && portal_code) {
       // Busca o contrato associado ao token da URL para obter o client_id e validar o shortcode
-      const { data: urlContract } = await supabaseAdmin
+      const { data: urlContract, error: urlErr } = await supabaseAdmin
         .from('contratos')
-        .select('client_id, portal_shortcode')
+        .select('client_id, portal_shortcode, status, is_archived')
         .eq('portal_token', portal_token)
         .maybeSingle();
 
@@ -66,25 +69,35 @@ serve(async (req) => {
         const { data: targetContract } = await supabaseAdmin
           .from('contratos')
           .select('client_id')
-          .eq('id', loan_id)
+          .eq('id', loan_id || '')
           .maybeSingle();
 
         if (targetContract && targetContract.client_id === urlContract.client_id) {
           isAuthorized = true;
+        } else {
+           return json(req, { ok: false, error: "Contrato não pertence ao cliente do portal." }, 403);
         }
+      } else {
+         return json(req, { 
+           ok: false, 
+           error: "Credenciais do portal inválidas.",
+           received_portal_token: portal_token,
+           received_portal_code: portal_code,
+           foundUrlContract: !!urlContract
+         }, 403);
       }
+    }
 
-      if (!isAuthorized) {
-        return json(req, { ok: false, error: "Acesso não autorizado para este contrato." }, 401);
-      }
-    } else {
-      // Requer autenticação de operador
+    // B) É requisição via token de operador (Bear auth)?
+    if (!isAuthorized) {
       const token = getBearerToken(req);
       if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
 
-      const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-      });
+      const supabaseUser = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
 
       const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
       if (authErr || !authData?.user?.id) {
@@ -98,7 +111,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (callerErr || !callerProfile?.id) {
-        return json(req, { ok: false, error: "Forbidden: profile not found" });
+        return json(req, { ok: false, error: "Forbidden: profile not found" }, 403);
       }
       callerProfileId = callerProfile.id;
       isAuthorized = true;

@@ -745,6 +745,8 @@ export const agreementService = {
   async processPayment(agreement: any, installment: any, amount: number, sourceId: string, activeUser: any, forgiveLateFee: boolean = false) {
     const idempotencyKey = generateUUID();
     const paymentId = generateUUID();
+    const ownerId = safeUUID(activeUser?.supervisor_id) || safeUUID(activeUser?.id);
+    const safeSourceId = safeUUID(sourceId);
     const paymentAmount = Math.max(0, Number(amount) || 0);
     const installmentAmount = Number(installment.amount ?? installment.valor ?? 0) || 0;
     const previousPaid = Number(installment.paidAmount ?? installment.paid_amount ?? installment.valor_pago ?? 0) || 0;
@@ -772,7 +774,7 @@ export const agreementService = {
       acordo_id: agreement.id || agreement.acordo_id,
       amount: paymentAmount,
       paid_at: new Date().toISOString(),
-      profile_id: activeUser.id
+      profile_id: ownerId || activeUser.id
     });
 
     if (txAuditError) {
@@ -797,10 +799,21 @@ export const agreementService = {
     // 3. Registra o pagamento no extrato (ledger) do contrato principal
     const loanId = agreement.loanId || agreement.loan_id;
     if (loanId) {
+      if (safeSourceId && paymentAmount > 0) {
+        const { error: balanceError } = await supabase.rpc('adjust_source_balance', {
+          p_source_id: safeSourceId,
+          p_delta: paymentAmount
+        });
+
+        if (balanceError) {
+          throw new Error(`Falha ao creditar recebimento do acordo na fonte: ${balanceError.message}`);
+        }
+      }
+
       const { error: txError } = await supabase.from('transacoes').insert({
         id: generateUUID(),
         loan_id: loanId,
-        profile_id: activeUser.id,
+        profile_id: ownerId || activeUser.id,
         date: new Date().toISOString(),
         type: 'AGREEMENT_PAYMENT',
         amount: paymentAmount,

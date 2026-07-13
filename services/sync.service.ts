@@ -85,7 +85,7 @@ const fetchRemoteSnapshot = async (ownerId: string) => {
     supabase.from('fontes').select('*').eq('profile_id', ownerId),
     supabase
       .from('contratos')
-      .select('*, parcelas(*), transacoes(*), payment_intents(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
+      .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
       .eq('owner_id', ownerId),
     supabase.from('perfis').select('*').eq('owner_profile_id', ownerId),
     supabase
@@ -99,7 +99,11 @@ const fetchRemoteSnapshot = async (ownerId: string) => {
       .eq('profile_id', ownerId)
       .eq('sender_type', 'CLIENT')
       .eq('read', false)
-      .limit(1000)
+      .limit(1000),
+    supabase
+      .from('payment_intents')
+      .select('*')
+      .eq('profile_id', ownerId)
   ]);
 };
 
@@ -122,12 +126,12 @@ export const syncService = {
       await this.processQueue();
 
       // 1. Buscar tudo em paralelo para velocidade
-      let [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes] = await fetchRemoteSnapshot(ownerId);
+      let [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes, paymentIntentsRes] = await fetchRemoteSnapshot(ownerId);
 
       const firstError = clientsRes.error || sourcesRes.error || loansRes.error || staffRes.error;
       if (firstError && isAuthSyncError(firstError)) {
         await ensureFreshAuth(true);
-        [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes] = await fetchRemoteSnapshot(ownerId);
+        [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes, paymentIntentsRes] = await fetchRemoteSnapshot(ownerId);
       }
 
       if (clientsRes.error) throw clientsRes.error;
@@ -136,6 +140,7 @@ export const syncService = {
       if (staffRes.error) throw staffRes.error;
       if (portalFilesRes.error) console.warn('[SYNC] portal_files indisponivel:', portalFilesRes.error);
       if (supportUnreadRes.error) console.warn('[SYNC] mensagens_suporte indisponivel:', supportUnreadRes.error);
+      if (paymentIntentsRes.error) console.warn('[SYNC] payment_intents indisponivel:', paymentIntentsRes.error);
 
       // 2. Salvar Clientes
       const mappedClients = (clientsRes.data || []).map(mapClientFromDB);
@@ -172,6 +177,14 @@ export const syncService = {
         unreadByLoan.set(message.loan_id, (unreadByLoan.get(message.loan_id) || 0) + 1);
       });
 
+      const paymentIntentsByLoan = new Map<string, any[]>();
+      (paymentIntentsRes.data || []).forEach((intent: any) => {
+        if (!intent?.loan_id) return;
+        const current = paymentIntentsByLoan.get(intent.loan_id) || [];
+        current.push(intent);
+        paymentIntentsByLoan.set(intent.loan_id, current);
+      });
+
       (loansRes.data || []).forEach(l => {
         if (deletedLoanIds.has(String(l.id))) return;
 
@@ -180,6 +193,7 @@ export const syncService = {
         const { parcelas, transacoes, ...loanBase } = l;
         allLoans.push({
           ...loanBase,
+          payment_intents: paymentIntentsByLoan.get(l.id) || [],
           portal_files: portalFilesByLoan.get(l.id) || [],
           support_unread_count: unreadByLoan.get(l.id) || 0,
         });

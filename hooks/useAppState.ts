@@ -187,6 +187,64 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
   const fetchFullData = useCallback(async (profileId: string) => {
     if (!profileId || profileId === 'null' || profileId === 'undefined') return;
 
+    const searchId = profileId === 'DEMO' ? 'DEMO' : profileId;
+
+    if (searchId === 'DEMO') {
+      setActiveUser(DEMO_USER);
+      setProfileEditForm(DEMO_USER);
+      return;
+    }
+
+    setIsLoadingData(true);
+    setLoadError(null);
+
+    const isOnline = typeof navigator === 'undefined' || navigator.onLine;
+    if (!isOnline) {
+      try {
+        const cached = readCache(searchId);
+        if (cached?.activeUser) {
+          setActiveUser(cached.activeUser);
+          setProfileEditForm(cached.activeUser);
+          setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));
+          setHubOrder(sanitizeTabs(cached.hubOrder, DEFAULT_HUB));
+          setClients(normalizeClients(cached.clients));
+          setSources(cached.sources);
+          setLoans(filterDeletedForProfile(searchId, cached.loans, cached.activeUser));
+          setStaffMembers(cached.staffMembers);
+          setLoadError(null);
+          markSyncPaused('OFFLINE_CACHE');
+          return;
+        }
+
+        const { db } = await import('../services/offline/adminOfflineStore');
+        const profileData = await db.perfis.get(searchId);
+        if (profileData) {
+          const u = mapProfileFromDB(profileData);
+          const ownerId = (profileData as any).owner_profile_id || profileData.supervisor_id || profileData.id;
+          const { syncService } = await import('../services/sync.service');
+          const local = await syncService.getLocalData(ownerId);
+
+          setActiveUser(u);
+          setProfileEditForm(u);
+          setNavOrder(sanitizeTabs(u.ui_nav_order, DEFAULT_NAV));
+          setHubOrder(sanitizeTabs(u.ui_hub_order, DEFAULT_HUB));
+          setLoans(local.loans);
+          setClients(local.clients);
+          setSources(local.sources);
+          setLoadError(null);
+          markSyncPaused('OFFLINE_DEXIE');
+          return;
+        }
+
+        throw new Error('Sem internet e sem cache local para este perfil.');
+      } catch (offlineErr: any) {
+        setLoadError(offlineErr.message || 'Sem internet.');
+        return;
+      } finally {
+        setIsLoadingData(false);
+      }
+    }
+
     let session: any = null;
     try {
       const sessionResult = await getSynchronizedSession({ minValidityMs: 2 * 60 * 1000 });
@@ -199,16 +257,6 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         throw sessionErr;
       }
     }
-    const searchId = profileId === 'DEMO' ? 'DEMO' : profileId;
-
-    if (searchId === 'DEMO') {
-      setActiveUser(DEMO_USER);
-      setProfileEditForm(DEMO_USER);
-      return;
-    }
-    
-    setIsLoadingData(true);
-    setLoadError(null);
 
     try {
       const { data: dbProfiles, error: profileErr } = await supabase
@@ -254,23 +302,6 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setHubOrder(cleanHub);
 
       const { syncService } = await import('../services/sync.service');
-      const local = await syncService.getLocalData(ownerId);
-      const localHasData = hasLocalPayload(local);
-      
-      if (localHasData) {
-        setLoans(local.loans);
-        setClients(local.clients);
-        setSources(local.sources);
-        setIsLoadingData(false);
-      } else {
-        const cached = readCache(searchId);
-        if (cached) {
-          setLoans(filterDeletedForProfile(searchId, cached.loans, cached.activeUser));
-          setClients(normalizeClients(cached.clients));
-          setSources(cached.sources);
-          setStaffMembers(cached.staffMembers);
-        }
-      }
 
       try {
         await syncService.syncFullData(searchId, ownerId);
@@ -291,10 +322,24 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         });
       } catch (syncErr: any) {
         console.warn('[useAppState] Sync em background pausado:', syncErr);
-        if (isRecoverableSyncError(syncErr)) {
-          markSyncPaused('SYNC_BACKGROUND_UNAVAILABLE');
+        const local = await syncService.getLocalData(ownerId);
+        const localHasData = hasLocalPayload(local);
+        const cached = readCache(searchId);
+
+        if (isRecoverableSyncError(syncErr) && localHasData) {
+          setLoans(local.loans);
+          setClients(local.clients);
+          setSources(local.sources);
+          markSyncPaused('OFFLINE_DEXIE');
           setLoadError(null);
-        } else if (!localHasData && !readCache(searchId)) {
+        } else if (isRecoverableSyncError(syncErr) && cached?.activeUser) {
+          setLoans(filterDeletedForProfile(searchId, cached.loans, cached.activeUser));
+          setClients(normalizeClients(cached.clients));
+          setSources(cached.sources);
+          setStaffMembers(cached.staffMembers);
+          markSyncPaused('CACHE_RECOVERY');
+          setLoadError(null);
+        } else {
           throw syncErr;
         }
       }
@@ -338,8 +383,10 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       return;
     }
 
+    const isOnline = typeof navigator === 'undefined' || navigator.onLine;
     const cached = readCache(activeProfileId);
-    if (cached?.activeUser) {
+
+    if (!isOnline && cached?.activeUser) {
       setActiveUser(cached.activeUser);
       setProfileEditForm(cached.activeUser);
       setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));
@@ -349,10 +396,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setLoans(filterDeletedForProfile(activeProfileId, cached.loans, cached.activeUser));
       setStaffMembers(cached.staffMembers);
 
-      const cacheAge = Date.now() - cached.ts;
-      if (cacheAge > 30 * 1000) {
-        fetchFullData(activeProfileId);
-      }
+      markSyncPaused('OFFLINE_CACHE');
     } else {
       fetchFullData(activeProfileId);
     }

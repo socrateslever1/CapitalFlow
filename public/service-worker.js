@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v5';
+const CACHE_NAME = 'capitalflow-v6';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 const isCacheableAsset = (href) => {
@@ -117,7 +117,8 @@ self.addEventListener('push', (event) => {
     body: data.body || 'Você tem uma nova atualização no sistema.',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
-    vibrate: [100, 50, 100],
+    silent: true,
+    vibrate: [],
     data: {
       url: data.url || '/'
     }

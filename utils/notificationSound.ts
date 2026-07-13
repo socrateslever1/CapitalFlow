@@ -1,7 +1,10 @@
 let sharedAudioContext: AudioContext | null = null;
 let lastPlayedAt = 0;
+const NOTIFICATION_SOUNDS_ENABLED = false;
 
 export const playNotificationSound = () => {
+  if (!NOTIFICATION_SOUNDS_ENABLED) return;
+
   try {
     const now = Date.now();
     if (now - lastPlayedAt < 1200) return;

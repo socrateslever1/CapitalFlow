@@ -13,6 +13,45 @@ import { AIBalanceInsight } from '../features/dashboard/AIBalanceInsight';
 import { formatMoney } from '../utils/formatters';
 import { groupLoansByClient } from '../domain/dashboard/loanGrouping';
 
+const ContractCardSkeleton: React.FC<{ index: number }> = ({ index }) => (
+  <div
+    className="cf-contract-card-enter mb-4 break-inside-avoid rounded-lg border border-slate-800 bg-slate-900 p-3"
+    style={{ animationDelay: `${index * 45}ms` }}
+  >
+    <div className="flex min-h-[7.25rem] flex-col justify-between gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-lg bg-slate-800" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 w-32 max-w-full animate-pulse rounded bg-slate-800" />
+            <div className="flex gap-1.5">
+              <div className="h-4 w-16 animate-pulse rounded bg-slate-800/80" />
+              <div className="h-4 w-12 animate-pulse rounded bg-slate-800/80" />
+            </div>
+          </div>
+        </div>
+        <div className="h-5 w-14 animate-pulse rounded-md bg-slate-800" />
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-t border-slate-800/30 pt-2">
+        <div className="space-y-1.5">
+          <div className="h-2 w-16 animate-pulse rounded bg-slate-800" />
+          <div className="h-2 w-24 animate-pulse rounded bg-slate-800/80" />
+        </div>
+        <div className="h-5 w-24 animate-pulse rounded bg-slate-800" />
+      </div>
+    </div>
+  </div>
+);
+
+const ContractCardsSkeleton: React.FC = () => (
+  <div className="columns-1 xl:columns-2 2xl:columns-3 gap-4" aria-label="Carregando contratos">
+    {Array.from({ length: 9 }).map((_, index) => (
+      <ContractCardSkeleton key={index} index={index} />
+    ))}
+  </div>
+);
+
 interface DashboardPageProps {
   loans: Loan[];
   sources: CapitalSource[];
@@ -63,6 +102,7 @@ interface DashboardPageProps {
   onRefresh: () => void;
   ui: any;
   loanCtrl: any;
+  isLoadingData?: boolean;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -71,11 +111,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore,
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria,
   onViewDoc, onReviewSignal, onOpenComprovante, onReverseTransaction, onOpenReceipt, setWithdrawModal, showToast,
-  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onInstallmentPayment, onReverseInstallmentPayment, onNavigate, onOpenClient, onRefresh, ui, loanCtrl
+  isStealthMode, onRenegotiate, onNewAporte, onMarkAsBilled, onAgreementPayment, onReverseAgreementPayment, onInstallmentPayment, onReverseInstallmentPayment, onNavigate, onOpenClient, onRefresh, ui, loanCtrl, isLoadingData = false
 }) => {
 
   // Agrupa os empréstimos filtrados por cliente, respeitando a ordenação selecionada
   const groupedLoans = useMemo(() => groupLoansByClient(filteredLoans, sortOption), [filteredLoans, sortOption]);
+  const isInitialContractsLoading = isLoadingData && loans.length === 0 && groupedLoans.length === 0;
 
   // Objeto com todas as props necessárias para o LoanCard (para passar via drill-down)
   const loanCardProps = {
@@ -92,10 +133,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   return (
     <div className="flex flex-col gap-6">
       <div className="md:hidden bg-slate-900 p-1 rounded-lg border border-slate-800 flex relative overflow-hidden">
-          <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
+          <button onClick={() => setMobileDashboardTab('CONTRACTS')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'CONTRACTS' ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-white'}`}>
             <Briefcase size={14} /> Contratos
           </button>
-          <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'BALANCE' ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:text-white'}`}>
+          <button onClick={() => setMobileDashboardTab('BALANCE')} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 ${mobileDashboardTab === 'BALANCE' ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-lg shadow-emerald-600/30' : 'text-slate-500 hover:text-white'}`}>
             <TrendingUp size={14} /> Balanço
           </button>
       </div>
@@ -116,11 +157,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
-                  <div className="columns-1 md:columns-2 xl:columns-3 gap-4">
+                  <div className="columns-1 xl:columns-2 2xl:columns-3 gap-4">
                       {groupedLoans.map(group => {
                           const isOverdueGroup = group.status === 'LATE' || group.status === 'CRITICAL';
                           return (
-                              <div key={group.id} className={`break-inside-avoid mb-4 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}>
+                              <div key={group.id} className={`mb-4 break-inside-avoid min-w-0 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}>
                                   <ClientGroupCard
                                       group={group}
                                       passThroughProps={loanCardProps}
@@ -137,7 +178,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       <div className="w-20 h-20 bg-slate-900 rounded-lg flex items-center justify-center mb-6 shadow-2xl shadow-black/50 border border-slate-800 rotate-3 transition-transform hover:rotate-6">
                           <BarChart3 className="w-8 h-8 text-slate-500" />
                       </div>
-                      <h3 className="text-white font-black uppercase tracking-tight text-lg mb-2">Nenhum contrato encontrado</h3>
+                      <h3 className="text-white font-black uppercase text-lg mb-2">Nenhum contrato encontrado</h3>
                       <p className="text-slate-500 text-xs font-medium max-w-sm leading-relaxed">
                           Não encontramos registros com os filtros atuais. <br/>
                           Limpe a busca ou inicie uma nova operação.
@@ -148,11 +189,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
           <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
               <div className="flex items-center justify-between px-2">
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Indicadores</h2>
+                  <h2 className="text-[10px] font-black uppercase text-slate-500">Indicadores</h2>
                   <button
                     onClick={loanCtrl.handleRecalculateAll}
                     disabled={ui.isProcessingPayment}
-                    className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-blue-400 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-500 hover:text-blue-400 transition-colors disabled:opacity-50"
                   >
                     <RefreshCw size={10} className={ui.isProcessingPayment ? 'animate-spin' : ''} />
                     Recalcular
@@ -249,13 +290,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
                   <div className="flex items-center justify-between w-full mb-6">
-                      <h3 className="card-title font-black uppercase tracking-[0.15em] text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
+                      <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
                               <PieIcon className="w-4 h-4" />
                           </div>
                           Saúde da Carteira
                       </h3>
-                      <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Tempo Real</span>
+                      <span className="text-[9px] font-black text-slate-600 uppercase">Tempo Real</span>
                   </div>
 
                   <div style={{ width: '100%', minHeight: 180 }}>
@@ -283,7 +324,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between w-full mb-4 mt-8 pt-6 border-t border-slate-800/50">
-                      <h3 className="card-title font-black uppercase tracking-[0.15em] text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
+                      <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                               <TrendingUp className="w-4 h-4" />
                           </div>

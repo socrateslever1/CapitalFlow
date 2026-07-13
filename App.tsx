@@ -494,6 +494,7 @@ export const App: React.FC = () => {
                 loanCtrl={loanCtrl}
                 fileCtrl={fileCtrl}
                 showToast={showToast}
+                isLoadingData={isLoadingData}
                 onRefresh={() => fetchFullData(activeUser?.id || '')}
                 onNavigate={navigate}
                 onOpenClient={handleOpenClientFromDashboard}

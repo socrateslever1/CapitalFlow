@@ -11,6 +11,7 @@ import { Body } from './LoanCardComposition/Body';
 import { Footer } from './LoanCardComposition/Footer';
 import { Ledger } from './LoanCardComposition/Ledger';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
+import { useStableExpandedCardFocus } from './hooks/useStableExpandedCardFocus';
 
 // Re-exporta a interface para manter compatibilidade
 export type { LoanCardProps };
@@ -31,37 +32,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     ? isExpandedProp
     : (isAccordionControlled ? props.selectedLoanId === loan.id : isExpandedInternal);
 
-  const cardRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!isExpanded) return;
-    const element = cardRef.current;
-    if (!element) return;
-
-    const keepInView = () => {
-      const rect = element.getBoundingClientRect();
-      const topLimit = 88;
-      const bottomLimit = window.innerHeight - 96;
-      const isAboveView = rect.top < topLimit;
-      const isBelowView = rect.bottom > bottomLimit && rect.top > topLimit;
-
-      if (isAboveView || isBelowView) {
-        element.scrollIntoView({
-          behavior: 'smooth',
-          block: isAboveView ? 'start' : 'nearest',
-          inline: 'nearest',
-        });
-      }
-    };
-
-    const frameId = window.requestAnimationFrame(keepInView);
-    const timeoutId = window.setTimeout(keepInView, 180);
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      window.clearTimeout(timeoutId);
-    };
-  }, [isExpanded, loan.id]);
+  const { ref: cardRef, focusCard } = useStableExpandedCardFocus<HTMLDivElement>(isExpanded, loan.id);
 
   // Lógica de Negócio
   const computed = useLoanCardComputed(loan, sources, isStealthMode);
@@ -105,7 +76,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     }
 
     if (isExpanded) {
-      handleNavigate(e);
+      focusCard();
       return;
     }
 
@@ -138,6 +109,13 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
       onNavigate(loan.id);
     }
   };
+
+  const keepCardOpen = React.useCallback(() => {
+    if (isAccordionControlled && props.setSelectedLoanId && props.selectedLoanId !== loan.id) {
+      props.setSelectedLoanId(loan.id);
+    }
+    window.setTimeout(() => focusCard(), 0);
+  }, [focusCard, isAccordionControlled, loan.id, props]);
 
   return (
     <div
@@ -173,18 +151,19 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               hasNotes={!!loan.notes}
               onMessage={(e) => {
                 e.stopPropagation();
+                keepCardOpen();
                 onMessage(loan);
                 // Cobrança automática ao enviar mensagem
                 if (isLate || daysUntilDue < 0) {
                   props.onMarkAsBilled?.(loan);
                 }
               }}
-              onNote={(e) => { e.stopPropagation(); onNote(loan); }}
-              onPortalLink={(e) => { e.stopPropagation(); onPortalLink(loan); }}
-              onViewDoc={(e, url) => { e.stopPropagation(); onViewDoc(url); }}
-              onUploadPromissoria={(e) => { e.stopPropagation(); onUploadPromissoria?.(loan); }}
-              onUploadDoc={(e) => { e.stopPropagation(); onUploadDoc(loan); }}
-              onEdit={(e) => { e.stopPropagation(); onEdit(loan); }}
+              onNote={(e) => { e.stopPropagation(); keepCardOpen(); onNote(loan); }}
+              onPortalLink={(e) => { e.stopPropagation(); keepCardOpen(); onPortalLink(loan); }}
+              onViewDoc={(e, url) => { e.stopPropagation(); keepCardOpen(); onViewDoc(url); }}
+              onUploadPromissoria={(e) => { e.stopPropagation(); keepCardOpen(); onUploadPromissoria?.(loan); }}
+              onUploadDoc={(e) => { e.stopPropagation(); keepCardOpen(); onUploadDoc(loan); }}
+              onEdit={(e) => { e.stopPropagation(); keepCardOpen(); onEdit(loan); }}
               onNavigate={handleNavigate}
             />
 
@@ -194,10 +173,22 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               activeUser={activeUser}
               activeAgreement={activeAgreement}
               onRefresh={onRefresh}
-              onAgreementPayment={onAgreementPayment}
-              onReverseAgreementPayment={onReverseAgreementPayment}
-              onInstallmentPayment={onInstallmentPayment}
-              onReverseInstallmentPayment={onReverseInstallmentPayment}
+              onAgreementPayment={(loanArg, agreement, inst, amount, forgiveLateFee) => {
+                keepCardOpen();
+                onAgreementPayment(loanArg, agreement, inst, amount, forgiveLateFee);
+              }}
+              onReverseAgreementPayment={(loanArg, agreement, inst) => {
+                keepCardOpen();
+                onReverseAgreementPayment?.(loanArg, agreement, inst);
+              }}
+              onInstallmentPayment={(loanArg, inst, debt, amount, options) => {
+                keepCardOpen();
+                onInstallmentPayment?.(loanArg, inst, debt, amount, options);
+              }}
+              onReverseInstallmentPayment={(loanArg, inst) => {
+                keepCardOpen();
+                onReverseInstallmentPayment?.(loanArg, inst);
+              }}
               orderedInstallments={orderedInstallments}
               fixedTermStats={fixedTermStats}
               isPaid={isPaid}
@@ -211,7 +202,10 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               isStealthMode={isStealthMode}
               allLoans={allLoans}
               onNavigate={handleNavigate}
-              onLegalDocument={onLegalDocument}
+              onLegalDocument={(path) => {
+                keepCardOpen();
+                onLegalDocument?.(path);
+              }}
               daysUntilDue={daysUntilDue}
             />
 
@@ -219,22 +213,30 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               <Ledger
                 allLedger={loan.ledger}
                 loan={loan}
-                onReverseTransaction={onReverseTransaction}
-                onOpenReceipt={onOpenReceipt}
+                onReverseTransaction={(transaction, loanArg) => {
+                  keepCardOpen();
+                  onReverseTransaction(transaction, loanArg);
+                }}
+                onOpenReceipt={onOpenReceipt
+                  ? (transaction, loanArg) => {
+                    keepCardOpen();
+                    onOpenReceipt(transaction, loanArg);
+                  }
+                  : undefined}
                 isStealthMode={isStealthMode}
               />
             )}
 
             <Footer
               loan={loan}
-              onArchive={() => onArchive(loan)}
-              onRestore={() => onRestore(loan)}
-              onDelete={() => onDelete(loan)}
-              onRenegotiate={() => onRenegotiate(loan)}
-              onActivate={() => onActivate(loan)}
-              onNewAporte={() => onNewAporte(loan)}
-              onToggleCapitalOnly={() => onToggleCapitalOnly?.(loan)}
-              onEdit={(e) => { e.stopPropagation(); onEdit(loan); }}
+              onArchive={() => { keepCardOpen(); onArchive(loan); }}
+              onRestore={() => { keepCardOpen(); onRestore(loan); }}
+              onDelete={() => { keepCardOpen(); onDelete(loan); }}
+              onRenegotiate={() => { keepCardOpen(); onRenegotiate(loan); }}
+              onActivate={() => { keepCardOpen(); onActivate(loan); }}
+              onNewAporte={() => { keepCardOpen(); onNewAporte(loan); }}
+              onToggleCapitalOnly={() => { keepCardOpen(); onToggleCapitalOnly?.(loan); }}
+              onEdit={(e) => { e.stopPropagation(); keepCardOpen(); onEdit(loan); }}
               isFullyFinalized={isFullyFinalized}
               hasActiveAgreement={hasActiveAgreement}
               isLate={isLate}

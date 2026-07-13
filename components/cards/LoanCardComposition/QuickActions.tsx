@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { MessageSquare, FileEdit, Link as LinkIcon, Upload, FileText } from 'lucide-react';
 
@@ -15,50 +14,95 @@ interface QuickActionsProps {
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
-    hasNotes, onMessage, onNote, onPortalLink, onViewDoc, onUploadPromissoria, onUploadDoc, onEdit, onNavigate
+    hasNotes,
+    onMessage,
+    onNote,
+    onPortalLink,
+    onViewDoc,
+    onUploadPromissoria,
+    onUploadDoc,
+    onEdit,
+    onNavigate,
 }) => {
+    void onViewDoc;
+    void onNavigate;
+
+    const buttonClass =
+        'w-full min-h-16 overflow-hidden rounded-lg px-2 py-2.5 transition-all flex flex-col items-center justify-center gap-1.5';
+    const labelClass = 'w-full truncate text-center text-[8px] sm:text-[9px] font-black uppercase leading-tight';
+
     return (
-        <div className="grid grid-cols-3 gap-2">
-             <button onClick={(e) => { e.stopPropagation(); onEdit(e); }} className="w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-all">
-                <FileEdit size={14} /> 
-                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight text-center">Editar</span>
-             </button>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(e);
+                }}
+                className={`${buttonClass} bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white`}
+            >
+                <FileEdit size={14} />
+                <span className={labelClass}>Editar</span>
+            </button>
 
-             <button onClick={(e) => { e.stopPropagation(); onMessage(e); }} className="w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 bg-emerald-600/10 text-emerald-500 hover:bg-gradient-to-br hover:from-emerald-600 hover:to-emerald-700 hover:text-white rounded-lg transition-all">
-                <MessageSquare size={14} /> 
-                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight text-center">WhatsApp</span>
-             </button>
-             
-             <button onClick={(e) => { e.stopPropagation(); onPortalLink(e); }} className="w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 bg-blue-600/10 text-blue-500 hover:bg-gradient-to-br hover:from-blue-600 hover:to-blue-700 hover:text-white rounded-lg transition-all">
-                <LinkIcon size={14} /> 
-                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight text-center">Portal</span>
-             </button>
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onMessage(e);
+                }}
+                className={`${buttonClass} bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white`}
+            >
+                <MessageSquare size={14} />
+                <span className={labelClass}>WhatsApp</span>
+            </button>
 
-             {onUploadPromissoria && (
-                 <button onClick={(e) => { e.stopPropagation(); onUploadPromissoria(e); }} className="w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 bg-purple-600/10 text-purple-500 hover:bg-gradient-to-br hover:from-purple-600 hover:to-purple-700 hover:text-white rounded-lg transition-all">
-                    <FileText size={14} /> 
-                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight text-center">Promissória</span>
-                 </button>
-             )}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onPortalLink(e);
+                }}
+                className={`${buttonClass} bg-blue-600/10 text-blue-500 hover:bg-blue-600 hover:text-white`}
+            >
+                <LinkIcon size={14} />
+                <span className={labelClass}>Portal</span>
+            </button>
 
-             <button onClick={(e) => { e.stopPropagation(); onUploadDoc(e); }} className="w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 bg-slate-800 text-slate-400 hover:bg-indigo-600 hover:text-white rounded-lg transition-all">
-                <Upload size={14} /> 
-                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight text-center">Anexar</span>
-             </button>
+            {onUploadPromissoria && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onUploadPromissoria(e);
+                    }}
+                    className={`${buttonClass} bg-purple-600/10 text-purple-500 hover:bg-purple-600 hover:text-white`}
+                >
+                    <FileText size={14} />
+                    <span className={labelClass}>Promissoria</span>
+                </button>
+            )}
 
-             <button 
-                onClick={(e) => { e.stopPropagation(); onNote(e); }} 
-                className={`w-full flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-lg transition-all ${
-                    hasNotes 
-                    ? 'bg-amber-600/20 text-amber-500 hover:bg-amber-600 hover:text-white' 
-                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
-                }`}
-             >
-                <FileEdit size={14} /> 
-                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tight text-center">
-                    Notas {hasNotes && '(1)'}
-                </span>
-             </button>
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onUploadDoc(e);
+                }}
+                className={`${buttonClass} bg-slate-800 text-slate-400 hover:bg-indigo-600 hover:text-white`}
+            >
+                <Upload size={14} />
+                <span className={labelClass}>Anexar</span>
+            </button>
+
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onNote(e);
+                }}
+                className={`${buttonClass} ${hasNotes
+                        ? 'bg-amber-600/20 text-amber-500 hover:bg-amber-600 hover:text-white'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                    }`}
+            >
+                <FileEdit size={14} />
+                <span className={labelClass}>Notas {hasNotes && '(1)'}</span>
+            </button>
         </div>
     );
 };

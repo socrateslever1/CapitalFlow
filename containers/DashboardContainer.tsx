@@ -30,12 +30,13 @@ interface DashboardContainerProps {
   onRefresh: () => void;
   onNavigate: (path: string) => void;
   onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;
+  isLoadingData?: boolean;
 }
 
 export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   loans, sources, activeUser, staffMembers, mobileDashboardTab, setMobileDashboardTab,
   statusFilter, setStatusFilter, searchTerm, setSearchTerm, selectedStaffId, setSelectedStaffId,
-  ui, loanCtrl, fileCtrl, showToast, onRefresh, onNavigate, onOpenClient
+  ui, loanCtrl, fileCtrl, showToast, onRefresh, onNavigate, onOpenClient, isLoadingData = false
 }) => {
 
   // LÓGICA DE FILTRAGEM DE EQUIPE
@@ -220,6 +221,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         onNavigate={onNavigate}
         onOpenClient={onOpenClient}
         onRefresh={onRefresh}
+        isLoadingData={isLoadingData}
         setWithdrawModal={() => ui.openModal('WITHDRAW')}
         showToast={showToast}
         isStealthMode={ui.isStealthMode}

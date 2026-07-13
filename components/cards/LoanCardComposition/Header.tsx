@@ -129,31 +129,31 @@ export const Header: React.FC<HeaderProps> = ({
   let Badge = null;
   if (isCapitalOnlyRecovery && !isFullyFinalized) {
     Badge = (
-      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-600/20 text-rose-500 rounded-md border border-rose-600/40">
+      <div className="flex min-w-0 max-w-full items-center gap-1 rounded-md border border-rose-600/40 bg-rose-600/20 px-1.5 py-0.5 text-rose-500">
         <ShieldAlert size={8} />
-        <span className="text-[7px] font-black uppercase tracking-wider">Somente Capital</span>
+        <span className="truncate text-[7px] font-black uppercase">Somente Capital</span>
       </div>
     );
   } else if (isFullyFinalized) {
     Badge = (
-      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 rounded-md border border-emerald-500/20">
+      <div className="flex min-w-0 max-w-full items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-500">
         <CheckCircle2 size={8} />
-        <span className="text-[7px] font-black uppercase tracking-wider">Finalizado</span>
+        <span className="truncate text-[7px] font-black uppercase">Finalizado</span>
       </div>
     );
   } else if (hasActiveAgreement) {
     Badge = (
-      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-indigo-500/10 text-indigo-400 rounded-md border border-indigo-500/20">
+      <div className="flex min-w-0 max-w-full items-center gap-1 rounded-md border border-indigo-500/20 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-400">
         <Handshake size={8} />
-        <span className="text-[7px] font-black uppercase tracking-wider">Renegociado</span>
+        <span className="truncate text-[7px] font-black uppercase">Renegociado</span>
       </div>
     );
   } else if (isOverdueByDays) {
     const { cls } = getDueBadgeStyle(daysUntilDue);
     Badge = (
-      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${cls}`}>
+      <div className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${cls}`}>
         <AlertTriangle size={8} />
-        <span className="text-[7px] font-black uppercase tracking-wider">Atrasado</span>
+        <span className="truncate text-[7px] font-black uppercase">Atrasado</span>
       </div>
     );
   }
@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
     let config = { icon: ShieldCheck, color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', label: 'Risco Baixo' };
     
     if (isPotentialDefaulter) {
-       config = { icon: Skull, color: 'text-rose-600', bg: 'bg-rose-600/20', border: 'border-rose-600/40', label: 'POTENCIAL CALOTE' };
+       config = { icon: Skull, color: 'text-rose-600', bg: 'bg-rose-600/20', border: 'border-rose-600/40', label: 'Calote' };
     } else if (level === 'CRITICO') {
        config = { icon: ShieldX, color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20', label: 'Risco Crítico' };
     } else if (level === 'ALTO') {
@@ -178,19 +178,19 @@ export const Header: React.FC<HeaderProps> = ({
     if (level !== 'BAIXO' || isPotentialDefaulter) {
       RiskBadge = (
         <div 
-          className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border ${config.bg} ${config.color} ${config.border} animate-pulse`}
+          className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${config.bg} ${config.color} ${config.border} animate-pulse`}
           title={flags.join('\n')}
         >
           <config.icon size={8} />
-          <span className="text-[7px] font-black uppercase tracking-wider">{config.label}</span>
+          <span className="truncate text-[7px] font-black uppercase">{config.label}</span>
         </div>
       );
     }
   }
 
   return (
-    <div className="w-full flex flex-col h-[6.5rem] justify-between relative">
-      <div className="flex items-start justify-between gap-2">
+    <div className="relative flex min-h-[7.25rem] w-full flex-col justify-between gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="relative shrink-0">
             <button 
@@ -224,17 +224,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           <div className="min-w-0 flex flex-col flex-1">
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight flex-1 min-w-0 truncate">
+              <h3 className="client-name font-black text-white uppercase leading-tight flex-1 min-w-0 truncate">
                 {formatShortName(debtorNameSafe)}
               </h3>
             </div>
             {(RiskBadge || Badge) && (
-              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
                 {RiskBadge}
                 {Badge}
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase mt-0.5 flex-wrap min-w-0">
               <span className="bg-slate-800/50 px-1.5 rounded-sm">{translateBillingCycle(loan.billingCycle)}</span>
               <span className="text-slate-700">•</span>
               <div className="flex items-center gap-0.5 opacity-70">
@@ -244,11 +244,11 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
         </div>
-        <div className="shrink-0 flex items-start justify-end max-w-[42%] sm:max-w-none">
+        <div className="shrink-0 flex items-start justify-end max-w-[7.5rem] sm:max-w-none">
           {isOverdueByDays && !isFullyFinalized && (
              <div className="animate-in fade-in zoom-in duration-300 flex items-center justify-end gap-1.5 flex-wrap">
                 {(loan.billing_count || 0) > 0 && (
-                  <div className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-md border border-slate-700 font-black text-[7px] uppercase tracking-tighter">
+                    <div className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded-md border border-slate-700 font-black text-[7px] uppercase">
                     Int: {loan.billing_count}
                   </div>
                 )}
@@ -256,7 +256,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {isLocked ? (
                   <div className="flex flex-col items-end">
                     <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded-md border border-emerald-500/20">
-                      <span className="text-[8px] font-black uppercase tracking-wider">Cobrado</span>
+                      <span className="text-[8px] font-black uppercase">Cobrado</span>
                     </div>
                   </div>
                 ) : (
@@ -270,7 +270,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="flex items-center gap-1 px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md border border-rose-400 shadow-sm shadow-rose-500/20 transition-all active:scale-95 animate-pulse"
                   >
-                    <span className="text-[8px] font-black uppercase tracking-wider">Cobrar</span>
+                    <span className="text-[8px] font-black uppercase">Cobrar</span>
                   </button>
                 )}
              </div>
@@ -278,21 +278,21 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="flex items-end justify-between pt-2 border-t border-slate-800/30 mt-1">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 pt-2 border-t border-slate-800/30">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5 text-slate-500">
             <Wallet size={10} className="opacity-50" />
-            <span className="text-[8px] font-black uppercase tracking-[0.15em]">{amountLabel}</span>
+            <span className="text-[8px] font-black uppercase">{amountLabel}</span>
           </div>
           {isOverdueByDays && (
-            <span className="text-[9px] font-black text-rose-500/80 uppercase tracking-tighter">
+            <span className="text-[9px] font-black text-rose-500/80 uppercase">
               {getDueBadgeLabel(daysUntilDue)}
             </span>
           )}
         </div>
         
-        <div className="flex flex-col items-end">
-          <span className={`text-lg sm:text-xl font-black tracking-tighter transition-all ${
+        <div className="min-w-0 flex flex-col items-end">
+          <span className={`text-lg sm:text-xl font-black leading-none text-right transition-all ${
             (isOverdueByDays || (isLate && !hasActiveAgreement)) 
               ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]' 
               : isFullyFinalized 
@@ -302,7 +302,7 @@ export const Header: React.FC<HeaderProps> = ({
             {formatMoney(displayAmount, isStealthMode)}
           </span>
           {isExpanded && amountBreakdown.shouldShow && (
-            <div className="mt-0.5 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0 text-[8px] font-black uppercase leading-tight tracking-tight text-slate-500 max-w-[190px]">
+            <div className="mt-1 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0 text-[8px] font-black uppercase leading-tight text-slate-500 max-w-[190px]">
               <span>Cap <b className="text-slate-300">{formatMoney(amountBreakdown.capital, isStealthMode)}</b></span>
               <span className="text-slate-700">•</span>
               <span>Juros <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>

@@ -19,6 +19,7 @@ import { ClientGroup } from '../../domain/dashboard/loanGrouping';
 import { formatMoney, formatShortName } from '../../utils/formatters';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { LoanCard } from './LoanCard';
+import { useStableExpandedCardFocus } from './hooks/useStableExpandedCardFocus';
 
 interface ClientGroupCardProps {
     group: ClientGroup;
@@ -37,37 +38,11 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const [showUnifyChoices, setShowUnifyChoices] = useState(false);
     const [showPortalChoices, setShowPortalChoices] = useState(false);
 
-    const cardRef = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-        if (!isExpanded) return;
-        const element = cardRef.current;
-        if (!element) return;
-
-        const keepInView = () => {
-            const rect = element.getBoundingClientRect();
-            const topLimit = 88;
-            const bottomLimit = window.innerHeight - 96;
-            const isAboveView = rect.top < topLimit;
-            const isBelowView = rect.bottom > bottomLimit && rect.top > topLimit;
-
-            if (isAboveView || isBelowView) {
-                element.scrollIntoView({
-                    behavior: 'smooth',
-                    block: isAboveView ? 'start' : 'nearest',
-                    inline: 'nearest',
-                });
-            }
-        };
-
-        const frameId = window.requestAnimationFrame(keepInView);
-        const timeoutId = window.setTimeout(keepInView, 180);
-
-        return () => {
-            window.cancelAnimationFrame(frameId);
-            window.clearTimeout(timeoutId);
-        };
-    }, [isExpanded, group.id]);
+    const actionPanelFocusKey = `${showArchiveChoices}:${billFilter || ''}:${showUnifyChoices}:${showPortalChoices}`;
+    const { ref: cardRef, focusCard } = useStableExpandedCardFocus<HTMLDivElement>(
+        isExpanded,
+        actionPanelFocusKey
+    );
 
     const getNextOpenDueDate = (loan: any) => {
         const next = loan.installments?.find((inst: any) => {
@@ -130,7 +105,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
             return {
                 id: loan.id,
-                label: `${index + 1}. ${formatMoney(getLoanOpenAmount(loan), isStealthMode)}`,
+                label: formatMoney(getLoanOpenAmount(loan), isStealthMode),
                 colorClass,
             };
         });
@@ -148,18 +123,21 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
     const handleRenegotiateAll = (e: React.MouseEvent) => {
         e.stopPropagation();
+        keepGroupOpen();
         passThroughProps.onRenegotiate?.(group.loans);
     };
 
     const handleBillLoan = (e: React.MouseEvent, loan: any) => {
         e.stopPropagation();
         if (!loan) return;
+        keepGroupOpen();
         passThroughProps.onMarkAsBilled?.(loan);
         passThroughProps.onMessage?.(loan);
     };
 
     const handleArchiveSelection = (e: React.MouseEvent, loans: any[]) => {
         e.stopPropagation();
+        keepGroupOpen();
         loans.filter(Boolean).forEach((loan) => passThroughProps.onArchive?.(loan));
         setShowArchiveChoices(false);
     };
@@ -167,6 +145,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const handlePortalSelection = (e: React.MouseEvent, loan: any) => {
         e.stopPropagation();
         if (!loan) return;
+        keepGroupOpen();
         passThroughProps.onPortalLink?.(loan);
         setShowPortalChoices(false);
     };
@@ -176,6 +155,13 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         setShowArchiveChoices(false);
         setShowUnifyChoices(false);
         setShowPortalChoices(false);
+    };
+
+    const keepGroupOpen = () => {
+        if (!isExpanded && setSelectedLoanId) {
+            setSelectedLoanId('GROUP_' + group.id);
+        }
+        window.setTimeout(() => focusCard(), 0);
     };
 
     const billChoices = billFilter === 'OVERDUE'
@@ -231,6 +217,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const handleCardClick = () => {
         if (!isExpanded && setSelectedLoanId) {
             setSelectedLoanId('GROUP_' + group.id);
+            window.setTimeout(() => focusCard(), 0);
         }
     };
 
@@ -238,6 +225,9 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         e.stopPropagation();
         if (setSelectedLoanId) {
             setSelectedLoanId(isExpanded ? null : 'GROUP_' + group.id);
+            if (!isExpanded) {
+                window.setTimeout(() => focusCard(), 0);
+            }
         }
     };
 
@@ -250,10 +240,10 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     return (
         <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div
-                className="flex flex-col h-[6.5rem] justify-between relative"
+                className="flex min-h-[7.25rem] flex-col justify-between gap-3 relative"
                 onClick={handleCardClick}
             >
-                <div className="flex justify-between items-start gap-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div
                         className="flex items-center gap-3 min-w-0 flex-1"
                     >
@@ -274,10 +264,10 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                         </div>
 
                         <div className="min-w-0 flex flex-col flex-1">
-                            <h3 className="client-name font-black text-white uppercase leading-tight tracking-tight truncate">
+                            <h3 className="client-name font-black text-white uppercase leading-tight truncate">
                                 {formatShortName(group.clientName)}
                             </h3>
-                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            <div className="flex items-center gap-1.5 mt-1 min-w-0 overflow-hidden">
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-slate-950/50 ${statusTextColor} border-current opacity-80 whitespace-nowrap`}>
                                     {statusText}
                                 </span>
@@ -286,7 +276,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                                         {activeLoanIndicators.slice(0, 3).map((item) => (
                                             <span
                                                 key={item.id}
-                                                className={`min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
+                                                className={`min-w-0 max-w-[4.75rem] truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
                                                 title={item.label}
                                             >
                                                 {item.label}
@@ -311,15 +301,15 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
 
 
-                <div className="flex items-end justify-between pt-2 border-t border-slate-800/30 mt-1">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 pt-2 border-t border-slate-800/30">
                     <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5 text-slate-500">
                             <Wallet size={10} className="opacity-50" />
-                            <span className="text-[8px] font-black uppercase tracking-[0.15em]">Dívida Total</span>
+                            <span className="text-[8px] font-black uppercase">Divida Total</span>
                         </div>
                     </div>
-                    <div className="flex flex-col items-end">
-                        <span className={`text-lg sm:text-xl font-black tracking-tighter transition-all ${group.totalDebt < 0.1 ? 'text-emerald-400' : 'text-white'}`}>
+                    <div className="min-w-0 flex flex-col items-end">
+                        <span className={`text-lg sm:text-xl font-black leading-none text-right transition-all ${group.totalDebt < 0.1 ? 'text-emerald-400' : 'text-white'}`}>
                             {formatMoney(group.totalDebt, isStealthMode)}
                         </span>
                     </div>
@@ -328,7 +318,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
             {isExpanded && (
                 <div className="bg-slate-950/50 p-3 sm:p-4 space-y-4 border-t border-slate-800 animate-in slide-in-from-top-2 duration-300">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase text-center tracking-[0.3em] mb-2">Detalhamento dos Contratos</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase text-center mb-2">Detalhamento dos Contratos</p>
                     {group.loans.map(loan => (
                         <LoanCard
                             key={loan.id}
@@ -339,10 +329,11 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                     ))}
 
                     <div className="pt-3 border-t border-slate-800/60 space-y-3">
-                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-7 gap-1.5">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     handleOpenClient(e);
                                     closeActionPanels();
                                 }}
@@ -354,6 +345,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     setShowPortalChoices((current) => !current);
                                     setBillFilter(null);
                                     setShowArchiveChoices(false);
@@ -367,6 +359,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     setBillFilter((current) => current === 'ALL' ? null : 'ALL');
                                     setShowArchiveChoices(false);
                                     setShowUnifyChoices(false);
@@ -380,6 +373,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     setBillFilter((current) => current === 'OVERDUE' ? null : 'OVERDUE');
                                     setShowArchiveChoices(false);
                                     setShowUnifyChoices(false);
@@ -394,6 +388,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     setBillFilter((current) => current === 'DUE_SOON' ? null : 'DUE_SOON');
                                     setShowArchiveChoices(false);
                                     setShowUnifyChoices(false);
@@ -408,6 +403,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     setShowUnifyChoices((current) => !current);
                                     setBillFilter(null);
                                     setShowArchiveChoices(false);
@@ -421,6 +417,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    keepGroupOpen();
                                     setShowArchiveChoices((current) => !current);
                                     setBillFilter(null);
                                     setShowUnifyChoices(false);
@@ -435,7 +432,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
                         {showPortalChoices && (
                             <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
-                                <p className="px-1 text-[8px] font-black uppercase text-slate-500 tracking-widest">Copiar link do portal</p>
+                                <p className="px-1 text-[8px] font-black uppercase text-slate-500">Copiar link do portal</p>
                                 <button
                                     onClick={(e) => handlePortalSelection(e, group.loans[0])}
                                     className="w-full px-3 py-2 rounded-md bg-blue-600/10 text-blue-400 border border-blue-500/20 text-[8px] font-black uppercase hover:bg-blue-600 hover:text-white flex items-center justify-center gap-2"
@@ -458,7 +455,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
                         {billFilter && (
                             <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2 space-y-2">
-                                <p className="px-1 text-[8px] font-black uppercase text-slate-500 tracking-widest">{billFilterLabel}</p>
+                                <p className="px-1 text-[8px] font-black uppercase text-slate-500">{billFilterLabel}</p>
                                 {billChoices.length === 0 ? (
                                     <p className="px-3 py-2 text-[9px] font-bold text-slate-500">Nenhum contrato neste filtro.</p>
                                 ) : (

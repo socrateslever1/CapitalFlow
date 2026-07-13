@@ -47,37 +47,39 @@
 }
 
 @utility client-name {
-  font-size: clamp(0.875rem, 4vw, 1.125rem);
-  white-space: normal;
+  font-size: 1rem;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.2;
 }
 
 @utility contract-name {
-  font-size: clamp(0.75rem, 3vw, 0.875rem);
-  white-space: normal;
+  font-size: 0.875rem;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.2;
 }
 
 @utility card-title {
-  font-size: clamp(0.75rem, 3.5vw, 1rem);
+  font-size: 0.875rem;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
 }
 
 @utility stat-value {
-  font-size: clamp(1.25rem, 5vw, 2.25rem);
+  font-size: 1.75rem;
   font-weight: 900;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 @utility section-title {
-  font-size: clamp(0.65rem, 2.5vw, 0.75rem);
+  font-size: 0.75rem;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   color: #64748b;
   white-space: normal;
   overflow: hidden;

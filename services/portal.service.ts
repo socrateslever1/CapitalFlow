@@ -372,39 +372,6 @@ export const portalService = {
   },
 
   /**
-   * Cria uma sessão de checkout no InfinitePay (Cartão/PIX)
-   */
-  async createInfinitePayCheckout(token: string, code: string, loanId: string, installmentId: string, amount: number) {
-    if (!token || !code) throw new Error('Credenciais do portal incompletas.');
-
-    const { data, error } = await supabasePortal.functions.invoke('infinitepay-checkout', {
-      body: {
-        loan_id: loanId,
-        installment_id: installmentId,
-        amount: amount,
-        payment_type: 'PORTAL_PAYMENT',
-        return_url: window.location.href,
-        portal_token: token,
-        portal_code: code
-      },
-    });
-
-    if (error) {
-      const msg = String((error as any)?.message || '');
-      if (msg.includes('Failed to send a request to the Edge Function') || msg.includes('NOT_FOUND')) {
-        throw new Error('Função de pagamento InfinitePay indisponível no servidor. Solicite o deploy da Edge Function.');
-      }
-      throw new Error(error.message || 'Falha ao iniciar pagamento online.');
-    }
-
-    if (!data?.ok || !data?.checkout_url) {
-      throw new Error(data?.error || 'Erro ao gerar link de pagamento InfinitePay.');
-    }
-
-    return data.checkout_url;
-  },
-
-  /**
    * Remove um documento juridico (limpeza de portal)
    */
   async deleteDocument(docId: string) {

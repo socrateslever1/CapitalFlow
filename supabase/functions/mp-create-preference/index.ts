@@ -50,21 +50,23 @@ serve(async (req) => {
 
     let isAuthorized = false;
 
-    // Se vier do Portal do Cliente, validamos via portal_token e portal_code
     if (portal_token && portal_code) {
-      const { data: isValid } = await supabaseAdmin.rpc('validate_portal_access', {
-        p_token: portal_token,
-        p_shortcode: portal_code
-      });
-      if (isValid === true) {
-        // Confirma se o portal_token pertence ao loan_id
-        const { data: loanCheck } = await supabaseAdmin
+      // Busca o contrato associado ao token da URL para obter o client_id e validar o shortcode
+      const { data: urlContract } = await supabaseAdmin
+        .from('contratos')
+        .select('client_id, portal_shortcode')
+        .eq('portal_token', portal_token)
+        .maybeSingle();
+
+      if (urlContract && String(urlContract.portal_shortcode) === String(portal_code)) {
+        // Confirma se o contrato que está sendo pago pertence ao mesmo cliente
+        const { data: targetContract } = await supabaseAdmin
           .from('contratos')
-          .select('id, portal_token')
+          .select('client_id')
           .eq('id', loan_id)
           .maybeSingle();
-        
-        if (loanCheck && (loanCheck.portal_token === portal_token || String(loanCheck.portal_token).toLowerCase() === String(portal_token).toLowerCase())) {
+
+        if (targetContract && targetContract.client_id === urlContract.client_id) {
           isAuthorized = true;
         }
       }

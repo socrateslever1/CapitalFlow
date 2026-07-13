@@ -150,7 +150,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     }
   };
 
-  const handleInfinitePay = async () => {
+  const handleMercadoPago = async () => {
     if (shouldBlock) {
       setError('Este contrato/parcela já está quitado.');
       return;
@@ -160,23 +160,24 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     setIsProcessingOnline(true);
 
     try {
-      // 1. Chama a Edge function para gerar o link do Checkout InfinitePay
-      const checkoutUrl = await portalService.createInfinitePayCheckout(
+      // 1. Chama a Edge function para gerar o PIX dinâmico
+      const data = await portalService.createMercadoPagoPix(
         portalToken,
         portalCode,
         loan.id,
         (installment as any).id,
-        options.totalToPay
+        options.totalToPay,
+        clientData
       );
 
-      if (checkoutUrl) {
-        // Redireciona o usuário para o Checkout Seguro do InfinitePay
-        window.location.href = checkoutUrl;
+      if (data && data.qrCode) {
+        setPixData({ qrCode: data.qrCode, qrCodeBase64: data.qrCodeBase64 });
+        setStep('PIX_AUTO');
       } else {
-        throw new Error('Link de checkout não retornado.');
+         throw new Error('QR Code não retornado');
       }
     } catch (e: any) {
-      setError(e?.message || 'Falha ao gerar link de pagamento online.');
+      setError(e?.message || 'Falha ao gerar o PIX automático.');
       setIsProcessingOnline(false);
     }
   };
@@ -189,137 +190,137 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg p-6 shadow-2xl relative animate-in zoom-in-95">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
-        >
-          <X size={20} />
-        </button>
+    <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      {!showAsaasModal ? (
+        <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg p-6 shadow-2xl relative animate-in zoom-in-95 my-auto">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
 
-        <h2 className="text-xl font-black text-white uppercase text-center mb-6 flex items-center justify-center gap-2">
-          {step === 'SUCCESS' ? (
-            <CheckCircle2 className="text-emerald-500" />
-          ) : (
-            <Wallet className="text-emerald-500" />
-          )}
-          {step === 'SUCCESS' ? 'Operador Notificado!' : 'Realizar Pagamento'}
-        </h2>
-
-        {step === 'BILLING' && (
-          <BillingView
-            totalToPay={options.totalToPay}
-            interestOnlyWithFees={options.renewToPay}
-            dueDateISO={options.dueDateISO}
-            daysLateRaw={options.daysLate}
-            pixKey={pixKey}
-            onCopyPix={copyPixKey}
-            onNotify={handleNotifyPayment}
-            error={error}
-            isInstallmentPaid={shouldBlock}
-            isProcessing={isProcessing}
-            isProcessingOnline={isProcessingOnline}
-            uploadStatus={uploadStatus}
-            uploadMessage={uploadMessage}
-            onMercadoPago={handleInfinitePay}
-            receiptFile={receiptFile}
-            onFileChange={(file) => {
-              setReceiptFile(file);
-              setUploadStatus('IDLE');
-              setUploadMessage(null);
-            }}
-            onAsaas={() => setShowAsaasModal(true)}
-          />
-        )}
-
-         {step === 'PIX_AUTO' && pixData && (
-          <div className="py-2 flex flex-col items-center text-center space-y-4 animate-in zoom-in duration-300">
-            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
-              <QrCode size={36} />
-            </div>
-
-            <div>
-              <h3 className="text-lg font-black text-white uppercase">PIX Gerado com Sucesso!</h3>
-              <p className="text-slate-400 text-xs mt-1">
-                Escaneie o QR Code abaixo ou copie o código Copia e Cola para pagar.
-              </p>
-            </div>
-
-            {/* QR Code Image */}
-            {pixData.qrCodeBase64 ? (
-              <div className="p-3 bg-white rounded-lg inline-block shadow-xl">
-                <img
-                  src={`data:image/png;base64,${pixData.qrCodeBase64}`}
-                  alt="QR Code Pix"
-                  className="w-44 h-44"
-                />
-              </div>
+          <h2 className="text-xl font-black text-white uppercase text-center mb-6 flex items-center justify-center gap-2">
+            {step === 'SUCCESS' ? (
+              <CheckCircle2 className="text-emerald-500" />
             ) : (
-              <div className="w-44 h-44 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 border border-slate-700">
-                Sem imagem do QR Code
-              </div>
+              <Wallet className="text-emerald-500" />
             )}
+            {step === 'SUCCESS' ? 'Operador Notificado!' : 'Realizar Pagamento'}
+          </h2>
 
-            {/* Copia e Cola Text */}
-            <div className="w-full space-y-2">
-              <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest pl-1 text-left">Código Copia e Cola</p>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 relative overflow-hidden text-left">
-                  <p className="text-white text-[10px] font-mono truncate pr-6">
-                    {pixData.qrCode}
-                  </p>
-                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent"></div>
+          {step === 'BILLING' && (
+            <BillingView
+              totalToPay={options.totalToPay}
+              interestOnlyWithFees={options.renewToPay}
+              dueDateISO={options.dueDateISO}
+              daysLateRaw={options.daysLate}
+              pixKey={pixKey}
+              onCopyPix={copyPixKey}
+              onNotify={handleNotifyPayment}
+              error={error}
+              isInstallmentPaid={shouldBlock}
+              isProcessing={isProcessing}
+              isProcessingOnline={isProcessingOnline}
+              uploadStatus={uploadStatus}
+              uploadMessage={uploadMessage}
+              onMercadoPago={handleMercadoPago}
+              receiptFile={receiptFile}
+              onFileChange={(file) => {
+                setReceiptFile(file);
+                setUploadStatus('IDLE');
+                setUploadMessage(null);
+              }}
+              onAsaas={() => setShowAsaasModal(true)}
+            />
+          )}
+
+          {step === 'PIX_AUTO' && pixData && (
+            <div className="py-2 flex flex-col items-center text-center space-y-4 animate-in zoom-in duration-300">
+              <div className="p-3 bg-blue-500/10 text-blue-400 rounded-full">
+                <QrCode size={36} />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-white uppercase">PIX Gerado com Sucesso!</h3>
+                <p className="text-slate-400 text-xs mt-1">
+                  Escaneie o QR Code abaixo ou copie o código Copia e Cola para pagar.
+                </p>
+              </div>
+
+              {/* QR Code Image */}
+              {pixData.qrCodeBase64 ? (
+                <div className="p-3 bg-white rounded-lg inline-block shadow-xl">
+                  <img
+                    src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                    alt="QR Code Pix"
+                    className="w-44 h-44"
+                  />
                 </div>
+              ) : (
+                <div className="w-44 h-44 bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 border border-slate-700">
+                  Sem imagem do QR Code
+                </div>
+              )}
+
+              {/* Copia e Cola Text */}
+              <div className="w-full space-y-2">
+                <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest pl-1 text-left">Código Copia e Cola</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-2.5 relative overflow-hidden text-left">
+                    <p className="text-white text-[10px] font-mono truncate pr-6">
+                      {pixData.qrCode}
+                    </p>
+                    <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent"></div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(pixData.qrCode);
+                      alert('Código Pix Copia e Cola copiado!');
+                    }}
+                    className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all shadow-md shrink-0"
+                    title="Copiar Código"
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div className="w-full pt-4 border-t border-slate-800 flex gap-2">
                 <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(pixData.qrCode);
-                    alert('Código Pix Copia e Cola copiado!');
-                  }}
-                  className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg active:scale-95 transition-all shadow-md shrink-0"
-                  title="Copiar Código"
+                  onClick={() => setStep('BILLING')}
+                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase rounded-lg transition-colors"
                 >
-                  <Copy size={16} />
+                  Voltar
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 size={12} /> Já paguei
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Ações */}
-            <div className="w-full pt-4 border-t border-slate-800 flex gap-2">
-              <button
-                onClick={() => setStep('BILLING')}
-                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase rounded-lg transition-colors"
-              >
-                Voltar
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase rounded-lg transition-colors flex items-center justify-center gap-1.5"
-              >
-                <CheckCircle2 size={12} /> Já paguei
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 'NOTIFYING' && <NotifyingView message={uploadMessage || undefined} />}
-        {step === 'SUCCESS' && <SuccessView onClose={onClose} />}
-
-        {showAsaasModal && (
-          <AsaasCheckoutModal
-            loan={loan}
-            installment={installment}
-            clientData={clientData}
-            portalToken={portalToken}
-            portalCode={portalCode}
-            onClose={() => setShowAsaasModal(false)}
-            onSuccess={() => {
-              setShowAsaasModal(false);
-              setStep('SUCCESS');
-            }}
-          />
-        )}
-      </div>
+          {step === 'NOTIFYING' && <NotifyingView message={uploadMessage || undefined} />}
+          {step === 'SUCCESS' && <SuccessView onClose={onClose} />}
+        </div>
+      ) : (
+        <AsaasCheckoutModal
+          loan={loan}
+          installment={installment}
+          clientData={clientData}
+          portalToken={portalToken}
+          portalCode={portalCode}
+          onClose={() => setShowAsaasModal(false)}
+          onSuccess={() => {
+            setShowAsaasModal(false);
+            setStep('SUCCESS');
+          }}
+        />
+      )}
     </div>
   );
 };

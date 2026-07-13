@@ -173,8 +173,8 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-[110] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 my-auto">
 
         {/* Header */}
         <div className="bg-gradient-to-br from-amber-600 to-amber-700 p-8 text-white relative">

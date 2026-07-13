@@ -23,7 +23,13 @@ export const paymentConfigService = {
   /**
    * Salva ou atualiza as configurações do Mercado Pago
    */
-  async saveConfig(profileId: string, accessToken: string) {
+  async saveConfig(
+    profileId: string, 
+    accessToken: string, 
+    publicKey: string = '', 
+    clientId: string = '', 
+    clientSecret: string = ''
+  ) {
     if (!profileId) throw new Error('ID do perfil não informado.');
 
     const { error } = await supabase
@@ -31,44 +37,9 @@ export const paymentConfigService = {
       .upsert({
         profile_id: profileId,
         mp_access_token: accessToken.trim(),
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'profile_id' });
-
-    if (error) throw error;
-    return true;
-  },
-
-  /**
-   * Busca as configurações do InfinitePay para um perfil específico
-   */
-  async getInfinitePayConfig(profileId: string) {
-    if (!profileId) return null;
-    const { data, error } = await supabase
-      .from('perfis_config_infinitepay')
-      .select('*')
-      .eq('profile_id', profileId)
-      .maybeSingle();
-    
-    if (error) {
-      console.error('Erro ao buscar config InfinitePay:', error);
-      return null;
-    }
-    return data;
-  },
-
-  /**
-   * Salva ou atualiza as configurações do InfinitePay
-   */
-  async saveInfinitePayConfig(profileId: string, clientId: string, clientSecret: string, infiniteTag: string) {
-    if (!profileId) throw new Error('ID do perfil não informado.');
-
-    const { error } = await supabase
-      .from('perfis_config_infinitepay')
-      .upsert({
-        profile_id: profileId,
-        client_id: clientId.trim(),
-        client_secret: clientSecret.trim(),
-        infinite_tag: infiniteTag.trim(),
+        mp_public_key: publicKey.trim(),
+        mp_client_id: clientId.trim(),
+        mp_client_secret: clientSecret.trim(),
         updated_at: new Date().toISOString()
       }, { onConflict: 'profile_id' });
 

@@ -31,7 +31,7 @@ import { SYSTEM_VERSION } from '../src/constants/version';
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';
 import { ProfileDangerZone } from '../features/profile/components/ProfileDangerZone';
-import { InfinitePayConfig } from '../features/profile/components/InfinitePayConfig';
+import { MercadoPagoConfig } from '../features/profile/components/MercadoPagoConfig';
 import { AsaasConfig } from '../features/profile/components/AsaasConfig';
 import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
 
@@ -733,7 +733,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* PAYMENTS */}
           {activeSection === 'PAYMENTS' && (
              <div className="animate-in fade-in slide-in-from-right space-y-12">
-                <InfinitePayConfig profileId={profileEditForm.id} showToast={showToast} />
+                <MercadoPagoConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>
                 <AsaasConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>
@@ -921,14 +921,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           )}
 
           {/* SALVAR */}
-          <div className="pt-8 mt-8 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-2">
-            <button
-              onClick={handleSaveProfile}
-              className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-black uppercase text-sm shadow-2xl shadow-blue-900/20 transition-all flex items-center justify-center gap-3"
-            >
-              <Save size={20} /> Salvar Alterações
-            </button>
-          </div>
+          {activeSection !== 'PAYMENTS' && activeSection !== 'DANGER' && (
+            <div className="pt-8 mt-8 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-2">
+              <button
+                onClick={handleSaveProfile}
+                className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-black uppercase text-sm shadow-2xl shadow-blue-900/20 transition-all flex items-center justify-center gap-3"
+              >
+                <Save size={20} /> Salvar Alterações
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -207,12 +207,12 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     <button
                         onClick={onMercadoPago}
                         disabled={isProcessingOnline || isProcessing}
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-indigo-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full bg-[#009EE3] hover:bg-[#0089C9] disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
                         {isProcessingOnline ? (
                             <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
                         ) : (
-                            <><CreditCard size={18} /> Pagar Online (PIX / Cartão)</>
+                            <><QrCode size={18} /> Pagar com PIX Online</>
                         )}
                     </button>
 

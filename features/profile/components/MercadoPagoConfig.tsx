@@ -2,33 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { CreditCard, ExternalLink, Save, ShieldCheck, AlertCircle, Copy, CheckCircle2 } from 'lucide-react';
 import { paymentConfigService } from '../../../services/paymentConfig.service';
 
-interface InfinitePayConfigProps {
+interface MercadoPagoConfigProps {
   profileId: string;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId, showToast }) => {
+export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId, showToast }) => {
+  const [publicKey, setPublicKey] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
-  const [infiniteTag, setInfiniteTag] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const projectWebhookUrl = `https://hzchchbxkhryextaymkn.supabase.co/functions/v1/infinitepay-webhook`;
+  const projectWebhookUrl = `https://hzchchbxkhryextaymkn.supabase.co/functions/v1/mp-webhook`;
 
   useEffect(() => {
     const loadConfig = async () => {
       setIsLoading(true);
       try {
-        const config = await paymentConfigService.getInfinitePayConfig(profileId);
+        const config = await paymentConfigService.getConfig(profileId);
         if (config) {
-          setClientId(config.client_id || '');
-          setClientSecret(config.client_secret || '');
-          setInfiniteTag(config.infinite_tag || '');
+          setPublicKey(config.mp_public_key || '');
+          setAccessToken(config.mp_access_token || '');
+          setClientId(config.mp_client_id || '');
+          setClientSecret(config.mp_client_secret || '');
         }
       } catch (err) {
-        console.error('Erro ao carregar configurações de pagamento InfinitePay:', err);
+        console.error('Erro ao carregar configurações de pagamento:', err);
       } finally {
         setIsLoading(false);
       }
@@ -38,20 +40,31 @@ export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId,
   }, [profileId]);
 
   const handleSave = async () => {
-    if (!clientId.trim() || !clientSecret.trim() || !infiniteTag.trim()) {
-      showToast('Todos os campos são obrigatórios.', 'error');
+    if (!accessToken.trim()) {
+      showToast('O Access Token é obrigatório.', 'error');
+      return;
+    }
+
+    if (accessToken.trim().length === 44) {
+      showToast('O valor no "Access Token" parece ser a "Public Key" (44 caract.). Verifique se você não inverteu os campos!', 'error');
+      return;
+    }
+
+    if (publicKey.trim() && publicKey.trim().length > 50) {
+      showToast('O valor no "Public Key" parece ser o "Access Token" (mais de 50 caract.). Verifique se você não inverteu os campos!', 'error');
       return;
     }
 
     setIsSaving(true);
     try {
-      await paymentConfigService.saveInfinitePayConfig(
+      await paymentConfigService.saveConfig(
         profileId,
+        accessToken.trim(),
+        publicKey.trim(),
         clientId.trim(),
-        clientSecret.trim(),
-        infiniteTag.trim()
+        clientSecret.trim()
       );
-      showToast('Configurações de pagamento InfinitePay salvas!', 'success');
+      showToast('Configurações de pagamento salvas com sucesso!', 'success');
     } catch (err: any) {
       showToast('Erro ao salvar: ' + (err.message || 'Erro desconhecido'), 'error');
     } finally {
@@ -79,51 +92,78 @@ export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId,
     <div className="space-y-6">
       <div className="flex items-center gap-3 text-blue-500">
         <CreditCard size={24} />
-        <h3 className="text-lg font-black uppercase">InfinitePay (Configuração Individual)</h3>
+        <h3 className="text-lg font-black uppercase">Mercado Pago (Configuração Individual)</h3>
       </div>
 
       <div className="bg-blue-900/10 border border-blue-900/30 p-4 rounded-lg flex gap-3">
         <ShieldCheck className="text-blue-500 shrink-0" size={20} />
         <div className="text-[10px] text-slate-400 leading-relaxed font-medium">
           <p className="text-blue-400 font-bold uppercase mb-1">Como funciona?</p>
-          Ao configurar suas credenciais do <span className="text-white">InfinitePay</span>, todas as cobranças geradas (PIX e Cartão) para seus contratos serão creditadas <span className="text-white">diretamente na sua conta</span>. O sistema dará baixa automática nas parcelas via Webhook assim que o cliente pagar.
+          Configure os dados de produção abaixo para que todas as cobranças (PIX e Cartão) geradas para seus contratos sejam creditadas diretamente na sua conta do Mercado Pago.
         </div>
       </div>
 
       <div className="space-y-6 bg-slate-950 p-6 rounded-lg border border-slate-800">
-        {/* INFINITE TAG */}
+        {/* CABEÇALHO CREDENCIAIS */}
+        <div className="flex items-center justify-between pb-4 border-b border-slate-900">
+          <span className="text-[10px] font-black text-slate-400 uppercase">Credenciais de produção</span>
+          <a
+            href="https://www.mercadopago.com.br/developers/panel/credentials"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline flex items-center gap-1 text-[10px] font-bold"
+          >
+            Obter Credenciais no Painel <ExternalLink size={10} />
+          </a>
+        </div>
+
+        {/* PUBLIC KEY */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
-            <span>Sua InfiniteTag (Sem @)</span>
-            <span className="text-[9px] text-slate-600 font-bold uppercase">Identificador da Conta</span>
+            <span>Public Key</span>
           </label>
           <input
             type="text"
-            value={infiniteTag}
-            onChange={(e) => setInfiniteTag(e.target.value)}
-            placeholder="Ex: minhaconta"
+            value={publicKey}
+            onChange={(e) => setPublicKey(e.target.value)}
+            placeholder="APP_USR-..."
             className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
           />
+        </div>
+
+        {/* ACCESS TOKEN */}
+        <div>
+          <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
+            <span>Access Token</span>
+          </label>
+          <div className="relative">
+             <input
+                type="password"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="APP_USR-..."
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
+              />
+              {accessToken && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
+                   <div className="px-2 py-0.5 bg-blue-600/20 text-blue-400 text-[10px] font-bold rounded uppercase flex items-center gap-1">
+                     <CheckCircle2 size={10} /> Ativo
+                   </div>
+                </div>
+              )}
+          </div>
         </div>
 
         {/* CLIENT ID */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
-            <span>Seu Client ID</span>
-            <a
-              href="https://conf.infinitepay.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline flex items-center gap-1 normal-case font-bold"
-            >
-              Obter Credenciais <ExternalLink size={10} />
-            </a>
+            <span>Client ID</span>
           </label>
           <input
             type="text"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            placeholder="Client ID do painel InfinitePay"
+            placeholder="Insira o Client ID"
             className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
           />
         </div>
@@ -131,13 +171,13 @@ export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId,
         {/* CLIENT SECRET */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
-            <span>Seu Client Secret</span>
+            <span>Client Secret</span>
           </label>
           <input
             type="password"
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
-            placeholder="Client Secret do painel InfinitePay"
+            placeholder="Insira o Client Secret"
             className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
           />
         </div>
@@ -146,7 +186,7 @@ export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId,
         <div className="pt-4 border-t border-slate-900">
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
             <span>URL de Notificação (Webhook)</span>
-            <span className="text-[9px] text-amber-500 font-bold uppercase">Configuração Recomendada</span>
+            <span className="text-[9px] text-amber-500 font-bold uppercase">Configuração Obrigatória</span>
           </label>
           <div className="flex gap-2">
             <div className="flex-1 bg-slate-900 border border-slate-800 rounded-lg p-3 text-slate-400 font-mono text-[10px] truncate">
@@ -162,7 +202,7 @@ export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId,
             </button>
           </div>
           <p className="text-[9px] text-slate-500 mt-2 font-medium leading-relaxed">
-            Configure esta URL no painel de desenvolvedor do InfinitePay sob os eventos de atualização de transações para ativar a baixa automática de pagamentos no sistema.
+            Copie esta URL e cole no campo <span className="text-white">"Modo de Produção &gt; Webhooks"</span> dentro do seu painel do Mercado Pago. Marque os eventos de <span className="text-white">"Pagamentos"</span> e <span className="text-white">"Cobranças"</span>.
           </p>
         </div>
 
@@ -185,7 +225,7 @@ export const InfinitePayConfig: React.FC<InfinitePayConfigProps> = ({ profileId,
         <AlertCircle className="text-amber-500 shrink-0" size={20} />
         <div className="text-[10px] text-slate-400 leading-relaxed font-medium">
           <p className="text-amber-400 font-bold uppercase mb-1">Aviso de Baixa Automática</p>
-          Para que o reconhecimento dos pagamentos seja <span className="text-white">automático</span>, a URL acima deve estar configurada nas credenciais da sua conta no painel do InfinitePay.
+          Para que o reconhecimento seja <span className="text-white">automático</span>, a URL acima deve estar configurada no seu painel de desenvolvedor do Mercado Pago. Sem isso, você terá que dar baixa manual nos recebimentos.
         </div>
       </div>
     </div>

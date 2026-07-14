@@ -39,6 +39,7 @@ interface HeaderBarProps {
   navOrder: string[];
   notifications?: InAppNotification[];
   removeNotification?: (id: string) => void;
+  clearAllNotifications?: () => void;
   onNavigate?: (path: string) => void;
   onOpenSupport?: () => void;
   addNotification?: (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => void;
@@ -177,6 +178,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   navOrder,
   notifications = [],
   removeNotification,
+  clearAllNotifications,
   onNavigate,
   onOpenSupport,
 }) => {
@@ -383,23 +385,38 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </div>
           <div className="flex items-center gap-2">
             {notifications.length > 0 && (
-              <span
-                className="rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]"
-                style={{
-                  color: primaryColor,
-                  backgroundColor: `${primaryColor}14`,
-                  borderColor: `${primaryColor}33`,
-                }}
-              >
-                {notifications.length}
-              </span>
+              <>
+                <span
+                  className="rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]"
+                  style={{
+                    color: primaryColor,
+                    backgroundColor: `${primaryColor}14`,
+                    borderColor: `${primaryColor}33`,
+                  }}
+                >
+                  {notifications.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearAllNotifications?.();
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                  aria-label="Limpar todas as notificações"
+                  title="Limpar Todas"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </>
             )}
             <button
               type="button"
               onClick={() => setShowNotifications(false)}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-slate-900/60 text-slate-500 hover:text-white transition-all hover:rotate-90"
+              aria-label="Fechar Notificacoes"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </div>
         </div>

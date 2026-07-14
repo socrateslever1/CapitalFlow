@@ -140,10 +140,11 @@ serve(async (req) => {
       .eq("profile_id", targetProfileId)
       .maybeSingle();
 
-    const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;
+    let accessToken = (mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN || "").trim();
+    if (accessToken === "undefined" || accessToken === "null") accessToken = "";
 
     if (!accessToken) {
-      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas para este perfil" });
+      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas para este perfil. Verifique as configurações de pagamento." });
     }
 
     const external_reference = crypto.randomUUID();
@@ -153,6 +154,7 @@ serve(async (req) => {
       description: loan_id ? `Pagamento Contrato ${String(loan_id).slice(0, 8)}` : `Depósito em Conta`,
       payment_method_id: "pix",
       external_reference,
+      notification_url: "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/mp-webhook",
       payer: {
         email: payer_email || "cliente@capitalflow.app",
         first_name: payer_name || "Cliente",
@@ -165,7 +167,6 @@ serve(async (req) => {
         loan_id: loan_id || null,
         installment_id: installment_id || null,
         payment_type: payment_type || (loan_id ? "RENEW_INTEREST" : "WALLET_DEPOSIT"),
-        profile_id: targetProfileId,
         source_id: targetSourceId,
       },
     };
@@ -183,6 +184,26 @@ serve(async (req) => {
     const mpData = await mpRes.json();
     if (!mpRes.ok) return json(req, { ok: false, error: mpData?.message || "Erro no Mercado Pago" });
 
+    // Inserir registro em payment_charges para o Webhook poder localizar depois
+    const chargeRecord = {
+      // id sera gerado automaticamente pelo banco
+      provider: "MERCADO_PAGO",
+      provider_payment_id: String(mpData.id),
+      status: "PENDING",
+      loan_id: loan_id || null,
+      installment_id: installment_id || null,
+      amount: Number(amount),
+      currency: "BRL",
+      external_reference: external_reference,
+      payer_email: payer_email || null,
+      payer_name: payer_name || null,
+      payer_doc: payer_doc || null,
+      qr_code: mpData?.point_of_interaction?.transaction_data?.qr_code,
+      qr_code_base64: mpData?.point_of_interaction?.transaction_data?.qr_code_base64
+    };
+
+    await supabaseAdmin.from("payment_charges").insert(chargeRecord);
+
     return json(req, {
       ok: true,
       charge_id: external_reference,
@@ -191,8 +212,12 @@ serve(async (req) => {
       qr_code: mpData?.point_of_interaction?.transaction_data?.qr_code,
       qr_code_base64: mpData?.point_of_interaction?.transaction_data?.qr_code_base64,
       external_reference,
+      notification_url: "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/mp-webhook",
     });
   } catch (err: any) {
     return json(req, { ok: false, error: err?.message || "Internal error" });
   }
 });
+
+
+

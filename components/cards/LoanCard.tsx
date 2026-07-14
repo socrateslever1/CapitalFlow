@@ -125,7 +125,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
       onDoubleClick={handleNavigate}
     >
       {/* Container Principal com Padding */}
-      <div className="space-y-4">
+      <div className="space-y-3 flex flex-col h-full">
         <Header
           loan={loan}
           debtorNameSafe={debtorNameSafe}

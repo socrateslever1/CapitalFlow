@@ -31,13 +31,14 @@ interface AppShellProps {
   subtitle?: string;
   notifications?: InAppNotification[];
   removeNotification?: (id: string) => void;
+  clearAllNotifications?: () => void;
   onNavigate?: (path: string) => void;
   addNotification?: (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => void;
   activeModal?: any;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, onNavigate, activeModal, addNotification
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification
 }) => {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
@@ -182,6 +183,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         navOrder={navOrder}
         notifications={notifications}
         removeNotification={removeNotification}
+        clearAllNotifications={clearAllNotifications}
         onNavigate={onNavigate}
         onOpenSupport={onOpenSupport}
         addNotification={addNotification}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, DollarSign, XCircle } from 'lucide-react';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
@@ -55,7 +56,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
     return (
         <>
-            <div className="grid grid-cols-1 gap-4 items-stretch">
+            <div className="flex flex-col gap-0.5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 -mr-1">
                 {orderedInstallments.map((inst, i) => {
                     const viewModel = prepareInstallmentViewModel(loan, inst, i, context);
 
@@ -98,7 +99,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
                 const forgivenessMode = forgiveLateFee ? 'FINE_AND_MORA' : 'NONE';
 
-                return (
+                const modalContent = (
                 <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
                     <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg w-full max-w-[320px] shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar">
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto bg-blue-500/20 text-blue-500">
@@ -202,6 +203,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     </div>
                 </div>
                 );
+                return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
             })()}
         </>
     );

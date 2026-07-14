@@ -50,7 +50,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   onClose,
 }) => {
   const [step, setStep] = useState<'BILLING' | 'PIX_AUTO' | 'NOTIFYING' | 'SUCCESS'>('BILLING');
-  const [pixData, setPixData] = useState<{ qrCode: string; qrCodeBase64: string } | null>(null);
+  const [pixData, setPixData] = useState<{ qrCode: string; qrCodeBase64: string, providerPaymentId?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessingOnline, setIsProcessingOnline] = useState(false);
@@ -58,6 +58,28 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'IDLE' | 'UPLOADING' | 'UPLOADED' | 'ERROR'>('IDLE');
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+
+  // Efeito de polling para verificar se o pagamento via Mercado Pago foi confirmado
+  React.useEffect(() => {
+    let interval: any;
+    if (step === 'PIX_AUTO' && pixData?.providerPaymentId) {
+      interval = setInterval(async () => {
+        const { data, error } = await supabasePortal
+          .from('payment_charges')
+          .select('status')
+          .eq('provider_payment_id', pixData.providerPaymentId)
+          .maybeSingle();
+
+        if (data && data.status === 'PAID') {
+          setStep('SUCCESS');
+          clearInterval(interval);
+        }
+      }, 3000); // 3 segundos
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    }
+  }, [step, pixData?.providerPaymentId]);
 
   const closedLoan = isLoanClosed(loan as any);
   const paidInst = isInstallmentPaid(installment as any);
@@ -171,13 +193,42 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
       );
 
       if (data && data.qrCode) {
-        setPixData({ qrCode: data.qrCode, qrCodeBase64: data.qrCodeBase64 });
+        setPixData({ qrCode: data.qrCode, qrCodeBase64: data.qrCodeBase64, providerPaymentId: data.providerPaymentId });
         setStep('PIX_AUTO');
       } else {
          throw new Error('QR Code não retornado');
       }
     } catch (e: any) {
       setError(e?.message || 'Falha ao gerar o PIX automático.');
+      setIsProcessingOnline(false);
+    }
+  };
+
+  const handleMercadoPagoCard = async () => {
+    if (shouldBlock) {
+      setError('Este contrato/parcela já está quitado.');
+      return;
+    }
+
+    setError(null);
+    setIsProcessingOnline(true);
+
+    try {
+      const data = await portalService.createMercadoPagoPreference(
+        portalToken,
+        portalCode,
+        loan.id,
+        (installment as any).id,
+        options.totalToPay
+      );
+
+      if (data && typeof data === 'string') {
+        window.location.href = data;
+      } else {
+        throw new Error('URL de checkout não retornada');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Falha ao iniciar pagamento online.');
       setIsProcessingOnline(false);
     }
   };
@@ -225,6 +276,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
               uploadStatus={uploadStatus}
               uploadMessage={uploadMessage}
               onMercadoPago={handleMercadoPago}
+              onMercadoPagoCard={handleMercadoPagoCard}
               receiptFile={receiptFile}
               onFileChange={(file) => {
                 setReceiptFile(file);
@@ -326,3 +378,4 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
 };
 
 export default PortalPaymentModal;
+

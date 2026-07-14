@@ -107,4 +107,17 @@ export const notificationCenterService = {
       console.warn('[NotificationCenter] Falha ao marcar item como lido:', error.message);
     }
   },
+
+  async markAllAsRead(profileId: string) {
+    if (!profileId || profileId === 'DEMO') return;
+    const { error } = await supabase
+      .from('notificacoes')
+      .update({ read_at: new Date().toISOString() })
+      .eq('profile_id', profileId)
+      .is('read_at', null);
+
+    if (error) {
+      console.warn('[NotificationCenter] Falha ao marcar todas as notificacoes como lidas:', error.message);
+    }
+  },
 };

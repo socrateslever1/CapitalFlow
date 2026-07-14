@@ -247,7 +247,8 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
 
       {/* Signature Modal */}
       <AnimatePresence>
-        {showSignModal && (
+        {showSignModal && (() => {
+          const modalContent = (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -319,7 +320,9 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               </div>
             </motion.div>
           </div>
-        )}
+          );
+          return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+        })()}
       </AnimatePresence>
     </div>
   );

@@ -1,33 +1,32 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-declare const Deno: any;
-
-function round(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+function round(val: number) {
+  return Math.round(val * 100) / 100;
 }
 
-function normalize(value: string | null | undefined) {
-  return String(value || "")
-    .toLowerCase()
+function normalize(str: string) {
+  if (!str) return "";
+  return str
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
     .trim();
 }
 
 function allocatePaymentAmount(
   amount: number,
-  balances: { principal: number; interest: number; lateFee: number },
+  balance: { principal: number; interest: number; lateFee: number },
 ) {
-  let remaining = round(amount);
+  let remaining = amount;
 
-  const lateFeePaid = Math.min(remaining, round(Math.max(0, balances.lateFee)));
+  const lateFeePaid = Math.min(remaining, balance.lateFee);
   remaining = round(remaining - lateFeePaid);
 
-  const interestPaid = Math.min(remaining, round(Math.max(0, balances.interest)));
+  const interestPaid = Math.min(remaining, balance.interest);
   remaining = round(remaining - interestPaid);
 
-  const principalPaid = Math.min(remaining, round(Math.max(0, balances.principal)));
+  const principalPaid = Math.min(remaining, balance.principal);
   remaining = round(remaining - principalPaid);
 
   return {
@@ -86,16 +85,23 @@ serve(async (req) => {
 
     const { data: charge } = await supabase
       .from("payment_charges")
-      .select("profile_id, loan_id, installment_id")
+      .select("id, loan_id, installment_id")
       .eq("provider_payment_id", String(paymentId))
       .maybeSingle();
 
     let accessToken = GLOBAL_MP_ACCESS_TOKEN;
-    if (charge?.profile_id) {
+    let chargeProfileId = null;
+
+    if (charge?.loan_id) {
+        const { data: cont } = await supabase.from("contratos").select("owner_id").eq("id", charge.loan_id).maybeSingle();
+        chargeProfileId = cont?.owner_id;
+    }
+
+    if (chargeProfileId) {
       const { data: mpConfig } = await supabase
         .from("perfis_config_mp")
         .select("mp_access_token")
-        .eq("profile_id", charge.profile_id)
+        .eq("profile_id", chargeProfileId)
         .maybeSingle();
 
       if (mpConfig?.mp_access_token) {
@@ -144,21 +150,21 @@ serve(async (req) => {
 
     const { data: contract, error: contractErr } = await supabase
       .from("contratos")
-      .select("id,profile_id,source_id")
+      .select("id,owner_id,source_id")
       .eq("id", loanId)
       .maybeSingle();
 
     if (contractErr || !contract?.id) {
       await updateCharge({ status: "PENDING", paid_at: null });
-      return json({ ok: false, error: "Contract not found for approved payment" }, 404);
+      return json({ ok: false, error: "Contract not found for approved payment", charge: charge, loanId: loanId, contractErr: contractErr }, 404);
     }
 
-    const ownerProfileId = metadata.profile_id || charge?.profile_id || contract.profile_id;
+    const ownerProfileId = metadata.profile_id || chargeProfileId || contract.owner_id;
     const sourceId = metadata.source_id || contract.source_id;
 
     if (!ownerProfileId || !sourceId) {
       await updateCharge({ status: "PENDING", paid_at: null });
-      return json({ ok: false, error: "Missing owner/source for approved payment" }, 400);
+      return json({ ok: false, error: "Missing owner/source for approved payment", contract: contract, ownerProfileId: ownerProfileId, sourceId: sourceId, chargeProfileId: chargeProfileId, metadata: metadata }, 400);
     }
 
     const { data: installment, error: installmentErr } = await supabase
@@ -219,7 +225,7 @@ serve(async (req) => {
     const finalMethod = methodMap[mpMethod] || "CREDIT_CARD";
 
     const { error: rpcError } = await supabase.rpc("process_payment_v3_selective", {
-      p_idempotency_key: charge.id,
+      p_idempotency_key: charge?.id || paymentId,
       p_loan_id: loanId,
       p_installment_id: instId,
       p_profile_id: ownerProfileId,
@@ -235,7 +241,7 @@ serve(async (req) => {
       p_caixa_livre_id: caixaLivreId,
     });
 
-    if (rpcError && !rpcError.message?.includes("Parcela já está paga") && !rpcError.message?.includes("Parcela já quitada")) {
+    if (rpcError && !rpcError.message?.includes("Parcela") && !rpcError.message?.includes("quitada")) {
       await updateCharge({ status: "PENDING", paid_at: null });
       return json({ ok: false, error: rpcError.message }, 500);
     }
@@ -255,8 +261,22 @@ serve(async (req) => {
       notes: `Pagamento ${finalMethod} Automático (MP ID: ${paymentId})`,
     });
 
+    const clienteName = contract?.client_name || "Cliente";
+    await supabase.from("notificacoes").insert({
+      profile_id: ownerProfileId,
+      titulo: "Pagamento Recebido!",
+      mensagem: "Pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " referente ao contrato " + String(loanId).slice(0, 8) + " compensado.",
+      item_type: "pagamento",
+      item_id: instId,
+      metadata: { loan_id: loanId, payment_id: paymentId }
+    });
+
     return json({ ok: true, status });
   } catch (err: any) {
     return json({ ok: false, error: err.message }, 500);
   }
 });
+
+
+
+

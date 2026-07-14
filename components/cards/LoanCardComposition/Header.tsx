@@ -189,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   return (
-    <div className="relative flex min-h-[7.25rem] w-full flex-col justify-between gap-3">
+    <div className="relative flex w-full h-full flex-col justify-between gap-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="relative shrink-0">
@@ -222,25 +222,17 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          <div className="min-w-0 flex flex-col flex-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <h3 className="client-name font-black text-white uppercase leading-tight flex-1 min-w-0 truncate">
-                {formatShortName(debtorNameSafe)}
-              </h3>
-            </div>
-            {(RiskBadge || Badge) && (
-              <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
-                {RiskBadge}
-                {Badge}
-              </div>
-            )}
-            <div className="flex items-center gap-1.5 text-[9px] text-slate-500 font-bold uppercase mt-0.5 flex-wrap min-w-0">
-              <span className="bg-slate-800/50 px-1.5 rounded-sm">{translateBillingCycle(loan.billingCycle)}</span>
-              <span className="text-slate-700">•</span>
-              <div className="flex items-center gap-0.5 opacity-70">
-                <Hash size={8} />
-                <span>{loan.id.substring(0, 6)}</span>
-              </div>
+          <div className="min-w-0 flex flex-col flex-1 justify-center">
+            <h3 className="client-name font-black text-white uppercase leading-tight w-full truncate">
+              {formatShortName(debtorNameSafe)}
+            </h3>
+            
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 min-w-0">
+              {RiskBadge}
+              {Badge}
+              <span className="bg-slate-800/50 px-1.5 py-0.5 text-[7px] text-slate-500 font-black uppercase rounded-sm border border-slate-700/50">
+                {translateBillingCycle(loan.billingCycle)}
+              </span>
             </div>
           </div>
         </div>
@@ -278,20 +270,24 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 pt-2 border-t border-slate-800/30">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 text-slate-500">
+      <div className="flex flex-wrap items-end justify-between gap-2 pt-2 border-t border-slate-800/30">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-950/30 text-[7px] text-slate-500 font-bold uppercase rounded-sm border border-slate-800/50">
+            <Hash size={7} />
+            <span>{loan.id.substring(0, 6)}</span>
+          </div>
+          <div className="flex items-center gap-1 text-slate-500">
             <Wallet size={10} className="opacity-50" />
             <span className="text-[8px] font-black uppercase">{amountLabel}</span>
           </div>
+        </div>
+        
+        <div className="min-w-0 flex flex-wrap items-baseline justify-end gap-2">
           {isOverdueByDays && (
-            <span className="text-[9px] font-black text-rose-500/80 uppercase">
+            <span className="text-[8px] sm:text-[9px] font-black text-rose-500/80 uppercase">
               {getDueBadgeLabel(daysUntilDue)}
             </span>
           )}
-        </div>
-        
-        <div className="min-w-0 flex flex-col items-end">
           <span className={`text-lg sm:text-xl font-black leading-none text-right transition-all ${
             (isOverdueByDays || (isLate && !hasActiveAgreement)) 
               ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]' 

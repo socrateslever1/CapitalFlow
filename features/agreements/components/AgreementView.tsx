@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { Agreement, AgreementInstallment, Loan } from "../../../types";
 import { formatMoney } from "../../../utils/formatters";
 import { Calendar, CheckCircle2, AlertTriangle, XCircle, DollarSign, History, Scale, ArrowLeft, RefreshCcw, Pencil, Save } from "lucide-react";
@@ -220,7 +220,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                 </div>
             </div>
 
-            <div className="space-y-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+            <div className="flex flex-col gap-0.5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 -mr-1">
                 {(agreement.installments || []).filter(inst => inst != null).sort((a,b) => {
                     const isAPaid = a?.status === 'PAID' || a?.status === 'PAGO';
                     const isBPaid = b?.status === 'PAID' || b?.status === 'PAGO';
@@ -286,7 +286,8 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
             </div>
 
             {/* MODAL DE CONFIRMAÇÃO INTERNO */}
-            {confirmAction && (confirmAction === 'PAY' || confirmAction === 'REVERSE') && selectedInst && (
+            {confirmAction && (confirmAction === 'PAY' || confirmAction === 'REVERSE') && selectedInst && (() => {
+                const modalContent = (
                 <div
                     className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
                     onClick={(e) => e.stopPropagation()}
@@ -398,25 +399,36 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                     else onReversePayment?.(selectedInst);
                                     setConfirmAction(null);
                                     setSelectedInst(null);
+                                    setPaymentAmount('');
+                                    setShowCustomAmount(false);
                                     setForgiveLateFee(false);
                                 }}
-                                className={`w-full py-2.5 rounded-lg text-[10px] font-black uppercase transition-all ${confirmAction === 'PAY' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-rose-600 hover:bg-rose-500 text-white'}`}
+                                className={`w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-white transition-all ${
+                                    confirmAction === 'PAY'
+                                        ? 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/20'
+                                        : 'bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-900/20'
+                                }`}
                             >
-                                Confirmar
+                                {confirmAction === 'PAY' ? 'Confirmar Recebimento' : 'Confirmar Estorno'}
                             </button>
                             <button
                                 onClick={() => {
                                     setConfirmAction(null);
                                     setSelectedInst(null);
+                                    setPaymentAmount('');
+                                    setShowCustomAmount(false);
+                                    setForgiveLateFee(false);
                                 }}
-                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all"
+                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all flex items-center justify-center gap-1"
                             >
-                                Cancelar
+                                <XCircle size={12}/> Cancelar
                             </button>
                         </div>
                     </div>
                 </div>
-            )}
+                );
+                return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+            })()}
 
 
             {/* Legal Modal Removed */}

@@ -130,7 +130,8 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans h-[100dvh] pt-16 sm:pt-20 pb-28 md:pb-0">
+        <div className="fixed inset-0 z-[var(--z-modal)] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-300">
+            <div className="bg-slate-950 border border-slate-800 w-full max-w-4xl rounded-xl shadow-[0_0_60px_-15px_rgba(0,0,0,0.7)] animate-in zoom-in-95 slide-in-from-bottom-4 flex flex-col max-h-[95dvh] sm:max-h-[90dvh] overflow-hidden">
 
             {/* HEADER SUPERIOR */}
             <div className="h-16 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 sm:px-6 shrink-0">
@@ -148,7 +149,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                 </button>
             </div>
 
-            <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+            <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden min-h-0">
 
                 {/* COLUNA ESQUERDA: RESUMO E DETALHES (SIDEBAR) */}
                 <div className="w-full md:w-[380px] lg:w-[420px] bg-slate-900/50 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col md:overflow-y-auto custom-scrollbar p-4 sm:p-6 shrink-0">
@@ -425,6 +426,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                     {isProcessing ? <Loader2 className="animate-spin" size={18}/> : <><CheckCircle2 size={18}/> Confirmar Recebimento</>}
                 </button>
             </div>
+        </div>
         </div>
     );
 };

@@ -21,6 +21,7 @@ interface BillingViewProps {
     uploadStatus?: 'IDLE' | 'UPLOADING' | 'UPLOADED' | 'ERROR';
     uploadMessage?: string | null;
     onMercadoPago?: () => void;
+    onMercadoPagoCard?: () => void;
     onAsaas?: () => void;
     isProcessingAsaas?: boolean;
     receiptFile?: File | null;
@@ -28,7 +29,7 @@ interface BillingViewProps {
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({
-    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onAsaas, isProcessingAsaas = false, receiptFile, onFileChange
+    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onAsaas, isProcessingAsaas = false, receiptFile, onFileChange
 }) => {
     // Usa o helper centralizado para determinar a mensagem
     const { label, variant, detail } = getPortalDueLabel(daysLateRaw, dueDateISO);
@@ -213,6 +214,18 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
                         ) : (
                             <><QrCode size={18} /> Pagar com PIX Online</>
+                        )}
+                    </button>
+
+                    <button
+                        onClick={onMercadoPagoCard}
+                        disabled={isProcessingOnline || isProcessing}
+                        className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[#009EE3] border border-[#009EE3]/30 p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                        {isProcessingOnline ? (
+                            <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
+                        ) : (
+                            <><CreditCard size={18} /> Pagar com Cartão (MP)</>
                         )}
                     </button>
 

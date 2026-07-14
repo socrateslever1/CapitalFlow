@@ -105,10 +105,11 @@ serve(async (req) => {
       .eq("profile_id", targetProfileId)
       .maybeSingle();
 
-    const accessToken = mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN;
+    let accessToken = (mpConfig?.mp_access_token || GLOBAL_MP_ACCESS_TOKEN || "").trim();
+    if (accessToken === "undefined" || accessToken === "null") accessToken = "";
 
     if (!accessToken) {
-      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas" }, 400);
+      return json(req, { ok: false, error: "Credenciais Mercado Pago não configuradas para este perfil. Verifique as configurações de pagamento." });
     }
 
     const external_reference = crypto.randomUUID();
@@ -152,7 +153,7 @@ serve(async (req) => {
         failure: return_url || "https://capitalflow.app/falha",
         pending: return_url || "https://capitalflow.app/pendente"
       },
-      auto_return: "approved"
+      notification_url: "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/mp-webhook"
     };
 
     // 4. Criar a Preference na API do Mercado Pago
@@ -166,7 +167,7 @@ serve(async (req) => {
     });
 
     const mpData = await mpRes.json();
-    if (!mpRes.ok) return json(req, { ok: false, error: mpData?.message || "Erro no Mercado Pago" }, 502);
+    if (!mpRes.ok) return json(req, { ok: false, error: JSON.stringify(mpData) }, 200);
 
     // 5. Retornar a URL de Pagamento (init_point)
     return json(req, {
@@ -179,3 +180,5 @@ serve(async (req) => {
     return json(req, { ok: false, error: err?.message || "Internal error" }, 500);
   }
 });
+
+

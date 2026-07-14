@@ -240,7 +240,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     return (
         <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
             <div
-                className="flex min-h-[7.25rem] flex-col justify-between gap-3 relative"
+                className="flex flex-col justify-between gap-2 relative h-full"
                 onClick={handleCardClick}
             >
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
@@ -263,36 +263,30 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             </button>
                         </div>
 
-                        <div className="min-w-0 flex flex-col flex-1">
-                            <h3 className="client-name font-black text-white uppercase leading-tight truncate">
+                        <div className="min-w-0 flex flex-col flex-1 justify-center">
+                            <h3 className="client-name font-black text-white uppercase leading-tight truncate w-full">
                                 {formatShortName(group.clientName)}
                             </h3>
-                            <div className="flex items-center gap-1.5 mt-1 min-w-0 overflow-hidden">
-                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-slate-950/50 ${statusTextColor} border-current opacity-80 whitespace-nowrap`}>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1 min-w-0">
+                                <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border bg-slate-950/50 ${statusTextColor} border-current opacity-80 whitespace-nowrap`}>
                                     {statusText}
                                 </span>
-                                {activeLoanIndicators.length > 0 && (
-                                    <>
-                                        {activeLoanIndicators.slice(0, 3).map((item) => (
-                                            <span
-                                                key={item.id}
-                                                className={`min-w-0 max-w-[4.75rem] truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
-                                                title={item.label}
-                                            >
-                                                {item.label}
-                                            </span>
-                                        ))}
-                                        {activeLoanIndicators.length > 3 && (
-                                            <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
-                                                +{activeLoanIndicators.length - 3}
-                                            </span>
-                                        )}
-                                    </>
+                                {activeLoanIndicators.length > 0 && activeLoanIndicators.slice(0, 1).map((item) => (
+                                    <span
+                                        key={item.id}
+                                        className={`min-w-0 max-w-[4.75rem] truncate rounded-md border px-1.5 py-0.5 text-[7px] font-black uppercase ${item.colorClass}`}
+                                        title={item.label}
+                                    >
+                                        {item.label}
+                                    </span>
+                                ))}
+                                {activeLoanIndicators.length > 1 && (
+                                    <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[7px] font-black uppercase text-slate-400">
+                                        +{activeLoanIndicators.length - 1}
+                                    </span>
                                 )}
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[8px] text-slate-500 font-bold uppercase flex items-center gap-1 whitespace-nowrap">
-                                    <Layers size={10} /> {group.contractCount}
+                                <span className="text-[7px] px-1.5 py-0.5 rounded border border-slate-800 bg-slate-950/30 text-slate-500 font-bold uppercase flex items-center gap-1 whitespace-nowrap">
+                                    <Layers size={8} /> {group.contractCount}
                                 </span>
                             </div>
                         </div>
@@ -301,7 +295,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
 
 
 
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 pt-2 border-t border-slate-800/30">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 pt-2 border-t border-slate-800/30">
                     <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5 text-slate-500">
                             <Wallet size={10} className="opacity-50" />

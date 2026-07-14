@@ -175,6 +175,33 @@ export const useAppNotifications = ({
     }
   }, [notificationProfileId, dismissedMap, flushQueue]);
 
+  const clearAllNotifications = useCallback(() => {
+    setNotifications(prev => {
+      const newMap = { ...dismissedMap };
+      const now = Date.now();
+      
+      prev.forEach((target) => {
+        if (target.item_type && target.item_id) {
+          const key = `${target.item_type}_${target.item_id}`;
+          newMap[key] = now;
+        }
+        const targetDbId = target.dbId || (target.id && target.id.length === 36 ? target.id : null);
+        if (targetDbId) {
+          void notificationCenterService.markAsRead(targetDbId);
+        }
+      });
+      
+      setDismissedMap(newMap);
+      localStorage.setItem('cm_dismissed_notifications', JSON.stringify(newMap));
+      
+      if (notificationProfileId && notificationProfileId !== 'DEMO') {
+        void notificationCenterService.markAllAsRead(notificationProfileId);
+      }
+      
+      return [];
+    });
+  }, [dismissedMap, notificationProfileId]);
+
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => {
       const target = prev.find(n => n.id === id);
@@ -622,5 +649,5 @@ export const useAppNotifications = ({
     };
   }, []);
 
-  return { manualCheck: runScan, notifications, removeNotification, addNotification };
+  return { manualCheck: runScan, notifications, removeNotification, addNotification, clearAllNotifications };
 };

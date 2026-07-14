@@ -56,9 +56,9 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                     <button
                         onClick={handleOpen}
                         className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-2.5 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                        title="Abrir contrato"
+                        title={loan.billingCycle === 'MENSAL' ? "Detalhes da parcela" : "Abrir contrato"}
                     >
-                        Abrir
+                        {loan.billingCycle === 'MENSAL' ? 'Detalhes' : 'Abrir'}
                     </button>
                 </div>
             );
@@ -68,9 +68,9 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
             <button
                 onClick={handleReceive}
                 className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                title="Abrir contrato"
+                title={loan.billingCycle === 'MENSAL' ? "Detalhes da parcela" : "Abrir contrato"}
             >
-                <DollarSign size={12} /> Abrir
+                <DollarSign size={12} /> {loan.billingCycle === 'MENSAL' ? 'Detalhes' : 'Abrir'}
             </button>
         );
     }
@@ -112,3 +112,5 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
         </div>
     );
 };
+
+

@@ -227,7 +227,7 @@ export const App: React.FC = () => {
     }
   }, [clients, clientCtrl, handleSetActiveTab, setClientSearchTerm, showToast]);
 
-  const { notifications, removeNotification, addNotification } = useAppNotifications({
+  const { notifications, removeNotification, clearAllNotifications, addNotification } = useAppNotifications({
     loans,
     sources,
     activeUser,
@@ -469,6 +469,7 @@ export const App: React.FC = () => {
             subtitle={activeTab === 'CONTRACT_DETAILS' ? loans.find(l => l.id === ui.selectedLoanId)?.debtorPhone : undefined}
             notifications={notifications}
             removeNotification={removeNotification}
+            clearAllNotifications={clearAllNotifications}
             addNotification={addNotification}
             onNavigate={navigate}
             activeModal={ui.activeModal}

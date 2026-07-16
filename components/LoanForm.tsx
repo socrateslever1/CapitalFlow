@@ -2,6 +2,7 @@
 import React from 'react';
 import { Loan, Client, CapitalSource, UserProfile } from '../types';
 import { X, Camera, History } from 'lucide-react';
+import { formatBRDate } from '../utils/dateHelpers';
 import { useLoanForm } from '../features/loans/hooks/useLoanForm';
 import { LoanFormClientSection } from './forms/LoanFormClientSection';
 import { LoanFormFinancialSection } from './forms/LoanFormFinancialSection';
@@ -59,7 +60,7 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                     <div className="p-2.5 bg-blue-600/10 rounded-lg text-blue-400"><History size={18}/></div>
                     <div>
                         <p className="text-[10px] font-black uppercase text-blue-500/70 tracking-widest">Auditoria do Registro</p>
-                        <p className="text-xs text-slate-300 font-bold">Iniciado em: {new Date(props.initialData.createdAt || props.initialData.startDate).toLocaleString('pt-BR')}</p>
+                        <p className="text-xs text-slate-300 font-bold">Iniciado em: {formatBRDate(props.initialData.createdAt || props.initialData.startDate)}</p>
                     </div>
                 </div>
             )}

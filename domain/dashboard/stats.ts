@@ -55,8 +55,8 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   // 2. TOTAIS GERAIS (Lucro Realizado)
   const totalProfitRealized = filteredLoans.reduce((acc, l) => {
       const profitFromLedger = (l.ledger || []).reduce((sum, t) => {
-          if (!String(t.type || '').includes('PAYMENT')) return sum;
-          // Soma juros e multas pagos
+          if (!String(t.type || '').includes('PAYMENT') && t.type !== 'ESTORNO' && t.type !== 'AGREEMENT_PAYMENT_REVERSED') return sum;
+          // Soma juros e multas pagos (Estorno já vem negativo, então ele subtrai naturalmente)
           return sum + (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
       }, 0);
       return acc + profitFromLedger;
@@ -115,13 +115,32 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
 
       if (!monthlyDataMap[key]) return;
 
-      if (key === currentMonthKey && t.type?.includes('PAYMENT')) {
+      if (key === currentMonthKey) {
+        if (t.type?.includes('PAYMENT') || t.type === 'ESTORNO' || t.type === 'AGREEMENT_PAYMENT_REVERSED') {
           receivedThisMonth += (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
+        }
       }
 
-      if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' || t.type === 'NEW_LOAN') {
+      let isPaymentReversal = false;
+      let isLendReversal = false;
+      
+      if (t.type === 'ESTORNO' || t.type === 'AGREEMENT_PAYMENT_REVERSED') {
+          const originalTxIdMatch = t.notes?.match(/Ref=([a-zA-Z0-9-]+)/);
+          const originalTx = originalTxIdMatch ? (l.ledger || []).find((x: any) => x.id === originalTxIdMatch[1]) : null;
+          
+          if (originalTx) {
+             if (originalTx.type?.includes('PAYMENT')) isPaymentReversal = true;
+             if (originalTx.type === 'LEND_MORE' || originalTx.type === 'NOVO_APORTE' || originalTx.type === 'NEW_LOAN') isLendReversal = true;
+          } else {
+             // Fallback
+             isPaymentReversal = (Number(t.interestDelta || 0) < 0 || Number(t.lateFeeDelta || 0) < 0 || t.type === 'AGREEMENT_PAYMENT_REVERSED');
+             isLendReversal = !isPaymentReversal;
+          }
+      }
+
+      if (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' || t.type === 'NEW_LOAN' || isLendReversal) {
         monthlyDataMap[key].Saidas += t.amount;
-      } else if (t.type?.includes('PAYMENT')) {
+      } else if (t.type?.includes('PAYMENT') || isPaymentReversal) {
         monthlyDataMap[key].Entradas += t.amount;
       }
     });

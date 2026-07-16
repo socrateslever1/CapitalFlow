@@ -100,7 +100,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         const schedule = [];
         
         for (let i = 0; i < 3; i++) {
-            const date = addDaysUTC(dueDate, i * 30);
+            const date = addMonthsUTC(dueDate, i);
             
             let label = '';
             let status = 'OPEN';
@@ -213,7 +213,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
                 nextDate = addDaysUTC(paymentDate, 1);
             } else {
                 // Pedido do usuário: +30 dias a partir da data de recebimento
-                nextDate = addDaysUTC(paymentDate, 30);
+                nextDate = addMonthsUTC(paymentDate, 1);
             }
 
             setManualDateStr(toISODateOnlyUTC(nextDate));

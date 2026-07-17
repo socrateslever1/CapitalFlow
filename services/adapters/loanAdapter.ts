@@ -1,7 +1,7 @@
 
 // services/adapters/loanAdapter.ts
 import { Agreement, AgreementInstallment, Installment, Loan, LoanStatus } from '../../types';
-import { asArray, asNumber, asString, safeDateString } from '../../utils/safe';
+import { asArray, asNumber, asString, safeDateOnlyString, safeDateString } from '../../utils/safe';
 
 /**
  * Normaliza o status do Contrato (Loan) para o enum do frontend.
@@ -77,8 +77,8 @@ export function agreementAdapter(rawAgreement: any, rawInstallments?: any[]): Ag
       agreementId: asString(p?.acordo_id ?? p?.agreement_id ?? a?.id),
       number: asNumber(p?.numero ?? p?.installment_number ?? p?.n),
       amount: asNumber(p?.valor_parcela ?? p?.amount ?? p?.valor),
-      dueDate: safeDateString(p?.data_vencimento ?? p?.due_date ?? p?.dueDate, 'dueDate'),
-      paidDate: safeDateString(p?.paid_at ?? p?.paidAt ?? p?.data_pagamento),
+      dueDate: safeDateOnlyString(p?.data_vencimento ?? p?.due_date ?? p?.dueDate, 'dueDate'),
+      paidDate: safeDateOnlyString(p?.paid_at ?? p?.paidAt ?? p?.data_pagamento),
       status: normalizeAgreementInstallmentStatus(p?.status),
       paidAmount: asNumber(p?.paid_amount ?? p?.valor_pago ?? p?.paidAmount ?? 0),
     } as AgreementInstallment;
@@ -123,7 +123,7 @@ export function mapLoanFromDB(
 
     return {
       id: asString(inst?.id),
-      dueDate: safeDateString(inst?.data_vencimento ?? inst?.due_date ?? inst?.dueDate, 'dueDate'),
+      dueDate: safeDateOnlyString(inst?.data_vencimento ?? inst?.due_date ?? inst?.dueDate, 'dueDate'),
       amount: asNumber(inst?.valor_parcela ?? inst?.amount),
       scheduledPrincipal: asNumber(inst?.scheduled_principal ?? inst?.scheduledPrincipal),
       scheduledInterest: asNumber(inst?.scheduled_interest ?? inst?.scheduledInterest),
@@ -136,7 +136,7 @@ export function mapLoanFromDB(
       paidLateFee: asNumber(inst?.paid_late_fee ?? inst?.paidLateFee),
       paidTotal: asNumber(inst?.paid_total ?? inst?.paidTotal),
       status,
-      paidDate: safeDateString(inst?.paid_date ?? inst?.paidDate),
+      paidDate: safeDateOnlyString(inst?.paid_date ?? inst?.paidDate),
       paidAmount: asNumber(inst?.paid_amount ?? inst?.valor_pago ?? inst?.paidAmount),
       logs: asArray(inst?.logs),
       renewalCount: asNumber(inst?.renewal_count ?? inst?.renewalCount),
@@ -144,7 +144,7 @@ export function mapLoanFromDB(
     } as Installment;
   });
 
-  const startDate = safeDateString(l?.start_date ?? l?.startDate, 'startDate');
+  const startDate = safeDateOnlyString(l?.start_date ?? l?.startDate, 'startDate');
 
   const activeAgreement = rawAgreement
     ? agreementAdapter(rawAgreement, rawAgreementInstallments)

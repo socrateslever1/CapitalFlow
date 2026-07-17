@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Agreement, AgreementInstallment, Loan } from "../../../types";
@@ -244,7 +245,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                 {paidAmount > 0 && !isPaid && <p className="text-[8px] text-amber-400 font-black uppercase">Parcial: {formatMoney(paidAmount, isStealthMode)}</p>}
                                 {lateFee > 0 && <p className="text-[8px] text-rose-400 font-black uppercase">Atraso (+1%/dia): +{formatMoney(lateFee, isStealthMode)}</p>}
                                 <p className="text-[9px] text-slate-500 font-medium">
-                                    {new Date(inst.dueDate).toLocaleDateString('pt-BR')}
+                                    {formatBRDate(inst.dueDate)}
                                 </p>
                             </div>
                         </div>

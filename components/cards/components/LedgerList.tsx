@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 import React from 'react';
 import { FileText, Settings, HandCoins, CheckCircle2, Undo2 } from 'lucide-react';
 import { LedgerEntry, Loan } from '../../../types';
@@ -120,7 +121,7 @@ const LedgerItem: React.FC<{
           <div className="min-w-0">
             <p className="text-white font-bold truncate">{titleText}</p>
             <p className="text-[9px] text-slate-500 truncate">
-              {new Date(t.date).toLocaleDateString('pt-BR')} às{' '}
+              {formatBRDate(t.date)} às{' '}
               {new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>

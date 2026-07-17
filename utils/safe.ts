@@ -29,3 +29,37 @@ export const safeDateString = (v: any, fieldName?: string): string => {
     return '';
   }
 };
+
+export const safeDateOnlyString = (v: any, fieldName?: string): string => {
+  try {
+    if (!v) return '';
+
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      const y = v.getFullYear();
+      const m = String(v.getMonth() + 1).padStart(2, '0');
+      const d = String(v.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    if (typeof v === 'string' && v.trim().length > 0) {
+      const raw = v.trim();
+      const dateOnly = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (dateOnly) return `${dateOnly[1]}-${dateOnly[2]}-${dateOnly[3]}`;
+
+      const brDate = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (brDate) return `${brDate[3]}-${brDate[2]}-${brDate[1]}`;
+
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+    }
+
+    return '';
+  } catch (e) {
+    return '';
+  }
+};

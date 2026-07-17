@@ -1,3 +1,4 @@
+import { formatBRDate } from '../utils/dateHelpers';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -226,7 +227,7 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
               </div>
               <div>
                 <p className="text-[9px] font-black uppercase text-slate-500">Início</p>
-                <p className="text-xs text-slate-300">{new Date(loan.startDate).toLocaleDateString('pt-BR')}</p>
+                <p className="text-xs text-slate-300">{formatBRDate(loan.startDate)}</p>
               </div>
             </div>
           </div>

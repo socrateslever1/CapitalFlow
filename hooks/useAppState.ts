@@ -277,7 +277,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       }
       if (!profileData) {
         const cached = readCache(searchId);
-        if (cached?.activeUser) {
+        if (!isOnline && cached?.activeUser) {
           setActiveUser(cached.activeUser);
           setProfileEditForm(cached.activeUser);
           setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));
@@ -324,6 +324,11 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         });
       } catch (syncErr: any) {
         console.warn('[useAppState] Sync em background pausado:', syncErr);
+        const stillOnline = typeof navigator === 'undefined' || navigator.onLine;
+        if (stillOnline) {
+          throw syncErr;
+        }
+
         const local = await syncService.getLocalData(ownerId);
         const localHasData = hasLocalPayload(local);
         const cached = readCache(searchId);
@@ -359,7 +364,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
           setProfileEditForm(cached.activeUser);
           setLoans(filterDeletedForProfile(searchId, cached.loans || [], cached.activeUser));
         }
-      } else if (isRecoverableSyncError(err) && cached?.activeUser) {
+      } else if (!isOnline && isRecoverableSyncError(err) && cached?.activeUser) {
         setActiveUser(cached.activeUser);
         setProfileEditForm(cached.activeUser);
         setNavOrder(sanitizeTabs(cached.navOrder, DEFAULT_NAV));

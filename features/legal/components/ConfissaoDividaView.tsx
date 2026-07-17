@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 /**
  * Componente ConfissaoDividaView.
  * Exibe a tela de geração e gerenciamento de Confissões de Dívidas Judiciais no CapitalFlow.
@@ -239,7 +240,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                                         ) : (
                                                             <div className="flex items-center gap-1 text-[8px] font-bold text-slate-500">
                                                                 <Calendar size={8} />
-                                                                {new Date(loan.startDate).toLocaleDateString('pt-BR')}
+                                                                {formatBRDate(loan.startDate)}
                                                             </div>
                                                         )}
                                                     </div>

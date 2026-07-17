@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 
 import { LegalDocumentParams } from "../../../types";
 import { formatMoney } from "../../../utils/formatters";
@@ -8,7 +9,7 @@ export const generateNotaPromissoriaHTML = (data: LegalDocumentParams, docId?: s
     
     // Calcula data de vencimento final (última parcela) ou específica
     const lastInstallment = data.installments[data.installments.length - 1];
-    const dueDate = lastInstallment ? new Date(lastInstallment.dueDate).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+    const dueDate = lastInstallment ? formatBRDate(lastInstallment.dueDate) : new Date().toLocaleDateString('pt-BR');
 
     return `
     <!DOCTYPE html>

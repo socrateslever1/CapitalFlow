@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { formatMoney } from '../../../utils/formatters';
+import { formatBRDate } from '../../../utils/dateHelpers';
 import { resolveInstallmentDebt, isPortalInstallmentPaid } from '../../../features/portal/mappers/portalDebtRules';
 import { Loan } from '../../../types';
 
@@ -28,7 +29,7 @@ export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ lo
                 </div>
                 <div>
                     <p className="text-[10px] font-bold uppercase text-slate-300">
-                        {new Date(installment.dueDate || installment.data_vencimento).toLocaleDateString()}
+                        {formatBRDate(installment.dueDate || installment.data_vencimento)}
                     </p>
                     <p className={`text-[9px] font-bold uppercase ${details.statusColor}`}>
                         {details.statusLabel}

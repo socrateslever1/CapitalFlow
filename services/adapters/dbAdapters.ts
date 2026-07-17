@@ -1,7 +1,7 @@
 // services/adapters/dbAdapters.ts
 import { Loan, LoanStatus, Agreement, AgreementStatus, PaymentMethod, LoanBillingModality } from '../../types';
 import { maskPhone } from '../../utils/formatters';
-import { asArray, asNumber, asString, safeDateString } from '../../utils/safe';
+import { asArray, asNumber, asString, safeDateOnlyString, safeDateString } from '../../utils/safe';
 
 /* =====================================================
    ADAPTER JURÍDICO (BANCO -> FRONTEND)
@@ -33,11 +33,11 @@ export const agreementAdapter = (raw: any): Agreement => {
         id: asString(p.id, `tmp-${Math.random()}`),
         agreementId: asString(raw.id, '', 'agreement.id'),
         number: asNumber(p.numero),
-        dueDate: safeDateString(p.data_vencimento ?? p.due_date, 'dueDate'),
+        dueDate: safeDateOnlyString(p.data_vencimento ?? p.due_date, 'dueDate'),
         amount: asNumber(p.valor ?? p.amount),
         status: normalizedInstallmentStatus,
         paidAmount: asNumber(p.valor_pago ?? p.paid_amount),
-        paidDate: p.data_pagamento ?? p.paid_at
+        paidDate: safeDateOnlyString(p.data_pagamento ?? p.paid_at)
       };
     })
     .sort((a: any, b: any) => a.number - b.number);
@@ -51,7 +51,7 @@ export const agreementAdapter = (raw: any): Agreement => {
     interestRate: asNumber(raw.juros_mensal_percent),
     installmentsCount: asNumber(raw.num_parcelas) || installments.length,
     frequency: normalizedFrequency,
-    startDate: safeDateString(raw.created_at),
+    startDate: safeDateOnlyString(raw.created_at),
     status: normalizedStatus,
     createdAt: safeDateString(raw.created_at),
     installments,
@@ -100,7 +100,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     return {
       id: asString(p.id),
       number: asNumber(p.numero_parcela),
-      dueDate: safeDateString(p.data_vencimento || p.due_date, 'dueDate'),
+      dueDate: safeDateOnlyString(p.data_vencimento || p.due_date, 'dueDate'),
       amount: asNumber(p.valor_parcela || p.amount),
       scheduledPrincipal: asNumber(p.scheduled_principal),
       scheduledInterest: asNumber(p.scheduled_interest),
@@ -113,7 +113,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
       paidLateFee: asNumber(p.paid_late_fee),
       paidTotal: asNumber(p.paid_total),
       status: normalizedInstallmentStatus,
-      paidDate: p.paid_date,
+      paidDate: safeDateOnlyString(p.paid_date),
       logs: []
     };
   });
@@ -219,7 +219,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     billingCycle: asString(l.billing_cycle, 'MONTHLY') as LoanBillingModality,
     amortizationType: asString(l.amortization_type, 'JUROS') as any,
 
-    startDate: safeDateString(l.start_date),
+    startDate: safeDateOnlyString(l.start_date),
     createdAt: safeDateString(l.created_at),
     updatedAt: safeDateString(l.updated_at),
 

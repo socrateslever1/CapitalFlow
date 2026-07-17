@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 
 import { supabase } from '../../../lib/supabase';
 import { Agreement, Loan, UserProfile, LegalDocumentParams, LegalDocumentRecord } from '../../../types';
@@ -61,7 +62,7 @@ export const legalService = {
       city: activeUser.city || 'Manaus',
       state: activeUser.state || 'AM',
       witnesses: (loan as any).witnesses || [],
-      contractDate: new Date(loan.startDate).toLocaleDateString('pt-BR'),
+      contractDate: formatBRDate(loan.startDate),
       agreementDate: agreement ? new Date(agreement.createdAt).toLocaleDateString('pt-BR') : undefined,
       installments: (agreement?.installments || loan.installments) as any[],
       billingCycle: loan.billingCycle,

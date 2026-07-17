@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../../utils/dateHelpers';
 import React from 'react';
 import { Filter, Printer, X } from 'lucide-react';
 import { classifyLedgerEntry, OperationClassification } from '../../../../domain/finance/dre.calculations';
@@ -56,7 +57,7 @@ export const ExtratoOperationsList = ({
                                 <div>
                                     <p className="text-xs font-bold text-white uppercase">{t.clientName}</p>
                                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                        <span>{new Date(t.date).toLocaleDateString('pt-BR')}</span>
+                                        <span>{formatBRDate(t.date)}</span>
                                         <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                                         <span className={`${style.text}`}>
                                             {style.label}

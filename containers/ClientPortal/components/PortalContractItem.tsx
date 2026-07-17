@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 
 import React, { useMemo } from 'react';
 import { Wallet, MessageCircle } from 'lucide-react';
@@ -70,7 +71,7 @@ export const PortalContractItem: React.FC<PortalContractItemProps> = ({ loan, on
                     {nextDueDate && (
                         <div className="text-right">
                             <p className="text-[9px] text-slate-500 uppercase font-bold">Próx. Vencimento</p>
-                            <p className="text-xs text-white font-bold">{new Date(nextDueDate).toLocaleDateString('pt-BR')}</p>
+                            <p className="text-xs text-white font-bold">{formatBRDate(nextDueDate)}</p>
                         </div>
                     )}
                 </div>

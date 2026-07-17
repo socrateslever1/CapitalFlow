@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 
 import { LegalDocumentSnapshot } from '../types/legal';
 
@@ -22,7 +23,7 @@ export const legalTemplateService = {
       new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const formatDate = (dateStr: string) => 
-      new Date(dateStr).toLocaleDateString('pt-BR');
+      formatBRDate(dateStr);
 
     return `
       <div class="legal-document" style="font-family: 'Times New Roman', Times, serif; color: #000; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 40px; background: #fff; border: 1px solid #eee;">

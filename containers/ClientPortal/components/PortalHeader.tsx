@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../../utils/dateHelpers';
 
 import React from 'react';
 import { LogOut, ChevronDown, Lock } from 'lucide-react';
@@ -41,7 +42,7 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
                         disabled={clientContracts.length <= 1}
                     >
                         {clientContracts.map((c) => {
-                            const dateStr = new Date(c.start_date || c.created_at).toLocaleDateString('pt-BR');
+                            const dateStr = formatBRDate(c.start_date || c.created_at);
                             const label = c.code ? `CONTRATO #${c.code}` : `CONTRATO ...${c.id.substring(0, 6).toUpperCase()}`;
                             return (
                                 <option key={c.id} value={c.id}>

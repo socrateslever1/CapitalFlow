@@ -1,3 +1,4 @@
+import { formatBRDate } from '../../utils/dateHelpers';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   ShieldCheck,
@@ -113,7 +114,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
         {!isPaidOff && nextDueDate && (
           <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
             <Calendar size={10} className="opacity-50 shrink-0" />
-            <span>Vence {new Date(nextDueDate).toLocaleDateString('pt-BR')}</span>
+            <span>Vence {formatBRDate(nextDueDate)}</span>
             <span className="text-slate-600 font-bold">•</span>
             <span className={`font-black ${statusColorText}`}>{statusInfo.label}</span>
           </div>

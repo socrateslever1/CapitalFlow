@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Loan, LedgerEntry, UserProfile, CapitalSource } from '../types';
 import { formatMoney } from '../utils/formatters';
+import { formatBRDate } from '../utils/dateHelpers';
 import { ForgivenessMode } from '../components/modals/payment/hooks/usePaymentManagerState';
 import { AgreementView } from '../features/agreements/components/AgreementView';
 
@@ -239,8 +240,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                         {delayDetails.items.map((item, idx) => (
                                             <div key={idx} className="flex items-center justify-between p-3 bg-slate-950/50 border border-slate-800 rounded-lg group hover:border-rose-500/30 transition-all">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Parcela {item.number} • {new Date(item.dueDate).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</span>
-                                                    <span className="text-[11px] font-black text-white uppercase leading-none italic">Vencimento {new Date(item.dueDate).toLocaleDateString('pt-BR')}</span>
+                                                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Parcela {item.number} • {formatBRDate(item.dueDate)}</span>
+                                                    <span className="text-[11px] font-black text-white uppercase leading-none italic">Vencimento {formatBRDate(item.dueDate)}</span>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-sm font-black text-rose-400">{formatMoney(item.total, isStealthMode)}</p>

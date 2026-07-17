@@ -9,7 +9,7 @@ const round = (num: number): number => Math.round((num + Number.EPSILON) * 100) 
 const AGREEMENT_ACTIVE_STATUSES = new Set(["ACTIVE", "ATIVO"]);
 const AGREEMENT_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO"]);
 const LOAN_PAID_STATUSES = new Set(["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "ARQUIVADO"]);
-export const ZERO_BALANCE_THRESHOLD = 0.5; // Ignora resíduos abaixo de 50 centavos
+export const ZERO_BALANCE_THRESHOLD = 0.05; // Ignora residuos abaixo de 5 centavos
 
 export type ForgivenessMode =
   | "NONE"

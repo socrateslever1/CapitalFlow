@@ -3,6 +3,7 @@ import { BrainCircuit, Loader2, ShieldAlert, Sparkles, RefreshCw, Target, Gauge 
 import { Loan, CapitalSource, UserProfile } from '../../types';
 import { processNaturalLanguageCommand, AIResponse } from '../../services/geminiService';
 import { loanEngine } from '../../domain/loanEngine';
+import { filterOperationalSources, isTestSource } from '../../utils/testSource';
 
 export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[], activeUser: UserProfile | null }> = ({ loans, sources, activeUser }) => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -11,7 +12,15 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
     const runAudit = async () => {
         setIsAnalyzing(true);
         try {
-            const caixaLivreSource = sources.find(s => {
+            const operationalSources = filterOperationalSources(sources);
+            const testSourceIds = new Set(
+                sources
+                    .filter((source) => isTestSource(source))
+                    .map((source) => String(source.id))
+                    .filter(Boolean)
+            );
+            const operationalLoans = loans.filter((loan) => !testSourceIds.has(String((loan as any).sourceId || (loan as any).source_id || '')));
+            const caixaLivreSource = operationalSources.find(s => {
                 const n = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
                 return n.includes('caixa livre') || n.includes('lucro') || n.includes('disponivel') || n.includes('balance');
             });
@@ -20,7 +29,7 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
             const context = {
                 type: 'OPERATOR_AUDIT',
                 isDemo: activeUser?.id === 'DEMO',
-                totalLent: loans.reduce((acc, l) => {
+                totalLent: operationalLoans.reduce((acc, l) => {
                     const balance = loanEngine.computeRemainingBalance(l);
                     if (l.isArchived || balance.totalRemaining <= 0.5) return acc;
                     const notes = String(l.notes || '');
@@ -30,17 +39,16 @@ export const AIBalanceInsight: React.FC<{ loans: Loan[], sources: CapitalSource[
                     return acc + balance.principalRemaining;
                 }, 0),
                 interestBalance: interestBalance,
-                lateCount: loans.filter(l => {
+                lateCount: operationalLoans.filter(l => {
                     if (l.isArchived) return false;
-                    const status = String(l.status || '').toUpperCase().trim();
                     if (loanEngine.computeRemainingBalance(l).totalRemaining <= 0.5) return false;
                     const notes = String(l.notes || '');
                     const isUnified = notes.includes('[UNIFICADO EM') || notes.includes('[LEGADO_PARCELAMENTO:') || notes.includes('[LEGADO_UNIFICACAO_NORMAL:');
                     if (isUnified) return false;
                     return l.installments.some(i => i.status === 'LATE');
                 }).length,
-                sourceLiquidity: sources.reduce((acc, s) => acc + s.balance, 0),
-                portfolioHealth: loans.map(l => ({ name: l.debtorName, status: l.isArchived ? 'ARCHIVED' : 'ACTIVE' }))
+                sourceLiquidity: operationalSources.reduce((acc, s) => acc + s.balance, 0),
+                portfolioHealth: operationalLoans.map(l => ({ name: l.debtorName, status: l.isArchived ? 'ARCHIVED' : 'ACTIVE' }))
             };
             const res = await processNaturalLanguageCommand("Realize um Veredito de Auditoria Técnica sobre esta carteira.", context);
             setResult(res);

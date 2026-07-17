@@ -1,5 +1,4 @@
-,3 ;6  6a
-+++SET search_path = public;
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.cf_column_exists(
   p_table_name text,

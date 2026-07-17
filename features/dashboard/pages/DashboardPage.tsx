@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { CapitalSource, Loan } from '../../../types';
+import { filterOperationalSources } from '../../../utils/testSource';
 
 export const DashboardAlerts = ({
   loans: _loans,
@@ -9,7 +10,7 @@ export const DashboardAlerts = ({
   loans: Loan[];
   sources?: CapitalSource[];
 }) => {
-  const lowBalanceSources = (sources || []).filter((source) => (Number(source.balance) || 0) < 100);
+  const lowBalanceSources = filterOperationalSources(sources || []).filter((source) => (Number(source.balance) || 0) < 100);
 
   const [isBalanceDismissed, setIsBalanceDismissed] = useState(() => {
     const stored = localStorage.getItem('cm_alert_balance_dismissed');

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
+import { filterOperationalSources, isTestSource } from '../../../utils/testSource';
 
 interface ReportsPageProps {
   loans: Loan[];
@@ -30,8 +31,16 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
   activeUser,
   isStealthMode
 }) => {
+  const operationalSources = useMemo(() => filterOperationalSources(sources), [sources]);
+
   const stats = useMemo(() => {
-    const activeLoans = loans.filter(l => !l.isArchived);
+    const testSourceIds = new Set(
+      sources
+        .filter((source) => isTestSource(source))
+        .map((source) => String(source.id))
+        .filter(Boolean)
+    );
+    const activeLoans = loans.filter(l => !l.isArchived && !testSourceIds.has(String((l as any).sourceId || (l as any).source_id || '')));
     const totalPrincipal = activeLoans.reduce((acc, l) => acc + (l.principal || 0), 0);
 
     // Inadimplência
@@ -47,7 +56,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
     const estimatedROI = totalPrincipal > 0 ? (grossProfit / totalPrincipal) * 100 : 0;
 
     // Capital disponível vs Alocado
-    const totalBalance = sources.reduce((acc, s) => acc + (s.balance || 0), 0);
+    const totalBalance = operationalSources.reduce((acc, s) => acc + (s.balance || 0), 0);
     const allocationRate = (totalBalance + totalPrincipal) > 0 ? (totalPrincipal / (totalBalance + totalPrincipal)) * 100 : 0;
 
     return {
@@ -61,7 +70,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
       activeLoansCount: activeLoans.length,
       lateLoansCount: lateLoans.length
     };
-  }, [loans, sources]);
+  }, [loans, sources, operationalSources]);
 
   const maskValue = (val: string) => isStealthMode ? '••••••' : val;
 
@@ -202,7 +211,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           </div>
 
           <div className="space-y-4">
-            {sources.map(source => {
+            {operationalSources.map(source => {
               const sourceLoans = loans.filter(l => l.sourceId === source.id && !l.isArchived);
               const sourcePrincipal = sourceLoans.reduce((acc, l) => acc + (l.principal || 0), 0);
               const percentage = stats.totalPrincipal > 0 ? (sourcePrincipal / stats.totalPrincipal) * 100 : 0;

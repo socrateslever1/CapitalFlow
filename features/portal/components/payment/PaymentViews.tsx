@@ -22,14 +22,16 @@ interface BillingViewProps {
     uploadMessage?: string | null;
     onMercadoPago?: () => void;
     onMercadoPagoCard?: () => void;
+    onInfinitePay?: () => void;
     onAsaas?: () => void;
     isProcessingAsaas?: boolean;
+    isProcessingInfinitePay?: boolean;
     receiptFile?: File | null;
     onFileChange?: (file: File | null) => void;
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({
-    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onAsaas, isProcessingAsaas = false, receiptFile, onFileChange
+    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onInfinitePay, onAsaas, isProcessingAsaas = false, isProcessingInfinitePay = false, receiptFile, onFileChange
 }) => {
     // Usa o helper centralizado para determinar a mensagem
     const { label, variant, detail } = getPortalDueLabel(daysLateRaw, dueDateISO);
@@ -228,6 +230,20 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             <><CreditCard size={18} /> Pagar com Cartão (MP)</>
                         )}
                     </button>
+
+                    {onInfinitePay && (
+                        <button
+                            onClick={onInfinitePay}
+                            disabled={isProcessingInfinitePay || isProcessing}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            {isProcessingInfinitePay ? (
+                                <><Loader2 size={16} className="animate-spin" /> Gerando Checkout...</>
+                            ) : (
+                                <><CreditCard size={18} /> Pagar com InfinitePay</>
+                            )}
+                        </button>
+                    )}
 
                     <p className="text-[9px] text-center text-slate-500 font-bold tracking-widest uppercase">
                         Pagamento Seguro e Criptografado

@@ -371,6 +371,43 @@ export const portalService = {
     };
   },
 
+  async createInfinitePayCheckout(token: string, code: string, loanId: string, installmentId: string, amount: number, clientData: any) {
+    if (!token || !code) throw new Error('Credenciais do portal incompletas.');
+
+    const { data, error } = await supabasePortal.functions.invoke('infinitepay-create-checkout', {
+      body: {
+        loan_id: loanId,
+        installment_id: installmentId,
+        amount,
+        payer_name: clientData.name,
+        payer_email: clientData.email || 'cliente@capitalflow.app',
+        payer_doc: clientData.doc || '',
+        payer_phone: clientData.phone || '',
+        portal_token: token,
+        portal_code: code,
+        return_url: window.location.href
+      },
+    });
+
+    if (error) {
+      const msg = String((error as any)?.message || '');
+      if (msg.includes('Failed to send a request to the Edge Function') || msg.includes('NOT_FOUND')) {
+        throw new Error('Funcao InfinitePay indisponivel no servidor. Solicite o deploy da Edge Function infinitepay-create-checkout.');
+      }
+      throw new Error(error.message || 'Falha ao gerar checkout InfinitePay.');
+    }
+
+    if (!data?.ok || !data?.checkout_url) {
+      throw new Error(data?.error || 'Erro ao gerar checkout InfinitePay.');
+    }
+
+    return {
+      checkoutUrl: data.checkout_url,
+      externalReference: data.external_reference,
+      chargeId: data.charge_id
+    };
+  },
+
   /**
    * Remove um documento juridico (limpeza de portal)
    */

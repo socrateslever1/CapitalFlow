@@ -54,6 +54,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessingOnline, setIsProcessingOnline] = useState(false);
+  const [isProcessingInfinitePay, setIsProcessingInfinitePay] = useState(false);
   const [showAsaasModal, setShowAsaasModal] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'IDLE' | 'UPLOADING' | 'UPLOADED' | 'ERROR'>('IDLE');
@@ -233,6 +234,36 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     }
   };
 
+  const handleInfinitePay = async () => {
+    if (shouldBlock) {
+      setError('Este contrato/parcela jÃ¡ estÃ¡ quitado.');
+      return;
+    }
+
+    setError(null);
+    setIsProcessingInfinitePay(true);
+
+    try {
+      const data = await portalService.createInfinitePayCheckout(
+        portalToken,
+        portalCode,
+        loan.id,
+        (installment as any).id,
+        options.totalToPay,
+        clientData
+      );
+
+      if (data?.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        throw new Error('URL de checkout nÃ£o retornada');
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Falha ao gerar checkout InfinitePay.');
+      setIsProcessingInfinitePay(false);
+    }
+  };
+
   const copyPixKey = () => {
     if (pixKey) {
       navigator.clipboard.writeText(pixKey);
@@ -273,10 +304,12 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
               isInstallmentPaid={shouldBlock}
               isProcessing={isProcessing}
               isProcessingOnline={isProcessingOnline}
+              isProcessingInfinitePay={isProcessingInfinitePay}
               uploadStatus={uploadStatus}
               uploadMessage={uploadMessage}
               onMercadoPago={handleMercadoPago}
               onMercadoPagoCard={handleMercadoPagoCard}
+              onInfinitePay={handleInfinitePay}
               receiptFile={receiptFile}
               onFileChange={(file) => {
                 setReceiptFile(file);

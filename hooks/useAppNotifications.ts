@@ -9,6 +9,7 @@ import { getInstallmentStatusLogic } from '../domain/finance/calculations';
 import { playNotificationSound } from '../utils/notificationSound';
 import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
+import { filterOperationalSources } from '../utils/testSource';
 
 export interface InAppNotification {
   id: string;
@@ -603,7 +604,7 @@ export const useAppNotifications = ({
     }
 
     // C) Saldo Crítico (Risco Operacional)
-    (sources || []).forEach((source: any) => {
+    filterOperationalSources(sources || []).forEach((source: any) => {
       if (!source?.id) return;
       const balance = Number(source.balance || 0);
 

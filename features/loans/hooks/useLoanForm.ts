@@ -10,6 +10,7 @@ import { calculateAutoDueDate } from '../domain/loanForm.preview';
 import { getInitialFormState } from './loanForm.defaults';
 import { safeIsoDateOnly, safeSourceId, safeFileFirst } from '../utils/formHelpers';
 import { parseDateOnlyUTC, toISODateOnlyUTC, addDaysUTC, addMonthsUTC } from '../../../utils/dateHelpers';
+import { isTestSource } from '../../../utils/testSource';
 
 
 const getInstallmentNumber = (inst: any, fallback: number) => {
@@ -265,7 +266,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
 
     if (formData.sourceId && !initialData) {
         const selectedSource = sources.find(s => s.id === formData.sourceId);
-        if (selectedSource && parseFloat(formData.principal) > selectedSource.balance) {
+        if (selectedSource && !isTestSource(selectedSource) && parseFloat(formData.principal) > selectedSource.balance) {
             const diff = parseFloat(formData.principal) - selectedSource.balance;
             if(!window.confirm(`AVISO CONTÁBIL:\n\nO valor do empréstimo (R$ ${parseFloat(formData.principal).toLocaleString()}) é maior que o saldo na carteira ${selectedSource.name} (R$ ${selectedSource.balance.toLocaleString()}).\n\nIsso deixará a carteira NEGATIVA em R$ -${diff.toLocaleString()}.\n\nDeseja confirmar esta saída de caixa?`)) return;
         }

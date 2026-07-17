@@ -8,6 +8,7 @@ import {
   isCapitalOnlyRecoveryLoan,
   removeCapitalOnlyRecoveryMarker,
 } from '../utils/capitalOnlyRecovery';
+import { isTestSource } from '../utils/testSource';
 
 /* =========================
    Helpers de Sanitização
@@ -151,6 +152,8 @@ export const contractsService = {
 
     const loanId = editingLoan ? loan.id : ensureUUID(loan.id);
     const principal = safeFloat(loan.principal);
+    const selectedSource = _sources.find((source) => source.id === loan.sourceId);
+    const isTestWalletLoan = isTestSource(selectedSource);
 
     // ✅ contratos = owner_id
     const loanPayload: any = {
@@ -286,7 +289,7 @@ export const contractsService = {
 
       // Saída de Caixa (novo contrato)
       const safeSrcId = safeUUID(loan.sourceId);
-      if (safeSrcId && !options?.skipTransaction) {
+      if (safeSrcId && !options?.skipTransaction && !isTestWalletLoan) {
         await supabase.rpc('adjust_source_balance', { p_source_id: safeSrcId, p_delta: -principal });
 
         await supabase.from('transacoes').insert({

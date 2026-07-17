@@ -81,5 +81,38 @@ export const paymentConfigService = {
     
     if (error) throw error;
     return true;
+  },
+
+  async getInfinitePayConfig(profileId: string) {
+    if (!profileId) return null;
+    const { data, error } = await supabase
+      .from('perfis_config_infinitepay')
+      .select('*')
+      .eq('profile_id', profileId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao buscar config InfinitePay:', error);
+      return null;
+    }
+    return data;
+  },
+
+  async saveInfinitePayConfig(profileId: string, handle: string) {
+    if (!profileId) throw new Error('ID do perfil nao informado.');
+    if (!handle.trim()) throw new Error('InfiniteTag obrigatoria.');
+
+    const normalizedHandle = handle.trim().replace(/^[@$]+/, '');
+
+    const { error } = await supabase
+      .from('perfis_config_infinitepay')
+      .upsert({
+        profile_id: profileId,
+        infinitepay_handle: normalizedHandle,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'profile_id' });
+
+    if (error) throw error;
+    return true;
   }
 };

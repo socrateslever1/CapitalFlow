@@ -4,6 +4,7 @@ import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver'
 import { calculateRiskProfile } from '../finance/riskAnalysis';
 import { rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../finance/calculations';
 import { resolveProfitBalance } from '../../utils/profitBalance';
+import { isTestSource } from '../../utils/testSource';
 
 const isUnifiedChildLoan = (loan: Loan): boolean => {
   const notes = String(loan.notes || '');
@@ -19,8 +20,14 @@ const isUnifiedChildLoan = (loan: Loan): boolean => {
 export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activeUser: any = null) => {
   // Reconstroi todos os contratos do ledger para garantir precisão total nos contadores
   const loans = loansRaw.map(l => rebuildLoanStateFromLedger(l));
+  const testSourceIds = new Set(
+    sources
+      .filter((source) => isTestSource(source))
+      .map((source) => String(source.id))
+      .filter(Boolean)
+  );
 
-  const filteredLoans = loans;
+  const filteredLoans = loans.filter((loan) => !testSourceIds.has(String((loan as any).sourceId || (loan as any).source_id || '')));
 
   // Classifica todos os empréstimos uma única vez
   const classifiedLoans = filteredLoans.map(l => ({

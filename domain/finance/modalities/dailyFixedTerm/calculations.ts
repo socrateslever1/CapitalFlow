@@ -1,5 +1,3 @@
-
-import { Loan, Installment, LoanPolicy } from "../../../../types";
 import { Loan, Installment, LoanPolicy } from "../../../../types";
 import { getDaysDiff } from "../../../../utils/dateHelpers";
 import { CalculationResult } from "../types";

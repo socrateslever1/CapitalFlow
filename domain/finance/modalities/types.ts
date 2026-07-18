@@ -62,7 +62,7 @@ export interface ModalityStrategy {
     key: LoanBillingModality | 'DAILY' | string;
 
     // Core Financeiro
-    calculate: (loan: Loan, inst: Installment, policy: LoanPolicy) => CalculationResult;
+    calculate: (loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string) => CalculationResult;
 
     // Renovação com suporte a Data Manual
     renew: (

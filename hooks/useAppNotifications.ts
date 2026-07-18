@@ -39,6 +39,47 @@ interface NotificationProps {
 
 const MAX_VISIBLE_NOTIFICATIONS = 40;
 const READ_SUPPRESSION_MS = 48 * 60 * 60 * 1000;
+const BILLING_NOTIFICATION_RULE = 'billing_milestone';
+const BILLING_MILESTONES: Record<number, {
+  key: string;
+  title: string;
+  type: InAppNotification['type'];
+  buildMessage: (name: string, dueDate: string, amountText: string) => string;
+}> = {
+  [-2]: {
+    key: 'd_minus_2',
+    title: 'Parcela vence em 2 dias',
+    type: 'info',
+    buildMessage: (name, dueDate, amountText) =>
+      `${name} tem parcela vencendo em 2 dias (${formatBRDate(dueDate)}).${amountText}`,
+  },
+  0: {
+    key: 'due_today',
+    title: 'Parcela vence hoje',
+    type: 'info',
+    buildMessage: (name, dueDate, amountText) =>
+      `${name} tem parcela vencendo hoje (${formatBRDate(dueDate)}).${amountText}`,
+  },
+  1: {
+    key: 'overdue',
+    title: 'Parcela vencida',
+    type: 'warning',
+    buildMessage: (name, dueDate, amountText) =>
+      `${name} tem parcela vencida desde ${formatBRDate(dueDate)}.${amountText}`,
+  },
+  15: {
+    key: 'overdue_15',
+    title: 'Parcela vencida ha 15 dias',
+    type: 'error',
+    buildMessage: (name, dueDate, amountText) =>
+      `${name} completou 15 dias de atraso na parcela vencida em ${formatBRDate(dueDate)}.${amountText}`,
+  },
+};
+const LEGACY_RECURRING_TITLES = new Set([
+  'Parcela vence hoje',
+  'Ação jurídica pendente',
+  'Acao juridica pendente',
+]);
 const typeByItem: Record<string, InAppNotification['type']> = {
   pagamento: 'success',
   documento: 'warning',
@@ -91,6 +132,19 @@ export const useAppNotifications = ({
     notificationsRef.current = notifications;
   }, [notifications]);
   const notificationProfileId = activeUser ? activeUser.id : null;
+
+  const todayISO = () => new Date().toISOString().split('T')[0];
+
+  const isStaleLoadedNotification = (item: InAppNotification) => {
+    const metadata = item.metadata || {};
+    if (metadata.notification_rule === BILLING_NOTIFICATION_RULE) {
+      return metadata.milestone_date !== todayISO();
+    }
+
+    if (!LEGACY_RECURRING_TITLES.has(item.title)) return false;
+    const createdDate = item.createdAt ? new Date(item.createdAt).toISOString().split('T')[0] : null;
+    return createdDate !== todayISO();
+  };
 
   const mapDbNotification = useCallback((row: any): InAppNotification => ({
     id: row.id,
@@ -245,6 +299,7 @@ export const useAppNotifications = ({
       
       // Filter out notifications that were dismissed within 48h
       const mapped = rows.map(mapDbNotification).filter(item => {
+        if (isStaleLoadedNotification(item)) return false;
         if (!item.item_type || !item.item_id) return true;
         const key = `${item.item_type}_${item.item_id}`;
         const dismissedAt = dismissedMap[key];
@@ -293,6 +348,10 @@ export const useAppNotifications = ({
           if (isDismissed(mapped.item_type, mapped.item_id)) return;
           queueRef.current.push(mapped);
           flushQueue();
+          if (mapped.item_type === 'pagamento' && mapped.metadata?.urgent) {
+            showToast('Pagamento recebido pelo portal.', 'success');
+            onDataChanged?.();
+          }
         }
       )
       .subscribe();
@@ -301,7 +360,7 @@ export const useAppNotifications = ({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap]);
+  }, [notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap, showToast, onDataChanged]);
 
   // 1. Monitoramento em Tempo Real (Eventos Críticos de Negócio)
   useEffect(() => {
@@ -318,7 +377,8 @@ export const useAppNotifications = ({
           filter: `profile_id=eq.${notificationProfileId}`,
         },
         (payload) => {
-          if (payload.new.status === 'PENDENTE') {
+          const status = String(payload.new.status || '').toUpperCase();
+          if (status === 'PENDENTE') {
             if (isDismissed('pagamento', payload.new.id)) return;
             const onClick = () => {
                 setActiveTab('CONTRACT_DETAILS');
@@ -519,7 +579,7 @@ export const useAppNotifications = ({
       notificationService.requestPermission();
     }
 
-    // A) Contratos vencendo HOJE (Alerta Matinal)
+    // A) Regua de cobranca: D-2, D0, D+1 e D+15.
     if (loans?.length) {
       loans.forEach((loan) => {
         if (!loan || (loan as any).isArchived) return;
@@ -534,9 +594,15 @@ export const useAppNotifications = ({
           const diff = getDaysDiff(inst.dueDate);
 
           // Notifica apenas no dia exato e uma única vez por sessão
-          if (diff === 0 && !notifiedDueLoans.current.has(inst.id)) {
-            if (isDismissed('parcela', inst.id)) return;
-            notifiedDueLoans.current.add(inst.id);
+          const milestone = BILLING_MILESTONES[diff];
+
+          if (milestone) {
+            const milestoneDate = todayISO();
+            const notificationItemId = `${inst.id}:${milestone.key}`;
+            const runtimeKey = `${notificationItemId}:${milestoneDate}`;
+            if (notifiedDueLoans.current.has(runtimeKey)) return;
+            if (isDismissed('parcela', notificationItemId)) return;
+            notifiedDueLoans.current.add(runtimeKey);
             const onClick = () => {
                 setActiveTab('CONTRACT_DETAILS');
                 setSelectedLoanId(loan.id);
@@ -546,19 +612,26 @@ export const useAppNotifications = ({
               Number(inst.interestRemaining || 0) +
               Number(inst.lateFeeAccrued || 0);
             const amountText = openAmount > 0 ? ` Valor em aberto: ${formatMoney(openAmount)}.` : '';
-            const message = `${loan.debtorName} tem parcela vencendo hoje (${formatBRDate(inst.dueDate)}).${amountText}`;
+            const message = milestone.buildMessage(loan.debtorName || 'Cliente', inst.dueDate, amountText);
             notificationService.notify(
-              'Parcela vence hoje',
+              milestone.title,
               message,
               onClick
             );
             addNotification({
-                title: 'Parcela vence hoje',
+                title: milestone.title,
                 message,
-                type: 'info',
+                type: milestone.type,
                 item_type: 'parcela',
-                item_id: inst.id,
-                metadata: { loan_id: loan.id }
+                item_id: notificationItemId,
+                metadata: {
+                  loan_id: loan.id,
+                  installment_id: inst.id,
+                  due_date: inst.dueDate,
+                  milestone: milestone.key,
+                  milestone_date: milestoneDate,
+                  notification_rule: BILLING_NOTIFICATION_RULE,
+                }
             });
           }
         });
@@ -569,7 +642,9 @@ export const useAppNotifications = ({
     if (loans?.length) {
       loans.forEach((loan) => {
         // HARDENING: usa função isolada para evitar erro de HMR
+        // Desativado: a regra de cobrança agora roda apenas nos marcos D-2, D0, D+1 e D+15.
         if (
+          false &&
           isLegallyActionable(loan) &&
           loanEngine.computeLoanStatus(loan) === 'OVERDUE' &&
           !(loan as any).activeAgreement &&

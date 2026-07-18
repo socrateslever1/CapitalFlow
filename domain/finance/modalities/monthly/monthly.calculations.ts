@@ -1,12 +1,13 @@
 import { Loan, Installment, LoanPolicy } from "../../../../types";
+import { Loan, Installment, LoanPolicy } from "../../../../types";
 import { getDaysDiff } from "../../../../utils/dateHelpers";
 import { CalculationResult } from "../types";
 import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
-    const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
+export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string): CalculationResult => {
+    const daysLate = Math.max(0, getDaysDiff(inst.dueDate, referenceDate));
     
     // Juros do ciclo atual: só inferimos quando a parcela ainda não teve
     // juros pagos. Depois de receber juros, o próximo ciclo deve vir do saldo

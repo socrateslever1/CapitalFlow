@@ -190,62 +190,28 @@ export const BillingView: React.FC<BillingViewProps> = ({
                 </div>
             )}
 
-            {/* Pagamento Online via Mercado Pago / Asaas */}
+            {/* Pagamento Online via InfinitePay */}
             {!isInstallmentPaid && (
                 <div className="space-y-3 pt-2">
-                    {onAsaas && (
-                        <button
-                            onClick={onAsaas}
-                            disabled={isProcessingAsaas || isProcessing}
-                            className="w-full bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-amber-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            {isProcessingAsaas ? (
-                                <><Loader2 size={16} className="animate-spin" /> Processando Cartão...</>
-                            ) : (
-                                <><CreditCard size={18} /> Pagar com Cartão de Crédito</>
-                            )}
-                        </button>
-                    )}
-
-                    <button
-                        onClick={onMercadoPago}
-                        disabled={isProcessingOnline || isProcessing}
-                        className="w-full bg-[#009EE3] hover:bg-[#0089C9] disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        {isProcessingOnline ? (
-                            <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
-                        ) : (
-                            <><QrCode size={18} /> Pagar com PIX Online</>
-                        )}
-                    </button>
-
-                    <button
-                        onClick={onMercadoPagoCard}
-                        disabled={isProcessingOnline || isProcessing}
-                        className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[#009EE3] border border-[#009EE3]/30 p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-blue-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        {isProcessingOnline ? (
-                            <><Loader2 size={16} className="animate-spin" /> Gerando Link Seguro...</>
-                        ) : (
-                            <><CreditCard size={18} /> Pagar com Cartão (MP)</>
-                        )}
-                    </button>
-
                     {onInfinitePay && (
                         <button
                             onClick={onInfinitePay}
                             disabled={isProcessingInfinitePay || isProcessing}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-emerald-900/10 transition-all active:scale-95 flex items-center justify-center gap-2"
+                            className="w-full bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-900 p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-black/5 transition-all active:scale-95 flex items-center justify-center gap-2 border border-slate-200"
                         >
                             {isProcessingInfinitePay ? (
-                                <><Loader2 size={16} className="animate-spin" /> Gerando Checkout...</>
+                                <><Loader2 size={16} className="animate-spin text-slate-500" /> Gerando Checkout...</>
                             ) : (
-                                <><CreditCard size={18} /> Pagar com InfinitePay</>
+                                <>
+                                    <img src="/images/infinitepay.png" alt="InfinitePay" className="h-5 object-contain" />
+                                    Pagar com InfinitePay
+                                </>
                             )}
                         </button>
                     )}
 
                     <p className="text-[9px] text-center text-slate-500 font-bold tracking-widest uppercase">
+
                         Pagamento Seguro e Criptografado
                     </p>
                 </div>

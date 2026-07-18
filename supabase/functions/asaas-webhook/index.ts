@@ -66,6 +66,47 @@ function json(data: unknown, status = 200) {
   });
 }
 
+async function notifyOperatorWhatsApp(
+  supabase: any,
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  profileId: string,
+  message: string,
+) {
+  try {
+    const { data: profile } = await supabase
+      .from("perfis")
+      .select("*")
+      .eq("id", profileId)
+      .maybeSingle();
+    const phone = String(
+      profile?.contato_whatsapp ||
+      profile?.support_phone ||
+      profile?.telefone ||
+      profile?.phone ||
+      profile?.whatsapp ||
+      "",
+    ).replace(/\D/g, "");
+    if (phone.length < 10) return;
+
+    await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+      },
+      body: JSON.stringify({
+        profile_id: profileId,
+        phone,
+        message,
+      }),
+    });
+  } catch (err) {
+    console.warn("[asaas-webhook] Falha ao notificar operador por WhatsApp:", err);
+  }
+}
+
 function mapStatus(asaasEvent: string): "PENDING" | "PAID" | "FAILED" {
   switch (asaasEvent) {
     case "PAYMENT_RECEIVED":
@@ -242,6 +283,22 @@ serve(async (req) => {
       paid_at: new Date().toISOString()
     });
 
+    const readAt = new Date().toISOString();
+    await supabase
+      .from("notificacoes")
+      .update({ read_at: readAt })
+      .eq("profile_id", targetProfileId)
+      .eq("item_type", "parcela")
+      .eq("item_id", charge.installment_id)
+      .is("read_at", null);
+    await supabase
+      .from("notificacoes")
+      .update({ read_at: readAt })
+      .eq("profile_id", targetProfileId)
+      .eq("item_type", "parcela")
+      .like("item_id", `${charge.installment_id}:%`)
+      .is("read_at", null);
+
     // 8. Audit Log
     await supabase.from("payment_intents").insert({
       loan_id: charge.loan_id,
@@ -252,6 +309,23 @@ serve(async (req) => {
       status: "APPROVED",
       notes: `Pagamento Asaas Confirmado (ID: ${payment.id}, Evento: ${eventType})`
     });
+
+    await supabase.from("notificacoes").insert({
+      profile_id: targetProfileId,
+      titulo: "Pagamento Asaas recebido",
+      mensagem: "URGENTE: pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " confirmado pelo portal e baixado automaticamente.",
+      item_type: "pagamento",
+      item_id: String(payment.id),
+      metadata: { loan_id: charge.loan_id, installment_id: charge.installment_id, payment_id: payment.id, provider: "ASAAS", urgent: true }
+    });
+
+    await notifyOperatorWhatsApp(
+      supabase,
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+      targetProfileId,
+      "CapitalFlow: pagamento Asaas de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " recebido e baixado automaticamente.",
+    );
 
     return json({ ok: true, event: eventType, status: "PAID" });
 

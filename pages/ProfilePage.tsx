@@ -734,10 +734,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* PAYMENTS */}
           {activeSection === 'PAYMENTS' && (
              <div className="animate-in fade-in slide-in-from-right space-y-12">
-                <MercadoPagoConfig profileId={profileEditForm.id} showToast={showToast} />
-                <div className="border-t border-slate-800 my-8"></div>
-                <AsaasConfig profileId={profileEditForm.id} showToast={showToast} />
-                <div className="border-t border-slate-800 my-8"></div>
                 <InfinitePayConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>
                 <WhatsAppConfig profileId={profileEditForm.id} showToast={showToast} />

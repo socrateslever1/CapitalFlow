@@ -113,9 +113,9 @@ export const formatBRDate = (date: DateInput): string => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-export const getDaysDiff = (targetDate: DateInput): number => {
+export const getDaysDiff = (targetDate: DateInput, referenceDate?: DateInput): number => {
   const target = parseDateOnlyUTC(targetDate);
-  const today = todayDateOnlyUTC();
+  const today = referenceDate ? parseDateOnlyUTC(referenceDate) : todayDateOnlyUTC();
 
   const diffTime = today.getTime() - target.getTime();
   return Math.round(diffTime / MS_PER_DAY);

@@ -4,18 +4,18 @@ import { CalculationResult } from "../types";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-export const calculateDailyFree = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
-    // âœ… FALLBACK: Se a parcela nÃ£o tem principal individual, usa o principal do contrato (Floating Debt)
+export const calculateDailyFree = (loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string): CalculationResult => {
+    // FALLBACK: Se a parcela não tem principal individual, usa o principal do contrato (Floating Debt)
     const principal = Number(inst?.principalRemaining ?? loan?.principal ?? 0) || 0;
     
-    // Valor base da diÃ¡ria = (Taxa Mensal / 30) * Principal
+    // Valor base da diária = (Taxa Mensal / 30) * Principal
     const dailyRatePercent = (Number(policy?.interestRate) || 0) / 30; 
     const dailyCost = round(principal * (dailyRatePercent / 100));
     
-    const daysLate = getDaysDiff(inst.dueDate);
+    const daysLate = getDaysDiff(inst.dueDate, referenceDate);
     
-    // CORREÃ‡ÃƒO: Se o cliente paga exatamente no dia do vencimento (daysLate === 0), 
-    // ele nÃ£o deve juros "extras" relativos a atraso ainda. O juro sÃ³ deve acumular a partir do 1Âº dia de atraso.
+    // CORREÇÃO: Se o cliente paga exatamente no dia do vencimento (daysLate === 0), 
+    // ele não deve juros "extras" relativos a atraso ainda. O juro só deve acumular a partir do 1º dia de atraso.
     const accruedInterest = daysLate > 0 ? round(daysLate * dailyCost) : 0;
     
     const totalInterest = round((inst.interestRemaining || 0) + accruedInterest);

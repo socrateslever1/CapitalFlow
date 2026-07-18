@@ -81,7 +81,7 @@ export const getLoanInterestReconciliationDelta = (loan: Partial<Loan> | null | 
   return round(principalDelta * (rate / 100));
 };
 
-export const getDaysDiff = (dueDateStr: string): number => getDaysDiffHelper(dueDateStr);
+export const getDaysDiff = (dueDateStr: string, referenceDateStr?: string): number => getDaysDiffHelper(dueDateStr, referenceDateStr);
 
 export const add30Days = (dateStr: string): string => {
   const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
@@ -181,7 +181,7 @@ export const calculateAgreementInstallmentLateFee = (inst: Partial<AgreementInst
 
 // --- FACHADA DE CÁLCULO DE DÍVIDA ---
 
-export const calculateTotalDue = (loan: Loan, inst: Installment): CalculationResult => {
+export const calculateTotalDue = (loan: Loan, inst: Installment, referenceDate?: string): CalculationResult => {
   if (isCapitalOnlyRecoveryLoan(loan)) {
     const principal = round(Number(inst.principalRemaining || 0));
     return {
@@ -200,7 +200,7 @@ export const calculateTotalDue = (loan: Loan, inst: Installment): CalculationRes
     dailyInterestPercent: loan.dailyInterestPercent
   };
   
-  const rawCalc = financeDispatcher.calculate(loan, inst, policy);
+  const rawCalc = financeDispatcher.calculate(loan, inst, policy, referenceDate);
   return rawCalc;
 };
 

@@ -43,7 +43,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         if (!data) return { principal: 0, interest: 0, fine: 0, dailyMora: 0, total: 0 };
         
         // Recalcula usando a função corrigida que separa os baldes
-        const freshCalc = calculateTotalDue(data.loan, data.inst);
+        const freshCalc = calculateTotalDue(data.loan, data.inst, realPaymentDateStr);
 
         let finalFine = freshCalc.finePart || 0; // Multa Fixa Pura
         let finalMora = freshCalc.moraPart || 0; // Mora Diária Pura
@@ -82,7 +82,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
             dailyMora: finalMora,
             total: (freshCalc.principal || 0) + (freshCalc.interest || 0) + (finalFine || 0) + (finalMora || 0)
         };
-    }, [data, forgivenessMode]);
+    }, [data, forgivenessMode, realPaymentDateStr]);
 
     // Lógica Visual de Ciclos (Regra: Atraso pertence ao próximo ciclo)
     const virtualSchedule = useMemo(() => {
@@ -200,25 +200,27 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         setAvAmount(nextAmount > 0 ? nextAmount.toFixed(2) : '');
     }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle]);
 
-    // Sugestão de próxima data baseada na data de recebimento
+    // Inicialização da próxima data (Apenas na montagem do modal para não sobrescrever a edição do usuário)
     useEffect(() => {
-        if (data && realPaymentDateStr) {
-            const paymentDate = parseDateOnlyUTC(realPaymentDateStr);
+        if (data && data.inst?.dueDate) {
+            const dueDate = parseDateOnlyUTC(data.inst.dueDate);
             const isDaily =
                 resolvedBillingCycle === 'DAILY_FREE' ||
                 resolvedBillingCycle === 'DAILY_FIXED_TERM';
 
+            // Por padrão, sugere o PRÓXIMO mês mantendo o DIA do contrato (já que estão pagando a atual)
             let nextDate: Date;
             if (isDaily) {
-                nextDate = addDaysUTC(paymentDate, 1);
+                nextDate = addDaysUTC(dueDate, 1);
             } else {
-                // Pedido do usuário: +30 dias a partir da data de recebimento
-                nextDate = addMonthsUTC(paymentDate, 1);
+                nextDate = addMonthsUTC(dueDate, 1);
             }
 
             setManualDateStr(toISODateOnlyUTC(nextDate));
         }
-    }, [data?.loan?.id, data?.inst?.id, realPaymentDateStr, resolvedBillingCycle]);
+        // Rodar APENAS quando o contrato carregar, NUNCA quando o valor (avAmount) mudar,
+        // para garantir que se o usuário editar a data, ela permaneça editada!
+    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle]);
 
     return {
         customAmount, setCustomAmount,

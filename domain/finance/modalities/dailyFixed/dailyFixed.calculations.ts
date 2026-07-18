@@ -5,13 +5,13 @@ import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-export const calculateDailyFixed = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
+export const calculateDailyFixed = (loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string): CalculationResult => {
   const principal = Number(inst.principalRemaining);
   const interestRemaining = Number(inst.interestRemaining || 0);
 
-  const daysLate = getDaysDiff(inst.dueDate);
+  const daysLate = getDaysDiff(inst.dueDate, referenceDate);
 
-  // ‚ùå N√ÉO soma juros corridos normais (j√° est√£o no interestRemaining)
+  // N√O soma juros corridos normais (j· est„o no interestRemaining)
   let lateInterest = 0;
   let lateFee = 0;
 
@@ -24,12 +24,14 @@ export const calculateDailyFixed = (loan: Loan, inst: Installment, policy: LoanP
 
   const totalInterest = round(interestRemaining + lateInterest);
 
+  const total = round(principal + totalInterest + lateFee);
+
   return {
-    total: round(principal + totalInterest + lateFee),
+    total,
     principal,
     interest: totalInterest,
     lateFee,
     baseForFine: principal,
-    daysLate: Math.max(0, daysLate)
+    daysLate
   };
 };

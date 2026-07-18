@@ -34,6 +34,14 @@ function cents(value: number) {
   return Math.round(Number(value || 0) * 100);
 }
 
+async function readResponseBody(response: Response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return await response.json().catch(() => null);
+  }
+  return await response.text().catch(() => "");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
   if (req.method !== "POST") return json(req, { ok: false, error: "Method Not Allowed" }, 405);
@@ -64,10 +72,10 @@ serve(async (req) => {
 
     const safeAmount = Number(amount || 0);
     if (!Number.isFinite(safeAmount) || safeAmount <= 0) {
-      return json(req, { ok: false, error: "Valor invalido." }, 400);
+      return json(req, { ok: false, error: "Valor invalido.", code: "INVALID_AMOUNT" });
     }
     if (!loan_id || !installment_id) {
-      return json(req, { ok: false, error: "Contrato ou parcela nao informado." }, 400);
+      return json(req, { ok: false, error: "Contrato ou parcela nao informado.", code: "MISSING_REFERENCE" });
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -83,7 +91,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!urlContract || String(urlContract.portal_shortcode) !== String(portal_code)) {
-        return json(req, { ok: false, error: "Credenciais do portal invalidas." }, 403);
+        return json(req, { ok: false, error: "Credenciais do portal invalidas.", code: "INVALID_PORTAL_CREDENTIALS" });
       }
 
       const { data: targetContract } = await supabaseAdmin
@@ -93,7 +101,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!targetContract || targetContract.client_id !== urlContract.client_id) {
-        return json(req, { ok: false, error: "Contrato nao pertence ao cliente do portal." }, 403);
+        return json(req, { ok: false, error: "Contrato nao pertence ao cliente do portal.", code: "PORTAL_CONTRACT_MISMATCH" });
       }
 
       isAuthorized = true;
@@ -109,7 +117,7 @@ serve(async (req) => {
 
       const { data: authData, error: authErr } = await supabaseUser.auth.getUser();
       if (authErr || !authData?.user?.id) {
-        return json(req, { ok: false, error: "Unauthorized: invalid token" }, 401);
+        return json(req, { ok: false, error: "Unauthorized: invalid token", code: "UNAUTHORIZED" });
       }
 
       const { data: callerProfile } = await supabaseAdmin
@@ -119,7 +127,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (!callerProfile?.id) {
-        return json(req, { ok: false, error: "Perfil nao encontrado." }, 403);
+        return json(req, { ok: false, error: "Perfil nao encontrado.", code: "PROFILE_NOT_FOUND" });
       }
       callerProfileId = callerProfile.id;
       isAuthorized = true;
@@ -131,10 +139,10 @@ serve(async (req) => {
       .eq("id", loan_id)
       .maybeSingle();
 
-    if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato nao encontrado." }, 404);
+    if (loanErr || !loan?.id) return json(req, { ok: false, error: "Contrato nao encontrado.", code: "CONTRACT_NOT_FOUND" });
 
     const targetProfileId = loan.profile_id || loan.owner_id || callerProfileId;
-    if (!targetProfileId) return json(req, { ok: false, error: "Perfil do contrato nao encontrado." }, 400);
+    if (!targetProfileId) return json(req, { ok: false, error: "Perfil do contrato nao encontrado.", code: "CONTRACT_PROFILE_NOT_FOUND" });
 
     if (callerProfileId && String(targetProfileId) !== String(callerProfileId)) {
       const { data: relatedProfiles } = await supabaseAdmin
@@ -149,7 +157,7 @@ serve(async (req) => {
         String(caller?.supervisor_id || "") === String(targetProfileId);
 
       if (!canAccess) {
-        return json(req, { ok: false, error: "Acesso negado para gerar cobranca deste contrato." }, 403);
+        return json(req, { ok: false, error: "Acesso negado para gerar cobranca deste contrato.", code: "ACCESS_DENIED" });
       }
     }
 
@@ -160,7 +168,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (instErr || !installment?.id || installment.loan_id !== loan_id) {
-      return json(req, { ok: false, error: "Parcela nao encontrada." }, 404);
+      return json(req, { ok: false, error: "Parcela nao encontrada.", code: "INSTALLMENT_NOT_FOUND" });
     }
 
     const openTotal =
@@ -169,12 +177,11 @@ serve(async (req) => {
       Number(installment.late_fee_accrued || 0);
 
     if (String(installment.status || "").toUpperCase() === "PAID" || openTotal <= 0.05) {
-      return json(req, { ok: false, error: "Parcela ja esta quitada." }, 409);
+      return json(req, { ok: false, error: "Parcela ja esta quitada.", code: "INSTALLMENT_PAID" });
     }
 
-    if (safeAmount - openTotal > 0.05) {
-      return json(req, { ok: false, error: "Valor maior que o saldo em aberto da parcela." }, 409);
-    }
+    const chargeAmount = Math.max(0, Math.min(safeAmount, openTotal));
+    const amountAdjusted = Math.abs(chargeAmount - safeAmount) > 0.05;
 
     const { data: config } = await supabaseAdmin
       .from("perfis_config_infinitepay")
@@ -184,14 +191,14 @@ serve(async (req) => {
 
     const handle = String(config?.infinitepay_handle || GLOBAL_INFINITEPAY_HANDLE || "").trim().replace(/^[@$]+/, "");
     if (!handle) {
-      return json(req, { ok: false, error: "InfinitePay nao configurado para este perfil." }, 400);
+      return json(req, { ok: false, error: "InfinitePay nao configurado para este perfil.", code: "HANDLE_NOT_CONFIGURED" });
     }
 
     const orderNsu = crypto.randomUUID();
     const webhookUrl = `${SUPABASE_URL}/functions/v1/infinitepay-webhook`;
     const redirectUrl = String(return_url || APP_ORIGIN || "").startsWith("http") ? return_url : APP_ORIGIN;
 
-    const checkoutPayload = {
+    const checkoutPayload: Record<string, unknown> = {
       handle,
       redirect_url: redirectUrl,
       webhook_url: webhookUrl,
@@ -199,16 +206,22 @@ serve(async (req) => {
       items: [
         {
           quantity: 1,
-          price: cents(safeAmount),
-          description: `CapitalFlow - Contrato ${String(loan_id).slice(0, 8)}`,
+          price: cents(chargeAmount),
+          description: `Acerto Financeiro - Contrato ${String(loan_id).slice(0, 8)}`,
         },
       ],
-      customer: {
-        name: payer_name || loan.debtor_name || "Cliente",
-        email: payer_email || "cliente@capitalflow.app",
-        phone_number: payer_phone || undefined,
-      },
     };
+
+    const customerName = String(payer_name || loan.debtor_name || "").trim();
+    const customerEmail = String(payer_email || "").trim();
+    const customerPhone = String(payer_phone || "").trim();
+    if (customerName || customerEmail || customerPhone) {
+      checkoutPayload.customer = {
+        name: customerName || "Cliente",
+        email: customerEmail || "cliente@capitalflow.app",
+        phone_number: customerPhone || undefined,
+      };
+    }
 
     const providerRes = await fetch(INFINITEPAY_LINKS_URL, {
       method: "POST",
@@ -216,9 +229,22 @@ serve(async (req) => {
       body: JSON.stringify(checkoutPayload),
     });
 
-    const providerData = await providerRes.json().catch(() => ({}));
+    const providerData = await readResponseBody(providerRes);
     if (!providerRes.ok || !providerData?.url) {
-      return json(req, { ok: false, error: providerData?.message || "Erro ao gerar checkout InfinitePay." }, 502);
+      const providerMessage =
+        typeof providerData === "string"
+          ? providerData
+          : (providerData && typeof providerData === "object" && ("message" in providerData || "error" in providerData))
+            ? String((providerData as any).message || (providerData as any).error || "")
+            : "";
+
+      return json(req, {
+        ok: false,
+        error: providerMessage || "Erro ao gerar checkout InfinitePay.",
+        code: "PROVIDER_REJECTED",
+        provider_status: providerRes.status,
+        provider_body: providerData,
+      });
     }
 
     const { data: charge, error: chargeErr } = await supabaseAdmin
@@ -236,7 +262,7 @@ serve(async (req) => {
         payer_name: payer_name || null,
         payer_doc: payer_doc || null,
         checkout_url: providerData.url,
-        provider_payload: {
+      provider_payload: {
           provider: "INFINITEPAY",
           handle,
           order_nsu: orderNsu,
@@ -244,13 +270,16 @@ serve(async (req) => {
           profile_id: targetProfileId,
           client_id: loan.client_id || null,
           checkout_url: providerData.url,
+          requested_amount: safeAmount,
+          charged_amount: chargeAmount,
+          amount_adjusted: amountAdjusted,
         },
       })
       .select("id")
       .single();
 
     if (chargeErr) {
-      return json(req, { ok: false, error: "Checkout gerado, mas falhou ao registrar cobranca: " + chargeErr.message }, 500);
+      return json(req, { ok: false, error: "Checkout gerado, mas falhou ao registrar cobranca: " + chargeErr.message, code: "CHARGE_PERSISTENCE_FAILED" });
     }
 
     return json(req, {
@@ -261,6 +290,6 @@ serve(async (req) => {
       webhook_url: webhookUrl,
     });
   } catch (err: any) {
-    return json(req, { ok: false, error: err?.message || "Internal error" }, 500);
+    return json(req, { ok: false, error: err?.message || "Internal error", code: "INTERNAL_ERROR" });
   }
 });

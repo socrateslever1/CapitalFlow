@@ -4,9 +4,9 @@ import { CalculationResult, RenewalResult, PaymentAllocation } from "./modalitie
 import { modalityRegistry } from "./modalities/registry";
 
 export const financeDispatcher = {
-    calculate(loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult {
+    calculate(loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string): CalculationResult {
         const strategy = modalityRegistry.get(loan.billingCycle);
-        return strategy.calculate(loan, inst, policy);
+        return strategy.calculate(loan, inst, policy, referenceDate);
     },
 
     renew(

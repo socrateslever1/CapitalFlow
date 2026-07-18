@@ -61,6 +61,47 @@ function json(data: unknown, status = 200) {
   });
 }
 
+async function notifyOperatorWhatsApp(
+  supabase: any,
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  profileId: string,
+  message: string,
+) {
+  try {
+    const { data: profile } = await supabase
+      .from("perfis")
+      .select("*")
+      .eq("id", profileId)
+      .maybeSingle();
+    const phone = String(
+      profile?.contato_whatsapp ||
+      profile?.support_phone ||
+      profile?.telefone ||
+      profile?.phone ||
+      profile?.whatsapp ||
+      "",
+    ).replace(/\D/g, "");
+    if (phone.length < 10) return;
+
+    await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+      },
+      body: JSON.stringify({
+        profile_id: profileId,
+        phone,
+        message,
+      }),
+    });
+  } catch (err) {
+    console.warn("[mp-webhook] Falha ao notificar operador por WhatsApp:", err);
+  }
+}
+
 serve(async (req) => {
   try {
     if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
@@ -251,6 +292,22 @@ serve(async (req) => {
       paid_at: new Date().toISOString(),
     });
 
+    const readAt = new Date().toISOString();
+    await supabase
+      .from("notificacoes")
+      .update({ read_at: readAt })
+      .eq("profile_id", ownerProfileId)
+      .eq("item_type", "parcela")
+      .eq("item_id", instId)
+      .is("read_at", null);
+    await supabase
+      .from("notificacoes")
+      .update({ read_at: readAt })
+      .eq("profile_id", ownerProfileId)
+      .eq("item_type", "parcela")
+      .like("item_id", `${instId}:%`)
+      .is("read_at", null);
+
     await supabase.from("payment_intents").insert({
       loan_id: loanId,
       installment_id: instId,
@@ -265,11 +322,19 @@ serve(async (req) => {
     await supabase.from("notificacoes").insert({
       profile_id: ownerProfileId,
       titulo: "Pagamento Recebido!",
-      mensagem: "Pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " referente ao contrato " + String(loanId).slice(0, 8) + " compensado.",
+      mensagem: "URGENTE: pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " referente ao contrato " + String(loanId).slice(0, 8) + " compensado.",
       item_type: "pagamento",
-      item_id: instId,
-      metadata: { loan_id: loanId, payment_id: paymentId }
+      item_id: String(paymentId),
+      metadata: { loan_id: loanId, installment_id: instId, payment_id: paymentId, provider: "MERCADO_PAGO", urgent: true }
     });
+
+    await notifyOperatorWhatsApp(
+      supabase,
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+      ownerProfileId,
+      "CapitalFlow: pagamento Mercado Pago de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " recebido e baixado automaticamente.",
+    );
 
     return json({ ok: true, status });
   } catch (err: any) {

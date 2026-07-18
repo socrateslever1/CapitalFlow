@@ -74,6 +74,47 @@ function mapPaymentMethod(captureMethod: string | null | undefined) {
   return "CREDIT_CARD";
 }
 
+async function notifyOperatorWhatsApp(
+  supabase: any,
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  profileId: string,
+  message: string,
+) {
+  try {
+    const { data: profile } = await supabase
+      .from("perfis")
+      .select("*")
+      .eq("id", profileId)
+      .maybeSingle();
+    const phone = String(
+      profile?.contato_whatsapp ||
+      profile?.support_phone ||
+      profile?.telefone ||
+      profile?.phone ||
+      profile?.whatsapp ||
+      "",
+    ).replace(/\D/g, "");
+    if (phone.length < 10) return;
+
+    await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+      },
+      body: JSON.stringify({
+        profile_id: profileId,
+        phone,
+        message,
+      }),
+    });
+  } catch (err) {
+    console.warn("[infinitepay-webhook] Falha ao notificar operador por WhatsApp:", err);
+  }
+}
+
 serve(async (req) => {
   try {
     if (req.method !== "POST") return json({ success: false, message: "Method Not Allowed" }, 405);
@@ -254,6 +295,22 @@ serve(async (req) => {
       provider_status: "PAID",
     });
 
+    const readAt = new Date().toISOString();
+    await supabase
+      .from("notificacoes")
+      .update({ read_at: readAt })
+      .eq("profile_id", ownerProfileId)
+      .eq("item_type", "parcela")
+      .eq("item_id", installmentId)
+      .is("read_at", null);
+    await supabase
+      .from("notificacoes")
+      .update({ read_at: readAt })
+      .eq("profile_id", ownerProfileId)
+      .eq("item_type", "parcela")
+      .like("item_id", `${installmentId}:%`)
+      .is("read_at", null);
+
     if (contract.client_id) {
       await supabase.from("payment_intents").insert({
         client_id: contract.client_id,
@@ -269,11 +326,19 @@ serve(async (req) => {
     await supabase.from("notificacoes").insert({
       profile_id: ownerProfileId,
       titulo: "Pagamento InfinitePay recebido",
-      mensagem: "Pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " confirmado e baixado automaticamente.",
+      mensagem: "URGENTE: pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " confirmado pelo portal e baixado automaticamente.",
       item_type: "pagamento",
-      item_id: installmentId,
-      metadata: { loan_id: loanId, payment_id: transactionNsu, provider: "INFINITEPAY" },
+      item_id: transactionNsu || charge.id,
+      metadata: { loan_id: loanId, installment_id: installmentId, payment_id: transactionNsu, provider: "INFINITEPAY", urgent: true },
     });
+
+    await notifyOperatorWhatsApp(
+      supabase,
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+      ownerProfileId,
+      "CapitalFlow: pagamento InfinitePay de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " recebido e baixado automaticamente.",
+    );
 
     return json({ success: true, message: null });
   } catch (err: any) {

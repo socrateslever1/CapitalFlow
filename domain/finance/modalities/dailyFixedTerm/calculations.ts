@@ -1,18 +1,19 @@
 
 import { Loan, Installment, LoanPolicy } from "../../../../types";
+import { Loan, Installment, LoanPolicy } from "../../../../types";
 import { getDaysDiff } from "../../../../utils/dateHelpers";
 import { CalculationResult } from "../types";
 import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
-export const calculateDailyFixedTerm = (loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult => {
+export const calculateDailyFixedTerm = (loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string): CalculationResult => {
     // Parcela Única
     const principalRem = Number(inst.principalRemaining) || 0;
     const interestRem = Number(inst.interestRemaining) || 0;
     
     // Atraso só conta após o fim do prazo total (due_date)
-    const daysLate = Math.max(0, getDaysDiff(inst.dueDate));
+    const daysLate = Math.max(0, getDaysDiff(inst.dueDate, referenceDate));
     
     let currentLateFee = 0;
     const baseForFine = round(principalRem + interestRem);

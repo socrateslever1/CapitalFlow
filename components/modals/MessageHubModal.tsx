@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2, CreditCard } from 'lucide-react';
+import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Installment, Loan } from '../../types';
 import { Modal } from '../ui/Modal';
 import { calculateTotalDue } from '../../domain/finance/calculations';
@@ -9,7 +9,6 @@ import { useModal } from '../../contexts/ModalContext';
 import { isInstallmentOpen } from '../../utils/loanStatus';
 
 import { getOrCreatePortalLink } from '../../utils/portalLink';
-import { createInfinitePayCheckout } from '../../services/infinitepay.service';
 
 // Função auxiliar de saudação
 const getGreeting = (): string => {
@@ -127,54 +126,6 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
         }
     };
 
-    const handleInfinitePayCharge = async () => {
-        setLoading(true);
-        try {
-            const freshLoan = loans.find((item) => item.id === loan.id) || currentLoan;
-            const pendingInst = getRelevantInstallment(freshLoan);
-
-            if (!pendingInst?.id) {
-                showToast('Nenhuma parcela aberta para cobrar.', 'error');
-                return;
-            }
-
-            const debt = calculateTotalDue(freshLoan, pendingInst);
-            if (!debt.total || debt.total <= 0.05) {
-                showToast('Parcela sem saldo aberto para cobrar.', 'error');
-                return;
-            }
-
-            const checkout = await createInfinitePayCheckout({
-                loanId: freshLoan.id,
-                installmentId: pendingInst.id,
-                amount: debt.total,
-                payerName: freshLoan.debtorName,
-                payerPhone: freshLoan.debtorPhone,
-                returnUrl: window.location.href,
-            });
-
-            const firstName = (freshLoan.debtorName || '').split(' ').filter(Boolean)[0] || 'Cliente';
-            const amount = debt.total.toFixed(2).replace('.', ',');
-            const dueDate = formatBRDate(pendingInst.dueDate);
-            const text =
-                `*${getGreeting()}, ${firstName}!*\n\n` +
-                `Segue o link seguro para pagamento da parcela de *R$ ${amount}*, vencimento *${dueDate}*:\n\n` +
-                `${checkout.checkoutUrl}\n\n` +
-                `Assim que o pagamento for confirmado pela InfinitePay, o sistema baixa automaticamente no contrato.`;
-
-            const cleanPhone = String(freshLoan.debtorPhone || '').replace(/\D/g, '');
-            const waPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-
-            window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(text)}`, '_blank');
-            onClose();
-        } catch (error: any) {
-            console.error('Erro ao gerar checkout InfinitePay', error);
-            showToast(error?.message || 'Erro ao gerar cobranca InfinitePay.', 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
         <Modal onClose={onClose} title="Central de Mensagens">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -198,13 +149,6 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                         <span className="font-bold text-white uppercase text-xs">Cobrança Atraso</span>
                     </div>
                     <p className="text-[10px] text-slate-500">Mensagem firme solicitando regularização.</p>
-                </button>
-                <button disabled={loading} onClick={handleInfinitePayCharge} className="p-4 bg-slate-900 border border-slate-800 rounded-lg hover:border-emerald-500 transition-all text-left group disabled:opacity-50">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-full group-hover:bg-emerald-500 group-hover:text-white transition-colors"><CreditCard size={20}/></div>
-                        <span className="font-bold text-white uppercase text-xs">Cobrar InfinitePay</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500">Gera link com valor atualizado e envia no WhatsApp.</p>
                 </button>
                 <button disabled={loading} onClick={() => handleSend('PAID')} className="p-4 bg-slate-900 border border-slate-800 rounded-lg hover:border-emerald-500 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">

@@ -200,7 +200,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             className="w-full bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-900 p-4 rounded-lg font-black uppercase text-xs shadow-lg shadow-black/5 transition-all active:scale-95 flex items-center justify-center gap-2 border border-slate-200"
                         >
                             {isProcessingInfinitePay ? (
-                                <><Loader2 size={16} className="animate-spin text-slate-500" /> Gerando Checkout...</>
+                                <><Loader2 size={16} className="animate-spin text-slate-500" /> Gerando cobrança...</>
                             ) : (
                                 <>
                                     <img src="/images/infinitepay.png" alt="InfinitePay" className="h-5 object-contain" />
@@ -211,8 +211,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     )}
 
                     <p className="text-[9px] text-center text-slate-500 font-bold tracking-widest uppercase">
-
-                        Pagamento Seguro e Criptografado
+                        Cobrança segura e criptografada
                     </p>
                 </div>
             )}

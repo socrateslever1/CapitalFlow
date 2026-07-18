@@ -245,7 +245,10 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                     type="date"
                                     value={realPaymentDateStr}
                                     onChange={e => setRealPaymentDateStr(e.target.value)}
-                                    className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
+                                    onClick={(e) => {
+                                        try { (e.target as any).showPicker(); } catch(e){}
+                                    }}
+                                    className="bg-transparent text-white font-bold text-sm outline-none w-full cursor-pointer [color-scheme:dark]"
                                 />
                             </div>
                             <Calendar size={20} className="text-slate-500 group-focus-within:text-blue-500 transition-colors"/>
@@ -379,9 +382,12 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                     </label>
                                     <input
                                         type="date"
-                                        className="bg-slate-950 border border-slate-800 rounded-full p-3 text-white font-bold text-sm outline-none w-full focus:border-blue-500 transition-all"
+                                        className="bg-slate-950 border border-slate-800 rounded-full p-3 text-white font-bold text-sm outline-none w-full focus:border-blue-500 transition-all cursor-pointer [color-scheme:dark]"
                                         value={manualDateStr || ''}
                                         onChange={e => setManualDateStr(e.target.value)}
+                                        onClick={(e) => {
+                                            try { (e.target as any).showPicker(); } catch(e){}
+                                        }}
                                     />
                                 </div>
 

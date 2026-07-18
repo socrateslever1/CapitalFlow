@@ -26,13 +26,13 @@ import { useClientPortalLogic } from '../../features/portal/hooks/useClientPorta
 import { usePortalClientNotifications } from '../../features/portal/hooks/usePortalClientNotifications';
 import { usePortalPushNotifications } from '../../features/portal/hooks/usePortalPushNotifications';
 import { notificationService } from '../../services/notification.service';
-import { PortalPaymentModal } from '../../features/portal/components/PortalPaymentModal';
 import { PortalChatDrawer } from '../../features/portal/components/PortalChatDrawer';
-import { resolveDebtSummary, resolveInstallmentDebt, getPortalDueLabel, isPortalInstallmentPaid } from '../../features/portal/mappers/portalDebtRules';
+import { resolveDebtSummary, resolveInstallmentDebt, resolvePaymentOptions, getPortalDueLabel, isPortalInstallmentPaid } from '../../features/portal/mappers/portalDebtRules';
 import { PortalInstallmentItem } from './components/PortalInstallmentItem';
 import { PortalEducationalAI } from '../../features/portal/components/PortalEducationalAI';
 import { formatMoney } from '../../utils/formatters';
 import { legalDocumentService } from '../../services/legalDocument.service';
+import { portalService } from '../../services/portal.service';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 
 interface ClientPortalViewProps {
@@ -42,10 +42,11 @@ interface ClientPortalViewProps {
 
 interface ContractBlockProps {
   loan: any;
-  onPay: () => void;
+  onPay: () => Promise<void>;
+  isProcessingPayment: boolean;
 }
 
-const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
+const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessingPayment }) => {
   const summary = useMemo(() => {
     const insts = (loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO'))
       ? (loan.activeAgreement.installments || [])
@@ -131,17 +132,29 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay }) => {
       <div className="shrink-0 relative z-10">
         <button
           onClick={onPay}
-          disabled={isPaidOff}
+          disabled={isPaidOff || isProcessingPayment}
+          aria-label={isPaidOff ? 'Contrato quitado' : 'Pagar com InfinitePay'}
           className={`px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300 shadow-md ${
             isPaidOff
               ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50 shadow-none'
+              : isProcessingPayment
+              ? 'bg-slate-800 text-slate-300 cursor-wait shadow-none'
               : hasLateInstallments
               ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/25 active:scale-95'
               : 'bg-white hover:bg-blue-50 text-slate-950 shadow-white/5 active:scale-95'
           }`}
         >
-          <span>Pagar</span>
-          <ArrowRight size={11} className="opacity-60" />
+          {isProcessingPayment ? (
+            <>
+              <RefreshCw size={12} className="animate-spin" />
+              <span>Gerando</span>
+            </>
+          ) : (
+            <>
+              <img src="/images/infinitepay.png" alt="InfinitePay" className="h-4 w-auto max-w-[72px] object-contain" />
+              <span>Pagar</span>
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -210,7 +223,8 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
   const { isLoading, portalError, loggedClient, clientContracts, loadFullPortalData } =
     useClientPortalLogic(initialPortalToken, initialPortalCode);
 
-  const [activeLoanForPayment, setActiveLoanForPayment] = useState<any>(null);
+  const [processingPaymentLoanId, setProcessingPaymentLoanId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const [isFilesOpen, setIsFilesOpen] = useState(false);
   const [docList, setDocList] = useState<any[]>([]);
@@ -318,13 +332,6 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         return;
       }
 
-      if (activeLoanForPayment) {
-        setActiveLoanForPayment(null);
-        loadFullPortalData();
-        restorePortalGuard();
-        return;
-      }
-
       if (isChatOpen) {
         setIsChatOpen(false);
         restorePortalGuard();
@@ -344,7 +351,6 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
   }, [
     isLegalOpen,
     isFilesOpen,
-    activeLoanForPayment,
     isChatOpen,
     loadFullPortalData,
     confirmPortalExit,
@@ -353,6 +359,45 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
   ]);
 
   usePortalPushNotifications(clientContracts, loggedClient?.id || null);
+
+  const handleInfinitePay = useCallback(async (loan: any) => {
+    const installment = (loan.installments || []).find((item: any) => !isPortalInstallmentPaid(item));
+    if (!installment) {
+      setPaymentError('Este contrato nao possui parcela em aberto.');
+      return;
+    }
+
+    const amount = resolvePaymentOptions(loan, installment).totalToPay;
+    if (!Number.isFinite(amount) || amount <= 0.05) {
+      setPaymentError('Nao foi encontrado valor valido para pagamento.');
+      return;
+    }
+
+    setPaymentError(null);
+    setProcessingPaymentLoanId(loan.id);
+
+    try {
+      const checkout = await portalService.createInfinitePayCheckout(
+        initialPortalToken,
+        initialPortalCode,
+        loan.id,
+        installment.id,
+        amount,
+        {
+          name: loggedClient.name,
+          doc: loggedClient.document,
+          email: loggedClient.email,
+          phone: loggedClient.phone,
+          id: loggedClient.id,
+        }
+      );
+
+      window.location.assign(checkout.checkoutUrl);
+    } catch (error: any) {
+      setPaymentError(error?.message || 'Falha ao gerar pagamento InfinitePay.');
+      setProcessingPaymentLoanId(null);
+    }
+  }, [initialPortalCode, initialPortalToken, loggedClient]);
 
   const globalSummary = useMemo(() => {
     let total = 0;
@@ -593,9 +638,15 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 <ContractBlock
                   key={contract.id}
                   loan={contract}
-                  onPay={() => setActiveLoanForPayment(contract)}
+                  onPay={() => handleInfinitePay(contract)}
+                  isProcessingPayment={processingPaymentLoanId === contract.id}
                 />
               ))
+            )}
+            {paymentError && (
+              <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-[10px] font-bold text-rose-300">
+                {paymentError}
+              </div>
             )}
           </div>
 
@@ -627,28 +678,6 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
            <div className="absolute top-1 right-1 w-3 h-3 bg-emerald-400 border-2 border-emerald-600 rounded-full animate-pulse"></div>
         </button>
       </div>
-
-      {activeLoanForPayment && (
-        <PortalPaymentModal
-          portalToken={initialPortalToken}
-          portalCode={initialPortalCode}
-          loan={activeLoanForPayment}
-          installment={
-            activeLoanForPayment.installments.find((i: any) => !isPortalInstallmentPaid(i)) || activeLoanForPayment.installments[0]
-          }
-          clientData={{
-            name: loggedClient.name,
-            doc: loggedClient.document,
-            email: loggedClient.email,
-            phone: loggedClient.phone,
-            id: loggedClient.id
-          }}
-          onClose={() => {
-            setActiveLoanForPayment(null);
-            loadFullPortalData();
-          }}
-        />
-      )}
 
       {/* NOVO CHAT GLOBAL (PortalChatDrawer agora redesenhado) */}
       {isChatOpen && (

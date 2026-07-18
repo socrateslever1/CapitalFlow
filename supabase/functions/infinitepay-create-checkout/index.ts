@@ -207,7 +207,7 @@ serve(async (req) => {
         {
           quantity: 1,
           price: cents(chargeAmount),
-          description: `Acerto Financeiro - Contrato ${String(loan_id).slice(0, 8)}`,
+          description: `Pagamento de parcela - Contrato ${String(loan_id).slice(0, 8)}`,
         },
       ],
     };

@@ -200,27 +200,25 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         setAvAmount(nextAmount > 0 ? nextAmount.toFixed(2) : '');
     }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle]);
 
-    // Inicialização da próxima data (Apenas na montagem do modal para não sobrescrever a edição do usuário)
+    // Inicialização da próxima data vinculada SEMPRE à Data Recebimento (realPaymentDateStr)
     useEffect(() => {
-        if (data && data.inst?.dueDate) {
-            const dueDate = parseDateOnlyUTC(data.inst.dueDate);
+        if (data && data.inst?.dueDate && realPaymentDateStr) {
+            const baseDate = parseDateOnlyUTC(realPaymentDateStr);
             const isDaily =
                 resolvedBillingCycle === 'DAILY_FREE' ||
                 resolvedBillingCycle === 'DAILY_FIXED_TERM';
 
-            // Por padrão, sugere o PRÓXIMO mês mantendo o DIA do contrato (já que estão pagando a atual)
+            // Por padrão, sugere o PRÓXIMO mês mantendo o DIA do recebimento
             let nextDate: Date;
             if (isDaily) {
-                nextDate = addDaysUTC(dueDate, 1);
+                nextDate = addDaysUTC(baseDate, 1);
             } else {
-                nextDate = addMonthsUTC(dueDate, 1);
+                nextDate = addMonthsUTC(baseDate, 1);
             }
 
             setManualDateStr(toISODateOnlyUTC(nextDate));
         }
-        // Rodar APENAS quando o contrato carregar, NUNCA quando o valor (avAmount) mudar,
-        // para garantir que se o usuário editar a data, ela permaneça editada!
-    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle]);
+    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle, realPaymentDateStr]);
 
     return {
         customAmount, setCustomAmount,

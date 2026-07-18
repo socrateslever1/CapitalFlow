@@ -15,14 +15,20 @@ export type PersistedNotificationInput = {
 type NotificationRow = Record<string, any>;
 type CacheEntry = { rows: NotificationRow[]; fetchedAt: number };
 
-const NOTIFICATION_CACHE_TTL_MS = 1_500;
+// Evita rajadas de consultas durante rerenders e funciona como fallback de polling.
+const NOTIFICATION_REFRESH_INTERVAL_MS = 5_000;
 const unreadCache = new Map<string, CacheEntry>();
 const recentReadCache = new Map<string, CacheEntry>();
 const unreadRequests = new Map<string, Promise<NotificationRow[]>>();
 const recentReadRequests = new Map<string, Promise<NotificationRow[]>>();
 
-const isFresh = (entry?: CacheEntry) =>
-  !!entry && Date.now() - entry.fetchedAt < NOTIFICATION_CACHE_TTL_MS;
+const wait = (milliseconds: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+
+const remainingRefreshDelay = (entry?: CacheEntry) => {
+  if (!entry) return 0;
+  return Math.max(0, NOTIFICATION_REFRESH_INTERVAL_MS - (Date.now() - entry.fetchedAt));
+};
 
 const invalidateProfileCache = (profileId?: string | null) => {
   if (!profileId) return;
@@ -34,13 +40,14 @@ export const notificationCenterService = {
   async listUnread(profileId: string) {
     if (!profileId || profileId === 'DEMO') return [];
 
-    const cached = unreadCache.get(profileId);
-    if (isFresh(cached)) return cached!.rows;
-
     const pending = unreadRequests.get(profileId);
     if (pending) return pending;
 
+    const cached = unreadCache.get(profileId);
     const request = (async () => {
+      const delay = remainingRefreshDelay(cached);
+      if (delay > 0) await wait(delay);
+
       const { data, error } = await supabase
         .from('notificacoes')
         .select('id,titulo,mensagem,action_url,item_type,item_id,metadata,created_at,read_at')
@@ -68,13 +75,14 @@ export const notificationCenterService = {
   async listRecentlyRead(profileId: string, sinceIso: string) {
     if (!profileId || profileId === 'DEMO') return [];
 
-    const cached = recentReadCache.get(profileId);
-    if (isFresh(cached)) return cached!.rows;
-
     const pending = recentReadRequests.get(profileId);
     if (pending) return pending;
 
+    const cached = recentReadCache.get(profileId);
     const request = (async () => {
+      const delay = remainingRefreshDelay(cached);
+      if (delay > 0) await wait(delay);
+
       const { data, error } = await supabase
         .from('notificacoes')
         .select('id,item_type,item_id,read_at')

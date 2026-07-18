@@ -12,44 +12,92 @@ export type PersistedNotificationInput = {
   metadata?: any;
 };
 
+type NotificationRow = Record<string, any>;
+type CacheEntry = { rows: NotificationRow[]; fetchedAt: number };
+
+const NOTIFICATION_CACHE_TTL_MS = 1_500;
+const unreadCache = new Map<string, CacheEntry>();
+const recentReadCache = new Map<string, CacheEntry>();
+const unreadRequests = new Map<string, Promise<NotificationRow[]>>();
+const recentReadRequests = new Map<string, Promise<NotificationRow[]>>();
+
+const isFresh = (entry?: CacheEntry) =>
+  !!entry && Date.now() - entry.fetchedAt < NOTIFICATION_CACHE_TTL_MS;
+
+const invalidateProfileCache = (profileId?: string | null) => {
+  if (!profileId) return;
+  unreadCache.delete(profileId);
+  recentReadCache.delete(profileId);
+};
+
 export const notificationCenterService = {
   async listUnread(profileId: string) {
     if (!profileId || profileId === 'DEMO') return [];
 
-    const { data, error } = await supabase
-      .from('notificacoes')
-      .select('id,titulo,mensagem,action_url,item_type,item_id,metadata,created_at,read_at')
-      .eq('profile_id', profileId)
-      .is('read_at', null)
-      .order('created_at', { ascending: false })
-      .limit(40);
+    const cached = unreadCache.get(profileId);
+    if (isFresh(cached)) return cached!.rows;
 
-    if (error) {
-      console.warn('[NotificationCenter] Falha ao listar notificacoes:', error.message);
-      return [];
-    }
+    const pending = unreadRequests.get(profileId);
+    if (pending) return pending;
 
-    return data || [];
+    const request = (async () => {
+      const { data, error } = await supabase
+        .from('notificacoes')
+        .select('id,titulo,mensagem,action_url,item_type,item_id,metadata,created_at,read_at')
+        .eq('profile_id', profileId)
+        .is('read_at', null)
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (error) {
+        console.warn('[NotificationCenter] Falha ao listar notificacoes:', error.message);
+        return cached?.rows || [];
+      }
+
+      const rows = (data || []) as NotificationRow[];
+      unreadCache.set(profileId, { rows, fetchedAt: Date.now() });
+      return rows;
+    })().finally(() => {
+      unreadRequests.delete(profileId);
+    });
+
+    unreadRequests.set(profileId, request);
+    return request;
   },
 
   async listRecentlyRead(profileId: string, sinceIso: string) {
     if (!profileId || profileId === 'DEMO') return [];
 
-    const { data, error } = await supabase
-      .from('notificacoes')
-      .select('id,item_type,item_id,read_at')
-      .eq('profile_id', profileId)
-      .not('read_at', 'is', null)
-      .gte('read_at', sinceIso)
-      .order('read_at', { ascending: false })
-      .limit(100);
+    const cached = recentReadCache.get(profileId);
+    if (isFresh(cached)) return cached!.rows;
 
-    if (error) {
-      console.warn('[NotificationCenter] Falha ao listar notificacoes lidas recentes:', error.message);
-      return [];
-    }
+    const pending = recentReadRequests.get(profileId);
+    if (pending) return pending;
 
-    return data || [];
+    const request = (async () => {
+      const { data, error } = await supabase
+        .from('notificacoes')
+        .select('id,item_type,item_id,read_at')
+        .eq('profile_id', profileId)
+        .not('read_at', 'is', null)
+        .gte('read_at', sinceIso)
+        .order('read_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.warn('[NotificationCenter] Falha ao listar notificacoes lidas recentes:', error.message);
+        return cached?.rows || [];
+      }
+
+      const rows = (data || []) as NotificationRow[];
+      recentReadCache.set(profileId, { rows, fetchedAt: Date.now() });
+      return rows;
+    })().finally(() => {
+      recentReadRequests.delete(profileId);
+    });
+
+    recentReadRequests.set(profileId, request);
+    return request;
   },
 
   async create(input: PersistedNotificationInput) {
@@ -74,6 +122,7 @@ export const notificationCenterService = {
       return null;
     }
 
+    invalidateProfileCache(input.profileId);
     return data?.id || null;
   },
 
@@ -83,14 +132,19 @@ export const notificationCenterService = {
       return;
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('notificacoes')
       .update({ read_at: new Date().toISOString() })
-      .eq('id', notificationId);
+      .eq('id', notificationId)
+      .select('profile_id')
+      .maybeSingle();
 
     if (error) {
       console.warn('[NotificationCenter] Falha ao marcar notificacao como lida:', error.message);
+      return;
     }
+
+    invalidateProfileCache(data?.profile_id);
   },
 
   async markItemAsRead(profileId: string, itemType: string, itemId: string) {
@@ -105,7 +159,10 @@ export const notificationCenterService = {
 
     if (error) {
       console.warn('[NotificationCenter] Falha ao marcar item como lido:', error.message);
+      return;
     }
+
+    invalidateProfileCache(profileId);
   },
 
   async markAllAsRead(profileId: string) {
@@ -118,6 +175,9 @@ export const notificationCenterService = {
 
     if (error) {
       console.warn('[NotificationCenter] Falha ao marcar todas as notificacoes como lidas:', error.message);
+      return;
     }
+
+    invalidateProfileCache(profileId);
   },
 };

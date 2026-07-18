@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Download, CheckCircle, AlertCircle, Printer, Shield, Info, X } from 'lucide-react';
 import { legalService } from '../services/legalService';

@@ -73,6 +73,20 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type !== 'PUSH_NAVIGATE' || typeof event.data?.url !== 'string') return;
+
+    const target = new URL(event.data.url, window.location.origin);
+    if (target.origin !== window.location.origin) return;
+
+    const nextPath = `${target.pathname}${target.search}${target.hash}`;
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextPath === currentPath) return;
+
+    window.history.pushState({}, '', nextPath);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((registration) => {

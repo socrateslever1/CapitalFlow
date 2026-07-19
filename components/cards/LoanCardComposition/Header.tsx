@@ -9,8 +9,7 @@ import {
   Hash,
   ShieldAlert,
   ShieldCheck,
-  ShieldX,
-  Skull
+  ShieldX
 } from 'lucide-react';
 import { Loan } from '../../../types';
 import { RiskProfile } from '../../../domain/finance/riskAnalysis';
@@ -100,16 +99,14 @@ export const Header: React.FC<HeaderProps> = ({
         const remaining = twentyFourHours - diff;
         const hours = Math.floor(remaining / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-        
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        setTimeLeft(`${hours}h ${minutes}m`);
         setIsLocked(true);
       } else {
         setTimeLeft(null);
         setIsLocked(false);
         setLocalLastBilledAt(null);
       }
-    }, 1000);
+    }, 60_000);
 
     return () => clearInterval(timer);
   }, [effectiveLastBilledAt, checkIsLocked]);
@@ -161,24 +158,30 @@ export const Header: React.FC<HeaderProps> = ({
   // Risk Badge logic
   let RiskBadge = null;
   if (riskProfile && !isFullyFinalized && !isCapitalOnlyRecovery) {
-    const { level, flags, isPotentialDefaulter } = riskProfile;
+    const { level, flags, isPotentialDefaulter, category, label } = riskProfile;
     
     let config = { icon: ShieldCheck, color: 'text-slate-500', bg: 'bg-slate-500/10', border: 'border-slate-500/20', label: 'Risco Baixo' };
     
     if (isPotentialDefaulter) {
-       config = { icon: Skull, color: 'text-rose-600', bg: 'bg-rose-600/20', border: 'border-rose-600/40', label: 'Calote' };
+       config = { icon: ShieldX, color: 'text-rose-600', bg: 'bg-rose-600/20', border: 'border-rose-600/40', label };
+    } else if (category === 'DOCUMENTAL') {
+       config = { icon: ShieldAlert, color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', label };
+    } else if (category === 'HISTORICO' && level === 'BAIXO') {
+       config = { icon: ShieldAlert, color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/20', label };
+    } else if (category === 'COBRANCA' && level === 'BAIXO') {
+       config = { icon: ShieldAlert, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', label };
     } else if (level === 'CRITICO') {
-       config = { icon: ShieldX, color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20', label: 'Risco Crítico' };
+       config = { icon: ShieldX, color: 'text-rose-500', bg: 'bg-rose-500/10', border: 'border-rose-500/20', label };
     } else if (level === 'ALTO') {
-       config = { icon: ShieldAlert, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20', label: 'Risco Alto' };
+       config = { icon: ShieldAlert, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/20', label };
     } else if (level === 'MODERADO') {
-       config = { icon: ShieldAlert, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20', label: 'Risco Moderado' };
+       config = { icon: ShieldAlert, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20', label };
     }
 
-    if (level !== 'BAIXO' || isPotentialDefaulter) {
+    if (level !== 'BAIXO' || category !== 'REGULAR' || isPotentialDefaulter) {
       RiskBadge = (
         <div 
-          className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${config.bg} ${config.color} ${config.border} animate-pulse`}
+          className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${config.bg} ${config.color} ${config.border}`}
           title={flags.join('\n')}
         >
           <config.icon size={8} />

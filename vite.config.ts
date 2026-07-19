@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom', 'lucide-react'],
             charts: ['recharts'],
-            utils: ['xlsx'],
+            utils: ['exceljs'],
           },
         },
       },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, getSynchronizedSession } from '../lib/supabase';
 import { Loan, Client, CapitalSource, UserProfile, SortOption, AppTab, LoanStatusFilter } from '../types';
 import { asString, asNumber } from '../utils/safe';
@@ -53,19 +53,6 @@ const readCache = (profileId: string): AppCacheSnapshot | null => {
     return parsed as AppCacheSnapshot;
   } catch {
     return null;
-  }
-};
-
-const writeCache = (profileId: string, snapshot: Omit<AppCacheSnapshot, 'ts'>) => {
-  try {
-    const payload: AppCacheSnapshot = {
-      ...snapshot,
-      loans: filterDeletedForProfile(profileId, snapshot.loans, snapshot.activeUser),
-      ts: Date.now(),
-    };
-    localStorage.setItem(CACHE_KEY(profileId), JSON.stringify(payload));
-  } catch (error) {
-    console.warn('Falha ao salvar cache local', error);
   }
 };
 
@@ -155,6 +142,7 @@ const DEMO_USER: UserProfile = {
 };
 
 export const useAppState = (activeProfileId: string | null, onProfileNotFound?: () => void) => {
+  const fetchInFlightRef = useRef<Map<string, Promise<void>>>(new Map());
   const [activeUser, setActiveUser] = useState<UserProfile | null>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -190,7 +178,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     return true;
   }, []);
 
-  const fetchFullData = useCallback(async (profileId: string) => {
+  const fetchFullDataInternal = useCallback(async (profileId: string) => {
     if (!profileId || profileId === 'null' || profileId === 'undefined') return;
 
     const searchId = profileId === 'DEMO' ? 'DEMO' : profileId;
@@ -208,14 +196,15 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
 
     try {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        if (hydrateCache(searchId, cached)) {
-          markSyncPaused('OFFLINE_CACHE');
-          return;
-        }
-
         const { db } = await import('../services/offline/adminOfflineStore');
         const profileData = await db.perfis.get(searchId);
-        if (!profileData) throw new Error('Sem internet e sem cache local para este perfil.');
+        if (!profileData) {
+          if (hydrateCache(searchId, cached)) {
+            markSyncPaused('OFFLINE_LEGACY_CACHE');
+            return;
+          }
+          throw new Error('Sem internet e sem dados offline para este perfil.');
+        }
 
         const user = mapProfileFromDB(profileData);
         const ownerId = (profileData as any).owner_profile_id || profileData.supervisor_id || profileData.id;
@@ -269,6 +258,8 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setHubOrder(cleanHub);
 
       const { syncService } = await import('../services/sync.service');
+      const { db } = await import('../services/offline/adminOfflineStore');
+      await db.perfis.put(profileData as any);
       await syncService.syncFullData(searchId, ownerId);
       const updated = await syncService.getLocalData(ownerId);
 
@@ -277,15 +268,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       setSources(updated.sources);
       if ((updated as any).staffMembers) setStaffMembers((updated as any).staffMembers);
 
-      writeCache(searchId, {
-        activeUser: { ...user, ui_nav_order: cleanNav, ui_hub_order: cleanHub },
-        loans: updated.loans,
-        clients: updated.clients,
-        sources: updated.sources,
-        staffMembers: (updated as any).staffMembers || [],
-        navOrder: cleanNav,
-        hubOrder: cleanHub,
-      });
+      localStorage.removeItem(CACHE_KEY(searchId));
     } catch (error: any) {
       console.warn('[useAppState] Sincronização remota falhou:', error);
       if (isRecoverableSyncError(error) && hydrateCache(searchId, cached)) {
@@ -299,6 +282,19 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     }
   }, [hydrateCache, onProfileNotFound]);
 
+  const fetchFullData = useCallback((profileId: string) => {
+    const existing = fetchInFlightRef.current.get(profileId);
+    if (existing) return existing;
+
+    const request = fetchFullDataInternal(profileId).finally(() => {
+      if (fetchInFlightRef.current.get(profileId) === request) {
+        fetchInFlightRef.current.delete(profileId);
+      }
+    });
+    fetchInFlightRef.current.set(profileId, request);
+    return request;
+  }, [fetchFullDataInternal]);
+
   useEffect(() => {
     if (!activeProfileId || activeProfileId === 'undefined' || activeProfileId === 'null') {
       setActiveUser(null);
@@ -307,38 +303,22 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       return;
     }
 
-    const cached = readCache(activeProfileId);
-    hydrateCache(activeProfileId, cached);
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      hydrateCache(activeProfileId, readCache(activeProfileId));
+    }
     void fetchFullData(activeProfileId);
   }, [activeProfileId, fetchFullData, hydrateCache]);
 
   useEffect(() => {
     if (!activeUser || !activeProfileId || activeUser.id === 'DEMO') return;
 
-    const ownerId = activeUser.supervisor_id || activeUser.id;
     let syncTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const triggerRealtimeSync = () => {
       if (syncTimeout) clearTimeout(syncTimeout);
       syncTimeout = setTimeout(async () => {
         try {
-          const { syncService } = await import('../services/sync.service');
-          await syncService.syncFullData(activeProfileId, ownerId);
-          const updated = await syncService.getLocalData(ownerId);
-          setLoans(updated.loans);
-          setClients(updated.clients);
-          setSources(updated.sources);
-          if ((updated as any).staffMembers) setStaffMembers((updated as any).staffMembers);
-
-          writeCache(activeProfileId, {
-            activeUser,
-            loans: updated.loans,
-            clients: updated.clients,
-            sources: updated.sources,
-            staffMembers: (updated as any).staffMembers || staffMembers,
-            navOrder,
-            hubOrder,
-          });
+          if (navigator.onLine) await fetchFullData(activeProfileId);
         } catch (error) {
           console.warn('[REALTIME] Falha ao sincronizar em segundo plano:', error);
         }
@@ -346,7 +326,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     };
 
     const channel = supabase
-      .channel(`realtime-sync-${ownerId}`)
+      .channel(`realtime-sync-${activeUser.supervisor_id || activeUser.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, triggerRealtimeSync)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, triggerRealtimeSync)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'fontes' }, triggerRealtimeSync)
@@ -358,7 +338,20 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       if (syncTimeout) clearTimeout(syncTimeout);
       supabase.removeChannel(channel);
     };
-  }, [activeUser, activeProfileId, hubOrder, navOrder, staffMembers]);
+  }, [activeProfileId, activeUser?.id, activeUser?.supervisor_id, fetchFullData]);
+
+  useEffect(() => {
+    if (!activeProfileId) return;
+    const refreshFromNetwork = () => {
+      if (navigator.onLine) void fetchFullData(activeProfileId);
+    };
+    window.addEventListener('online', refreshFromNetwork);
+    window.addEventListener('focus', refreshFromNetwork);
+    return () => {
+      window.removeEventListener('online', refreshFromNetwork);
+      window.removeEventListener('focus', refreshFromNetwork);
+    };
+  }, [activeProfileId, fetchFullData]);
 
   const saveNavConfig = async (newNav: AppTab[], newHub: AppTab[]) => {
     if (!activeUser) return;
@@ -380,15 +373,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       if (error) console.error(error);
     }
 
-    writeCache(activeUser.id, {
-      activeUser: updatedUser,
-      loans,
-      clients,
-      sources,
-      staffMembers,
-      navOrder: cleanNav,
-      hubOrder: cleanHub,
-    });
+    localStorage.removeItem(CACHE_KEY(activeUser.id));
   };
 
   return {

@@ -32,7 +32,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
     ? isExpandedProp
     : (isAccordionControlled ? props.selectedLoanId === loan.id : isExpandedInternal);
 
-  const { ref: cardRef, focusCard } = useStableExpandedCardFocus<HTMLDivElement>(isExpanded, loan.id);
+  const { ref: cardRef, focusCard, prepareForCollapse } = useStableExpandedCardFocus<HTMLDivElement>(isExpanded, loan.id);
 
   // Lógica de Negócio
   const computed = useLoanCardComputed(loan, sources, isStealthMode);
@@ -92,6 +92,9 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   };
 
   const handleToggleExpand = () => {
+    if (isExpanded) {
+      prepareForCollapse();
+    }
     if (onToggleExpand) {
       onToggleExpand({} as React.MouseEvent);
     } else if (isAccordionControlled && props.setSelectedLoanId) {
@@ -120,7 +123,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
   return (
     <div
       ref={cardRef}
-      className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}
+      className={`responsive-card relative w-full scroll-mt-12 overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'z-10 ring-2 ring-blue-400/70 shadow-[0_0_0_1px_rgba(96,165,250,0.2),0_20px_45px_rgba(2,6,23,0.65)]' : 'h-[7.25rem]'}`}
       onClick={handleCardClick}
       onDoubleClick={handleNavigate}
     >

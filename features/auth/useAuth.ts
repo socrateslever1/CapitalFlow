@@ -1,6 +1,6 @@
 // feature/auth/useAuth.ts
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { supabase, getSynchronizedSession } from '../../lib/supabase';
+import { supabase, getSynchronizedSession, isSupabaseAuthLockError } from '../../lib/supabase';
 import { requestBrowserNotificationPermission } from '../../utils/notifications';
 import { asString } from '../../utils/safe';
 import { playNotificationSound } from '../../utils/notificationSound';
@@ -335,13 +335,9 @@ export const useAuth = () => {
         }
       }
     } catch (e: any) {
-      const errorMsg = String(e?.message || e || '').toLowerCase();
-      const isLockError = errorMsg.includes('lock') && errorMsg.includes('stole');
-      
-      if (isLockError && !force && mountedRef.current) {
-        if (isDev) console.warn('[AUTH_BOOT] Conflito de lock detectado. Tentando recuperar em 1.5s...');
-        bootInProgress.current = false;
-        setTimeout(() => boot(true), 1500);
+      if (isSupabaseAuthLockError(e) && mountedRef.current) {
+        if (isDev) console.warn('[AUTH_BOOT] Outra aba concluiu a sincronização da sessão. Revalidando...');
+        setTimeout(() => boot(), 500);
         return;
       }
 
@@ -615,7 +611,15 @@ export const useAuth = () => {
     localStorage.removeItem('cm_supabase_auth');
 
     Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+      const isSupabaseToken = key.startsWith('sb-') && key.endsWith('-auth-token');
+      const isFinancialSnapshot =
+        key.startsWith('cm_cache_') ||
+        key.startsWith('cm_deleted_contracts_') ||
+        key === 'cm_agenda_events' ||
+        key === 'cm_sync_state' ||
+        key === 'cm_selected_loan_id';
+
+      if (isSupabaseToken || isFinancialSnapshot) {
         localStorage.removeItem(key);
       }
     });

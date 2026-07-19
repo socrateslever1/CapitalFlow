@@ -1,88 +1,149 @@
-
-import { Loan, LoanStatus } from "../../types";
-import { getDaysDiff, parseDateOnlyUTC } from "../../utils/dateHelpers";
+import { AgreementInstallment, Installment, Loan } from '../../types';
+import { hasActiveAgreement, isInstallmentPaid } from './calculations';
+import { getDaysDiff, parseDateOnlyUTC } from '../../utils/dateHelpers';
 
 export type RiskLevel = 'BAIXO' | 'MODERADO' | 'ALTO' | 'CRITICO';
+export type RiskCategory = 'REGULAR' | 'PAGAMENTO' | 'COBRANCA' | 'HISTORICO' | 'DOCUMENTAL';
 
 export interface RiskProfile {
-  score: number; // 0-100
+  score: number;
   level: RiskLevel;
+  category: RiskCategory;
+  label: string;
   flags: string[];
+  daysLate: number;
+  isCurrentlyLate: boolean;
   isPotentialDefaulter: boolean;
   isHighRisk: boolean;
 }
 
+type RiskInstallment = Installment | AgreementInstallment;
+
+const getCurrentSchedule = (loan: Loan): RiskInstallment[] => {
+  if (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments)) {
+    return loan.activeAgreement.installments;
+  }
+
+  return Array.isArray(loan.installments) ? loan.installments : [];
+};
+
+const getCurrentDaysLate = (loan: Loan): number => {
+  const overdueDays = getCurrentSchedule(loan)
+    .filter((installment) => !isInstallmentPaid(installment, loan.status))
+    .map((installment) => ({
+      dueDate: installment.dueDate,
+      daysLate: Math.max(0, getDaysDiff(installment.dueDate)),
+    }))
+    .filter(({ dueDate, daysLate }) => Number.isFinite(parseDateOnlyUTC(dueDate).getTime()) && daysLate > 0)
+    .map(({ daysLate }) => daysLate);
+
+  return overdueDays.length > 0 ? Math.max(...overdueDays) : 0;
+};
+
 /**
- * Calcula o perfil de risco de um contrato baseado em comportamento financeiro
+ * Classifica risco operacional sem confundir fragilidade documental ou
+ * historico de renegociacao com inadimplencia atual.
  */
 export const calculateRiskProfile = (loan: Loan): RiskProfile => {
-  let score = 0;
   const flags: string[] = [];
-  
-  // 1. Analisa Atraso Atual
-  const firstLateInst = [...(loan.installments || [])]
-    .filter(i => i.status !== LoanStatus.PAID && i.status !== LoanStatus.PAGO)
-    .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
+  const daysLate = getCurrentDaysLate(loan);
+  const isCurrentlyLate = daysLate > 0;
+  const billingCount = Math.max(0, Number(loan.billing_count) || 0);
+  const agreementIsActive = hasActiveAgreement(loan);
+  let score = 0;
+  let category: RiskCategory = 'REGULAR';
+  let label = 'Regular';
 
-  const daysLate = firstLateInst ? Math.max(0, getDaysDiff(firstLateInst.dueDate)) : 0;
-  
   if (daysLate > 0) {
-    score += Math.min(40, daysLate * 2);
-    if (daysLate > 15) flags.push("Atraso Severo (>15 dias)");
-    else if (daysLate > 5) flags.push("Atraso Recorrente");
+    score += Math.min(55, daysLate * 1.5);
+    category = 'PAGAMENTO';
+    label = daysLate >= 30 ? 'Atraso crítico' : daysLate >= 8 ? 'Atraso relevante' : 'Atenção ao vencimento';
+    flags.push(`Parcela atual vencida ha ${daysLate} dia${daysLate === 1 ? '' : 's'}`);
   }
 
-  // 2. Analisa Esforço de Cobrança
-  const billingCount = loan.billing_count || 0;
-  if (billingCount > 0) {
-    score += Math.min(30, billingCount * 3);
-    if (billingCount > 10) flags.push("Cobrança Intensiva");
-    else if (billingCount > 5) flags.push("Dificuldade de Contato");
+  // Cobrancas antigas sao contexto, nao prova de inadimplencia presente.
+  if (isCurrentlyLate && billingCount > 0) {
+    score += Math.min(20, billingCount * 2);
+    if (billingCount >= 5) {
+      flags.push(`${billingCount} tentativas de cobranca registradas`);
+      if (daysLate < 8) {
+        category = 'COBRANCA';
+        label = 'Cobrança recorrente';
+      }
+    }
   }
 
-  // 3. Analisa Histórico de Pagamento e Amortização
-  const hasInstallments = loan.installments && loan.installments.length > 0;
-  if (hasInstallments) {
-    const totalRenewals = loan.installments.reduce((acc, i) => acc + (i.renewalCount || 0), 0);
+  if (agreementIsActive) {
+    if (isCurrentlyLate) {
+      score += 10;
+      flags.push('Acordo ativo com parcela vencida');
+    } else {
+      flags.push('Acordo ativo em dia');
+    }
+  } else {
+    const totalRenewals = (loan.installments || []).reduce(
+      (total, installment) => total + Math.max(0, Number(installment.renewalCount) || 0),
+      0,
+    );
+
     if (totalRenewals > 3) {
-      score += 15;
-      flags.push("Ciclo de Renovação (Apenas Juros)");
+      score += 10;
+      flags.push('Historico de renovacoes somente com juros');
+      if (!isCurrentlyLate) {
+        category = 'HISTORICO';
+        label = 'Histórico de risco';
+      }
     }
   }
 
-  // 4. Analisa Acordos e Renegociações
-  if (loan.activeAgreement) {
-    score += 10;
-    flags.push("Em Acordo de Inadimplência");
-  }
-  
-  if (loan.pastAgreements && loan.pastAgreements.length > 0) {
-    const brokenAgreements = loan.pastAgreements.filter(a => a.status === 'BROKEN' || a.status === 'QUEBRADO');
-    if (brokenAgreements.length > 0) {
-      score += 20;
-      flags.push("Histórico de Acordos Quebrados");
+  const brokenAgreements = (loan.pastAgreements || []).filter((agreement) =>
+    ['BROKEN', 'QUEBRADO'].includes(String(agreement.status || '').toUpperCase()),
+  ).length;
+
+  if (brokenAgreements > 0) {
+    score += isCurrentlyLate ? 20 : 10;
+    flags.push(`${brokenAgreements} acordo${brokenAgreements === 1 ? '' : 's'} quebrado${brokenAgreements === 1 ? '' : 's'} no historico`);
+    if (!isCurrentlyLate) {
+      category = 'HISTORICO';
+      label = 'Histórico de risco';
     }
   }
 
-  // 5. Identificação de "Potencial Calote"
-  // Critério: Cobrado mais de 7 vezes e está com atraso > 7 dias sem nenhum pagamento parcial recente
-  const isPotentialDefaulter = billingCount > 7 && daysLate > 7;
+  // Ausencia de formalizacao e uma frente propria, nunca um sinal de calote.
+  const agreementMissingDocument = agreementIsActive && !loan.activeAgreement?.legalDocumentId;
+  if (agreementMissingDocument) {
+    flags.push('Acordo sem documento formal vinculado');
+    if (!isCurrentlyLate && category === 'REGULAR') {
+      score += 10;
+      category = 'DOCUMENTAL';
+      label = 'Risco documental';
+    }
+  }
+
+  // Alerta grave exige atraso atual prolongado e cobranca persistente.
+  const isPotentialDefaulter = daysLate >= 30 && billingCount >= 8;
   if (isPotentialDefaulter) {
     score = Math.max(score, 85);
-    flags.push("ALERTA DE CALOTE");
+    category = 'PAGAMENTO';
+    label = 'Inadimplência crítica';
+    flags.push('Atraso prolongado com cobranca persistente');
   }
 
-  // Determina Nível
+  const normalizedScore = Math.min(100, Math.round(score));
   let level: RiskLevel = 'BAIXO';
-  if (score >= 80) level = 'CRITICO';
-  else if (score >= 50) level = 'ALTO';
-  else if (score >= 20) level = 'MODERADO';
+  if (normalizedScore >= 80) level = 'CRITICO';
+  else if (normalizedScore >= 50) level = 'ALTO';
+  else if (normalizedScore >= 20) level = 'MODERADO';
 
   return {
-    score: Math.min(100, score),
+    score: normalizedScore,
     level,
+    category,
+    label,
     flags,
+    daysLate,
+    isCurrentlyLate,
     isPotentialDefaulter,
-    isHighRisk: level === 'ALTO' || level === 'CRITICO'
+    isHighRisk: level === 'ALTO' || level === 'CRITICO',
   };
 };

@@ -2,6 +2,7 @@
 import { FIELD_MAPS, ImportCandidate } from '../domain/importSchema';
 import { onlyDigits, parseCurrency } from '../../../../utils/formatters';
 import { isValidCPForCNPJ } from '../../../../utils/validators';
+import { readSpreadsheet } from '../../../../utils/spreadsheet';
 
 const safeParseDate = (val: any): string | undefined => {
     if (val === null || val === undefined || val === '') return undefined;
@@ -22,18 +23,8 @@ const safeParseDate = (val: any): string | undefined => {
 
 export const importService = {
     async getSheets(file: File): Promise<{ name: string, headers: string[], rows: any[] }[]> {
-        const XLSX = await import('xlsx');
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                    // cellDates: true tenta converter automaticamente datas do Excel
-                    const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
-                    const sheets = workbook.SheetNames.map(name => {
-                        const sheet = workbook.Sheets[name];
-                        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][];
-                        
+        const sheets = await readSpreadsheet(file);
+        return sheets.map(({ name, rows: json }) => {
                         // Captura cabeçalhos (primeira linha que não seja vazia)
                         let headers: string[] = [];
                         let startRow = 0;
@@ -50,12 +41,6 @@ export const importService = {
                             headers,
                             rows: json.slice(startRow).filter(row => row && row.some(cell => cell !== null && cell !== ''))
                         };
-                    });
-                    resolve(sheets);
-                } catch (err) { reject(err); }
-            };
-            reader.onerror = reject;
-            reader.readAsArrayBuffer(file);
         });
     },
 

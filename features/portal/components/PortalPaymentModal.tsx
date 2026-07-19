@@ -66,12 +66,13 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     if (step === 'PIX_AUTO' && pixData?.providerPaymentId) {
       interval = setInterval(async () => {
         const { data, error } = await supabasePortal
-          .from('payment_charges')
-          .select('status')
-          .eq('provider_payment_id', pixData.providerPaymentId)
-          .maybeSingle();
+          .rpc('portal_get_payment_charge_status', {
+            p_token: portalToken,
+            p_shortcode: portalCode,
+            p_provider_payment_id: pixData.providerPaymentId,
+          });
 
-        if (data && data.status === 'PAID') {
+        if (!error && data === 'PAID') {
           setStep('SUCCESS');
           clearInterval(interval);
         }
@@ -80,7 +81,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     }
-  }, [step, pixData?.providerPaymentId]);
+  }, [step, pixData?.providerPaymentId, portalToken, portalCode]);
 
   const closedLoan = isLoanClosed(loan as any);
   const paidInst = isInstallmentPaid(installment as any);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Percent, Users, Calendar } from 'lucide-react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { NativeDonutChart, NativeTrendChart } from './NativeDashboardCharts';
 import { StatCard } from '../StatCard';
 import { ProfitCard } from '../cards/ProfitCard';
 import { AIBalanceInsight } from '../../features/dashboard/AIBalanceInsight';
@@ -44,13 +44,9 @@ export const DashboardSidebar: React.FC<any> = ({ stats, activeUser, isStealthMo
 
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-col items-center shadow-md">
             <h3 className="text-[9px] font-black uppercase mb-3 tracking-widest text-slate-500 flex items-center gap-2 w-full"><PieIcon className="w-3 h-3 text-blue-500" /> Saúde</h3>
-            <div style={{ width: '100%', minHeight: 150 }}>
-                <ResponsiveContainer width="100%" height={150} debounce={100}><PieChart><Pie data={stats.pieData} innerRadius={40} outerRadius={60} paddingAngle={stats.pieData?.length > 1 ? 5 : 0} dataKey="value" stroke="none" cornerRadius={4}>{stats.pieData.map((entry: any, index: number) => <Cell key={index} fill={entry.color} />)}</Pie><Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '8px', fontSize: '9px' }} /></PieChart></ResponsiveContainer>
-            </div>
+            <NativeDonutChart data={stats.pieData} height={150} />
             <h3 className="text-[9px] font-black uppercase mb-2 mt-4 tracking-widest text-slate-500 flex items-center gap-2 w-full pt-3 border-t border-slate-800"><TrendingUp className="w-3 h-3 text-emerald-500" /> Evolução</h3>
-            <div style={{ width: '100%', minHeight: 150 }}>
-                <ResponsiveContainer width="100%" height={150} debounce={100}><LineChart data={stats.lineChartData}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="name" tick={{fontSize: 9, fill: '#64748b'}} axisLine={false} /><YAxis tick={{fontSize: 9, fill: '#64748b'}} axisLine={false} /><Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', fontSize: '9px' }} /><Line type="monotone" dataKey="Entradas" stroke="#10b981" strokeWidth={2} dot={{r: 3}} /><Line type="monotone" dataKey="Saidas" stroke="#f43f5e" strokeWidth={2} dot={{r: 3}} /></LineChart></ResponsiveContainer>
-            </div>
+            <NativeTrendChart data={stats.lineChartData} height={150} />
             <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
         </div>
     </div>

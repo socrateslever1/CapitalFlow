@@ -20,17 +20,27 @@ const removeExternalBuilderBadge = () => {
     return text.includes('made with manus') || text === 'manus' || href.includes('manus');
   };
 
-  const removeMatches = () => {
-    document.querySelectorAll('a, button, div, span').forEach((element) => {
+  const removeMatches = (root: ParentNode = document) => {
+    root.querySelectorAll?.('a, button, div, span').forEach((element) => {
       if (matchesBuilderBadge(element)) element.remove();
     });
   };
 
   removeMatches();
-  new MutationObserver(removeMatches).observe(document.documentElement, {
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return;
+        if (matchesBuilderBadge(node)) node.remove();
+        else removeMatches(node);
+      });
+    }
+  });
+  observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
   });
+  window.setTimeout(() => observer.disconnect(), 10_000);
 };
 
 removeExternalBuilderBadge();

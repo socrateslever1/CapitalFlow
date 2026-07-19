@@ -4,6 +4,7 @@ import { UserProfile } from '../../../types';
 import { generateUUID } from '../../../utils/generators';
 import { onlyDigits, maskDocument, maskPhone } from '../../../utils/formatters';
 import { asString, asNumber } from '../../../utils/safe';
+import { firstSheetAsRecords } from '../../../utils/spreadsheet';
 
 type UpdatableProfileFields = Partial<Omit<UserProfile, 'id' | 'profile_id'>>;
 
@@ -117,19 +118,10 @@ export const operatorProfileService = {
     },
 
     async importProfileFromSheet(file: File, profileId: string): Promise<UserProfile> {
-        const XLSX = await import('xlsx');
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const sheet = workbook.Sheets[sheetName];
-                    const json = XLSX.utils.sheet_to_json(sheet) as any[];
-
+        try {
+                    const json = await firstSheetAsRecords(file);
                     if (json.length === 0) throw new Error("Planilha vazia.");
-                    const row = json[0];
+                    const row = json[0] as any;
 
                     const mappedData: UpdatableProfileFields = {
                         name: row['Nome'] || row['Operador'] || row['name'],
@@ -147,14 +139,10 @@ export const operatorProfileService = {
 
                     const updated = await this.updateProfile(profileId, mappedData, 'IMPORT');
                     if (!updated) throw new Error("Falha na atualização pós-importação.");
-                    resolve(updated);
-                } catch (err: any) {
-                    reject(new Error("Erro ao processar arquivo: " + err.message));
-                }
-            };
-            reader.onerror = (err) => reject(err);
-            reader.readAsArrayBuffer(file);
-        });
+                    return updated;
+        } catch (err: any) {
+            throw new Error("Erro ao processar arquivo: " + err.message);
+        }
     },
 
     curateProfileData(raw: any): UpdatableProfileFields {

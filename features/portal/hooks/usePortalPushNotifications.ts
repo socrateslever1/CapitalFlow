@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Loan } from '../../../types';
 import { getDaysDiff } from '../../../utils/dateHelpers';
 import { notificationService } from '../../../services/notification.service';
-import { supabase } from '../../../lib/supabase';
+import { supabasePortal } from '../../../lib/supabasePortal';
 import { isPortalInstallmentPaid } from '../mappers/portalDebtRules';
 
 export const usePortalPushNotifications = (contracts: Loan[], clientId: string | null) => {
@@ -34,7 +34,7 @@ export const usePortalPushNotifications = (contracts: Loan[], clientId: string |
     });
 
     // 2. Monitorar Novas Mensagens do Operador (Realtime)
-    const channel = supabase.channel(`portal-realtime-push-${clientId}`)
+    const channel = supabasePortal.channel(`portal-realtime-push-${clientId}`)
       .on('postgres_changes', { 
           event: 'INSERT', 
           schema: 'public', 
@@ -56,7 +56,7 @@ export const usePortalPushNotifications = (contracts: Loan[], clientId: string |
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabasePortal.removeChannel(channel);
     };
   }, [contracts, clientId]);
 };

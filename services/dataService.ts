@@ -1,5 +1,6 @@
 import { Loan, Client, CapitalSource, UserProfile, LedgerEntry, Installment } from "../types";
 import { resolveLoanVisualClassification } from "../utils/loanFilterResolver";
+import { readSpreadsheet } from "../utils/spreadsheet";
 
 export interface BackupData {
   version: string;
@@ -70,38 +71,15 @@ export const generateLoansCSV = (loans: Loan[]) => {
 // --- IMPORTAÇÃO EXCEL E CSV ---
 
 export const parseExcelClients = async (file: File): Promise<Partial<Client>[]> => {
-  const XLSX = await import('xlsx');
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+  const [sheet] = await readSpreadsheet(file);
+  if (!sheet) return [];
 
-        const clients: Partial<Client>[] = [];
-        // Pula o cabeçalho (i=1)
-        for (let i = 1; i < jsonData.length; i++) {
-          const row = jsonData[i];
-          if (row.length > 0) {
-             clients.push({
-                name: row[0] || 'Sem Nome',
-                phone: row[1] ? String(row[1]) : '',
-                document: row[2] ? String(row[2]) : '',
-                address: row[3] || 'Importado via Excel'
-             });
-          }
-        }
-        resolve(clients);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
+  return sheet.rows.slice(1).filter((row) => row.length > 0).map((row) => ({
+    name: String(row[0] || 'Sem Nome'),
+    phone: row[1] ? String(row[1]) : '',
+    document: row[2] ? String(row[2]) : '',
+    address: String(row[3] || 'Importado via Excel'),
+  }));
 };
 
 export const parseClientCSV = async (file: File): Promise<Partial<Client>[]> => {

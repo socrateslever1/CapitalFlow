@@ -8,14 +8,27 @@ export function useStableExpandedCardFocus<T extends HTMLElement>(
   focusKey?: unknown
 ) {
   const ref = React.useRef<T>(null);
+  const collapseAnchorTopRef = React.useRef<number | null>(null);
 
-  const focusCard = React.useCallback((behavior: ScrollBehavior = 'smooth') => {
+  const focusCard = React.useCallback((
+    behavior: ScrollBehavior = 'smooth',
+    forceTopAlignment = false
+  ) => {
     const element = ref.current;
     if (!element) return;
 
     const rect = element.getBoundingClientRect();
     const bottomLimit = window.innerHeight - BOTTOM_GUARD_PX;
     const topIsVisible = rect.top >= TOP_GUARD_PX && rect.top <= bottomLimit;
+
+    if (forceTopAlignment) {
+      element.scrollIntoView({
+        behavior,
+        block: 'start',
+        inline: 'nearest',
+      });
+      return;
+    }
 
     if (topIsVisible) return;
 
@@ -26,11 +39,29 @@ export function useStableExpandedCardFocus<T extends HTMLElement>(
     });
   }, []);
 
+  const prepareForCollapse = React.useCallback(() => {
+    const element = ref.current;
+    if (!element) return;
+    collapseAnchorTopRef.current = element.getBoundingClientRect().top;
+  }, []);
+
+  const restoreCollapsedPosition = React.useCallback(() => {
+    const element = ref.current;
+    const anchorTop = collapseAnchorTopRef.current;
+    if (!element || anchorTop === null) return;
+
+    const currentTop = element.getBoundingClientRect().top;
+    const delta = currentTop - anchorTop;
+    if (Math.abs(delta) > 1) {
+      window.scrollBy({ top: delta, behavior: 'auto' });
+    }
+  }, []);
+
   React.useEffect(() => {
     if (!isExpanded) return;
 
-    const frameId = window.requestAnimationFrame(() => focusCard());
-    const timeoutId = window.setTimeout(() => focusCard('auto'), 180);
+    const frameId = window.requestAnimationFrame(() => focusCard('smooth', true));
+    const timeoutId = window.setTimeout(() => focusCard('auto', true), 320);
 
     return () => {
       window.cancelAnimationFrame(frameId);
@@ -38,5 +69,22 @@ export function useStableExpandedCardFocus<T extends HTMLElement>(
     };
   }, [isExpanded, focusKey, focusCard]);
 
-  return { ref, focusCard };
+  React.useLayoutEffect(() => {
+    if (isExpanded || collapseAnchorTopRef.current === null) return;
+
+    const frameId = window.requestAnimationFrame(restoreCollapsedPosition);
+    const transitionId = window.setTimeout(restoreCollapsedPosition, 340);
+    const cleanupId = window.setTimeout(() => {
+      collapseAnchorTopRef.current = null;
+      focusCard('auto');
+    }, 380);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(transitionId);
+      window.clearTimeout(cleanupId);
+    };
+  }, [isExpanded, focusCard, restoreCollapsedPosition]);
+
+  return { ref, focusCard, prepareForCollapse };
 }

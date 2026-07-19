@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v8';
+const CACHE_NAME = 'capitalflow-v9-network-first';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 const isCacheableAsset = (href) => {
@@ -97,25 +97,15 @@ self.addEventListener('fetch', (event) => {
   if (!isSameOrigin) return;
 
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const networkUpdate = fetch(request, { cache: 'no-store' })
-        .then((response) => {
-          if (response && response.ok) {
-            return caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, response.clone());
-              return response;
-            });
-          }
-          return response;
-        });
-
-      if (cached) {
-        event.waitUntil(networkUpdate.catch(() => undefined));
-        return cached;
-      }
-
-      return networkUpdate.catch(() => caches.match('/index.html'));
-    })
+    fetch(request, { cache: 'no-store' })
+      .then(async (response) => {
+        if (response && response.ok && isCacheableAsset(request.url)) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      })
+      .catch(async () => (await caches.match(request)) || Response.error())
   );
 });
 

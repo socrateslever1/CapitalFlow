@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 import { isDev } from '../utils/isDev';
 
@@ -35,17 +35,27 @@ if (isDev) {
   });
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+const globalSupabase = globalThis as typeof globalThis & {
+  __capitalFlowSupabase?: SupabaseClient<any>;
+};
+
+const createCapitalFlowClient = () => createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: !isPortalAccessUrl,
     storageKey: 'cm_supabase_auth',
+    lockAcquireTimeout: 15_000,
   },
   global: {
     fetch: fetchWithRetry as any
   }
 });
+
+// Mantém uma única instância durante Fast Refresh/HMR. Clientes duplicados
+// iniciam auto-refresh concorrente e disputam o mesmo Web Lock de autenticação.
+export const supabase = globalSupabase.__capitalFlowSupabase ?? createCapitalFlowClient();
+globalSupabase.__capitalFlowSupabase = supabase;
 
 type SynchronizedSessionOptions = {
   forceRefresh?: boolean;
@@ -96,3 +106,13 @@ export async function getSynchronizedSession(options: SynchronizedSessionOptions
 
   return sessionPromise;
 }
+
+export const isSupabaseAuthLockError = (error: unknown) => {
+  const name = String((error as any)?.name || '').toLowerCase();
+  const message = String((error as any)?.message || error || '').toLowerCase();
+  return name === 'aborterror'
+    || name.includes('lockacquiretimeout')
+    || message.includes('lock broken')
+    || message.includes('another request stole')
+    || (message.includes('lock') && message.includes('steal'));
+};

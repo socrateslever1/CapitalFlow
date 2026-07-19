@@ -1,7 +1,6 @@
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, RefreshCw, ShieldAlert, Skull } from 'lucide-react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile, Installment } from '../types';
 import { LoanCard } from '../components/cards/LoanCard';
 import { ClientGroupCard } from '../components/cards/ClientGroupCard';
@@ -12,6 +11,39 @@ import { DashboardControls } from '../components/dashboard/DashboardControls';
 import { AIBalanceInsight } from '../features/dashboard/AIBalanceInsight';
 import { formatMoney } from '../utils/formatters';
 import { groupLoansByClient } from '../domain/dashboard/loanGrouping';
+import { NativeDonutChart, NativeTrendChart } from '../components/dashboard/NativeDashboardCharts';
+
+const getDashboardColumnCount = () => {
+  if (typeof window === 'undefined') return 1;
+  if (window.matchMedia('(min-width: 1536px)').matches) return 3;
+  if (window.matchMedia('(min-width: 1280px)').matches) return 2;
+  return 1;
+};
+
+const useDashboardColumnCount = () => {
+  const [columnCount, setColumnCount] = useState(getDashboardColumnCount);
+
+  useEffect(() => {
+    let frameId = 0;
+    const updateColumnCount = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        setColumnCount((current) => {
+          const next = getDashboardColumnCount();
+          return current === next ? current : next;
+        });
+      });
+    };
+
+    window.addEventListener('resize', updateColumnCount, { passive: true });
+    return () => {
+      window.removeEventListener('resize', updateColumnCount);
+      window.cancelAnimationFrame(frameId);
+    };
+  }, []);
+
+  return columnCount;
+};
 
 const ContractCardSkeleton: React.FC<{ index: number }> = ({ index }) => (
   <div
@@ -45,7 +77,7 @@ const ContractCardSkeleton: React.FC<{ index: number }> = ({ index }) => (
 );
 
 const ContractCardsSkeleton: React.FC = () => (
-  <div className="columns-1 xl:columns-2 2xl:columns-3 gap-4" aria-label="Carregando contratos">
+  <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 2xl:grid-cols-3" aria-label="Carregando contratos">
     {Array.from({ length: 9 }).map((_, index) => (
       <ContractCardSkeleton key={index} index={index} />
     ))}
@@ -116,6 +148,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   // Agrupa os empréstimos filtrados por cliente, respeitando a ordenação selecionada
   const groupedLoans = useMemo(() => groupLoansByClient(filteredLoans, sortOption), [filteredLoans, sortOption]);
+  const dashboardColumnCount = useDashboardColumnCount();
+  const groupedLoanColumns = useMemo(() => {
+    const columns = Array.from({ length: dashboardColumnCount }, () => [] as typeof groupedLoans);
+    groupedLoans.forEach((group, index) => columns[index % dashboardColumnCount].push(group));
+    return columns;
+  }, [dashboardColumnCount, groupedLoans]);
   const isInitialContractsLoading = isLoadingData && loans.length === 0 && groupedLoans.length === 0;
 
   // Objeto com todas as props necessárias para o LoanCard (para passar via drill-down)
@@ -157,23 +195,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
-                  <div key={groupedLoans.length} className="columns-1 xl:columns-2 2xl:columns-3 gap-4 cf-cards-flash">
-                      {groupedLoans.map((group) => {
-                          const isOverdueGroup = group.status === 'LATE' || group.status === 'CRITICAL';
-                          return (
-                              <div
-                                key={group.id}
-                                className={`mb-4 break-inside-avoid min-w-0 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}
-                              >
-                                  <ClientGroupCard
-                                      group={group}
-                                      passThroughProps={loanCardProps}
-                                      isStealthMode={isStealthMode}
-                                      onOpenClient={onOpenClient}
-                                  />
-                              </div>
-                          );
-                      })}
+                  <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2 2xl:grid-cols-3 cf-cards-flash">
+                      {groupedLoanColumns.map((column, columnIndex) => (
+                          <div key={columnIndex} className="flex min-w-0 flex-col gap-3">
+                              {column.map((group) => {
+                                  const isOverdueGroup = group.status === 'LATE' || group.status === 'CRITICAL';
+                                  return (
+                                      <div
+                                        key={group.id}
+                                        className={`w-full min-w-0 rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}
+                                      >
+                                          <ClientGroupCard
+                                              group={group}
+                                              passThroughProps={loanCardProps}
+                                              isStealthMode={isStealthMode}
+                                              onOpenClient={onOpenClient}
+                                          />
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      ))}
                   </div>
               ) : (
                   // Empty State Otimizado
@@ -302,29 +344,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       <span className="text-[9px] font-black text-slate-600 uppercase">Tempo Real</span>
                   </div>
 
-                  <div style={{ width: '100%', minHeight: 180 }}>
-                      <ResponsiveContainer width="100%" height={180} debounce={100}>
-                          <PieChart>
-                              <Pie
-                                data={stats.pieData}
-                                innerRadius={55}
-                                outerRadius={75}
-                                paddingAngle={stats.pieData?.length > 1 ? 8 : 0}
-                                dataKey="value"
-                                stroke="none"
-                                cornerRadius={6}
-                              >
-                                  {stats.pieData.map((entry: any, index: number) => (
-                                      <Cell key={index} fill={entry.color} className="hover:opacity-80 transition-opacity cursor-pointer" />
-                                  ))}
-                              </Pie>
-                              <Tooltip
-                                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}
-                                itemStyle={{ color: '#fff' }}
-                              />
-                          </PieChart>
-                      </ResponsiveContainer>
-                  </div>
+                  <NativeDonutChart data={stats.pieData} />
 
                   <div className="flex items-center justify-between w-full mb-4 mt-8 pt-6 border-t border-slate-800/50">
                       <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
@@ -335,44 +355,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </h3>
                   </div>
 
-                  <div style={{ width: '100%', minHeight: 180, marginBottom: '1rem' }}>
-                      <ResponsiveContainer width="100%" height={180} debounce={100}>
-                          <LineChart data={stats.lineChartData}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                              <XAxis
-                                dataKey="name"
-                                tick={{fontSize: 9, fill: '#475569', fontWeight: 900}}
-                                axisLine={false}
-                                tickLine={false}
-                                dy={10}
-                              />
-                              <YAxis
-                                tick={{fontSize: 9, fill: '#475569', fontWeight: 900}}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={(val) => `R$ ${val/1000}k`}
-                              />
-                              <Tooltip
-                                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', fontSize: '10px', fontWeight: 'bold' }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="Entradas"
-                                stroke="#10b981"
-                                strokeWidth={3}
-                                dot={{r: 3, fill: '#10b981', strokeWidth: 2, stroke: '#0f172a'}}
-                                activeDot={{r: 5, strokeWidth: 0}}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="Saidas"
-                                stroke="#f43f5e"
-                                strokeWidth={3}
-                                dot={{r: 3, fill: '#f43f5e', strokeWidth: 2, stroke: '#0f172a'}}
-                                activeDot={{r: 5, strokeWidth: 0}}
-                              />
-                          </LineChart>
-                      </ResponsiveContainer>
+                  <div className="mb-4 w-full">
+                      <NativeTrendChart data={stats.lineChartData} />
                   </div>
               </div>
 

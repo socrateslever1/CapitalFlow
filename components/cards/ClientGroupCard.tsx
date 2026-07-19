@@ -39,7 +39,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const [showPortalChoices, setShowPortalChoices] = useState(false);
 
     const actionPanelFocusKey = `${showArchiveChoices}:${billFilter || ''}:${showUnifyChoices}:${showPortalChoices}`;
-    const { ref: cardRef, focusCard } = useStableExpandedCardFocus<HTMLDivElement>(
+    const { ref: cardRef, focusCard, prepareForCollapse } = useStableExpandedCardFocus<HTMLDivElement>(
         isExpanded,
         actionPanelFocusKey
     );
@@ -224,6 +224,9 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     const handleToggleGroup = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (setSelectedLoanId) {
+            if (isExpanded) {
+                prepareForCollapse();
+            }
             setSelectedLoanId(isExpanded ? null : 'GROUP_' + group.id);
             if (!isExpanded) {
                 window.setTimeout(() => focusCard(), 0);
@@ -238,7 +241,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     };
 
     return (
-        <div ref={cardRef} className={`responsive-card relative overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
+        <div ref={cardRef} className={`responsive-card relative w-full scroll-mt-12 overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'z-10 ring-2 ring-blue-400/70 shadow-[0_0_0_1px_rgba(96,165,250,0.2),0_20px_45px_rgba(2,6,23,0.65)]' : 'h-[7.25rem]'}`}>
             <div
                 className="flex flex-col justify-between gap-2 relative h-full"
                 onClick={handleCardClick}
@@ -318,6 +321,15 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
                             key={loan.id}
                             loan={loan}
                             {...passThroughProps}
+                            isExpanded={selectedLoanId === loan.id}
+                            onToggleExpand={() => {
+                                if (!setSelectedLoanId) return;
+                                setSelectedLoanId(
+                                    selectedLoanId === loan.id
+                                        ? 'GROUP_' + group.id
+                                        : loan.id
+                                );
+                            }}
                             onNavigate={passThroughProps.onNavigate}
                         />
                     ))}

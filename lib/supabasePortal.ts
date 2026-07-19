@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { fetchWithRetry } from '../utils/fetchWithRetry';
 
 /**
@@ -47,13 +47,21 @@ if (typeof window !== 'undefined' && (window as any).localStorage?.getItem('debu
   console.log('[SUPABASE_PORTAL] URL:', SUPABASE_URL);
 }
 
-export const supabasePortal = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+const globalSupabasePortal = globalThis as typeof globalThis & {
+  __capitalFlowSupabasePortal?: SupabaseClient<any>;
+};
+
+const createPortalClient = () => createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,
+    storageKey: 'cm_portal_anonymous',
   },
   global: {
     fetch: fetchWithRetry as any
   }
 });
+
+export const supabasePortal = globalSupabasePortal.__capitalFlowSupabasePortal ?? createPortalClient();
+globalSupabasePortal.__capitalFlowSupabasePortal = supabasePortal;

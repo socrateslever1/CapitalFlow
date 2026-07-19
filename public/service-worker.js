@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v6';
+const CACHE_NAME = 'capitalflow-v7';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 const isCacheableAsset = (href) => {
@@ -46,24 +46,37 @@ const cacheAppShell = async () => {
 
 self.addEventListener('install', (event) => {
   event.waitUntil(cacheAppShell());
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    Promise.all([
+      caches.keys().then((keys) =>
+        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+      ),
+      self.clients.claim(),
+    ])
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
+const refreshNavigationCache = async (request) => {
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put('/index.html', response.clone());
+    }
+  } catch {
+    // A abertura continua com o shell local quando não há rede.
+  }
+};
 
-  const isNavigate = req.mode === 'navigate';
-  const url = new URL(req.url);
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
+
+  const isNavigate = request.mode === 'navigate';
+  const url = new URL(request.url);
   const isSameOrigin = url.origin === self.location.origin;
   const isDevAsset =
     url.pathname.startsWith('/node_modules/') ||
@@ -77,16 +90,11 @@ self.addEventListener('fetch', (event) => {
 
   if (isNavigate) {
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy));
-          return res;
-        })
-        .catch(async () => {
-          const cached = await caches.match('/index.html');
-          return cached || new Response('Offline', { status: 503 });
-        })
+      caches.match('/index.html').then((cached) => {
+        const backgroundUpdate = refreshNavigationCache(request);
+        event.waitUntil(backgroundUpdate);
+        return cached || fetch(request);
+      })
     );
     return;
   }
@@ -94,13 +102,29 @@ self.addEventListener('fetch', (event) => {
   if (!isSameOrigin) return;
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-        return res;
-      }).catch(() => caches.match('/index.html'));
+    caches.match(request).then((cached) => {
+      if (cached) {
+        event.waitUntil(
+          fetch(request)
+            .then((response) => {
+              if (response && response.ok) {
+                return caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+              }
+              return undefined;
+            })
+            .catch(() => undefined)
+        );
+        return cached;
+      }
+
+      return fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/index.html'));
     })
   );
 });
@@ -109,9 +133,10 @@ self.addEventListener('push', (event) => {
   let data = {};
   try {
     data = event.data ? event.data.json() : {};
-  } catch (e) {
+  } catch {
     data = { body: event.data ? event.data.text() : '' };
   }
+
   const title = data.title || 'CapitalFlow';
   const options = {
     body: data.body || 'Você tem uma nova atualização no sistema.',
@@ -119,9 +144,11 @@ self.addEventListener('push', (event) => {
     badge: '/favicon.ico',
     silent: true,
     vibrate: [],
+    tag: data.tag || data.notification_id || undefined,
+    renotify: false,
     data: {
-      url: data.url || '/'
-    }
+      url: data.url || '/',
+    },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -129,16 +156,28 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin);
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
+        const currentUrl = new URL(client.url);
+        if (currentUrl.origin !== targetUrl.origin) continue;
+
         if ('focus' in client) {
-          client.navigate(targetUrl);
+          if (currentUrl.pathname === targetUrl.pathname && currentUrl.search === targetUrl.search) {
+            return client.focus();
+          }
+
+          client.postMessage({
+            type: 'PUSH_NAVIGATE',
+            url: `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`,
+          });
           return client.focus();
         }
       }
-      return clients.openWindow(targetUrl);
+
+      return clients.openWindow(targetUrl.href);
     })
   );
 });

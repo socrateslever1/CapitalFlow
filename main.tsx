@@ -73,39 +73,68 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data?.type !== 'PUSH_NAVIGATE' || typeof event.data?.url !== 'string') return;
+  let reloadingForUpdate = false;
 
-    const target = new URL(event.data.url, window.location.origin);
-    if (target.origin !== window.location.origin) return;
-
-    const nextPath = `${target.pathname}${target.search}${target.hash}`;
-    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    if (nextPath === currentPath) return;
-
-    window.history.pushState({}, '', nextPath);
-    window.dispatchEvent(new PopStateEvent('popstate'));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloadingForUpdate) return;
+    reloadingForUpdate = true;
+    window.location.reload();
   });
 
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then((registration) => {
-        // Atualizações são baixadas e ativadas em segundo plano. A página atual
-        // nunca é recarregada à força; a versão nova entra na próxima abertura.
-        registration.update().catch(() => undefined);
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'PUSH_NAVIGATE' && typeof event.data?.url === 'string') {
+      const target = new URL(event.data.url, window.location.origin);
+      if (target.origin !== window.location.origin) return;
 
-        registration.addEventListener('updatefound', () => {
-          const worker = registration.installing;
-          if (!worker) return;
-          worker.addEventListener('statechange', () => {
-            if (worker.state === 'installed') {
-              console.log('CapitalFlow: nova versão preparada para a próxima abertura.');
-            }
-          });
-        });
-      })
-      .catch((err) => {
-        console.error('Falha ao registrar service worker:', err);
+      const nextPath = `${target.pathname}${target.search}${target.hash}`;
+      const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (nextPath === currentPath) return;
+
+      window.history.pushState({}, '', nextPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  });
+
+  const activateWaitingWorker = (registration: ServiceWorkerRegistration) => {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+  };
+
+  const registerServiceWorker = async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/service-worker.js', {
+        updateViaCache: 'none',
       });
+
+      activateWaitingWorker(registration);
+      await registration.update().catch(() => undefined);
+
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            worker.postMessage({ type: 'SKIP_WAITING' });
+          }
+        });
+      });
+
+      const checkForUpdate = () => {
+        if (document.visibilityState !== 'visible') return;
+        registration.update().catch(() => undefined);
+      };
+
+      document.addEventListener('visibilitychange', checkForUpdate);
+      window.addEventListener('online', checkForUpdate);
+      window.setInterval(checkForUpdate, 30 * 60 * 1000);
+    } catch (error) {
+      console.error('Falha ao registrar service worker:', error);
+    }
+  };
+
+  window.addEventListener('load', () => {
+    void registerServiceWorker();
   });
 }

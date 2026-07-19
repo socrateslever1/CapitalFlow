@@ -43,8 +43,8 @@ if (isDevCacheResetting) {
 } else {
   const rootElement = document.getElementById('root');
   if (!rootElement) {
-    console.error("CapitalFlow: Could not find root element to mount to");
-    throw new Error("Could not find root element to mount to");
+    console.error('CapitalFlow: Could not find root element to mount to');
+    throw new Error('Could not find root element to mount to');
   }
 
   const root = createRoot(rootElement);
@@ -73,28 +73,19 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
 }
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      console.log('CapitalFlow: Novo service worker ativo. Recarregando a pagina para atualizar assets...');
-      window.location.reload();
-    }
-  });
-
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js')
       .then((registration) => {
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
+        // Atualizações são baixadas e ativadas em segundo plano. A página atual
+        // nunca é recarregada à força; a versão nova entra na próxima abertura.
+        registration.update().catch(() => undefined);
+
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
           if (!worker) return;
           worker.addEventListener('statechange', () => {
-            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('CapitalFlow: Nova versao baixada em background. Forcando ativacao imediata...');
-              worker.postMessage({ type: 'SKIP_WAITING' });
+            if (worker.state === 'installed') {
+              console.log('CapitalFlow: nova versão preparada para a próxima abertura.');
             }
           });
         });

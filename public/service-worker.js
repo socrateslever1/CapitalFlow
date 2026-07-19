@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v7';
+const CACHE_NAME = 'capitalflow-v8';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 const isCacheableAsset = (href) => {
@@ -33,19 +33,19 @@ const cacheAppShell = async () => {
   const cache = await caches.open(CACHE_NAME);
   await cache.addAll(APP_SHELL);
 
-  const indexResponse = await fetch('/index.html', { cache: 'reload' });
+  const indexResponse = await fetch('/index.html', { cache: 'no-store' });
   if (!indexResponse.ok) return;
 
-  const indexCopy = indexResponse.clone();
-  await cache.put('/index.html', indexCopy);
-
+  await cache.put('/index.html', indexResponse.clone());
   const html = await indexResponse.text();
   const assetUrls = extractAssetUrls(html);
   await Promise.allSettled(assetUrls.map((url) => cache.add(url)));
 };
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheAppShell());
+  event.waitUntil(
+    cacheAppShell().then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -59,16 +59,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const refreshNavigationCache = async (request) => {
-  try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put('/index.html', response.clone());
-    }
-  } catch {
-    // A abertura continua com o shell local quando não há rede.
+const fetchFreshNavigation = async (request) => {
+  const response = await fetch(request, { cache: 'no-store' });
+  if (response && response.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put('/index.html', response.clone());
   }
+  return response;
 };
 
 self.addEventListener('fetch', (event) => {
@@ -90,10 +87,8 @@ self.addEventListener('fetch', (event) => {
 
   if (isNavigate) {
     event.respondWith(
-      caches.match('/index.html').then((cached) => {
-        const backgroundUpdate = refreshNavigationCache(request);
-        event.waitUntil(backgroundUpdate);
-        return cached || fetch(request);
+      fetchFreshNavigation(request).catch(async () => {
+        return (await caches.match('/index.html')) || fetch(request);
       })
     );
     return;
@@ -103,28 +98,23 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.match(request).then((cached) => {
+      const networkUpdate = fetch(request, { cache: 'no-store' })
+        .then((response) => {
+          if (response && response.ok) {
+            return caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, response.clone());
+              return response;
+            });
+          }
+          return response;
+        });
+
       if (cached) {
-        event.waitUntil(
-          fetch(request)
-            .then((response) => {
-              if (response && response.ok) {
-                return caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
-              }
-              return undefined;
-            })
-            .catch(() => undefined)
-        );
+        event.waitUntil(networkUpdate.catch(() => undefined));
         return cached;
       }
 
-      return fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
-          }
-          return response;
-        })
-        .catch(() => caches.match('/index.html'));
+      return networkUpdate.catch(() => caches.match('/index.html'));
     })
   );
 });
@@ -183,7 +173,7 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });

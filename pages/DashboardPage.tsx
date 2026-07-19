@@ -303,13 +303,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
 
                   <div style={{ width: '100%', minHeight: 180 }}>
-                      <ResponsiveContainer width="100%" height={180}>
+                      <ResponsiveContainer width="100%" height={180} debounce={100}>
                           <PieChart>
                               <Pie
                                 data={stats.pieData}
                                 innerRadius={55}
                                 outerRadius={75}
-                                paddingAngle={8}
+                                paddingAngle={stats.pieData?.length > 1 ? 8 : 0}
                                 dataKey="value"
                                 stroke="none"
                                 cornerRadius={6}
@@ -336,7 +336,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
 
                   <div style={{ width: '100%', minHeight: 180, marginBottom: '1rem' }}>
-                      <ResponsiveContainer width="100%" height={180}>
+                      <ResponsiveContainer width="100%" height={180} debounce={100}>
                           <LineChart data={stats.lineChartData}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                               <XAxis

@@ -194,10 +194,11 @@ export const calculateTotalDue = (loan: Loan, inst: Installment, referenceDate?:
     } as CalculationResult;
   }
 
-  const policy: LoanPolicy = loan.policiesSnapshot || {
-    interestRate: loan.interestRate,
-    finePercent: loan.finePercent,
-    dailyInterestPercent: loan.dailyInterestPercent
+  const rawPolicy: any = loan.policiesSnapshot || {};
+  const policy: LoanPolicy = {
+    interestRate: Number(rawPolicy.interestRate ?? loan.interestRate ?? 0),
+    finePercent: Number(rawPolicy.finePercent ?? loan.finePercent ?? 0),
+    dailyInterestPercent: Number(rawPolicy.dailyInterestPercent ?? loan.dailyInterestPercent ?? 0)
   };
   
   const rawCalc = financeDispatcher.calculate(loan, inst, policy, referenceDate);

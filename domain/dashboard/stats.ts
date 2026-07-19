@@ -92,14 +92,19 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   const lateCount = classifiedLoans.filter(c => (c.classification === 'ATRASADO' || c.classification === 'CRITICO') && !isUnifiedChildLoan(c.loan)).length;
   const onTimeCount = classifiedLoans.filter(c => c.classification === 'EM_DIA' && !isUnifiedChildLoan(c.loan)).length;
 
-  const pieData = [
+  const rawPieData = [
       { name: 'Em Dia', value: onTimeCount, color: '#3b82f6' },
       { name: 'Atrasados', value: lateCount, color: '#f43f5e' },
       { name: 'Quitados', value: paidCount, color: '#10b981' }
   ];
   if (renegotiatedCount > 0) {
-      pieData.push({ name: 'Renegociados', value: renegotiatedCount, color: '#f97316' });
+      rawPieData.push({ name: 'Renegociados', value: renegotiatedCount, color: '#f97316' });
   }
+
+  const totalPieValue = rawPieData.reduce((acc, item) => acc + item.value, 0);
+  const pieData = totalPieValue > 0
+    ? rawPieData.filter(item => item.value > 0)
+    : [{ name: 'Sem dados', value: 1, color: '#334155' }];
 
   const monthlyDataMap: {[key: string]: {name: string, Entradas: number, Saidas: number}} = {};
   const currentMonthKey = new Date().toISOString().slice(0, 7);

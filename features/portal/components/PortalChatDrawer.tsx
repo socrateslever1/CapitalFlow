@@ -11,9 +11,11 @@ interface PortalChatDrawerProps {
   loan: any;
   isOpen: boolean;
   onClose: () => void;
+  portalToken: string;
+  portalCode: string;
 }
 
-export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen, onClose }) => {
+export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen, onClose, portalToken, portalCode }) => {
   const adapter = useMemo(() => createSupportAdapter('CLIENT', supabasePortal), []);
 
   const clientHeaderName = useMemo(() => {
@@ -57,11 +59,13 @@ export const PortalChatDrawer: React.FC<PortalChatDrawerProps> = ({ loan, isOpen
       loanId: loanId || clientId,
       profileId: professionalId,
       myId: clientId,
-      clientName: loan?.debtorName || loan?.debtor_name || loan?.clientName || 'Atendimento'
+      clientName: loan?.debtorName || loan?.debtor_name || loan?.clientName || 'Atendimento',
+      portalToken,
+      portalCode,
     };
     console.log('[PortalChatDrawer] Resolved Chat Context:', ctx);
     return ctx;
-  }, [loanId, clientId, effectiveProfileId, loan]);
+  }, [loanId, clientId, effectiveProfileId, loan, portalToken, portalCode]);
 
   if (!isOpen) return null;
 

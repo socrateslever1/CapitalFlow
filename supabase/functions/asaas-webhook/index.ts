@@ -5,9 +5,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 declare const Deno: any;
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://capitalflow.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, asaas-access-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
 };
 
 function round(value: number) {

@@ -16,6 +16,8 @@ export interface SupportContext {
   myId: string;      // Current User (Author) ID
   clientName: string;
   operatorId?: string;
+  portalToken?: string;
+  portalCode?: string;
 }
 
 const isUuid = (v?: string | null) =>
@@ -35,7 +37,7 @@ export const createSupportAdapter = (
       hasPresence: true,
       canClose: role === 'OPERATOR',
       canDelete: role === 'OPERATOR',
-      canUpload: true
+      canUpload: role === 'OPERATOR'
     };
   },
 
@@ -47,6 +49,21 @@ export const createSupportAdapter = (
       return { title: displayTitle, subtitle: 'Atendimento Direto', status: 'OPEN' };
 
     try {
+      if (role === 'CLIENT' && context.portalToken && context.portalCode) {
+        const { data, error } = await supabaseClient.rpc('portal_support_header', {
+          p_token: context.portalToken,
+          p_shortcode: context.portalCode,
+          p_loan_id: loanId,
+        });
+        if (error) throw error;
+        return {
+          title: displayTitle,
+          subtitle: `Contrato: ${loanId.slice(0, 8)}`,
+          status: (data?.status as any) || 'OPEN',
+          isOnline: data?.is_online === true,
+        };
+      }
+
       const { data: ticket } = await supabaseClient
         .from('support_tickets')
         .select('status')
@@ -92,7 +109,18 @@ export const createSupportAdapter = (
     
     // Suporte para chat sem loanId (ex: suporte geral)
     const targetId = isUuid(loanId) ? loanId : profileId;
-    const msgs = await supportChatService.getMessages(targetId, supabaseClient);
+    const msgs = role === 'CLIENT'
+      ? await (async () => {
+          if (!context.portalToken || !context.portalCode || !isUuid(loanId)) return [];
+          const { data, error } = await supabaseClient.rpc('portal_support_list_messages', {
+            p_token: context.portalToken,
+            p_shortcode: context.portalCode,
+            p_loan_id: loanId,
+          });
+          if (error) throw error;
+          return data || [];
+        })()
+      : await supportChatService.getMessages(targetId, supabaseClient);
 
     return msgs.map((m: any) => ({
       ...m,
@@ -105,6 +133,45 @@ export const createSupportAdapter = (
     if (!isUuid(profileId)) return () => {};
     
     const targetId = isUuid(loanId) ? loanId : profileId;
+
+    if (role === 'CLIENT') {
+      if (!context.portalToken || !context.portalCode || !isUuid(loanId)) return () => {};
+
+      let initialized = false;
+      let disposed = false;
+      const knownIds = new Set<string>();
+      const poll = async () => {
+        try {
+          const { data, error } = await supabaseClient.rpc('portal_support_list_messages', {
+            p_token: context.portalToken,
+            p_shortcode: context.portalCode,
+            p_loan_id: loanId,
+          });
+          if (error || disposed) return;
+          for (const message of data || []) {
+            const id = String(message.id || '');
+            if (!id || knownIds.has(id)) continue;
+            knownIds.add(id);
+            if (initialized) {
+              handlers.onNewMessage?.({
+                ...message,
+                content: message.content || message.text,
+              } as any);
+            }
+          }
+          initialized = true;
+        } catch (error) {
+          console.warn('[supportAdapter] portal polling error:', error);
+        }
+      };
+
+      void poll();
+      const interval = window.setInterval(poll, 5000);
+      return () => {
+        disposed = true;
+        clearInterval(interval);
+      };
+    }
 
     const channel = supabaseClient
       .channel(`support-${targetId}`)
@@ -205,6 +272,26 @@ export const createSupportAdapter = (
     if (!text && !payload?.file)
       throw new Error('Mensagem vazia');
 
+    if (role === 'CLIENT') {
+      if (!context.portalToken || !context.portalCode || !isUuid(loanId)) {
+        throw new Error('Sessao do portal invalida. Atualize a pagina.');
+      }
+      if (payload?.file) {
+        throw new Error('Envio de anexos pelo portal esta temporariamente indisponivel.');
+      }
+      const { error } = await supabaseClient.rpc('portal_support_send_message', {
+        p_token: context.portalToken,
+        p_shortcode: context.portalCode,
+        p_loan_id: loanId,
+        p_content: text,
+        p_type: payload.type === 'location' ? 'text' : payload.type,
+        p_file_path: null,
+        p_metadata: payload.metadata || {},
+      });
+      if (error) throw new Error(error.message);
+      return;
+    }
+
     await supportChatService.sendMessage({
       profileId,
       loanId: effectiveLoanId,
@@ -224,6 +311,16 @@ export const createSupportAdapter = (
   },
 
   async markAsRead(context: SupportContext): Promise<void> {
+    if (role === 'CLIENT') {
+      if (!context.portalToken || !context.portalCode || !isUuid(context.loanId)) return;
+      const { error } = await supabaseClient.rpc('portal_support_mark_read', {
+        p_token: context.portalToken,
+        p_shortcode: context.portalCode,
+        p_loan_id: context.loanId,
+      });
+      if (error) throw new Error(error.message);
+      return;
+    }
     await supportChatService.markAsRead(context.loanId, role as any, supabaseClient);
   },
 

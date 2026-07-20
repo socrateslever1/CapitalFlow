@@ -6,6 +6,7 @@ import { legalService } from '../services/legalService';
 import { LegalDocumentRecord } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
+import { sanitizeRichHtml } from '../../../utils/sanitizeHtml';
 
 interface LegalDocumentViewerProps {
   documentId: string;
@@ -187,7 +188,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
           <div
             id="legal-document-content"
             className="bg-white text-black p-8 md:p-16 shadow-xl rounded-sm min-h-[1000px] legal-print-container"
-            dangerouslySetInnerHTML={{ __html: html }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(html) }}
           />
 
           {/* Integrity Info (Outside Print) */}

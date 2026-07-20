@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 declare const Deno: any;
 
-const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "*";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://capitalflow.app";
 const INFINITEPAY_LINKS_URL = "https://api.checkout.infinitepay.io/links";
 
 const baseCorsHeaders = {
@@ -13,7 +13,7 @@ const baseCorsHeaders = {
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get("origin") || "";
-  const allowOrigin = APP_ORIGIN === "*" ? "*" : origin === APP_ORIGIN ? origin : APP_ORIGIN;
+  const allowOrigin = origin === APP_ORIGIN ? origin : APP_ORIGIN;
   return { ...baseCorsHeaders, "Access-Control-Allow-Origin": allowOrigin };
 }
 

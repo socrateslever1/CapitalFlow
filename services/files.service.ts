@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { generateUUID } from '../utils/generators';
 import { generateBackup, downloadFile } from './dataService';
 import { safeUUID } from '../utils/uuid';
+import { toStorageReference } from '../utils/storageUrl';
 
 const registerOperatorPortalFile = async (params: {
   loanId: string;
@@ -57,8 +58,7 @@ export const filesService = {
       const { error: uploadError } = await supabase.storage.from('documentos').upload(path, file);
       if (uploadError) throw uploadError;
       
-      const { data: publicData } = supabase.storage.from('documentos').getPublicUrl(path);
-      const url = publicData.publicUrl;
+      const url = toStorageReference('documentos', path);
       
       const { data: loan, error: loanFetchError } = await supabase.from('contratos').select('policies_snapshot').eq('id', safeLoanId).single();
       if (loanFetchError) throw loanFetchError;
@@ -112,8 +112,7 @@ export const filesService = {
       const { error: uploadError } = await supabase.storage.from('documentos').upload(path, file);
       if (uploadError) throw uploadError;
       
-      const { data: publicData } = supabase.storage.from('documentos').getPublicUrl(path);
-      const url = publicData.publicUrl;
+      const url = toStorageReference('documentos', path);
       
       const { data: loan, error: loanFetchError } = await supabase.from('contratos').select('policies_snapshot').eq('id', safeLoanId).single();
       if (loanFetchError) throw loanFetchError;
@@ -177,8 +176,7 @@ export const filesService = {
         upsert: true
       });
       if (error) throw error;
-      const { data: publicData } = supabase.storage.from('documentos').getPublicUrl(path);
-      return publicData.publicUrl;
+      return toStorageReference('documentos', path);
     } catch (error) {
       console.error('Error uploading file:', error);
       return null;

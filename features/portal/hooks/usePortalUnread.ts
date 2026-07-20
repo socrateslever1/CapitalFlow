@@ -2,52 +2,40 @@
 import { useState, useEffect } from 'react';
 import { supabasePortal } from '../../../lib/supabasePortal';
 
-export const usePortalUnread = (loanId: string | undefined, isChatOpen: boolean) => {
+export const usePortalUnread = (
+    loanId: string | undefined,
+    isChatOpen: boolean,
+    portalToken?: string,
+    portalCode?: string
+) => {
     const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
-        if (!loanId || isChatOpen) {
+        if (!loanId || !portalToken || !portalCode || isChatOpen) {
             setUnreadCount(0);
             return;
         }
 
         const fetchUnread = async () => {
-            const { count, error } = await supabasePortal
-                .from('mensagens_suporte')
-                .select('*', { count: 'exact', head: true })
-                .eq('loan_id', loanId)
-                .or('sender.eq.OPERATOR,sender_type.eq.OPERATOR')
-                .or('read.eq.false,read.is.null');
+            const { data, error } = await supabasePortal.rpc('portal_support_unread_count', {
+                p_token: portalToken,
+                p_shortcode: portalCode,
+                p_loan_id: loanId,
+            });
             if (error) {
                 console.warn('[usePortalUnread] Falha ao contar mensagens:', error.message);
                 setUnreadCount(0);
                 return;
             }
-            setUnreadCount(count || 0);
+            setUnreadCount(Number(data || 0));
         };
 
         fetchUnread();
 
-        const channel = supabasePortal.channel(`portal-unread-${loanId}`)
-            .on(
-                'postgres_changes',
-                { 
-                    event: 'INSERT', 
-                    schema: 'public', 
-                    table: 'mensagens_suporte', 
-                    filter: `loan_id=eq.${loanId}` 
-                },
-                (payload) => {
-                    // Incrementa apenas se for do operador e chat fechado
-                    if (payload.new.sender === 'OPERATOR' || payload.new.sender_type === 'OPERATOR') {
-                        fetchUnread();
-                    }
-                }
-            )
-            .subscribe();
+        const interval = window.setInterval(fetchUnread, 10000);
 
-        return () => { supabasePortal.removeChannel(channel); };
-    }, [loanId, isChatOpen]);
+        return () => clearInterval(interval);
+    }, [loanId, isChatOpen, portalToken, portalCode]);
 
     return unreadCount;
 };

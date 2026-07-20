@@ -9,9 +9,10 @@ declare const Deno: any;
 const ASAAS_API_URL = "https://www.asaas.com/api/v3"; // Mudar para sandbox se necessário
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") || "https://capitalflow.app",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
 };
 
 serve(async (req: Request) => {

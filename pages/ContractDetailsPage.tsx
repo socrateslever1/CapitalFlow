@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import {
     TrendingUp, AlertTriangle, MessageSquare, ShieldCheck,
     FileText, Download, RefreshCcw, Loader2, User, FileEdit, History, ArrowLeft
@@ -116,9 +117,16 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
             status: 'VISIBLE',
         })),
     ];
-    const openPortalFile = (url?: string | null) => {
+    const openPortalFile = async (url?: string | null) => {
         if (!url) return;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        const fileWindow = window.open('', '_blank');
+        if (fileWindow) fileWindow.opener = null;
+        const authorizedUrl = await resolveAuthenticatedStorageUrl(url);
+        if (authorizedUrl && fileWindow) {
+            fileWindow.location.href = authorizedUrl;
+        } else {
+            fileWindow?.close();
+        }
     };
 
     return (

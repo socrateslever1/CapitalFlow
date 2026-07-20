@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { FileText, Image as ImageIcon, MessageCircle, Share2 } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { Modal } from '../ui/Modal';
+import { sanitizeRichHtml } from '../../utils/sanitizeHtml';
 
 type ReceiptSendFormat = 'TEXT' | 'IMAGE' | 'PDF';
 
@@ -488,7 +489,7 @@ export const ReceiptModal = ({
                 <div
                     ref={receiptRef}
                     className="w-full max-w-sm bg-white text-slate-900 border border-slate-200 shadow-xl overflow-hidden mb-6"
-                    dangerouslySetInnerHTML={{ __html: receiptBodyHtml }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(receiptBodyHtml) }}
                 />
 
                 <div className="flex flex-col w-full gap-3">

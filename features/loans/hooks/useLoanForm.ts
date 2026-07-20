@@ -11,6 +11,7 @@ import { getInitialFormState } from './loanForm.defaults';
 import { safeIsoDateOnly, safeSourceId, safeFileFirst } from '../utils/formHelpers';
 import { parseDateOnlyUTC, toISODateOnlyUTC, addDaysUTC, addMonthsUTC } from '../../../utils/dateHelpers';
 import { isTestSource } from '../../../utils/testSource';
+import { toStorageReference } from '../../../utils/storageUrl';
 
 
 const getInstallmentNumber = (inst: any, fallback: number) => {
@@ -236,8 +237,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
                   const path = `${userProfile?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
                   const { error: uploadError } = await supabase.storage.from('documentos').upload(path, file);
                   if (uploadError) throw uploadError;
-                  const { data } = supabase.storage.from('documentos').getPublicUrl(path);
-                  publicUrl = data.publicUrl;
+                  publicUrl = toStorageReference('documentos', path);
               }
               const newDoc: LoanDocument = { id: generateUUID(), url: publicUrl, name: file.name, type: fileType as any, visibleToClient: false, uploadedAt: new Date().toISOString() };
               setCustomDocuments([...customDocuments, newDoc]);

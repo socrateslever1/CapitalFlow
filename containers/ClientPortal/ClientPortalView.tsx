@@ -685,6 +685,8 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
             loan={clientContracts[0] || { client_id: loggedClient.id }} 
             isOpen={isChatOpen} 
             onClose={() => setIsChatOpen(false)} 
+            portalToken={initialPortalToken}
+            portalCode={initialPortalCode}
         />
       )}
 

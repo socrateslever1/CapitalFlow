@@ -123,14 +123,16 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
 
       // Upload do comprovante, se houver.
       if (receiptFile) {
-        const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `${loan.id}_${Date.now()}.${fileExt}`;
-        const filePath = `portal_receipts/${fileName}`;
+        const formData = new FormData();
+        formData.append('portal_token', portalToken);
+        formData.append('portal_code', portalCode);
+        formData.append('loan_id', loan.id);
+        formData.append('file', receiptFile);
 
-        const { data: uploadData, error: uploadError } = await supabasePortal
-          .storage
-          .from('comprovantes')
-          .upload(filePath, receiptFile);
+        const { data: uploadData, error: uploadError } = await supabasePortal.functions.invoke(
+          'portal-receipt-upload',
+          { body: formData }
+        );
 
         if (uploadError) {
           console.error('Erro no upload:', uploadError);
@@ -139,12 +141,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
           throw new Error('Falha ao enviar arquivo do comprovante. Tente novamente.');
         }
 
-        if (uploadData) {
-          const { data: { publicUrl } } = supabasePortal
-            .storage
-            .from('comprovantes')
-            .getPublicUrl(filePath);
-          comprovanteUrl = publicUrl;
+        if (uploadData?.file_ref) {
+          comprovanteUrl = uploadData.file_ref;
           setUploadStatus('UPLOADED');
           setUploadMessage('Comprovante carregado. Notificando operador...');
         }

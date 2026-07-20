@@ -31,19 +31,22 @@ import { PortalInstallmentItem } from '../../containers/ClientPortal/components/
 import { formatMoney } from '../../utils/formatters';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 import { formatBRDate } from '../../utils/dateHelpers';
+import { supabasePortal } from '../../lib/supabasePortal';
 
 interface ContractBlockProps {
     loan: any;
     onPay: () => void;
     onChat: () => void;
     isChatOpen: boolean;
+    portalToken: string;
+    portalCode: string;
 }
 
 // Componente Interno: Bloco de Contrato Individual
-const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isChatOpen }) => {
+const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isChatOpen, portalToken, portalCode }) => {
     const summary = useMemo(() => resolveDebtSummary(loan, loan.installments), [loan]);
     const { hasLateInstallments, totalDue, pendingCount, nextDueDate } = summary;
-    const unreadCount = usePortalUnread(loan?.id, isChatOpen);
+    const unreadCount = usePortalUnread(loan?.id, isChatOpen, portalToken, portalCode);
 
     // Pega o status da próxima parcela ou da mais atrasada
     const nextInst = loan.installments.find((i: any) => !isPortalInstallmentPaid(i));
@@ -57,9 +60,18 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isCh
     const clientFiles = portalFiles
       .filter((file: any) => file.direction === 'CLIENT_TO_OPERATOR')
       .slice(0, 3);
-    const openFile = (url: string) => {
-      if (!url) return;
-      window.open(url, '_blank', 'noopener,noreferrer');
+    const openFile = async (file: any) => {
+      if (!file?.id) return;
+      const { data, error } = await supabasePortal.functions.invoke('portal-file-url', {
+        body: {
+          portal_token: portalToken,
+          portal_code: portalCode,
+          loan_id: loan.id,
+          file_id: file.id,
+        },
+      });
+      if (error || !data?.signed_url) return;
+      window.open(data.signed_url, '_blank', 'noopener,noreferrer');
     };
 
     return (
@@ -122,7 +134,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isCh
                                 {operatorFiles.map((file: any) => (
                                     <button
                                         key={file.id}
-                                        onClick={() => openFile(file.file_url)}
+                                        onClick={() => void openFile(file)}
                                         className="w-full flex items-center justify-between gap-2 rounded-md bg-slate-900/80 px-2 py-1.5 text-left text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-800"
                                     >
                                         <span className="flex items-center gap-1.5 truncate"><FileText size={12} /> {file.file_name || 'Documento'}</span>
@@ -139,7 +151,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isCh
                                 {clientFiles.map((file: any) => (
                                     <button
                                         key={file.id}
-                                        onClick={() => openFile(file.file_url)}
+                                        onClick={() => void openFile(file)}
                                         className="w-full flex items-center justify-between gap-2 rounded-md bg-slate-900/80 px-2 py-1.5 text-left text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-800"
                                     >
                                         <span className="flex items-center gap-1.5 truncate"><FileText size={12} /> {file.file_name || 'Comprovante'}</span>
@@ -199,9 +211,19 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const [isFilesOpen, setIsFilesOpen] = useState(false);
 
-  const openFile = (url: string) => {
-    if (!url) return;
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const openFile = async (file: any) => {
+    const loanId = file?.loanId || file?.contractId;
+    if (!file?.id || !loanId) return;
+    const { data, error } = await supabasePortal.functions.invoke('portal-file-url', {
+      body: {
+        portal_token: initialPortalToken,
+        portal_code: initialPortalCode,
+        loan_id: loanId,
+        file_id: file.id,
+      },
+    });
+    if (error || !data?.signed_url) return;
+    window.open(data.signed_url, '_blank', 'noopener,noreferrer');
   };
 
   const allOperatorFiles = useMemo(() => {
@@ -378,6 +400,8 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                             onPay={() => setActiveLoanForPayment(contract)}
                             onChat={() => setActiveLoanForChat(contract)}
                             isChatOpen={activeLoanForChat?.id === contract.id}
+                            portalToken={initialPortalToken}
+                            portalCode={initialPortalCode}
                         />
                     ))
                 )}
@@ -423,6 +447,8 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
           } : null}
           isOpen={!!activeLoanForChat}
           onClose={() => setActiveLoanForChat(null)}
+          portalToken={initialPortalToken}
+          portalCode={initialPortalCode}
       />
 
       {/* MODAL JURÍDICO */}
@@ -526,7 +552,7 @@ export const ClientPortalView = ({ initialPortalToken, initialPortalCode }: { in
                                     </p>
                                 </div>
                                 <button
-                                    onClick={() => openFile(file.file_url)}
+                                    onClick={() => void openFile(file)}
                                     className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 shadow-lg shadow-blue-600/20 transition-all flex items-center gap-1.5 shrink-0"
                                 >
                                     Visualizar

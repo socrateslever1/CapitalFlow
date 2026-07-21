@@ -5,6 +5,7 @@ import {
   whatsappConfigService,
   withDefaultWhatsAppTemplates,
 } from '../../../services/whatsappConfig.service';
+import { CollectionAutomation } from './CollectionAutomation';
 
 interface WhatsAppConfigProps {
   profileId: string;
@@ -318,6 +319,7 @@ export const WhatsAppConfig: React.FC<WhatsAppConfigProps> = ({ profileId, showT
           </div>
         </div>
       </div>
+      <CollectionAutomation profileId={profileId} showToast={showToast} />
     </div>
   );
 };

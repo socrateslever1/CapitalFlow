@@ -1,0 +1,86 @@
+[
+  {
+    "id": "PAWI9yAAU5c0jNjr",
+    "name": "CapitalFlow - Regua de Cobranca",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8-18 * * *" }] } },
+        "id": "capitalflow-collection-schedule",
+        "name": "Hourly Business Window",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [-520, 0]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-daily-collections",
+          "sendHeaders": true,
+          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea', action: 'collect', dry_run: false }) }}",
+          "options": { "timeout": 60000 }
+        },
+        "id": "capitalflow-collect-due",
+        "name": "Prepare Collections",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [-300, 0]
+      },
+      {
+        "parameters": { "jsCode": "const messages = $json.messages || [];\nreturn messages.filter((item) => item.dispatch_id && item.chat_id && item.message).map((item) => ({ json: item }));" },
+        "id": "capitalflow-expand-collections",
+        "name": "Expand Messages",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [-80, 0]
+      },
+      {
+        "parameters": {
+          "resource": "Chatting",
+          "operation": "Send Text",
+          "session": "={{ $json.session }}",
+          "chatId": "={{ $json.chat_id }}",
+          "text": "={{ $json.message }}",
+          "requestOptions": {}
+        },
+        "id": "capitalflow-send-collection",
+        "name": "Send WhatsApp",
+        "type": "n8n-nodes-waha.WAHA",
+        "typeVersion": 202411,
+        "position": [140, 0],
+        "credentials": { "wahaApi": { "id": "fSoBCAg2xaTKYlOi", "name": "WAHA account" } }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-daily-collections",
+          "sendHeaders": true,
+          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea', action: 'ack', dispatch_id: $('Expand Messages').item.json.dispatch_id, success: true }) }}",
+          "options": { "timeout": 15000 }
+        },
+        "id": "capitalflow-ack-collection",
+        "name": "Confirm Sent",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [360, 0]
+      }
+    ],
+    "connections": {
+      "Hourly Business Window": { "main": [[{ "node": "Prepare Collections", "type": "main", "index": 0 }]] },
+      "Prepare Collections": { "main": [[{ "node": "Expand Messages", "type": "main", "index": 0 }]] },
+      "Expand Messages": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]] },
+      "Send WhatsApp": { "main": [[{ "node": "Confirm Sent", "type": "main", "index": 0 }]] }
+    },
+    "settings": { "executionOrder": "v1", "timezone": "America/Manaus" },
+    "pinData": {},
+    "tags": []
+  }
+]

@@ -67,8 +67,24 @@ Deno.serve(async (req) => {
         name: operator?.nome_operador || operator?.nome_exibicao || operator?.nome_completo || "operador",
         whatsapp_url: `https://wa.me/${operatorPhone}`,
       } : null;
+
+      const endsConversation = /^(encerrar|encerrar conversa|finalizar conversa|sair|trocar usu[aá]rio|trocar cliente|esquecer cliente)$/i
+        .test(message.normalize("NFC"));
+      if (endsConversation) {
+        const { error: endError } = await supabase.from("n8n_client_sessions")
+          .delete().eq("profile_id", organizationId).eq("phone_hash", phoneHash);
+        if (endError) throw endError;
+        await supabase.from("n8n_message_events").update({ status: "PROCESSED" })
+          .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
+        return json({
+          status: "session_ended",
+          conversation_id: crypto.randomUUID(),
+          operator_contact: operatorContact,
+        });
+      }
+
       const { data: savedSession } = await supabase.from("n8n_client_sessions")
-        .select("client_id").eq("profile_id", organizationId).eq("phone_hash", phoneHash)
+        .select("client_id, conversation_id").eq("profile_id", organizationId).eq("phone_hash", phoneHash)
         .gt("expires_at", new Date().toISOString()).maybeSingle();
 
       let clients: Array<{ id: string; name: string }> = [];
@@ -154,7 +170,15 @@ Deno.serve(async (req) => {
       if (clients.length > 1) return json({ status: "ambiguous", request: "cpf_or_client_code" });
 
       const client = clients[0];
-      await supabase.from("n8n_client_sessions").upsert({ profile_id: organizationId, phone_hash: phoneHash, client_id: client.id, verified_by: matchedBy, expires_at: new Date(Date.now() + 86400000).toISOString(), updated_at: new Date().toISOString() });
+      const sessionResult = await supabase.from("n8n_client_sessions").upsert({
+        profile_id: organizationId,
+        phone_hash: phoneHash,
+        client_id: client.id,
+        verified_by: matchedBy,
+        expires_at: new Date(Date.now() + 86400000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }).select("conversation_id").single();
+      if (sessionResult.error) throw sessionResult.error;
       const { data: contracts, error: contractError } = await supabase
         .from("contratos")
         .select("id, status, principal, total_to_receive, start_date, portal_token, portal_shortcode")
@@ -225,7 +249,7 @@ Deno.serve(async (req) => {
             method: "POST",
             headers: {
               "content-type": "application/json",
-              "authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+              "authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
               "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
             },
             body: JSON.stringify({
@@ -258,6 +282,7 @@ Deno.serve(async (req) => {
         .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
       return json({
         status: "identified",
+        conversation_id: sessionResult.data.conversation_id,
         client: { display_name: client.name },
         contracts: activeContracts.map(({ status, principal, total_to_receive, start_date }, index) => ({ reference: index + 1, status, principal, total_to_receive, start_date })),
         pending: pending.map(({ _installment_id, _loan_id, ...safe }) => safe),

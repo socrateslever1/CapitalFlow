@@ -2,7 +2,7 @@
   {
     "id": "PAWI9yAAU5c0jNjr",
     "name": "CapitalFlow - Regua de Cobranca",
-    "active": false,
+    "active": true,
     "nodes": [
       {
         "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8-18 * * *" }] } },

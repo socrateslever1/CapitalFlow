@@ -98,12 +98,14 @@ Deno.serve(async (req) => {
     const contractMap = new Map(activeContracts.map((contract) => [contract.id, contract]));
     const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capitalflow.app").replace(/\/$/, "");
     const messages = [];
+    const handledClients = new Set<string>();
 
     for (const installment of installments || []) {
       const contract = contractMap.get(installment.loan_id);
       const client = contract ? clientMap.get(contract.client_id) : null;
       const phone = digits(client?.phone);
       if (!contract || !client || phone.length < 10) continue;
+      if (handledClients.has(client.id)) continue;
       const policy = overrides.get(contract.id) || defaultPolicy;
       if (!policy.enabled || policy.paused) continue;
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
@@ -152,6 +154,7 @@ Deno.serve(async (req) => {
         if (inserted.error) throw inserted.error;
         dispatchId = inserted.data?.id || null;
       }
+      handledClients.add(client.id);
       messages.push({ dispatch_id: dispatchId, session: integration.session_name, chat_id: `${phone}@c.us`, message, stage, dry_run: dryRun });
     }
     return json({ ok: true, date: today, messages });

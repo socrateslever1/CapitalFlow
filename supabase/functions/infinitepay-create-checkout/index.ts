@@ -86,6 +86,8 @@ serve(async (req) => {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     let isAuthorized = false;
+    const isInternalServiceCall =
+      req.headers.get("authorization") === `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
     let callerProfileId: string | null = null;
 
     if (portal_token && portal_code) {
@@ -120,7 +122,7 @@ serve(async (req) => {
       isAuthorized = true;
     }
 
-    if (!isAuthorized) {
+    if (!isAuthorized && !isInternalServiceCall) {
       const token = getBearerToken(req);
       if (!token) return json(req, { ok: false, error: "Unauthorized" }, 401);
 
@@ -178,7 +180,7 @@ serve(async (req) => {
       });
     }
 
-    if (callerProfileId && String(targetProfileId) !== String(callerProfileId)) {
+    if (!isInternalServiceCall && callerProfileId && String(targetProfileId) !== String(callerProfileId)) {
       const { data: relatedProfiles } = await supabaseAdmin
         .from("perfis")
         .select("id, supervisor_id")

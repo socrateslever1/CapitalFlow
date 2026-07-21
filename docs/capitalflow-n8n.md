@@ -2,7 +2,7 @@
 
 ## Arquitetura
 
-WAHA recebe mensagens do WhatsApp e entrega eventos ao webhook interno do n8n. O workflow normaliza e filtra a entrada, consulta a Edge Function `capitalflow-n8n-tools`, descarta duplicidades, produz uma resposta conversacional com o modelo Groq, valida a saída e envia pelo WAHA.
+WAHA recebe mensagens do WhatsApp e entrega eventos ao webhook interno do n8n. O workflow normaliza e filtra a entrada, consulta a Edge Function `capitalflow-n8n-tools`, descarta duplicidades, tenta primeiro a camada local/grátis via `CAPITALFLOW_LOCAL_AI_URL` quando disponível, cai para Gemini/Groq se a camada local falhar e só então usa o bot convencional, valida a saída e envia pelo WAHA.
 
 Uma saudação simples recebe uma resposta natural, sem menu. Empréstimo só é tratado quando a própria pessoa manifesta interesse. Informações financeiras só são respondidas após identificação segura e sempre a partir do contexto retornado pelo backend.
 
@@ -26,6 +26,7 @@ Todas as consultas são limitadas pelo `profile_id` associado à sessão WAHA. A
 - `n8nwahalocal-waha-1`: WAHA, porta 3000, volumes de sessão e mídia.
 - `n8nwahalocal-redis-1`: memória conversacional.
 - `n8nwahalocal-postgres-1`: PostgreSQL local do compose. O n8n atual usa SQLite no próprio volume.
+- Opcionalmente, um container `koboldcpp` ou outro servidor OpenAI-compatible local pode responder em `CAPITALFLOW_LOCAL_AI_URL` e virar a primeira saída de IA.
 
 O compose operacional está em `C:\Users\LeverDell\Downloads\N8N WAHA Local\docker-compose.yml`. O segredo n8n/backend está em `.env.n8n`, fora do repositório.
 
@@ -68,6 +69,8 @@ O backup inicial está em `C:\Users\LeverDell\Downloads\N8N WAHA Local\backups\2
 ## Atualização
 
 Não use `latest` nem remova volumes. Exporte workflow e credenciais, fixe versões, consulte breaking changes, atualize somente o n8n e valide logs, webhook e credenciais antes de atualizar WAHA ou Redis.
+
+Se a camada local for habilitada, mantenha `CAPITALFLOW_LOCAL_AI_URL` e `CAPITALFLOW_LOCAL_AI_MODEL` no mesmo `.env` do compose para que o n8n possa chamá-la sem depender das chaves pagas.
 
 ## Régua híbrida de cobrança
 

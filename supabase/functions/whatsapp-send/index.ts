@@ -3,7 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 declare const Deno: any;
 
-const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://capitalflow.app";
+const APP_ORIGIN = (Deno.env.get("APP_ORIGIN") || "https://capitalflow.app").replace(/\/$/, "");
+const ALLOWED_ORIGINS = new Set([
+  APP_ORIGIN,
+  "https://capitalflow.app",
+  "https://www.capitalflow.app",
+  "https://capflow.pages.dev",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+]);
 
 const baseCorsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -11,9 +19,13 @@ const baseCorsHeaders = {
 };
 
 function corsHeaders(req: Request) {
-  const origin = req.headers.get("origin") || "";
-  const allowOrigin = origin === APP_ORIGIN ? origin : APP_ORIGIN;
-  return { ...baseCorsHeaders, "Access-Control-Allow-Origin": allowOrigin };
+  const origin = (req.headers.get("origin") || "").replace(/\/$/, "");
+  const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : APP_ORIGIN;
+  return {
+    ...baseCorsHeaders,
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Vary": "Origin",
+  };
 }
 
 function json(req: Request, data: unknown, status = 200) {

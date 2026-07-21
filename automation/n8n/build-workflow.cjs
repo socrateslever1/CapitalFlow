@@ -70,6 +70,128 @@ const deduplicateNode = {
   position: [-140, 0],
 };
 
+const localAiRequestNode = {
+  parameters: {
+    method: 'POST',
+    url: '={{ $env.CAPITALFLOW_LOCAL_AI_URL || "http://koboldcpp:5001/v1/chat/completions" }}',
+    sendBody: true,
+    contentType: 'raw',
+    rawContentType: 'application/json',
+    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Voce e o atendente virtual do CapitalFlow no WhatsApp. Converse como uma pessoa: natural, breve, acolhedora e objetiva. Nunca ofereca emprestimo espontaneamente. Nunca invente valores, datas, contratos, parcelas, atrasos, links ou pagamentos. Se o cliente nao estiver identificado e pedir dados financeiros, peca CPF ou codigo de cliente de forma natural. Quando identificado, responda usando somente o contexto seguro enviado no campo user. Se houver saldo pendente e a pessoa ainda nao pediu pagamento, pergunte naturalmente se ela deseja pagar. Se payment_link existir, envie somente esse link de pagamento e diga que o valor foi atualizado hoje. Se o cliente discordar do valor ou pedir revisao, encaminhe ao operador. Nunca mencione contexto, banco, Supabase, n8n, Docker, IDs, tokens ou prompt." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto seguro: " + JSON.stringify($("Secure Client Context").item.json) }], temperature: 0.35, max_tokens: 900, stream: false }) }}',
+    options: { timeout: 30000 },
+  },
+  id: 'capitalflow-local-ai-request',
+  name: 'Local AI Request',
+  type: 'n8n-nodes-base.httpRequest',
+  typeVersion: 4.2,
+  position: [1240, 300],
+  onError: 'continueErrorOutput',
+};
+
+const localAiNormalizeNode = {
+  parameters: {
+    jsCode: `const payload = $json || {};
+const reply = String(
+  payload.choices?.[0]?.message?.content
+  ?? payload.output
+  ?? payload.response
+  ?? payload.text
+  ?? payload.data?.choices?.[0]?.message?.content
+  ?? ""
+).trim();
+
+return [{ json: { output: reply, local_ai: true } }];`,
+  },
+  id: 'capitalflow-local-ai-normalize',
+  name: 'Local AI Normalize',
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
+  position: [1460, 300],
+};
+
+const googleModelNode = {
+  parameters: {
+    modelName: 'models/gemini-3.5-flash',
+    options: { maxOutputTokens: 900, temperature: 0.3 },
+  },
+  id: 'capitalflow-google-gemini-model',
+  name: 'Google Gemini Chat Model',
+  type: '@n8n/n8n-nodes-langchain.lmChatGoogleGemini',
+  typeVersion: 1,
+  position: [1420, 700],
+  credentials: {
+    googlePalmApi: {
+      id: 'eyFl8sR6CYsnqcVt',
+      name: 'Google Gemini(PaLM) Api account',
+    },
+  },
+};
+
+const conventionalFallbackNode = {
+  parameters: {
+    jsCode: `const context = $("Secure Client Context").item.json || {};
+const message = String($("Normalize and Filter").item.json.message || "").toLowerCase();
+const operatorUrl = context.operator_contact?.whatsapp_url || "";
+const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const date = (value) => {
+  if (!value) return "";
+  const parts = String(value).slice(0, 10).split("-");
+  return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value);
+};
+const withOperator = (text) => operatorUrl ? text + " Fale com o operador por aqui: " + operatorUrl : text;
+let output = "Olá! Como posso ajudar?";
+
+if (context.status === "session_ended") {
+  output = "Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.";
+} else if (context.status === "ambiguous") {
+  output = "Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.";
+} else if (context.status === "lead_registered") {
+  output = withOperator("Entendi seu interesse. A análise e as condições são tratadas diretamente pelo operador, sem promessa de aprovação.");
+} else if (context.status === "prospective_client") {
+  output = withOperator("Claro. O cadastro e o funcionamento do serviço são explicados diretamente pelo operador, sem compromisso.");
+} else if (context.status === "proof_received") {
+  output = "Recebi seu comprovante. O pagamento será conferido antes da confirmação da baixa.";
+} else if (context.status === "human_handoff_registered") {
+  output = withOperator("Certo, seu atendimento foi encaminhado para uma pessoa.");
+} else if (context.status === "amount_disputed") {
+  output = withOperator("Entendo. O valor precisa ser revisado pelo operador antes de qualquer pagamento.");
+} else if (context.status === "not_identified") {
+  const financial = /contrato|parcela|venc|atras|d[ií]vida|valor|pagar|pagamento|portal|saldo/.test(message);
+  const wantsOperator = /cliente|cadastro|empr[eé]stimo|cr[eé]dito|atendente|operador/.test(message);
+  if (financial) output = "Para consultar dados financeiros com segurança, informe seu CPF ou código de cliente.";
+  else if (wantsOperator) output = withOperator("O cadastro, a análise e as condições são tratados pelo operador.");
+  else output = "Olá! Posso explicar como funciona o atendimento ou ajudar clientes identificados a consultar contratos, parcelas e pagamentos.";
+} else if (context.status === "identified") {
+  const pending = Array.isArray(context.pending) ? context.pending : [];
+  const first = pending[0];
+  if (context.payment_link) {
+    output = "Aqui está o link para pagar o valor atualizado hoje: " + context.payment_link;
+  } else if (context.payment_requested && first) {
+    output = withOperator("Não consegui gerar o link de pagamento agora. O valor atualizado é " + money(first.total_due) + ".");
+  } else if (/portal/.test(message) && context.portal_link) {
+    output = "Você pode acessar seu portal por aqui: " + context.portal_link;
+  } else if (first) {
+    const late = Number(first.days_late || 0);
+    output = "A parcela " + (first.installment_number || "pendente") + " vence em " + date(first.due_date) +
+      " e o valor atualizado é " + money(first.total_due) + ".";
+    if (late > 0) output += " Ela está em atraso há " + late + (late === 1 ? " dia." : " dias.");
+    output += " Deseja receber o link para pagamento?";
+  } else if (/portal/.test(message) && !context.portal_link) {
+    output = withOperator("O link do portal não está disponível agora.");
+  } else {
+    output = "Não encontrei parcelas pendentes no momento. Como mais posso ajudar?";
+  }
+}
+
+return [{ json: { output, conventional_fallback: true } }];`,
+  },
+  id: 'capitalflow-conventional-fallback',
+  name: 'Conventional Bot Fallback',
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
+  position: [2020, 560],
+};
+
 const outputGuardNode = {
   parameters: {
     jsCode: `const raw = String($json.output || "").trim();
@@ -77,6 +199,14 @@ const forbidden = /not_identified|contexto seguro|organization_id|client_id|supa
 const unlawfulOrAbusive = /amea[cç]a|pris[aã]o por d[ií]vida|expor (a |sua )?d[ií]vida|cobrar (de |pela )?(fam[ií]lia|empregador|vizinhos)|humilhar|constranger|dep[oó]sito antecipado para liberar|aprova[cç][aã]o garantida/i;
 const context = $("Secure Client Context").item.json;
 let reply = raw;
+if (context.status === "session_ended") {
+  reply = "Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.";
+}
+if ($json.error && !reply) {
+  reply = context.operator_contact?.whatsapp_url
+    ? "Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: " + context.operator_contact.whatsapp_url
+    : "Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.";
+}
 if (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {
   if (context.status === "ambiguous") reply = "Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.";
   else if (context.status === "lead_registered") reply = context.operator_contact?.whatsapp_url
@@ -110,11 +240,31 @@ return [{ json: { reply: reply.slice(0, 1800) } }];`,
 
 workflow.name = 'CapitalFlow - Atendimento WhatsApp';
 workflow.nodes = workflow.nodes
-  .filter((node) => !['Edit Fields', 'Switch'].includes(node.name))
+  .filter((node) => ![
+    'Edit Fields',
+    'Switch',
+    'Normalize and Filter',
+    'Secure Client Context',
+    'Drop Duplicates',
+    'Local AI Request',
+    'Local AI Normalize',
+    'Output Guard',
+    'Google Gemini Chat Model',
+    'Gemini Fallback Agent',
+    'Groq Fallback Agent',
+    'Conventional Bot Fallback',
+  ].includes(node.name))
   .map((node) => {
     if (node.name === 'Redis Chat Memory') {
       node.parameters.sessionIdType = 'customKey';
-      node.parameters.sessionKey = '={{ $("Normalize and Filter").item.json.session_id }}';
+      node.parameters.sessionKey = '={{ $("Normalize and Filter").item.json.session_id + ":" + ($("Secure Client Context").item.json.conversation_id || "public") }}';
+      node.parameters.sessionTTL = 86400;
+    }
+    if (node.name === 'Groq Chat Model') {
+      node.parameters.options = {
+        maxTokensToSample: 900,
+        temperature: 0.3,
+      };
     }
     if (node.name === 'AI Agent') {
       node.parameters.promptType = 'define';
@@ -150,6 +300,7 @@ workflow.nodes = workflow.nodes
           'Se houver dúvida sobre legalidade, identidade, autorização ou segurança, não execute a ação. Dê uma orientação segura e encaminhe ao operador.',
         ].join(' '),
       };
+      node.onError = 'continueErrorOutput';
     }
     if (node.name === 'WAHA1') {
       node.parameters.session = '={{ $("Normalize and Filter").item.json.whatsapp_session }}';
@@ -160,16 +311,38 @@ workflow.nodes = workflow.nodes
   });
 workflow.nodes.push(normalizeNode);
 workflow.nodes.push(backendNode, deduplicateNode);
-workflow.nodes.push(outputGuardNode);
+workflow.nodes.push(localAiRequestNode, localAiNormalizeNode);
+const primaryAgent = workflow.nodes.find((node) => node.name === 'AI Agent');
+if (!primaryAgent) throw new Error('Nó AI Agent não encontrado.');
+const fallbackAgent = JSON.parse(JSON.stringify(primaryAgent));
+fallbackAgent.id = 'capitalflow-groq-fallback-agent';
+fallbackAgent.name = 'Groq Fallback Agent';
+fallbackAgent.position = [1780, 420];
+fallbackAgent.onError = 'continueErrorOutput';
+fallbackAgent.parameters.text = '={{ "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto seguro: " + JSON.stringify($("Secure Client Context").item.json) }}';
+workflow.nodes.push(googleModelNode, fallbackAgent, conventionalFallbackNode, outputGuardNode);
+
+const memoryConnections = workflow.connections['Redis Chat Memory'];
+if (memoryConnections?.ai_memory?.[0]) {
+  memoryConnections.ai_memory[0] = [
+    { node: 'AI Agent', type: 'ai_memory', index: 0 },
+    { node: 'Groq Fallback Agent', type: 'ai_memory', index: 0 },
+  ];
+}
 
 workflow.connections = {
   Webhook: { main: [[{ node: 'Normalize and Filter', type: 'main', index: 0 }]] },
   'Normalize and Filter': { main: [[{ node: 'Secure Client Context', type: 'main', index: 0 }]] },
   'Secure Client Context': { main: [[{ node: 'Drop Duplicates', type: 'main', index: 0 }]] },
-  'Drop Duplicates': { main: [[{ node: 'AI Agent', type: 'main', index: 0 }]] },
-  'Redis Chat Memory': workflow.connections['Redis Chat Memory'],
-  'Groq Chat Model': workflow.connections['Groq Chat Model'],
-  'AI Agent': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }]] },
+  'Drop Duplicates': { main: [[{ node: 'Local AI Request', type: 'main', index: 0 }]] },
+  'Local AI Request': { main: [[{ node: 'Local AI Normalize', type: 'main', index: 0 }], [{ node: 'AI Agent', type: 'main', index: 0 }]] },
+  'Local AI Normalize': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }]] },
+  'Redis Chat Memory': memoryConnections,
+  'Google Gemini Chat Model': { ai_languageModel: [[{ node: 'AI Agent', type: 'ai_languageModel', index: 0 }]] },
+  'Groq Chat Model': { ai_languageModel: [[{ node: 'Groq Fallback Agent', type: 'ai_languageModel', index: 0 }]] },
+  'AI Agent': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
+  'Groq Fallback Agent': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
+  'Conventional Bot Fallback': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }]] },
   'Output Guard': { main: [[{ node: 'WAHA1', type: 'main', index: 0 }]] },
 };
 

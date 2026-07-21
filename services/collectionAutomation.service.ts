@@ -19,9 +19,9 @@ export interface CollectionPolicy {
 }
 
 export const DEFAULT_COLLECTION_POLICY: Omit<CollectionPolicy, 'profile_id'> = {
-  enabled: false,
-  overdue_cadence: 'MANUAL',
-  tone: 'CORDIAL',
+  enabled: true,
+  overdue_cadence: 'DAILY',
+  tone: 'MEDIATOR',
   remind_two_days_before: true,
   remind_due_today: true,
   remind_first_overdue_day: true,

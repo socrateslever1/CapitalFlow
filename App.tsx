@@ -52,6 +52,7 @@ import { DossierPage } from './pages/DossierPage';
 
 import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
+import { PortalReceiptViewer } from './features/portal/components/PortalReceiptViewer';
 
 export const App: React.FC = () => {
   const [operatorUploadStatus, setOperatorUploadStatus] = useState<{
@@ -65,6 +66,7 @@ export const App: React.FC = () => {
   const legalSignTokenParam = urlParams.get('legal_sign');
   const rawPortalTokenParam = urlParams.get('portal');
   const rawPortalCodeParam = urlParams.get('portal_code') || urlParams.get('code');
+  const isPortalReceipt = urlParams.get('receipt') === '1' && !!urlParams.get('installment_id');
   const hasPortalAccessParams = !!rawPortalTokenParam && !!rawPortalCodeParam;
 
   // ✅ Hooks SEMPRE no topo (regra do React)
@@ -344,6 +346,10 @@ export const App: React.FC = () => {
 
   if (hasPortalAccessParams && portalToken === null) {
     return <LoadingScreen />;
+  }
+
+  if (hasPortalAccessParams && isPortalReceipt) {
+    return <PortalReceiptViewer />;
   }
 
   if (isInitializing && !isPublicView && !isInvitePath) {

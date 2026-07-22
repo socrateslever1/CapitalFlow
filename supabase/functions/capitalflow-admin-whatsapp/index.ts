@@ -22,7 +22,38 @@ function parseContractRequest(raw: string) {
   if (match) return { name: match[1].trim(), principal: parseNumber(match[2]), days: Number(match[3]) };
   match = message.match(/^emprestei\s+(?:r\$\s*)?([\d.,]+)\s+(?:para|a)\s+(.+?)\s+(?:por|para)\s+(\d+)\s+dias?\.?$/i);
   if (match) return { name: match[2].trim(), principal: parseNumber(match[1]), days: Number(match[3]) };
+  match = message.match(/^(?:cadastre|registre|crie)(?:\s+(?:um|o))?(?:\s+(?:contrato|empr[eé]stimo))?(?:\s+de)?\s+(?:r\$\s*)?([\d.,]+)\s*(?:real|reais)?(?:\s+de\s+empr[eé]stimo)?\s+(?:para|a)\s+(?:o|a)?\s*(.+?)(?:,\s*[\s\S]*?|\s+(?:por|para)\s+)(\d+)\s+dias?/i);
+  if (match) return { name: match[2].trim(), principal: parseNumber(match[1]), days: Number(match[3]) };
   return null;
+}
+
+function parsePaymentRequest(raw: string) {
+  const message = String(raw || "").trim().replace(/\s+/g, " ");
+  const patterns = [
+    /^(?:recebi|recebemos)\s+(?:um\s+)?(?:pagamento\s+de\s+)?(?:r\$\s*)?([\d.,]+)\s*(?:real|reais)?\s+(?:de|da|do)\s+(.+?)[.!]?$/i,
+    /^(?:registre|lance|cadastre|confirme|d[eê]\s+baixa\s+em)\s+(?:o\s+)?pagamento\s+(?:de\s+)?(?:r\$\s*)?([\d.,]+)\s*(?:real|reais)?\s+(?:para|de|da|do)\s+(.+?)[.!]?$/i,
+    /^(?:marque|baixe)\s+(?:a\s+)?(?:parcela|d[ií]vida|conta)\s+(?:de|da|do)\s+(.+?)\s+(?:como\s+)?paga\s+(?:em|por)\s+(?:r\$\s*)?([\d.,]+)[.!]?$/i,
+  ];
+  for (let index = 0; index < patterns.length; index++) {
+    const match = message.match(patterns[index]);
+    if (!match) continue;
+    return index === 2
+      ? { name: match[1].trim(), amount: parseNumber(match[2]) }
+      : { name: match[2].trim(), amount: parseNumber(match[1]) };
+  }
+  return null;
+}
+
+function parseCustomMessage(raw: string) {
+  const message = String(raw || "").trim().replace(/\s+/g, " ");
+  const match = message.match(/^(?:mande|envie|diga|avise|lembre)(?:\s+(?:um|uma))?(?:\s+(?:recado|mensagem|aviso|lembrete))?(?:\s+para)?\s+(.+?)\s+(?:que|:|—|-)\s*(.+)$/i);
+  if (!match) return null;
+  return { name: match[1].trim(), message: match[2].trim() };
+}
+
+function parseClientRegistrationRequest(raw: string) {
+  const match = String(raw || "").trim().match(/^(?:cadastre|registre|crie|adicione)(?:\s+(?:um|o))?\s+cliente\s+(.+?)[.!]?$/i);
+  return match ? { name: match[1].trim() } : null;
 }
 
 function parseClientDetails(raw: string) {
@@ -53,7 +84,7 @@ async function findClient(adminDb: any, profileId: string, query: string) {
 
 async function loadClientPosition(adminDb: any, profileId: string, client: any) {
   const { data: contracts, error } = await adminDb.from("contratos")
-    .select("id,status,principal,total_to_receive,start_date,debtor_phone,portal_token,portal_shortcode")
+    .select("id,status,principal,total_to_receive,start_date,debtor_phone,portal_token,portal_shortcode,source_id")
     .eq("client_id", client.id).or(`profile_id.eq.${profileId},owner_id.eq.${profileId}`).eq("is_archived", false);
   if (error) throw error;
   const active = (contracts || []).filter((item: any) => !closed.includes(String(item.status || "").toUpperCase()));
@@ -86,31 +117,39 @@ async function loadClientPosition(adminDb: any, profileId: string, client: any) 
 
 function targetFrom(message: string, intent: string) {
   const patterns: Record<string, RegExp> = {
-    charge: /^(?:cobre|cobrar|mande (?:uma )?cobranca|envie (?:uma )?cobranca)(?: para)?\s+(.+?)(?:\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva))?$/i,
+    charge: /^(?:cobre|cobrar|mande (?:uma )?cobranca|envie (?:uma )?cobranca)(?: para)?\s+(.+?)(?:\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva))?$|^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\s+(.+?)(?:\s+(?:cobrando|sobre|do contrato|a parcela|o contrato).*)?$/i,
     portal: /^(?:mande|envie|mostrar|mostre)?\s*(?:o )?(?:link do )?portal(?: para| da| do)?\s+(.+)$/i,
     due: /^(?:quando vence|qual (?:e )?o vencimento)(?: o contrato| a parcela)?(?: da| do| de)?\s+(.+)$/i,
     amount: /^(?:quanto|qual (?:e )?o valor|valor|saldo)(?: a| o)?\s*(.+?)(?:\s+(?:deve|esta devendo|do contrato|da parcela))?$/i,
     status: /^(?:(?:me\s+)?(?:mostre|mostra|mostrar)|quero\s+(?:ver|consultar)|consulte|ver)?\s*(?:o\s+)?(?:contrato|situacao|status)(?:\s+ativo)?(?:\s+da|\s+do|\s+de)?\s+(.+)$/i,
     automation: /^(?:ative|ativar|pause|pausar|desative|desativar)(?: a)? cobranca(?: automatica)?(?: diaria| semanal)?(?: para| da| do)?\s+(.+)$/i,
   };
-  return message.match(patterns[intent])?.[1]?.trim() || "";
+if (intent === "charge" && /^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\s+/i.test(message)) {
+    return message
+      .replace(/^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\s+/i, "")
+      .replace(/\s+(?:cobrando|sobre|do contrato|a parcela|o contrato)[\s\S]*$/i, "")
+      .trim();
+  }
+  const match = message.match(patterns[intent]);
+  return (match?.[1] || match?.[2] || "").trim();
 }
 
 function detectIntent(raw: string) {
   const message = normalize(raw);
   if (/^(oi|ola|bom dia|boa tarde|boa noite|fala|e ai)$/.test(message)) return "greeting";
   if (/^(ajuda|comandos|menu|o que voce faz)$/.test(message)) return "help";
-  if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message)) return "confirm";
+  if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message) || /^\d{4}$/.test(message)) return "confirm";
   if (/^(cancelar|cancela|nao)$/.test(message)) return "cancel";
   if (/\b(resumo|carteira|painel)\b/.test(message)) return "portfolio";
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
   if (/\b(ultimas cobrancas|fila de cobranca|mensagens enviadas|falhas de envio)\b/.test(message)) return "dispatches";
-  if (/^(cobre|cobrar|mande uma cobranca|envie uma cobranca)/.test(message)) return "charge";
+  if (/^(cobre|cobrar|mande uma cobranca|envie uma cobranca|envia uma mensagem|envie uma mensagem|mande uma mensagem|lembre|avise).*(cobr|venc|atras|parcela|contrato)/.test(message)) return "charge";
   if (/portal/.test(message)) return "portal";
   if (/^(ative|ativar|pause|pausar|desative|desativar).*cobranca/.test(message)) return "automation";
   if (/^(quando vence|qual .*vencimento)/.test(message)) return "due";
+  if (/\b(?:saldo|limite|disponivel|disponibilidade)\b[\s\S]*\b(?:carteiras?|fontes?)\b|\b(?:carteiras?|fontes?)\b[\s\S]*\b(?:saldo|limite|disponivel|disponibilidade)\b/.test(message)) return "wallet";
   if (/^(quanto|qual .*valor|valor|saldo)/.test(message)) return "amount";
   if (/\b(contrato|situacao|status)\b/.test(message) && /^(?:(?:me )?(?:mostre|mostra|mostrar)|quero (?:ver|consultar)|consulte|ver|como esta|situacao|status|contrato)/.test(message)) return "status";
   return "unknown";
@@ -167,6 +206,44 @@ async function prepareContractDraft(adminDb: any, profileId: string, admin: any,
     `Criar contrato para ${payload.client.name}?\nPrincipal: ${money(request.principal)}\nPrazo: ${request.days} dias — vence em ${dateBr(dueDate)}\nJuros do período: ${interestRate}% — total ${money(total)}\nFonte: ${source.name} (saldo ${money(source.balance)})`);
 }
 
+async function preparePaymentDraft(adminDb: any, profileId: string, admin: any, request: any) {
+  if (!Number.isFinite(request.amount) || request.amount <= 0) return "Informe um valor de pagamento válido.";
+  const found = await findClient(adminDb, profileId, request.name);
+  if (found.error) return found.error;
+  const position = await loadClientPosition(adminDb, profileId, found.client);
+  if (!position.contract || !position.installment) return `${found.client.name} não possui parcela pendente para receber.`;
+  const currentDue = Number(position.installment.total_due || 0);
+  if (request.amount > currentDue + 0.005) {
+    return `O valor informado, ${money(request.amount)}, supera o saldo atualizado de ${money(currentDue)}. Revise antes de registrar.`;
+  }
+  const remainingAfter = Math.max(0, Math.round((currentDue - request.amount) * 100) / 100);
+  return await createPending(adminDb, profileId, admin, "RECORD_PAYMENT", {
+    client: found.client,
+    loan_id: position.contract.id,
+    installment_id: position.installment.id,
+    source_id: position.contract.source_id,
+    amount: request.amount,
+    current_due: currentDue,
+  }, `Registrar pagamento de ${money(request.amount)} para ${found.client.name}?\nSaldo atual: ${money(currentDue)}\nApós o pagamento: ${money(remainingAfter)}${remainingAfter <= 0.05 ? " — parcela será baixada" : " — pagamento parcial"}`);
+}
+
+async function startClientRegistration(adminDb: any, profileId: string, admin: any, name: string, afterAction: any = null) {
+  const safeName = String(name || "").trim();
+  if (safeName.length < 2) return "Informe o nome completo do novo cliente.";
+  const existing = await findClient(adminDb, profileId, safeName);
+  if (existing.client) return `${existing.client.name} já está cadastrado.`;
+  if (existing.error?.startsWith("Encontrei mais de um")) return existing.error;
+  await adminDb.from("whatsapp_admin_commands").update({ status: "EXPIRED" })
+    .eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("intent", "CLIENT_REGISTRATION_DRAFT").eq("status", "PENDING");
+  const { error } = await adminDb.from("whatsapp_admin_commands").insert({
+    profile_id: profileId, admin_user_id: admin.id, intent: "CLIENT_REGISTRATION_DRAFT",
+    payload: { name: safeName, after_action: afterAction }, confirmation_code: null,
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+  });
+  if (error) throw error;
+  return `Para cadastrar ${safeName}, envie em uma mensagem:\nCPF: 000.000.000-00 | WhatsApp: 5592999999999`;
+}
+
 async function createPending(adminDb: any, profileId: string, admin: any, intent: string, payload: any, description: string) {
   await adminDb.from("whatsapp_admin_commands").update({ status: "EXPIRED" })
     .eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("status", "PENDING").lt("expires_at", new Date().toISOString());
@@ -188,7 +265,79 @@ async function executePending(adminDb: any, profileId: string, admin: any, rawMe
   if (!data) return "Não encontrei comando pendente válido. Envie o comando novamente.";
   const payload = data.payload || {};
   let result: any = {};
-  if (data.intent === "CREATE_CONTRACT") {
+  if (data.intent === "CREATE_CLIENT") {
+    if (!hasPermission(admin, "CONTRACT_CREATE")) throw new Error("Seu número não possui permissão para cadastrar clientes.");
+    const phone = digits(payload.phone);
+    const document = digits(payload.document);
+    let { data: client } = await adminDb.from("clientes").select("id,name,phone")
+      .eq("owner_id", profileId).or(`document.eq.${document},phone.eq.${phone}`).limit(1).maybeSingle();
+    if (!client) {
+      const inserted = await adminDb.from("clientes").insert({
+        owner_id: profileId, name: payload.name, phone, document,
+        cpf: document.length === 11 ? document : null,
+        access_code: String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, "0"),
+        client_number: String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000)),
+        notes: "Cliente criado e confirmado pelo administrador via WhatsApp",
+      }).select("id,name,phone").single();
+      if (inserted.error) throw inserted.error;
+      client = inserted.data;
+    }
+    let queueId = null;
+    if (payload.after_action?.type === "CUSTOM_MESSAGE" && payload.after_action.message) {
+      const queued = await adminDb.from("whatsapp_queue").insert({
+        profile_id: profileId, phone, message: String(payload.after_action.message).slice(0, 1200), status: "PENDING",
+      }).select("id").single();
+      if (queued.error) throw queued.error;
+      queueId = queued.data.id;
+    }
+    result = { client_id: client.id, client: client.name, queue_id: queueId };
+  } else if (data.intent === "RECORD_PAYMENT") {
+    if (!hasPermission(admin, "PAYMENT")) throw new Error("Seu número não possui permissão para registrar pagamentos.");
+    const position = await loadClientPosition(adminDb, profileId, payload.client);
+    if (!position.contract || !position.installment || position.installment.id !== payload.installment_id) {
+      throw new Error("A parcela mudou desde a prévia. Envie o comando novamente.");
+    }
+    const amount = Number(payload.amount || 0);
+    const totalDue = Number(position.installment.total_due || 0);
+    if (amount <= 0 || amount > totalDue + 0.005) throw new Error("Valor incompatível com o saldo atual.");
+    let remaining = amount;
+    const lateFeePaid = Math.min(remaining, Number(position.installment.late_fee_due || 0));
+    remaining -= lateFeePaid;
+    const interestPaid = Math.min(remaining, Number(position.installment.interest_due || 0));
+    remaining -= interestPaid;
+    const principalPaid = Math.min(remaining, Number(position.installment.principal_due || 0));
+    const { data: profitSources, error: profitSourceError } = await adminDb.from("fontes")
+      .select("id,name").eq("profile_id", profileId).limit(100);
+    if (profitSourceError) throw profitSourceError;
+    const caixaLivre = (profitSources || []).find((item: any) => /caixa livre|lucro|disponivel/.test(normalize(item.name)));
+    const { error: paymentError } = await adminDb.rpc("process_payment_v3_selective", {
+      p_idempotency_key: data.id,
+      p_loan_id: position.contract.id,
+      p_installment_id: position.installment.id,
+      p_profile_id: profileId,
+      p_operator_id: admin.user_id || profileId,
+      p_principal_paid: principalPaid,
+      p_interest_paid: interestPaid,
+      p_late_fee_paid: lateFeePaid,
+      p_late_fee_forgiven: 0,
+      p_interest_forgiven: 0,
+      p_payment_date: new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" }),
+      p_capitalize_remaining: false,
+      p_source_id: position.contract.source_id,
+      p_caixa_livre_id: caixaLivre?.id || null,
+    });
+    if (paymentError) throw paymentError;
+    result = { amount, client: payload.client.name, settled: totalDue - amount <= 0.05 };
+  } else if (data.intent === "CUSTOM_MESSAGE") {
+    if (!hasPermission(admin, "MESSAGE")) throw new Error("Seu número não possui permissão para enviar mensagens.");
+    const phone = digits(payload.client?.phone);
+    if (phone.length < 10) throw new Error("Cliente sem WhatsApp válido.");
+    const { data: queued, error: queueError } = await adminDb.from("whatsapp_queue").insert({
+      profile_id: profileId, phone, message: String(payload.message || "").slice(0, 1200), status: "PENDING",
+    }).select("id").single();
+    if (queueError) throw queueError;
+    result = { queue_id: queued.id, client: payload.client.name };
+  } else if (data.intent === "CREATE_CONTRACT") {
     if (!hasPermission(admin, "CONTRACT_CREATE")) throw new Error("Seu número não possui permissão para criar contratos.");
     const { data: created, error: createError } = await adminDb.rpc("whatsapp_admin_create_monthly_contract", {
       p_profile_id: profileId,
@@ -264,6 +413,9 @@ async function executePending(adminDb: any, profileId: string, admin: any, rawMe
     result = { client: payload.client.name, ...policy };
   }
   await adminDb.from("whatsapp_admin_commands").update({ status: "EXECUTED", confirmed_at: new Date().toISOString(), executed_at: new Date().toISOString(), result }).eq("id", data.id);
+  if (data.intent === "CREATE_CLIENT") return `${result.client} foi cadastrado com sucesso.${result.queue_id ? " O recado foi adicionado à fila de envio." : ""}`;
+  if (data.intent === "RECORD_PAYMENT") return `Pagamento de ${money(result.amount)} registrado para ${result.client}.${result.settled ? " Parcela baixada; o contrato também será baixado se não houver outra parcela aberta." : " O saldo restante permanece em aberto."} O cliente receberá o comprovante automaticamente.`;
+  if (data.intent === "CUSTOM_MESSAGE") return `Mensagem adicionada à fila para ${result.client}.`;
   if (data.intent === "CREATE_CONTRACT") return `Contrato criado para ${payload.client.name}: ${money(result.principal)} liberados, total de ${money(result.total)}, vencimento ${dateBr(result.due_date)}. Código ${String(result.contract_id).slice(0, 8)}.`;
   if (data.intent === "CHARGE") return `Cobrança adicionada à fila para ${payload.client.name}.`;
   if (data.intent === "PORTAL_SEND") return `Link do portal adicionado à fila para ${payload.client.name}.`;
@@ -303,11 +455,32 @@ Deno.serve(async (req) => {
       if (!hasPermission(admin, "CONTRACT_CREATE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para criar contratos." });
       return json({ handled: true, admin: true, reply: await prepareContractDraft(adminDb, profileId, admin, contractRequest) });
     }
+    const paymentRequest = parsePaymentRequest(rawMessage);
+    if (paymentRequest) {
+      if (!hasPermission(admin, "PAYMENT")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para registrar pagamentos." });
+      return json({ handled: true, admin: true, reply: await preparePaymentDraft(adminDb, profileId, admin, paymentRequest) });
+    }
+    const customMessage = parseCustomMessage(rawMessage);
+    if (customMessage) {
+      if (!hasPermission(admin, "MESSAGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para enviar mensagens." });
+      const found = await findClient(adminDb, profileId, customMessage.name);
+      if (found.error) return json({ handled: true, admin: true, reply: await startClientRegistration(adminDb, profileId, admin, customMessage.name, { type: "CUSTOM_MESSAGE", message: customMessage.message }) });
+      if (digits(found.client.phone).length < 10) return json({ handled: true, admin: true, reply: `${found.client.name} não possui WhatsApp válido no cadastro.` });
+      const reply = await createPending(adminDb, profileId, admin, "CUSTOM_MESSAGE", {
+        client: found.client, message: customMessage.message,
+      }, `Enviar para ${found.client.name}:\n“${customMessage.message}”`);
+      return json({ handled: true, admin: true, reply });
+    }
+    const registrationRequest = parseClientRegistrationRequest(rawMessage);
+    if (registrationRequest) {
+      if (!hasPermission(admin, "CONTRACT_CREATE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cadastrar clientes." });
+      return json({ handled: true, admin: true, reply: await startClientRegistration(adminDb, profileId, admin, registrationRequest.name) });
+    }
     if (intent === "unknown") {
       const details = parseClientDetails(rawMessage);
       if (details.phone || details.document) {
         const { data: draft, error: draftError } = await adminDb.from("whatsapp_admin_commands").select("*")
-          .eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("intent", "CONTRACT_DRAFT")
+          .eq("profile_id", profileId).eq("admin_user_id", admin.id).in("intent", ["CONTRACT_DRAFT", "CLIENT_REGISTRATION_DRAFT"])
           .eq("status", "PENDING").gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(1).maybeSingle();
         if (draftError) throw draftError;
         if (draft) {
@@ -316,12 +489,19 @@ Deno.serve(async (req) => {
             return json({ handled: true, admin: true, reply: "Ainda preciso dos dois dados: CPF e WhatsApp com DDD. Exemplo: CPF: 000.000.000-00 | WhatsApp: 5592999999999" });
           }
           await adminDb.from("whatsapp_admin_commands").update({ status: "EXPIRED" }).eq("id", draft.id);
+          if (draft.intent === "CLIENT_REGISTRATION_DRAFT") {
+            const reply = await createPending(adminDb, profileId, admin, "CREATE_CLIENT", {
+              name: draft.payload.name, phone: merged.phone, document: merged.document,
+              after_action: draft.payload.after_action || null,
+            }, `Cadastrar ${draft.payload.name}?\nCPF final ${digits(merged.document).slice(-4)}\nWhatsApp final ${digits(merged.phone).slice(-4)}`);
+            return json({ handled: true, admin: true, reply });
+          }
           return json({ handled: true, admin: true, reply: await prepareContractDraft(adminDb, profileId, admin, draft.payload.request, merged) });
         }
       }
     }
     if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
-    if (intent === "unknown") return json({ handled: true, admin: true, reply: `Não consegui identificar o pedido, ${adminName}. Diga a ação e o cliente, por exemplo: “mostre o contrato da Domingas”.` });
+    if (intent === "unknown") return json({ handled: false, admin: true, status: "not_an_admin_command" });
     if (intent === "confirm") return json({ handled: true, admin: true, reply: await executePending(adminDb, profileId, admin, rawMessage) });
     if (intent === "cancel") {
       await adminDb.from("whatsapp_admin_commands").update({ status: "CANCELLED" }).eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("status", "PENDING");
@@ -333,6 +513,14 @@ Deno.serve(async (req) => {
       const active = (contracts || []).filter((item: any) => !closed.includes(String(item.status || "").toUpperCase()));
       const total = active.reduce((sum: number, item: any) => sum + Number(item.total_to_receive || 0), 0);
       return json({ handled: true, admin: true, reply: `Carteira: ${active.length} contrato${active.length === 1 ? " ativo" : "s ativos"}, total contratado de ${money(total)}. Envie “atrasados” para ver as prioridades.` });
+    }
+    if (/\b(?:saldo|limite|disponivel|disponibilidade)\b[\s\S]*\b(?:carteiras?|fontes?)\b|\b(?:carteiras?|fontes?)\b[\s\S]*\b(?:saldo|limite|disponivel|disponibilidade)\b/.test(normalize(rawMessage))) {
+      const { data: sources, error: sourceError } = await adminDb.from("fontes")
+        .select("name,type,balance").eq("profile_id", profileId).order("balance", { ascending: false });
+      if (sourceError) throw sourceError;
+      if (!sources?.length) return json({ handled: true, admin: true, reply: "Não há fontes de capital cadastradas." });
+      const lines = sources.map((source: any) => `${source.name}: ${money(source.balance)}`).join("\n");
+      return json({ handled: true, admin: true, reply: `Disponibilidade para novos contratos:\n${lines}\nO sistema bloqueia liberações acima do saldo da fonte escolhida.` });
     }
     if (intent === "dispatches") {
       const { data } = await adminDb.from("whatsapp_queue").select("status,error_message,created_at").eq("profile_id", profileId).order("created_at", { ascending: false }).limit(50);
@@ -418,8 +606,9 @@ Deno.serve(async (req) => {
       if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });
       if (!position.installment) return json({ handled: true, admin: true, reply: `${found.client.name} não tem parcela pendente para cobrança.` });
       const normalized = normalize(rawMessage);
-      const tone = /firme|incisiva/.test(normalized) ? "FIRM_RESPECTFUL" : /mediador/.test(normalized) ? "MEDIATOR" : /cordial|suave/.test(normalized) ? "CORDIAL" : "OBJECTIVE";
-      const reply = await createPending(adminDb, profileId, admin, "CHARGE", { client: found.client, tone }, `Cobrar ${found.client.name} em tom ${tone === "FIRM_RESPECTFUL" ? "firme e respeitoso" : tone.toLowerCase()}, no valor atualizado de ${money(position.installment.total_due)}?`);
+      const tone = /firme|incisiva|atrasad|vencid/.test(normalized) ? "FIRM_RESPECTFUL" : /mediador/.test(normalized) ? "MEDIATOR" : /cordial|suave/.test(normalized) ? "CORDIAL" : "OBJECTIVE";
+      const toneLabel = tone === "FIRM_RESPECTFUL" ? "firme e respeitoso" : tone === "MEDIATOR" ? "mediador" : tone === "CORDIAL" ? "cordial" : "objetivo";
+      const reply = await createPending(adminDb, profileId, admin, "CHARGE", { client: found.client, tone }, `Cobrar ${found.client.name} em tom ${toneLabel}, no valor atualizado de ${money(position.installment.total_due)}?`);
       return json({ handled: true, admin: true, reply });
     }
     if (intent === "automation") {

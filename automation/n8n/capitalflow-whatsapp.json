@@ -95,7 +95,7 @@
           "promptType": "define",
           "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($json) }}",
           "options": {
-            "systemMessage": "Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo."
+            "systemMessage": "Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo. Continue a conversa sem mencionar que houve falha ou troca de IA. Se a mensagem for informal ou ambigua, responda de forma humana e faca uma unica pergunta curta para entender a necessidade. Quando houver contexto identificado, conduza naturalmente para o contrato, parcela, vencimento ou pagamento; quando nao houver identificacao, peca CPF ou codigo do cliente. Nunca encerre com uma resposta engessada se ainda houver uma pergunta util a fazer."
           }
         },
         "id": "59cecb5f-a85e-4f6f-b805-afdc291ba9b7",
@@ -211,7 +211,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const payload = $json || {};\nconst rawReply = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? payload.data?.choices?.[0]?.message?.content\n  ?? \"\"\n).trim();\nconst reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nif (!reply || /<think>/i.test(reply)) {\n  throw new Error(\"A IA local nao produziu uma resposta final segura.\");\n}\n\nreturn [{ json: { output: reply, local_ai: true } }];"
+          "jsCode": "const payload = $json || {};\nconst rawReply = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? payload.data?.choices?.[0]?.message?.content\n  ?? \"\"\n).trim();\nconst reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nconst semanticFailure = (value) => {\n  const normalized = String(value || \"\").normalize(\"NFD\").replace(/[̀-ͯ]/g, \"\").toLowerCase();\n  return /\bnao entendi\b|\bnao compreendi\b|\bnao consegui entender\b|\bnao consegui identificar\b|\bnao foi possivel entender\b|\bexplique melhor sua (mensagem|solicitacao)\b|\breformule sua (mensagem|solicitacao)\b/.test(normalized);\n};\n\nif (!reply || /<think>/i.test(reply) || semanticFailure(reply)) {\n  throw new Error(\"A IA local nao produziu uma resposta final segura.\");\n}\n\nreturn [{ json: { output: reply, local_ai: true } }];"
         },
         "id": "capitalflow-local-ai-normalize",
         "name": "Local AI Normalize",
@@ -248,10 +248,24 @@
       },
       {
         "parameters": {
+          "jsCode": "const reply = String($json.output || $json.text || \"\").trim();\nconst normalized = reply.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\").toLowerCase();\nconst semanticFailure = /\\bnao entendi\\b|\\bnao compreendi\\b|\\bnao consegui entender\\b|\\bnao consegui identificar\\b|\\bnao foi possivel entender\\b|\\bexplique melhor sua (mensagem|solicitacao)\\b|\\breformule sua (mensagem|solicitacao)\\b/.test(normalized);\nif (!reply || semanticFailure) throw new Error(\"A IA respondeu sem compreender a mensagem.\");\nreturn [{ json: { ...$json, output: reply, semantic_retry_passed: true } }];"
+        },
+        "id": "capitalflow-gemini-semantic-gate",
+        "name": "Gemini Semantic Gate",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1670,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
           "promptType": "define",
           "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($(\"Admin Command\").item.json) }}",
           "options": {
-            "systemMessage": "Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo."
+            "systemMessage": "Assuma esta conversa de forma humana e natural, sem dizer que e fallback ou que outra IA falhou. Responda ao que a pessoa quis dizer, mesmo que seja informal. Se ainda faltar informacao, faca uma unica pergunta objetiva. Use o contexto seguro para conduzir a pessoa ao contrato, parcela, vencimento, valor atualizado ou pagamento; se nao estiver identificada, peca CPF ou codigo. Nao invente dados, nao ofereca emprestimo e nao use menus engessados."
           }
         },
         "id": "capitalflow-groq-fallback-agent",
@@ -260,6 +274,20 @@
         "typeVersion": 1.6,
         "position": [
           1780,
+          420
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const reply = String($json.output || $json.text || \"\").trim();\nconst normalized = reply.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\").toLowerCase();\nconst semanticFailure = /\\bnao entendi\\b|\\bnao compreendi\\b|\\bnao consegui entender\\b|\\bnao consegui identificar\\b|\\bnao foi possivel entender\\b|\\bexplique melhor sua (mensagem|solicitacao)\\b|\\breformule sua (mensagem|solicitacao)\\b/.test(normalized);\nif (!reply || semanticFailure) throw new Error(\"A IA respondeu sem compreender a mensagem.\");\nreturn [{ json: { ...$json, output: reply, semantic_retry_passed: true } }];"
+        },
+        "id": "capitalflow-groq-semantic-gate",
+        "name": "Groq Semantic Gate",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1890,
           420
         ],
         "onError": "continueErrorOutput"
@@ -279,7 +307,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const raw = String($json.output || \"\").trim();\nconst forbidden = /not_identified|contexto seguro|organization_id|client_id|supabase|n8n|docker|ferramenta|prompt|instru[cç][aã]o interna/i;\nconst unlawfulOrAbusive = /amea[cç]a|pris[aã]o por d[ií]vida|expor (a |sua )?d[ií]vida|cobrar (de |pela )?(fam[ií]lia|empregador|vizinhos)|humilhar|constranger|dep[oó]sito antecipado para liberar|aprova[cç][aã]o garantida/i;\nconst context = $(\"Admin Command\").item.json;\nconst customerMessage = String($(\"Normalize and Filter\").item.json.message || \"\");\nconst currentContract = context.current_contract || null;\nconst pendingInstallment = Array.isArray(context.pending) ? context.pending[0] : null;\nconst asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);\nlet reply = raw;\nif (context.admin === true && context.handled === true && context.reply) {\n  reply = String(context.reply);\n}\nif (context.status === \"identified\" && asksContractValue && currentContract) {\n  const contractValue = currentContract.total_to_receive_display || currentContract.principal_display;\n  const dueValue = pendingInstallment?.total_due_display;\n  reply = dueValue\n    ? \"O valor do contrato \\u00e9 \" + contractValue + \". A parcela em aberto est\\u00e1 atualizada em \" + dueValue + \".\"\n    : \"O valor do contrato \\u00e9 \" + contractValue + \". N\\u00e3o encontrei parcela pendente agora.\";\n}\nif (context.status === \"session_ended\") {\n  reply = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n}\nif ($json.error && !reply) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.\";\n}\nif (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {\n  if (context.status === \"ambiguous\") reply = \"Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.\";\n  else if (context.status === \"lead_registered\") reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Esse assunto é tratado diretamente pelo operador. Você pode falar com ele por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Registrei seu interesse e o operador entrará em contato com você.\";\n  else if (context.status === \"prospective_client\") reply = context.operator_contact?.whatsapp_url\n    ? \"Que bom saber do seu interesse. O cadastro e as condições são explicados pelo operador, sem compromisso. Você pode falar com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Que bom saber do seu interesse. Registrei seu pedido para o operador explicar o cadastro e as condições, sem compromisso.\";\n  else if (context.status === \"proof_received\") reply = \"Recebi seu comprovante. Vamos conferir o pagamento e avisaremos assim que ele for confirmado.\";\n  else if (context.status === \"human_handoff_registered\") reply = \"Certo, encaminhei seu atendimento para uma pessoa. Em breve entraremos em contato.\";\n  else reply = \"Olá! Como posso ajudar?\";\n}\nif (context.status === \"identified\" && /R\\$\\s*[\\d.]+,\\d{2}/g.test(reply)) {\n  const allowedAmounts = new Set([\n    context.current_contract?.principal_display,\n    context.current_contract?.total_to_receive_display,\n    ...(context.contracts || []).flatMap((item) => [item.principal_display, item.total_to_receive_display]),\n    ...(context.pending || []).flatMap((item) => [item.principal_due_display, item.interest_due_display, item.late_fee_due_display, item.total_due_display]),\n  ].filter(Boolean).map((value) => String(value).replace(/\\s/g, \" \")));\n  const mentioned = reply.match(/R\\$\\s*[\\d.]+,\\d{2}/g) || [];\n  if (mentioned.some((value) => !allowedAmounts.has(value.replace(/\\s/g, \" \")))) {\n    reply = pendingInstallment\n      ? \"O valor atualizado da parcela em aberto \\u00e9 \" + pendingInstallment.total_due_display + \". Para conferir o contrato, acesse \" + (context.portal_link || \"o portal do cliente\") + \".\"\n      : \"N\\u00e3o encontrei valor pendente confirmado agora.\";\n  }\n}\nif (reply.length > 650) reply = reply.slice(0, 647).trimEnd() + \"...\";\nif (context.status === \"amount_disputed\") reply = context.operator_contact?.whatsapp_url\n  ? \"Entendo. Para revisar esse valor com você, fale diretamente com o operador por aqui: \" + context.operator_contact.whatsapp_url\n  : \"Entendo. Encaminhei o valor para revisão do operador.\";\nconst protectedUrls = [];\nreply = reply.replace(new RegExp(\"https?://[^ ]+\", \"g\"), (url) => {\n  protectedUrls.push(url);\n  return \"__SAFE_URL_\" + (protectedUrls.length - 1) + \"__\";\n});\nreply = reply.replace(new RegExp(\"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\", \"gi\"), \"contrato\");\nreply = reply.replace(new RegExp(\"__SAFE_URL_([0-9]+)__\", \"g\"), (_, index) => protectedUrls[Number(index)] || \"\");\nreturn [{ json: { reply: reply.slice(0, 1800) } }];"
+          "jsCode": "const raw = String($json.output || \"\").trim();\nconst forbidden = /not_identified|contexto seguro|organization_id|client_id|supabase|n8n|docker|ferramenta|prompt|instru[cç][aã]o interna/i;\nconst unlawfulOrAbusive = /amea[cç]a|pris[aã]o por d[ií]vida|expor (a |sua )?d[ií]vida|cobrar (de |pela )?(fam[ií]lia|empregador|vizinhos)|humilhar|constranger|dep[oó]sito antecipado para liberar|aprova[cç][aã]o garantida/i;\nconst context = $(\"Admin Command\").item.json;\nconst customerMessage = String($(\"Normalize and Filter\").item.json.message || \"\");\nconst currentContract = context.current_contract || null;\nconst pendingInstallment = Array.isArray(context.pending) ? context.pending[0] : null;\nconst asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);\nlet reply = raw;\nconst normalizedCustomerMessage = customerMessage.normalize(\"NFD\").replace(/[̀-ͯ]/g, \"\").toLowerCase();\nconst asksLoan = /\bemprestimo\b|\bemprestar\b|\bme empresta\b|\bcredito\b/.test(normalizedCustomerMessage);\nconst asksPayment = /\bpagar\b|\bpagamento\b|\bquitar\b|\bpix\b|\blink\b/.test(normalizedCustomerMessage) && !/\bnao\b|\bdepois\b|\bagora nao\b/.test(normalizedCustomerMessage);\nconst asksDebtStatus = /\bd[iÃ­]vida\b|\bparcela\b|\bvenc(e|imento)\b|\batras(o|ada)\b|\bjuros\b/.test(normalizedCustomerMessage);\nconst isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo)\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\bjuros\b/.test(normalizedCustomerMessage) && !/\b(total|parcela|divida|pagamento|pagar tudo)\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/D/g, \"\");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /d/.test(customerMessage);\nconst formatDate = (value) => { const parts = String(value || \"\").slice(0, 10).split(\"-\"); return parts.length === 3 ? parts[2] + \"/\" + parts[1] + \"/\" + parts[0] : String(value || \"\"); };\nif (context.status === \"lead_registered\") {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi que vocÃª quer um novo emprÃ©stimo. Vou encaminhar seu pedido ao operador para analisar com vocÃª, sem promessa de aprovaÃ§Ã£o. Fale com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi que vocÃª quer um novo emprÃ©stimo. Registrei seu pedido para o operador analisar com vocÃª, sem promessa de aprovaÃ§Ã£o.\";\n} else if (context.status === \"identified\" && asksLoan) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes. Fale com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes.\";\n} else if (context.status === \"identified\" && isIdentityMessage && pendingInstallment) {\n  reply = \"Cliente identificado. Para ver mais detalhes e acessar o pagamento atualizado, veja aqui: \" + (context.payment_link || context.portal_link || \"o portal do cliente\");\n} else if (context.status === \"identified\" && asksInterestOnly) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano. Fale por aqui: \" + context.operator_contact.whatsapp_url\n    : \"O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano.\";\n} else if (context.status === \"identified\" && (asksPayment || (isAffirmative && pendingInstallment)) && !asksInterestOnly) {\n  reply = context.payment_link\n    ? \"Certo. Este Ã© o link atualizado para pagamento: \" + context.payment_link\n    : pendingInstallment\n      ? \"Certo. A parcela em aberto estÃ¡ atualizada em \" + pendingInstallment.total_due_display + \". NÃ£o consegui gerar o link agora; posso encaminhar vocÃª ao operador para concluir o pagamento.\"\n      : \"Certo. NÃ£o encontrei parcela pendente confirmada agora. Posso consultar o operador para ajudar.\";\n} else if (context.status === \"identified\" && asksDebtStatus && pendingInstallment) {\n  const late = Number(pendingInstallment.days_late || 0);\n  reply = \"A parcela \" + (pendingInstallment.installment_number || \"pendente\") + \" vence em \" + formatDate(pendingInstallment.due_date) + \" e estÃ¡ atualizada em \" + pendingInstallment.total_due_display + \".\";\n  reply += late > 0 ? \" Ela estÃ¡ em atraso hÃ¡ \" + late + (late === 1 ? \" dia.\" : \" dias.\") : \" Ela ainda nÃ£o estÃ¡ em atraso.\";\n  reply += \" Se quiser, posso enviar o link atualizado para pagamento.\";\n}\nif (context.admin === true && context.handled === true && context.reply) {\n  reply = String(context.reply);\n}\nif (context.status === \"identified\" && asksContractValue && currentContract) {\n  const contractValue = currentContract.total_to_receive_display || currentContract.principal_display;\n  const dueValue = pendingInstallment?.total_due_display;\n  reply = dueValue\n    ? \"O valor do contrato \\u00e9 \" + contractValue + \". A parcela em aberto est\\u00e1 atualizada em \" + dueValue + \".\"\n    : \"O valor do contrato \\u00e9 \" + contractValue + \". N\\u00e3o encontrei parcela pendente agora.\";\n}\nif (context.status === \"session_ended\") {\n  reply = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n}\nif ($json.error && !reply) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.\";\n}\nif (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {\n  if (context.status === \"ambiguous\") reply = \"Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.\";\n  else if (context.status === \"lead_registered\") reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Esse assunto é tratado diretamente pelo operador. Você pode falar com ele por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Registrei seu interesse e o operador entrará em contato com você.\";\n  else if (context.status === \"prospective_client\") reply = context.operator_contact?.whatsapp_url\n    ? \"Que bom saber do seu interesse. O cadastro e as condições são explicados pelo operador, sem compromisso. Você pode falar com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Que bom saber do seu interesse. Registrei seu pedido para o operador explicar o cadastro e as condições, sem compromisso.\";\n  else if (context.status === \"proof_received\") reply = \"Recebi seu comprovante. Vamos conferir o pagamento e avisaremos assim que ele for confirmado.\";\n  else if (context.status === \"human_handoff_registered\") reply = \"Certo, encaminhei seu atendimento para uma pessoa. Em breve entraremos em contato.\";\n  else reply = \"Olá! Como posso ajudar?\";\n}\nif (context.status === \"identified\" && /R\\$\\s*[\\d.]+,\\d{2}/g.test(reply)) {\n  const allowedAmounts = new Set([\n    context.current_contract?.principal_display,\n    context.current_contract?.total_to_receive_display,\n    ...(context.contracts || []).flatMap((item) => [item.principal_display, item.total_to_receive_display]),\n    ...(context.pending || []).flatMap((item) => [item.principal_due_display, item.interest_due_display, item.late_fee_due_display, item.total_due_display]),\n  ].filter(Boolean).map((value) => String(value).replace(/\\s/g, \" \")));\n  const mentioned = reply.match(/R\\$\\s*[\\d.]+,\\d{2}/g) || [];\n  if (mentioned.some((value) => !allowedAmounts.has(value.replace(/\\s/g, \" \")))) {\n    reply = pendingInstallment\n      ? \"O valor atualizado da parcela em aberto \\u00e9 \" + pendingInstallment.total_due_display + \". Para conferir o contrato, acesse \" + (context.portal_link || \"o portal do cliente\") + \".\"\n      : \"N\\u00e3o encontrei valor pendente confirmado agora.\";\n  }\n}\nif (reply.length > 650) reply = reply.slice(0, 647).trimEnd() + \"...\";\nif (context.status === \"amount_disputed\") reply = context.operator_contact?.whatsapp_url\n  ? \"Entendo. Para revisar esse valor com você, fale diretamente com o operador por aqui: \" + context.operator_contact.whatsapp_url\n  : \"Entendo. Encaminhei o valor para revisão do operador.\";\nconst protectedUrls = [];\nreply = reply.replace(new RegExp(\"https?://[^ ]+\", \"g\"), (url) => {\n  protectedUrls.push(url);\n  return \"__SAFE_URL_\" + (protectedUrls.length - 1) + \"__\";\n});\nreply = reply.replace(new RegExp(\"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\", \"gi\"), \"contrato\");\nreply = reply.replace(new RegExp(\"__SAFE_URL_([0-9]+)__\", \"g\"), (_, index) => protectedUrls[Number(index)] || \"\");\nreturn [{ json: { reply: reply.slice(0, 1800) } }];"
         },
         "id": "capitalflow-output-guard",
         "name": "Output Guard",
@@ -414,6 +442,24 @@
         "main": [
           [
             {
+              "node": "Gemini Semantic Gate",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Groq Fallback Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini Semantic Gate": {
+        "main": [
+          [
+            {
               "node": "Output Guard",
               "type": "main",
               "index": 0
@@ -429,6 +475,24 @@
         ]
       },
       "Groq Fallback Agent": {
+        "main": [
+          [
+            {
+              "node": "Groq Semantic Gate",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Conventional Bot Fallback",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Groq Semantic Gate": {
         "main": [
           [
             {

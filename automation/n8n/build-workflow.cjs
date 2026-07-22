@@ -145,7 +145,7 @@ const rawReply = String(
 ).trim();
 const reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, "").trim();
 
-if (!reply || /<think>/i.test(reply)) {
+const semanticFailure = (value) => {\n  const normalized = String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();\n  return /\bnao entendi\b|\bnao compreendi\b|\bnao consegui entender\b|\bnao consegui identificar\b|\bnao foi possivel entender\b|\bexplique melhor sua (mensagem|solicitacao)\b|\breformule sua (mensagem|solicitacao)\b/.test(normalized);\n};\n\nif (!reply || /<think>/i.test(reply) || semanticFailure(reply)) {
   throw new Error("A IA local nao produziu uma resposta final segura.");
 }
 
@@ -253,6 +253,38 @@ const currentContract = context.current_contract || null;
 const pendingInstallment = Array.isArray(context.pending) ? context.pending[0] : null;
 const asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);
 let reply = raw;
+const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const asksLoan = /\bemprestimo\b|\bemprestar\b|\bme empresta\b|\bcredito\b/.test(normalizedCustomerMessage);
+const asksPayment = /\bpagar\b|\bpagamento\b|\bquitar\b|\bpix\b|\blink\b/.test(normalizedCustomerMessage) && !/\bnao\b|\bdepois\b|\bagora nao\b/.test(normalizedCustomerMessage);
+const asksDebtStatus = /\bd[iÃ­]vida\b|\bparcela\b|\bvenc(e|imento)\b|\batras(o|ada)\b|\bjuros\b/.test(normalizedCustomerMessage);
+const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo)\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\bjuros\b/.test(normalizedCustomerMessage) && !/\b(total|parcela|divida|pagamento|pagar tudo)\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\d/.test(customerMessage);
+const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
+if (context.status === "lead_registered") {
+  reply = context.operator_contact?.whatsapp_url
+    ? "Entendi que vocÃª quer um novo emprÃ©stimo. Vou encaminhar seu pedido ao operador para analisar com vocÃª, sem promessa de aprovaÃ§Ã£o. Fale com ele aqui: " + context.operator_contact.whatsapp_url
+    : "Entendi que vocÃª quer um novo emprÃ©stimo. Registrei seu pedido para o operador analisar com vocÃª, sem promessa de aprovaÃ§Ã£o.";
+} else if (context.status === "identified" && asksLoan) {
+  reply = context.operator_contact?.whatsapp_url
+    ? "Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes. Fale com ele aqui: " + context.operator_contact.whatsapp_url
+    : "Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes.";
+} else if (context.status === "identified" && isIdentityMessage && pendingInstallment) {
+  reply = "Cliente identificado. Para ver mais detalhes e acessar o pagamento atualizado, veja aqui: " + (context.payment_link || context.portal_link || "o portal do cliente");
+} else if (context.status === "identified" && asksInterestOnly) {
+  reply = context.operator_contact?.whatsapp_url
+    ? "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano. Fale por aqui: " + context.operator_contact.whatsapp_url
+    : "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano.";
+} else if (context.status === "identified" && (asksPayment || (isAffirmative && pendingInstallment)) && !asksInterestOnly) {
+  reply = context.payment_link
+    ? "Certo. Este Ã© o link atualizado para pagamento: " + context.payment_link
+    : pendingInstallment
+      ? "Certo. A parcela em aberto estÃ¡ atualizada em " + pendingInstallment.total_due_display + ". NÃ£o consegui gerar o link agora; posso encaminhar vocÃª ao operador para concluir o pagamento."
+      : "Certo. NÃ£o encontrei parcela pendente confirmada agora. Posso consultar o operador para ajudar.";
+} else if (context.status === "identified" && asksDebtStatus && pendingInstallment) {
+  const late = Number(pendingInstallment.days_late || 0);
+  reply = "A parcela " + (pendingInstallment.installment_number || "pendente") + " vence em " + formatDate(pendingInstallment.due_date) + " e estÃ¡ atualizada em " + pendingInstallment.total_due_display + ".";
+  reply += late > 0 ? " Ela estÃ¡ em atraso hÃ¡ " + late + (late === 1 ? " dia." : " dias.") : " Ela ainda nÃ£o estÃ¡ em atraso.";
+  reply += " Se quiser, posso enviar o link atualizado para pagamento.";
+}
 if (context.admin === true && context.handled === true && context.reply) {
   reply = String(context.reply);
 }
@@ -317,6 +349,23 @@ return [{ json: { reply: reply.slice(0, 1800) } }];`,
   position: [100, 0],
 };
 
+const semanticGate = (name, id, position) => ({
+  parameters: {
+    jsCode: [
+      'const reply = String($json.output || $json.text || "").trim();',
+      'const normalized = reply.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();',
+      'const semanticFailure = /\\bnao entendi\\b|\\bnao compreendi\\b|\\bnao consegui entender\\b|\\bnao consegui identificar\\b|\\bnao foi possivel entender\\b|\\bexplique melhor sua (mensagem|solicitacao)\\b|\\breformule sua (mensagem|solicitacao)\\b/.test(normalized);',
+      'if (!reply || semanticFailure) throw new Error("A IA respondeu sem compreender a mensagem.");',
+      'return [{ json: { ...$json, output: reply, semantic_retry_passed: true } }];',
+    ].join(String.fromCharCode(10)),
+  },
+  id,
+  name,
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
+  position,
+  onError: 'continueErrorOutput',
+});
 workflow.name = 'CapitalFlow - Atendimento WhatsApp';
 workflow.nodes = workflow.nodes
   .filter((node) => ![
@@ -327,6 +376,8 @@ workflow.nodes = workflow.nodes
     'Drop Duplicates',
     'Local AI Request',
     'Local AI Normalize',
+    'Gemini Semantic Gate',
+    'Groq Semantic Gate',
     'Output Guard',
     'Google Gemini Chat Model',
     'Gemini Fallback Agent',
@@ -364,7 +415,7 @@ workflow.nodes = workflow.nodes
           'Em comprovante, negociação, revisão de valor ou decisão de crédito, acolha o pedido e encaminhe ao operador quando a decisão humana for necessária.',
         ].join(' '),
       };
-      node.parameters.options.systemMessage = 'Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo.';
+      node.parameters.options.systemMessage = 'Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo. Continue a conversa sem mencionar que houve falha ou troca de IA. Se a mensagem for informal ou ambigua, responda de forma humana e faca uma unica pergunta curta para entender a necessidade. Quando houver contexto identificado, conduza naturalmente para o contrato, parcela, vencimento ou pagamento; quando nao houver identificacao, peca CPF ou codigo do cliente. Nunca encerre com uma resposta engessada se ainda houver uma pergunta util a fazer.';
       node.onError = 'continueErrorOutput';
     }
     if (node.name === 'WAHA1') {
@@ -389,7 +440,15 @@ fallbackAgent.name = 'Groq Fallback Agent';
 fallbackAgent.position = [1780, 420];
 fallbackAgent.onError = 'continueErrorOutput';
 fallbackAgent.parameters.text = '={{ "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto seguro: " + JSON.stringify($("Admin Command").item.json) }}';
-workflow.nodes.push(googleModelNode, fallbackAgent, conventionalFallbackNode, outputGuardNode);
+fallbackAgent.parameters.options = { systemMessage: 'Assuma esta conversa de forma humana e natural, sem dizer que e fallback ou que outra IA falhou. Responda ao que a pessoa quis dizer, mesmo que seja informal. Se ainda faltar informacao, faca uma unica pergunta objetiva. Use o contexto seguro para conduzir a pessoa ao contrato, parcela, vencimento, valor atualizado ou pagamento; se nao estiver identificada, peca CPF ou codigo. Nao invente dados, nao ofereca emprestimo e nao use menus engessados.' };
+workflow.nodes.push(
+  googleModelNode,
+  semanticGate('Gemini Semantic Gate', 'capitalflow-gemini-semantic-gate', [1670, 300]),
+  fallbackAgent,
+  semanticGate('Groq Semantic Gate', 'capitalflow-groq-semantic-gate', [1890, 420]),
+  conventionalFallbackNode,
+  outputGuardNode,
+);
 
 const memoryConnections = workflow.connections['Redis Chat Memory'];
 if (memoryConnections?.ai_memory?.[0]) {
@@ -409,8 +468,10 @@ workflow.connections = {
   'Redis Chat Memory': memoryConnections,
   'Google Gemini Chat Model': { ai_languageModel: [[{ node: 'AI Agent', type: 'ai_languageModel', index: 0 }]] },
   'Groq Chat Model': { ai_languageModel: [[{ node: 'Groq Fallback Agent', type: 'ai_languageModel', index: 0 }]] },
-  'AI Agent': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
-  'Groq Fallback Agent': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
+  'AI Agent': { main: [[{ node: 'Gemini Semantic Gate', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
+  'Gemini Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
+  'Groq Fallback Agent': { main: [[{ node: 'Groq Semantic Gate', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
+  'Groq Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
   'Conventional Bot Fallback': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }]] },
   'Output Guard': { main: [[{ node: 'WAHA1', type: 'main', index: 0 }]] },
 };

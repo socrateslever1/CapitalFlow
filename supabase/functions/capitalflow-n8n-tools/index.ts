@@ -100,17 +100,19 @@ Deno.serve(async (req) => {
       if (savedSessionResult.error) throw savedSessionResult.error;
       let savedSession = savedSessionResult.data;
 
-      if (savedSession?.client_id && hasExplicitIdentity) {
-        const { error: resetError } = await supabase.from("n8n_client_sessions")
-          .delete().eq("profile_id", organizationId).eq("phone_hash", phoneHash);
-        if (resetError) throw resetError;
-        savedSession = null;
-      }
-
       let clients: Array<{ id: string; name: string }> = [];
       let matchedBy = "PHONE";
 
-      if (suppliedDigits.length === 11) {
+      if (savedSession?.client_id && !wantsIdentityChange) {
+        const saved = await supabase.from("clientes").select("id, name")
+          .eq("owner_id", organizationId).eq("id", savedSession.client_id).maybeSingle();
+        if (saved.data) {
+          clients = [saved.data];
+          matchedBy = "SESSION";
+        }
+      }
+
+      if (!clients.length && suppliedDigits.length === 11) {
         matchedBy = "CPF";
         const byCpf = await supabase.from("clientes").select("id, name, cpf, document").eq("owner_id", organizationId)
           .limit(500);
@@ -119,7 +121,7 @@ Deno.serve(async (req) => {
           .filter((candidate) => digits(candidate.cpf || candidate.document) === suppliedDigits)
           .slice(0, 2)
           .map(({ id, name }) => ({ id, name }));
-      } else if (suppliedCode) {
+      } else if (!clients.length && suppliedCode) {
         matchedBy = "CODE";
         const byCode = await supabase.from("clientes").select("id, name").eq("owner_id", organizationId)
           .eq("client_number", suppliedCode).limit(2);
@@ -127,7 +129,7 @@ Deno.serve(async (req) => {
         clients = byCode.data ?? [];
       }
 
-      if (!clients.length && savedSession?.client_id && !hasExplicitIdentity) {
+      if (!clients.length && savedSession?.client_id && !hasExplicitIdentity && wantsIdentityChange) {
         const saved = await supabase.from("clientes").select("id, name")
           .eq("owner_id", organizationId).eq("id", savedSession.client_id).maybeSingle();
         if (saved.data) clients = [saved.data];
@@ -154,10 +156,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      const wantsLoan = /\b(empr[eé]stimo|dinheiro emprestado|cr[eé]dito)\b/i.test(message);
+      const loanNegation = /\bn[aã]o\s+(e|é|quero|preciso|estou)\b/i.test(message);
+      const wantsLoan = !loanNegation && /\b(empr[eÃ©]stimo|dinheiro emprestado|cr[eÃ©]dito)\b/i.test(message);
       const wantsHuman = /\b(atendente|humano|pessoa|falar com algu[eé]m)\b/i.test(message);
       const isProof = ["image", "document"].includes(String(body.message_type ?? "")) && /comprovante|pix|pagamento/i.test(message || "comprovante");
-      const wantsLoanNatural = /\b(empr[e\u00e9]stimo|dinheiro emprestado|cr[e\u00e9]dito)\b/i.test(message);
+      const wantsLoanNatural = !loanNegation && /\b(empr[e\u00e9]stimo|dinheiro emprestado|cr[e\u00e9]dito)\b/i.test(message);
       const wantsHumanNatural = /\b(atendente|humano|pessoa|falar com algu[e\u00e9]m)\b/i.test(message);
       const wantsToBecomeClient = /\b(quero|gostaria|desejo|como fa[cç]o|posso)\b/i.test(message)
         && /\b(ser|virar|tornar|me cadastrar|cadastro)\b/i.test(message)
@@ -274,7 +277,8 @@ Deno.serve(async (req) => {
       const wantsPayment = /\b(pagar|pagamento|link de pagamento|pix|checkout|quitar)\b/i.test(message)
         && !/\b(n[aã]o|depois|agora n[aã]o)\b/i.test(message);
       let paymentLink: string | null = null;
-      if (wantsPayment && pending.length) {
+      const shouldPreparePaymentLink = pending.length > 0;
+      if (shouldPreparePaymentLink) {
         const target = pending[0];
         const targetContract = activeContracts.find((contract) => contract.id === target._loan_id);
         if (targetContract?.portal_token && targetContract.portal_shortcode) {

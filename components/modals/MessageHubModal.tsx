@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2, UserRound, Phone, Clock3 } from 'lucide-react';
+import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2, UserRound, Phone, Clock3, Send, Settings2, Copy, ExternalLink } from 'lucide-react';
 import { Installment, Loan } from '../../types';
 import { Modal } from '../ui/Modal';
 import { calculateTotalDue } from '../../domain/finance/calculations';
@@ -24,6 +24,7 @@ const getGreeting = (): string => {
 
 export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?: any, onClose: () => void }) => {
     const [loading, setLoading] = useState(false);
+    const [section, setSection] = useState<'SEND' | 'AUTOMATION'>('SEND');
     const { showToast, loans, activeUser } = useModal();
 
     const currentLoan = useMemo(() => (
@@ -41,6 +42,22 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
         relevantInstallment ? calculateTotalDue(currentLoan, relevantInstallment).total : 0
     ), [currentLoan, relevantInstallment]);
 
+    const handleCopyPortal = async (open = false) => {
+        setLoading(true);
+        try {
+            const portalLink = await getOrCreatePortalLink(currentLoan.id);
+            if (open) {
+                window.open(portalLink, '_blank', 'noopener,noreferrer');
+                return;
+            }
+            await navigator.clipboard.writeText(portalLink);
+            showToast('Link do portal copiado.', 'success');
+        } catch (error: any) {
+            showToast(error.message || 'NÃ£o foi possÃ­vel acessar o portal.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
     const handleAutomaticCollection = async () => {
         if (!activeUser?.id) return;
         setLoading(true);
@@ -195,7 +212,16 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                     </div>
                 </div>
 
-                {activeUser?.id && (
+                <div className="grid grid-cols-2 rounded-lg bg-slate-950/55 p-1">
+                    <button type="button" onClick={() => setSection('SEND')} className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[9px] font-black uppercase transition ${section === 'SEND' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <Send size={12} /> Enviar agora
+                    </button>
+                    <button type="button" onClick={() => setSection('AUTOMATION')} className={`flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[9px] font-black uppercase transition ${section === 'AUTOMATION' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
+                        <Settings2 size={12} /> Automação
+                    </button>
+                </div>
+
+                {section === 'AUTOMATION' && activeUser?.id && (
                     <ScopedCollectionAutomation
                         profileId={activeUser.id}
                         scope="LOAN"
@@ -206,6 +232,7 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                     />
                 )}
 
+                {section === 'SEND' && <div className="space-y-3">
                 <button
                     disabled={loading || !relevantInstallment}
                     onClick={handleAutomaticCollection}
@@ -230,9 +257,9 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                 <button disabled={loading} onClick={() => handleAutomaticTemplate('WELCOME')} className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg hover:border-blue-500/60 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="p-2 bg-blue-500/10 text-blue-500 rounded-full group-hover:bg-blue-500 group-hover:text-white transition-colors"><HandCoins size={20}/></div>
-                        <span className="font-bold text-white uppercase text-xs">Boas Vindas</span>
+                        <span className="font-bold text-white uppercase text-xs">Acesso ao portal</span>
                     </div>
-                    <p className="text-[10px] text-slate-500">Envia o link de acesso direto.</p>
+                    <p className="text-[10px] text-slate-500">Envia o acesso seguro ao cliente.</p>
                 </button>
                 <button disabled={loading} onClick={() => handleAutomaticTemplate('REMINDER')} className="p-3 bg-slate-950/35 border border-slate-800 rounded-lg hover:border-amber-500/60 transition-all text-left group disabled:opacity-50">
                     <div className="flex items-center gap-3 mb-2">
@@ -256,6 +283,16 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                     <p className="text-[10px] text-slate-500">Confirmação e agradecimento.</p>
                 </button>
                 </div>
+
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-800/70 pt-3">
+                    <button type="button" disabled={loading} onClick={() => void handleCopyPortal(false)} className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/35 px-3 py-2 text-[9px] font-black uppercase text-slate-300 hover:border-blue-500/40 hover:text-blue-300 disabled:opacity-50">
+                        <Copy size={12} /> Copiar portal
+                    </button>
+                    <button type="button" disabled={loading} onClick={() => void handleCopyPortal(true)} className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/35 px-3 py-2 text-[9px] font-black uppercase text-slate-300 hover:border-blue-500/40 hover:text-blue-300 disabled:opacity-50">
+                        <ExternalLink size={12} /> Abrir portal
+                    </button>
+                </div>
+                </div>}
             </div>
         </Modal>
     );

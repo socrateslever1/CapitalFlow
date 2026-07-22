@@ -1,0 +1,484 @@
+[
+  {
+    "createdAt": "2026-07-20T04:33:48.197Z",
+    "updatedAt": "2026-07-22T03:00:27.000Z",
+    "id": "A32nJE98EjcJBKZk",
+    "name": "CapitalFlow - Atendimento WhatsApp",
+    "active": true,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "webhook",
+          "options": {}
+        },
+        "id": "be440ad9-18c1-4989-b4a1-5490ee8f385f",
+        "name": "Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          740,
+          340
+        ],
+        "webhookId": "9e349419-b74d-44ea-bfb8-7368c8bdc771"
+      },
+      {
+        "parameters": {
+          "resource": "Chatting",
+          "operation": "Send Text",
+          "session": "={{ $(\"Normalize and Filter\").item.json.whatsapp_session }}",
+          "chatId": "={{ $(\"Normalize and Filter\").item.json.remote_jid }}",
+          "text": "={{ $json.reply }}",
+          "requestOptions": {}
+        },
+        "id": "63c44cfc-1fb0-4ad1-9312-794af3c9cbce",
+        "name": "WAHA1",
+        "type": "n8n-nodes-waha.WAHA",
+        "typeVersion": 202411,
+        "position": [
+          2020,
+          400
+        ],
+        "credentials": {
+          "wahaApi": {
+            "id": "fSoBCAg2xaTKYlOi",
+            "name": "WAHA account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "sessionIdType": "customKey",
+          "sessionKey": "={{ $(\"Normalize and Filter\").item.json.session_id + \":\" + ($(\"Admin Command\").item.json.conversation_id || \"public\") + \":\" + ($(\"Admin Command\").item.json.current_contract?.total_to_receive_display || \"none\") + \":\" + ($(\"Admin Command\").item.json.pending?.[0]?.total_due_display || \"none\") }}",
+          "sessionTTL": 86400
+        },
+        "id": "80c9bb5a-2744-4daa-8d2a-9d06d81a957f",
+        "name": "Redis Chat Memory",
+        "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+        "typeVersion": 1.2,
+        "position": [
+          1480,
+          620
+        ],
+        "credentials": {
+          "redis": {
+            "id": "iM305pnxvGGIk2Kh",
+            "name": "Redis account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "=llama-3.3-70b-versatile",
+          "options": {
+            "maxTokensToSample": 900,
+            "temperature": 0.3
+          }
+        },
+        "id": "b2d62635-70a7-49f2-a3b8-96cf6e0b2d49",
+        "name": "Groq Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+        "typeVersion": 1,
+        "position": [
+          1420,
+          500
+        ],
+        "credentials": {
+          "groqApi": {
+            "id": "3RTa5SCuiGN3X4xS",
+            "name": "Groq account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($json) }}",
+          "options": {
+            "systemMessage": "Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo."
+          }
+        },
+        "id": "59cecb5f-a85e-4f6f-b805-afdc291ba9b7",
+        "name": "AI Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.6,
+        "position": [
+          1560,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think.  como um atendente humano: natural, breve e acolhedor. Responda primeiro ao que a pessoa perguntou, sem menus ou textos burocraticos. Dados financeiros devem vir somente do contexto recebido; nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Secure Client Context\").item.json) }], temperature: 0.55, max_tokens: 500, stream: false }) }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "capitalflow-local-ai-request",
+        "name": "IA Local Qwen - Agente Offline",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1240,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);\n\nfunction onlyDigits(value) {\n  return String(value ?? '').replace(/\\D/g, '');\n}\n\nfunction firstNonEmpty(...values) {\n  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');\n}\n\nfunction normalizeBoolean(value) {\n  return value === true || value === 1 || String(value).toLowerCase() === 'true';\n}\n\nfunction resolveOrganizationId(body, tenantMap = {}) {\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '')).trim();\n  const receiver = onlyDigits(firstNonEmpty(body.me?.id, body.me?.phone, body.payload?.to, ''));\n\n  return String(tenantMap[session] ?? tenantMap[receiver] ?? '').trim();\n}\n\nfunction normalizeWahaMessage(input, options = {}) {\n  const body = input?.body ?? input ?? {};\n  const payload = body.payload ?? {};\n  const event = String(firstNonEmpty(body.event, body.eventType, '') ?? '').toLowerCase();\n  const remoteJid = String(firstNonEmpty(payload.from, payload.remoteJid, payload.key?.remoteJid, '') ?? '').trim();\n  const fromMe = normalizeBoolean(firstNonEmpty(payload.fromMe, payload.key?.fromMe, false));\n  const isGroup = remoteJid.endsWith('@g.us') || normalizeBoolean(payload.isGroup);\n  const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();\n  const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();\n  const messageType = rawType === 'ptt' ? 'voice' : rawType;\n  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();\n  const phone = onlyDigits(remoteJid.split('@')[0]);\n  const organizationId = resolveOrganizationId(body, options.tenantMap);\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();\n\n  if (!['message', 'message.any'].includes(event)) return { accepted: false, reason: 'unsupported_event' };\n  if (!remoteJid || isGroup) return { accepted: false, reason: 'group_or_invalid_sender' };\n  if (fromMe) return { accepted: false, reason: 'from_me' };\n  if (!messageId) return { accepted: false, reason: 'missing_message_id' };\n  if (!SUPPORTED_MESSAGE_TYPES.has(messageType)) return { accepted: false, reason: 'unsupported_message_type' };\n  if (!phone || phone.length < 10) return { accepted: false, reason: 'invalid_phone' };\n  if (!organizationId) return { accepted: false, reason: 'missing_organization_id' };\n\n  return {\n    accepted: true,\n    value: {\n      message_id: messageId,\n      message,\n      phone,\n      remote_jid: remoteJid,\n      from_me: false,\n      is_group: false,\n      organization_id: organizationId,\n      session_id: `${organizationId}:${phone}`,\n      whatsapp_session: session,\n      message_type: messageType,\n      timestamp: firstNonEmpty(payload.timestamp, body.timestamp, new Date().toISOString()),\n    },\n  };\n}\n\n\nlet tenantMap = {};\ntry {\n  tenantMap = JSON.parse($env.CAPITALFLOW_TENANT_MAP || '{}');\n} catch {\n  throw new Error('CAPITALFLOW_TENANT_MAP deve conter um objeto JSON válido.');\n}\n\nconst accepted = [];\nfor (const item of $input.all()) {\n  const result = normalizeWahaMessage(item.json, { tenantMap });\n  if (result.accepted) accepted.push({ json: result.value });\n}\nreturn accepted;"
+        },
+        "id": "capitalflow-normalize-filter",
+        "name": "Normalize and Filter",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -620,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-admin-whatsapp",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-capitalflow-secret",
+                "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ organization_id: $(\"Normalize and Filter\").item.json.organization_id, phone: $(\"Normalize and Filter\").item.json.phone, message_id: $(\"Normalize and Filter\").item.json.message_id, message: $(\"Normalize and Filter\").item.json.message }) }}",
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "id": "capitalflow-admin-command",
+        "name": "Admin Command",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -400,
+          -160
+        ],
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "return $input.all().filter((item) => item.json.status !== \"duplicate\");"
+        },
+        "id": "capitalflow-drop-duplicates",
+        "name": "Drop Duplicates",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -140,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think.  como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Admin Command\").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "capitalflow-local-ai-request",
+        "name": "Local AI Request",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1240,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const payload = $json || {};\nconst rawReply = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? payload.data?.choices?.[0]?.message?.content\n  ?? \"\"\n).trim();\nconst reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nif (!reply || /<think>/i.test(reply)) {\n  throw new Error(\"A IA local nao produziu uma resposta final segura.\");\n}\n\nreturn [{ json: { output: reply, local_ai: true } }];"
+        },
+        "id": "capitalflow-local-ai-normalize",
+        "name": "Local AI Normalize",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1460,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "modelName": "models/gemini-3.5-flash",
+          "options": {
+            "maxOutputTokens": 900,
+            "temperature": 0.3
+          }
+        },
+        "id": "capitalflow-google-gemini-model",
+        "name": "Google Gemini Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+        "typeVersion": 1,
+        "position": [
+          1420,
+          700
+        ],
+        "credentials": {
+          "googlePalmApi": {
+            "id": "eyFl8sR6CYsnqcVt",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($(\"Admin Command\").item.json) }}",
+          "options": {
+            "systemMessage": "Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo."
+          }
+        },
+        "id": "capitalflow-groq-fallback-agent",
+        "name": "Groq Fallback Agent",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 1.6,
+        "position": [
+          1780,
+          420
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const context = $(\"Admin Command\").item.json || {};\nconst message = String($(\"Normalize and Filter\").item.json.message || \"\").toLowerCase();\nconst operatorUrl = context.operator_contact?.whatsapp_url || \"\";\nconst money = (value) => Number(value || 0).toLocaleString(\"pt-BR\", { style: \"currency\", currency: \"BRL\" });\nconst date = (value) => {\n  if (!value) return \"\";\n  const parts = String(value).slice(0, 10).split(\"-\");\n  return parts.length === 3 ? parts[2] + \"/\" + parts[1] + \"/\" + parts[0] : String(value);\n};\nconst withOperator = (text) => operatorUrl ? text + \" Fale com o operador por aqui: \" + operatorUrl : text;\nlet output = \"Olá! Como posso ajudar?\";\n\nif (context.status === \"session_ended\") {\n  output = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n} else if (context.status === \"ambiguous\") {\n  output = \"Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.\";\n} else if (context.status === \"lead_registered\") {\n  output = withOperator(\"Entendi seu interesse. A análise e as condições são tratadas diretamente pelo operador, sem promessa de aprovação.\");\n} else if (context.status === \"prospective_client\") {\n  output = withOperator(\"Claro. O cadastro e o funcionamento do serviço são explicados diretamente pelo operador, sem compromisso.\");\n} else if (context.status === \"proof_received\") {\n  output = \"Recebi seu comprovante. O pagamento será conferido antes da confirmação da baixa.\";\n} else if (context.status === \"human_handoff_registered\") {\n  output = withOperator(\"Certo, seu atendimento foi encaminhado para uma pessoa.\");\n} else if (context.status === \"amount_disputed\") {\n  output = withOperator(\"Entendo. O valor precisa ser revisado pelo operador antes de qualquer pagamento.\");\n} else if (context.status === \"not_identified\") {\n  const financial = /contrato|parcela|venc|atras|d[ií]vida|valor|pagar|pagamento|portal|saldo/.test(message);\n  const wantsOperator = /cliente|cadastro|empr[eé]stimo|cr[eé]dito|atendente|operador/.test(message);\n  if (financial) output = \"Para consultar dados financeiros com segurança, informe seu CPF ou código de cliente.\";\n  else if (wantsOperator) output = withOperator(\"O cadastro, a análise e as condições são tratados pelo operador.\");\n  else output = \"Olá! Posso explicar como funciona o atendimento ou ajudar clientes identificados a consultar contratos, parcelas e pagamentos.\";\n} else if (context.status === \"identified\") {\n  const pending = Array.isArray(context.pending) ? context.pending : [];\n  const first = pending[0];\n  if (context.payment_link) {\n    output = \"Aqui está o link para pagar o valor atualizado hoje: \" + context.payment_link;\n  } else if (context.payment_requested && first) {\n    output = withOperator(\"Não consegui gerar o link de pagamento agora. O valor atualizado é \" + money(first.total_due) + \".\");\n  } else if (/portal/.test(message) && context.portal_link) {\n    output = \"Você pode acessar seu portal por aqui: \" + context.portal_link;\n  } else if (first) {\n    const late = Number(first.days_late || 0);\n    output = \"A parcela \" + (first.installment_number || \"pendente\") + \" vence em \" + date(first.due_date) +\n      \" e o valor atualizado é \" + money(first.total_due) + \".\";\n    if (late > 0) output += \" Ela está em atraso há \" + late + (late === 1 ? \" dia.\" : \" dias.\");\n    output += \" Deseja receber o link para pagamento?\";\n  } else if (/portal/.test(message) && !context.portal_link) {\n    output = withOperator(\"O link do portal não está disponível agora.\");\n  } else {\n    output = \"Não encontrei parcelas pendentes no momento. Como mais posso ajudar?\";\n  }\n}\n\nreturn [{ json: { output, conventional_fallback: true } }];"
+        },
+        "id": "capitalflow-conventional-fallback",
+        "name": "Conventional Bot Fallback",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2020,
+          560
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const raw = String($json.output || \"\").trim();\nconst forbidden = /not_identified|contexto seguro|organization_id|client_id|supabase|n8n|docker|ferramenta|prompt|instru[cç][aã]o interna/i;\nconst unlawfulOrAbusive = /amea[cç]a|pris[aã]o por d[ií]vida|expor (a |sua )?d[ií]vida|cobrar (de |pela )?(fam[ií]lia|empregador|vizinhos)|humilhar|constranger|dep[oó]sito antecipado para liberar|aprova[cç][aã]o garantida/i;\nconst context = $(\"Admin Command\").item.json;\nconst customerMessage = String($(\"Normalize and Filter\").item.json.message || \"\");\nconst currentContract = context.current_contract || null;\nconst pendingInstallment = Array.isArray(context.pending) ? context.pending[0] : null;\nconst asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);\nlet reply = raw;\nif (context.admin === true && context.handled === true && context.reply) {\n  reply = String(context.reply);\n}\nif (context.status === \"identified\" && asksContractValue && currentContract) {\n  const contractValue = currentContract.total_to_receive_display || currentContract.principal_display;\n  const dueValue = pendingInstallment?.total_due_display;\n  reply = dueValue\n    ? \"O valor do contrato \\u00e9 \" + contractValue + \". A parcela em aberto est\\u00e1 atualizada em \" + dueValue + \".\"\n    : \"O valor do contrato \\u00e9 \" + contractValue + \". N\\u00e3o encontrei parcela pendente agora.\";\n}\nif (context.status === \"session_ended\") {\n  reply = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n}\nif ($json.error && !reply) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.\";\n}\nif (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {\n  if (context.status === \"ambiguous\") reply = \"Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.\";\n  else if (context.status === \"lead_registered\") reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Esse assunto é tratado diretamente pelo operador. Você pode falar com ele por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Registrei seu interesse e o operador entrará em contato com você.\";\n  else if (context.status === \"prospective_client\") reply = context.operator_contact?.whatsapp_url\n    ? \"Que bom saber do seu interesse. O cadastro e as condições são explicados pelo operador, sem compromisso. Você pode falar com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Que bom saber do seu interesse. Registrei seu pedido para o operador explicar o cadastro e as condições, sem compromisso.\";\n  else if (context.status === \"proof_received\") reply = \"Recebi seu comprovante. Vamos conferir o pagamento e avisaremos assim que ele for confirmado.\";\n  else if (context.status === \"human_handoff_registered\") reply = \"Certo, encaminhei seu atendimento para uma pessoa. Em breve entraremos em contato.\";\n  else reply = \"Olá! Como posso ajudar?\";\n}\nif (context.status === \"identified\" && /R\\$\\s*[\\d.]+,\\d{2}/g.test(reply)) {\n  const allowedAmounts = new Set([\n    context.current_contract?.principal_display,\n    context.current_contract?.total_to_receive_display,\n    ...(context.contracts || []).flatMap((item) => [item.principal_display, item.total_to_receive_display]),\n    ...(context.pending || []).flatMap((item) => [item.principal_due_display, item.interest_due_display, item.late_fee_due_display, item.total_due_display]),\n  ].filter(Boolean).map((value) => String(value).replace(/\\s/g, \" \")));\n  const mentioned = reply.match(/R\\$\\s*[\\d.]+,\\d{2}/g) || [];\n  if (mentioned.some((value) => !allowedAmounts.has(value.replace(/\\s/g, \" \")))) {\n    reply = pendingInstallment\n      ? \"O valor atualizado da parcela em aberto \\u00e9 \" + pendingInstallment.total_due_display + \". Para conferir o contrato, acesse \" + (context.portal_link || \"o portal do cliente\") + \".\"\n      : \"N\\u00e3o encontrei valor pendente confirmado agora.\";\n  }\n}\nif (reply.length > 650) reply = reply.slice(0, 647).trimEnd() + \"...\";\nif (context.status === \"amount_disputed\") reply = context.operator_contact?.whatsapp_url\n  ? \"Entendo. Para revisar esse valor com você, fale diretamente com o operador por aqui: \" + context.operator_contact.whatsapp_url\n  : \"Entendo. Encaminhei o valor para revisão do operador.\";\nconst protectedUrls = [];\nreply = reply.replace(new RegExp(\"https?://[^ ]+\", \"g\"), (url) => {\n  protectedUrls.push(url);\n  return \"__SAFE_URL_\" + (protectedUrls.length - 1) + \"__\";\n});\nreply = reply.replace(new RegExp(\"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\", \"gi\"), \"contrato\");\nreply = reply.replace(new RegExp(\"__SAFE_URL_([0-9]+)__\", \"g\"), (_, index) => protectedUrls[Number(index)] || \"\");\nreturn [{ json: { reply: reply.slice(0, 1800) } }];"
+        },
+        "id": "capitalflow-output-guard",
+        "name": "Output Guard",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          100,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Normalize and Filter",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize and Filter": {
+        "main": [
+          [
+            {
+              "node": "Admin Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Command": {
+        "main": [
+          [
+            {
+              "node": "Drop Duplicates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Drop Duplicates": {
+        "main": [
+          [
+            {
+              "node": "Local AI Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Local AI Request": {
+        "main": [
+          [
+            {
+              "node": "Local AI Normalize",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Local AI Normalize": {
+        "main": [
+          [
+            {
+              "node": "Output Guard",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Redis Chat Memory": {
+        "ai_memory": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_memory",
+              "index": 0
+            },
+            {
+              "node": "Groq Fallback Agent",
+              "type": "ai_memory",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Google Gemini Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Groq Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Groq Fallback Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "node": "Output Guard",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Groq Fallback Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Groq Fallback Agent": {
+        "main": [
+          [
+            {
+              "node": "Output Guard",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Conventional Bot Fallback",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Conventional Bot Fallback": {
+        "main": [
+          [
+            {
+              "node": "Output Guard",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Output Guard": {
+        "main": [
+          [
+            {
+              "node": "WAHA1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "saveManualExecutions": true,
+      "callerPolicy": "workflowsFromSameOwner",
+      "timezone": "America/Manaus"
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true
+    },
+    "pinData": {}
+  }
+]

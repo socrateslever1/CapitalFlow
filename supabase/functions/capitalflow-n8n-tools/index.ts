@@ -9,6 +9,11 @@ const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const closedStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO", "RENEGOCIADO"];
 const paidInstallmentStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO"];
+const moneyBr = (value: unknown) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  minimumFractionDigits: 2,
+}).format(Number(value || 0));
 
 async function sha256(value: string) {
   const data = new TextEncoder().encode(value);
@@ -241,7 +246,18 @@ Deno.serve(async (req) => {
         }
       }
 
-      const portalContract = activeContracts.find((contract) => contract.portal_token && contract.portal_shortcode);
+      const primaryPending = [...pending].sort((a, b) => {
+        const lateDifference = Number(b.days_late || 0) - Number(a.days_late || 0);
+        if (lateDifference !== 0) return lateDifference;
+        return String(a.due_date || "").localeCompare(String(b.due_date || ""));
+      })[0];
+      const primaryContract = activeContracts.find((contract) => contract.id === primaryPending?._loan_id)
+        || activeContracts[0]
+        || null;
+      const contractReferences = new Map(activeContracts.map((contract, index) => [contract.id, index + 1]));
+      const portalContract = primaryContract?.portal_token && primaryContract.portal_shortcode
+        ? primaryContract
+        : activeContracts.find((contract) => contract.portal_token && contract.portal_shortcode);
       const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
       const portalLink = portalContract
         ? `${appOrigin}/?portal=${encodeURIComponent(portalContract.portal_token)}&portal_code=${encodeURIComponent(portalContract.portal_shortcode)}`
@@ -301,8 +317,33 @@ Deno.serve(async (req) => {
         status: "identified",
         conversation_id: sessionResult.data.conversation_id,
         client: { display_name: client.name },
-        contracts: activeContracts.map(({ status, principal, total_to_receive, start_date }, index) => ({ reference: index + 1, status, principal, total_to_receive, start_date })),
-        pending: pending.map(({ _installment_id, _loan_id, ...safe }) => safe),
+        current_contract: primaryContract ? {
+          reference: contractReferences.get(primaryContract.id),
+          status: primaryContract.status,
+          principal: Number(primaryContract.principal || 0),
+          principal_display: moneyBr(primaryContract.principal),
+          total_to_receive: Number(primaryContract.total_to_receive || 0),
+          total_to_receive_display: moneyBr(primaryContract.total_to_receive),
+          start_date: primaryContract.start_date,
+        } : null,
+        contracts: activeContracts.map(({ id, status, principal, total_to_receive, start_date }, index) => ({
+          reference: index + 1,
+          status,
+          principal: Number(principal || 0),
+          principal_display: moneyBr(principal),
+          total_to_receive: Number(total_to_receive || 0),
+          total_to_receive_display: moneyBr(total_to_receive),
+          start_date,
+          has_pending_installment: pending.some((item) => item._loan_id === id),
+        })),
+        pending: pending.map(({ _installment_id, _loan_id, ...safe }) => ({
+          ...safe,
+          contract_reference: contractReferences.get(_loan_id),
+          principal_due_display: moneyBr(safe.principal_due),
+          interest_due_display: moneyBr(safe.interest_due),
+          late_fee_due_display: moneyBr(safe.late_fee_due),
+          total_due_display: moneyBr(safe.total_due),
+        })),
         portal_link: portalLink,
         payment_link: paymentLink,
         payment_requested: wantsPayment,

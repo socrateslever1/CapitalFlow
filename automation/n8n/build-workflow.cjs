@@ -208,7 +208,9 @@ if (context.status === "session_ended") {
 } else if (context.status === "not_identified") {
   const financial = /contrato|parcela|venc|atras|d[ií]vida|valor|pagar|pagamento|portal|saldo/.test(message);
   const wantsOperator = /cliente|cadastro|empr[eé]stimo|cr[eé]dito|atendente|operador/.test(message);
-  if (financial) output = "Para consultar dados financeiros com segurança, informe seu CPF ou código de cliente.";
+  const asksHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);
+  if (asksHelp) output = "Posso ajudar com o b\u00e1sico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Para dados financeiros, envie seu CPF ou c\u00f3digo uma vez.";
+  else if (financial) output = "Para consultar dados financeiros com segurança, informe seu CPF ou código de cliente.";
   else if (wantsOperator) output = withOperator("O cadastro, a análise e as condições são tratados pelo operador.");
   else output = "Olá! Posso explicar como funciona o atendimento ou ajudar clientes identificados a consultar contratos, parcelas e pagamentos.";
 } else if (context.status === "identified") {

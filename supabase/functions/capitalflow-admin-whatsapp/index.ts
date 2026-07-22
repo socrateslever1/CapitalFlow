@@ -151,7 +151,11 @@ function detectIntent(raw: string) {
   if (/^(quando vence|qual .*vencimento)/.test(message)) return "due";
   if (/\b(?:saldo|limite|disponivel|disponibilidade)\b[\s\S]*\b(?:carteiras?|fontes?)\b|\b(?:carteiras?|fontes?)\b[\s\S]*\b(?:saldo|limite|disponivel|disponibilidade)\b/.test(message)) return "wallet";
   if (/^(quanto|qual .*valor|valor|saldo)/.test(message)) return "amount";
-  if (/\b(contrato|situacao|status)\b/.test(message) && /^(?:(?:me )?(?:mostre|mostra|mostrar)|quero (?:ver|consultar)|consulte|ver|como esta|situacao|status|contrato)/.test(message)) return "status";
+  if (/\b(contrato|situacao|status)\b/.test(message) && /^(?:(?:me )?(?:mostre|mostra|mostrar)|quero (?:ver|consultar)|consulte|ver|como esta|situacao|status|contrato)/.test(message)) return "status";  if (/\b(quem pagou|pagamentos recebidos|pagamentos de hoje|recebimentos de hoje)\b/.test(message)) return "payments_today";
+  if (/\b(quem pediu|solicitacoes? de atendimento|atendimento humano|handoffs?)\b/.test(message)) return "handoffs";
+  if (/\b(resumo de hoje|o que aconteceu hoje|atividades de hoje)\b/.test(message)) return "daily_summary";
+  if (/\b(status do sistema|status das integracoes|integracoes|n8n|whatsapp esta funcionando|whatsapp conectado|automacoes falharam)\b/.test(message)) return "system_status";  if (/\b(todos os contratos|contratos ativos|listar contratos|liste contratos)\b/.test(message)) return "contracts";
+  if (/\b(todos os clientes|listar clientes|liste clientes|clientes cadastrados)\b/.test(message)) return "clients";
   return "unknown";
 }
 
@@ -423,6 +427,58 @@ async function executePending(adminDb: any, profileId: string, admin: any, rawMe
   return `Automação de ${payload.client.name} atualizada.`;
 }
 
+async function operatorQuery(adminDb: any, profileId: string, intent: string) {
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  if (intent === "payments_today") {
+    const { data, error } = await adminDb.from("payment_intents").select("amount,method,status,created_at").eq("profile_id", profileId).eq("status", "APPROVED").gte("created_at", since.toISOString()).order("created_at", { ascending: false }).limit(100);
+    if (error) throw error;
+    const total = (data || []).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const lines = (data || []).slice(0, 20).map((item: any, index: number) => `${index + 1}. ${money(item.amount)} — ${item.method || "InfinitePay"} — ${new Date(item.created_at).toLocaleTimeString("pt-BR", { timeZone: "America/Manaus" })}`).join("\n");
+    return `💰 *Pagamentos recebidos hoje*\n\n• Registros: *${data?.length || 0}*\n• Total: *${money(total)}*\n\n${lines || "Nenhum pagamento confirmado hoje."}`;
+  }
+  if (intent === "handoffs") {
+    const { data, error } = await adminDb.from("n8n_handoffs").select("client_id,reason,status,created_at").eq("profile_id", profileId).in("status", ["OPEN", "IN_PROGRESS"]).order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    const ids = [...new Set((data || []).map((item: any) => item.client_id).filter(Boolean))];
+    const { data: clients } = ids.length ? await adminDb.from("clientes").select("id,name").in("id", ids) : { data: [] };
+    const names = new Map((clients || []).map((item: any) => [item.id, item.name]));
+    const lines = (data || []).map((item: any, index: number) => `${index + 1}. 👤 *${names.get(item.client_id) || "Contato não identificado"}* — ${item.reason}`).join("\n");
+    return `🤝 *Solicitações de atendimento*\n\n${lines || "Nenhuma solicitação pendente."}\n\nTotal pendente: *${data?.length || 0}*`;
+  }
+  if (intent === "system_status") {
+    const [{ data: integration }, { data: queue }] = await Promise.all([
+      adminDb.from("n8n_automation_integrations").select("session_name,active,updated_at").eq("profile_id", profileId).maybeSingle(),
+      adminDb.from("whatsapp_queue").select("status,error_message").eq("profile_id", profileId).order("created_at", { ascending: false }).limit(100),
+    ]);
+    const counts = (queue || []).reduce((acc: any, item: any) => ({ ...acc, [item.status]: (acc[item.status] || 0) + 1 }), {});
+    return `📊 *Status do CapitalFlow*\n\n📲 WhatsApp: *${integration?.active ? "configurado" : "inativo"}*\n⚙️ n8n: *workflow ativo no container*\n📤 Fila: ${counts.PENDING || 0} pendentes, ${counts.SENT || 0} enviados, ${counts.ERROR || 0} com erro\n🕒 Última atualização: ${integration?.updated_at ? new Date(integration.updated_at).toLocaleString("pt-BR", { timeZone: "America/Manaus" }) : "não disponível"}`;
+  }
+  if (intent === "clients") {
+    const { data, error } = await adminDb.from("clientes").select("name,client_number,created_at").eq("owner_id", profileId).order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    const lines = (data || []).slice(0, 30).map((item: any, index: number) => `${index + 1}. 👤 *${item.name}* — código ${item.client_number || "—"}`).join("\n");
+    return `👤 *Clientes cadastrados*\n\n• Total exibido: *${data?.length || 0}*\n\n${lines || "Nenhum cliente encontrado."}`;
+  }
+  if (intent === "contracts") {
+    const { data, error } = await adminDb.from("contratos").select("status,principal,total_to_receive,debtor_name,start_date").or(`profile_id.eq.${profileId},owner_id.eq.${profileId}`).eq("is_archived", false).order("start_date", { ascending: false }).limit(50);
+    if (error) throw error;
+    const active = (data || []).filter((item: any) => !closed.includes(String(item.status || "").toUpperCase()));
+    const total = active.reduce((sum: number, item: any) => sum + Number(item.total_to_receive || 0), 0);
+    const lines = active.slice(0, 20).map((item: any, index: number) => `${index + 1}. 👤 ${item.debtor_name || "Cliente"} — ${money(item.total_to_receive)} — ${item.status}`).join("\n");
+    return `📄 *Contratos ativos*\n\n• Contratos: *${active.length}*\n• Total contratado: *${money(total)}*\n\n${lines || "Nenhum contrato ativo encontrado."}`;
+  }  if (intent === "daily_summary") {
+    const [{ data: payments }, { data: handoffs }, { data: events }, { data: queue }] = await Promise.all([
+      adminDb.from("payment_intents").select("amount").eq("profile_id", profileId).eq("status", "APPROVED").gte("created_at", since.toISOString()),
+      adminDb.from("n8n_handoffs").select("id,status").eq("profile_id", profileId).gte("created_at", since.toISOString()),
+      adminDb.from("n8n_message_events").select("id,status").eq("profile_id", profileId).gte("created_at", since.toISOString()),
+      adminDb.from("whatsapp_queue").select("status").eq("profile_id", profileId).gte("created_at", since.toISOString()),
+    ]);
+    const total = (payments || []).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    return `📊 *Resumo de hoje*\n\n💰 Pagamentos: *${payments?.length || 0}* — total *${money(total)}*\n🤝 Atendimentos: *${handoffs?.length || 0}*\n📩 Mensagens recebidas: *${events?.length || 0}*\n📤 Envios com erro: *${(queue || []).filter((item: any) => item.status === "ERROR").length}*`;
+  }
+  return "Consulta administrativa não disponível.";
+}
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
@@ -500,8 +556,11 @@ Deno.serve(async (req) => {
         }
       }
     }
-    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
-    if (intent === "unknown") return json({ handled: false, admin: true, status: "not_an_admin_command" });
+    if (["payments_today", "handoffs", "system_status", "daily_summary", "clients", "contracts"].includes(intent)) {
+      if (!hasPermission(admin, "READ")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para consultar informações administrativas." });
+      return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, intent) });
+    }    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
+    if (intent === "unknown") return json({ handled: true, admin: true, reply: "Não consegui classificar essa solicitação como uma operação administrativa. Pode reformular dizendo o que deseja consultar ou executar? Posso pesquisar clientes, contratos, vencimentos, atrasos, pagamentos, comprovantes, atendimentos e status das integrações." });
     if (intent === "confirm") return json({ handled: true, admin: true, reply: await executePending(adminDb, profileId, admin, rawMessage) });
     if (intent === "cancel") {
       await adminDb.from("whatsapp_admin_commands").update({ status: "CANCELLED" }).eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("status", "PENDING");

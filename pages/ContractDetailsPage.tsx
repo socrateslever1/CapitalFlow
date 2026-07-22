@@ -21,6 +21,7 @@ import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
 import { ForgivenessMode } from '../components/modals/payment/hooks/usePaymentManagerState';
 import { AgreementView } from '../features/agreements/components/AgreementView';
+import { ScopedCollectionAutomation } from '../features/collections/components/ScopedCollectionAutomation';
 
 // Subcomponentes e Hooks Refatorados
 import { useContractDetailsState } from './ContractDetails/useContractDetailsState';
@@ -32,6 +33,7 @@ interface ContractDetailsPageProps {
     loans: Loan[];
     sources: CapitalSource[];
     activeUser: UserProfile | null;
+    showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
     onBack: () => void;
     onNavigate?: (path: string) => void;
     onPayment: (
@@ -61,7 +63,7 @@ interface ContractDetailsPageProps {
 }
 
 export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
-    loanId, loans, sources, activeUser, onBack, onPayment, isProcessing,
+    loanId, loans, sources, activeUser, showToast, onBack, onPayment, isProcessing,
     onOpenMessage, onRenegotiate, onOpenLegalDocument, onExportExtrato,
     onEdit, onArchive, onRestore, onDelete, onActivate, onReverseTransaction, onOpenReceipt,
     onAgreementPayment, onReverseAgreementPayment, onRefresh, isStealthMode, onNavigate
@@ -272,7 +274,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                         </h3>
                         <div className="grid grid-cols-2 gap-2">
                             <button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-lg text-[9px] font-black uppercase text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/50 transition-all">
-                                <MessageSquare size={14}/> WhatsApp
+                                <MessageSquare size={14}/> Cobrar
                             </button>
                             <button onClick={() => onEdit(loan)} className="flex items-center justify-center gap-1.5 p-3 bg-blue-950/30 border border-blue-500/30 rounded-lg text-[9px] font-black uppercase text-blue-400 hover:text-blue-300 hover:bg-blue-900/50 transition-all">
                                 <FileEdit size={14}/> Editar
@@ -299,6 +301,15 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                                 <AlertTriangle size={14}/> Excluir
                             </button>
                         </div>
+                        {activeUser?.id && (
+                            <ScopedCollectionAutomation
+                                profileId={activeUser.id}
+                                scope="LOAN"
+                                scopeId={loan.id}
+                                label="contrato"
+                                showToast={showToast}
+                            />
+                        )}
                     </div>
 
                     <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4">
@@ -391,7 +402,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                     {/* ATALHOS RÁPIDOS MOBILE */}
                     <div className="md:hidden grid grid-cols-1 gap-4">
                         <button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-2 p-4 bg-slate-900 border border-slate-800 rounded-lg text-[10px] font-black uppercase text-slate-400">
-                            <MessageSquare size={16}/> WhatsApp
+                            <MessageSquare size={16}/> Cobrar
                         </button>
                     </div>
                 </div>

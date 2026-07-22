@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.0';
 
-const APP_ORIGIN = Deno.env.get('APP_ORIGIN') || 'https://capitalflow.app';
+const APP_ORIGIN = Deno.env.get('APP_ORIGIN') || 'https://capflow.pages.dev';
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get('origin') || '';

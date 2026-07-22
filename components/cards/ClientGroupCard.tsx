@@ -127,12 +127,15 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
         passThroughProps.onRenegotiate?.(group.loans);
     };
 
-    const handleBillLoan = (e: React.MouseEvent, loan: any) => {
+    const handleBillLoan = async (e: React.MouseEvent, loan: any) => {
         e.stopPropagation();
         if (!loan) return;
         keepGroupOpen();
-        passThroughProps.onMarkAsBilled?.(loan);
-        passThroughProps.onMessage?.(loan);
+        try {
+            await passThroughProps.onMarkAsBilled?.(loan);
+        } catch {
+            // O callback já exibe o erro e mantém o botão disponível para nova tentativa.
+        }
     };
 
     const handleArchiveSelection = (e: React.MouseEvent, loans: any[]) => {
@@ -241,7 +244,7 @@ export const ClientGroupCard: React.FC<ClientGroupCardProps> = ({ group, passThr
     };
 
     return (
-        <div ref={cardRef} className={`responsive-card relative w-full scroll-mt-12 overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'z-10 ring-2 ring-blue-400/70 shadow-[0_0_0_1px_rgba(96,165,250,0.2),0_20px_45px_rgba(2,6,23,0.65)]' : 'h-[7.25rem]'}`}>
+        <div ref={cardRef} className={`responsive-card relative w-full scroll-mt-24 overflow-hidden transition-all duration-300 rounded-lg border border-slate-800 bg-slate-900 hover:border-slate-700 hover:shadow-xl hover:shadow-slate-900/50 group cursor-pointer border-l-4 ${borderLeftColor} ${hasPendingPortalAction ? 'cf-portal-action-pulse' : ''} ${isExpanded ? 'z-10 ring-2 ring-blue-400/70 shadow-[0_0_0_1px_rgba(96,165,250,0.2),0_20px_45px_rgba(2,6,23,0.65)]' : 'h-[7.25rem]'}`}>
             <div
                 className="flex flex-col justify-between gap-2 relative h-full"
                 onClick={handleCardClick}

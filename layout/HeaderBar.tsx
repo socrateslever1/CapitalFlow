@@ -373,7 +373,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   Central de Alertas
                 </h3>
                 <p className="mt-0.5 text-[10px] text-slate-400 font-bold tracking-[0.08em]">
-                  Painel rapido do que precisa da sua atencao
+                  Painel rápido do que precisa da sua atenção
                 </p>
               </div>
             </div>
@@ -414,7 +414,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               type="button"
               onClick={() => setShowNotifications(false)}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-slate-900/60 text-slate-500 hover:text-white transition-all hover:rotate-90"
-              aria-label="Fechar Notificacoes"
+              aria-label="Fechar notificações"
             >
               <X size={15} />
             </button>

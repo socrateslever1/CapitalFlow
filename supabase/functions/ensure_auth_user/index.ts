@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 declare const Deno: any;
 
-const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://capitalflow.app";
+const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev";
 
 const baseCorsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",

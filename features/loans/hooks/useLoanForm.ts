@@ -71,6 +71,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initializedFormKeyRef = useRef<string | null>(null);
 
   // Sugere vencimento subsequente real: mensal/parcelado = mês seguinte, diário = dia/prazo seguinte.
   useEffect(() => {
@@ -88,6 +89,10 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
 
   // Initialization with Guards
   useEffect(() => {
+    const formKey = initialData?.id ? `EDIT:${initialData.id}` : 'NEW';
+    if (initializedFormKeyRef.current === formKey) return;
+    initializedFormKeyRef.current = formKey;
+
     if (initialData) {
       setFormData({
         clientId: initialData.clientId || '',

@@ -68,8 +68,14 @@ Deno.serve(async (req) => {
         whatsapp_url: `https://wa.me/${operatorPhone}`,
       } : null;
 
-      const endsConversation = /^(encerrar|encerrar conversa|finalizar conversa|sair|trocar usu[aá]rio|trocar cliente|esquecer cliente)$/i
-        .test(message.normalize("NFC"));
+      const normalizedMessage = message.normalize("NFC");
+      const suppliedDigits = digits(message);
+      const suppliedCode = /^[a-z0-9-]{3,30}$/i.test(message) && /\d/.test(message) ? message : null;
+      const hasExplicitIdentity = suppliedDigits.length === 11 || Boolean(suppliedCode);
+      const wantsIdentityChange = /\b(trocar|mudar|alterar|outro|outra|reiniciar|recomeçar|começar de novo|esquecer)\b.*\b(cliente|usuário|cadastro|cpf|conversa|atendimento|dados?)\b|\b(esse não sou eu|essa pessoa não sou eu|pessoa errada)\b/i
+        .test(normalizedMessage);
+      const endsConversation = /^(encerrar|encerrar conversa|finalizar conversa|sair|trocar usuário|trocar cliente|esquecer cliente|reiniciar atendimento|começar de novo)$/i
+        .test(normalizedMessage) || (wantsIdentityChange && !hasExplicitIdentity);
       if (endsConversation) {
         const { error: endError } = await supabase.from("n8n_client_sessions")
           .delete().eq("profile_id", organizationId).eq("phone_hash", phoneHash);
@@ -83,19 +89,46 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: savedSession } = await supabase.from("n8n_client_sessions")
+      const savedSessionResult = await supabase.from("n8n_client_sessions")
         .select("client_id, conversation_id").eq("profile_id", organizationId).eq("phone_hash", phoneHash)
         .gt("expires_at", new Date().toISOString()).maybeSingle();
+      if (savedSessionResult.error) throw savedSessionResult.error;
+      let savedSession = savedSessionResult.data;
+
+      if (savedSession?.client_id && hasExplicitIdentity) {
+        const { error: resetError } = await supabase.from("n8n_client_sessions")
+          .delete().eq("profile_id", organizationId).eq("phone_hash", phoneHash);
+        if (resetError) throw resetError;
+        savedSession = null;
+      }
 
       let clients: Array<{ id: string; name: string }> = [];
       let matchedBy = "PHONE";
-      if (savedSession?.client_id) {
+
+      if (suppliedDigits.length === 11) {
+        matchedBy = "CPF";
+        const byCpf = await supabase.from("clientes").select("id, name, cpf, document").eq("owner_id", organizationId)
+          .limit(500);
+        if (byCpf.error) throw byCpf.error;
+        clients = (byCpf.data ?? [])
+          .filter((candidate) => digits(candidate.cpf || candidate.document) === suppliedDigits)
+          .slice(0, 2)
+          .map(({ id, name }) => ({ id, name }));
+      } else if (suppliedCode) {
+        matchedBy = "CODE";
+        const byCode = await supabase.from("clientes").select("id, name").eq("owner_id", organizationId)
+          .eq("client_number", suppliedCode).limit(2);
+        if (byCode.error) throw byCode.error;
+        clients = byCode.data ?? [];
+      }
+
+      if (!clients.length && savedSession?.client_id && !hasExplicitIdentity) {
         const saved = await supabase.from("clientes").select("id, name")
           .eq("owner_id", organizationId).eq("id", savedSession.client_id).maybeSingle();
         if (saved.data) clients = [saved.data];
       }
 
-      if (!clients.length) {
+      if (!clients.length && !hasExplicitIdentity) {
         const suffix = phone.slice(-10);
         const byPhone = await supabase.from("clientes").select("id, name, phone")
           .eq("owner_id", organizationId).not("phone", "is", null).limit(500);
@@ -106,24 +139,8 @@ Deno.serve(async (req) => {
           .map(({ id, name }) => ({ id, name }));
       }
 
-      if (!clients.length && message) {
-        const suppliedDigits = digits(message);
-        if (suppliedDigits.length === 11) {
-          matchedBy = "CPF";
-          const byCpf = await supabase.from("clientes").select("id, name, cpf, document").eq("owner_id", organizationId)
-            .limit(500);
-          if (byCpf.error) throw byCpf.error;
-          clients = (byCpf.data ?? [])
-            .filter((candidate) => digits(candidate.cpf || candidate.document) === suppliedDigits)
-            .slice(0, 2)
-            .map(({ id, name }) => ({ id, name }));
-        } else if (/^[a-z0-9-]{3,30}$/i.test(message)) {
-          matchedBy = "CODE";
-          const byCode = await supabase.from("clientes").select("id, name").eq("owner_id", organizationId)
-            .eq("client_number", message).limit(2);
-          if (byCode.error) throw byCode.error;
-          clients = byCode.data ?? [];
-        } else if (/^[\p{L}][\p{L}\s.'-]{4,159}$/u.test(message) && message.includes(" ")) {
+      if (!clients.length && message && !hasExplicitIdentity) {
+        if (/^[\p{L}][\p{L}\s.'-]{4,159}$/u.test(message) && message.includes(" ")) {
           matchedBy = "NAME";
           const byName = await supabase.from("clientes").select("id, name").eq("owner_id", organizationId)
             .ilike("name", message).limit(2);
@@ -225,7 +242,7 @@ Deno.serve(async (req) => {
       }
 
       const portalContract = activeContracts.find((contract) => contract.portal_token && contract.portal_shortcode);
-      const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capitalflow.app").replace(/\/$/, "");
+      const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
       const portalLink = portalContract
         ? `${appOrigin}/?portal=${encodeURIComponent(portalContract.portal_token)}&portal_code=${encodeURIComponent(portalContract.portal_shortcode)}`
         : null;

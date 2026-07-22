@@ -513,6 +513,7 @@ export const App: React.FC = () => {
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ClientsContainer
+                    profileId={activeUser?.id || ''}
                     clients={clients}
                     loans={loans}
                     clientSearchTerm={clientSearchTerm}
@@ -716,6 +717,7 @@ export const App: React.FC = () => {
                     loans={loans}
                     sources={sources}
                     activeUser={activeUser}
+                    showToast={showToast}
                     onBack={() => {
                       if (window.location.pathname.startsWith('/contrato/')) {
                         routerNavigate('/', { replace: true });

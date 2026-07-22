@@ -31,7 +31,7 @@ export interface LoanCardProps {
   onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }) => void;
   onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
   onRefresh: () => void;
-  onMarkAsBilled?: (loan: Loan) => void;
+  onMarkAsBilled?: (loan: Loan) => void | Promise<void>;
   onNewAporte?: (loan: Loan) => void;
   onToggleCapitalOnly?: (loan: Loan) => void;
   onNavigate?: (id: string) => void;

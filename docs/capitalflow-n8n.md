@@ -70,7 +70,7 @@ O backup inicial está em `C:\Users\LeverDell\Downloads\N8N WAHA Local\backups\2
 
 Não use `latest` nem remova volumes. Exporte workflow e credenciais, fixe versões, consulte breaking changes, atualize somente o n8n e valide logs, webhook e credenciais antes de atualizar WAHA ou Redis.
 
-Se a camada local for habilitada, mantenha `CAPITALFLOW_LOCAL_AI_URL` e `CAPITALFLOW_LOCAL_AI_MODEL` no mesmo `.env` do compose para que o n8n possa chamá-la sem depender das chaves pagas.
+Se a camada local for habilitada, mantenha `CAPITALFLOW_LOCAL_AI_URL` e `CAPITALFLOW_LOCAL_AI_MODEL` no mesmo `.env` do compose para que o n8n possa chamá-la sem depender das chaves pagas. A implementação oficial deste projeto está em `automation/local-ai`: KoboldCpp + Qwen3 4B Q4_K_M, conectado à rede `n8nwahalocal_default` com o alias interno `koboldcpp`.
 
 ## Régua híbrida de cobrança
 

@@ -52,7 +52,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 className={`${buttonClass} bg-emerald-600/10 text-emerald-500 hover:bg-emerald-600 hover:text-white`}
             >
                 <MessageSquare size={14} />
-                <span className={labelClass}>WhatsApp</span>
+                <span className={labelClass}>WhatsApp · Opções</span>
             </button>
 
             <button

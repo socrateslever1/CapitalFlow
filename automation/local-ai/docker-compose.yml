@@ -1,0 +1,44 @@
+services:
+  koboldcpp:
+    image: koboldai/koboldcpp:latest
+    container_name: capitalflow-koboldcpp
+    restart: unless-stopped
+    environment:
+      KCPP_DONT_TUNNEL: "true"
+      KCPP_DONT_UPDATE: "true"
+      KCPP_ARGS: >-
+        --model /models/${KCPP_MODEL_FILE:-Qwen3-4B-Q4_K_M.gguf}
+        --host 0.0.0.0
+        --port 5001
+        --contextsize ${KCPP_CONTEXT_SIZE:-4096}
+        --threads ${KCPP_THREADS:-4}
+        --usecuda 0 mmq
+        --gpulayers ${KCPP_GPU_LAYERS:-28}
+        --lowvram
+        --skiplauncher
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - ./modelos:/models:ro
+      - koboldcpp_data:/workspace
+    mem_limit: ${KCPP_MEMORY_LIMIT:-5g}
+    cpus: 4
+    gpus: all
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:5001/api/v1/model >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+    networks:
+      n8n:
+        aliases:
+          - koboldcpp
+
+networks:
+  n8n:
+    external: true
+    name: n8nwahalocal_default
+
+volumes:
+  koboldcpp_data:

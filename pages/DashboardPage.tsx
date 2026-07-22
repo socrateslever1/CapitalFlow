@@ -124,7 +124,7 @@ interface DashboardPageProps {
   isStealthMode: boolean;
   onRenegotiate: (loan: Loan | Loan[]) => void;
   onNewAporte: (loan: Loan) => void;
-  onMarkAsBilled: (loan: Loan) => void;
+  onMarkAsBilled: (loan: Loan) => void | Promise<void>;
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReverseAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
   onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }) => void;

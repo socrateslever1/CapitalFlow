@@ -22,10 +22,9 @@ export function useStableExpandedCardFocus<T extends HTMLElement>(
     const topIsVisible = rect.top >= TOP_GUARD_PX && rect.top <= bottomLimit;
 
     if (forceTopAlignment) {
-      element.scrollIntoView({
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.top - TOP_GUARD_PX),
         behavior,
-        block: 'start',
-        inline: 'nearest',
       });
       return;
     }

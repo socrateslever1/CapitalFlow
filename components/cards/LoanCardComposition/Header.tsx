@@ -32,7 +32,7 @@ interface HeaderProps {
   currentDebt?: number; // Valor total real (Principal + Juros + Multa)
   onToggleExpand?: () => void;
   onNavigate?: (id: string) => void;
-  onMarkAsBilled?: (loan: Loan) => void;
+  onMarkAsBilled?: (loan: Loan) => void | Promise<void>;
   riskProfile?: RiskProfile;
   isCapitalOnlyRecovery?: boolean;
 }
@@ -256,12 +256,18 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 ) : (
                   <button 
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       lastClickedRef.current = Date.now();
                       setLocalLastBilledAt(new Date(lastClickedRef.current).toISOString());
                       setIsLocked(true);
-                      onMarkAsBilled?.(loan);
+                      try {
+                        await onMarkAsBilled?.(loan);
+                      } catch {
+                        lastClickedRef.current = 0;
+                        setLocalLastBilledAt(null);
+                        setIsLocked(false);
+                      }
                     }}
                     className="flex items-center gap-1 px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md border border-rose-400 shadow-sm shadow-rose-500/20 transition-all active:scale-95 animate-pulse"
                   >

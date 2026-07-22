@@ -1,7 +1,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.0';
 
-const APP_ORIGIN = Deno.env.get('APP_ORIGIN') || 'https://capitalflow.app';
+const APP_ORIGIN = Deno.env.get('APP_ORIGIN') || 'https://capflow.pages.dev';
 const MAX_FILE_SIZE = 8 * 1024 * 1024;
 const ALLOWED_TYPES = new Map([
   ['image/jpeg', 'jpg'],

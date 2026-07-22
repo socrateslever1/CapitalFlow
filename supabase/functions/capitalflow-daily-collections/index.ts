@@ -68,13 +68,12 @@ Deno.serve(async (req) => {
     const { data: policies, error: policyError } = await supabase.from("n8n_collection_policies")
       .select("*").eq("profile_id", profileId);
     if (policyError) throw policyError;
-    const defaultPolicy = (policies || []).find((policy) => !policy.loan_id);
-    if (!defaultPolicy?.enabled || defaultPolicy.paused) return json({ ok: true, messages: [], reason: "automation_disabled" });
+    const defaultPolicy = (policies || []).find((policy) => !policy.loan_id && !policy.client_id);
+    const hasEnabledPolicy = (policies || []).some((policy) => policy.enabled && !policy.paused);
+    if (!hasEnabledPolicy || defaultPolicy?.paused) return json({ ok: true, messages: [], reason: "automation_disabled" });
     const currentHour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Manaus", hour: "2-digit", hour12: false }).format(new Date()));
-    if (!dryRun && currentHour !== Number(defaultPolicy.send_hour)) {
-      return json({ ok: true, messages: [], reason: "outside_configured_hour" });
-    }
     const overrides = new Map((policies || []).filter((policy) => policy.loan_id).map((policy) => [policy.loan_id, policy]));
+    const clientOverrides = new Map((policies || []).filter((policy) => policy.client_id && !policy.loan_id).map((policy) => [policy.client_id, policy]));
 
     const { data: contracts, error: contractError } = await supabase.from("contratos")
       .select("id, client_id, status, portal_token, portal_shortcode")
@@ -96,7 +95,7 @@ Deno.serve(async (req) => {
     if (installmentError) throw installmentError;
     const clientMap = new Map((clients || []).map((client) => [client.id, client]));
     const contractMap = new Map(activeContracts.map((contract) => [contract.id, contract]));
-    const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capitalflow.app").replace(/\/$/, "");
+    const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
     const messages = [];
     const handledClients = new Set<string>();
 
@@ -106,8 +105,10 @@ Deno.serve(async (req) => {
       const phone = digits(client?.phone);
       if (!contract || !client || phone.length < 10) continue;
       if (handledClients.has(client.id)) continue;
-      const policy = overrides.get(contract.id) || defaultPolicy;
+      const policy = overrides.get(contract.id) || clientOverrides.get(client.id) || defaultPolicy;
+      if (!policy) continue;
       if (!policy.enabled || policy.paused) continue;
+      if (!dryRun && currentHour !== Number(policy.send_hour)) continue;
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       const [recentReply, openHandoff, activePromise] = await Promise.all([
         supabase.from("n8n_message_events").select("id", { head: true, count: "exact" })

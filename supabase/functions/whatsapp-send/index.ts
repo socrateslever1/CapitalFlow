@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 declare const Deno: any;
 
-const APP_ORIGIN = (Deno.env.get("APP_ORIGIN") || "https://capitalflow.app").replace(/\/$/, "");
+const APP_ORIGIN = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
 const ALLOWED_ORIGINS = new Set([
   APP_ORIGIN,
   "https://capitalflow.app",

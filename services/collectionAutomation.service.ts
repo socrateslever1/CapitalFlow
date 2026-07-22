@@ -6,6 +6,8 @@ export type CollectionTone = 'CORDIAL' | 'OBJECTIVE' | 'MEDIATOR' | 'FIRM_RESPEC
 export interface CollectionPolicy {
   id?: string;
   profile_id: string;
+  client_id?: string | null;
+  loan_id?: string | null;
   enabled: boolean;
   overdue_cadence: CollectionCadence;
   tone: CollectionTone;
@@ -32,14 +34,56 @@ export const DEFAULT_COLLECTION_POLICY: Omit<CollectionPolicy, 'profile_id'> = {
 };
 
 export const collectionAutomationService = {
+  async isWhatsAppConfigured(profileId: string): Promise<boolean> {
+    const { data, error } = await supabase.rpc('rpc_has_whatsapp_automation', { p_profile_id: profileId });
+    if (!error) return data === true;
+
+    const { data: config, error: configError } = await supabase.from('whatsapp_configs')
+      .select('token, instance_id').eq('profile_id', profileId).maybeSingle();
+    if (configError) return false;
+    return Boolean(config?.token?.trim() && config?.instance_id?.trim());
+  },
+
   async getDefaultPolicy(profileId: string): Promise<CollectionPolicy> {
     const { data, error } = await supabase.from('n8n_collection_policies')
-      .select('*').eq('profile_id', profileId).is('loan_id', null).maybeSingle();
+      .select('*').eq('profile_id', profileId).is('client_id', null).is('loan_id', null).maybeSingle();
     if (error) throw error;
     return { ...DEFAULT_COLLECTION_POLICY, ...(data || {}), profile_id: profileId } as CollectionPolicy;
   },
 
   async saveDefaultPolicy(policy: CollectionPolicy): Promise<CollectionPolicy> {
+    return this.savePolicy({ ...policy, client_id: null, loan_id: null });
+  },
+
+  async getClientPolicy(profileId: string, clientId: string): Promise<CollectionPolicy | null> {
+    const { data, error } = await supabase.from('n8n_collection_policies')
+      .select('*').eq('profile_id', profileId).eq('client_id', clientId).is('loan_id', null).maybeSingle();
+    if (error) throw error;
+    return data as CollectionPolicy | null;
+  },
+
+  async getLoanPolicy(profileId: string, loanId: string): Promise<CollectionPolicy | null> {
+    const { data, error } = await supabase.from('n8n_collection_policies')
+      .select('*').eq('profile_id', profileId).eq('loan_id', loanId).maybeSingle();
+    if (error) throw error;
+    return data as CollectionPolicy | null;
+  },
+
+  async saveClientPolicy(policy: CollectionPolicy, clientId: string): Promise<CollectionPolicy> {
+    return this.savePolicy({ ...policy, client_id: clientId, loan_id: null });
+  },
+
+  async saveLoanPolicy(policy: CollectionPolicy, loanId: string): Promise<CollectionPolicy> {
+    return this.savePolicy({ ...policy, client_id: null, loan_id: loanId });
+  },
+
+  async deletePolicy(profileId: string, id: string): Promise<void> {
+    const { error } = await supabase.from('n8n_collection_policies')
+      .delete().eq('profile_id', profileId).eq('id', id);
+    if (error) throw error;
+  },
+
+  async savePolicy(policy: CollectionPolicy): Promise<CollectionPolicy> {
     const payload = {
       enabled: policy.enabled,
       overdue_cadence: policy.overdue_cadence,
@@ -60,7 +104,12 @@ export const collectionAutomationService = {
       return data as CollectionPolicy;
     }
     const { data, error } = await supabase.from('n8n_collection_policies')
-      .insert({ profile_id: policy.profile_id, loan_id: null, ...payload }).select('*').single();
+      .insert({
+        profile_id: policy.profile_id,
+        client_id: policy.client_id || null,
+        loan_id: policy.loan_id || null,
+        ...payload,
+      }).select('*').single();
     if (error) throw error;
     return data as CollectionPolicy;
   },

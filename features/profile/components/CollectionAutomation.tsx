@@ -20,15 +20,19 @@ const cadenceLabels: Record<CollectionCadence, string> = {
 };
 
 export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) => {
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [policy, setPolicy] = useState<CollectionPolicy | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([
-      collectionAutomationService.getDefaultPolicy(profileId),
-      collectionAutomationService.listRecentDispatches(profileId),
-    ]).then(([loadedPolicy, loadedHistory]) => {
+    collectionAutomationService.isWhatsAppConfigured(profileId).then(async (configured) => {
+      setAvailable(configured);
+      if (!configured) return;
+      const [loadedPolicy, loadedHistory] = await Promise.all([
+        collectionAutomationService.getDefaultPolicy(profileId),
+        collectionAutomationService.listRecentDispatches(profileId),
+      ]);
       setPolicy(loadedPolicy);
       setHistory(loadedHistory);
     }).catch((error) => showToast(error.message || 'Falha ao carregar a régua.', 'error'));
@@ -42,7 +46,8 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
     return 'Olá, Ana. Identificamos que a parcela continua em aberto. O valor atualizado hoje é R$ 1.287,50. Quer conversar sobre isso ou receber ajuda para pagar?';
   }, [policy]);
 
-  if (!policy) return <div className="h-40 rounded-lg bg-slate-900 animate-pulse" />;
+  if (available === false) return null;
+  if (available === null || !policy) return <div className="h-40 rounded-lg bg-slate-900 animate-pulse" />;
   const patch = (next: Partial<CollectionPolicy>) => setPolicy((current) => current ? { ...current, ...next } : current);
   const save = async () => {
     setSaving(true);

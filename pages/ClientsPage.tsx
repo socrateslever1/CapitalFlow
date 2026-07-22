@@ -6,15 +6,17 @@ import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
+import { ScopedCollectionAutomation } from '../features/collections/components/ScopedCollectionAutomation';
 
 interface ClientsPageProps {
+  profileId: string;
   filteredClients: Client[];
   loans: Loan[];
   clientSearchTerm: string;
   setClientSearchTerm: (term: string) => void;
   openClientModal: (client?: Client) => void;
   openConfirmation: (config: any) => void;
-  showToast: (msg: string, type?: 'error') => void;
+  showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
   // Bulk actions props
   isBulkDeleteMode: boolean;
   toggleBulkDeleteMode: () => void;
@@ -26,7 +28,7 @@ interface ClientsPageProps {
 }
 
 export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean }> = ({
-  filteredClients, loans, clientSearchTerm, setClientSearchTerm,
+  profileId, filteredClients, loans, clientSearchTerm, setClientSearchTerm,
   openClientModal, openConfirmation, showToast,
   isBulkDeleteMode, toggleBulkDeleteMode, selectedClientsToDelete, toggleClientSelection, executeBulkDelete,
   onDeleteClient,
@@ -242,6 +244,16 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             </div>
                         )}
                     </div>
+                    {!isBulkDeleteMode && profileId && (
+                        <ScopedCollectionAutomation
+                            profileId={profileId}
+                            scope="CLIENT"
+                            scopeId={client.id}
+                            label={client.name}
+                            showToast={showToast}
+                            compact
+                        />
+                    )}
                 </div>
                 );
             })}

@@ -7,14 +7,21 @@ export const DashboardLoanList: React.FC<any> = ({
   loanCardProps,
   isStealthMode
 }) => {
+  const selectedLoanId = loanCardProps?.selectedLoanId;
+
   return (
     <>
       {groupedLoans.length > 0 ? (
-        <div className="columns-1 xl:columns-2 2xl:columns-3 gap-4">
+        <div className="grid grid-cols-1 items-start gap-4 pb-32 xl:grid-cols-2 2xl:grid-cols-3">
           {groupedLoans.map((group: any) => {
             const isOverdueGroup = group.status === 'LATE' || group.status === 'CRITICAL';
+            const isExpandedGroup = selectedLoanId === `GROUP_${group.id}`
+              || group.loans.some((loan: any) => loan.id === selectedLoanId);
             return (
-              <div key={group.id} className={`mb-4 break-inside-avoid min-w-0 w-full rounded-lg ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}>
+              <div
+                key={group.id}
+                className={`min-w-0 w-full rounded-lg ${isExpandedGroup ? 'xl:col-span-2 2xl:col-span-3' : ''} ${isOverdueGroup ? 'cf-overdue-container-pulse' : ''}`}
+              >
                 <ClientGroupCard
                   group={group}
                   passThroughProps={loanCardProps}

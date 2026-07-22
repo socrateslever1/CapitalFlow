@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { repairMojibake } from '../utils/textEncoding';
 
 export type NotificationTone = 'info' | 'warning' | 'error' | 'success';
 
@@ -115,8 +116,8 @@ export const notificationCenterService = {
       .from('notificacoes')
       .insert({
         profile_id: input.profileId,
-        titulo: input.title,
-        mensagem: input.message,
+        titulo: repairMojibake(input.title),
+        mensagem: repairMojibake(input.message),
         action_url: input.actionUrl || null,
         item_type: input.itemType || null,
         item_id: input.itemId || null,

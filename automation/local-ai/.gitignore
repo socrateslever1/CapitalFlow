@@ -1,0 +1,7 @@
+.env
+modelos/*.gguf
+modelos/*.part
+logs/*
+!modelos/.gitkeep
+!logs/.gitkeep
+

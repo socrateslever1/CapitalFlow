@@ -235,7 +235,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
 
   const handleInfinitePay = async () => {
     if (shouldBlock) {
-      setError('Este contrato/parcela jÃ¡ estÃ¡ quitado.');
+      setError('Este contrato/parcela já está quitado.');
       return;
     }
 
@@ -255,7 +255,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
       if (data?.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       } else {
-        throw new Error('URL de checkout nÃ£o retornada');
+        throw new Error('URL de checkout não retornada');
       }
     } catch (e: any) {
       setError(e?.message || 'Falha ao gerar checkout InfinitePay.');

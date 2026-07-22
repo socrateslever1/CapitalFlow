@@ -9,6 +9,7 @@ import { contractsService } from '../services/contracts.service';
 import { paymentsService } from '../services/payments.service';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
 import { calculateTotalDue } from '../domain/finance/calculations';
+import { manualCollectionService } from '../services/manualCollection.service';
 
 interface DashboardContainerProps {
   loans: Loan[];
@@ -172,11 +173,14 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
 
   const handleMarkAsBilled = async (loan: Loan) => {
     try {
+      if (!activeUser?.id) throw new Error('Perfil do operador não identificado.');
+      await manualCollectionService.enqueue(activeUser.id, loan.id);
       await contractsService.markAsBilled(loan.id, loan.billing_count || 0);
-      showToast("Contrato marcado como cobrado!", "success");
+      showToast('Cobrança validada e adicionada à fila do WhatsApp.', 'success');
       onRefresh();
     } catch (e: any) {
-      showToast("Erro ao marcar cobrança: " + e.message, "error");
+      showToast(`Não foi possível enviar a cobrança: ${e.message}`, 'error');
+      throw e;
     }
   };
 

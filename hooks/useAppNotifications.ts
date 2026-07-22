@@ -10,6 +10,7 @@ import { playNotificationSound } from '../utils/notificationSound';
 import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
 import { filterOperationalSources } from '../utils/testSource';
+import { repairMojibake } from '../utils/textEncoding';
 
 export interface InAppNotification {
   id: string;
@@ -149,8 +150,8 @@ export const useAppNotifications = ({
   const mapDbNotification = useCallback((row: any): InAppNotification => ({
     id: row.id,
     dbId: row.id,
-    title: row.titulo || 'CapitalFlow',
-    message: row.mensagem || '',
+    title: repairMojibake(row.titulo || 'CapitalFlow'),
+    message: repairMojibake(row.mensagem || ''),
     type: typeByItem[String(row.item_type || '')] || 'info',
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     action_url: row.action_url || undefined,

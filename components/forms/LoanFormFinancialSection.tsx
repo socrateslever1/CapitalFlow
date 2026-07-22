@@ -137,7 +137,13 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1">
               <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Data Empréstimo</label>
-              <input required type="date" value={formData.startDate || ''} onChange={e => setFormData({...formData, startDate: e.target.value})} className={dateInputClass} />
+              <input
+                  required
+                  type="date"
+                  value={formData.startDate || ''}
+                  onChange={e => setFormData((current: any) => ({ ...current, startDate: e.target.value }))}
+                  className={dateInputClass}
+              />
           </div>
           <div className="space-y-1">
               <label className="text-[9px] text-blue-400 font-black uppercase ml-2 flex items-center gap-1"><CalendarDays size={10}/> Vencimento (1º)</label>

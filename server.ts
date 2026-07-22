@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = 3001;
   const isProduction = process.env.NODE_ENV === "production";
 
   app.disable("x-powered-by");

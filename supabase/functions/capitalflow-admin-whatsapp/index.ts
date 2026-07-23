@@ -72,7 +72,7 @@ function hasPermission(admin: any, permission: string) {
 }
 
 async function findClient(adminDb: any, profileId: string, query: string) {
-  const cleaned = query.replace(/^(a|o|da|do|de|para)\s+/i, "").replace(/[?.!,]+$/g, "").trim();
+  const cleaned = query.replace(/^(a|o|da|do|de|para|cliente|a cliente|o cliente)\s+/i, "").replace(/[?.!,]+$/g, "").trim();
   if (cleaned.length < 2) return { error: "Diga o nome ou código do cliente." };
   const { data, error } = await adminDb.from("clientes").select("id,name,phone,client_number")
     .eq("owner_id", profileId).or(`name.ilike.%${cleaned.replace(/[%_,()]/g, "")}%,client_number.eq.${cleaned}`).limit(6);
@@ -112,7 +112,7 @@ async function loadClientPosition(adminDb: any, profileId: string, client: any) 
   const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
   const portal = contract?.portal_token && contract?.portal_shortcode
     ? `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}` : null;
-  return { active, contract, installment, portal };
+  return { active, contract, installment, positions, portal };
 }
 
 function targetFrom(message: string, intent: string) {
@@ -121,6 +121,7 @@ function targetFrom(message: string, intent: string) {
     portal: /^(?:mande|envie|mostrar|mostre)?\s*(?:o )?(?:link do )?portal(?: para| da| do)?\s+(.+)$/i,
     due: /^(?:quando vence|qual (?:e )?o vencimento)(?: o contrato| a parcela)?(?: da| do| de)?\s+(.+)$/i,
     amount: /^(?:quanto|qual (?:e )?o valor|valor|saldo)(?: a| o)?\s*(.+?)(?:\s+(?:deve|esta devendo|do contrato|da parcela))?$/i,
+    debt: /^(?:(?:liste|listar|mostre|mostrar|detalhe|detalhes|consulte|consultar)\s+)?(?:a\s+)?(?:divida|debitos?|parcelas? abertas?|saldo devedor)(?:\s+(?:da|do|de|para))?\s+(.+)$/i,
     status: /^(?:(?:me\s+)?(?:mostre|mostra|mostrar)|quero\s+(?:ver|consultar)|consulte|ver)?\s*(?:o\s+)?(?:contrato|situacao|status)(?:\s+ativo)?(?:\s+da|\s+do|\s+de)?\s+(.+)$/i,
     automation: /^(?:ative|ativar|pause|pausar|desative|desativar)(?: a)? cobranca(?: automatica)?(?: diaria| semanal)?(?: para| da| do)?\s+(.+)$/i,
   };
@@ -130,8 +131,17 @@ if (intent === "charge" && /^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\
       .replace(/\s+(?:cobrando|sobre|do contrato|a parcela|o contrato)[\s\S]*$/i, "")
       .trim();
   }
-  const match = message.match(patterns[intent]);
-  return (match?.[1] || match?.[2] || "").trim();
+  const rawTarget = (match?.[1] || match?.[2] || "").trim();
+  if (intent === "debt") {
+    const natural = message.match(/^(?:quanto|o que)\s+(.+?)\s+(?:ainda\s+)?deve[?.!]*$/i);
+    return (natural?.[1] || rawTarget).replace(/^(?:a|o|da|do|de|para|cliente)\s+/i, "").trim();
+  }
+  if (intent !== "charge") return rawTarget;
+  // Permite comandos naturais: “cobre a Maria”, “cobre o contrato vencido da Maria”.
+  return rawTarget
+    .replace(/^(?:o|a)\s+(?:cliente\s+)?/i, "")
+    .replace(/^(?:contrato|parcela)\s+(?:vencido|vencida|em atraso|atrasado|atrasada)?\s*(?:do|da|de)\s+/i, "")
+    .trim();
 }
 
 function detectIntent(raw: string) {
@@ -144,8 +154,12 @@ function detectIntent(raw: string) {
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
+  if (/\b(divida|debitos?|parcelas? abertas?|saldo devedor)\b/.test(message) || /^(?:quanto|o que)\s+.+\s+(?:ainda\s+)?deve\b/.test(message)) return "debt";
   if (/\b(ultimas cobrancas|fila de cobranca|mensagens enviadas|falhas de envio)\b/.test(message)) return "dispatches";
-  if (/^(cobre|cobrar|mande uma cobranca|envie uma cobranca|envia uma mensagem|envie uma mensagem|mande uma mensagem|lembre|avise).*(cobr|venc|atras|parcela|contrato)/.test(message)) return "charge";
+  // A cobrança é uma intenção explícita mesmo sem as palavras “vencido” ou
+  // “contrato”: “cobre a Maria” já deve abrir a prévia da cobrança.
+  if (/^(?:cobre|cobrar|mande|envie|envia|lembre|avise)\b/.test(message) &&
+      /\b(?:cobranca|mensagem|lembrete|aviso|cliente|contrato|parcela|vencid|atrasad|para|da|do|de)\b/.test(message)) return "charge";
   if (/portal/.test(message)) return "portal";
   if (/^(ative|ativar|pause|pausar|desative|desativar).*cobranca/.test(message)) return "automation";
   if (/^(quando vence|qual .*vencimento)/.test(message)) return "due";
@@ -643,6 +657,15 @@ Deno.serve(async (req) => {
     const position = await loadClientPosition(adminDb, profileId, found.client);
     if (intent === "due") return json({ handled: true, admin: true, reply: position.installment ? `${found.client.name}: a parcela vence em ${dateBr(position.installment.due_date_effective)}${Number(position.installment.days_late || 0) > 0 ? ` e está atrasada há ${position.installment.days_late} dias` : ""}.` : `${found.client.name} não tem parcela pendente.` });
     if (intent === "amount") return json({ handled: true, admin: true, reply: position.installment ? `${found.client.name} tem ${money(position.installment.total_due)} atualizado em aberto. O contrato ativo tem total de ${money(position.contract?.total_to_receive)}.` : `${found.client.name} não tem valor pendente confirmado.` });
+    if (intent === "debt") {
+      if (!position.positions?.length) return json({ handled: true, admin: true, reply: `${found.client.name} não possui dívida ou parcela em aberto.` });
+      const total = position.positions.reduce((sum: number, item: any) => sum + Number(item.total_due || 0), 0);
+      const lines = position.positions.slice(0, 20).map((item: any, index: number) => {
+        const late = Number(item.days_late || 0);
+        return `${index + 1}. 📄 Parcela ${item.numero_parcela || index + 1} — ${money(item.total_due)}${late > 0 ? ` — ${late} dia${late === 1 ? "" : "s"} em atraso` : ` — vence em ${dateBr(item.due_date_effective)}`} `;
+      });
+      return json({ handled: true, admin: true, reply: `💰 *Dívida de ${found.client.name}*\n\n${lines.join("\n")}\n\n*Total atualizado em aberto:* ${money(total)}${position.positions.length > 20 ? `\n\nMostrando 20 de ${position.positions.length} parcelas.` : ""}` });
+    }
     if (intent === "status") {
       if (!position.contract) return json({ handled: true, admin: true, reply: `${found.client.name} não possui contrato ativo.` });
       if (!position.installment) return json({ handled: true, admin: true, reply: `${found.client.name} possui contrato ativo, sem parcela pendente.` });

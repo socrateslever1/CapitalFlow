@@ -147,6 +147,7 @@ function targetFrom(message: string, intent: string) {
 
 function detectIntent(raw: string) {
   const message = normalize(raw);
+  if (/^(jarvis|chama jarvis|ei jarvis|oi jarvis|ola jarvis|bom dia jarvis|boa tarde jarvis|boa noite jarvis)$/.test(message)) return "greeting";
   if (/^(oi|ola|bom dia|boa tarde|boa noite|fala|e ai)$/.test(message)) return "greeting";
   if (/^(ajuda|comandos|menu|o que voce faz)$/.test(message)) return "help";
   if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message) || /^\d{4}$/.test(message)) return "confirm";
@@ -495,6 +496,68 @@ async function operatorQuery(adminDb: any, profileId: string, intent: string) {
   }
   return "Consulta administrativa não disponível.";
 }
+
+async function operatorCollectionBrief(adminDb: any, profileId: string, adminName: string, greeting: string) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
+  const { data: installments, error: installmentError } = await adminDb.from("parcelas")
+    .select("id,loan_id,due_date,data_vencimento,status")
+    .eq("profile_id", profileId)
+    .or(`due_date.lte.${today},data_vencimento.lte.${today}`)
+    .not("status", "in", `(${paid.map((status) => `"${status}"`).join(",")})`)
+    .limit(120);
+  if (installmentError) throw installmentError;
+
+  const loanIds = [...new Set((installments || []).map((item: any) => item.loan_id).filter(Boolean))];
+  const { data: contracts, error: contractError } = loanIds.length
+    ? await adminDb.from("contratos")
+      .select("id,debtor_name,debtor_phone,status")
+      .in("id", loanIds)
+      .or(`profile_id.eq.${profileId},owner_id.eq.${profileId}`)
+      .eq("is_archived", false)
+    : { data: [], error: null };
+  if (contractError) throw contractError;
+
+  const contractMap = new Map((contracts || [])
+    .filter((item: any) => !closed.includes(String(item.status || "").toUpperCase()))
+    .map((item: any) => [item.id, item]));
+
+  const items: any[] = [];
+  for (const installment of installments || []) {
+    const contract: any = contractMap.get(installment.loan_id);
+    if (!contract) continue;
+    const calculated = await adminDb.rpc("prepare_installment_for_online_payment", {
+      p_loan_id: installment.loan_id,
+      p_installment_id: installment.id,
+      p_reference_date: today,
+    });
+    if (calculated.error) throw calculated.error;
+    const due = Array.isArray(calculated.data) ? calculated.data[0] : calculated.data;
+    const amount = Number(due?.total_due || 0);
+    if (amount <= 0.05) continue;
+    items.push({
+      client: contract.debtor_name || "Cliente",
+      amount,
+      days_late: Number(due?.days_late || 0),
+      due_date: installment.data_vencimento || installment.due_date,
+    });
+  }
+
+  const overdue = items.filter((item) => item.days_late > 0);
+  const dueToday = items.filter((item) => item.days_late === 0 && String(item.due_date).slice(0, 10) === today);
+  const overdueTotal = overdue.reduce((sum, item) => sum + item.amount, 0);
+  const dueTodayTotal = dueToday.reduce((sum, item) => sum + item.amount, 0);
+  const priority = [...items]
+    .sort((a, b) => Number(b.days_late > 0) - Number(a.days_late > 0) || b.days_late - a.days_late || b.amount - a.amount)
+    .slice(0, 5);
+  const priorityLines = priority.map((item, index) => {
+    const status = item.days_late > 0
+      ? `${item.days_late} dia${item.days_late === 1 ? "" : "s"} em atraso`
+      : "vence hoje";
+    return `${index + 1}. ${item.client} — ${money(item.amount)} — ${status}`;
+  }).join("\n");
+
+  return `${greeting}, ${adminName}. Eu sou o *JARVIS*.\n\nEstou à disposição para operar o CapitalFlow e já conferi quem precisa de cobrança.\n\n📊 *Resumo para cobrar agora*\n• Atrasados: *${overdue.length}* — ${money(overdueTotal)}\n• Vencem hoje: *${dueToday.length}* — ${money(dueTodayTotal)}\n\n${priorityLines ? `*Prioridade*\n${priorityLines}\n\n` : "Sem cobranças prioritárias abertas agora.\n\n"}Comandos rápidos:\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *vencem hoje*\n• *atrasados*`;
+}
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
@@ -521,7 +584,7 @@ Deno.serve(async (req) => {
     const adminName = String(admin.display_name || "Sócrates").trim().split(/\s+/)[0];
     const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Manaus" }).format(new Date()));
     const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
-    if (intent === "greeting") return json({ handled: true, admin: true, reply: `${greeting}, ${adminName}. Estou à sua disposição para consultar a carteira, acompanhar vencimentos e executar cobranças. O que deseja fazer?` });
+    if (intent === "greeting") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, adminName, greeting) });
     const contractRequest = parseContractRequest(rawMessage);
     if (contractRequest) {
       if (!hasPermission(admin, "CONTRACT_CREATE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para criar contratos." });

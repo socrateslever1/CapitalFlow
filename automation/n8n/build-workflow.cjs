@@ -64,18 +64,14 @@ const adminCommandNode = {
 
 const adminGateNode = {
   parameters: {
-    conditions: {
-      options: { caseSensitive: true, leftValue: '', typeValidation: 'strict', version: 2 },
-      conditions: [{ id: 'capitalflow-admin-handled', leftValue: '={{ String($json.handled) }}', rightValue: 'true', operator: { type: 'string', operation: 'equals', name: 'filter.operator.equals' } }],
-      combinator: 'and',
-    },
-    options: {},
+    jsCode: 'const handled = $json.handled === true || String($json.handled) === "true";\nif (!handled) throw new Error("PUBLIC_FLOW");\nreturn $input.all();',
   },
   id: 'capitalflow-admin-gate',
   name: 'Admin Gate',
-  type: 'n8n-nodes-base.if',
-  typeVersion: 2.2,
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
   position: [-170, -160],
+  onError: 'continueErrorOutput',
 };
 
 const adminReplyNode = {
@@ -231,17 +227,14 @@ return [{ json: { output, conventional_handled: !!output } }];`,
 
 const conventionalGateNode = {
   parameters: {
-    conditions: {
-      options: { caseSensitive: true, leftValue: '', typeValidation: 'strict', version: 2 },
-      conditions: [{ id: 'conventional-handled', leftValue: '={{ String($json.conventional_handled) }}', rightValue: 'true', operator: { type: 'string', operation: 'equals' } }],
-      combinator: 'and',
-    }
+    jsCode: 'const handled = $json.conventional_handled === true || String($json.conventional_handled) === "true";\nif (!handled) throw new Error("AI_FLOW");\nreturn $input.all();',
   },
   id: 'capitalflow-conventional-gate',
   name: 'Conventional Gate',
-  type: 'n8n-nodes-base.if',
-  typeVersion: 2.2,
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
   position: [1300, 0],
+  onError: 'continueErrorOutput',
 };
 
 const outputGuardNode = {

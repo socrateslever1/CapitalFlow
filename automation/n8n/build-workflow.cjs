@@ -423,9 +423,20 @@ workflow.nodes = workflow.nodes
       node.onError = 'continueErrorOutput';
     }
     if (node.name === 'WAHA1') {
-      node.parameters.session = '={{ $("Normalize and Filter").item.json.whatsapp_session }}';
-      node.parameters.chatId = '={{ $("Normalize and Filter").item.json.remote_jid }}';
-      node.parameters.text = '={{ $json.reply }}';
+      node.name = 'Send WhatsApp Reply';
+      node.type = 'n8n-nodes-base.httpRequest';
+      node.typeVersion = 4.2;
+      delete node.credentials;
+      node.parameters = {
+        method: 'POST',
+        url: 'http://waha:3000/api/sendText',
+        sendBody: true,
+        contentType: 'raw',
+        rawContentType: 'application/json',
+        body: '={{ JSON.stringify({ session: $("Normalize and Filter").item.json.whatsapp_session, chatId: $("Normalize and Filter").item.json.remote_jid, text: $json.reply }) }}',
+        options: { timeout: 15000 },
+      };
+      node.onError = 'continueRegularOutput';
     }
     return node;
   });
@@ -467,7 +478,7 @@ workflow.connections = {
   'Normalize and Filter': { main: [[{ node: 'Admin Command', type: 'main', index: 0 }]] },
   'Admin Command': { main: [[{ node: 'Admin Gate', type: 'main', index: 0 }]] },
   'Admin Gate': { main: [[{ node: 'Admin Reply', type: 'main', index: 0 }], [{ node: 'Drop Duplicates', type: 'main', index: 0 }]] },
-  'Admin Reply': { main: [[{ node: 'WAHA1', type: 'main', index: 0 }]] },
+  'Admin Reply': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
   'Drop Duplicates': { main: [[{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
   'Conventional Bot Fallback': { main: [[{ node: 'Conventional Gate', type: 'main', index: 0 }]] },
   'Conventional Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Local AI Request', type: 'main', index: 0 }]] },
@@ -480,7 +491,7 @@ workflow.connections = {
   'Gemini Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
   'Groq Fallback Agent': { main: [[{ node: 'Groq Semantic Gate', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
   'Groq Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
-  'Output Guard': { main: [[{ node: 'WAHA1', type: 'main', index: 0 }]] },
+  'Output Guard': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
 };
 
 delete workflow.versionId;

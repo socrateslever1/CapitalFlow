@@ -24,27 +24,25 @@
       },
       {
         "parameters": {
-          "resource": "Chatting",
-          "operation": "Send Text",
-          "session": "={{ $(\"Normalize and Filter\").item.json.whatsapp_session }}",
-          "chatId": "={{ $(\"Normalize and Filter\").item.json.remote_jid }}",
-          "text": "={{ $json.reply }}",
-          "requestOptions": {}
+          "method": "POST",
+          "url": "http://waha:3000/api/sendText",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ session: $(\"Normalize and Filter\").item.json.whatsapp_session, chatId: $(\"Normalize and Filter\").item.json.remote_jid, text: $json.reply }) }}",
+          "options": {
+            "timeout": 15000
+          }
         },
         "id": "63c44cfc-1fb0-4ad1-9312-794af3c9cbce",
-        "name": "WAHA1",
-        "type": "n8n-nodes-waha.WAHA",
-        "typeVersion": 202411,
+        "name": "Send WhatsApp Reply",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
         "position": [
           2020,
           400
         ],
-        "credentials": {
-          "wahaApi": {
-            "id": "fSoBCAg2xaTKYlOi",
-            "name": "WAHA account"
-          }
-        }
+        "onError": "continueRegularOutput"
       },
       {
         "parameters": {
@@ -432,7 +430,7 @@
         "main": [
           [
             {
-              "node": "WAHA1",
+              "node": "Send WhatsApp Reply",
               "type": "main",
               "index": 0
             }
@@ -629,7 +627,7 @@
         "main": [
           [
             {
-              "node": "WAHA1",
+              "node": "Send WhatsApp Reply",
               "type": "main",
               "index": 0
             }

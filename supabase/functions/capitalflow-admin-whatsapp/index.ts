@@ -117,20 +117,21 @@ async function loadClientPosition(adminDb: any, profileId: string, client: any) 
 
 function targetFrom(message: string, intent: string) {
   const patterns: Record<string, RegExp> = {
-    charge: /^(?:cobre|cobrar|mande (?:uma )?cobranca|envie (?:uma )?cobranca)(?: para)?\s+(.+?)(?:\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva))?$|^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\s+(.+?)(?:\s+(?:cobrando|sobre|do contrato|a parcela|o contrato).*)?$/i,
+    charge: /^(?:cobre|cobrar|mande (?:uma )?cobranca|envie (?:uma )?cobranca)(?: para)?\s+(.+?)(?:\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva))?$|^(?:envia|envie|mande)\s+(?:um|uma)?\s*mensagem\s+para\s+(.+?)(?:\s+(?:cobrando|sobre|do contrato|a parcela|o contrato).*)?$/i,
     portal: /^(?:mande|envie|mostrar|mostre)?\s*(?:o )?(?:link do )?portal(?: para| da| do)?\s+(.+)$/i,
     due: /^(?:quando vence|qual (?:e )?o vencimento)(?: o contrato| a parcela)?(?: da| do| de)?\s+(.+)$/i,
     amount: /^(?:quanto|qual (?:e )?o valor|valor|saldo)(?: a| o)?\s*(.+?)(?:\s+(?:deve|esta devendo|do contrato|da parcela))?$/i,
-    debt: /^(?:(?:liste|listar|mostre|mostrar|detalhe|detalhes|consulte|consultar)\s+)?(?:a\s+)?(?:divida|debitos?|parcelas? abertas?|saldo devedor)(?:\s+(?:da|do|de|para))?\s+(.+)$/i,
+    debt: /^(?:(?:liste|listar|mostre|mostrar|detalhe|detalhes|consulte|consultar)\s+)?(?:a\s+)?(?:d.?vida|debitos?|parcelas? abertas?|saldo devedor)(?:\s+(?:da|do|de|para))?\s+(.+)$/i,
     status: /^(?:(?:me\s+)?(?:mostre|mostra|mostrar)|quero\s+(?:ver|consultar)|consulte|ver)?\s*(?:o\s+)?(?:contrato|situacao|status)(?:\s+ativo)?(?:\s+da|\s+do|\s+de)?\s+(.+)$/i,
     automation: /^(?:ative|ativar|pause|pausar|desative|desativar)(?: a)? cobranca(?: automatica)?(?: diaria| semanal)?(?: para| da| do)?\s+(.+)$/i,
   };
-if (intent === "charge" && /^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\s+/i.test(message)) {
+  if (intent === "charge" && /^(?:envia|envie|mande)\s+(?:um|uma)?\s*mensagem\s+para\s+/i.test(message)) {
     return message
-      .replace(/^(?:envia|envie|mande)\s+(?:uma\s+)?mensagem\s+para\s+/i, "")
+      .replace(/^(?:envia|envie|mande)\s+(?:um|uma)?\s*mensagem\s+para\s+/i, "")
       .replace(/\s+(?:cobrando|sobre|do contrato|a parcela|o contrato)[\s\S]*$/i, "")
       .trim();
   }
+  const match = patterns[intent]?.exec(message);
   const rawTarget = (match?.[1] || match?.[2] || "").trim();
   if (intent === "debt") {
     const natural = message.match(/^(?:quanto|o que)\s+(.+?)\s+(?:ainda\s+)?deve[?.!]*$/i);
@@ -154,10 +155,11 @@ function detectIntent(raw: string) {
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
-  if (/\b(divida|debitos?|parcelas? abertas?|saldo devedor)\b/.test(message) || /^(?:quanto|o que)\s+.+\s+(?:ainda\s+)?deve\b/.test(message)) return "debt";
+  if (/\b(d.?vida|debitos?|parcelas? abertas?|saldo devedor)\b/.test(message) || /^(?:quanto|o que)\s+.+\s+(?:ainda\s+)?deve\b/.test(message)) return "debt";
   if (/\b(ultimas cobrancas|fila de cobranca|mensagens enviadas|falhas de envio)\b/.test(message)) return "dispatches";
   // A cobrança é uma intenção explícita mesmo sem as palavras “vencido” ou
   // “contrato”: “cobre a Maria” já deve abrir a prévia da cobrança.
+  if (/^(?:cobre|cobrar)\s+\S+/.test(message)) return "charge";
   if (/^(?:cobre|cobrar|mande|envie|envia|lembre|avise)\b/.test(message) &&
       /\b(?:cobranca|mensagem|lembrete|aviso|cliente|contrato|parcela|vencid|atrasad|para|da|do|de)\b/.test(message)) return "charge";
   if (/portal/.test(message)) return "portal";
@@ -574,7 +576,29 @@ Deno.serve(async (req) => {
       if (!hasPermission(admin, "READ")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para consultar informações administrativas." });
       return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, intent) });
     }    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
-    if (intent === "unknown") return json({ handled: true, admin: true, reply: "Não consegui classificar essa solicitação como uma operação administrativa. Pode reformular dizendo o que deseja consultar ou executar? Posso pesquisar clientes, contratos, vencimentos, atrasos, pagamentos, comprovantes, atendimentos e status das integrações." });
+    if (intent === "unknown") {
+      const apiKey = Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("VITE_GOOGLE_API_KEY");
+      if (apiKey) {
+        try {
+          const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai@0.14.0");
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+          const prompt = `Você é a assistente executiva de Inteligência Artificial do dono da Capital Flow (um sistema de gestão de empréstimos). O usuário atual é o administrador do sistema (${adminName}).
+Responda à seguinte mensagem de forma profissional, proativa e direta.
+Se a mensagem pedir para realizar uma ação no sistema ou puxar um relatório específico que você ainda não consegue fazer, explique educadamente que você está em fase de treinamento e sugira que ele use um dos comandos rápidos suportados (ex: "vencem hoje", "resumo", "clientes", "atrasados").
+Mensagem do Admin: "${rawMessage}"`;
+
+          const result = await model.generateContent(prompt);
+          const text = result.response.text();
+          return json({ handled: true, admin: true, reply: text });
+        } catch (error) {
+          console.error("Gemini Error:", error);
+          // Fallback silencioso para mensagem padrão em caso de erro da IA
+        }
+      }
+      return json({ handled: true, admin: true, reply: "Não consegui classificar essa solicitação como uma operação administrativa e a IA não pôde responder no momento. Pode reformular? Posso pesquisar clientes, contratos, vencimentos e atrasos." });
+    }
     if (intent === "confirm") return json({ handled: true, admin: true, reply: await executePending(adminDb, profileId, admin, rawMessage) });
     if (intent === "cancel") {
       await adminDb.from("whatsapp_admin_commands").update({ status: "CANCELLED" }).eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("status", "PENDING");

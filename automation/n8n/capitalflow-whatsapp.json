@@ -1,7 +1,7 @@
 [
   {
     "createdAt": "2026-07-20T04:33:48.197Z",
-    "updatedAt": "2026-07-22T03:00:27.000Z",
+    "updatedAt": "2026-07-21T14:48:17.000Z",
     "id": "A32nJE98EjcJBKZk",
     "name": "CapitalFlow - Atendimento WhatsApp",
     "active": true,
@@ -110,28 +110,6 @@
       },
       {
         "parameters": {
-          "method": "POST",
-          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
-          "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think.  como um atendente humano: natural, breve e acolhedor. Responda primeiro ao que a pessoa perguntou, sem menus ou textos burocraticos. Dados financeiros devem vir somente do contexto recebido; nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Secure Client Context\").item.json) }], temperature: 0.55, max_tokens: 500, stream: false }) }}",
-          "options": {
-            "timeout": 30000
-          }
-        },
-        "id": "capitalflow-local-ai-request",
-        "name": "IA Local Qwen - Agente Offline",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          1240,
-          300
-        ],
-        "onError": "continueErrorOutput"
-      },
-      {
-        "parameters": {
           "jsCode": "const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);\n\nfunction onlyDigits(value) {\n  return String(value ?? '').replace(/\\D/g, '');\n}\n\nfunction firstNonEmpty(...values) {\n  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');\n}\n\nfunction normalizeBoolean(value) {\n  return value === true || value === 1 || String(value).toLowerCase() === 'true';\n}\n\nfunction resolveOrganizationId(body, tenantMap = {}) {\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '')).trim();\n  const receiver = onlyDigits(firstNonEmpty(body.me?.id, body.me?.phone, body.payload?.to, ''));\n\n  return String(tenantMap[session] ?? tenantMap[receiver] ?? '').trim();\n}\n\nfunction normalizeWahaMessage(input, options = {}) {\n  const body = input?.body ?? input ?? {};\n  const payload = body.payload ?? {};\n  const event = String(firstNonEmpty(body.event, body.eventType, '') ?? '').toLowerCase();\n  const remoteJid = String(firstNonEmpty(payload.from, payload.remoteJid, payload.key?.remoteJid, '') ?? '').trim();\n  const fromMe = normalizeBoolean(firstNonEmpty(payload.fromMe, payload.key?.fromMe, false));\n  const isGroup = remoteJid.endsWith('@g.us') || normalizeBoolean(payload.isGroup);\n  const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();\n  const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();\n  const messageType = rawType === 'ptt' ? 'voice' : rawType;\n  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();\n  const phone = onlyDigits(remoteJid.split('@')[0]);\n  const organizationId = resolveOrganizationId(body, options.tenantMap);\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();\n\n  if (!['message', 'message.any'].includes(event)) return { accepted: false, reason: 'unsupported_event' };\n  if (!remoteJid || isGroup) return { accepted: false, reason: 'group_or_invalid_sender' };\n  if (fromMe) return { accepted: false, reason: 'from_me' };\n  if (!messageId) return { accepted: false, reason: 'missing_message_id' };\n  if (!SUPPORTED_MESSAGE_TYPES.has(messageType)) return { accepted: false, reason: 'unsupported_message_type' };\n  if (!phone || phone.length < 10) return { accepted: false, reason: 'invalid_phone' };\n  if (!organizationId) return { accepted: false, reason: 'missing_organization_id' };\n\n  return {\n    accepted: true,\n    value: {\n      message_id: messageId,\n      message,\n      phone,\n      remote_jid: remoteJid,\n      from_me: false,\n      is_group: false,\n      organization_id: organizationId,\n      session_id: `${organizationId}:${phone}`,\n      whatsapp_session: session,\n      message_type: messageType,\n      timestamp: firstNonEmpty(payload.timestamp, body.timestamp, new Date().toISOString()),\n    },\n  };\n}\n\n\nlet tenantMap = {};\ntry {\n  tenantMap = JSON.parse($env.CAPITALFLOW_TENANT_MAP || '{}');\n} catch {\n  throw new Error('CAPITALFLOW_TENANT_MAP deve conter um objeto JSON válido.');\n}\n\nconst accepted = [];\nfor (const item of $input.all()) {\n  const result = normalizeWahaMessage(item.json, { tenantMap });\n  if (result.accepted) accepted.push({ json: result.value });\n}\nreturn accepted;"
         },
         "id": "capitalflow-normalize-filter",
@@ -176,6 +154,53 @@
       },
       {
         "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "capitalflow-admin-handled",
+                "leftValue": "={{ String($json.handled) }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals",
+                  "name": "filter.operator.equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "capitalflow-admin-gate",
+        "name": "Admin Gate",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -170,
+          -160
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{ json: { reply: String($json.reply || \"Comando administrativo processado.\").slice(0, 1800) } }];"
+        },
+        "id": "capitalflow-admin-reply",
+        "name": "Admin Reply",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          70,
+          -260
+        ]
+      },
+      {
+        "parameters": {
           "jsCode": "return $input.all().filter((item) => item.json.status !== \"duplicate\");"
         },
         "id": "capitalflow-drop-duplicates",
@@ -189,12 +214,44 @@
       },
       {
         "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "conventional-handled",
+                "leftValue": "={{ String($json.conventional_handled) }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "capitalflow-conventional-gate",
+        "name": "Conventional Gate",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1300,
+          0
+        ]
+      },
+      {
+        "parameters": {
           "method": "POST",
           "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think.  como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Admin Command\").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}",
+          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think.  como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Admin Command\").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}",
           "options": {
             "timeout": 30000
           }
@@ -294,15 +351,15 @@
       },
       {
         "parameters": {
-          "jsCode": "const context = $(\"Admin Command\").item.json || {};\nconst message = String($(\"Normalize and Filter\").item.json.message || \"\").toLowerCase();\nconst operatorUrl = context.operator_contact?.whatsapp_url || \"\";\nconst money = (value) => Number(value || 0).toLocaleString(\"pt-BR\", { style: \"currency\", currency: \"BRL\" });\nconst date = (value) => {\n  if (!value) return \"\";\n  const parts = String(value).slice(0, 10).split(\"-\");\n  return parts.length === 3 ? parts[2] + \"/\" + parts[1] + \"/\" + parts[0] : String(value);\n};\nconst withOperator = (text) => operatorUrl ? text + \" Fale com o operador por aqui: \" + operatorUrl : text;\nlet output = \"Olá! Como posso ajudar?\";\n\nif (context.status === \"session_ended\") {\n  output = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n} else if (context.status === \"ambiguous\") {\n  output = \"Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.\";\n} else if (context.status === \"lead_registered\") {\n  output = withOperator(\"Entendi seu interesse. A análise e as condições são tratadas diretamente pelo operador, sem promessa de aprovação.\");\n} else if (context.status === \"prospective_client\") {\n  output = withOperator(\"Claro. O cadastro e o funcionamento do serviço são explicados diretamente pelo operador, sem compromisso.\");\n} else if (context.status === \"proof_received\") {\n  output = \"Recebi seu comprovante. O pagamento será conferido antes da confirmação da baixa.\";\n} else if (context.status === \"human_handoff_registered\") {\n  output = withOperator(\"Certo, seu atendimento foi encaminhado para uma pessoa.\");\n} else if (context.status === \"amount_disputed\") {\n  output = withOperator(\"Entendo. O valor precisa ser revisado pelo operador antes de qualquer pagamento.\");\n} else if (context.status === \"not_identified\") {\n  const financial = /contrato|parcela|venc|atras|d[ií]vida|valor|pagar|pagamento|portal|saldo/.test(message);\n  const wantsOperator = /cliente|cadastro|empr[eé]stimo|cr[eé]dito|atendente|operador/.test(message);\n  const asksHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);\n  if (asksHelp) output = \"Posso ajudar com o básico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Para dados financeiros, envie seu CPF ou código uma vez.\";\n  else if (financial) output = \"Para consultar dados financeiros com segurança, informe seu CPF ou código de cliente.\";\n  else if (wantsOperator) output = withOperator(\"O cadastro, a análise e as condições são tratados pelo operador.\");\n  else output = \"Olá! Posso explicar como funciona o atendimento ou ajudar clientes identificados a consultar contratos, parcelas e pagamentos.\";\n} else if (context.status === \"identified\") {\n  const pending = Array.isArray(context.pending) ? context.pending : [];\n  const first = pending[0];\n  if (context.payment_link) {\n    output = \"Aqui está o link para pagar o valor atualizado hoje: \" + context.payment_link;\n  } else if (context.payment_requested && first) {\n    output = withOperator(\"Não consegui gerar o link de pagamento agora. O valor atualizado é \" + money(first.total_due) + \".\");\n  } else if (/portal/.test(message) && context.portal_link) {\n    output = \"Você pode acessar seu portal por aqui: \" + context.portal_link;\n  } else if (first) {\n    const late = Number(first.days_late || 0);\n    output = \"A parcela \" + (first.installment_number || \"pendente\") + \" vence em \" + date(first.due_date) +\n      \" e o valor atualizado é \" + money(first.total_due) + \".\";\n    if (late > 0) output += \" Ela está em atraso há \" + late + (late === 1 ? \" dia.\" : \" dias.\");\n    output += \" Deseja receber o link para pagamento?\";\n  } else if (/portal/.test(message) && !context.portal_link) {\n    output = withOperator(\"O link do portal não está disponível agora.\");\n  } else {\n    output = \"Não encontrei parcelas pendentes no momento. Como mais posso ajudar?\";\n  }\n}\n\nreturn [{ json: { output, conventional_fallback: true } }];"
+          "jsCode": "const context = $(\"Admin Command\").item.json || {};\nconst message = String($(\"Normalize and Filter\").item.json.message || \"\").toLowerCase();\nconst operatorUrl = context.operator_contact?.whatsapp_url || \"\";\nconst money = (value) => Number(value || 0).toLocaleString(\"pt-BR\", { style: \"currency\", currency: \"BRL\" });\nconst withOperator = (text) => operatorUrl ? text + \" Fale com o operador por aqui: \" + operatorUrl : text;\nlet output = null;\n\nconst clientName = context.client?.display_name ? context.client.display_name.split(\" \")[0] : \"\";\nconst pending = Array.isArray(context.pending) ? context.pending : [];\nconst first = pending[0];\n\nif (context.status === \"session_ended\") {\n  output = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n} else if (context.status === \"ambiguous\") {\n  output = \"Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.\";\n} else if (context.status === \"not_identified\") {\n  const isHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);\n  if (isHelp) {\n    output = \"Posso ajudar com o básico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se já é nosso cliente, digite seu cpf ou código do cliente.\";\n  } else {\n    output = \"Olá somos a capital flow, e estamos aqui para atender da melhor maneira, se já é nosso cliente, digite seu cpf ou codigo do cliente. Se quiser ajuda, digite 'ajuda' para ver suas opções.\";\n  }\n} else if (context.status === \"identified\") {\n  if (first) {\n    const isYes = /\\b(sim|quero|saber|manda|envia)\\b/.test(message);\n    const isDontKnow = /\\b(nao sei quem e|quem e|engano|pessoa errada|desconheco|nao sou eu)\\b/.test(message);\n\n    if (context.payment_requested || context.payment_link) {\n      output = \"Aqui está o link para pagar o valor atualizado (\" + money(first.total_due) + \"): \" + (context.payment_link || \"indisponível agora.\");\n    } else if (isYes || isDontKnow) {\n      output = \"O valor atualizado da dívida é \" + money(first.total_due) + \". Aqui está o link para pagamento: \" + (context.payment_link || \"indisponível agora.\");\n    } else {\n      output = \"Olá, \" + clientName + \"! O Seu contrato \" + first.contract_reference + \" esta pendente, deseja saber mais?!\";\n    }\n  } else {\n    output = \"Olá, \" + clientName + \"! Verifiquei aqui e não consta nenhuma dívida pendente. Até logo!\";\n  }\n} else if (context.status === \"lead_registered\" || context.status === \"prospective_client\") {\n  output = withOperator(\"Para se tornar cliente ou fazer uma análise, o cadastro é feito diretamente pelo operador.\");\n}\n\nreturn [{ json: { output, conventional_handled: !!output } }];"
         },
         "id": "capitalflow-conventional-fallback",
         "name": "Conventional Bot Fallback",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          2020,
-          560
+          1100,
+          0
         ]
       },
       {
@@ -346,7 +403,36 @@
         "main": [
           [
             {
+              "node": "Admin Gate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Gate": {
+        "main": [
+          [
+            {
+              "node": "Admin Reply",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
               "node": "Drop Duplicates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Reply": {
+        "main": [
+          [
+            {
+              "node": "WAHA1",
               "type": "main",
               "index": 0
             }
@@ -355,6 +441,35 @@
       },
       "Drop Duplicates": {
         "main": [
+          [
+            {
+              "node": "Conventional Bot Fallback",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Conventional Bot Fallback": {
+        "main": [
+          [
+            {
+              "node": "Conventional Gate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Conventional Gate": {
+        "main": [
+          [
+            {
+              "node": "Output Guard",
+              "type": "main",
+              "index": 0
+            }
+          ],
           [
             {
               "node": "Local AI Request",
@@ -504,17 +619,6 @@
           [
             {
               "node": "Conventional Bot Fallback",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Conventional Bot Fallback": {
-        "main": [
-          [
-            {
-              "node": "Output Guard",
               "type": "main",
               "index": 0
             }

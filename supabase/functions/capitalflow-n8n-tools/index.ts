@@ -146,6 +146,33 @@ Deno.serve(async (req) => {
           .map(({ id, name }) => ({ id, name }));
       }
 
+      if (!clients.length && !hasExplicitIdentity) {
+        matchedBy = "CONTRACT_PHONE";
+        const suffix = phone.slice(-10);
+        const byContractPhone = await supabase.from("contratos")
+          .select("client_id, debtor_name, debtor_phone")
+          .or(`profile_id.eq.${organizationId},owner_id.eq.${organizationId}`)
+          .eq("is_archived", false)
+          .not("debtor_phone", "is", null)
+          .limit(1000);
+        if (byContractPhone.error) throw byContractPhone.error;
+
+        const clientIds = [...new Set((byContractPhone.data ?? [])
+          .filter((contract) => digits(contract.debtor_phone).slice(-10) === suffix)
+          .map((contract) => contract.client_id)
+          .filter(Boolean))].slice(0, 6);
+
+        if (clientIds.length) {
+          const byContractClient = await supabase.from("clientes")
+            .select("id, name")
+            .eq("owner_id", organizationId)
+            .in("id", clientIds)
+            .limit(6);
+          if (byContractClient.error) throw byContractClient.error;
+          clients = byContractClient.data ?? [];
+        }
+      }
+
       if (!clients.length && message && !hasExplicitIdentity) {
         if (/^[\p{L}][\p{L}\s.'-]{4,159}$/u.test(message) && message.includes(" ")) {
           matchedBy = "NAME";

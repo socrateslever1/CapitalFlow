@@ -49,7 +49,7 @@
       {
         "parameters": {
           "sessionIdType": "customKey",
-          "sessionKey": "={{ $(\"Normalize and Filter\").item.json.session_id + \":\" + ($(\"Secure Client Context\").item.json.conversation_id || \"public\") }}",
+          "sessionKey": "={{ $(\"Normalize and Filter\").item.json.session_id + \":\" + ($(\"Admin Command\").item.json.conversation_id || \"public\") + \":\" + ($(\"Admin Command\").item.json.current_contract?.total_to_receive_display || \"none\") + \":\" + ($(\"Admin Command\").item.json.pending?.[0]?.total_due_display || \"none\") }}",
           "sessionTTL": 86400
         },
         "id": "80c9bb5a-2744-4daa-8d2a-9d06d81a957f",
@@ -95,7 +95,7 @@
           "promptType": "define",
           "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($json) }}",
           "options": {
-            "systemMessage": "Converse em português como assistente de cobrança implacável no foco, mas educado. OBJETIVO ÚNICO: Funil de Pagamento.\\nRegras:\\n1. NÃO IDENTIFICADO: Qualquer desvio ('quem é', 'golpe', 'desconheço') -> 'Somos da assessoria de cobrança. Para garantir o sigilo e detalhar, digite seu CPF'.\\n2. IDENTIFICADO:\\n- Se disser 'já paguei': Peça para enviar o comprovante aqui mesmo (foto/pdf) ou aguardar a compensação bancária.\\n- Se alegar 'fraude', 'não fiz' ou 'valor errado': Encaminhe ao operador (opção 3).\\n- Se disser 'não tenho dinheiro/desempregado': Diga que entende, mas a pendência continua ativa, e ofereça negociação com o operador (opção 3) ou portal (2).\\n- Assuntos aleatórios/saudações: Corte cortesmente e puxe para a dívida.\\n- Foco SEMPRE na dívida/atraso. SEMPRE termine oferecendo as opções: 1. Link de pagamento, 2. Acessar portal, 3. Falar com atendente.\\nNão invente dados. Proteja a privacidade."
+            "systemMessage": "Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo. Continue a conversa sem mencionar que houve falha ou troca de IA. Se a mensagem for informal ou ambigua, responda de forma humana e faca uma unica pergunta curta para entender a necessidade. Quando houver contexto identificado, conduza naturalmente para o contrato, parcela, vencimento ou pagamento; quando nao houver identificacao, peca CPF ou codigo do cliente. Nunca encerre com uma resposta engessada se ainda houver uma pergunta util a fazer."
           }
         },
         "id": "59cecb5f-a85e-4f6f-b805-afdc291ba9b7",
@@ -104,6 +104,28 @@
         "typeVersion": 1.6,
         "position": [
           1560,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think. Assistente de cobranca direto. 1. Nao identificado: responda 'Ola somos a Capital Flow, e estamos aqui para atender da melhor maneira, se ja e nosso cliente, digite seu cpf ou codigo do cliente.' Se pedir ajuda: mostre as opcoes 1(cadastro), 2(mudei de numero), 3(engano). 2. Identificado: se disser oi, diga 'Ola, [Nome]! O Seu contrato [Ref] esta pendente, deseja saber mais?!'. Se disser sim/quem e/opcao 1: mande o valor da divida e o link. Se pedir ajuda: mostre opcoes 1(link de pagamento), 2(portal), 3(duvidas contrato), 4(contestar/fraude). NUNCA fale de renegociar.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Secure Client Context\").item.json) }], temperature: 0.55, max_tokens: 500, stream: false }) }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "capitalflow-local-ai-request",
+        "name": "IA Local Qwen - Agente Offline",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1240,
           300
         ],
         "onError": "continueErrorOutput"
@@ -124,7 +146,7 @@
       {
         "parameters": {
           "method": "POST",
-          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-n8n-tools",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-admin-whatsapp",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -137,18 +159,66 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: \"context\", organization_id: $json.organization_id, phone: $json.phone, message_id: $json.message_id, message_type: $json.message_type, message: $json.message }) }}",
+          "body": "={{ JSON.stringify({ organization_id: $(\"Normalize and Filter\").item.json.organization_id, phone: $(\"Normalize and Filter\").item.json.phone, message_id: $(\"Normalize and Filter\").item.json.message_id, message: $(\"Normalize and Filter\").item.json.message }) }}",
           "options": {
             "timeout": 15000
           }
         },
-        "id": "capitalflow-backend-context",
-        "name": "Secure Client Context",
+        "id": "capitalflow-admin-command",
+        "name": "Admin Command",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          -380,
-          0
+          -400,
+          -160
+        ],
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "capitalflow-admin-handled",
+                "leftValue": "={{ String($json.handled) }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals",
+                  "name": "filter.operator.equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "capitalflow-admin-gate",
+        "name": "Admin Gate",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -170,
+          -160
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{ json: { reply: String($json.reply || \"Comando administrativo processado.\").slice(0, 1800) } }];"
+        },
+        "id": "capitalflow-admin-reply",
+        "name": "Admin Reply",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          70,
+          -260
         ]
       },
       {
@@ -166,18 +236,50 @@
       },
       {
         "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "conventional-handled",
+                "leftValue": "={{ String($json.conventional_handled) }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        },
+        "id": "capitalflow-conventional-gate",
+        "name": "Conventional Gate",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1300,
+          0
+        ]
+      },
+      {
+        "parameters": {
           "method": "POST",
           "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think. Assistente de cobranca implacavel. 1. Nao identificado com desculpas/duvidas: peca o CPF. 2. Identificado: se disser 'ja paguei', peca o comprovante. Se 'fraude', encaminhe ao operador. Se 'sem dinheiro', direcione pro operador/portal. Se saudacoes, puxe pra divida. Sempre de as opcoes: 1. Link de pagamento, 2. Acessar portal, 3. Falar com atendente. Nao invente dados. Preserve a privacidade.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Secure Client Context\").item.json) }], temperature: 0.55, max_tokens: 500, stream: false }) }}",
+          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think.  como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao.\" }, { role: \"user\", content: \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto disponivel: \" + JSON.stringify($(\"Admin Command\").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}",
           "options": {
             "timeout": 30000
           }
         },
         "id": "capitalflow-local-ai-request",
-        "name": "IA Local Qwen - Agente Offline",
+        "name": "Local AI Request",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
@@ -188,7 +290,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const payload = $json || {};\nconst rawReply = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? payload.data?.choices?.[0]?.message?.content\n  ?? \"\"\n).trim();\nconst reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nif (!reply || /<think>/i.test(reply)) {\n  throw new Error(\"A IA local nao produziu uma resposta final segura.\");\n}\n\nreturn [{ json: { output: reply, local_ai: true } }];"
+          "jsCode": "const payload = $json || {};\nconst rawReply = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? payload.data?.choices?.[0]?.message?.content\n  ?? \"\"\n).trim();\nconst reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nconst semanticFailure = (value) => {\n  const normalized = String(value || \"\").normalize(\"NFD\").replace(/[̀-ͯ]/g, \"\").toLowerCase();\n  return /\bnao entendi\b|\bnao compreendi\b|\bnao consegui entender\b|\bnao consegui identificar\b|\bnao foi possivel entender\b|\bexplique melhor sua (mensagem|solicitacao)\b|\breformule sua (mensagem|solicitacao)\b/.test(normalized);\n};\n\nif (!reply || /<think>/i.test(reply) || semanticFailure(reply)) {\n  throw new Error(\"A IA local nao produziu uma resposta final segura.\");\n}\n\nreturn [{ json: { output: reply, local_ai: true } }];"
         },
         "id": "capitalflow-local-ai-normalize",
         "name": "Local AI Normalize",
@@ -225,10 +327,24 @@
       },
       {
         "parameters": {
+          "jsCode": "const reply = String($json.output || $json.text || \"\").trim();\nconst normalized = reply.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\").toLowerCase();\nconst semanticFailure = /\\bnao entendi\\b|\\bnao compreendi\\b|\\bnao consegui entender\\b|\\bnao consegui identificar\\b|\\bnao foi possivel entender\\b|\\bexplique melhor sua (mensagem|solicitacao)\\b|\\breformule sua (mensagem|solicitacao)\\b/.test(normalized);\nif (!reply || semanticFailure) throw new Error(\"A IA respondeu sem compreender a mensagem.\");\nreturn [{ json: { ...$json, output: reply, semantic_retry_passed: true } }];"
+        },
+        "id": "capitalflow-gemini-semantic-gate",
+        "name": "Gemini Semantic Gate",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1670,
+          300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
           "promptType": "define",
-          "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($(\"Secure Client Context\").item.json) }}",
+          "text": "={{ \"Mensagem do cliente: \" + $(\"Normalize and Filter\").item.json.message + \"\\nContexto seguro: \" + JSON.stringify($(\"Admin Command\").item.json) }}",
           "options": {
-            "systemMessage": "Converse em português como assistente de cobrança implacável no foco, mas educado. OBJETIVO ÚNICO: Funil de Pagamento.\\nRegras:\\n1. NÃO IDENTIFICADO: Qualquer desvio ('quem é', 'golpe', 'desconheço') -> 'Somos da assessoria de cobrança. Para garantir o sigilo e detalhar, digite seu CPF'.\\n2. IDENTIFICADO:\\n- Se disser 'já paguei': Peça para enviar o comprovante aqui mesmo (foto/pdf) ou aguardar a compensação bancária.\\n- Se alegar 'fraude', 'não fiz' ou 'valor errado': Encaminhe ao operador (opção 3).\\n- Se disser 'não tenho dinheiro/desempregado': Diga que entende, mas a pendência continua ativa, e ofereça negociação com o operador (opção 3) ou portal (2).\\n- Assuntos aleatórios/saudações: Corte cortesmente e puxe para a dívida.\\n- Foco SEMPRE na dívida/atraso. SEMPRE termine oferecendo as opções: 1. Link de pagamento, 2. Acessar portal, 3. Falar com atendente.\\nNão invente dados. Proteja a privacidade."
+            "systemMessage": "Assuma esta conversa de forma humana e natural, sem dizer que e fallback ou que outra IA falhou. Responda ao que a pessoa quis dizer, mesmo que seja informal. Se ainda faltar informacao, faca uma unica pergunta objetiva. Use o contexto seguro para conduzir a pessoa ao contrato, parcela, vencimento, valor atualizado ou pagamento; se nao estiver identificada, peca CPF ou codigo. Nao invente dados, nao ofereca emprestimo e nao use menus engessados."
           }
         },
         "id": "capitalflow-groq-fallback-agent",
@@ -243,20 +359,34 @@
       },
       {
         "parameters": {
-          "jsCode": "const context = $(\"Secure Client Context\").item.json || {};\nconst message = String($(\"Normalize and Filter\").item.json.message || \"\").toLowerCase();\nconst operatorUrl = context.operator_contact?.whatsapp_url || \"\";\nconst money = (value) => Number(value || 0).toLocaleString(\"pt-BR\", { style: \"currency\", currency: \"BRL\" });\nconst date = (value) => {\n  if (!value) return \"\";\n  const parts = String(value).slice(0, 10).split(\"-\");\n  return parts.length === 3 ? parts[2] + \"/\" + parts[1] + \"/\" + parts[0] : String(value);\n};\nconst withOperator = (text) => operatorUrl ? text + \" Fale com o operador por aqui: \" + operatorUrl : text;\nlet output = \"Olá! Como posso ajudar?\";\n\nif (context.status === \"session_ended\") {\n  output = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n} else if (context.status === \"ambiguous\") {\n  output = \"Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.\";\n} else if (context.status === \"lead_registered\") {\n  output = withOperator(\"Entendi seu interesse. A análise e as condições são tratadas diretamente pelo operador, sem promessa de aprovação.\");\n} else if (context.status === \"prospective_client\") {\n  output = withOperator(\"Claro. O cadastro e o funcionamento do serviço são explicados diretamente pelo operador, sem compromisso.\");\n} else if (context.status === \"proof_received\") {\n  output = \"Recebi seu comprovante. O pagamento será conferido antes da confirmação da baixa.\";\n} else if (context.status === \"human_handoff_registered\") {\n  output = withOperator(\"Certo, seu atendimento foi encaminhado para uma pessoa.\");\n} else if (context.status === \"amount_disputed\") {\n  output = withOperator(\"Entendo. O valor precisa ser revisado pelo operador antes de qualquer pagamento.\");\n} else if (context.status === \"not_identified\") {\n    const wantsOperator = /cliente|cadastro|empr[eé]stimo|cr[eé]dito|atendente|operador/.test(message);\n    if (wantsOperator) output = withOperator(\"Para falar sobre cadastro ou condições, você pode chamar o operador.\");\n    else output = \"Somos da assessoria de cobrança. Para que eu possa te passar todos os detalhes com total segurança, por favor, digite o seu CPF.\";\n} else if (context.status === \"identified\") {\n  const pending = Array.isArray(context.pending) ? context.pending : [];\n  const first = pending[0];\n  const whoIs = /quem [ée]|qual empresa|que d[ií]vida|n[aã]o conhe[cç]o|do que se trata/.test(message);\n  const paid = /j[aá] paguei|t[aá] pago|paguei ontem|paguei hoje/.test(message);\n  const fraud = /fraude|golpe|n[aã]o fiz|desconhe[cç]o|falsidade|roubado/.test(message);\n  const noMoney = /sem dinheiro|desempregado|quebrado|n[aã]o tenho|pagar agora n[aã]o|t[oô] duro/.test(message);\n  const greeting = /^(bom dia|boa tarde|boa noite|oi|ol[aá]|tudo bem)[?!. ]*$/i.test(message);\n\n  let intro = \"\";\n  if (fraud) intro = \"Entendo a gravidade. Para contestar fraudes ou contratos não reconhecidos, você precisa falar com nosso operador. \";\n  else if (paid) intro = \"Se você já realizou o pagamento, pode enviar a foto ou PDF do comprovante por aqui mesmo para nossa análise, ou aguardar o prazo bancário de compensação. \";\n  else if (noMoney) intro = \"Compreendemos a situação, mas o contrato permanece ativo. O operador pode avaliar opções de renegociação. \";\n  else if (whoIs) intro = \"Somos da assessoria de cobrança entrando em contato referente ao seu contrato. \";\n  else if (greeting) intro = \"Olá! Nosso contato é referente à sua pendência. \";\n\n  if (context.payment_link) {\n    output = intro + \"Aqui está o link para pagar o valor atualizado hoje: \" + context.payment_link;\n  } else if (context.payment_requested && first) {\n    output = intro + withOperator(\"Não consegui gerar o link de pagamento agora. O valor atualizado é \" + money(first.total_due) + \".\");\n  } else if (/portal/.test(message) && context.portal_link) {\n    output = intro + \"Você pode acessar seu portal por aqui: \" + context.portal_link;\n  } else if (first) {\n    const late = Number(first.days_late || 0);\n    output = intro + \"A parcela \" + (first.installment_number || \"pendente\") + \" vence em \" + date(first.due_date) +\n      \" e o valor atualizado é \" + money(first.total_due) + \".\";\n    if (late > 0) output += \" Ela está em atraso há \" + late + (late === 1 ? \" dia.\" : \" dias.\");\n    output += \"\\nComo deseja seguir?\\n1. Receber link de pagamento\\n2. Acessar portal\\n3. Falar com operador\";\n  } else if (/portal/.test(message) && !context.portal_link) {\n    output = intro + withOperator(\"O link do portal não está disponível agora.\");\n  } else {\n    output = intro + \"Não encontrei parcelas pendentes no momento. Como mais posso ajudar?\\n1. Acessar portal\\n2. Falar com operador\";\n  }\n}\n\nreturn [{ json: { output, conventional_fallback: true } }];"
+          "jsCode": "const reply = String($json.output || $json.text || \"\").trim();\nconst normalized = reply.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\").toLowerCase();\nconst semanticFailure = /\\bnao entendi\\b|\\bnao compreendi\\b|\\bnao consegui entender\\b|\\bnao consegui identificar\\b|\\bnao foi possivel entender\\b|\\bexplique melhor sua (mensagem|solicitacao)\\b|\\breformule sua (mensagem|solicitacao)\\b/.test(normalized);\nif (!reply || semanticFailure) throw new Error(\"A IA respondeu sem compreender a mensagem.\");\nreturn [{ json: { ...$json, output: reply, semantic_retry_passed: true } }];"
+        },
+        "id": "capitalflow-groq-semantic-gate",
+        "name": "Groq Semantic Gate",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1890,
+          420
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const context = $(\"Admin Command\").item.json || {};\nconst message = String($(\"Normalize and Filter\").item.json.message || \"\").toLowerCase();\nconst operatorUrl = context.operator_contact?.whatsapp_url || \"\";\nconst money = (value) => Number(value || 0).toLocaleString(\"pt-BR\", { style: \"currency\", currency: \"BRL\" });\nconst withOperator = (text) => operatorUrl ? text + \" Fale com o operador por aqui: \" + operatorUrl : text;\nlet output = null;\n\nconst clientName = context.client?.display_name ? context.client.display_name.split(\" \")[0] : \"\";\nconst pending = Array.isArray(context.pending) ? context.pending : [];\nconst first = pending[0];\n\nif (context.status === \"session_ended\") {\n  output = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n} else if (context.status === \"ambiguous\") {\n  output = \"Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.\";\n} else if (context.status === \"not_identified\") {\n  const isHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);\n  if (isHelp) {\n    output = \"Posso ajudar com o básico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se já é nosso cliente, digite seu cpf ou código do cliente.\";\n  } else {\n    output = \"Olá somos a capital flow, e estamos aqui para atender da melhor maneira, se já é nosso cliente, digite seu cpf ou codigo do cliente. Se quiser ajuda, digite 'ajuda' para ver suas opções.\";\n  }\n} else if (context.status === \"identified\") {\n  if (first) {\n    const isYes = /\\b(sim|quero|saber|manda|envia)\\b/.test(message);\n    const isDontKnow = /\\b(nao sei quem e|quem e|engano|pessoa errada|desconheco|nao sou eu)\\b/.test(message);\n    \n    if (context.payment_requested || context.payment_link) {\n      output = \"Aqui está o link para pagar o valor atualizado (\" + money(first.total_due) + \"): \" + (context.payment_link || \"indisponível agora.\");\n    } else if (isYes || isDontKnow) {\n      output = \"O valor atualizado da dívida é \" + money(first.total_due) + \". Aqui está o link para pagamento: \" + (context.payment_link || \"indisponível agora.\");\n    } else {\n      output = \"Olá, \" + clientName + \"! O Seu contrato \" + first.contract_reference + \" esta pendente, deseja saber mais?!\";\n    }\n  } else {\n    output = \"Olá, \" + clientName + \"! Verifiquei aqui e não consta nenhuma dívida pendente. Até logo!\";\n  }\n} else if (context.status === \"lead_registered\" || context.status === \"prospective_client\") {\n  output = withOperator(\"Para se tornar cliente ou fazer uma análise, o cadastro é feito diretamente pelo operador.\");\n}\n\nreturn [{ json: { output, conventional_handled: !!output } }];"
         },
         "id": "capitalflow-conventional-fallback",
         "name": "Conventional Bot Fallback",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          2020,
-          560
+          1100,
+          0
         ]
       },
       {
         "parameters": {
-          "jsCode": "const raw = String($json.output || \"\").trim();\nconst forbidden = /not_identified|contexto seguro|organization_id|client_id|supabase|n8n|docker|ferramenta|prompt|instru[cç][aã]o interna/i;\nconst unlawfulOrAbusive = /amea[cç]a|pris[aã]o por d[ií]vida|expor (a |sua )?d[ií]vida|cobrar (de |pela )?(fam[ií]lia|empregador|vizinhos)|humilhar|constranger|dep[oó]sito antecipado para liberar|aprova[cç][aã]o garantida/i;\nconst context = $(\"Secure Client Context\").item.json;\nlet reply = raw;\nif (context.status === \"session_ended\") {\n  reply = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n}\nif ($json.error && !reply) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.\";\n}\nif (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {\n  if (context.status === \"ambiguous\") reply = \"Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.\";\n  else if (context.status === \"lead_registered\") reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Esse assunto é tratado diretamente pelo operador. Você pode falar com ele por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Registrei seu interesse e o operador entrará em contato com você.\";\n  else if (context.status === \"prospective_client\") reply = context.operator_contact?.whatsapp_url\n    ? \"Que bom saber do seu interesse. O cadastro e as condições são explicados pelo operador, sem compromisso. Você pode falar com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Que bom saber do seu interesse. Registrei seu pedido para o operador explicar o cadastro e as condições, sem compromisso.\";\n  else if (context.status === \"proof_received\") reply = \"Recebi seu comprovante. Vamos conferir o pagamento e avisaremos assim que ele for confirmado.\";\n  else if (context.status === \"human_handoff_registered\") reply = \"Certo, encaminhei seu atendimento para uma pessoa. Em breve entraremos em contato.\";\n  else reply = \"Olá! Como posso ajudar?\";\n}\nif (context.status === \"amount_disputed\") reply = context.operator_contact?.whatsapp_url\n  ? \"Entendo. Para revisar esse valor com você, fale diretamente com o operador por aqui: \" + context.operator_contact.whatsapp_url\n  : \"Entendo. Encaminhei o valor para revisão do operador.\";\nconst protectedUrls = [];\nreply = reply.replace(new RegExp(\"https?://[^ ]+\", \"g\"), (url) => {\n  protectedUrls.push(url);\n  return \"__SAFE_URL_\" + (protectedUrls.length - 1) + \"__\";\n});\nreply = reply.replace(new RegExp(\"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\", \"gi\"), \"contrato\");\nreply = reply.replace(new RegExp(\"__SAFE_URL_([0-9]+)__\", \"g\"), (_, index) => protectedUrls[Number(index)] || \"\");\nreturn [{ json: { reply: reply.slice(0, 1800) } }];"
+          "jsCode": "const raw = String($json.output || \"\").trim();\nconst forbidden = /not_identified|contexto seguro|organization_id|client_id|supabase|n8n|docker|ferramenta|prompt|instru[cç][aã]o interna/i;\nconst unlawfulOrAbusive = /amea[cç]a|pris[aã]o por d[ií]vida|expor (a |sua )?d[ií]vida|cobrar (de |pela )?(fam[ií]lia|empregador|vizinhos)|humilhar|constranger|dep[oó]sito antecipado para liberar|aprova[cç][aã]o garantida/i;\nconst context = $(\"Admin Command\").item.json;\nconst customerMessage = String($(\"Normalize and Filter\").item.json.message || \"\");\nconst currentContract = context.current_contract || null;\nconst pendingInstallment = Array.isArray(context.pending) ? context.pending[0] : null;\nconst asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);\nlet reply = raw;\nconst normalizedCustomerMessage = customerMessage.normalize(\"NFD\").replace(/[̀-ͯ]/g, \"\").toLowerCase();\nconst asksLoan = /\bemprestimo\b|\bemprestar\b|\bme empresta\b|\bcredito\b/.test(normalizedCustomerMessage);\nconst asksPayment = /\bpagar\b|\bpagamento\b|\bquitar\b|\bpix\b|\blink\b/.test(normalizedCustomerMessage) && !/\bnao\b|\bdepois\b|\bagora nao\b/.test(normalizedCustomerMessage);\nconst asksDebtStatus = /\bd[iÃ­]vida\b|\bparcela\b|\bvenc(e|imento)\b|\batras(o|ada)\b|\bjuros\b/.test(normalizedCustomerMessage);\nconst isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo)\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\bjuros\b/.test(normalizedCustomerMessage) && !/\b(total|parcela|divida|pagamento|pagar tudo)\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/D/g, \"\");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /d/.test(customerMessage);\nconst formatDate = (value) => { const parts = String(value || \"\").slice(0, 10).split(\"-\"); return parts.length === 3 ? parts[2] + \"/\" + parts[1] + \"/\" + parts[0] : String(value || \"\"); };\nif (context.status === \"lead_registered\") {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi que vocÃª quer um novo emprÃ©stimo. Vou encaminhar seu pedido ao operador para analisar com vocÃª, sem promessa de aprovaÃ§Ã£o. Fale com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi que vocÃª quer um novo emprÃ©stimo. Registrei seu pedido para o operador analisar com vocÃª, sem promessa de aprovaÃ§Ã£o.\";\n} else if (context.status === \"identified\" && asksLoan) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes. Fale com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes.\";\n} else if (context.status === \"identified\" && isIdentityMessage && pendingInstallment) {\n  reply = \"Cliente identificado. Para ver mais detalhes e acessar o pagamento atualizado, veja aqui: \" + (context.payment_link || context.portal_link || \"o portal do cliente\");\n} else if (context.status === \"identified\" && asksInterestOnly) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano. Fale por aqui: \" + context.operator_contact.whatsapp_url\n    : \"O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano.\";\n} else if (context.status === \"identified\" && (asksPayment || (isAffirmative && pendingInstallment)) && !asksInterestOnly) {\n  reply = context.payment_link\n    ? \"Certo. Este Ã© o link atualizado para pagamento: \" + context.payment_link\n    : pendingInstallment\n      ? \"Certo. A parcela em aberto estÃ¡ atualizada em \" + pendingInstallment.total_due_display + \". NÃ£o consegui gerar o link agora; posso encaminhar vocÃª ao operador para concluir o pagamento.\"\n      : \"Certo. NÃ£o encontrei parcela pendente confirmada agora. Posso consultar o operador para ajudar.\";\n} else if (context.status === \"identified\" && asksDebtStatus && pendingInstallment) {\n  const late = Number(pendingInstallment.days_late || 0);\n  reply = \"A parcela \" + (pendingInstallment.installment_number || \"pendente\") + \" vence em \" + formatDate(pendingInstallment.due_date) + \" e estÃ¡ atualizada em \" + pendingInstallment.total_due_display + \".\";\n  reply += late > 0 ? \" Ela estÃ¡ em atraso hÃ¡ \" + late + (late === 1 ? \" dia.\" : \" dias.\") : \" Ela ainda nÃ£o estÃ¡ em atraso.\";\n  reply += \" Se quiser, posso enviar o link atualizado para pagamento.\";\n}\nif (context.admin === true && context.handled === true && context.reply) {\n  reply = String(context.reply);\n}\nif (context.status === \"identified\" && asksContractValue && currentContract) {\n  const contractValue = currentContract.total_to_receive_display || currentContract.principal_display;\n  const dueValue = pendingInstallment?.total_due_display;\n  reply = dueValue\n    ? \"O valor do contrato \\u00e9 \" + contractValue + \". A parcela em aberto est\\u00e1 atualizada em \" + dueValue + \".\"\n    : \"O valor do contrato \\u00e9 \" + contractValue + \". N\\u00e3o encontrei parcela pendente agora.\";\n}\nif (context.status === \"session_ended\") {\n  reply = \"Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.\";\n}\nif ($json.error && !reply) {\n  reply = context.operator_contact?.whatsapp_url\n    ? \"Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.\";\n}\nif (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {\n  if (context.status === \"ambiguous\") reply = \"Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.\";\n  else if (context.status === \"lead_registered\") reply = context.operator_contact?.whatsapp_url\n    ? \"Entendi. Esse assunto é tratado diretamente pelo operador. Você pode falar com ele por aqui: \" + context.operator_contact.whatsapp_url\n    : \"Entendi. Registrei seu interesse e o operador entrará em contato com você.\";\n  else if (context.status === \"prospective_client\") reply = context.operator_contact?.whatsapp_url\n    ? \"Que bom saber do seu interesse. O cadastro e as condições são explicados pelo operador, sem compromisso. Você pode falar com ele aqui: \" + context.operator_contact.whatsapp_url\n    : \"Que bom saber do seu interesse. Registrei seu pedido para o operador explicar o cadastro e as condições, sem compromisso.\";\n  else if (context.status === \"proof_received\") reply = \"Recebi seu comprovante. Vamos conferir o pagamento e avisaremos assim que ele for confirmado.\";\n  else if (context.status === \"human_handoff_registered\") reply = \"Certo, encaminhei seu atendimento para uma pessoa. Em breve entraremos em contato.\";\n  else reply = \"Olá! Como posso ajudar?\";\n}\nif (context.status === \"identified\" && /R\\$\\s*[\\d.]+,\\d{2}/g.test(reply)) {\n  const allowedAmounts = new Set([\n    context.current_contract?.principal_display,\n    context.current_contract?.total_to_receive_display,\n    ...(context.contracts || []).flatMap((item) => [item.principal_display, item.total_to_receive_display]),\n    ...(context.pending || []).flatMap((item) => [item.principal_due_display, item.interest_due_display, item.late_fee_due_display, item.total_due_display]),\n  ].filter(Boolean).map((value) => String(value).replace(/\\s/g, \" \")));\n  const mentioned = reply.match(/R\\$\\s*[\\d.]+,\\d{2}/g) || [];\n  if (mentioned.some((value) => !allowedAmounts.has(value.replace(/\\s/g, \" \")))) {\n    reply = pendingInstallment\n      ? \"O valor atualizado da parcela em aberto \\u00e9 \" + pendingInstallment.total_due_display + \". Para conferir o contrato, acesse \" + (context.portal_link || \"o portal do cliente\") + \".\"\n      : \"N\\u00e3o encontrei valor pendente confirmado agora.\";\n  }\n}\nif (reply.length > 650) reply = reply.slice(0, 647).trimEnd() + \"...\";\nif (context.status === \"amount_disputed\") reply = context.operator_contact?.whatsapp_url\n  ? \"Entendo. Para revisar esse valor com você, fale diretamente com o operador por aqui: \" + context.operator_contact.whatsapp_url\n  : \"Entendo. Encaminhei o valor para revisão do operador.\";\nconst protectedUrls = [];\nreply = reply.replace(new RegExp(\"https?://[^ ]+\", \"g\"), (url) => {\n  protectedUrls.push(url);\n  return \"__SAFE_URL_\" + (protectedUrls.length - 1) + \"__\";\n});\nreply = reply.replace(new RegExp(\"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\", \"gi\"), \"contrato\");\nreply = reply.replace(new RegExp(\"__SAFE_URL_([0-9]+)__\", \"g\"), (_, index) => protectedUrls[Number(index)] || \"\");\nreturn [{ json: { reply: reply.slice(0, 1800) } }];"
         },
         "id": "capitalflow-output-guard",
         "name": "Output Guard",
@@ -284,18 +414,47 @@
         "main": [
           [
             {
-              "node": "Secure Client Context",
+              "node": "Admin Command",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "Secure Client Context": {
+      "Admin Command": {
         "main": [
           [
             {
+              "node": "Admin Gate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Gate": {
+        "main": [
+          [
+            {
+              "node": "Admin Reply",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
               "node": "Drop Duplicates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Reply": {
+        "main": [
+          [
+            {
+              "node": "WAHA1",
               "type": "main",
               "index": 0
             }
@@ -306,14 +465,14 @@
         "main": [
           [
             {
-              "node": "IA Local Qwen - Agente Offline",
+              "node": "Local AI Request",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "IA Local Qwen - Agente Offline": {
+      "Local AI Request": {
         "main": [
           [
             {
@@ -391,6 +550,24 @@
         "main": [
           [
             {
+              "node": "Gemini Semantic Gate",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Groq Fallback Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini Semantic Gate": {
+        "main": [
+          [
+            {
               "node": "Output Guard",
               "type": "main",
               "index": 0
@@ -406,6 +583,24 @@
         ]
       },
       "Groq Fallback Agent": {
+        "main": [
+          [
+            {
+              "node": "Groq Semantic Gate",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Conventional Bot Fallback",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Groq Semantic Gate": {
         "main": [
           [
             {

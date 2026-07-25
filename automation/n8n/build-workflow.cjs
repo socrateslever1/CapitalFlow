@@ -121,7 +121,7 @@ const localAiRequestNode = {
     sendBody: true,
     contentType: 'raw',
     rawContentType: 'application/json',
-    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Converse em portugues como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto disponivel: " + JSON.stringify($("Admin Command").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}',
+    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Converse em portugues como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto disponivel: " + JSON.stringify($("Admin Command").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}',
     options: { timeout: 30000 },
   },
   id: 'capitalflow-local-ai-request',
@@ -183,65 +183,65 @@ const conventionalFallbackNode = {
 const message = String($("Normalize and Filter").item.json.message || "").toLowerCase();
 const operatorUrl = context.operator_contact?.whatsapp_url || "";
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const date = (value) => {
-  if (!value) return "";
-  const parts = String(value).slice(0, 10).split("-");
-  return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value);
-};
 const withOperator = (text) => operatorUrl ? text + " Fale com o operador por aqui: " + operatorUrl : text;
-let output = "Olá! Como posso ajudar?";
+let output = null;
+
+const clientName = context.client?.display_name ? context.client.display_name.split(" ")[0] : "";
+const pending = Array.isArray(context.pending) ? context.pending : [];
+const first = pending[0];
 
 if (context.status === "session_ended") {
   output = "Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.";
 } else if (context.status === "ambiguous") {
   output = "Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.";
-} else if (context.status === "lead_registered") {
-  output = withOperator("Entendi seu interesse. A análise e as condições são tratadas diretamente pelo operador, sem promessa de aprovação.");
-} else if (context.status === "prospective_client") {
-  output = withOperator("Claro. O cadastro e o funcionamento do serviço são explicados diretamente pelo operador, sem compromisso.");
-} else if (context.status === "proof_received") {
-  output = "Recebi seu comprovante. O pagamento será conferido antes da confirmação da baixa.";
-} else if (context.status === "human_handoff_registered") {
-  output = withOperator("Certo, seu atendimento foi encaminhado para uma pessoa.");
-} else if (context.status === "amount_disputed") {
-  output = withOperator("Entendo. O valor precisa ser revisado pelo operador antes de qualquer pagamento.");
 } else if (context.status === "not_identified") {
-  const financial = /contrato|parcela|venc|atras|d[ií]vida|valor|pagar|pagamento|portal|saldo/.test(message);
-  const wantsOperator = /cliente|cadastro|empr[eé]stimo|cr[eé]dito|atendente|operador/.test(message);
-  const asksHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);
-  if (asksHelp) output = "Posso ajudar com o b\u00e1sico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Para dados financeiros, envie seu CPF ou c\u00f3digo uma vez.";
-  else if (financial) output = "Para consultar dados financeiros com segurança, informe seu CPF ou código de cliente.";
-  else if (wantsOperator) output = withOperator("O cadastro, a análise e as condições são tratados pelo operador.");
-  else output = "Olá! Posso explicar como funciona o atendimento ou ajudar clientes identificados a consultar contratos, parcelas e pagamentos.";
-} else if (context.status === "identified") {
-  const pending = Array.isArray(context.pending) ? context.pending : [];
-  const first = pending[0];
-  if (context.payment_link) {
-    output = "Aqui está o link para pagar o valor atualizado hoje: " + context.payment_link;
-  } else if (context.payment_requested && first) {
-    output = withOperator("Não consegui gerar o link de pagamento agora. O valor atualizado é " + money(first.total_due) + ".");
-  } else if (/portal/.test(message) && context.portal_link) {
-    output = "Você pode acessar seu portal por aqui: " + context.portal_link;
-  } else if (first) {
-    const late = Number(first.days_late || 0);
-    output = "A parcela " + (first.installment_number || "pendente") + " vence em " + date(first.due_date) +
-      " e o valor atualizado é " + money(first.total_due) + ".";
-    if (late > 0) output += " Ela está em atraso há " + late + (late === 1 ? " dia." : " dias.");
-    output += " Deseja receber o link para pagamento?";
-  } else if (/portal/.test(message) && !context.portal_link) {
-    output = withOperator("O link do portal não está disponível agora.");
+  const isHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);
+  if (isHelp) {
+    output = "Posso ajudar com o básico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se já é nosso cliente, digite seu cpf ou código do cliente.";
   } else {
-    output = "Não encontrei parcelas pendentes no momento. Como mais posso ajudar?";
+    output = "Olá somos a capital flow, e estamos aqui para atender da melhor maneira, se já é nosso cliente, digite seu cpf ou codigo do cliente. Se quiser ajuda, digite 'ajuda' para ver suas opções.";
   }
+} else if (context.status === "identified") {
+  if (first) {
+    const isYes = /\\b(sim|quero|saber|manda|envia)\\b/.test(message);
+    const isDontKnow = /\\b(nao sei quem e|quem e|engano|pessoa errada|desconheco|nao sou eu)\\b/.test(message);
+
+    if (context.payment_requested || context.payment_link) {
+      output = "Aqui está o link para pagar o valor atualizado (" + money(first.total_due) + "): " + (context.payment_link || "indisponível agora.");
+    } else if (isYes || isDontKnow) {
+      output = "O valor atualizado da dívida é " + money(first.total_due) + ". Aqui está o link para pagamento: " + (context.payment_link || "indisponível agora.");
+    } else {
+      output = "Olá, " + clientName + "! O Seu contrato " + first.contract_reference + " esta pendente, deseja saber mais?!";
+    }
+  } else {
+    output = "Olá, " + clientName + "! Verifiquei aqui e não consta nenhuma dívida pendente. Até logo!";
+  }
+} else if (context.status === "lead_registered" || context.status === "prospective_client") {
+  output = withOperator("Para se tornar cliente ou fazer uma análise, o cadastro é feito diretamente pelo operador.");
 }
 
-return [{ json: { output, conventional_fallback: true } }];`,
+return [{ json: { output, conventional_handled: !!output } }];`,
   },
   id: 'capitalflow-conventional-fallback',
   name: 'Conventional Bot Fallback',
   type: 'n8n-nodes-base.code',
   typeVersion: 2,
-  position: [2020, 560],
+  position: [1100, 0],
+};
+
+const conventionalGateNode = {
+  parameters: {
+    conditions: {
+      options: { caseSensitive: true, leftValue: '', typeValidation: 'strict', version: 2 },
+      conditions: [{ id: 'conventional-handled', leftValue: '={{ String($json.conventional_handled) }}', rightValue: 'true', operator: { type: 'string', operation: 'equals' } }],
+      combinator: 'and',
+    }
+  },
+  id: 'capitalflow-conventional-gate',
+  name: 'Conventional Gate',
+  type: 'n8n-nodes-base.if',
+  typeVersion: 2.2,
+  position: [1300, 0],
 };
 
 const outputGuardNode = {
@@ -385,6 +385,8 @@ workflow.nodes = workflow.nodes
     'Gemini Fallback Agent',
     'Groq Fallback Agent',
     'Conventional Bot Fallback',
+    'Conventional Gate',
+    'IA Local Qwen - Agente Offline',
     'Admin Command',
     'Admin Gate',
     'Admin Reply',
@@ -427,13 +429,13 @@ workflow.nodes = workflow.nodes
     }
     return node;
   });
-workflow.nodes.push(normalizeNode, adminCommandNode);
+workflow.nodes.push(normalizeNode, adminCommandNode, adminGateNode, adminReplyNode);
 workflow.nodes.push(deduplicateNode);
 localAiRequestNode.parameters.body = localAiRequestNode.parameters.body.replace(
   'content: "Converse em portugues',
   'content: "/no_think\\nConverse em portugues. Nunca exponha raciocinio interno ou tags think. ',
 );
-workflow.nodes.push(localAiRequestNode, localAiNormalizeNode);
+workflow.nodes.push(conventionalGateNode, localAiRequestNode, localAiNormalizeNode);
 const primaryAgent = workflow.nodes.find((node) => node.name === 'AI Agent');
 if (!primaryAgent) throw new Error('Nó AI Agent não encontrado.');
 const fallbackAgent = JSON.parse(JSON.stringify(primaryAgent));
@@ -463,8 +465,12 @@ if (memoryConnections?.ai_memory?.[0]) {
 workflow.connections = {
   Webhook: { main: [[{ node: 'Normalize and Filter', type: 'main', index: 0 }]] },
   'Normalize and Filter': { main: [[{ node: 'Admin Command', type: 'main', index: 0 }]] },
-  'Admin Command': { main: [[{ node: 'Drop Duplicates', type: 'main', index: 0 }]] },
-  'Drop Duplicates': { main: [[{ node: 'Local AI Request', type: 'main', index: 0 }]] },
+  'Admin Command': { main: [[{ node: 'Admin Gate', type: 'main', index: 0 }]] },
+  'Admin Gate': { main: [[{ node: 'Admin Reply', type: 'main', index: 0 }], [{ node: 'Drop Duplicates', type: 'main', index: 0 }]] },
+  'Admin Reply': { main: [[{ node: 'WAHA1', type: 'main', index: 0 }]] },
+  'Drop Duplicates': { main: [[{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
+  'Conventional Bot Fallback': { main: [[{ node: 'Conventional Gate', type: 'main', index: 0 }]] },
+  'Conventional Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Local AI Request', type: 'main', index: 0 }]] },
   'Local AI Request': { main: [[{ node: 'Local AI Normalize', type: 'main', index: 0 }], [{ node: 'AI Agent', type: 'main', index: 0 }]] },
   'Local AI Normalize': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'AI Agent', type: 'main', index: 0 }]] },
   'Redis Chat Memory': memoryConnections,
@@ -474,7 +480,6 @@ workflow.connections = {
   'Gemini Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
   'Groq Fallback Agent': { main: [[{ node: 'Groq Semantic Gate', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
   'Groq Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
-  'Conventional Bot Fallback': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }]] },
   'Output Guard': { main: [[{ node: 'WAHA1', type: 'main', index: 0 }]] },
 };
 

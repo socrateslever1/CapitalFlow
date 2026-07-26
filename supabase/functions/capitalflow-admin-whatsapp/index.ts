@@ -158,6 +158,7 @@ function detectIntent(raw: string) {
   if (/\b(resumo|carteira|painel)\b/.test(message)) return "portfolio";
   if (/\b(quem cobrar|quem eu cobro|quem eu devo cobrar|quem devo cobrar|quem cobrar primeiro|quem eu devo cobrar primeiro|prioridade de cobranca|prioridades de cobranca|prioridade de cobrança|prioridades de cobrança|cobrancas de hoje|cobranças de hoje|resumo de cobranca|resumo de cobrança)\b/.test(message)) return "collection_brief";
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
+  if (/^(listar tudo|lista tudo|mostrar tudo|mostra tudo|ver tudo|todos da lista|lista completa)$/.test(message)) return "list_all";
   if (/^(proxima pagina|proxima|mais|continuar|ver mais|mostrar mais)$/.test(message)) return "list_next_page";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
@@ -188,6 +189,7 @@ const adminIntentSet = new Set([
   "portfolio",
   "collection_brief",
   "due_today",
+  "list_all",
   "list_next_page",
   "charge_selection",
   "overdue",
@@ -684,12 +686,13 @@ function daysBetween(fromDate: string, toDate: string) {
   return Math.max(0, Math.floor((to - from) / 86400000));
 }
 
-function renderChargeSelectionList(title: string, items: any[], page = 1, pageSize = 20) {
+function renderChargeSelectionList(title: string, items: any[], page = 1, pageSize = 10, showAll = false) {
   const safeItems = Array.isArray(items) ? items : [];
-  const totalPages = Math.max(1, Math.ceil(safeItems.length / pageSize));
+  const effectivePageSize = showAll ? Math.max(1, safeItems.length) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(safeItems.length / effectivePageSize));
   const currentPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
-  const start = (currentPage - 1) * pageSize;
-  const visible = safeItems.slice(start, start + pageSize);
+  const start = showAll ? 0 : (currentPage - 1) * effectivePageSize;
+  const visible = showAll ? safeItems : safeItems.slice(start, start + effectivePageSize);
   const total = safeItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const lines = visible.map((item, index) => {
     const number = start + index + 1;
@@ -699,14 +702,17 @@ function renderChargeSelectionList(title: string, items: any[], page = 1, pageSi
     const installment = item.installment_number ? ` p.${item.installment_number}` : "";
     return `${number}. ${item.name || "Cliente"} — ${money(item.amount)} — ${delay} — #${contractCode}${installment}`;
   }).join("\n");
-  const footer = currentPage < totalPages
-    ? "\n\nResponda *próxima página* para continuar vendo a lista."
-    : "\n\nFim da lista.";
+  const footer = showAll
+    ? "\n\nLista completa."
+    : currentPage < totalPages
+      ? `\n\nMostrando ${start + 1} a ${start + visible.length} de ${safeItems.length}. Responda *mostrar mais* para ver os próximos. Ou responda *listar tudo*.`
+      : "\n\nFim da lista.";
 
-  return `${title}\n\n📊 Total listado: *${safeItems.length}* contrato${safeItems.length === 1 ? "" : "s"}\n💰 Valor atualizado: *${money(total)}*\nPágina ${currentPage}/${totalPages}\n\n${lines}${footer}\n\nPara cobrar, responda:\n• *cobre 1*\n• *cobre 1, 3*\n• *cobre todos*`;
+  const pageLabel = showAll ? "Lista completa" : `Página ${currentPage}/${totalPages}`;
+  return `${title}\n\n📊 Total listado: *${safeItems.length}* contrato${safeItems.length === 1 ? "" : "s"}\n💰 Valor atualizado: *${money(total)}*\n${pageLabel}\n\n${lines}${footer}\n\nPara cobrar, responda:\n• *cobre 1*\n• *cobre 1, 3*\n• *cobre todos*`;
 }
 
-async function saveChargeSelectionList(adminDb: any, profileId: string, admin: any, intent: string, items: any[], pageSize = 20) {
+async function saveChargeSelectionList(adminDb: any, profileId: string, admin: any, intent: string, items: any[], pageSize = 10) {
   await adminDb.from("whatsapp_admin_commands").update({ status: "EXPIRED" })
     .eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("intent", intent).eq("status", "PENDING");
   const { error } = await adminDb.from("whatsapp_admin_commands").insert({
@@ -831,6 +837,7 @@ Deno.serve(async (req) => {
       "confirm",
       "cancel",
       "charge_selection",
+      "list_all",
       "list_next_page",
       "greeting",
       "help",
@@ -959,7 +966,7 @@ Deno.serve(async (req) => {
       const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
       if (!list) return json({ handled: true, admin: true, reply: "Não há lista aberta. Envie *atrasados* ou *vencem hoje* primeiro." });
       const items = list.payload?.items || [];
-      const pageSize = Number(list.payload?.page_size || 20);
+      const pageSize = Number(list.payload?.page_size || 10);
       const currentPage = Number(list.payload?.page || 1);
       const nextPage = currentPage + 1;
       if ((nextPage - 1) * pageSize >= items.length) {
@@ -968,6 +975,15 @@ Deno.serve(async (req) => {
       await adminDb.from("whatsapp_admin_commands").update({ payload: { ...list.payload, page: nextPage } }).eq("id", list.id);
       const title = list.intent === "OVERDUE_LIST" ? `⚠️ *Contratos vencidos para cobrança*` : `📅 *Vencem hoje*`;
       return json({ handled: true, admin: true, reply: renderChargeSelectionList(title, items, nextPage, pageSize) });
+    }
+    if (intent === "list_all") {
+      const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
+      if (!list) return json({ handled: true, admin: true, reply: "Não há lista aberta. Envie *atrasados* ou *vencem hoje* primeiro." });
+      const items = list.payload?.items || [];
+      const pageSize = Number(list.payload?.page_size || 10);
+      const title = list.intent === "OVERDUE_LIST" ? `⚠️ *Contratos vencidos para cobrança*` : `📅 *Vencem hoje*`;
+      await adminDb.from("whatsapp_admin_commands").update({ payload: { ...list.payload, page: 1, show_all: true } }).eq("id", list.id);
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(title, items, 1, pageSize, true) });
     }
     if (intent === "charge_selection") {
       if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });

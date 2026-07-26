@@ -196,7 +196,7 @@ const first = pending[0];
 const openContractCount = new Set(pending.map((item) => item.contract_reference).filter(Boolean)).size || (context.contracts || []).filter((item) => item.has_pending_installment).length || pending.length || 1;
 
 if (context.status === "session_ended") {
-  output = "Conversa encerrada. Na pr\\u00f3xima mensagem, voc\\u00ea poder\\u00e1 se identificar como outro cliente.";
+  output = "Conversa encerrada. Se precisar do portal de novo em at\\u00e9 30 minutos, \\u00e9 s\\u00f3 pedir por aqui.";
 } else if (context.status === "ambiguous") {
   output = "Encontrei mais de um cadastro compat\\u00edvel. Para confirmar com seguran\\u00e7a, informe seu c\\u00f3digo de cliente.";
 } else if (context.status === "not_identified") {
@@ -308,7 +308,7 @@ if (context.status === "identified" && asksContractValue && currentContract) {
     : "O valor do contrato \\u00e9 " + contractValue + ". N\\u00e3o encontrei parcela pendente agora.";
 }
 if (context.status === "session_ended") {
-  reply = "Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.";
+  reply = "Conversa encerrada. Se precisar do portal de novo em até 30 minutos, é só pedir por aqui.";
 }
 if ($json.error && !reply) {
   reply = context.operator_contact?.whatsapp_url

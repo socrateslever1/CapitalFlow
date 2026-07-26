@@ -18,6 +18,8 @@ const librarySource = fs
   .replace(/^'use strict';\s*/, '')
   .replace(/module\.exports\s*=\s*\{[^}]+\};?\s*$/, '');
 
+const farewellInstruction = 'Se a mensagem do cliente for despedida ou encerramento curto como tchau, xau, chau, ate mais, ate logo, falou, flw, valeu, vlw, ok, blz, beleza, ta bom, ta certo, combinado, bom dia, boa tarde, boa noite, obrigado, obrigada, era isso, resolvido, finalizar, encerrar ou sair, responda somente: Conversa encerrada. Se precisar do portal de novo em ate 30 minutos, e so pedir por aqui.';
+
 const code = `${librarySource}
 let tenantMap = {};
 try {
@@ -117,7 +119,7 @@ const localAiRequestNode = {
     sendBody: true,
     contentType: 'raw',
     rawContentType: 'application/json',
-    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Converse em portugues como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, converse e ofereca ajuda para pagar apenas quando isso fizer sentido. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto disponivel: " + JSON.stringify($("Admin Command").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}',
+    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Converse em portugues como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Se a mensagem for despedida ou encerramento curto como tchau, xau, ok, blz, ta bom, bom dia, boa tarde ou boa noite, encerre em uma frase curta. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, conduza para o portal do cliente; nunca envie link direto de pagamento externo. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto disponivel: " + JSON.stringify($("Admin Command").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}',
     options: { timeout: 30000 },
   },
   id: 'capitalflow-local-ai-request',
@@ -264,13 +266,17 @@ const openContractCount = new Set((context.pending || []).map((item) => item.con
 const asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);
 let reply = raw;
 const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+const farewellReply = "Conversa encerrada. Se precisar do portal de novo em at\\u00e9 30 minutos, \\u00e9 s\\u00f3 pedir por aqui.";
+const isFarewellMessage = /^(tchau|xau|chau|ate mais|ate logo|falou|flw|valeu|vlw|ok|blz|beleza|ta bom|ta certo|combinado|bom dia|boa tarde|boa noite|obrigado|obrigada|ok obrigado|ok obrigada|era isso|por enquanto e so|resolvido|finalizar|encerrar|encerrar conversa|finalizar conversa|sair)$/i.test(normalizedCustomerMessage);
 const asksLoan = /\\bemprestimo\\b|\\bemprestar\\b|\\bme empresta\\b|\\bcredito\\b/.test(normalizedCustomerMessage);
 const asksPayment = /\\bpagar\\b|\\bpagamento\\b|\\bquitar\\b|\\bpix\\b|\\blink\\b/.test(normalizedCustomerMessage) && !/\\bnao\\b|\\bdepois\\b|\\bagora nao\\b/.test(normalizedCustomerMessage);
 const asksDebtStatus = /\\bdivida\\b|\\bparcela\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b|\\bcontrato\\b|\\bpendencia\\b|\\bpendente\\b|\\bquem e\\b|\\bquem eh\\b|\\bdo que\\b/.test(normalizedCustomerMessage);
 const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo|contrato|parcela)\\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\\bjuros\\b/.test(normalizedCustomerMessage) && !/\\b(total|parcela|divida|pagamento|pagar tudo)\\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\\d/.test(customerMessage);
 const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
 const duePhrase = (item) => { const late = Number(item?.days_late || 0); return late > 0 ? "venceu em " + formatDate(item?.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso") : "vence em " + formatDate(item?.due_date); };
-if (context.status === "lead_registered") {
+if (context.status === "session_ended" || (context.status === "identified" && isFarewellMessage)) {
+  reply = farewellReply;
+} else if (context.status === "lead_registered") {
   reply = context.operator_contact?.whatsapp_url
     ? "Entendi que voc\\u00ea quer um novo empr\\u00e9stimo. Vou encaminhar seu pedido ao operador para analisar com voc\\u00ea, sem promessa de aprova\\u00e7\\u00e3o. Fale com ele aqui: " + context.operator_contact.whatsapp_url
     : "Entendi que voc\\u00ea quer um novo empr\\u00e9stimo. Registrei seu pedido para o operador analisar com voc\\u00ea, sem promessa de aprova\\u00e7\\u00e3o.";
@@ -308,7 +314,7 @@ if (context.status === "identified" && asksContractValue && currentContract) {
     : "O valor do contrato \\u00e9 " + contractValue + ". N\\u00e3o encontrei parcela pendente agora.";
 }
 if (context.status === "session_ended") {
-  reply = "Conversa encerrada. Se precisar do portal de novo em até 30 minutos, é só pedir por aqui.";
+  reply = farewellReply;
 }
 if ($json.error && !reply) {
   reply = context.operator_contact?.whatsapp_url
@@ -429,7 +435,7 @@ workflow.nodes = workflow.nodes
           'Em comprovante, negociação, revisão de valor ou decisão de crédito, acolha o pedido e encaminhe ao operador quando a decisão humana for necessária.',
         ].join(' '),
       };
-      node.parameters.options.systemMessage = 'Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir um link. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo. Continue a conversa sem mencionar que houve falha ou troca de IA. Se a mensagem for informal ou ambigua, responda de forma humana e faca uma unica pergunta curta para entender a necessidade. Quando houver contexto identificado, conduza naturalmente para o contrato, parcela, vencimento ou pagamento; quando nao houver identificacao, peca CPF ou codigo do cliente. Nunca encerre com uma resposta engessada se ainda houver uma pergunta util a fazer.';
+      node.parameters.options.systemMessage = farewellInstruction + ' Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir o portal do cliente. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo. Continue a conversa sem mencionar que houve falha ou troca de IA. Se a mensagem for informal ou ambigua, responda de forma humana e faca uma unica pergunta curta para entender a necessidade. Quando houver contexto identificado, conduza naturalmente para o contrato, parcela, vencimento ou portal do cliente; quando nao houver identificacao, peca CPF ou codigo do cliente. Nunca envie link direto de pagamento externo.';
       node.onError = 'continueErrorOutput';
     }
     if (node.name === 'WAHA1') {
@@ -465,7 +471,7 @@ fallbackAgent.name = 'Groq Fallback Agent';
 fallbackAgent.position = [1780, 420];
 fallbackAgent.onError = 'continueErrorOutput';
 fallbackAgent.parameters.text = '={{ "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto seguro: " + JSON.stringify($("Admin Command").item.json) }}';
-fallbackAgent.parameters.options = { systemMessage: 'Assuma esta conversa de forma humana e natural, sem dizer que e fallback ou que outra IA falhou. Responda ao que a pessoa quis dizer, mesmo que seja informal. Se ainda faltar informacao, faca uma unica pergunta objetiva. Use o contexto seguro para conduzir a pessoa ao contrato, parcela, vencimento, valor atualizado ou pagamento; se nao estiver identificada, peca CPF ou codigo. Nao invente dados, nao ofereca emprestimo e nao use menus engessados.' };
+fallbackAgent.parameters.options = { systemMessage: farewellInstruction + ' Assuma esta conversa de forma humana e natural, sem dizer que e fallback ou que outra IA falhou. Responda ao que a pessoa quis dizer, mesmo que seja informal. Se ainda faltar informacao, faca uma unica pergunta objetiva. Use o contexto seguro para conduzir a pessoa ao contrato, parcela, vencimento, valor atualizado ou portal do cliente; se nao estiver identificada, peca CPF ou codigo. Nao invente dados, nao ofereca emprestimo, nao envie link direto de pagamento externo e nao use menus engessados.' };
 workflow.nodes.push(
   googleModelNode,
   semanticGate('Gemini Semantic Gate', 'capitalflow-gemini-semantic-gate', [1670, 300]),

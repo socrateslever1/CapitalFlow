@@ -187,36 +187,31 @@ const pending = Array.isArray(context.pending) ? context.pending : [];
 const first = pending[0];
 
 if (context.status === "session_ended") {
-  output = "Conversa encerrada. Na próxima mensagem, você poderá se identificar como outro cliente.";
+  output = "Conversa encerrada. Na pr\\u00f3xima mensagem, voc\\u00ea poder\\u00e1 se identificar como outro cliente.";
 } else if (context.status === "ambiguous") {
-  output = "Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.";
+  output = "Encontrei mais de um cadastro compat\\u00edvel. Para confirmar com seguran\\u00e7a, informe seu c\\u00f3digo de cliente.";
 } else if (context.status === "not_identified") {
   const isHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);
   const asksCompany = /\\b(que empresa|qual empresa|quem sao voces|quem e voces|capital flow|capitalflow|como funciona|do que se trata|o que e isso)\\b/.test(message);
   if (asksCompany) {
-    output = "Somos a CapitalFlow. Este WhatsApp atende consultas de contratos, parcelas e pagamentos. Se ja for cliente, informe seu CPF ou codigo de cliente para eu localizar seu atendimento com seguranca.";
+    output = "Somos a CapitalFlow. Este WhatsApp atende consultas de contratos, parcelas e pagamentos. Se j\\u00e1 for cliente, informe seu CPF ou c\\u00f3digo de cliente para eu localizar seu atendimento com seguran\\u00e7a.";
   } else if (isHelp) {
-    output = "Posso ajudar com o básico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se já é nosso cliente, digite seu cpf ou código do cliente.";
+    output = "Posso ajudar com o b\\u00e1sico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se j\\u00e1 \\u00e9 nosso cliente, digite seu CPF ou c\\u00f3digo do cliente.";
   } else {
-    output = "Olá somos a capital flow, e estamos aqui para atender da melhor maneira, se já é nosso cliente, digite seu cpf ou codigo do cliente. Se quiser ajuda, digite 'ajuda' para ver suas opções.";
+    output = "Ol\\u00e1, somos a CapitalFlow. Se j\\u00e1 \\u00e9 nosso cliente, digite seu CPF ou c\\u00f3digo do cliente. Se quiser ajuda, digite 'ajuda'.";
   }
 } else if (context.status === "identified") {
   if (first) {
-    const isYes = /\\b(sim|quero|saber|manda|envia)\\b/.test(message);
-    const isDontKnow = /\\b(nao sei quem e|quem e|engano|pessoa errada|desconheco|nao sou eu)\\b/.test(message);
-
-    if (context.payment_requested || context.payment_link) {
-      output = "Aqui está o link para pagar o valor atualizado (" + money(first.total_due) + "): " + (context.payment_link || "indisponível agora.");
-    } else if (isYes || isDontKnow) {
-      output = "O valor atualizado da dívida é " + money(first.total_due) + ". Aqui está o link para pagamento: " + (context.payment_link || "indisponível agora.");
+    if (context.payment_link) {
+      output = "Ol\\u00e1, " + clientName + ". Sua parcela em aberto est\\u00e1 atualizada em " + money(first.total_due) + ". Para ver os detalhes e pagar, acesse: " + context.payment_link;
     } else {
-      output = "Olá, " + clientName + "! O Seu contrato " + first.contract_reference + " esta pendente, deseja saber mais?!";
+      output = withOperator("Ol\\u00e1, " + clientName + ". Sua parcela em aberto est\\u00e1 atualizada em " + money(first.total_due) + ". N\\u00e3o consegui gerar o link de pagamento agora; encaminhei para atendimento concluir com voc\\u00ea.");
     }
   } else {
-    output = "Olá, " + clientName + "! Verifiquei aqui e não consta nenhuma dívida pendente. Até logo!";
+    output = "Ol\\u00e1, " + clientName + "! Verifiquei aqui e n\\u00e3o consta nenhuma d\\u00edvida pendente. At\\u00e9 logo!";
   }
 } else if (context.status === "lead_registered" || context.status === "prospective_client") {
-  output = withOperator("Para se tornar cliente ou fazer uma análise, o cadastro é feito diretamente pelo operador.");
+  output = withOperator("Para se tornar cliente ou fazer uma an\\u00e1lise, o cadastro \\u00e9 feito diretamente pelo operador.");
 }
 
 return [{ json: { output, conventional_handled: !!output } }];`,
@@ -259,12 +254,12 @@ const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|ce
 const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
 if (context.status === "lead_registered") {
   reply = context.operator_contact?.whatsapp_url
-    ? "Entendi que vocÃª quer um novo emprÃ©stimo. Vou encaminhar seu pedido ao operador para analisar com vocÃª, sem promessa de aprovaÃ§Ã£o. Fale com ele aqui: " + context.operator_contact.whatsapp_url
-    : "Entendi que vocÃª quer um novo emprÃ©stimo. Registrei seu pedido para o operador analisar com vocÃª, sem promessa de aprovaÃ§Ã£o.";
+    ? "Entendi que voc\\u00ea quer um novo empr\\u00e9stimo. Vou encaminhar seu pedido ao operador para analisar com voc\\u00ea, sem promessa de aprova\\u00e7\\u00e3o. Fale com ele aqui: " + context.operator_contact.whatsapp_url
+    : "Entendi que voc\\u00ea quer um novo empr\\u00e9stimo. Registrei seu pedido para o operador analisar com voc\\u00ea, sem promessa de aprova\\u00e7\\u00e3o.";
 } else if (context.status === "identified" && asksLoan) {
   reply = context.operator_contact?.whatsapp_url
-    ? "Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes. Fale com ele aqui: " + context.operator_contact.whatsapp_url
-    : "Entendi. Para um novo emprÃ©stimo, o operador precisa conversar com vocÃª e avaliar as condiÃ§Ãµes.";
+    ? "Entendi. Para um novo empr\\u00e9stimo, o operador precisa conversar com voc\\u00ea e avaliar as condi\\u00e7\\u00f5es. Fale com ele aqui: " + context.operator_contact.whatsapp_url
+    : "Entendi. Para um novo empr\\u00e9stimo, o operador precisa conversar com voc\\u00ea e avaliar as condi\\u00e7\\u00f5es.";
 } else if (context.status === "identified" && isIdentityMessage && pendingInstallment) {
   reply = "Cliente identificado. Para ver mais detalhes e acessar o pagamento atualizado, veja aqui: " + (context.payment_link || context.portal_link || "o portal do cliente");
 } else if (context.status === "identified" && asksInterestOnly) {
@@ -273,15 +268,15 @@ if (context.status === "lead_registered") {
     : "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano.";
 } else if (context.status === "identified" && (asksPayment || (isAffirmative && pendingInstallment)) && !asksInterestOnly) {
   reply = context.payment_link
-    ? "Certo. Este Ã© o link atualizado para pagamento: " + context.payment_link
+    ? "Certo. Este \\u00e9 o link atualizado para pagamento: " + context.payment_link
     : pendingInstallment
-      ? "Certo. A parcela em aberto estÃ¡ atualizada em " + pendingInstallment.total_due_display + ". NÃ£o consegui gerar o link agora; posso encaminhar vocÃª ao operador para concluir o pagamento."
-      : "Certo. NÃ£o encontrei parcela pendente confirmada agora. Posso consultar o operador para ajudar.";
+      ? "Certo. A parcela em aberto est\\u00e1 atualizada em " + pendingInstallment.total_due_display + ". N\\u00e3o consegui gerar o link de pagamento agora; encaminhei para atendimento concluir com voc\\u00ea."
+      : "Certo. N\\u00e3o encontrei parcela pendente confirmada agora. Encaminhei para atendimento verificar.";
 } else if (context.status === "identified" && asksDebtStatus && pendingInstallment) {
   const late = Number(pendingInstallment.days_late || 0);
-  reply = "A parcela " + (pendingInstallment.installment_number || "pendente") + " vence em " + formatDate(pendingInstallment.due_date) + " e estÃ¡ atualizada em " + pendingInstallment.total_due_display + ".";
-  reply += late > 0 ? " Ela estÃ¡ em atraso hÃ¡ " + late + (late === 1 ? " dia." : " dias.") : " Ela ainda nÃ£o estÃ¡ em atraso.";
-  reply += " Se quiser, posso enviar o link atualizado para pagamento.";
+  reply = "A parcela " + (pendingInstallment.installment_number || "pendente") + " vence em " + formatDate(pendingInstallment.due_date) + " e est\\u00e1 atualizada em " + pendingInstallment.total_due_display + ".";
+  reply += late > 0 ? " Ela est\\u00e1 em atraso h\\u00e1 " + late + (late === 1 ? " dia." : " dias.") : " Ela ainda n\\u00e3o est\\u00e1 em atraso.";
+  reply += context.payment_link ? " Para ver detalhes e pagar, acesse: " + context.payment_link : " N\\u00e3o consegui gerar o link de pagamento agora; encaminhei para atendimento verificar.";
 }
 if (context.admin === true && context.handled === true && context.reply) {
   reply = String(context.reply);

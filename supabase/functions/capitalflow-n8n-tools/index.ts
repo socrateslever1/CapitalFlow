@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
       }
 
       const loanNegation = /\bn[aã]o\s+(e|é|quero|preciso|estou)\b/i.test(message);
-      const wantsLoan = !loanNegation && /\b(empr[eÃ©]stimo|dinheiro emprestado|cr[eÃ©]dito)\b/i.test(message);
+      const wantsLoan = !loanNegation && /\b(empr[e\u00e9]stimo|dinheiro emprestado|cr[e\u00e9]dito)\b/i.test(message);
       const wantsHuman = /\b(atendente|humano|pessoa|falar com algu[eé]m)\b/i.test(message);
       const isProof = ["image", "document"].includes(String(body.message_type ?? "")) && /comprovante|pix|pagamento/i.test(message || "comprovante");
       const wantsLoanNatural = !loanNegation && /\b(empr[e\u00e9]stimo|dinheiro emprestado|cr[e\u00e9]dito)\b/i.test(message);
@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
         && !/\b(n[aã]o|depois|agora n[aã]o)\b/i.test(message);
       let paymentLink: string | null = null;
       let paymentLinkError: string | null = null;
-      const shouldPreparePaymentLink = pending.length > 0 && (wantsPayment || hasExplicitIdentity);
+      const shouldPreparePaymentLink = pending.length > 0;
       if (shouldPreparePaymentLink) {
         const target = pending[0];
         const targetContract = activeContracts.find((contract) => contract.id === target._loan_id);

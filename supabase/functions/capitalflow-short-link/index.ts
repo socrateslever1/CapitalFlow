@@ -1,6 +1,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.7";
 
-const allowedCheckoutHosts = new Set(["checkout.infinitepay.io", "api.infinitepay.io"]);
+function allowedRedirectHosts() {
+  const hosts = new Set([
+    "checkout.infinitepay.io",
+    "api.infinitepay.io",
+    "capflow.pages.dev",
+    "capitalflow.app",
+  ]);
+  const appOrigin = Deno.env.get("APP_ORIGIN");
+  if (appOrigin) {
+    try {
+      hosts.add(new URL(appOrigin).hostname);
+    } catch {
+      // Ignore invalid APP_ORIGIN and keep the static allowlist.
+    }
+  }
+  return hosts;
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "GET") return new Response("Método não permitido.", { status: 405 });
@@ -25,7 +41,7 @@ Deno.serve(async (req) => {
   } catch {
     return new Response("Destino inválido.", { status: 400 });
   }
-  if (target.protocol !== "https:" || !allowedCheckoutHosts.has(target.hostname)) {
+  if (target.protocol !== "https:" || !allowedRedirectHosts().has(target.hostname)) {
     return new Response("Destino não autorizado.", { status: 403 });
   }
   return Response.redirect(target.toString(), 302);

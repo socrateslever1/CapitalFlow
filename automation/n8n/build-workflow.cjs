@@ -18,7 +18,7 @@ const librarySource = fs
   .replace(/^'use strict';\s*/, '')
   .replace(/module\.exports\s*=\s*\{[^}]+\};?\s*$/, '');
 
-const farewellInstruction = 'Se a mensagem do cliente for despedida ou encerramento curto como tchau, xau, chau, ate mais, ate logo, falou, flw, valeu, vlw, ok, blz, beleza, ta bom, ta certo, combinado, bom dia, boa tarde, boa noite, obrigado, obrigada, era isso, resolvido, finalizar, encerrar ou sair, responda somente: Conversa encerrada. Se precisar do portal de novo em ate 30 minutos, e so pedir por aqui.';
+const farewellInstruction = 'Se a mensagem do cliente for despedida ou encerramento curto como tchau, xau, chau, ate mais, ate logo, falou, flw, valeu, vlw, ok, blz, beleza, ta bom, ta certo, combinado, bom dia, boa tarde, boa noite, obrigado, obrigada, era isso, resolvido, finalizar, encerrar ou sair, responda somente: Conversa encerrada. Se precisar do portal novamente, e so pedir por aqui.';
 
 const code = `${librarySource}
 let tenantMap = {};
@@ -179,6 +179,7 @@ const conventionalFallbackNode = {
   parameters: {
     jsCode: `const context = $("Admin Command").item.json || {};
 const message = String($("Normalize and Filter").item.json.message || "").toLowerCase();
+const normalizedMessage = message.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
 const operatorUrl = context.operator_contact?.whatsapp_url || "";
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const withOperator = (text) => operatorUrl ? text + " Fale com o operador por aqui: " + operatorUrl : text;
@@ -198,7 +199,7 @@ const first = pending[0];
 const openContractCount = new Set(pending.map((item) => item.contract_reference).filter(Boolean)).size || (context.contracts || []).filter((item) => item.has_pending_installment).length || pending.length || 1;
 
 if (context.status === "session_ended") {
-  output = "Conversa encerrada. Se precisar do portal de novo em at\\u00e9 30 minutos, \\u00e9 s\\u00f3 pedir por aqui.";
+  output = "Conversa encerrada. Se precisar do portal novamente, \\u00e9 s\\u00f3 pedir por aqui.";
 } else if (context.status === "ambiguous") {
   output = "Encontrei mais de um cadastro compat\\u00edvel. Para confirmar com seguran\\u00e7a, informe seu c\\u00f3digo de cliente.";
 } else if (context.status === "not_identified") {
@@ -213,12 +214,15 @@ if (context.status === "session_ended") {
   }
 } else if (context.status === "identified") {
   if (first) {
-    const wantsDetails = context.payment_requested === true || /\\b(sim|quero|pode|manda|envia|ok|certo|detalhes|saber mais|pagar|pagamento|pix|quitar|contrato|parcela|pendencia|pendente|quem e|quem eh|do que)\\b/.test(message);
+    const refusesDetails = /^(n|nao|agora nao|depois|nao quero|nao preciso|nao precisa|deixa|deixa pra depois|mais tarde)\\b/.test(normalizedMessage);
+    const wantsDetails = !refusesDetails && (context.payment_requested === true || /\\b(sim|quero|pode|manda|envia|ok|certo|detalhes|saber mais|pagar|pagamento|pix|quitar|contrato|parcela|pendencia|pendente|quem e|quem eh|do que)\\b/.test(normalizedMessage));
     const late = Number(first.days_late || 0);
     const dueText = late > 0
       ? "venceu em " + formatDate(first.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso")
       : "vence em " + formatDate(first.due_date);
-    if (!wantsDetails) {
+    if (refusesDetails) {
+      output = "Certo. Se precisar consultar o portal depois, \\u00e9 s\\u00f3 pedir por aqui.";
+    } else if (!wantsDetails) {
       output = greeting() + ", " + clientName + ". Encontrei " + openContractCount + " " + (openContractCount === 1 ? "contrato em aberto" : "contratos em aberto") + " no seu cadastro. Deseja ver os detalhes?";
     } else if (context.portal_link) {
       output = clientName + ", sua parcela " + (first.installment_number || "em aberto") + " " + dueText + ". Valor atualizado: " + money(first.total_due) + ".\\n\\nPortal do cliente:\\n" + context.portal_link;
@@ -266,8 +270,10 @@ const openContractCount = new Set((context.pending || []).map((item) => item.con
 const asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);
 let reply = raw;
 const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
-const farewellReply = "Conversa encerrada. Se precisar do portal de novo em at\\u00e9 30 minutos, \\u00e9 s\\u00f3 pedir por aqui.";
+const farewellReply = "Conversa encerrada. Se precisar do portal novamente, \\u00e9 s\\u00f3 pedir por aqui.";
+const refusalReply = "Certo. Se precisar consultar o portal depois, \\u00e9 s\\u00f3 pedir por aqui.";
 const isFarewellMessage = /^(tchau|xau|chau|ate mais|ate logo|falou|flw|valeu|vlw|ok|blz|beleza|ta bom|ta certo|combinado|bom dia|boa tarde|boa noite|obrigado|obrigada|ok obrigado|ok obrigada|era isso|por enquanto e so|resolvido|finalizar|encerrar|encerrar conversa|finalizar conversa|sair)$/i.test(normalizedCustomerMessage);
+const refusesDetails = /^(n|nao|agora nao|depois|nao quero|nao preciso|nao precisa|deixa|deixa pra depois|mais tarde)\\b/.test(normalizedCustomerMessage);
 const asksLoan = /\\bemprestimo\\b|\\bemprestar\\b|\\bme empresta\\b|\\bcredito\\b/.test(normalizedCustomerMessage);
 const asksPayment = /\\bpagar\\b|\\bpagamento\\b|\\bquitar\\b|\\bpix\\b|\\blink\\b/.test(normalizedCustomerMessage) && !/\\bnao\\b|\\bdepois\\b|\\bagora nao\\b/.test(normalizedCustomerMessage);
 const asksDebtStatus = /\\bdivida\\b|\\bparcela\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b|\\bcontrato\\b|\\bpendencia\\b|\\bpendente\\b|\\bquem e\\b|\\bquem eh\\b|\\bdo que\\b/.test(normalizedCustomerMessage);
@@ -276,6 +282,8 @@ const formatDate = (value) => { const parts = String(value || "").slice(0, 10).s
 const duePhrase = (item) => { const late = Number(item?.days_late || 0); return late > 0 ? "venceu em " + formatDate(item?.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso") : "vence em " + formatDate(item?.due_date); };
 if (context.status === "session_ended" || (context.status === "identified" && isFarewellMessage)) {
   reply = farewellReply;
+} else if (context.status === "identified" && refusesDetails) {
+  reply = refusalReply;
 } else if (context.status === "lead_registered") {
   reply = context.operator_contact?.whatsapp_url
     ? "Entendi que voc\\u00ea quer um novo empr\\u00e9stimo. Vou encaminhar seu pedido ao operador para analisar com voc\\u00ea, sem promessa de aprova\\u00e7\\u00e3o. Fale com ele aqui: " + context.operator_contact.whatsapp_url
@@ -427,8 +435,8 @@ workflow.nodes = workflow.nodes
           'Converse em português como um atendente humano: natural, breve, acolhedor e direto. Responda primeiro ao que a pessoa perguntou, sem menus ou discursos burocráticos.',
           'Use somente os dados financeiros recebidos nesta execução. Não invente valores, datas, contratos, atrasos, pagamentos ou links.',
           'Para consultar dados pessoais sem identificação, peça CPF ou código do cliente uma única vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser.',
-          'Quando identificado, use contracts, pending, portal_link e payment_link. total_due é o valor atualizado; só existe atraso quando days_late for maior que zero.',
-          'Se a pessoa quiser pagar, envie payment_link quando existir. Se não existir, ou se ela discordar do valor, encaminhe ao operator_contact sem repetir respostas prontas.',
+          'Quando identificado, use contracts, pending e portal_link. total_due é o valor atualizado; só existe atraso quando days_late for maior que zero.',
+          'Se a pessoa quiser pagar ou ver detalhes, envie sempre o portal_link. Se não existir portal_link, ou se ela discordar do valor, encaminhe ao operator_contact sem repetir respostas prontas.',
           'Não ofereça empréstimo. Se a pessoa pedir, converse normalmente e encaminhe ao operador, sem prometer aprovação, taxa ou condição.',
           'Quem ainda não é cliente pode tirar dúvidas gerais e ser encaminhado ao operador para cadastro.',
           'Proteja a privacidade, não mostre CPF completo nem IDs internos. Não ameace, constranja, revele dívida a terceiros ou confirme pagamento sem confirmação real.',

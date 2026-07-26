@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
       }
       if (saysGoodbye && savedSession?.client_id) {
         const conversationId = crypto.randomUUID();
-        const retainUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const retainUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
         const { error: endError } = await supabase.from("n8n_client_sessions")
           .update({ expires_at: retainUntil, updated_at: new Date().toISOString(), conversation_id: conversationId })
           .eq("profile_id", organizationId)
@@ -366,6 +366,18 @@ Deno.serve(async (req) => {
       const portalLink = portalContract
         ? `${appOrigin}/?portal=${encodeURIComponent(portalContract.portal_token)}&portal_code=${encodeURIComponent(portalContract.portal_shortcode)}`
         : null;
+      let portalShortLink: string | null = null;
+      if (portalLink) {
+        const shortCode = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+        const shortLink = await supabase.from("n8n_short_links").insert({
+          code: shortCode,
+          profile_id: organizationId,
+          target_url: portalLink,
+        });
+        portalShortLink = shortLink.error
+          ? portalLink
+          : `${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-short-link?c=${shortCode}`;
+      }
 
       const disputesAmount = /\b(discordo|errado|incorreto|n[aã]o concordo|valor diferente|contestar|revisar|revis[aã]o)\b/i.test(message);
       if (disputesAmount) {
@@ -501,7 +513,8 @@ Deno.serve(async (req) => {
           late_fee_due_display: moneyBr(safe.late_fee_due),
           total_due_display: moneyBr(safe.total_due),
         })),
-        portal_link: portalLink,
+        portal_link: portalShortLink || portalLink,
+        portal_original_link: portalLink,
         payment_link: paymentLink,
         payment_link_error: paymentLinkError,
         payment_requested: wantsDetailsOrPayment,

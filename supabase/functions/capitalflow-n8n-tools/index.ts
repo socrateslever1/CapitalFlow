@@ -354,9 +354,12 @@ Deno.serve(async (req) => {
 
       const wantsPayment = /\b(pagar|pagamento|link de pagamento|pix|checkout|quitar)\b/i.test(message)
         && !/\b(n[aã]o|depois|agora n[aã]o)\b/i.test(message);
+      const normalizedPaymentIntent = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const wantsDetailsOrPayment = wantsPayment
+        || /^(sim|isso|quero|pode|pode ser|manda|envia|ok|certo|detalhes|ver detalhes|saber mais)\b/.test(normalizedPaymentIntent);
       let paymentLink: string | null = null;
       let paymentLinkError: string | null = null;
-      const shouldPreparePaymentLink = pending.length > 0;
+      const shouldPreparePaymentLink = pending.length > 0 && wantsDetailsOrPayment;
       if (shouldPreparePaymentLink) {
         const target = pending[0];
         const targetContract = activeContracts.find((contract) => contract.id === target._loan_id);
@@ -477,7 +480,7 @@ Deno.serve(async (req) => {
         portal_link: portalLink,
         payment_link: paymentLink,
         payment_link_error: paymentLinkError,
-        payment_requested: wantsPayment,
+        payment_requested: wantsDetailsOrPayment,
         operator_contact: operatorContact,
       });
     }

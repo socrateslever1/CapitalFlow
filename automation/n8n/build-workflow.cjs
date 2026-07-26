@@ -75,7 +75,7 @@ const adminGateNode = {
 };
 
 const adminReplyNode = {
-  parameters: { jsCode: 'return [{ json: { reply: String($json.reply || "Comando administrativo processado.").slice(0, 1800) } }];' },
+  parameters: { jsCode: 'return [{ json: { reply: String($json.reply || "Comando administrativo processado.").slice(0, 3500) } }];' },
   id: 'capitalflow-admin-reply',
   name: 'Admin Reply',
   type: 'n8n-nodes-base.code',

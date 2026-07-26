@@ -156,6 +156,7 @@ function detectIntent(raw: string) {
   if (/\b(resumo|carteira|painel)\b/.test(message)) return "portfolio";
   if (/\b(quem cobrar|quem eu cobro|quem eu devo cobrar|quem devo cobrar|quem cobrar primeiro|quem eu devo cobrar primeiro|prioridade de cobranca|prioridades de cobranca|prioridade de cobrança|prioridades de cobrança|cobrancas de hoje|cobranças de hoje|resumo de cobranca|resumo de cobrança)\b/.test(message)) return "collection_brief";
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
+  if (/^(proxima pagina|proxima|mais|continuar|ver mais|mostrar mais)$/.test(message)) return "list_next_page";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
   if (/\b(d.?vida|debitos?|parcelas? abertas?|saldo devedor)\b/.test(message) || /^(?:quanto|o que)\s+.+\s+(?:ainda\s+)?deve\b/.test(message)) return "debt";
@@ -185,6 +186,7 @@ const adminIntentSet = new Set([
   "portfolio",
   "collection_brief",
   "due_today",
+  "list_next_page",
   "charge_selection",
   "overdue",
   "debt",
@@ -648,6 +650,132 @@ async function operatorCollectionBrief(adminDb: any, profileId: string, adminNam
 
   return `${greeting}, ${adminName}. Eu sou o *JARVIS*.\n\nEstou à disposição para operar o CapitalFlow e já conferi quem precisa de cobrança.\n\n📊 *Resumo para cobrar agora*\n• Atrasados: *${overdue.length}* — ${money(overdueTotal)}\n• Vencem hoje: *${dueToday.length}* — ${money(dueTodayTotal)}\n\n${priorityLines ? `*Prioridade*\n${priorityLines}\n\n` : "Sem cobranças prioritárias abertas agora.\n\n"}Comandos rápidos:\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *vencem hoje*\n• *atrasados*`;
 }
+function daysBetween(fromDate: string, toDate: string) {
+  const from = new Date(`${String(fromDate).slice(0, 10)}T00:00:00-04:00`).getTime();
+  const to = new Date(`${String(toDate).slice(0, 10)}T00:00:00-04:00`).getTime();
+  return Math.max(0, Math.floor((to - from) / 86400000));
+}
+
+function renderChargeSelectionList(title: string, items: any[], page = 1, pageSize = 20) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const totalPages = Math.max(1, Math.ceil(safeItems.length / pageSize));
+  const currentPage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const visible = safeItems.slice(start, start + pageSize);
+  const total = safeItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const lines = visible.map((item, index) => {
+    const number = start + index + 1;
+    const late = Number(item.days_late || 0);
+    const delay = late > 0 ? `${late} dia${late === 1 ? "" : "s"} atraso` : `vence ${dateBr(item.due_date)}`;
+    const contractCode = String(item.loan_id || "").slice(0, 6).toUpperCase();
+    const installment = item.installment_number ? ` p.${item.installment_number}` : "";
+    return `${number}. ${item.name || "Cliente"} — ${money(item.amount)} — ${delay} — #${contractCode}${installment}`;
+  }).join("\n");
+  const footer = currentPage < totalPages
+    ? "\n\nResponda *próxima página* para continuar vendo a lista."
+    : "\n\nFim da lista.";
+
+  return `${title}\n\n📊 Total listado: *${safeItems.length}* contrato${safeItems.length === 1 ? "" : "s"}\n💰 Valor atualizado: *${money(total)}*\nPágina ${currentPage}/${totalPages}\n\n${lines}${footer}\n\nPara cobrar, responda:\n• *cobre 1*\n• *cobre 1, 3*\n• *cobre todos*`;
+}
+
+async function saveChargeSelectionList(adminDb: any, profileId: string, admin: any, intent: string, items: any[], pageSize = 20) {
+  await adminDb.from("whatsapp_admin_commands").update({ status: "EXPIRED" })
+    .eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("intent", intent).eq("status", "PENDING");
+  const { error } = await adminDb.from("whatsapp_admin_commands").insert({
+    profile_id: profileId,
+    admin_user_id: admin.id,
+    intent,
+    payload: { items, page: 1, page_size: pageSize },
+    confirmation_code: null,
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+  });
+  if (error) throw error;
+}
+
+async function loadLatestChargeSelectionList(adminDb: any, profileId: string, admin: any) {
+  const { data, error } = await adminDb.from("whatsapp_admin_commands").select("*")
+    .eq("profile_id", profileId)
+    .eq("admin_user_id", admin.id)
+    .in("intent", ["DUE_TODAY_LIST", "OVERDUE_LIST"])
+    .eq("status", "PENDING")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function listOpenInstallments(adminDb: any, profileId: string, mode: "overdue" | "due_today") {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
+  const installments: any[] = [];
+  for (let from = 0; ; from += 1000) {
+    const to = from + 999;
+    let query = adminDb.from("parcelas")
+      .select("id,loan_id,due_date,data_vencimento,numero_parcela,status")
+      .eq("profile_id", profileId)
+      .not("status", "in", `(${paid.map((status) => `"${status}"`).join(",")})`)
+      .range(from, to);
+    query = mode === "due_today"
+      ? query.or(`due_date.eq.${today},data_vencimento.eq.${today}`)
+      : query.or(`due_date.lt.${today},data_vencimento.lt.${today}`);
+    const { data, error } = await query;
+    if (error) throw error;
+    installments.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+
+  const loanIds = [...new Set(installments.map((item) => item.loan_id).filter(Boolean))];
+  const contracts: any[] = [];
+  for (let index = 0; index < loanIds.length; index += 100) {
+    const chunk = loanIds.slice(index, index + 100);
+    const { data, error } = await adminDb.from("contratos")
+      .select("id,client_id,debtor_name,debtor_phone,status")
+      .in("id", chunk)
+      .or(`profile_id.eq.${profileId},owner_id.eq.${profileId}`)
+      .eq("is_archived", false);
+    if (error) throw error;
+    contracts.push(...(data || []));
+  }
+
+  const contractMap = new Map(contracts
+    .filter((item) => !closed.includes(String(item.status || "").toUpperCase()))
+    .map((item) => [item.id, item]));
+
+  const items: any[] = [];
+  for (const installment of installments) {
+    const contract: any = contractMap.get(installment.loan_id);
+    if (!contract) continue;
+    const dueDate = String(installment.data_vencimento || installment.due_date || "").slice(0, 10);
+    if (!dueDate) continue;
+    const calculated = await adminDb.rpc("prepare_installment_for_online_payment", {
+      p_loan_id: installment.loan_id,
+      p_installment_id: installment.id,
+      p_reference_date: today,
+    });
+    if (calculated.error) throw calculated.error;
+    const due = Array.isArray(calculated.data) ? calculated.data[0] : calculated.data;
+    const amount = Number(due?.total_due || 0);
+    if (amount <= 0.05) continue;
+    items.push({
+      name: contract.debtor_name || "Cliente",
+      phone: contract.debtor_phone,
+      loan_id: installment.loan_id,
+      installment_id: installment.id,
+      due_date: dueDate,
+      amount,
+      days_late: Number(due?.days_late ?? daysBetween(dueDate, today)),
+      installment_number: installment.numero_parcela || null,
+    });
+  }
+
+  return items.sort((a, b) =>
+    Number(b.days_late || 0) - Number(a.days_late || 0) ||
+    Number(b.amount || 0) - Number(a.amount || 0) ||
+    String(a.name || "").localeCompare(String(b.name || ""), "pt-BR")
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
@@ -671,7 +799,7 @@ Deno.serve(async (req) => {
     }
     const rawMessage = String(body.message || "").trim().slice(0, 1000);
     const localIntent = detectIntent(rawMessage);
-    const intent = ["confirm", "cancel"].includes(localIntent)
+    const intent = ["confirm", "cancel", "charge_selection", "list_next_page"].includes(localIntent)
       ? localIntent
       : (await classifyAdminIntentWithGemini(rawMessage)) || localIntent;
     const adminName = String(admin.display_name || "Sócrates").trim().split(/\s+/)[0];
@@ -782,6 +910,53 @@ Mensagem do Admin: "${rawMessage}"`;
       return json({ handled: true, admin: true, reply: `Últimas mensagens: ${counts.SENT || 0} enviadas, ${counts.PENDING || 0} pendentes, ${counts.PROCESSING || 0} processando e ${counts.ERROR || 0} com erro.` });
     }
     if (intent === "due_today") {
+      const items = await listOpenInstallments(adminDb, profileId, "due_today");
+      if (!items.length) return json({ handled: true, admin: true, reply: `${adminName}, não há parcelas vencendo hoje.` });
+      await saveChargeSelectionList(adminDb, profileId, admin, "DUE_TODAY_LIST", items);
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(`📅 *Vencem hoje*`, items) });
+    }
+    if (intent === "overdue") {
+      const items = await listOpenInstallments(adminDb, profileId, "overdue");
+      if (!items.length) return json({ handled: true, admin: true, reply: "Não há parcelas vencidas em aberto agora." });
+      await saveChargeSelectionList(adminDb, profileId, admin, "OVERDUE_LIST", items);
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(`⚠️ *Contratos vencidos para cobrança*`, items) });
+    }
+    if (intent === "list_next_page") {
+      const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
+      if (!list) return json({ handled: true, admin: true, reply: "Não há lista aberta. Envie *atrasados* ou *vencem hoje* primeiro." });
+      const items = list.payload?.items || [];
+      const pageSize = Number(list.payload?.page_size || 20);
+      const currentPage = Number(list.payload?.page || 1);
+      const nextPage = currentPage + 1;
+      if ((nextPage - 1) * pageSize >= items.length) {
+        return json({ handled: true, admin: true, reply: "Você já está na última página dessa lista. Para cobrar, responda *cobre 1*, *cobre 1, 3* ou *cobre todos*." });
+      }
+      await adminDb.from("whatsapp_admin_commands").update({ payload: { ...list.payload, page: nextPage } }).eq("id", list.id);
+      const title = list.intent === "OVERDUE_LIST" ? `⚠️ *Contratos vencidos para cobrança*` : `📅 *Vencem hoje*`;
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(title, items, nextPage, pageSize) });
+    }
+    if (intent === "charge_selection") {
+      if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });
+      const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
+      if (!list) return json({ handled: true, admin: true, reply: "A lista venceu ou ainda não foi aberta. Envie *atrasados* ou *vencem hoje* novamente." });
+      const allItems = list.payload?.items || [];
+      const normalized = normalize(rawMessage);
+      const selected = /todos|todas/.test(normalized) ? allItems : [...new Set((normalized.match(/\d+/g) || []).map(Number))].map((number) => allItems[number - 1]).filter(Boolean);
+      if (!selected.length) return json({ handled: true, admin: true, reply: "Não reconheci os números. Exemplo: *cobre 1, 3*." });
+      const names = selected.slice(0, 8).map((item: any) => item.name).join(", ");
+      const suffix = selected.length > 8 ? ` e mais ${selected.length - 8}` : "";
+      const total = selected.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+      const description = list.intent === "OVERDUE_LIST"
+        ? `Enviar cobrança de contrato vencido para ${selected.length} cliente${selected.length === 1 ? "" : "s"} (${names}${suffix}), total de ${money(total)}?`
+        : `Enviar lembrete de vencimento hoje para ${selected.length} cliente${selected.length === 1 ? "" : "s"} (${names}${suffix}), total de ${money(total)}?`;
+      const reply = await createPending(adminDb, profileId, admin, "BATCH_CHARGE", { items: selected }, description);
+      return json({ handled: true, admin: true, reply });
+    }
+    /*
+    Legacy list handlers kept only as historical reference after the unified
+    charge-selection list above. Do not re-enable: overdue and due-today lists
+    must always use persisted, paginated, selectable items.
+    if (false && intent === "due_today") {
       const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
       const { data: installments, error: installmentError } = await adminDb.from("parcelas")
         .select("id,loan_id,due_date,data_vencimento,status").eq("profile_id", profileId)
@@ -832,6 +1007,7 @@ Mensagem do Admin: "${rawMessage}"`;
       const { data: contracts } = await adminDb.from("contratos").select("id,debtor_name").in("id", loanIds).limit(10);
       return json({ handled: true, admin: true, reply: `Atrasados (${loanIds.length} contratos): ${(contracts || []).map((item: any) => item.debtor_name).join(", ")}${loanIds.length > 10 ? " e outros" : ""}.` });
     }
+    */
     const query = targetFrom(normalize(rawMessage), intent);
     const found = await findClient(adminDb, profileId, query);
     if (found.error) return json({ handled: true, admin: true, reply: found.error });

@@ -128,11 +128,23 @@ Deno.serve(async (req) => {
       const suppliedDigits = digits(message);
       const suppliedCode = /^[a-z0-9-]{3,30}$/i.test(message) && /\d/.test(message) ? message : null;
       const hasExplicitIdentity = suppliedDigits.length === 11 || Boolean(suppliedCode);
+      const plainMessage = normalizedMessage.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const requestsIdentityReset = /^(trocar usuario|trocar cliente|esquecer cliente|reiniciar atendimento|comecar de novo|reiniciar conversa|outro cliente)$/i
+        .test(plainMessage)
+        || (/\b(trocar|mudar|alterar|outro|outra|reiniciar|recomecar|comecar de novo|esquecer)\b.*\b(cliente|usuario|cadastro|cpf|conversa|atendimento|dados?)\b|\b(esse nao sou eu|essa pessoa nao sou eu|pessoa errada)\b/i
+          .test(plainMessage) && !hasExplicitIdentity);
+      const saysGoodbye = /^(tchau|xau|chau|ate mais|ate logo|falou|flw|valeu|vlw|ok|blz|beleza|ta bom|ta certo|combinado|bom dia|boa tarde|boa noite|obrigado|obrigada|ok obrigado|ok obrigada|era isso|por enquanto e so|resolvido|finalizar|encerrar|encerrar conversa|finalizar conversa|sair)$/i
+        .test(plainMessage);
       const wantsIdentityChange = /\b(trocar|mudar|alterar|outro|outra|reiniciar|recomeçar|começar de novo|esquecer)\b.*\b(cliente|usuário|cadastro|cpf|conversa|atendimento|dados?)\b|\b(esse não sou eu|essa pessoa não sou eu|pessoa errada)\b/i
         .test(normalizedMessage);
       const endsConversation = /^(encerrar|encerrar conversa|finalizar conversa|sair|trocar usuário|trocar cliente|esquecer cliente|reiniciar atendimento|começar de novo)$/i
         .test(normalizedMessage) || (wantsIdentityChange && !hasExplicitIdentity);
-      if (endsConversation) {
+      const savedSessionResult = await supabase.from("n8n_client_sessions")
+        .select("client_id, conversation_id").eq("profile_id", organizationId).eq("phone_hash", phoneHash)
+        .gt("expires_at", new Date().toISOString()).maybeSingle();
+      if (savedSessionResult.error) throw savedSessionResult.error;
+      let savedSession = savedSessionResult.data;
+      if (requestsIdentityReset) {
         const { error: endError } = await supabase.from("n8n_client_sessions")
           .delete().eq("profile_id", organizationId).eq("phone_hash", phoneHash);
         if (endError) throw endError;
@@ -144,12 +156,23 @@ Deno.serve(async (req) => {
           operator_contact: operatorContact,
         });
       }
-
-      const savedSessionResult = await supabase.from("n8n_client_sessions")
-        .select("client_id, conversation_id").eq("profile_id", organizationId).eq("phone_hash", phoneHash)
-        .gt("expires_at", new Date().toISOString()).maybeSingle();
-      if (savedSessionResult.error) throw savedSessionResult.error;
-      let savedSession = savedSessionResult.data;
+      if (saysGoodbye && savedSession?.client_id) {
+        const conversationId = crypto.randomUUID();
+        const retainUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const { error: endError } = await supabase.from("n8n_client_sessions")
+          .update({ expires_at: retainUntil, updated_at: new Date().toISOString(), conversation_id: conversationId })
+          .eq("profile_id", organizationId)
+          .eq("phone_hash", phoneHash);
+        if (endError) throw endError;
+        await supabase.from("n8n_message_events").update({ status: "PROCESSED" })
+          .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
+        return json({
+          status: "session_ended",
+          conversation_id: conversationId,
+          retain_until: retainUntil,
+          operator_contact: operatorContact,
+        });
+      }
 
       let clients: Array<{ id: string; name: string }> = [];
       let matchedBy = "PHONE";

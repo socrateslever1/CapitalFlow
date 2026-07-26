@@ -18,7 +18,7 @@ const librarySource = fs
   .replace(/^'use strict';\s*/, '')
   .replace(/module\.exports\s*=\s*\{[^}]+\};?\s*$/, '');
 
-const farewellInstruction = 'Se a mensagem do cliente for despedida ou encerramento curto como tchau, xau, chau, ate mais, ate logo, falou, flw, valeu, vlw, ok, blz, beleza, ta bom, ta certo, combinado, bom dia, boa tarde, boa noite, obrigado, obrigada, era isso, resolvido, finalizar, encerrar ou sair, responda somente: Conversa encerrada. Se precisar do portal novamente, e so pedir por aqui.';
+const farewellInstruction = 'Nao encerre a conversa por despedida comum, cumprimento, ok, blz, obrigado ou resposta curta. So trate como encerramento quando o cliente pedir explicitamente: encerrar, encerrar conversa, finalizar, finalizar conversa ou sair. Fora disso, mantenha o atendimento ativo e responda ao contexto.';
 
 const code = `${librarySource}
 let tenantMap = {};
@@ -119,7 +119,7 @@ const localAiRequestNode = {
     sendBody: true,
     contentType: 'raw',
     rawContentType: 'application/json',
-    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Converse em portugues como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode encerrar, reiniciar ou trocar de cliente quando quiser. Se a mensagem for despedida ou encerramento curto como tchau, xau, ok, blz, ta bom, bom dia, boa tarde ou boa noite, encerre em uma frase curta. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, conduza para o portal do cliente; nunca envie link direto de pagamento externo. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto disponivel: " + JSON.stringify($("Admin Command").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}',
+    body: '={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || "qwen3-4b-instruct", messages: [{ role: "system", content: "Converse em portugues como um atendente humano, direto e natural. Responda em no maximo duas frases, salvo quando precisar incluir um link. Dados financeiros devem vir exclusivamente dos campos *_display do contexto atual; memoria de conversa nunca e fonte financeira. Nunca converta 1,30 em 1.300 nem 2,59 em 2.590. Nao invente valores, datas, atrasos ou links. Para consulta financeira sem identificacao, peca CPF ou codigo uma unica vez e explique o motivo em uma frase. A pessoa pode reiniciar ou trocar de cliente quando quiser. Nao encerre a conversa por despedida comum, cumprimento, agradecimento, concordancia ou resposta curta. So encerre se ela pedir explicitamente encerrar, encerrar conversa, finalizar, finalizar conversa ou sair. Emprestimo so entra na conversa se a pessoa pedir; nesse caso, encaminhe ao operador sem prometer aprovacao. Se houver divida, conduza para o portal do cliente; nunca envie link direto de pagamento externo. Preserve privacidade, nao ameace nem constranja e nao revele detalhes internos do sistema. Nada de renegociar, em hipotese alguma citar essa opcao." }, { role: "user", content: "Mensagem do cliente: " + $("Normalize and Filter").item.json.message + "\\nContexto disponivel: " + JSON.stringify($("Admin Command").item.json) }], temperature: 0.25, max_tokens: 260, stream: false }) }}',
     options: { timeout: 30000 },
   },
   id: 'capitalflow-local-ai-request',
@@ -197,6 +197,20 @@ const clientName = context.client?.display_name ? context.client.display_name.sp
 const pending = Array.isArray(context.pending) ? context.pending : [];
 const first = pending[0];
 const openContractCount = new Set(pending.map((item) => item.contract_reference).filter(Boolean)).size || (context.contracts || []).filter((item) => item.has_pending_installment).length || pending.length || 1;
+const listContracts = () => {
+  const contracts = Array.isArray(context.contracts) ? context.contracts : [];
+  const pendingByRef = new Map(pending.map((item) => [item.contract_reference, item]));
+  const rows = contracts.slice(0, 5).map((contract) => {
+    const inst = pendingByRef.get(contract.reference);
+    const due = inst?.due_date ? " venc. " + formatDate(inst.due_date) : "";
+    const amount = inst?.total_due_display || contract.total_to_receive_display || contract.principal_display || "";
+    const late = Number(inst?.days_late || 0);
+    const status = late > 0 ? "atrasado há " + late + (late === 1 ? " dia" : " dias") : (inst ? "em aberto" : String(contract.status || "ativo").toLowerCase());
+    return contract.reference + ". " + amount + " — " + status + due;
+  });
+  const suffix = contracts.length > 5 ? "\\n\\nMostrei os 5 primeiros. Para ver tudo, acesse o portal." : "";
+  return clientName + ", encontrei " + contracts.length + " " + (contracts.length === 1 ? "contrato" : "contratos") + " no seu cadastro:\\n" + rows.join("\\n") + suffix + (context.portal_link ? "\\n\\nPortal do cliente:\\n" + context.portal_link : "");
+};
 
 if (context.status === "session_ended") {
   output = "Conversa encerrada. Se precisar do portal novamente, \\u00e9 s\\u00f3 pedir por aqui.";
@@ -215,13 +229,16 @@ if (context.status === "session_ended") {
 } else if (context.status === "identified") {
   if (first) {
     const refusesDetails = /^(n|nao|agora nao|depois|nao quero|nao preciso|nao precisa|deixa|deixa pra depois|mais tarde)\\b/.test(normalizedMessage);
-    const wantsDetails = !refusesDetails && (context.payment_requested === true || /\\b(sim|quero|pode|manda|envia|ok|certo|detalhes|saber mais|pagar|pagamento|pix|quitar|contrato|parcela|pendencia|pendente|quem e|quem eh|do que)\\b/.test(normalizedMessage));
+    const asksContractsList = /\\b(ver|listar|mostrar|mostre|quero ver)\\b[\\s\\S]*\\b(contratos?|detalh)/.test(normalizedMessage) || /\\b(contratos?|detalh)\\b/.test(normalizedMessage);
+    const wantsDetails = !refusesDetails && (context.payment_requested === true || /\\b(sim|quero|pode|manda|envia|ok|certo|detalh|saber mais|pagar|pagamento|pix|quitar|contratos?|parcelas?|pendencia|pendente|quem e|quem eh|do que)\\b/.test(normalizedMessage));
     const late = Number(first.days_late || 0);
     const dueText = late > 0
       ? "venceu em " + formatDate(first.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso")
       : "vence em " + formatDate(first.due_date);
     if (refusesDetails) {
       output = "Certo. Se precisar consultar o portal depois, \\u00e9 s\\u00f3 pedir por aqui.";
+    } else if (asksContractsList && (context.contracts || []).length > 1) {
+      output = listContracts();
     } else if (!wantsDetails) {
       output = greeting() + ", " + clientName + ". Encontrei " + openContractCount + " " + (openContractCount === 1 ? "contrato em aberto" : "contratos em aberto") + " no seu cadastro. Deseja ver os detalhes?";
     } else if (context.portal_link) {
@@ -272,14 +289,31 @@ let reply = raw;
 const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
 const farewellReply = "Conversa encerrada. Se precisar do portal novamente, \\u00e9 s\\u00f3 pedir por aqui.";
 const refusalReply = "Certo. Se precisar consultar o portal depois, \\u00e9 s\\u00f3 pedir por aqui.";
-const isFarewellMessage = /^(tchau|xau|chau|ate mais|ate logo|falou|flw|valeu|vlw|ok|blz|beleza|ta bom|ta certo|combinado|bom dia|boa tarde|boa noite|obrigado|obrigada|ok obrigado|ok obrigada|era isso|por enquanto e so|resolvido|finalizar|encerrar|encerrar conversa|finalizar conversa|sair)$/i.test(normalizedCustomerMessage);
+const isFarewellMessage = /^(encerrar|encerrar conversa|finalizar|finalizar conversa|sair)$/i.test(normalizedCustomerMessage);
 const refusesDetails = /^(n|nao|agora nao|depois|nao quero|nao preciso|nao precisa|deixa|deixa pra depois|mais tarde)\\b/.test(normalizedCustomerMessage);
 const asksLoan = /\\bemprestimo\\b|\\bemprestar\\b|\\bme empresta\\b|\\bcredito\\b/.test(normalizedCustomerMessage);
 const asksPayment = /\\bpagar\\b|\\bpagamento\\b|\\bquitar\\b|\\bpix\\b|\\blink\\b/.test(normalizedCustomerMessage) && !/\\bnao\\b|\\bdepois\\b|\\bagora nao\\b/.test(normalizedCustomerMessage);
-const asksDebtStatus = /\\bdivida\\b|\\bparcela\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b|\\bcontrato\\b|\\bpendencia\\b|\\bpendente\\b|\\bquem e\\b|\\bquem eh\\b|\\bdo que\\b/.test(normalizedCustomerMessage);
-const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo|contrato|parcela)\\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\\bjuros\\b/.test(normalizedCustomerMessage) && !/\\b(total|parcela|divida|pagamento|pagar tudo)\\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\\d/.test(customerMessage);
+const asksDebtStatus = /\\bdivida\\b|\\bparcelas?\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b|\\bcontratos?\\b|\\bdetalh|\\bpendencia\\b|\\bpendente\\b|\\bquem e\\b|\\bquem eh\\b|\\bdo que\\b/.test(normalizedCustomerMessage);
+const asksContractsList = /\\b(ver|listar|mostrar|mostre|quero ver)\\b[\\s\\S]*\\b(contratos?|detalh)/.test(normalizedCustomerMessage) || /\\b(contratos?|detalh)\\b/.test(normalizedCustomerMessage);
+const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo|contratos?|parcelas?)\\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\\bjuros\\b/.test(normalizedCustomerMessage) && !/\\b(total|parcela|divida|pagamento|pagar tudo)\\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\\d/.test(customerMessage);
 const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
 const duePhrase = (item) => { const late = Number(item?.days_late || 0); return late > 0 ? "venceu em " + formatDate(item?.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso") : "vence em " + formatDate(item?.due_date); };
+const renderContractList = () => {
+  const contracts = Array.isArray(context.contracts) ? context.contracts : [];
+  const pending = Array.isArray(context.pending) ? context.pending : [];
+  const pendingByRef = new Map(pending.map((item) => [item.contract_reference, item]));
+  const rows = contracts.slice(0, 5).map((contract) => {
+    const inst = pendingByRef.get(contract.reference);
+    const due = inst?.due_date ? " venc. " + formatDate(inst.due_date) : "";
+    const amount = inst?.total_due_display || contract.total_to_receive_display || contract.principal_display || "";
+    const late = Number(inst?.days_late || 0);
+    const status = late > 0 ? "atrasado há " + late + (late === 1 ? " dia" : " dias") : (inst ? "em aberto" : String(contract.status || "ativo").toLowerCase());
+    return contract.reference + ". " + amount + " — " + status + due;
+  });
+  const name = context.client?.display_name ? context.client.display_name.split(" ")[0] : "cliente";
+  const suffix = contracts.length > 5 ? "\\n\\nMostrei os 5 primeiros. Para ver tudo, acesse o portal." : "";
+  return name + ", encontrei " + contracts.length + " " + (contracts.length === 1 ? "contrato" : "contratos") + " no seu cadastro:\\n" + rows.join("\\n") + suffix + (context.portal_link ? "\\n\\nPortal do cliente:\\n" + context.portal_link : "");
+};
 if (context.status === "session_ended" || (context.status === "identified" && isFarewellMessage)) {
   reply = farewellReply;
 } else if (context.status === "identified" && refusesDetails) {
@@ -298,6 +332,8 @@ if (context.status === "session_ended" || (context.status === "identified" && is
   reply = context.operator_contact?.whatsapp_url
     ? "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano. Fale por aqui: " + context.operator_contact.whatsapp_url
     : "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano.";
+} else if (context.status === "identified" && asksContractsList && (context.contracts || []).length > 1) {
+  reply = renderContractList();
 } else if (context.status === "identified" && (asksPayment || (isAffirmative && pendingInstallment)) && !asksInterestOnly) {
   const link = context.portal_link;
   reply = pendingInstallment && link
@@ -329,7 +365,8 @@ if ($json.error && !reply) {
     ? "Nosso atendimento automático está instável neste momento. Você pode falar com o operador por aqui: " + context.operator_contact.whatsapp_url
     : "Nosso atendimento automático está instável neste momento. Tente novamente em alguns minutos.";
 }
-if (!reply || forbidden.test(reply) || unlawfulOrAbusive.test(reply)) {
+const safetyText = String(reply || "").replace(new RegExp("https?://[^ ]+", "g"), "[link]");
+if (!reply || forbidden.test(safetyText) || unlawfulOrAbusive.test(safetyText)) {
   if (context.status === "ambiguous") reply = "Encontrei mais de um cadastro com esses dados. Para sua segurança, informe o código do cliente.";
   else if (context.status === "lead_registered") reply = context.operator_contact?.whatsapp_url
     ? "Entendi. Esse assunto é tratado diretamente pelo operador. Você pode falar com ele por aqui: " + context.operator_contact.whatsapp_url

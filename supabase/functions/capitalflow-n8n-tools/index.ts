@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
         .test(plainMessage)
         || (/\b(trocar|mudar|alterar|outro|outra|reiniciar|recomecar|comecar de novo|esquecer)\b.*\b(cliente|usuario|cadastro|cpf|conversa|atendimento|dados?)\b|\b(esse nao sou eu|essa pessoa nao sou eu|pessoa errada)\b/i
           .test(plainMessage) && !hasExplicitIdentity);
-      const saysGoodbye = /^(tchau|xau|chau|ate mais|ate logo|falou|flw|valeu|vlw|ok|blz|beleza|ta bom|ta certo|combinado|bom dia|boa tarde|boa noite|obrigado|obrigada|ok obrigado|ok obrigada|era isso|por enquanto e so|resolvido|finalizar|encerrar|encerrar conversa|finalizar conversa|sair)$/i
+      const saysGoodbye = /^(encerrar|encerrar conversa|finalizar|finalizar conversa|sair)$/i
         .test(plainMessage);
       const wantsIdentityChange = /\b(trocar|mudar|alterar|outro|outra|reiniciar|recomeçar|começar de novo|esquecer)\b.*\b(cliente|usuário|cadastro|cpf|conversa|atendimento|dados?)\b|\b(esse não sou eu|essa pessoa não sou eu|pessoa errada)\b/i
         .test(normalizedMessage);
@@ -376,7 +376,7 @@ Deno.serve(async (req) => {
         });
         portalShortLink = shortLink.error
           ? portalLink
-          : `${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-short-link?c=${shortCode}`;
+          : portalLink;
       }
 
       const disputesAmount = /\b(discordo|errado|incorreto|n[aã]o concordo|valor diferente|contestar|revisar|revis[aã]o)\b/i.test(message);
@@ -469,7 +469,7 @@ Deno.serve(async (req) => {
               });
               paymentLink = shortLink.error
                 ? String(checkoutUrl)
-                : `${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-short-link?c=${shortCode}`;
+                : String(checkoutUrl);
             }
           } else {
             paymentLinkError = String(checkout?.code || checkout?.error || `checkout_http_${checkoutResponse.status}`).slice(0, 160);

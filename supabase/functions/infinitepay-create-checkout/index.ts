@@ -39,6 +39,12 @@ function roundMoney(value: unknown) {
   return Math.round((numeric + Number.EPSILON) * 100) / 100;
 }
 
+async function sha256(value: string) {
+  const data = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 async function readResponseBody(response: Response) {
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -73,6 +79,7 @@ serve(async (req) => {
       portal_token,
       portal_code,
       return_url,
+      profile_id,
     } = body || {};
 
     const requestedAmount = Number(amount || 0);
@@ -120,6 +127,21 @@ serve(async (req) => {
       }
 
       isAuthorized = true;
+    }
+
+    const internalSecret = req.headers.get("x-capitalflow-secret") || "";
+    if (!isAuthorized && internalSecret.length >= 32 && profile_id) {
+      const { data: internalIntegration } = await supabaseAdmin
+        .from("n8n_automation_integrations")
+        .select("profile_id")
+        .eq("profile_id", profile_id)
+        .eq("secret_hash", await sha256(internalSecret))
+        .eq("active", true)
+        .maybeSingle();
+      if (internalIntegration?.profile_id) {
+        callerProfileId = String(internalIntegration.profile_id);
+        isAuthorized = true;
+      }
     }
 
     if (!isAuthorized && !isInternalServiceCall) {

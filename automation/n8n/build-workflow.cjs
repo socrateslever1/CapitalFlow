@@ -141,7 +141,7 @@ const rawReply = String(
 ).trim();
 const reply = rawReply.replace(/<think>[\\s\\S]*?<\\/think>/gi, "").trim();
 
-const semanticFailure = (value) => {\n  const normalized = String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();\n  return /\bnao entendi\b|\bnao compreendi\b|\bnao consegui entender\b|\bnao consegui identificar\b|\bnao foi possivel entender\b|\bexplique melhor sua (mensagem|solicitacao)\b|\breformule sua (mensagem|solicitacao)\b/.test(normalized);\n};\n\nif (!reply || /<think>/i.test(reply) || semanticFailure(reply)) {
+const semanticFailure = (value) => {\n  const normalized = String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();\n  return /\\bnao entendi\\b|\\bnao compreendi\\b|\\bnao consegui entender\\b|\\bnao consegui identificar\\b|\\bnao foi possivel entender\\b|\\bexplique melhor sua (mensagem|solicitacao)\\b|\\breformule sua (mensagem|solicitacao)\\b/.test(normalized);\n};\n\nif (!reply || /<think>/i.test(reply) || semanticFailure(reply)) {
   throw new Error("A IA local nao produziu uma resposta final segura.");
 }
 
@@ -251,11 +251,11 @@ const currentContract = context.current_contract || null;
 const pendingInstallment = Array.isArray(context.pending) ? context.pending[0] : null;
 const asksContractValue = /\\b(valor|quanto|total|saldo)\\b[\\s\\S]*\\b(contrato|parcela|d.?vida|devo)\\b|\\b(contrato|parcela|d.?vida)\\b[\\s\\S]*\\b(valor|quanto|total|saldo)\\b/i.test(customerMessage);
 let reply = raw;
-const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const asksLoan = /\bemprestimo\b|\bemprestar\b|\bme empresta\b|\bcredito\b/.test(normalizedCustomerMessage);
-const asksPayment = /\bpagar\b|\bpagamento\b|\bquitar\b|\bpix\b|\blink\b/.test(normalizedCustomerMessage) && !/\bnao\b|\bdepois\b|\bagora nao\b/.test(normalizedCustomerMessage);
-const asksDebtStatus = /\bd[iÃ­]vida\b|\bparcela\b|\bvenc(e|imento)\b|\batras(o|ada)\b|\bjuros\b/.test(normalizedCustomerMessage);
-const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo)\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\bjuros\b/.test(normalizedCustomerMessage) && !/\b(total|parcela|divida|pagamento|pagar tudo)\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\d/.test(customerMessage);
+const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
+const asksLoan = /\\bemprestimo\\b|\\bemprestar\\b|\\bme empresta\\b|\\bcredito\\b/.test(normalizedCustomerMessage);
+const asksPayment = /\\bpagar\\b|\\bpagamento\\b|\\bquitar\\b|\\bpix\\b|\\blink\\b/.test(normalizedCustomerMessage) && !/\\bnao\\b|\\bdepois\\b|\\bagora nao\\b/.test(normalizedCustomerMessage);
+const asksDebtStatus = /\\bdivida\\b|\\bparcela\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b/.test(normalizedCustomerMessage);
+const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo)\\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\\bjuros\\b/.test(normalizedCustomerMessage) && !/\\b(total|parcela|divida|pagamento|pagar tudo)\\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\\d/.test(customerMessage);
 const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
 if (context.status === "lead_registered") {
   reply = context.operator_contact?.whatsapp_url

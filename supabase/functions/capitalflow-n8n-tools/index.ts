@@ -9,11 +9,13 @@ const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const closedStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO", "RENEGOCIADO"];
 const paidInstallmentStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO"];
+const infinitePayLinksUrl = "https://api.checkout.infinitepay.io/links";
 const moneyBr = (value: unknown) => new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
   minimumFractionDigits: 2,
 }).format(Number(value || 0));
+const cents = (value: unknown) => Math.round(Number(value || 0) * 100);
 
 async function sha256(value: string) {
   const data = new TextEncoder().encode(value);
@@ -107,7 +109,7 @@ Deno.serve(async (req) => {
       let clients: Array<{ id: string; name: string }> = [];
       let matchedBy = "PHONE";
 
-      if (savedSession?.client_id && !wantsIdentityChange) {
+      if (savedSession?.client_id && !wantsIdentityChange && !hasExplicitIdentity) {
         const saved = await supabase.from("clientes").select("id, name")
           .eq("owner_id", organizationId).eq("id", savedSession.client_id).maybeSingle();
         if (saved.data) {
@@ -226,11 +228,12 @@ Deno.serve(async (req) => {
       if (clients.length > 1) return json({ status: "ambiguous", request: "cpf_or_client_code" });
 
       const client = clients[0];
+      const verifiedBy = ["PHONE", "CPF", "CODE", "NAME"].includes(matchedBy) ? matchedBy : "PHONE";
       const sessionResult = await supabase.from("n8n_client_sessions").upsert({
         profile_id: organizationId,
         phone_hash: phoneHash,
         client_id: client.id,
-        verified_by: matchedBy,
+        verified_by: verifiedBy,
         expires_at: new Date(Date.now() + 86400000).toISOString(),
         updated_at: new Date().toISOString(),
       }).select("conversation_id").single();
@@ -308,41 +311,89 @@ Deno.serve(async (req) => {
       const wantsPayment = /\b(pagar|pagamento|link de pagamento|pix|checkout|quitar)\b/i.test(message)
         && !/\b(n[aã]o|depois|agora n[aã]o)\b/i.test(message);
       let paymentLink: string | null = null;
-      const shouldPreparePaymentLink = pending.length > 0;
+      let paymentLinkError: string | null = null;
+      const shouldPreparePaymentLink = pending.length > 0 && (wantsPayment || hasExplicitIdentity);
       if (shouldPreparePaymentLink) {
         const target = pending[0];
         const targetContract = activeContracts.find((contract) => contract.id === target._loan_id);
         if (targetContract?.portal_token && targetContract.portal_shortcode) {
-          const checkoutResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/infinitepay-create-checkout`, {
+          const { data: config } = await supabase
+            .from("perfis_config_infinitepay")
+            .select("infinitepay_handle")
+            .eq("profile_id", organizationId)
+            .maybeSingle();
+          const handle = String(config?.infinitepay_handle || Deno.env.get("INFINITEPAY_HANDLE") || "").trim().replace(/^[@$]+/, "");
+          if (!handle) {
+            paymentLinkError = "HANDLE_NOT_CONFIGURED";
+          } else {
+            const orderNsu = crypto.randomUUID();
+            const checkoutResponse = await fetch(infinitePayLinksUrl, {
             method: "POST",
-            headers: {
-              "content-type": "application/json",
-              "authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
-            },
+            headers: { "content-type": "application/json" },
             body: JSON.stringify({
-              amount: target.total_due,
-              payer_name: client.name,
-              payer_phone: phone,
-              loan_id: target._loan_id,
-              installment_id: target._installment_id,
-              portal_token: targetContract.portal_token,
-              portal_code: targetContract.portal_shortcode,
-              return_url: portalLink || appOrigin,
+              handle,
+              redirect_url: portalLink || appOrigin,
+              webhook_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/infinitepay-webhook`,
+              order_nsu: orderNsu,
+              items: [{
+                quantity: 1,
+                price: cents(target.total_due),
+                description: `Pagamento de parcela - Contrato ${String(target._loan_id).slice(0, 8)}`,
+              }],
+              customer: {
+                name: client.name,
+                email: "cliente@capitalflow.app",
+                phone_number: phone,
+              },
             }),
           });
           const checkout = await checkoutResponse.json().catch(() => null);
-          if (checkoutResponse.ok && checkout?.ok && checkout.checkout_url) {
-            const shortCode = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
-            const shortLink = await supabase.from("n8n_short_links").insert({
-              code: shortCode,
-              profile_id: organizationId,
-              target_url: String(checkout.checkout_url),
-            });
-            paymentLink = shortLink.error
-              ? String(checkout.checkout_url)
-              : `${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-short-link?c=${shortCode}`;
+            const checkoutUrl = checkout?.url || checkout?.checkout_url;
+          if (checkoutResponse.ok && checkoutUrl) {
+              const chargeResult = await supabase.from("payment_charges").insert({
+                provider: "INFINITEPAY",
+                provider_payment_id: null,
+                status: "PENDING",
+                loan_id: target._loan_id,
+                installment_id: target._installment_id,
+                amount: Number(target.total_due || 0),
+                currency: "BRL",
+                external_reference: orderNsu,
+                payer_name: client.name,
+                checkout_url: String(checkoutUrl),
+                provider_payload: {
+                  provider: "INFINITEPAY",
+                  handle,
+                  order_nsu: orderNsu,
+                  profile_id: organizationId,
+                  client_id: client.id,
+                  checkout_url: String(checkoutUrl),
+                  calculation_reference_date: new Date().toISOString().slice(0, 10),
+                  principal_due: target.principal_due,
+                  interest_due: target.interest_due,
+                  late_fee_due: target.late_fee_due,
+                  days_late: target.days_late,
+                },
+              });
+            if (chargeResult.error) {
+              paymentLinkError = `charge_record_failed:${chargeResult.error.code || "unknown"}`;
+            } else {
+              const shortCode = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+              const shortLink = await supabase.from("n8n_short_links").insert({
+                code: shortCode,
+                profile_id: organizationId,
+                target_url: String(checkoutUrl),
+              });
+              paymentLink = shortLink.error
+                ? String(checkoutUrl)
+                : `${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-short-link?c=${shortCode}`;
+            }
+          } else {
+            paymentLinkError = String(checkout?.code || checkout?.error || `checkout_http_${checkoutResponse.status}`).slice(0, 160);
           }
+          }
+        } else {
+          paymentLinkError = "portal_credentials_unavailable";
         }
       }
 
@@ -381,6 +432,7 @@ Deno.serve(async (req) => {
         })),
         portal_link: portalLink,
         payment_link: paymentLink,
+        payment_link_error: paymentLinkError,
         payment_requested: wantsPayment,
         operator_contact: operatorContact,
       });

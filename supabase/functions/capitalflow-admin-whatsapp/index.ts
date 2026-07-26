@@ -150,6 +150,7 @@ function detectIntent(raw: string) {
   const message = normalize(raw);
   if (/^(jarvis|chama jarvis|ei jarvis|oi jarvis|ola jarvis|bom dia jarvis|boa tarde jarvis|boa noite jarvis)$/.test(message)) return "greeting";
   if (/^(oi|ola|bom dia|boa tarde|boa noite|fala|e ai)$/.test(message)) return "greeting";
+  if (/\b(fala|opa|e ai)\b/.test(message) && /\b(mano|jarvis|ta por ai|esta por ai|por ai)\b/.test(message)) return "greeting";
   if (/^(ajuda|comandos|menu|o que voce faz)$/.test(message)) return "help";
   if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message) || /^\d{4}$/.test(message)) return "confirm";
   if (/^(cancelar|cancela|nao)$/.test(message)) return "cancel";
@@ -243,6 +244,32 @@ async function classifyAdminIntentWithGemini(raw: string) {
   } catch (error) {
     console.error("gemini-admin-intent", error instanceof Error ? error.message : "unknown_error");
     return null;
+  }
+}
+
+async function adminConversationFallbackWithGemini(raw: string, adminName: string) {
+  const apiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("VITE_GOOGLE_API_KEY");
+  const fallback = `*JARVIS ativo.*\n\nNão executei nenhuma ação porque a ordem ficou ambígua: "${raw}".\n\nUse um comando direto, por exemplo:\n• *quem cobrar agora*\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *mostre o contrato da cliente Nome*\n• *vencem hoje*\n• *atrasados*\n• *leia as últimas 7 mensagens*\n• *status do n8n*`;
+  if (!apiKey) return fallback;
+  try {
+    const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai@0.14.0");
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: Deno.env.get("GOOGLE_ADMIN_MODEL") || "gemini-1.5-flash" });
+    const prompt = [
+      `Você é o JARVIS, assistente operacional do CapitalFlow para o operador autorizado ${adminName}.`,
+      "Responda em português, natural, direto e útil, no máximo 4 linhas.",
+      "Não invente dados, clientes, contratos, valores, pagamentos, status ou resultados.",
+      "Não diga que executou ação. Se a mensagem não for uma ação clara, apenas se coloque à disposição e sugira 2 ou 3 comandos reais.",
+      "Comandos reais: atrasados, vencem hoje, quem cobrar agora, cobre Nome do Cliente, liste a dívida da cliente Nome, mostre o contrato da cliente Nome, leia as últimas 7 mensagens, status do n8n.",
+      `Mensagem do operador: ${JSON.stringify(raw)}`,
+    ].join("\n");
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/```[\s\S]*?```/g, "").trim();
+    if (!text || /cliente_id|profile_id|supabase|prompt|instru[cç][aã]o interna/i.test(text)) return fallback;
+    return text.slice(0, 900);
+  } catch (error) {
+    console.error("gemini-admin-fallback", error instanceof Error ? error.message : "unknown_error");
+    return fallback;
   }
 }
 

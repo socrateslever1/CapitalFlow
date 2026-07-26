@@ -153,6 +153,7 @@ function detectIntent(raw: string) {
   if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message) || /^\d{4}$/.test(message)) return "confirm";
   if (/^(cancelar|cancela|nao)$/.test(message)) return "cancel";
   if (/\b(resumo|carteira|painel)\b/.test(message)) return "portfolio";
+  if (/\b(quem cobrar|quem eu cobro|quem devo cobrar|prioridade de cobranca|prioridades de cobranca|prioridade de cobrança|prioridades de cobrança|cobrancas de hoje|cobranças de hoje|resumo de cobranca|resumo de cobrança)\b/.test(message)) return "collection_brief";
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
@@ -607,7 +608,7 @@ Deno.serve(async (req) => {
     const adminName = String(admin.display_name || "Sócrates").trim().split(/\s+/)[0];
     const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Manaus" }).format(new Date()));
     const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
-    if (intent === "greeting") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, adminName, greeting) });
+    if (intent === "greeting" || intent === "collection_brief") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, adminName, greeting) });
     const contractRequest = parseContractRequest(rawMessage);
     if (contractRequest) {
       if (!hasPermission(admin, "CONTRACT_CREATE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para criar contratos." });
@@ -663,6 +664,7 @@ Deno.serve(async (req) => {
       return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, intent) });
     }    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
     if (intent === "unknown") {
+      return json({ handled: true, admin: true, reply: `*JARVIS ativo.*\n\nNão executei nenhuma ação porque a ordem ficou ambígua: "${rawMessage}".\n\nUse um comando direto, por exemplo:\n• *quem cobrar agora*\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *mostre o contrato da cliente Nome*\n• *vencem hoje*\n• *leia as últimas 7 mensagens*\n• *status do n8n*` });
       const apiKey = Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("VITE_GOOGLE_API_KEY");
       if (apiKey) {
         try {
@@ -683,7 +685,7 @@ Mensagem do Admin: "${rawMessage}"`;
           // Fallback silencioso para mensagem padrão em caso de erro da IA
         }
       }
-      return json({ handled: true, admin: true, reply: "Não consegui classificar essa solicitação como uma operação administrativa e a IA não pôde responder no momento. Pode reformular? Posso pesquisar clientes, contratos, vencimentos e atrasos." });
+      return json({ handled: true, admin: true, reply: `*JARVIS ativo.*\n\nNão executei nenhuma ação porque a ordem ficou ambígua: "${rawMessage}".\n\nUse um comando direto, por exemplo:\n• *quem cobrar agora*\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *mostre o contrato da cliente Nome*\n• *vencem hoje*\n• *leia as últimas 7 mensagens*\n• *status do n8n*` });
     }
     if (intent === "confirm") return json({ handled: true, admin: true, reply: await executePending(adminDb, profileId, admin, rawMessage) });
     if (intent === "cancel") {

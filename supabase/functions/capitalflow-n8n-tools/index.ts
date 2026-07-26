@@ -6,6 +6,51 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
+const phoneVariantMinLength = 10;
+
+function phoneVariants(value: unknown) {
+  const raw = digits(value);
+  const variants = new Set<string>();
+
+  const add = (candidate: string) => {
+    const clean = digits(candidate);
+    if (clean.length < phoneVariantMinLength) return;
+
+    variants.add(clean);
+    variants.add(clean.slice(-11));
+    variants.add(clean.slice(-10));
+
+    if (clean.startsWith("55") && clean.length >= 12) {
+      const national = clean.slice(2);
+      variants.add(national);
+      variants.add(national.slice(-11));
+      variants.add(national.slice(-10));
+    } else if (clean.length === 10 || clean.length === 11) {
+      variants.add(`55${clean}`);
+    }
+  };
+
+  add(raw);
+
+  const national = raw.startsWith("55") && raw.length >= 12 ? raw.slice(2) : raw;
+  add(national);
+
+  if (national.length === 11 && national[2] === "9") {
+    add(`${national.slice(0, 2)}${national.slice(3)}`);
+  }
+
+  if (national.length === 10) {
+    add(`${national.slice(0, 2)}9${national.slice(2)}`);
+  }
+
+  return [...variants].filter((item) => item.length >= phoneVariantMinLength);
+}
+
+function samePhone(left: unknown, right: unknown) {
+  const rightVariants = new Set(phoneVariants(right));
+  return phoneVariants(left).some((candidate) => rightVariants.has(candidate));
+}
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const closedStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO", "RENEGOCIADO"];
 const paidInstallmentStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO"];
@@ -142,19 +187,18 @@ Deno.serve(async (req) => {
       }
 
       if (!clients.length && !hasExplicitIdentity) {
-        const suffix = phone.slice(-10);
+        matchedBy = "PHONE";
         const byPhone = await supabase.from("clientes").select("id, name, phone")
           .eq("owner_id", organizationId).not("phone", "is", null).limit(500);
         if (byPhone.error) throw byPhone.error;
         clients = (byPhone.data ?? [])
-          .filter((candidate) => digits(candidate.phone).slice(-10) === suffix)
+          .filter((candidate) => samePhone(candidate.phone, phone))
           .slice(0, 2)
           .map(({ id, name }) => ({ id, name }));
       }
 
       if (!clients.length && !hasExplicitIdentity) {
         matchedBy = "CONTRACT_PHONE";
-        const suffix = phone.slice(-10);
         const byContractPhone = await supabase.from("contratos")
           .select("client_id, debtor_name, debtor_phone")
           .or(`profile_id.eq.${organizationId},owner_id.eq.${organizationId}`)
@@ -164,7 +208,7 @@ Deno.serve(async (req) => {
         if (byContractPhone.error) throw byContractPhone.error;
 
         const clientIds = [...new Set((byContractPhone.data ?? [])
-          .filter((contract) => digits(contract.debtor_phone).slice(-10) === suffix)
+          .filter((contract) => samePhone(contract.debtor_phone, phone))
           .map((contract) => contract.client_id)
           .filter(Boolean))].slice(0, 6);
 

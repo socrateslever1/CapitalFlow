@@ -356,10 +356,11 @@ Deno.serve(async (req) => {
         && !/\b(n[aã]o|depois|agora n[aã]o)\b/i.test(message);
       const normalizedPaymentIntent = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
       const wantsDetailsOrPayment = wantsPayment
-        || /^(sim|isso|quero|pode|pode ser|manda|envia|ok|certo|detalhes|ver detalhes|saber mais)\b/.test(normalizedPaymentIntent);
+        || /^(sim|isso|quero|pode|pode ser|manda|envia|ok|certo|detalhes|ver detalhes|saber mais|contrato|parcela)\b/.test(normalizedPaymentIntent)
+        || /\b(contrato|parcela|pendencia|pendente|quem e|quem eh|do que)\b/.test(normalizedPaymentIntent);
       let paymentLink: string | null = null;
       let paymentLinkError: string | null = null;
-      const shouldPreparePaymentLink = pending.length > 0 && wantsDetailsOrPayment;
+      const shouldPreparePaymentLink = false;
       if (shouldPreparePaymentLink) {
         const target = pending[0];
         const targetContract = activeContracts.find((contract) => contract.id === target._loan_id);

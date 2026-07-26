@@ -183,6 +183,7 @@ const withOperator = (text) => operatorUrl ? text + " Fale com o operador por aq
 const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
 const greeting = () => {
   const hour = Number(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Manaus", hour: "2-digit", hour12: false }).format(new Date()));
+  if (hour < 5) return "Boa noite";
   if (hour < 12) return "Bom dia";
   if (hour < 18) return "Boa tarde";
   return "Boa noite";
@@ -210,17 +211,17 @@ if (context.status === "session_ended") {
   }
 } else if (context.status === "identified") {
   if (first) {
-    const wantsDetails = context.payment_requested === true || /\\b(sim|quero|pode|manda|envia|ok|certo|detalhes|saber mais|pagar|pagamento|pix|quitar)\\b/.test(message);
+    const wantsDetails = context.payment_requested === true || /\\b(sim|quero|pode|manda|envia|ok|certo|detalhes|saber mais|pagar|pagamento|pix|quitar|contrato|parcela|pendencia|pendente|quem e|quem eh|do que)\\b/.test(message);
     const late = Number(first.days_late || 0);
     const dueText = late > 0
       ? "venceu em " + formatDate(first.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso")
       : "vence em " + formatDate(first.due_date);
     if (!wantsDetails) {
       output = greeting() + ", " + clientName + ". Encontrei " + openContractCount + " " + (openContractCount === 1 ? "contrato em aberto" : "contratos em aberto") + " no seu cadastro. Deseja ver os detalhes?";
-    } else if (context.payment_link || context.portal_link) {
-      output = clientName + ", sua parcela " + (first.installment_number || "em aberto") + " " + dueText + ". Valor atualizado: " + money(first.total_due) + ".\\n\\nLink para pagamento:\\n" + (context.payment_link || context.portal_link);
+    } else if (context.portal_link) {
+      output = clientName + ", sua parcela " + (first.installment_number || "em aberto") + " " + dueText + ". Valor atualizado: " + money(first.total_due) + ".\\n\\nPortal do cliente:\\n" + context.portal_link;
     } else {
-      output = withOperator(clientName + ", sua parcela " + (first.installment_number || "em aberto") + " " + dueText + ". Valor atualizado: " + money(first.total_due) + ". N\\u00e3o consegui gerar o link de pagamento agora; encaminhei para atendimento concluir com voc\\u00ea.");
+      output = withOperator(clientName + ", sua parcela " + (first.installment_number || "em aberto") + " " + dueText + ". Valor atualizado: " + money(first.total_due) + ". N\\u00e3o consegui localizar o portal agora; encaminhei para atendimento concluir com voc\\u00ea.");
     }
   } else {
     output = "Ol\\u00e1, " + clientName + "! Verifiquei aqui e n\\u00e3o consta nenhuma d\\u00edvida pendente. At\\u00e9 logo!";
@@ -265,8 +266,8 @@ let reply = raw;
 const normalizedCustomerMessage = customerMessage.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();
 const asksLoan = /\\bemprestimo\\b|\\bemprestar\\b|\\bme empresta\\b|\\bcredito\\b/.test(normalizedCustomerMessage);
 const asksPayment = /\\bpagar\\b|\\bpagamento\\b|\\bquitar\\b|\\bpix\\b|\\blink\\b/.test(normalizedCustomerMessage) && !/\\bnao\\b|\\bdepois\\b|\\bagora nao\\b/.test(normalizedCustomerMessage);
-const asksDebtStatus = /\\bdivida\\b|\\bparcela\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b/.test(normalizedCustomerMessage);
-const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo)\\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\\bjuros\\b/.test(normalizedCustomerMessage) && !/\\b(total|parcela|divida|pagamento|pagar tudo)\\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\\d/.test(customerMessage);
+const asksDebtStatus = /\\bdivida\\b|\\bparcela\\b|\\bvenc(e|imento)\\b|\\batras(o|ada)\\b|\\bjuros\\b|\\bcontrato\\b|\\bpendencia\\b|\\bpendente\\b|\\bquem e\\b|\\bquem eh\\b|\\bdo que\\b/.test(normalizedCustomerMessage);
+const isAffirmative = /^(sim|isso|quero|pode|me ajuda|pode ser|manda|envia|ok|certo|contrato|parcela)\\b/.test(normalizedCustomerMessage);\nconst asksInterestOnly = /\\bjuros\\b/.test(normalizedCustomerMessage) && !/\\b(total|parcela|divida|pagamento|pagar tudo)\\b/.test(normalizedCustomerMessage);\nconst identityDigits = customerMessage.replace(/\\D/g, "");\nconst isIdentityMessage = identityDigits.length === 11 || /^[a-z0-9-]{3,30}$/i.test(customerMessage.trim()) && /\\d/.test(customerMessage);
 const formatDate = (value) => { const parts = String(value || "").slice(0, 10).split("-"); return parts.length === 3 ? parts[2] + "/" + parts[1] + "/" + parts[0] : String(value || ""); };
 const duePhrase = (item) => { const late = Number(item?.days_late || 0); return late > 0 ? "venceu em " + formatDate(item?.due_date) + " e est\\u00e1 h\\u00e1 " + late + (late === 1 ? " dia em atraso" : " dias em atraso") : "vence em " + formatDate(item?.due_date); };
 if (context.status === "lead_registered") {
@@ -284,17 +285,17 @@ if (context.status === "lead_registered") {
     ? "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano. Fale por aqui: " + context.operator_contact.whatsapp_url
     : "O pagamento de juros isoladamente precisa ser tratado pelo atendimento humano.";
 } else if (context.status === "identified" && (asksPayment || (isAffirmative && pendingInstallment)) && !asksInterestOnly) {
-  const link = context.payment_link || context.portal_link;
+  const link = context.portal_link;
   reply = pendingInstallment && link
-    ? "Certo, " + (context.client?.display_name ? context.client.display_name.split(" ")[0] : "cliente") + ". Sua parcela " + (pendingInstallment.installment_number || "em aberto") + " " + duePhrase(pendingInstallment) + ". Valor atualizado: " + pendingInstallment.total_due_display + ".\\n\\nLink para pagamento:\\n" + link
+    ? "Certo, " + (context.client?.display_name ? context.client.display_name.split(" ")[0] : "cliente") + ". Sua parcela " + (pendingInstallment.installment_number || "em aberto") + " " + duePhrase(pendingInstallment) + ". Valor atualizado: " + pendingInstallment.total_due_display + ".\\n\\nPortal do cliente:\\n" + link
     : pendingInstallment
-      ? "Certo. A parcela em aberto est\\u00e1 atualizada em " + pendingInstallment.total_due_display + ". N\\u00e3o consegui gerar o link de pagamento agora; encaminhei para atendimento concluir com voc\\u00ea."
+      ? "Certo. A parcela em aberto est\\u00e1 atualizada em " + pendingInstallment.total_due_display + ". N\\u00e3o consegui localizar o portal agora; encaminhei para atendimento concluir com voc\\u00ea."
       : "Certo. N\\u00e3o encontrei parcela pendente confirmada agora. Encaminhei para atendimento verificar.";
 } else if (context.status === "identified" && asksDebtStatus && pendingInstallment) {
   const late = Number(pendingInstallment.days_late || 0);
   reply = "A parcela " + (pendingInstallment.installment_number || "pendente") + " vence em " + formatDate(pendingInstallment.due_date) + " e est\\u00e1 atualizada em " + pendingInstallment.total_due_display + ".";
   reply += late > 0 ? " Ela est\\u00e1 em atraso h\\u00e1 " + late + (late === 1 ? " dia." : " dias.") : " Ela ainda n\\u00e3o est\\u00e1 em atraso.";
-  reply += (context.payment_link || context.portal_link) ? " Para ver detalhes e pagar, acesse: " + (context.payment_link || context.portal_link) : " N\\u00e3o consegui gerar o link de pagamento agora; encaminhei para atendimento verificar.";
+  reply += context.portal_link ? " Para ver detalhes, acesse o portal do cliente: " + context.portal_link : " N\\u00e3o consegui localizar o portal agora; encaminhei para atendimento verificar.";
 }
 if (context.admin === true && context.handled === true && context.reply) {
   reply = String(context.reply);

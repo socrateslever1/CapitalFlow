@@ -192,7 +192,10 @@ if (context.status === "session_ended") {
   output = "Encontrei mais de um cadastro compatível. Para confirmar com segurança, informe seu código de cliente.";
 } else if (context.status === "not_identified") {
   const isHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);
-  if (isHelp) {
+  const asksCompany = /\\b(que empresa|qual empresa|quem sao voces|quem e voces|capital flow|capitalflow|como funciona|do que se trata|o que e isso)\\b/.test(message);
+  if (asksCompany) {
+    output = "Somos a CapitalFlow. Este WhatsApp atende consultas de contratos, parcelas e pagamentos. Se ja for cliente, informe seu CPF ou codigo de cliente para eu localizar seu atendimento com seguranca.";
+  } else if (isHelp) {
     output = "Posso ajudar com o básico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se já é nosso cliente, digite seu cpf ou código do cliente.";
   } else {
     output = "Olá somos a capital flow, e estamos aqui para atender da melhor maneira, se já é nosso cliente, digite seu cpf ou codigo do cliente. Se quiser ajuda, digite 'ajuda' para ver suas opções.";

@@ -158,6 +158,7 @@ function detectIntent(raw: string) {
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
   if (/\b(d.?vida|debitos?|parcelas? abertas?|saldo devedor)\b/.test(message) || /^(?:quanto|o que)\s+.+\s+(?:ainda\s+)?deve\b/.test(message)) return "debt";
   if (/\b(ultimas cobrancas|fila de cobranca|mensagens enviadas|falhas de envio)\b/.test(message)) return "dispatches";
+  if (/\b(ultimas mensagens|últimas mensagens|leia as ultimas|leia as últimas|7 mensagens|sete mensagens|mensagens recentes|conversa recente)\b/.test(message)) return "recent_messages";
   // A cobrança é uma intenção explícita mesmo sem as palavras “vencido” ou
   // “contrato”: “cobre a Maria” já deve abrir a prévia da cobrança.
   if (/^(?:cobre|cobrar)\s+\S+/.test(message)) return "charge";
@@ -447,6 +448,28 @@ async function executePending(adminDb: any, profileId: string, admin: any, rawMe
 async function operatorQuery(adminDb: any, profileId: string, intent: string) {
   const since = new Date();
   since.setHours(0, 0, 0, 0);
+  if (intent === "recent_messages") {
+    const { data, error } = await adminDb.from("n8n_message_events")
+      .select("created_at,direction,message_type,status,client_id,metadata")
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(7);
+    if (error) throw error;
+    const clientIds = [...new Set((data || []).map((item: any) => item.client_id).filter(Boolean))];
+    const { data: clients } = clientIds.length
+      ? await adminDb.from("clientes").select("id,name").in("id", clientIds)
+      : { data: [] };
+    const clientNames = new Map((clients || []).map((item: any) => [item.id, item.name]));
+    const lines = (data || []).map((item: any, index: number) => {
+      const metadata = item.metadata || {};
+      const text = String(metadata.message || metadata.text || metadata.body || "").trim();
+      const who = item.client_id ? clientNames.get(item.client_id) || "Cliente identificado" : "Contato não identificado";
+      const when = new Date(item.created_at).toLocaleTimeString("pt-BR", { timeZone: "America/Manaus", hour: "2-digit", minute: "2-digit" });
+      const content = text || "_texto não registrado nas mensagens antigas_";
+      return `${index + 1}. ${when} — ${item.direction} — ${who}\n   ${content}`;
+    }).join("\n\n");
+    return `🧠 *Últimas 7 mensagens registradas*\n\n${lines || "Nenhuma mensagem registrada."}\n\n_Observação: mensagens antigas podem aparecer sem texto porque o registro anterior salvava metadata vazia. Isso foi corrigido agora._`;
+  }
   if (intent === "payments_today") {
     const { data, error } = await adminDb.from("payment_intents").select("amount,method,status,created_at").eq("profile_id", profileId).eq("status", "APPROVED").gte("created_at", since.toISOString()).order("created_at", { ascending: false }).limit(100);
     if (error) throw error;
@@ -635,7 +658,7 @@ Deno.serve(async (req) => {
         }
       }
     }
-    if (["payments_today", "handoffs", "system_status", "daily_summary", "clients", "contracts"].includes(intent)) {
+    if (["payments_today", "handoffs", "system_status", "daily_summary", "clients", "contracts", "recent_messages"].includes(intent)) {
       if (!hasPermission(admin, "READ")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para consultar informações administrativas." });
       return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, intent) });
     }    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });

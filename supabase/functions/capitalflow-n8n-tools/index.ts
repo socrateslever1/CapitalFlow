@@ -59,6 +59,10 @@ Deno.serve(async (req) => {
         phone_hash: phoneHash,
         direction: "INBOUND",
         message_type: String(body.message_type ?? "text"),
+        metadata: {
+          message: String(body.message ?? "").trim().slice(0, 1000),
+          source: "whatsapp",
+        },
       });
       if (eventError?.code === "23505") return json({ status: "duplicate" });
       if (eventError) throw eventError;
@@ -69,7 +73,7 @@ Deno.serve(async (req) => {
         .eq("id", organizationId).maybeSingle();
       const operatorPhone = digits(operator?.contato_whatsapp || operator?.phone);
       const operatorContact = operatorPhone.length >= 10 ? {
-        name: operator?.nome_operador || operator?.nome_exibicao || operator?.nome_completo || "operador",
+        name: "operador",
         whatsapp_url: `https://wa.me/${operatorPhone}`,
       } : null;
 

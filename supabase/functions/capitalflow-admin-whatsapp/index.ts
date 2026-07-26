@@ -121,7 +121,7 @@ function targetFrom(message: string, intent: string) {
     portal: /^(?:mande|envie|mostrar|mostre)?\s*(?:o )?(?:link do )?portal(?: para| da| do)?\s+(.+)$/i,
     due: /^(?:quando vence|qual (?:e )?o vencimento)(?: o contrato| a parcela)?(?: da| do| de)?\s+(.+)$/i,
     amount: /^(?:quanto|qual (?:e )?o valor|valor|saldo)(?: a| o)?\s*(.+?)(?:\s+(?:deve|esta devendo|do contrato|da parcela))?$/i,
-    debt: /^(?:(?:liste|listar|mostre|mostrar|detalhe|detalhes|consulte|consultar)\s+)?(?:a\s+)?(?:d.?vida|debitos?|parcelas? abertas?|saldo devedor)(?:\s+(?:da|do|de|para))?\s+(.+)$/i,
+    debt: /^(?:(?:liste|listar|mostre|mostrar|detalhe|detalhes|consulte|consultar|me diga|diga|veja|quero saber)\s+)?(?:a\s+)?(?:d.?vida|debitos?|parcelas? abertas?|saldo devedor)(?:\s+(?:da|do|de|para))?\s+(.+)$/i,
     status: /^(?:(?:me\s+)?(?:mostre|mostra|mostrar)|quero\s+(?:ver|consultar)|consulte|ver)?\s*(?:o\s+)?(?:contrato|situacao|status)(?:\s+ativo)?(?:\s+da|\s+do|\s+de)?\s+(.+)$/i,
     automation: /^(?:ative|ativar|pause|pausar|desative|desativar)(?: a)? cobranca(?: automatica)?(?: diaria| semanal)?(?: para| da| do)?\s+(.+)$/i,
   };
@@ -135,7 +135,8 @@ function targetFrom(message: string, intent: string) {
   const rawTarget = (match?.[1] || match?.[2] || "").trim();
   if (intent === "debt") {
     const natural = message.match(/^(?:quanto|o que)\s+(.+?)\s+(?:ainda\s+)?deve[?.!]*$/i);
-    return (natural?.[1] || rawTarget).replace(/^(?:a|o|da|do|de|para|cliente)\s+/i, "").trim();
+    const naturalDebt = message.match(/(?:d.?vida|debitos?|saldo devedor)(?:\s+(?:da|do|de|para))?\s+(.+)$/i);
+    return (natural?.[1] || rawTarget || naturalDebt?.[1] || "").replace(/^(?:a|o|da|do|de|para|cliente)\s+/i, "").trim();
   }
   if (intent !== "charge") return rawTarget;
   // Permite comandos naturais: “cobre a Maria”, “cobre o contrato vencido da Maria”.
@@ -153,7 +154,7 @@ function detectIntent(raw: string) {
   if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message) || /^\d{4}$/.test(message)) return "confirm";
   if (/^(cancelar|cancela|nao)$/.test(message)) return "cancel";
   if (/\b(resumo|carteira|painel)\b/.test(message)) return "portfolio";
-  if (/\b(quem cobrar|quem eu cobro|quem devo cobrar|prioridade de cobranca|prioridades de cobranca|prioridade de cobrança|prioridades de cobrança|cobrancas de hoje|cobranças de hoje|resumo de cobranca|resumo de cobrança)\b/.test(message)) return "collection_brief";
+  if (/\b(quem cobrar|quem eu cobro|quem eu devo cobrar|quem devo cobrar|quem cobrar primeiro|quem eu devo cobrar primeiro|prioridade de cobranca|prioridades de cobranca|prioridade de cobrança|prioridades de cobrança|cobrancas de hoje|cobranças de hoje|resumo de cobranca|resumo de cobrança)\b/.test(message)) return "collection_brief";
   if (/\b(vence hoje|vencem hoje|vencimentos de hoje|quem vence hoje)\b/.test(message)) return "due_today";
   if (/^(cobre|cobrar)\s+(todos|todas|[0-9, e]+)$/.test(message)) return "charge_selection";
   if (/\b(atrasados|inadimplentes|vencidos)\b/.test(message) && !/cobr/.test(message)) return "overdue";
@@ -176,6 +177,71 @@ function detectIntent(raw: string) {
   if (/\b(status do sistema|status das integracoes|integracoes|n8n|whatsapp esta funcionando|whatsapp conectado|automacoes falharam)\b/.test(message)) return "system_status";  if (/\b(todos os contratos|contratos ativos|listar contratos|liste contratos)\b/.test(message)) return "contracts";
   if (/\b(todos os clientes|listar clientes|liste clientes|clientes cadastrados)\b/.test(message)) return "clients";
   return "unknown";
+}
+
+const adminIntentSet = new Set([
+  "greeting",
+  "help",
+  "portfolio",
+  "collection_brief",
+  "due_today",
+  "charge_selection",
+  "overdue",
+  "debt",
+  "dispatches",
+  "recent_messages",
+  "charge",
+  "portal",
+  "automation",
+  "due",
+  "wallet",
+  "amount",
+  "status",
+  "payments_today",
+  "handoffs",
+  "daily_summary",
+  "system_status",
+  "contracts",
+  "clients",
+  "unknown",
+]);
+
+async function classifyAdminIntentWithGemini(raw: string) {
+  const apiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("VITE_GOOGLE_API_KEY");
+  if (!apiKey) return null;
+  try {
+    const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai@0.14.0");
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: Deno.env.get("GOOGLE_ADMIN_MODEL") || "gemini-1.5-flash" });
+    const prompt = [
+      "Classifique a mensagem administrativa do operador do CapitalFlow.",
+      "Retorne somente JSON compacto, sem markdown.",
+      "Nunca invente dados e nunca execute ações; apenas classifique.",
+      "Intenções permitidas:",
+      [...adminIntentSet].join(", "),
+      "Mapeamentos úteis:",
+      "- quem cobrar, prioridades, cobrar agora => collection_brief",
+      "- ultimas conversas, ultimas mensagens, leia mensagens => recent_messages",
+      "- cobre Maria, envie cobrança para Maria => charge",
+      "- divida/saldo/debito de cliente => debt",
+      "- contrato/situacao/status de cliente => status",
+      "- vencem hoje => due_today",
+      "- pagamentos de hoje => payments_today",
+      "- status do n8n/whatsapp/sistema => system_status",
+      `Mensagem: ${JSON.stringify(raw)}`,
+      'Formato: {"intent":"collection_brief","confidence":0.95}',
+    ].join("\n");
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(text);
+    const intent = String(parsed.intent || "unknown");
+    const confidence = Number(parsed.confidence || 0);
+    if (!adminIntentSet.has(intent) || confidence < 0.7 || intent === "unknown") return null;
+    return intent;
+  } catch (error) {
+    console.error("gemini-admin-intent", error instanceof Error ? error.message : "unknown_error");
+    return null;
+  }
 }
 
 async function prepareContractDraft(adminDb: any, profileId: string, admin: any, request: any, details: any = {}) {
@@ -604,7 +670,10 @@ Deno.serve(async (req) => {
       return new Response(await response.text(), { status: response.status, headers: { "content-type": "application/json; charset=utf-8" } });
     }
     const rawMessage = String(body.message || "").trim().slice(0, 1000);
-    const intent = detectIntent(rawMessage);
+    const localIntent = detectIntent(rawMessage);
+    const intent = ["confirm", "cancel"].includes(localIntent)
+      ? localIntent
+      : (await classifyAdminIntentWithGemini(rawMessage)) || localIntent;
     const adminName = String(admin.display_name || "Sócrates").trim().split(/\s+/)[0];
     const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Manaus" }).format(new Date()));
     const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";

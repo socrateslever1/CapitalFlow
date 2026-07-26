@@ -117,7 +117,7 @@ async function loadClientPosition(adminDb: any, profileId: string, client: any) 
 
 function targetFrom(message: string, intent: string) {
   const patterns: Record<string, RegExp> = {
-    charge: /^(?:cobre|cobrar|mande (?:uma )?cobranca|envie (?:uma )?cobranca)(?: para)?\s+(.+?)(?:\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva))?$|^(?:envia|envie|mande)\s+(?:um|uma)?\s*mensagem\s+para\s+(.+?)(?:\s+(?:cobrando|sobre|do contrato|a parcela|o contrato).*)?$/i,
+    charge: /^(?:cobre|cobrar|mande (?:uma )?cobranca|envie (?:uma )?cobranca|envia (?:uma )?cobranca)(?: para)?\s+(.+?)(?:\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva|duro|dura|respeitosa|respeitoso))?$|^(?:envia|envie|mande)\s+(?:um|uma)?\s*mensagem\s+para\s+(.+?)(?:\s+(?:cobrando|sobre|do contrato|a parcela|o contrato).*)?$/i,
     portal: /^(?:mande|envie|mostrar|mostre)?\s*(?:o )?(?:link do )?portal(?: para| da| do)?\s+(.+)$/i,
     due: /^(?:quando vence|qual (?:e )?o vencimento)(?: o contrato| a parcela)?(?: da| do| de)?\s+(.+)$/i,
     amount: /^(?:quanto|qual (?:e )?o valor|valor|saldo)(?: a| o)?\s*(.+?)(?:\s+(?:deve|esta devendo|do contrato|da parcela))?$/i,
@@ -143,6 +143,7 @@ function targetFrom(message: string, intent: string) {
   return rawTarget
     .replace(/^(?:o|a)\s+(?:cliente\s+)?/i, "")
     .replace(/^(?:contrato|parcela)\s+(?:vencido|vencida|em atraso|atrasado|atrasada)?\s*(?:do|da|de)\s+/i, "")
+    .replace(/\s+(?:de forma |mais )?(?:cordial|suave|objetiva|direta|mediadora|firme|incisiva|duro|dura|respeitosa|respeitoso)$/i, "")
     .trim();
 }
 
@@ -826,7 +827,35 @@ Deno.serve(async (req) => {
     }
     const rawMessage = String(body.message || "").trim().slice(0, 1000);
     const localIntent = detectIntent(rawMessage);
-    const intent = ["confirm", "cancel", "charge_selection", "list_next_page"].includes(localIntent)
+    const deterministicIntents = new Set([
+      "confirm",
+      "cancel",
+      "charge_selection",
+      "list_next_page",
+      "greeting",
+      "help",
+      "portfolio",
+      "collection_brief",
+      "due_today",
+      "overdue",
+      "debt",
+      "dispatches",
+      "recent_messages",
+      "charge",
+      "portal",
+      "automation",
+      "due",
+      "wallet",
+      "amount",
+      "status",
+      "payments_today",
+      "handoffs",
+      "daily_summary",
+      "system_status",
+      "contracts",
+      "clients",
+    ]);
+    const intent = deterministicIntents.has(localIntent)
       ? localIntent
       : (await classifyAdminIntentWithGemini(rawMessage)) || localIntent;
     const adminName = String(admin.display_name || "Sócrates").trim().split(/\s+/)[0];
@@ -886,31 +915,9 @@ Deno.serve(async (req) => {
     if (["payments_today", "handoffs", "system_status", "daily_summary", "clients", "contracts", "recent_messages"].includes(intent)) {
       if (!hasPermission(admin, "READ")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para consultar informações administrativas." });
       return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, intent) });
-    }    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
-    if (intent === "unknown") {
-      return json({ handled: true, admin: true, reply: `*JARVIS ativo.*\n\nNão executei nenhuma ação porque a ordem ficou ambígua: "${rawMessage}".\n\nUse um comando direto, por exemplo:\n• *quem cobrar agora*\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *mostre o contrato da cliente Nome*\n• *vencem hoje*\n• *leia as últimas 7 mensagens*\n• *status do n8n*` });
-      const apiKey = Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("VITE_GOOGLE_API_KEY");
-      if (apiKey) {
-        try {
-          const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai@0.14.0");
-          const genAI = new GoogleGenerativeAI(apiKey);
-          const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-          const prompt = `Você é a assistente executiva de Inteligência Artificial do dono da Capital Flow (um sistema de gestão de empréstimos). O usuário atual é o administrador do sistema (${adminName}).
-Responda à seguinte mensagem de forma profissional, proativa e direta.
-Se a mensagem pedir para realizar uma ação no sistema ou puxar um relatório específico que você ainda não consegue fazer, explique educadamente que você está em fase de treinamento e sugira que ele use um dos comandos rápidos suportados (ex: "vencem hoje", "resumo", "clientes", "atrasados").
-Mensagem do Admin: "${rawMessage}"`;
-
-          const result = await model.generateContent(prompt);
-          const text = result.response.text();
-          return json({ handled: true, admin: true, reply: text });
-        } catch (error) {
-          console.error("Gemini Error:", error);
-          // Fallback silencioso para mensagem padrão em caso de erro da IA
-        }
-      }
-      return json({ handled: true, admin: true, reply: `*JARVIS ativo.*\n\nNão executei nenhuma ação porque a ordem ficou ambígua: "${rawMessage}".\n\nUse um comando direto, por exemplo:\n• *quem cobrar agora*\n• *cobre Nome do Cliente*\n• *liste a dívida da cliente Nome*\n• *mostre o contrato da cliente Nome*\n• *vencem hoje*\n• *leia as últimas 7 mensagens*\n• *status do n8n*` });
     }
+    if (intent === "unknown") return json({ handled: true, admin: true, reply: await adminConversationFallbackWithGemini(rawMessage, adminName) });
+    if (intent === "help") return json({ handled: true, admin: true, reply: `${adminName}, posso consultar contratos, valores, vencimentos, carteira e atrasados; enviar cobranças e portais; configurar automações; e criar contratos com confirmação.` });
     if (intent === "confirm") return json({ handled: true, admin: true, reply: await executePending(adminDb, profileId, admin, rawMessage) });
     if (intent === "cancel") {
       await adminDb.from("whatsapp_admin_commands").update({ status: "CANCELLED" }).eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("status", "PENDING");
@@ -1072,7 +1079,7 @@ Mensagem do Admin: "${rawMessage}"`;
       if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });
       if (!position.installment) return json({ handled: true, admin: true, reply: `${found.client.name} não tem parcela pendente para cobrança.` });
       const normalized = normalize(rawMessage);
-      const tone = /firme|incisiva|atrasad|vencid/.test(normalized) ? "FIRM_RESPECTFUL" : /mediador/.test(normalized) ? "MEDIATOR" : /cordial|suave/.test(normalized) ? "CORDIAL" : "OBJECTIVE";
+      const tone = /firme|incisiva|duro|dura|atrasad|vencid/.test(normalized) ? "FIRM_RESPECTFUL" : /mediador/.test(normalized) ? "MEDIATOR" : /cordial|suave/.test(normalized) ? "CORDIAL" : "OBJECTIVE";
       const toneLabel = tone === "FIRM_RESPECTFUL" ? "firme e respeitoso" : tone === "MEDIATOR" ? "mediador" : tone === "CORDIAL" ? "cordial" : "objetivo";
       const reply = await createPending(adminDb, profileId, admin, "CHARGE", { client: found.client, tone }, `Cobrar ${found.client.name} em tom ${toneLabel}, no valor atualizado de ${money(position.installment.total_due)}?`);
       return json({ handled: true, admin: true, reply });

@@ -300,19 +300,6 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('online', handleOnline);
   }, []);
 
-  // Timeout de Segurança para o Loading (10 segundos)
-  useEffect(() => {
-    if (activeProfileId && !activeUser && bootFinished && !loadError) {
-      const timer = setTimeout(() => {
-        if (!activeUser && !loadError) {
-          setLoadError('Tempo limite de sincronização excedido. Verifique sua conexão ou tente reconectar.');
-          if (isDev) console.error('[BOOT] Timeout atingido tentando carregar perfil:', activeProfileId);
-        }
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [activeProfileId, activeUser, bootFinished, loadError, setLoadError]);
-
   const effectiveSelectedStaffId =
     activeUser && (activeUser.accessLevel === 'OPERATOR' || (activeUser as any).accessLevel === 2) ? activeUser.id : selectedStaffId;
 

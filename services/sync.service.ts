@@ -266,17 +266,34 @@ export const syncService = {
     ]);
     const visibleLoans = filterDeletedLoans(ownerId, loans);
 
-    // Precisamos remontar os contratos com suas parcelas para manter compatibilidade com o frontend
-    // Nota: Em um app gigante, faríamos isso sob demanda, mas aqui mantemos o contrato "gordo"
-    const enrichedLoans = await Promise.all(visibleLoans.map(async (l) => {
-      const [parcelas, transacoes] = await Promise.all([
-        db.parcelas.where('loan_id').equals(l.id).toArray(),
-        db.transacoes.where('loan_id').equals(l.id).toArray()
-      ]);
+    const loanIds = visibleLoans.map((loan: any) => loan.id).filter(Boolean);
+    const [allInstallments, allTransactions] = loanIds.length > 0
+      ? await Promise.all([
+          db.parcelas.where('loan_id').anyOf(loanIds).toArray(),
+          db.transacoes.where('loan_id').anyOf(loanIds).toArray()
+        ])
+      : [[], []];
 
-      // Mapeia para o formato do Frontend usando o adapter existente
-      return mapLoanFromDB({ ...l, parcelas, transacoes, portal_files: l.portal_files || [] }, clients);
-    }));
+    const installmentsByLoan = new Map<string, any[]>();
+    allInstallments.forEach((installment: any) => {
+      const current = installmentsByLoan.get(installment.loan_id) || [];
+      current.push(installment);
+      installmentsByLoan.set(installment.loan_id, current);
+    });
+
+    const transactionsByLoan = new Map<string, any[]>();
+    allTransactions.forEach((transaction: any) => {
+      const current = transactionsByLoan.get(transaction.loan_id) || [];
+      current.push(transaction);
+      transactionsByLoan.set(transaction.loan_id, current);
+    });
+
+    const enrichedLoans = visibleLoans.map((loan: any) => mapLoanFromDB({
+      ...loan,
+      parcelas: installmentsByLoan.get(loan.id) || [],
+      transacoes: transactionsByLoan.get(loan.id) || [],
+      portal_files: loan.portal_files || []
+    }, clients));
 
     return {
       loans: enrichedLoans,
@@ -372,9 +389,6 @@ export const syncService = {
     for (const item of items) {
       try {
         let { error } = await runQueueMutation(item);
-
-        // Simulação de delay para evitar race conditions
-        await new Promise(resolve => setTimeout(resolve, 100));
 
         if (error && isAuthSyncError(error)) {
           await ensureFreshAuth(true);

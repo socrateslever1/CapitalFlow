@@ -874,6 +874,281 @@ async function loadLatestChargeSelectionList(adminDb: any, profileId: string, ad
   return data;
 }
 
+async function loadClientContractsForAdmin(adminDb: any, profileId: string, client: any) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
+  const appOrigin = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
+  const { data: contracts, error } = await adminDb.from("contratos")
+    .select("id,client_id,debtor_name,debtor_phone,status,principal,total_to_receive,start_date,next_due_date,payment_type,billing_cycle,loan_mode,mode,modalidade,portal_token,portal_shortcode,promissoria_url,confissao_divida_url,source_id")
+    .eq("client_id", client.id)
+    .or(`profile_id.eq.${profileId},owner_id.eq.${profileId}`)
+    .eq("is_archived", false)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const activeContracts = (contracts || []).filter((contract: any) => !closed.includes(String(contract.status || "").toUpperCase()));
+  const ids = activeContracts.map((contract: any) => contract.id);
+  const installments: any[] = [];
+  if (ids.length) {
+    const { data, error: installmentError } = await adminDb.from("parcelas")
+      .select("id,loan_id,due_date,data_vencimento,numero_parcela,status,amount,valor_parcela,paid_total,paid_date")
+      .eq("profile_id", profileId)
+      .in("loan_id", ids)
+      .order("due_date", { ascending: true })
+      .limit(1000);
+    if (installmentError) throw installmentError;
+    installments.push(...(data || []));
+  }
+
+  const contractsWithInstallments = [];
+  for (const contract of activeContracts) {
+    const contractInstallments = installments.filter((installment) => installment.loan_id === contract.id);
+    const openInstallments: any[] = [];
+    const paidInstallments: any[] = [];
+    for (const installment of contractInstallments) {
+      const status = String(installment.status || "").toUpperCase();
+      if (paid.includes(status)) {
+        paidInstallments.push(installment);
+        continue;
+      }
+      const dueDate = String(installment.data_vencimento || installment.due_date || "").slice(0, 10);
+      if (!dueDate) continue;
+      const calculated = await adminDb.rpc("prepare_installment_for_online_payment", {
+        p_loan_id: contract.id,
+        p_installment_id: installment.id,
+        p_reference_date: today,
+      });
+      if (calculated.error) throw calculated.error;
+      const due = Array.isArray(calculated.data) ? calculated.data[0] : calculated.data;
+      const totalDue = Number(due?.total_due || 0);
+      if (totalDue <= 0.05) continue;
+      openInstallments.push({
+        loan_id: contract.id,
+        installment_id: installment.id,
+        due_date: dueDate,
+        installment_number: installment.numero_parcela || null,
+        amount: totalDue,
+        days_late: Number(due?.days_late ?? daysBetween(dueDate, today)),
+      });
+    }
+    openInstallments.sort((a, b) =>
+      Number(b.days_late || 0) - Number(a.days_late || 0) ||
+      String(a.due_date || "").localeCompare(String(b.due_date || "")) ||
+      Number(a.installment_number || 0) - Number(b.installment_number || 0)
+    );
+    const overdueInstallments = openInstallments.filter((installment) => Number(installment.days_late || 0) > 0);
+    const upcomingInstallments = openInstallments.filter((installment) => Number(installment.days_late || 0) <= 0);
+    const portal = contract.portal_token && contract.portal_shortcode
+      ? `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`
+      : null;
+    contractsWithInstallments.push({
+      ...contract,
+      portal,
+      installments: contractInstallments,
+      open_installments: openInstallments,
+      overdue_installments: overdueInstallments,
+      upcoming_installments: upcomingInstallments,
+      paid_count: paidInstallments.length,
+      open_total: openInstallments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+      overdue_total: overdueInstallments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    });
+  }
+  contractsWithInstallments.sort((a, b) =>
+    Number(b.overdue_total || 0) - Number(a.overdue_total || 0) ||
+    Number(b.open_total || 0) - Number(a.open_total || 0) ||
+    String(b.start_date || "").localeCompare(String(a.start_date || ""))
+  );
+  return contractsWithInstallments;
+}
+
+function contractLabel(contract: any) {
+  return String(contract.modalidade || contract.loan_mode || contract.mode || contract.payment_type || contract.billing_cycle || "Contrato").replace(/_/g, " ");
+}
+
+function renderAdminContractList(client: any, contracts: any[]) {
+  if (!contracts.length) return `${client.name} não possui contrato ativo.`;
+  const totalOverdue = contracts.reduce((sum, contract) => sum + Number(contract.overdue_total || 0), 0);
+  const totalOpen = contracts.reduce((sum, contract) => sum + Number(contract.open_total || 0), 0);
+  const lines = contracts.map((contract, index) => {
+    const overdueCount = contract.overdue_installments.length;
+    const openCount = contract.open_installments.length;
+    const status = overdueCount > 0
+      ? `${overdueCount} vencida${overdueCount === 1 ? "" : "s"} — ${money(contract.overdue_total)}`
+      : openCount > 0
+        ? `${openCount} aberta${openCount === 1 ? "" : "s"} — ${money(contract.open_total)}`
+        : "sem parcela em aberto";
+    return `${index + 1}. *#${String(contract.id).slice(0, 6).toUpperCase()}* — ${contractLabel(contract)} — ${status}`;
+  }).join("\n");
+  return `👤 *${client.name}*\n\n📄 *Contratos ativos*\n${lines}\n\n💰 Vencido agora: *${money(totalOverdue)}*\n💰 Aberto total: *${money(totalOpen)}*\n\nResponda o número para abrir o contrato.\nEx.: *1*\n\nComandos: *voltar*, *cobrar 1*, *mandar portal 1*.`;
+}
+
+function renderAdminContractDetail(client: any, contract: any) {
+  const open = contract.open_installments || [];
+  const overdue = contract.overdue_installments || [];
+  const upcoming = contract.upcoming_installments || [];
+  const lines = open.length
+    ? open.map((installment: any, index: number) => {
+      const late = Number(installment.days_late || 0);
+      const status = late > 0
+        ? `${late} dia${late === 1 ? "" : "s"} em atraso`
+        : `vence em ${dateBr(installment.due_date)}`;
+      return `${index + 1}. Parcela ${installment.installment_number || index + 1} — ${money(installment.amount)} — ${dateBr(installment.due_date)} — ${status}`;
+    }).join("\n")
+    : "Nenhuma parcela em aberto.";
+  const portal = contract.portal ? `\n🔗 Portal:\n${contract.portal}` : "";
+  const docs = [
+    contract.confissao_divida_url ? "confissão disponível" : null,
+    contract.promissoria_url ? "promissória disponível" : null,
+  ].filter(Boolean).join(", ");
+  return `📄 *Contrato #${String(contract.id).slice(0, 6).toUpperCase()} — ${client.name}*\n\nModalidade: *${contractLabel(contract)}*\nPrincipal: *${money(contract.principal)}*\nTotal contratado: *${money(contract.total_to_receive)}*\nPagas: *${contract.paid_count || 0}*\nVencidas: *${overdue.length}* — ${money(contract.overdue_total)}\nA vencer/em aberto: *${upcoming.length}* — ${money(upcoming.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0))}\n\n*Parcelas em aberto*\n${lines}${portal}${docs ? `\n\nDocumentos: ${docs}` : ""}\n\nComandos:\n• *cobrar parcela 1*\n• *cobrar parcelas 1, 2*\n• *cobrar vencidas*\n• *mandar portal*\n• *enviar confissão*\n• *voltar*`;
+}
+
+async function saveAdminNavigationContext(adminDb: any, profileId: string, admin: any, intent: string, payload: any) {
+  await adminDb.from("whatsapp_admin_commands").update({ status: "EXPIRED" })
+    .eq("profile_id", profileId).eq("admin_user_id", admin.id).in("intent", ["ADMIN_CONTRACT_LIST", "ADMIN_CONTRACT_DETAIL"]).eq("status", "PENDING");
+  const { error } = await adminDb.from("whatsapp_admin_commands").insert({
+    profile_id: profileId,
+    admin_user_id: admin.id,
+    intent,
+    payload,
+    confirmation_code: null,
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+  });
+  if (error) throw error;
+}
+
+async function loadLatestAdminNavigationContext(adminDb: any, profileId: string, admin: any) {
+  const { data, error } = await adminDb.from("whatsapp_admin_commands").select("*")
+    .eq("profile_id", profileId)
+    .eq("admin_user_id", admin.id)
+    .in("intent", ["ADMIN_CONTRACT_LIST", "ADMIN_CONTRACT_DETAIL"])
+    .eq("status", "PENDING")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+function selectedInstallmentsFromText(raw: string, contract: any) {
+  const normalized = normalize(raw);
+  const open = contract.open_installments || [];
+  const overdue = contract.overdue_installments || [];
+  if (/todas|todos|vencidas|vencidos|atrasadas|atrasados/.test(normalized)) return overdue.length ? overdue : open;
+  const numbers = [...new Set((normalized.match(/\d{1,3}/g) || []).map(Number))];
+  return numbers.map((number) => open[number - 1]).filter(Boolean);
+}
+
+async function prepareContractScopedCharge(adminDb: any, profileId: string, admin: any, client: any, contract: any, installments: any[]) {
+  if (!installments.length) return "Não encontrei parcela em aberto nessa seleção.";
+  const total = installments.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const overdueCount = installments.filter((item) => Number(item.days_late || 0) > 0).length;
+  const label = installments.length === 1
+    ? `parcela ${installments[0].installment_number || 1}`
+    : `${installments.length} parcelas`;
+  const item = {
+    name: client.name,
+    phone: client.phone || contract.debtor_phone,
+    client_id: client.id,
+    loan_id: contract.id,
+    installment_id: installments[0].installment_id,
+    installment_number: installments[0].installment_number,
+    due_date: installments[0].due_date,
+    amount: total,
+    days_late: Math.max(...installments.map((installment) => Number(installment.days_late || 0))),
+    installment_count: installments.length,
+    contract_count: 1,
+    loan_ids: [contract.id],
+    installments,
+  };
+  return await createPending(adminDb, profileId, admin, "BATCH_CHARGE", { items: [item] },
+    `Enviar cobrança para ${client.name} referente a ${label} do contrato #${String(contract.id).slice(0, 6).toUpperCase()}, total de ${money(total)}${overdueCount ? ` (${overdueCount} vencida${overdueCount === 1 ? "" : "s"})` : ""}?`);
+}
+
+async function openClientOperationalPanel(adminDb: any, profileId: string, admin: any, client: any, mode = "status") {
+  const contracts = await loadClientContractsForAdmin(adminDb, profileId, client);
+  if (!contracts.length) return `${client.name} não possui contrato ativo.`;
+  if (contracts.length === 1) {
+    await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_DETAIL", { client, contracts, contract_index: 0 });
+    return renderAdminContractDetail(client, contracts[0]);
+  }
+  await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_LIST", { client, contracts });
+  return renderAdminContractList(client, contracts);
+}
+
+async function handleAdminNavigationContext(adminDb: any, profileId: string, admin: any, rawMessage: string) {
+  const context = await loadLatestAdminNavigationContext(adminDb, profileId, admin);
+  if (!context) return null;
+  const normalized = normalize(rawMessage);
+  const payload = context.payload || {};
+  const client = payload.client;
+  const contracts = payload.contracts || [];
+  if (!client || !contracts.length) return null;
+
+  if (/^(voltar|abrir outro|outro contrato|contratos)$/.test(normalized)) {
+    await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_LIST", { client, contracts });
+    return renderAdminContractList(client, contracts);
+  }
+
+  if (context.intent === "ADMIN_CONTRACT_LIST") {
+    const number = Number(normalized.match(/^\d{1,3}$/)?.[0] || normalized.match(/(?:abrir|contrato|ver|mostre)\s+(\d{1,3})/)?.[1] || 0);
+    if (number > 0) {
+      const contract = contracts[number - 1];
+      if (!contract) return `Essa lista só tem ${contracts.length} contrato${contracts.length === 1 ? "" : "s"}. Escolha um número válido.`;
+      await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_DETAIL", { client, contracts, contract_index: number - 1 });
+      return renderAdminContractDetail(client, contract);
+    }
+    const chargeNumber = Number(normalized.match(/(?:cobre|cobrar|mande cobranca|mandar cobranca|enviar cobranca)\s+(\d{1,3})/)?.[1] || 0);
+    if (chargeNumber > 0) {
+      const contract = contracts[chargeNumber - 1];
+      if (!contract) return `Essa lista só tem ${contracts.length} contrato${contracts.length === 1 ? "" : "s"}. Escolha um número válido.`;
+      const selected = contract.overdue_installments.length ? contract.overdue_installments : contract.open_installments;
+      return await prepareContractScopedCharge(adminDb, profileId, admin, client, contract, selected);
+    }
+    const portalNumber = Number(normalized.match(/(?:portal|link)\s+(\d{1,3})/)?.[1] || 0);
+    if (portalNumber > 0) {
+      const contract = contracts[portalNumber - 1];
+      if (!contract) return `Essa lista só tem ${contracts.length} contrato${contracts.length === 1 ? "" : "s"}. Escolha um número válido.`;
+      if (!contract.portal) return `O portal do contrato #${String(contract.id).slice(0, 6).toUpperCase()} não está disponível.`;
+      if (!hasPermission(admin, "MESSAGE") && !hasPermission(admin, "CHARGE")) return "Seu número não possui permissão para enviar mensagens.";
+      const message = `Olá, ${String(client.name).split(/\s+/)[0]}. Você pode ver os detalhes do seu contrato pelo portal: ${contract.portal}`;
+      return await createPending(adminDb, profileId, admin, "CUSTOM_MESSAGE", { client, message }, `Enviar portal do contrato #${String(contract.id).slice(0, 6).toUpperCase()} para ${client.name}?`);
+    }
+    const confessionNumber = Number(normalized.match(/(?:confissao|confiss|assinatura|assinar)\s+(\d{1,3})/)?.[1] || 0);
+    if (confessionNumber > 0) {
+      const contract = contracts[confessionNumber - 1];
+      if (!contract) return `Essa lista só tem ${contracts.length} contrato${contracts.length === 1 ? "" : "s"}. Escolha um número válido.`;
+      if (!contract.confissao_divida_url) return `Não encontrei confissão de dívida pronta para o contrato #${String(contract.id).slice(0, 6).toUpperCase()}.`;
+      if (!hasPermission(admin, "MESSAGE") && !hasPermission(admin, "CHARGE")) return "Seu número não possui permissão para enviar documentos.";
+      const message = `Olá, ${String(client.name).split(/\s+/)[0]}. Segue a confissão de dívida do seu contrato para conferência e assinatura: ${contract.confissao_divida_url}`;
+      return await createPending(adminDb, profileId, admin, "CUSTOM_MESSAGE", { client, message }, `Enviar confissão de dívida do contrato #${String(contract.id).slice(0, 6).toUpperCase()} para ${client.name}?`);
+    }
+    return null;
+  }
+
+  const contract = contracts[Number(payload.contract_index || 0)] || contracts[0];
+  if (!contract) return null;
+  if (/^(parcelas|ver parcelas|ver vencidas|vencidas|abertas|detalhes)$/.test(normalized)) return renderAdminContractDetail(client, contract);
+  if (/portal/.test(normalized)) {
+    if (!contract.portal) return `O portal do contrato #${String(contract.id).slice(0, 6).toUpperCase()} não está disponível.`;
+    if (!hasPermission(admin, "MESSAGE") && !hasPermission(admin, "CHARGE")) return "Seu número não possui permissão para enviar mensagens.";
+    const message = `Olá, ${String(client.name).split(/\s+/)[0]}. Você pode ver os detalhes do seu contrato pelo portal: ${contract.portal}`;
+    return await createPending(adminDb, profileId, admin, "CUSTOM_MESSAGE", { client, message }, `Enviar portal do contrato #${String(contract.id).slice(0, 6).toUpperCase()} para ${client.name}?`);
+  }
+  if (/confiss|assin/.test(normalized)) {
+    if (!contract.confissao_divida_url) return `Não encontrei confissão de dívida pronta para o contrato #${String(contract.id).slice(0, 6).toUpperCase()}.`;
+    if (!hasPermission(admin, "MESSAGE") && !hasPermission(admin, "CHARGE")) return "Seu número não possui permissão para enviar documentos.";
+    const message = `Olá, ${String(client.name).split(/\s+/)[0]}. Segue a confissão de dívida do seu contrato para conferência e assinatura: ${contract.confissao_divida_url}`;
+    return await createPending(adminDb, profileId, admin, "CUSTOM_MESSAGE", { client, message }, `Enviar confissão de dívida do contrato #${String(contract.id).slice(0, 6).toUpperCase()} para ${client.name}?`);
+  }
+  if (/^(cobre|cobrar|mande cobranca|mandar cobranca|enviar cobranca)/.test(normalized)) {
+    if (!hasPermission(admin, "CHARGE")) return "Seu número não possui permissão para cobrar clientes.";
+    const selected = selectedInstallmentsFromText(rawMessage, contract);
+    return await prepareContractScopedCharge(adminDb, profileId, admin, client, contract, selected);
+  }
+  return null;
+}
+
 async function listOpenInstallments(adminDb: any, profileId: string, mode: "overdue" | "due_today") {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
   const installments: any[] = [];
@@ -1004,6 +1279,8 @@ Deno.serve(async (req) => {
     const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Manaus" }).format(new Date()));
     const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
     if (intent === "greeting" || intent === "collection_brief") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, admin, adminName, greeting) });
+    const contextualReply = await handleAdminNavigationContext(adminDb, profileId, admin, rawMessage);
+    if (contextualReply) return json({ handled: true, admin: true, reply: contextualReply });
     const contractRequest = parseContractRequest(rawMessage);
     if (contractRequest) {
       if (!hasPermission(admin, "CONTRACT_CREATE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para criar contratos." });
@@ -1199,6 +1476,39 @@ Deno.serve(async (req) => {
     const query = targetFrom(normalize(rawMessage), intent);
     const found = await findClient(adminDb, profileId, query);
     if (found.error) return json({ handled: true, admin: true, reply: found.error });
+    if (["due", "amount", "debt", "status"].includes(intent)) {
+      return json({ handled: true, admin: true, reply: await openClientOperationalPanel(adminDb, profileId, admin, found.client, intent) });
+    }
+    if (intent === "portal") {
+      const contracts = await loadClientContractsForAdmin(adminDb, profileId, found.client);
+      const withPortal = contracts.filter((contract) => contract.portal);
+      if (!withPortal.length) return json({ handled: true, admin: true, reply: `O portal de ${found.client.name} não está disponível nos contratos ativos.` });
+      if (withPortal.length > 1) {
+        await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_LIST", { client: found.client, contracts });
+        return json({ handled: true, admin: true, reply: `${renderAdminContractList(found.client, contracts)}\n\nEscolha o contrato e depois envie *mandar portal*.` });
+      }
+      if (/^(mande|envie)/.test(normalize(rawMessage))) {
+        if (!hasPermission(admin, "CHARGE") && !hasPermission(admin, "MESSAGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para enviar mensagens." });
+        const message = `Olá, ${String(found.client.name).split(/\s+/)[0]}. Você pode ver os detalhes do seu contrato pelo portal: ${withPortal[0].portal}`;
+        const reply = await createPending(adminDb, profileId, admin, "CUSTOM_MESSAGE", { client: found.client, message }, `Enviar o portal para ${found.client.name}?`);
+        return json({ handled: true, admin: true, reply });
+      }
+      return json({ handled: true, admin: true, reply: `Portal de ${found.client.name}:\n${withPortal[0].portal}` });
+    }
+    if (intent === "charge") {
+      if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });
+      const contracts = await loadClientContractsForAdmin(adminDb, profileId, found.client);
+      if (!contracts.length) return json({ handled: true, admin: true, reply: `${found.client.name} não possui contrato ativo para cobrança.` });
+      const chargeable = contracts.filter((contract) => contract.overdue_installments.length || contract.open_installments.length);
+      if (!chargeable.length) return json({ handled: true, admin: true, reply: `${found.client.name} não tem parcela em aberto para cobrança.` });
+      if (chargeable.length === 1) {
+        await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_DETAIL", { client: found.client, contracts, contract_index: contracts.findIndex((contract) => contract.id === chargeable[0].id) });
+        const selected = chargeable[0].overdue_installments.length ? chargeable[0].overdue_installments : chargeable[0].open_installments;
+        return json({ handled: true, admin: true, reply: await prepareContractScopedCharge(adminDb, profileId, admin, found.client, chargeable[0], selected) });
+      }
+      await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_LIST", { client: found.client, contracts });
+      return json({ handled: true, admin: true, reply: `${renderAdminContractList(found.client, contracts)}\n\nEscolha o contrato para cobrar. Ex.: *cobrar 1*.` });
+    }
     const position = await loadClientPosition(adminDb, profileId, found.client);
     if (intent === "due") return json({ handled: true, admin: true, reply: position.installment ? `${found.client.name}: a parcela vence em ${dateBr(position.installment.due_date_effective)}${Number(position.installment.days_late || 0) > 0 ? ` e está atrasada há ${position.installment.days_late} dias` : ""}.` : `${found.client.name} não tem parcela pendente.` });
     if (intent === "amount") return json({ handled: true, admin: true, reply: position.installment ? `${found.client.name} tem ${money(position.installment.total_due)} atualizado em aberto. O contrato ativo tem total de ${money(position.contract?.total_to_receive)}.` : `${found.client.name} não tem valor pendente confirmado.` });

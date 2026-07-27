@@ -9,7 +9,14 @@ export const clientAvatarService = {
     if (!file) throw new Error("Arquivo inválido.");
     
     // Caminho organizado: clientes/ID_DO_CLIENTE/timestamp_nome.ext
-    const fileExt = file.name.split('.').pop();
+    if (!file.type.startsWith('image/')) {
+      throw new Error("Selecione um arquivo de imagem.");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("A imagem deve ter no máximo 5 MB.");
+    }
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const fileName = `${clientId}/${Date.now()}.${fileExt}`;
     const filePath = `clientes/${fileName}`;
 
@@ -17,14 +24,14 @@ export const clientAvatarService = {
     const { error: uploadError, data } = await supabase.storage
       .from('avatars')
       .upload(filePath, file, { 
-          upsert: true,
+          upsert: false,
           contentType: file.type || 'image/jpeg'
       });
 
     if (uploadError) {
       console.error("Erro detalhado do Storage:", uploadError);
-      if (uploadError.message?.includes("security policy")) {
-        throw new Error("Erro de Permissão: O banco de dados bloqueou o upload. Certifique-se de executar o script SQL de políticas de Storage.");
+      if (uploadError.message?.toLowerCase().includes("security policy")) {
+        throw new Error("Você não tem permissão para alterar a foto deste cliente.");
       }
       throw new Error(`Erro no upload: ${uploadError.message}`);
     }

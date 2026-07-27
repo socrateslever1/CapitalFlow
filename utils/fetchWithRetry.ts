@@ -15,8 +15,8 @@ export async function fetchWithRetry(
   options: FetchRetryOptions = {}
 ): Promise<Response> {
   const {
-    maxRetries = 3,
-    initialDelay = 1000,
+    maxRetries = 1,
+    initialDelay = 500,
     retryOnStatusCodes = [429, 500, 502, 503, 504],
     ...fetchOptions
   } = options;

@@ -16,6 +16,8 @@ import { isTestSource } from '../utils/testSource';
 const ensureUUID = (v: any) => (isUUID(v) ? v : generateUUID());
 
 const onlyDigits = (v: any) => String(v ?? '').replace(/\D/g, '');
+const UNKNOWN_DOCUMENT = '00000000000';
+const isUnknownDocument = (value: any) => onlyDigits(value) === UNKNOWN_DOCUMENT;
 
 const safeFloat = (v: any): number => {
   if (typeof v === 'number') return v;
@@ -86,7 +88,7 @@ export const contractsService = {
       const cleanPhone = onlyDigits(loan.debtorPhone);
 
       // 1) Busca por documento (se existir)
-      if (cleanDoc && cleanDoc.length >= 11) {
+      if (cleanDoc && cleanDoc.length >= 11 && !isUnknownDocument(cleanDoc)) {
         const { data: existingByDoc, error: e1 } = await supabase
           .from('clientes')
           .select('id, document')
@@ -376,7 +378,7 @@ export const contractsService = {
     const blocked = existingLoans.some((existing) => {
       if (!isCapitalOnlyRecoveryLoan(existing)) return false;
       if (loan.clientId && existing.clientId === loan.clientId) return true;
-      if (doc && onlyDigits(existing.debtorDocument) === doc) return true;
+      if (doc && !isUnknownDocument(doc) && onlyDigits(existing.debtorDocument) === doc) return true;
       return !!name && String(existing.debtorName || '').trim().toLowerCase() === name;
     });
 

@@ -159,7 +159,14 @@ export const useClientController = (
       ui.closeModal();
       await fetchFullData(activeUser.id);
     } catch (err: any) {
-      showToast('Erro ao salvar: ' + err.message, 'error');
+      const message = String(err?.message || err || '');
+      const isNetworkError = /failed to fetch|networkerror|load failed/i.test(message);
+      showToast(
+        isNetworkError
+          ? 'Não foi possível salvar o cliente. Verifique sua internet e tente novamente.'
+          : `Erro ao salvar: ${message}`,
+        'error'
+      );
     } finally {
       ui.setIsSaving(false);
     }

@@ -271,11 +271,17 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       localStorage.removeItem(CACHE_KEY(searchId));
     } catch (error: any) {
       console.warn('[useAppState] Sincronização remota falhou:', error);
-      if (isRecoverableSyncError(error) && hydrateCache(searchId, cached)) {
-        markSyncPaused('CACHE_RECOVERY');
-      } else {
-        setLoadError(error?.message || 'Erro de conexão.');
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      if (isOffline && isRecoverableSyncError(error) && hydrateCache(searchId, cached)) {
+        markSyncPaused('OFFLINE_CACHE_RECOVERY');
+        return;
       }
+
+      setLoadError(
+        isRecoverableSyncError(error)
+          ? 'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.'
+          : (error?.message || 'Erro de conexão.')
+      );
     } finally {
       setIsLoadingData(false);
       setIsDataReady(true);

@@ -316,46 +316,13 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
   }, [activeProfileId, fetchFullData, hydrateCache]);
 
   useEffect(() => {
-    if (!activeUser || !activeProfileId || activeUser.id === 'DEMO') return;
-
-    let syncTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const triggerRealtimeSync = () => {
-      if (syncTimeout) clearTimeout(syncTimeout);
-      syncTimeout = setTimeout(async () => {
-        try {
-          if (navigator.onLine) await fetchFullData(activeProfileId);
-        } catch (error) {
-          console.warn('[REALTIME] Falha ao sincronizar em segundo plano:', error);
-        }
-      }, 500);
-    };
-
-    const channel = supabase
-      .channel(`realtime-sync-${activeUser.supervisor_id || activeUser.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'contratos' }, triggerRealtimeSync)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, triggerRealtimeSync)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fontes' }, triggerRealtimeSync)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'parcelas' }, triggerRealtimeSync)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transacoes' }, triggerRealtimeSync)
-      .subscribe();
-
-    return () => {
-      if (syncTimeout) clearTimeout(syncTimeout);
-      supabase.removeChannel(channel);
-    };
-  }, [activeProfileId, activeUser?.id, activeUser?.supervisor_id, fetchFullData]);
-
-  useEffect(() => {
     if (!activeProfileId) return;
     const refreshFromNetwork = () => {
       if (navigator.onLine) void fetchFullData(activeProfileId);
     };
     window.addEventListener('online', refreshFromNetwork);
-    window.addEventListener('focus', refreshFromNetwork);
     return () => {
       window.removeEventListener('online', refreshFromNetwork);
-      window.removeEventListener('focus', refreshFromNetwork);
     };
   }, [activeProfileId, fetchFullData]);
 

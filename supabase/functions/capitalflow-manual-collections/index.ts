@@ -15,6 +15,10 @@ const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.s
   .map((byte) => byte.toString(16).padStart(2, "0")).join("");
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const dateBr = (value: string) => value.split("T")[0].split("-").reverse().join("/");
+const assertCleanEncoding = (value: string) => {
+  if (/(?:Ã.|Â.|�)/u.test(value)) throw new Error("message_encoding_invalid");
+  return value;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: headers(req) });
@@ -86,9 +90,9 @@ Deno.serve(async (req) => {
       ? `${APP_ORIGIN}/?portal=${encodeURIComponent(loan.portal_token)}&portal_code=${encodeURIComponent(loan.portal_shortcode)}` : null;
 
     if (requestedType === "WELCOME" || requestedType === "PAID") {
-      const message = requestedType === "WELCOME"
+      const message = assertCleanEncoding(requestedType === "WELCOME"
         ? `Olá, ${firstName}. Seu acesso ao CapitalFlow está disponível. Pelo portal você pode consultar contratos, parcelas e comprovantes com segurança${portalLink ? `: ${portalLink}` : "."}`
-        : `Olá, ${firstName}. Recebemos o seu pagamento. Obrigado! O recibo e o saldo atualizado podem ser consultados no portal${portalLink ? `: ${portalLink}` : "."}`;
+        : `Olá, ${firstName}. Recebemos o seu pagamento. Obrigado! O recibo e o saldo atualizado podem ser consultados no portal${portalLink ? `: ${portalLink}` : "."}`);
       const { data: queued, error: queueError } = await admin.from("whatsapp_queue").insert({
         profile_id: profileId, phone, message, status: "PENDING", loan_id: loanId,
       }).select("id").single();
@@ -117,11 +121,11 @@ Deno.serve(async (req) => {
     const dueLabel = dateBr(open.effective_due);
     if (requestedType === "LATE" && daysLate <= 0) return json(req, { error: "installment_not_overdue" }, 409);
     const shouldUseLateTone = requestedType === "LATE" || (requestedType === "COLLECTION" && daysLate > 0);
-    const message = shouldUseLateTone
+    const message = assertCleanEncoding(shouldUseLateTone
       ? `Olá, ${firstName}. A parcela vencida em ${dueLabel}, com valor atualizado de ${money(amount)}, permanece em aberto. Precisamos do seu retorno para regularização. Você pode pagar ou consultar os detalhes pelo portal${portalLink ? `: ${portalLink}` : "."}`
       : daysLate > 0
         ? `Olá, ${firstName}. Este é um lembrete sobre a parcela vencida em ${dueLabel}. O valor atualizado é ${money(amount)}. Consulte os detalhes e as opções de pagamento pelo portal${portalLink ? `: ${portalLink}` : "."}`
-        : `Olá, ${firstName}. Passando para lembrar que sua parcela de ${money(amount)} vence em ${dueLabel}. Você pode consultar os detalhes e as opções de pagamento pelo portal${portalLink ? `: ${portalLink}` : "."}`;
+        : `Olá, ${firstName}. Passando para lembrar que sua parcela de ${money(amount)} vence em ${dueLabel}. Você pode consultar os detalhes e as opções de pagamento pelo portal${portalLink ? `: ${portalLink}` : "."}`);
 
     const { data: queued, error: queueError } = await admin.from("whatsapp_queue").insert({
       profile_id: profileId, phone, message, status: "PENDING", loan_id: loanId, parcela_id: open.id,

@@ -80,7 +80,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const source = $('Attach Resolved Contact').item.json;\nconst raw = String($json?.choices?.[0]?.message?.content || $json?.choices?.[0]?.text || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, '').replace(/\\/no_think/gi, '').trim();\nconst required = [...String(source.message).matchAll(/https?:\\/\\/\\S+|R\\$\\s*[\\d.,]+|\\b\\d{2}\\/\\d{2}\\/\\d{4}\\b/g)].map((match) => match[0].replace(/[.,;:!?]+$/, ''));\nconst valid = raw.length >= 20 && raw.length <= 1800 && required.every((token) => raw.includes(token));\nreturn [{ json: { ...source, message: valid ? raw : source.message, ai_used: valid } }];"
+          "jsCode": "const source = $('Attach Resolved Contact').item.json;\nconst corrupted = /(?:Ã.|Â.|�)/u;\nconst original = String(source.message || '');\nif (corrupted.test(original)) throw new Error('Mensagem bloqueada: codificacao invalida na origem');\nconst raw = String($json?.choices?.[0]?.message?.content || $json?.choices?.[0]?.text || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, '').replace(/\\/no_think/gi, '').trim();\nconst required = [...original.matchAll(/https?:\\/\\/\\S+|R\\$\\s*[\\d.,]+|\\b\\d{2}\\/\\d{2}\\/\\d{4}\\b/g)].map((match) => match[0].replace(/[.,;:!?]+$/, ''));\nconst valid = raw.length >= 20 && raw.length <= 1800 && !corrupted.test(raw) && required.every((token) => raw.includes(token));\nreturn [{ json: { ...source, message: valid ? raw : original, ai_used: valid } }];"
         },
         "id": "manual-collection-ai-guard",
         "name": "Guard Financial Facts",

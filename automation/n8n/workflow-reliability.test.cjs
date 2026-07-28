@@ -37,3 +37,32 @@ test("daily collection workflow acknowledges success and failure without a fixed
   assert.equal(outputs[0][0].node, "Confirm Sent");
   assert.equal(outputs[1][0].node, "Fail Dispatch");
 });
+
+test("collection workflows block malformed UTF-8 before WhatsApp delivery", () => {
+  for (const name of [
+    "capitalflow-manual-collections.json",
+    "capitalflow-daily-collections.json",
+  ]) {
+    const workflow = readWorkflow(name);
+    const guard = workflow.nodes.find((node) => node.name === "Guard Financial Facts");
+
+    assert.ok(guard);
+    assert.match(guard.parameters.jsCode, /codificacao invalida na origem/);
+    assert.match(guard.parameters.jsCode, /!corrupted\.test\(raw\)/);
+  }
+});
+
+test("collection Edge Functions validate message encoding at the source", () => {
+  for (const name of [
+    "capitalflow-manual-collections",
+    "capitalflow-daily-collections",
+  ]) {
+    const source = fs.readFileSync(
+      path.join(__dirname, "..", "..", "supabase", "functions", name, "index.ts"),
+      "utf8",
+    );
+
+    assert.match(source, /assertCleanEncoding/);
+    assert.match(source, /message_encoding_invalid/);
+  }
+});

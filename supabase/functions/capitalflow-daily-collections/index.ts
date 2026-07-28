@@ -14,6 +14,10 @@ async function sha256(value: string) {
 }
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const dateBr = (value: string) => value.split("-").reverse().join("/");
+const assertCleanEncoding = (value: string) => {
+  if (/(?:Ã.|Â.|�)/u.test(value)) throw new Error("message_encoding_invalid");
+  return value;
+};
 
 function buildMessage(input: {
   name: string; stage: string; dueDate: string; amount: number; daysLate: number; tone: string; portalLink: string | null;
@@ -35,7 +39,7 @@ function buildMessage(input: {
   } else {
     text = `Olá, ${firstName}. Identificamos que a parcela vencida em ${due} continua em aberto. O valor atualizado hoje é ${amount}. Quer conversar sobre isso ou receber ajuda para pagar?`;
   }
-  return input.portalLink ? `${text}\n\nPortal seguro: ${input.portalLink}` : text;
+  return assertCleanEncoding(input.portalLink ? `${text}\n\nPortal seguro: ${input.portalLink}` : text);
 }
 
 Deno.serve(async (req) => {

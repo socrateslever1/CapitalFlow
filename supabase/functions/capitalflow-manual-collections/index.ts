@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const DEV_PROFILE_ID = "62dcbb45-f02c-42ba-84a4-916af9854dea";
 const APP_ORIGIN = (Deno.env.get("APP_ORIGIN") || "https://capflow.pages.dev").replace(/\/$/, "");
 const allowedOrigins = new Set([APP_ORIGIN, "https://capflow.pages.dev", "https://capitalflow.app", "https://www.capitalflow.app", "http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3001"]);
 const headers = (req: Request) => ({
@@ -31,29 +30,30 @@ Deno.serve(async (req) => {
       const secret = req.headers.get("x-capitalflow-secret") || "";
       const { data: integration } = await admin.from("n8n_automation_integrations")
         .select("profile_id, session_name").eq("profile_id", profileId).eq("secret_hash", await sha256(secret)).eq("active", true).maybeSingle();
-      if (!integration || profileId !== DEV_PROFILE_ID) return json(req, { error: "unauthorized" }, 401);
+      if (!integration) return json(req, { error: "unauthorized" }, 401);
 
       if (action === "ack") {
-        const success = body.success === true;
-        const { error } = await admin.from("whatsapp_queue").update({
-          status: success ? "SENT" : "ERROR",
-          sent_at: success ? new Date().toISOString() : null,
-          error_message: success ? null : String(body.error || "Falha no envio pelo WAHA").slice(0, 500),
-        }).eq("profile_id", profileId).eq("id", String(body.queue_id || ""));
+        const { data, error } = await admin.rpc("ack_whatsapp_queue", {
+          p_profile_id: profileId,
+          p_queue_id: String(body.queue_id || ""),
+          p_lock_token: String(body.lock_token || ""),
+          p_success: body.success === true,
+          p_error: body.success === true ? null : String(body.error || "Falha no envio pelo WAHA"),
+        });
         if (error) throw error;
-        return json(req, { ok: true });
+        return json(req, data || { ok: false }, data?.ok === false ? 409 : 200);
       }
 
-      const { data: pending, error: pendingError } = await admin.from("whatsapp_queue")
-        .select("id, phone, message").eq("profile_id", profileId).eq("status", "PENDING").order("created_at").limit(10);
+      const { data: pending, error: pendingError } = await admin.rpc("claim_whatsapp_queue", {
+        p_profile_id: profileId,
+        p_limit: 10,
+      });
       if (pendingError) throw pendingError;
-      const ids = (pending || []).map((item) => item.id);
-      if (ids.length) {
-        const { error } = await admin.from("whatsapp_queue").update({ status: "PROCESSING" }).in("id", ids).eq("status", "PENDING");
-        if (error) throw error;
-      }
       return json(req, { ok: true, messages: (pending || []).map((item) => ({
         queue_id: item.id,
+        profile_id: item.profile_id,
+        lock_token: item.lock_token,
+        attempt: item.attempts,
         session: integration.session_name,
         chat_id: `${digits(item.phone).startsWith("55") ? digits(item.phone) : `55${digits(item.phone)}`}@c.us`,
         message: item.message,
@@ -66,7 +66,6 @@ Deno.serve(async (req) => {
     if (userError || !userData.user) return json(req, { error: "unauthorized" }, 401);
 
     const profileId = String(body.profile_id || "");
-    if (profileId !== DEV_PROFILE_ID) return json(req, { error: "feature_not_enabled_for_profile" }, 403);
     const email = String(userData.user.email || "").toLowerCase();
     const { data: profile } = await admin.from("perfis").select("id").eq("id", profileId)
       .or(`user_id.eq.${userData.user.id},email.eq.${email},usuario_email.eq.${email}`).maybeSingle();

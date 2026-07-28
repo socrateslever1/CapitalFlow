@@ -21,7 +21,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea', action: 'collect', dry_run: false }) }}",
+          "body": "={{ JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'collect', dry_run: false }) }}",
           "options": { "timeout": 60000 }
         },
         "id": "capitalflow-collect-due",
@@ -102,6 +102,7 @@
         "type": "n8n-nodes-waha.WAHA",
         "typeVersion": 202411,
         "position": [1020, 0],
+        "onError": "continueErrorOutput",
         "credentials": { "wahaApi": { "id": "fSoBCAg2xaTKYlOi", "name": "WAHA account" } }
       },
       {
@@ -113,7 +114,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea', action: 'ack', dispatch_id: $('Expand Messages').item.json.dispatch_id, success: true }) }}",
+          "body": "={{ JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'ack', dispatch_id: $('Expand Messages').all()[$itemIndex].json.dispatch_id, success: true }) }}",
           "options": { "timeout": 15000 }
         },
         "id": "capitalflow-ack-collection",
@@ -121,6 +122,24 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [1240, 0]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-daily-collections",
+          "sendHeaders": true,
+          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'ack', dispatch_id: $('Expand Messages').all()[$itemIndex].json.dispatch_id, success: false, error: $json.error?.message || $json.message || 'Falha no WAHA' }) }}",
+          "options": { "timeout": 15000 }
+        },
+        "id": "capitalflow-fail-collection",
+        "name": "Fail Dispatch",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [1240, 120]
       }
     ],
     "connections": {
@@ -131,7 +150,7 @@
       "Attach Resolved Contact": { "main": [[{ "node": "Local AI Naturalize", "type": "main", "index": 0 }]] },
       "Local AI Naturalize": { "main": [[{ "node": "Guard Financial Facts", "type": "main", "index": 0 }]] },
       "Guard Financial Facts": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]] },
-      "Send WhatsApp": { "main": [[{ "node": "Confirm Sent", "type": "main", "index": 0 }]] }
+      "Send WhatsApp": { "main": [[{ "node": "Confirm Sent", "type": "main", "index": 0 }], [{ "node": "Fail Dispatch", "type": "main", "index": 0 }]] }
     },
     "settings": { "executionOrder": "v1", "timezone": "America/Manaus" },
     "pinData": {},

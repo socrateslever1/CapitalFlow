@@ -5,9 +5,9 @@
     "active": true,
     "nodes": [
       {
-        "parameters": { "rule": { "interval": [{ "field": "seconds", "secondsInterval": 10 }] } },
+        "parameters": { "rule": { "interval": [{ "field": "seconds", "secondsInterval": 30 }] } },
         "id": "manual-collection-schedule",
-        "name": "Every 10 Seconds",
+        "name": "Every 30 Seconds",
         "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
         "position": [-520, 0]
@@ -21,7 +21,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: 'claim', profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea' }) }}",
+          "body": "={{ JSON.stringify({ action: 'claim', profile_id: $env.CAPITALFLOW_PROFILE_ID }) }}",
           "options": { "timeout": 15000 }
         },
         "id": "claim-manual-collections",
@@ -114,7 +114,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: 'ack', profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea', queue_id: $('Expand Pending Collections').item.json.queue_id, success: true }) }}",
+          "body": "={{ (() => { const source = $('Expand Pending Collections').all()[$itemIndex].json; return JSON.stringify({ action: 'ack', profile_id: source.profile_id, queue_id: source.queue_id, lock_token: source.lock_token, success: true }); })() }}",
           "options": { "timeout": 15000 }
         },
         "id": "ack-manual-collection-success",
@@ -132,7 +132,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: 'ack', profile_id: '62dcbb45-f02c-42ba-84a4-916af9854dea', queue_id: $('Expand Pending Collections').item.json.queue_id, success: false, error: $json.error?.message || $json.message || 'Falha no WAHA' }) }}",
+          "body": "={{ (() => { const source = $('Expand Pending Collections').all()[$itemIndex].json; return JSON.stringify({ action: 'ack', profile_id: source.profile_id, queue_id: source.queue_id, lock_token: source.lock_token, success: false, error: $json.error?.message || $json.message || 'Falha no WAHA' }); })() }}",
           "options": { "timeout": 15000 }
         },
         "id": "ack-manual-collection-error",
@@ -143,7 +143,7 @@
       }
     ],
     "connections": {
-      "Every 10 Seconds": { "main": [[{ "node": "Claim Pending Collections", "type": "main", "index": 0 }]] },
+      "Every 30 Seconds": { "main": [[{ "node": "Claim Pending Collections", "type": "main", "index": 0 }]] },
       "Claim Pending Collections": { "main": [[{ "node": "Expand Pending Collections", "type": "main", "index": 0 }]] },
       "Expand Pending Collections": { "main": [[{ "node": "Resolve WhatsApp Contact", "type": "main", "index": 0 }]] },
       "Resolve WhatsApp Contact": { "main": [[{ "node": "Attach Resolved Contact", "type": "main", "index": 0 }]] },

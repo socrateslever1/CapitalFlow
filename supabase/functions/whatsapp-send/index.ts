@@ -70,13 +70,9 @@ serve(async (req) => {
 
     // Se vier do trigger de banco com um queue_id
     if (queue_id) {
-      // 1. Marca como processando na fila
-      const { data: queueItem, error: queueFetchError } = await supabaseAdmin
-        .from("whatsapp_queue")
-        .update({ status: 'PROCESSING', attempts: 1 }) // Incrementa tentativa
-        .eq("id", queue_id)
-        .select()
-        .maybeSingle();
+      const { data: queueItems, error: queueFetchError } = await supabaseAdmin
+        .rpc("claim_whatsapp_queue_item", { p_queue_id: queue_id });
+      const queueItem = queueItems?.[0];
 
       if (queueFetchError || !queueItem) {
         return json(req, { success: false, error: "Item de fila não localizado" }, 404);
@@ -85,12 +81,20 @@ serve(async (req) => {
       targetProfileId = queueItem.profile_id;
       targetPhone = queueItem.phone;
       targetMessage = queueItem.message;
+      requestBody.profile_id = queueItem.profile_id;
+      requestBody.lock_token = queueItem.lock_token;
     }
 
     if (!targetProfileId || !targetPhone || !targetMessage) {
       const errText = "Parâmetros obrigatórios ausentes: profile_id, phone, message.";
       if (queue_id) {
-        await supabaseAdmin.from("whatsapp_queue").update({ status: 'ERROR', error_message: errText }).eq("id", queue_id);
+        await supabaseAdmin.rpc("ack_whatsapp_queue", {
+          p_profile_id: targetProfileId,
+          p_queue_id: queue_id,
+          p_lock_token: requestBody.lock_token,
+          p_success: false,
+          p_error: errText,
+        });
       }
       return json(req, { success: false, error: errText }, 400);
     }
@@ -105,7 +109,13 @@ serve(async (req) => {
     if (configError || !config) {
       const errText = "Integração do WhatsApp não configurada para este operador.";
       if (queue_id) {
-        await supabaseAdmin.from("whatsapp_queue").update({ status: 'ERROR', error_message: errText }).eq("id", queue_id);
+        await supabaseAdmin.rpc("ack_whatsapp_queue", {
+          p_profile_id: targetProfileId,
+          p_queue_id: queue_id,
+          p_lock_token: requestBody.lock_token,
+          p_success: false,
+          p_error: errText,
+        });
       }
       return json(req, { success: false, error: errText }, 400);
     }
@@ -193,14 +203,13 @@ serve(async (req) => {
 
     // 4. Sucesso no envio
     if (queue_id) {
-      await supabaseAdmin
-        .from("whatsapp_queue")
-        .update({
-          status: 'SENT',
-          sent_at: new Date().toISOString(),
-          error_message: null
-        })
-        .eq("id", queue_id);
+      await supabaseAdmin.rpc("ack_whatsapp_queue", {
+        p_profile_id: targetProfileId,
+        p_queue_id: queue_id,
+        p_lock_token: requestBody.lock_token,
+        p_success: true,
+        p_error: null,
+      });
     }
 
     return json(req, { success: true, response: responseText }, 200);
@@ -214,13 +223,15 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_URL") || "",
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
       );
-      await supabaseAdmin
-        .from("whatsapp_queue")
-        .update({
-          status: 'ERROR',
-          error_message: error?.message || 'Erro de envio interno'
-        })
-        .eq("id", requestBody.queue_id);
+      if (requestBody.profile_id && requestBody.lock_token) {
+        await supabaseAdmin.rpc("ack_whatsapp_queue", {
+          p_profile_id: requestBody.profile_id,
+          p_queue_id: requestBody.queue_id,
+          p_lock_token: requestBody.lock_token,
+          p_success: false,
+          p_error: error?.message || "Erro de envio interno",
+        });
+      }
     }
 
     return json(req, { success: false, error: error?.message || "Internal error" }, 500);

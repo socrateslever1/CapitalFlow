@@ -602,7 +602,7 @@ export const useAuth = () => {
     if (error) throw error;
   };
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     if (isDev) console.log('[AUTH] Executando logout...');
     setActiveProfileId(null);
     setBootFinished(true);
@@ -627,7 +627,7 @@ export const useAuth = () => {
     await supabase.auth.signOut().catch(() => {});
     window.dispatchEvent(new Event('cm_auth_lost'));
     if (isDev) console.log('[AUTH] Logout concluído');
-  };
+  }, []);
 
   const reauthenticate = async (password: string) => {
     if (!activeProfileId) throw new Error('Nenhum perfil ativo.');
@@ -663,3 +663,4 @@ export const useAuth = () => {
     boot
   };
 };
+

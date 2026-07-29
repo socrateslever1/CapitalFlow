@@ -108,7 +108,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);\n\nfunction onlyDigits(value) {\n  return String(value ?? '').replace(/\\D/g, '');\n}\n\nfunction firstNonEmpty(...values) {\n  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');\n}\n\nfunction normalizeBoolean(value) {\n  return value === true || value === 1 || String(value).toLowerCase() === 'true';\n}\n\nfunction resolveOrganizationId(body, tenantMap = {}) {\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '')).trim();\n  const receiver = onlyDigits(firstNonEmpty(body.me?.id, body.me?.phone, body.payload?.to, ''));\n\n  return String(tenantMap[session] ?? tenantMap[receiver] ?? '').trim();\n}\n\nfunction normalizeWahaMessage(input, options = {}) {\n  const body = input?.body ?? input ?? {};\n  const payload = body.payload ?? {};\n  const event = String(firstNonEmpty(body.event, body.eventType, '') ?? '').toLowerCase();\n  const remoteJid = String(firstNonEmpty(payload.from, payload.remoteJid, payload.key?.remoteJid, '') ?? '').trim();\n  const fromMe = normalizeBoolean(firstNonEmpty(payload.fromMe, payload.key?.fromMe, false));\n  const isGroup = remoteJid.endsWith('@g.us') || normalizeBoolean(payload.isGroup);\n  const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();\n  const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();\n  const messageType = rawType === 'ptt' ? 'voice' : rawType;\n  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();\n  const phone = onlyDigits(remoteJid.split('@')[0]);\n  const organizationId = resolveOrganizationId(body, options.tenantMap);\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();\n\n  if (!['message', 'message.any'].includes(event)) return { accepted: false, reason: 'unsupported_event' };\n  if (!remoteJid || isGroup) return { accepted: false, reason: 'group_or_invalid_sender' };\n  if (fromMe) return { accepted: false, reason: 'from_me' };\n  if (!messageId) return { accepted: false, reason: 'missing_message_id' };\n  if (!SUPPORTED_MESSAGE_TYPES.has(messageType)) return { accepted: false, reason: 'unsupported_message_type' };\n  if (!phone || phone.length < 10) return { accepted: false, reason: 'invalid_phone' };\n  if (!organizationId) return { accepted: false, reason: 'missing_organization_id' };\n\n  return {\n    accepted: true,\n    value: {\n      message_id: messageId,\n      message,\n      phone,\n      remote_jid: remoteJid,\n      from_me: false,\n      is_group: false,\n      organization_id: organizationId,\n      session_id: `${organizationId}:${phone}`,\n      whatsapp_session: session,\n      message_type: messageType,\n      timestamp: firstNonEmpty(payload.timestamp, body.timestamp, new Date().toISOString()),\n    },\n  };\n}\n\n\nlet tenantMap = {};\ntry {\n  tenantMap = JSON.parse($env.CAPITALFLOW_TENANT_MAP || '{}');\n} catch {\n  throw new Error('CAPITALFLOW_TENANT_MAP deve conter um objeto JSON válido.');\n}\n\nconst accepted = [];\nfor (const item of $input.all()) {\n  const result = normalizeWahaMessage(item.json, { tenantMap });\n  if (result.accepted) accepted.push({ json: result.value });\n}\nreturn accepted;"
+          "jsCode": "const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);\n\nfunction onlyDigits(value) {\n  return String(value ?? '').replace(/\\D/g, '');\n}\n\nfunction firstNonEmpty(...values) {\n  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');\n}\n\nfunction normalizeBoolean(value) {\n  return value === true || value === 1 || String(value).toLowerCase() === 'true';\n}\n\nfunction resolveSenderJids(payload) {\n  const candidates = [\n    payload.from,\n    payload.remoteJid,\n    payload.key?.remoteJid,\n    payload.remoteJidAlt,\n    payload.key?.remoteJidAlt,\n    payload._data?.key?.remoteJidAlt,\n    payload._data?.Info?.Sender,\n    payload._data?.Info?.Chat,\n    payload.participant,\n    payload.key?.participant,\n  ]\n    .map((value) => String(value ?? '').trim())\n    .filter(Boolean);\n  const phoneJid = candidates.find((value) => /@(c\\.us|s\\.whatsapp\\.net)$/i.test(value));\n  const lidJid = candidates.find((value) => /@lid$/i.test(value));\n\n  return {\n    remoteJid: candidates[0] || '',\n    identityJid: phoneJid || candidates[0] || '',\n    lidJid: lidJid || '',\n  };\n}\n\nfunction isAutomatedServiceMessage(value) {\n  const message = String(value ?? '')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase();\n\n  return [\n    /mensagem enviada pela inteligencia artificial da vivo/,\n    /\\b(app vivo|produtos e servicos da vivo|sms da vivo|recarga.*vivo)\\b/,\n    /termos e condicoes de uso da vivo/,\n    /escolha uma das opcoes apresentadas/,\n    /limite de tentativas excedido/,\n    /codigo (pix|perde a validade|tem validade)/,\n    /protocolo de atendimento:\\s*\\d{8,}/,\n    /ocorreu um erro inesperado.*tente novamente mais tarde/,\n    /um erro inesperado me impediu de te ajudar/,\n  ].some((pattern) => pattern.test(message));\n}\n\nfunction resolveOrganizationId(body, tenantMap = {}) {\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '')).trim();\n  const receiver = onlyDigits(firstNonEmpty(body.me?.id, body.me?.phone, body.payload?.to, ''));\n\n  return String(tenantMap[session] ?? tenantMap[receiver] ?? '').trim();\n}\n\nfunction normalizeWahaMessage(input, options = {}) {\n  const body = input?.body ?? input ?? {};\n  const payload = body.payload ?? {};\n  const event = String(firstNonEmpty(body.event, body.eventType, '') ?? '').toLowerCase();\n  const { remoteJid, identityJid, lidJid } = resolveSenderJids(payload);\n  const fromMe = normalizeBoolean(firstNonEmpty(payload.fromMe, payload.key?.fromMe, false));\n  const isGroup = remoteJid.endsWith('@g.us') || normalizeBoolean(payload.isGroup);\n  const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();\n  const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();\n  const messageType = rawType === 'ptt' ? 'voice' : rawType;\n  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();\n  const identityIsLid = /@lid$/i.test(identityJid);\n  const phone = identityIsLid ? '' : onlyDigits(identityJid.split('@')[0]);\n  const organizationId = resolveOrganizationId(body, options.tenantMap);\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();\n\n  if (!['message', 'message.any'].includes(event)) return { accepted: false, reason: 'unsupported_event' };\n  if (!remoteJid || isGroup) return { accepted: false, reason: 'group_or_invalid_sender' };\n  if (fromMe) return { accepted: false, reason: 'from_me' };\n  if (isAutomatedServiceMessage(message)) return { accepted: false, reason: 'automated_service' };\n  if (!messageId) return { accepted: false, reason: 'missing_message_id' };\n  if (!SUPPORTED_MESSAGE_TYPES.has(messageType)) return { accepted: false, reason: 'unsupported_message_type' };\n  if ((!phone || phone.length < 10) && !lidJid) return { accepted: false, reason: 'invalid_phone' };\n  if (!organizationId) return { accepted: false, reason: 'missing_organization_id' };\n\n  return {\n    accepted: true,\n    value: {\n      message_id: messageId,\n      message,\n      phone,\n      sender_lid: lidJid,\n      requires_lid_resolution: !phone && Boolean(lidJid),\n      remote_jid: remoteJid,\n      from_me: false,\n      is_group: false,\n      organization_id: organizationId,\n      session_id: `${organizationId}:${phone}`,\n      whatsapp_session: session,\n      message_type: messageType,\n      timestamp: firstNonEmpty(payload.timestamp, body.timestamp, new Date().toISOString()),\n    },\n  };\n}\n\n\nlet tenantMap = {};\ntry {\n  tenantMap = JSON.parse($env.CAPITALFLOW_TENANT_MAP || '{}');\n} catch {\n  throw new Error('CAPITALFLOW_TENANT_MAP deve conter um objeto JSON válido.');\n}\n\nconst accepted = [];\nfor (const item of $input.all()) {\n  const result = normalizeWahaMessage(item.json, { tenantMap });\n  if (result.accepted) accepted.push({ json: result.value });\n}\nreturn accepted;"
         },
         "id": "capitalflow-normalize-filter",
         "name": "Normalize and Filter",
@@ -117,6 +117,69 @@
         "position": [
           -620,
           0
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "capitalflow-requires-lid-resolution",
+                "leftValue": "={{ $json.requires_lid_resolution }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "capitalflow-lid-gate",
+        "name": "Needs LID Resolution",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -430,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "url": "=http://waha:3000/api/{{ $json.session }}/lids/{{ encodeURIComponent($json.sender_lid) }}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "id": "capitalflow-resolve-lid",
+        "name": "Resolve WhatsApp LID",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -220,
+          -80
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const source = $(\"Normalize and Filter\").item.json;\nconst phone = String($json.pn || \"\").replace(/\\D/g, \"\");\nif (phone.length < 10) throw new Error(\"O WAHA não retornou um telefone válido para o LID recebido.\");\nreturn [{ json: { ...source, phone, requires_lid_resolution: false, phone_resolved_from_lid: true } }];"
+        },
+        "id": "capitalflow-apply-resolved-phone",
+        "name": "Apply Resolved Phone",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -10,
+          -80
         ]
       },
       {
@@ -179,7 +242,7 @@
       },
       {
         "parameters": {
-          "jsCode": "return $input.all().filter((item) => item.json.status !== \"duplicate\");"
+          "jsCode": "return $input.all().filter((item) => ![\"duplicate\", \"ignored_automation\"].includes(item.json.status));"
         },
         "id": "capitalflow-drop-duplicates",
         "name": "Drop Duplicates",
@@ -349,6 +412,46 @@
         ]
       },
       "Normalize and Filter": {
+        "main": [
+          [
+            {
+              "node": "Needs LID Resolution",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Needs LID Resolution": {
+        "main": [
+          [
+            {
+              "node": "Resolve WhatsApp LID",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Admin Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve WhatsApp LID": {
+        "main": [
+          [
+            {
+              "node": "Apply Resolved Phone",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Apply Resolved Phone": {
         "main": [
           [
             {

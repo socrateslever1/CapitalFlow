@@ -51,6 +51,21 @@ function samePhone(left: unknown, right: unknown) {
   return phoneVariants(left).some((candidate) => rightVariants.has(candidate));
 }
 
+function isAutomatedServiceMessage(value: unknown) {
+  const message = String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return [
+    /mensagem enviada pela inteligencia artificial da vivo/,
+    /\b(app vivo|produtos e servicos da vivo|sms da vivo|recarga.*vivo)\b/,
+    /termos e condicoes de uso da vivo/,
+    /escolha uma das opcoes apresentadas/,
+    /limite de tentativas excedido/,
+    /codigo (pix|perde a validade|tem validade)/,
+    /protocolo de atendimento:\s*\d{8,}/,
+    /ocorreu um erro inesperado.*tente novamente mais tarde/,
+    /um erro inesperado me impediu de te ajudar/,
+  ].some((pattern) => pattern.test(message));
+}
+
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const closedStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO", "RENEGOCIADO"];
 const paidInstallmentStatuses = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO"];
@@ -100,6 +115,7 @@ Deno.serve(async (req) => {
     if (action === "context") {
       const messageId = String(body.message_id ?? "");
       if (!messageId) return json({ error: "missing_message_id" }, 400);
+      const message = String(body.message ?? "").trim().slice(0, 1000);
       const { error: eventError } = await supabase.from("n8n_message_events").insert({
         profile_id: organizationId,
         message_id: messageId,
@@ -107,14 +123,18 @@ Deno.serve(async (req) => {
         direction: "INBOUND",
         message_type: String(body.message_type ?? "text"),
         metadata: {
-          message: String(body.message ?? "").trim().slice(0, 1000),
+          message,
           source: "whatsapp",
         },
       });
       if (eventError?.code === "23505") return json({ status: "duplicate" });
       if (eventError) throw eventError;
 
-      const message = String(body.message ?? "").trim().slice(0, 1000);
+      if (isAutomatedServiceMessage(message)) {
+        await supabase.from("n8n_message_events").update({ status: "IGNORED" })
+          .eq("profile_id", organizationId).eq("message_id", messageId);
+        return json({ status: "ignored_automation" });
+      }
       const { data: operator } = await supabase.from("perfis")
         .select("nome_operador, nome_exibicao, nome_completo, contato_whatsapp, phone")
         .eq("id", organizationId).maybeSingle();
@@ -144,6 +164,19 @@ Deno.serve(async (req) => {
         .gt("expires_at", new Date().toISOString()).maybeSingle();
       if (savedSessionResult.error) throw savedSessionResult.error;
       let savedSession = savedSessionResult.data;
+      if (!savedSession) {
+        const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+        const { count: recentCount, error: rateError } = await supabase.from("n8n_message_events")
+          .select("id", { head: true, count: "exact" })
+          .eq("profile_id", organizationId).eq("phone_hash", phoneHash)
+          .eq("direction", "INBOUND").gte("created_at", oneMinuteAgo);
+        if (rateError) throw rateError;
+        if (Number(recentCount || 0) > 6) {
+          await supabase.from("n8n_message_events").update({ status: "IGNORED" })
+            .eq("profile_id", organizationId).eq("message_id", messageId);
+          return json({ status: "ignored_automation" });
+        }
+      }
       if (requestsIdentityReset) {
         const { error: endError } = await supabase.from("n8n_client_sessions")
           .delete().eq("profile_id", organizationId).eq("phone_hash", phoneHash);

@@ -44,6 +44,55 @@ const normalizeNode = {
   position: [-620, 0],
 };
 
+const lidGateNode = {
+  parameters: {
+    conditions: {
+      options: { caseSensitive: true, leftValue: '', typeValidation: 'strict', version: 2 },
+      conditions: [{
+        id: 'capitalflow-requires-lid-resolution',
+        leftValue: '={{ $json.requires_lid_resolution }}',
+        rightValue: true,
+        operator: { type: 'boolean', operation: 'true', singleValue: true },
+      }],
+      combinator: 'and',
+    },
+    options: {},
+  },
+  id: 'capitalflow-lid-gate',
+  name: 'Needs LID Resolution',
+  type: 'n8n-nodes-base.if',
+  typeVersion: 2.2,
+  position: [-430, 0],
+};
+
+const resolveLidNode = {
+  parameters: {
+    url: '=http://waha:3000/api/{{ $json.session }}/lids/{{ encodeURIComponent($json.sender_lid) }}',
+    options: { timeout: 10000 },
+  },
+  id: 'capitalflow-resolve-lid',
+  name: 'Resolve WhatsApp LID',
+  type: 'n8n-nodes-base.httpRequest',
+  typeVersion: 4.2,
+  position: [-220, -80],
+};
+
+const applyResolvedPhoneNode = {
+  parameters: {
+    jsCode: [
+      'const source = $("Normalize and Filter").item.json;',
+      'const phone = String($json.pn || "").replace(/\\D/g, "");',
+      'if (phone.length < 10) throw new Error("O WAHA não retornou um telefone válido para o LID recebido.");',
+      'return [{ json: { ...source, phone, requires_lid_resolution: false, phone_resolved_from_lid: true } }];',
+    ].join('\n'),
+  },
+  id: 'capitalflow-apply-resolved-phone',
+  name: 'Apply Resolved Phone',
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
+  position: [-10, -80],
+};
+
 const adminCommandNode = {
   parameters: {
     method: 'POST',
@@ -104,7 +153,7 @@ const backendNode = {
 };
 
 const deduplicateNode = {
-  parameters: { jsCode: 'return $input.all().filter((item) => item.json.status !== "duplicate");' },
+  parameters: { jsCode: 'return $input.all().filter((item) => !["duplicate", "ignored_automation"].includes(item.json.status));' },
   id: 'capitalflow-drop-duplicates',
   name: 'Drop Duplicates',
   type: 'n8n-nodes-base.code',
@@ -451,6 +500,9 @@ workflow.nodes = workflow.nodes
     'Admin Command',
     'Admin Gate',
     'Admin Reply',
+    'Needs LID Resolution',
+    'Resolve WhatsApp LID',
+    'Apply Resolved Phone',
   ].includes(node.name))
   .map((node) => {
     if (node.name === 'Redis Chat Memory') {
@@ -501,7 +553,15 @@ workflow.nodes = workflow.nodes
     }
     return node;
   });
-workflow.nodes.push(normalizeNode, adminCommandNode, adminGateNode, adminReplyNode);
+workflow.nodes.push(
+  normalizeNode,
+  lidGateNode,
+  resolveLidNode,
+  applyResolvedPhoneNode,
+  adminCommandNode,
+  adminGateNode,
+  adminReplyNode,
+);
 workflow.nodes.push(deduplicateNode);
 localAiRequestNode.parameters.body = localAiRequestNode.parameters.body.replace(
   'content: "Converse em portugues',
@@ -536,7 +596,15 @@ if (memoryConnections?.ai_memory?.[0]) {
 
 workflow.connections = {
   Webhook: { main: [[{ node: 'Normalize and Filter', type: 'main', index: 0 }]] },
-  'Normalize and Filter': { main: [[{ node: 'Admin Command', type: 'main', index: 0 }]] },
+  'Normalize and Filter': { main: [[{ node: 'Needs LID Resolution', type: 'main', index: 0 }]] },
+  'Needs LID Resolution': {
+    main: [
+      [{ node: 'Resolve WhatsApp LID', type: 'main', index: 0 }],
+      [{ node: 'Admin Command', type: 'main', index: 0 }],
+    ],
+  },
+  'Resolve WhatsApp LID': { main: [[{ node: 'Apply Resolved Phone', type: 'main', index: 0 }]] },
+  'Apply Resolved Phone': { main: [[{ node: 'Admin Command', type: 'main', index: 0 }]] },
   'Admin Command': { main: [[{ node: 'Admin Gate', type: 'main', index: 0 }]] },
   'Admin Gate': { main: [[{ node: 'Admin Reply', type: 'main', index: 0 }], [{ node: 'Drop Duplicates', type: 'main', index: 0 }]] },
   'Admin Reply': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },

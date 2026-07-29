@@ -66,3 +66,51 @@ test('exige identificador para permitir deduplicação', () => {
     reason: 'missing_message_id',
   });
 });
+
+test('usa o telefone alternativo quando o remetente principal é um LID oculto', () => {
+  const result = normalizeWahaMessage(payload({
+    from: '123456789012345@lid',
+    remoteJidAlt: '5592999999999@s.whatsapp.net',
+  }), { tenantMap });
+
+  assert.equal(result.accepted, true);
+  assert.equal(result.value.phone, '5592999999999');
+  assert.equal(result.value.remote_jid, '123456789012345@lid');
+});
+
+test('encaminha LID sem telefone alternativo para resolução no WAHA', () => {
+  const result = normalizeWahaMessage({
+    event: 'message',
+    session: 'default',
+    payload: {
+      from: '78486903496856@lid',
+      id: 'lid-only-message',
+      type: 'text',
+      body: 'Olá',
+    },
+  }, {
+    tenantMap,
+  });
+
+  assert.equal(result.accepted, true);
+  assert.equal(result.value.phone, '');
+  assert.equal(result.value.sender_lid, '78486903496856@lid');
+  assert.equal(result.value.requires_lid_resolution, true);
+  assert.equal(result.value.remote_jid, '78486903496856@lid');
+});
+
+test('bloqueia mensagens automáticas da Vivo antes do atendimento', () => {
+  const result = normalizeWahaMessage(payload({
+    body: 'Mensagem enviada pela inteligência artificial da Vivo',
+  }), { tenantMap });
+
+  assert.deepEqual(result, { accepted: false, reason: 'automated_service' });
+});
+
+test('bloqueia respostas genéricas de outro robô para impedir loop', () => {
+  const result = normalizeWahaMessage(payload({
+    body: 'Sinto muito, ocorreu um erro inesperado. Tente novamente mais tarde',
+  }), { tenantMap });
+
+  assert.deepEqual(result, { accepted: false, reason: 'automated_service' });
+});

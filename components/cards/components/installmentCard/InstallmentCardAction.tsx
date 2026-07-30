@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, Lock, RefreshCcw } from 'lucide-react';
+import { CalendarClock, DollarSign, Lock, RefreshCcw } from 'lucide-react';
 import { Loan, Installment } from '../../../../types';
 import { CalculationResult } from '../../../../domain/finance/modalities/types';
 
@@ -12,6 +12,7 @@ interface InstallmentCardActionProps {
     inlinePaymentEnabled?: boolean;
     onPayInstallment?: (loan: Loan, inst: Installment, debt: CalculationResult) => void;
     onReverseInstallment?: (loan: Loan, inst: Installment) => void;
+    onPaymentOffer?: (loan: Loan, inst: Installment) => void;
     onNavigate?: () => void;
 }
 
@@ -24,6 +25,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
     inlinePaymentEnabled,
     onPayInstallment,
     onReverseInstallment,
+    onPaymentOffer,
     onNavigate
 }) => {
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
@@ -46,6 +48,18 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
         if (inlinePaymentEnabled && onPayInstallment) {
             return (
                 <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    {onPaymentOffer && (
+                        <button
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onPaymentOffer(loan, originalInst);
+                            }}
+                            className="flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-amber-400 hover:bg-amber-500 hover:text-slate-950"
+                            title="Criar ou alterar condição especial de pagamento"
+                        >
+                            <CalendarClock size={12} /> Condição
+                        </button>
+                    )}
                     <button
                         onClick={handleReceive}
                         className="text-[9px] font-black uppercase bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-1.5"

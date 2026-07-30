@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Calendar,
+  CalendarClock,
   Handshake,
   ChevronDown,
   Wallet,
@@ -121,6 +122,14 @@ export const Header: React.FC<HeaderProps> = ({
     const total = Math.max(0, Number(balance.totalRemaining) || capital + juros);
     return { capital, juros, total, shouldShow: total > ZERO_BALANCE_THRESHOLD };
   }, [loan]);
+  const activePaymentOffer = React.useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return (loan.installments || []).find((installment) =>
+      String(installment.paymentOfferStatus || '').toUpperCase() === 'ACTIVE'
+      && String(installment.paymentOfferValidUntil || '').slice(0, 10) >= today
+      && Number(installment.paymentOfferAmount || 0) > ZERO_BALANCE_THRESHOLD
+    );
+  }, [loan.installments]);
 
   // Badges refinados
   let Badge = null;
@@ -233,6 +242,17 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="mt-1 flex flex-wrap items-center gap-1.5 min-w-0">
               {RiskBadge}
               {Badge}
+              {activePaymentOffer && (
+                <div
+                  className="flex min-w-0 max-w-full items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-amber-400"
+                  title={`Valor acordado: ${formatMoney(Number(activePaymentOffer.paymentOfferAmount || 0), isStealthMode)}`}
+                >
+                  <CalendarClock size={8} />
+                  <span className="truncate text-[7px] font-black uppercase">
+                    Condição até {new Date(`${activePaymentOffer.paymentOfferValidUntil}T12:00:00`).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+              )}
               <span className="bg-slate-800/50 px-1.5 py-0.5 text-[7px] text-slate-500 font-black uppercase rounded-sm border border-slate-700/50">
                 {translateBillingCycle(loan.billingCycle)}
               </span>

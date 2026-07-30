@@ -42,7 +42,25 @@ export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ lo
                 <p className={`text-xs font-black ${isPaid ? 'text-emerald-500 decoration-slate-500' : 'text-white'}`}>
                     {formatMoney(details.total)}
                 </p>
-                {Math.abs(details.total - (installment.amount || 0)) > 1 && !isPaid && (
+                {details.hasPaymentOffer && !isPaid && (
+                    <p className="text-[8px] font-black uppercase text-amber-400">Condição especial</p>
+                )}
+                {details.hasPaymentOffer && Number(details.originalTotal || 0) > details.total + 0.05 && !isPaid ? (
+                    <>
+                        <p className="text-[9px] font-bold text-slate-500 line-through">
+                            {formatMoney(Number(details.originalTotal || 0))}
+                        </p>
+                        {Number(installment.paymentOfferDiscountPercent || 0) > 0 ? (
+                            <p className="text-[8px] font-black text-emerald-400">
+                                Você tem {Number(installment.paymentOfferDiscountPercent)}% de desconto
+                            </p>
+                        ) : Number(details.discountApplied || 0) > 0.05 && (
+                            <p className="text-[8px] font-black text-emerald-400">
+                                Você tem {formatMoney(Number(details.discountApplied || 0))} de desconto
+                            </p>
+                        )}
+                    </>
+                ) : Math.abs(details.total - (installment.amount || 0)) > 1 && !isPaid && (
                     <p className="text-[9px] text-slate-500 font-bold line-through">
                         {formatMoney(installment.amount)}
                     </p>

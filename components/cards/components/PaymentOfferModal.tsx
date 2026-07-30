@@ -1,0 +1,208 @@
+import React from 'react';
+import { CalendarClock, Check, Percent, Tag, X } from 'lucide-react';
+import type { Installment, Loan } from '../../../types';
+import { formatMoney } from '../../../utils/formatters';
+import {
+  calculatePaymentOfferPreview,
+  isPaymentOfferActive,
+  paymentOffersService,
+  type PaymentOfferInput,
+} from '../../../services/paymentOffers.service';
+
+interface PaymentOfferModalProps {
+  loan: Loan;
+  installment: Installment;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}
+
+const dateKey = (value?: string) => value ? String(value).slice(0, 10) : '';
+
+export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, installment, onClose, onSaved }) => {
+  const active = isPaymentOfferActive(installment);
+  const currentMode: PaymentOfferInput['discountMode'] =
+    Number(installment.paymentOfferDiscountPercent || 0) > 0
+      ? 'PERCENT'
+      : Number(installment.paymentOfferDiscountValue || 0) > 0 ? 'VALUE' : 'NONE';
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = React.useState<PaymentOfferInput>({
+    agreedDate: dateKey(installment.paymentOfferAgreedDate) || today,
+    validUntil: dateKey(installment.paymentOfferValidUntil) || today,
+    discountMode: currentMode,
+    discount: currentMode === 'PERCENT'
+      ? Number(installment.paymentOfferDiscountPercent || 0)
+      : Number(installment.paymentOfferDiscountValue || 0),
+    waiveFine: installment.paymentOfferWaiveFine ?? installment.paymentOfferWaiveLateFee ?? false,
+    waiveDailyInterest: installment.paymentOfferWaiveDailyInterest ?? installment.paymentOfferWaiveLateFee ?? false,
+    note: installment.paymentOfferNote || '',
+  });
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const preview = React.useMemo(
+    () => calculatePaymentOfferPreview(loan, installment, form),
+    [loan, installment, form]
+  );
+  const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
+    setForm((current) => ({ ...current, [key]: value }));
+
+  const submit = async () => {
+    setError('');
+    if (!form.agreedDate || !form.validUntil || form.agreedDate > form.validUntil || form.validUntil < today) {
+      setError('Confira a data combinada e a validade.');
+      return;
+    }
+    if (form.discount < 0 || (form.discountMode === 'PERCENT' && form.discount > 100)) {
+      setError('Informe um desconto válido.');
+      return;
+    }
+    if (preview.finalAmount <= 0.05) {
+      setError('O valor final precisa ser maior que zero.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await paymentOffersService.save(loan, installment, form);
+      await onSaved();
+      onClose();
+    } catch (reason: any) {
+      setError(reason?.message || 'Falha ao enviar condição.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelOffer = async () => {
+    setIsSaving(true);
+    setError('');
+    try {
+      await paymentOffersService.cancel(loan, installment, 'Cancelada pelo operador');
+      await onSaved();
+      onClose();
+    } catch (reason: any) {
+      setError(reason?.message || 'Falha ao cancelar condição.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const ChargeToggle = ({ checked, onChange, title, amount }: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    title: string;
+    amount: number;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`flex h-12 items-center gap-2 rounded-md border px-3 text-left transition-colors ${
+        checked ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'
+      }`}
+    >
+      <span className={`grid h-5 w-5 shrink-0 place-items-center rounded border ${
+        checked ? 'border-emerald-500 bg-emerald-500 text-slate-950' : 'border-slate-600'
+      }`}>
+        {checked && <Check size={13} strokeWidth={3} />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[9px] font-black uppercase text-white">{title}</span>
+        <span className="block truncate text-[10px] font-bold text-slate-400">{formatMoney(amount)}</span>
+      </span>
+    </button>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm" onClick={(event) => event.stopPropagation()}>
+      <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+        <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <CalendarClock size={17} className="text-blue-400" />
+            <div>
+              <h3 className="text-xs font-black uppercase text-white">Condição de pagamento</h3>
+              <p className="text-[9px] text-slate-500">Sem alterar o vencimento do contrato</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-white" aria-label="Fechar">
+            <X size={17} />
+          </button>
+        </header>
+
+        <div className="space-y-3 p-4">
+          <section className="grid grid-cols-[1fr_auto] items-end rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
+            <div>
+              <p className="text-[8px] font-black uppercase text-slate-500">Dívida atual</p>
+              <p className="mt-1 text-xs font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[8px] font-black uppercase text-blue-400">Cliente paga</p>
+              <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
+            </div>
+            {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
+              <p className="col-span-2 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
+                Economia total: {formatMoney(preview.chargesForgiven + preview.discountApplied)}
+              </p>
+            )}
+          </section>
+
+          <section>
+            <p className="mb-1.5 text-[8px] font-black uppercase text-slate-500">Retirar encargos</p>
+            <div className="grid grid-cols-2 gap-2">
+              <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Multa" amount={preview.fine} />
+              <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Mora diária" amount={preview.dailyInterest} />
+            </div>
+          </section>
+
+          <section>
+            <p className="mb-1.5 text-[8px] font-black uppercase text-slate-500">Desconto adicional</p>
+            <div className="flex gap-1 rounded-md bg-slate-950 p-1">
+              {([['NONE', 'Nenhum'], ['PERCENT', '%'], ['VALUE', 'R$']] as const).map(([mode, label]) => (
+                <button key={mode} type="button" onClick={() => update('discountMode', mode)} className={`h-8 flex-1 rounded text-[9px] font-black uppercase ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>
+                  {label}
+                </button>
+              ))}
+              {form.discountMode !== 'NONE' && (
+                <label className="flex h-8 w-28 items-center gap-1 rounded bg-slate-900 px-2">
+                  {form.discountMode === 'PERCENT' ? <Percent size={12} className="text-blue-400" /> : <Tag size={12} className="text-blue-400" />}
+                  <input type="number" min="0" max={form.discountMode === 'PERCENT' ? 100 : undefined} step="0.01" value={form.discount} onChange={(event) => update('discount', Number(event.target.value))} className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none" />
+                </label>
+              )}
+            </div>
+            {preview.discountApplied > 0.05 && (
+              <p className="mt-1.5 text-[9px] font-bold text-emerald-400">
+                Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
+              </p>
+            )}
+          </section>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label>
+              <span className="mb-1 block text-[8px] font-black uppercase text-slate-500">Pagamento combinado</span>
+              <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-2 text-[10px] font-bold text-white outline-none focus:border-blue-500" />
+            </label>
+            <label>
+              <span className="mb-1 block text-[8px] font-black uppercase text-slate-500">Condição válida até</span>
+              <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-2 text-[10px] font-bold text-white outline-none focus:border-blue-500" />
+            </label>
+          </div>
+
+          <details className="rounded-md border border-slate-800 bg-slate-950">
+            <summary className="cursor-pointer px-3 py-2 text-[9px] font-black uppercase text-slate-500">Adicionar observação</summary>
+            <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={500} rows={2} className="w-full resize-none border-t border-slate-800 bg-transparent p-3 text-xs text-white outline-none" />
+          </details>
+
+          {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
+
+          <div className="flex gap-2">
+            {active && (
+              <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-10 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
+                Cancelar
+              </button>
+            )}
+            <button type="button" onClick={submit} disabled={isSaving} className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
+              {isSaving ? 'Enviando...' : 'Enviar para o portal'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

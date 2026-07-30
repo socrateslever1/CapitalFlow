@@ -11,6 +11,7 @@ import { InstallmentCardTimeline } from './installmentCard/InstallmentCardTimeli
 import { InstallmentCardStatus } from './installmentCard/InstallmentCardStatus';
 import { InstallmentCardAmounts } from './installmentCard/InstallmentCardAmounts';
 import { InstallmentCardAction } from './installmentCard/InstallmentCardAction';
+import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 
 interface InstallmentCardProps {
     vm: InstallmentViewModel;
@@ -21,6 +22,7 @@ interface InstallmentCardProps {
     inlinePaymentEnabled?: boolean;
     onPayInstallment?: (loan: Loan, inst: Installment, debt: any) => void;
     onReverseInstallment?: (loan: Loan, inst: Installment) => void;
+    onPaymentOffer?: (loan: Loan, inst: Installment) => void;
     onNavigate?: () => void;
 }
 
@@ -33,6 +35,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     inlinePaymentEnabled,
     onPayInstallment,
     onReverseInstallment,
+    onPaymentOffer,
     onNavigate
 }) => {
     const {
@@ -41,6 +44,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     } = vm;
 
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
+    const hasActiveOffer = isPaymentOfferActive(originalInst);
 
     const containerClasses = `responsive-card rounded-lg border flex flex-col justify-between h-full ${
         isRenegotiated ? 'bg-slate-900/80 border-slate-700/50' :
@@ -63,7 +67,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                     isPaid={isPaid}
                     isStealthMode={isStealthMode}
                 />
-                <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} inlinePaymentEnabled={inlinePaymentEnabled} onPayInstallment={onPayInstallment} onReverseInstallment={onReverseInstallment} onNavigate={onNavigate} />
+                <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} inlinePaymentEnabled={inlinePaymentEnabled} onPayInstallment={onPayInstallment} onReverseInstallment={onReverseInstallment} onPaymentOffer={onPaymentOffer} onNavigate={onNavigate} />
             </div>
         );
     }
@@ -95,6 +99,11 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                                 Atrasada
                             </span>
                         )}
+                        {hasActiveOffer && !isPaid && (
+                            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-400">
+                                Condição até {new Date(`${originalInst.paymentOfferValidUntil}T12:00:00`).toLocaleDateString('pt-BR')}
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-x-1.5 gap-y-0.5 mt-0.5 flex-wrap">
                         <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
@@ -105,6 +114,14 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                                 <span className="text-slate-700">•</span>
                                 <p className="text-[8px] text-rose-400/80 font-bold leading-tight">
                                     +{formatMoney(debt.total - originalInst.amount, isStealthMode)} juros
+                                </p>
+                            </>
+                        )}
+                        {hasActiveOffer && (
+                            <>
+                                <span className="text-slate-700">•</span>
+                                <p className="text-[8px] font-black text-emerald-400">
+                                    Valor acordado {formatMoney(Number(originalInst.paymentOfferAmount || 0), isStealthMode)}
                                 </p>
                             </>
                         )}
@@ -122,6 +139,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                     inlinePaymentEnabled={inlinePaymentEnabled}
                     onPayInstallment={onPayInstallment}
                     onReverseInstallment={onReverseInstallment}
+                    onPaymentOffer={onPaymentOffer}
                     onNavigate={onNavigate}
                 />
             </div>
@@ -151,6 +169,9 @@ const arePropsEqual = (prev: InstallmentCardProps, next: InstallmentCardProps) =
         pInst.interestRemaining !== nInst.interestRemaining ||
         pInst.lateFeeAccrued !== nInst.lateFeeAccrued ||
         pInst.dueDate !== nInst.dueDate
+        || pInst.paymentOfferStatus !== nInst.paymentOfferStatus
+        || pInst.paymentOfferValidUntil !== nInst.paymentOfferValidUntil
+        || pInst.paymentOfferAmount !== nInst.paymentOfferAmount
     ) {
         return false;
     }

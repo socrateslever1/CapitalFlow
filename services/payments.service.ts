@@ -143,6 +143,56 @@ export const paymentsService = {
     const paymentDate = realDate || todayDateOnlyUTC();
     const paymentDateStr = paymentDate.toISOString().split('T')[0];
     const dbIsActuallySettled = remainingDb <= ZERO_BALANCE_THRESHOLD;
+    const offerStatus = String(instDb?.payment_offer_status || '').toUpperCase();
+    const offerValidUntil = String(instDb?.payment_offer_valid_until || '').slice(0, 10);
+    const offerAmount = roundMoney(Number(instDb?.payment_offer_amount || 0));
+    const hasValidPaymentOffer =
+      offerStatus === 'ACTIVE'
+      && offerValidUntil >= paymentDateStr
+      && offerAmount > ZERO_BALANCE_THRESHOLD;
+
+    if (hasValidPaymentOffer && Math.abs(amountToPay - offerAmount) <= ZERO_BALANCE_THRESHOLD) {
+      if (isOffline) {
+        throw new Error('O recebimento de uma condição especial exige internet para registrar os descontos com segurança.');
+      }
+
+      const sourceId = safeUUID((loan as any).sourceId);
+      if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
+
+      let offerCaixaLivreId = resolveCaixaLivreIdFromMemory(sources);
+      if (!offerCaixaLivreId) {
+        offerCaixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
+      }
+
+      const { data: offerResult, error: offerError } = await supabase.rpc('process_installment_payment_offer', {
+        p_idempotency_key: idempotencyKey,
+        p_loan_id: loanId,
+        p_installment_id: instId,
+        p_profile_id: ownerId,
+        p_operator_id: safeUUID(activeUser.id),
+        p_amount_paid: amountToPay,
+        p_payment_date: paymentDateStr,
+        p_source_id: sourceId,
+        p_caixa_livre_id: safeUUID(offerCaixaLivreId),
+      });
+
+      if (offerError) {
+        throw new Error('Falha ao aplicar a condição especial: ' + offerError.message);
+      }
+
+      return {
+        amountToPay,
+        paymentType: 'SPECIAL_OFFER',
+        amortization: offerResult,
+      };
+    }
+
+    if (hasValidPaymentOffer) {
+      throw new Error(
+        `Esta parcela possui uma condição especial ativa de R$ ${offerAmount.toFixed(2).replace('.', ',')}. `
+        + 'Receba esse valor ou cancele/atualize a condição antes de registrar outro pagamento.'
+      );
+    }
 
     if (
       !isOffline &&

@@ -22,6 +22,10 @@ export interface InstallmentDebtDetail {
     dueDateISO: string;
     statusLabel: string;
     statusColor: string;
+    hasPaymentOffer?: boolean;
+    originalTotal?: number;
+    offerValidUntil?: string;
+    discountApplied?: number;
 }
 
 export interface PaymentOptions {
@@ -36,7 +40,21 @@ export interface PaymentOptions {
     // Novos campos para UI correta
     daysLate: number;
     dueDateISO: string;
+    hasPaymentOffer?: boolean;
+    originalTotal?: number;
+    offerValidUntil?: string;
+    discountApplied?: number;
 }
+
+const isActivePaymentOffer = (inst: any) => {
+    const status = String(inst?.paymentOfferStatus ?? inst?.payment_offer_status ?? '').toUpperCase();
+    const validUntil = String(inst?.paymentOfferValidUntil ?? inst?.payment_offer_valid_until ?? '').slice(0, 10);
+    const amount = Number(inst?.paymentOfferAmount ?? inst?.payment_offer_amount ?? 0);
+    return status === 'ACTIVE' && validUntil >= new Date().toISOString().slice(0, 10) && amount > 0.05;
+};
+
+const paymentOfferAmount = (inst: any) =>
+    Number(inst?.paymentOfferAmount ?? inst?.payment_offer_amount ?? 0);
 
 export const isPortalInstallmentPaid = (inst: any): boolean => {
     return isInstallmentPaid(inst);
@@ -89,8 +107,8 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
     pending.forEach(inst => {
         const instCalc = normalizeInstallmentForCalc(inst);
         const debt = calculateTotalDue(loanCalc, instCalc);
-        totalDue += Number(debt.total || 0);
-        if (debt.daysLate > maxDaysLate) maxDaysLate = debt.daysLate;
+        totalDue += isActivePaymentOffer(inst) ? paymentOfferAmount(inst) : Number(debt.total || 0);
+        if (!isActivePaymentOffer(inst) && debt.daysLate > maxDaysLate) maxDaysLate = debt.daysLate;
     });
 
     return {
@@ -156,6 +174,7 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
     const daysLate = isPaidOff ? 0 : debt.daysLate;
     const isLate = !isPaidOff && daysLate > 0;
     const dueInfo = getPortalDueLabel(daysLate, inst.dueDate);
+    const hasPaymentOffer = !isPaidOff && isActivePaymentOffer(inst);
 
     let statusLabel = dueInfo.label;
     let statusColor = 'text-slate-500';
@@ -163,6 +182,9 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
     if (isPaidOff) {
         statusLabel = 'Quitada';
         statusColor = 'text-emerald-500';
+    } else if (hasPaymentOffer) {
+        statusLabel = `Condição até ${parseDateOnlyUTC(inst.paymentOfferValidUntil).toLocaleDateString('pt-BR')}`;
+        statusColor = 'text-amber-400 font-bold';
     } else if (dueInfo.variant === 'OVERDUE') {
         statusColor = 'text-rose-500 font-bold';
     } else if (dueInfo.variant === 'DUE_TODAY') {
@@ -172,7 +194,7 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
     }
 
     return {
-        total: isPaidOff ? 0 : debt.total,
+        total: isPaidOff ? 0 : hasPaymentOffer ? paymentOfferAmount(inst) : debt.total,
         principal: isPaidOff ? 0 : debt.principal,
         interest: isPaidOff ? 0 : debt.interest,
         lateFee: isPaidOff ? 0 : debt.lateFee,
@@ -180,7 +202,11 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
         daysLate,
         dueDateISO: inst.dueDate,
         statusLabel,
-        statusColor
+        statusColor,
+        hasPaymentOffer,
+        originalTotal: Number(inst.paymentOfferOriginalAmount || 0) || debt.total,
+        offerValidUntil: inst.paymentOfferValidUntil,
+        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0)
     };
 };
 
@@ -214,9 +240,10 @@ export const resolvePaymentOptions = (loan: Loan, inst: any): PaymentOptions => 
     const loanCalc = normalizeLoanForCalc(loan);
     const instCalc = normalizeInstallmentForCalc(inst);
     const debt = calculateTotalDue(loanCalc, instCalc);
+    const hasPaymentOffer = isActivePaymentOffer(inst);
 
     // Total a Pagar = Tudo
-    const totalToPay = debt.total;
+    const totalToPay = hasPaymentOffer ? paymentOfferAmount(inst) : debt.total;
 
     // Renovação = Juros + Multa/Mora (Capital fica para depois)
     const renewToPay = debt.interest + debt.lateFee;
@@ -232,7 +259,11 @@ export const resolvePaymentOptions = (loan: Loan, inst: any): PaymentOptions => 
         // Só permite renovar se houver juros ou multa a pagar. Se for só principal, é quitação.
         canRenew: (debt.interest + debt.lateFee) > 0,
         daysLate: debt.daysLate,
-        dueDateISO: inst.dueDate
+        dueDateISO: inst.dueDate,
+        hasPaymentOffer,
+        originalTotal: debt.total,
+        offerValidUntil: inst.paymentOfferValidUntil,
+        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0)
     };
 };
 

@@ -215,6 +215,25 @@ export interface Installment {
   paidAmount?: number;
   number?: number;
   logs?: string[];
+  paymentOfferStatus?: 'ACTIVE' | 'CANCELLED' | 'USED' | 'EXPIRED';
+  paymentOfferAgreedDate?: string;
+  paymentOfferValidUntil?: string;
+  paymentOfferDiscountPercent?: number;
+  paymentOfferDiscountValue?: number;
+  paymentOfferDiscountApplied?: number;
+  paymentOfferWaiveLateFee?: boolean;
+  paymentOfferWaiveFine?: boolean;
+  paymentOfferWaiveDailyInterest?: boolean;
+  paymentOfferFineAmount?: number;
+  paymentOfferDailyInterestAmount?: number;
+  paymentOfferFineForgiven?: number;
+  paymentOfferDailyInterestForgiven?: number;
+  paymentOfferOriginalAmount?: number;
+  paymentOfferLateFeeForgiven?: number;
+  paymentOfferGrossAmount?: number;
+  paymentOfferAmount?: number;
+  paymentOfferNote?: string;
+  paymentOfferCreatedAt?: string;
 }
 
 export type LedgerEventType =

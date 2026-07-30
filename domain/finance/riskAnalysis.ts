@@ -19,6 +19,11 @@ export interface RiskProfile {
 
 type RiskInstallment = Installment | AgreementInstallment;
 
+const hasValidPaymentOffer = (installment: RiskInstallment | any) =>
+  String(installment?.paymentOfferStatus || '').toUpperCase() === 'ACTIVE'
+  && String(installment?.paymentOfferValidUntil || '').slice(0, 10) >= new Date().toISOString().slice(0, 10)
+  && Number(installment?.paymentOfferAmount || 0) > 0.05;
+
 const getCurrentSchedule = (loan: Loan): RiskInstallment[] => {
   if (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments)) {
     return loan.activeAgreement.installments;
@@ -29,7 +34,7 @@ const getCurrentSchedule = (loan: Loan): RiskInstallment[] => {
 
 const getCurrentDaysLate = (loan: Loan): number => {
   const overdueDays = getCurrentSchedule(loan)
-    .filter((installment) => !isInstallmentPaid(installment, loan.status))
+    .filter((installment) => !isInstallmentPaid(installment, loan.status) && !hasValidPaymentOffer(installment))
     .map((installment) => ({
       dueDate: installment.dueDate,
       daysLate: Math.max(0, getDaysDiff(installment.dueDate)),

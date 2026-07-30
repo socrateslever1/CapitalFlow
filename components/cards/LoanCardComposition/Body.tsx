@@ -169,6 +169,7 @@ export const Body: React.FC<BodyProps> = ({
                         onReverseInstallmentPayment={onReverseInstallmentPayment}
                         isStealthMode={isStealthMode}
                         onNavigate={onNavigate}
+                        onRefresh={onRefresh}
                     />
                 </div>
             )}

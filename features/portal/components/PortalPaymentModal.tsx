@@ -5,7 +5,7 @@ import { X, Wallet, CheckCircle2, QrCode, Copy } from 'lucide-react';
 import { Loan, Installment } from '../../../types';
 import { portalService } from '../../../services/portal.service';
 import { supabasePortal } from '../../../lib/supabasePortal';
-import { resolvePaymentOptions, debugDebtCheck } from '../mappers/portalDebtRules';
+import { resolvePaymentOptions, debugDebtCheck, type PaymentOptions } from '../mappers/portalDebtRules';
 import { BillingView, NotifyingView, SuccessView } from './payment/PaymentViews';
 import { AsaasCheckoutModal } from './AsaasCheckoutModal';
 
@@ -88,11 +88,13 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const shouldBlock = closedLoan || paidInst;
 
   // Fonte única de verdade (rules) com bloqueio real.
-  const options = useMemo(() => {
+  const options = useMemo<PaymentOptions>(() => {
     if (shouldBlock) {
       return {
         totalToPay: 0,
         renewToPay: 0,
+        breakdown: { principal: 0, interest: 0, fine: 0 },
+        canRenew: false,
         dueDateISO: (installment as any)?.dueDate || (installment as any)?.due_date || '',
         daysLate: 0,
       };
@@ -316,6 +318,11 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
                 setUploadMessage(null);
               }}
               onAsaas={() => setShowAsaasModal(true)}
+              paymentOffer={options.hasPaymentOffer ? {
+                originalTotal: Number(options.originalTotal || options.totalToPay),
+                validUntil: String(options.offerValidUntil || ''),
+                discountApplied: Number(options.discountApplied || 0),
+              } : undefined}
             />
           )}
 

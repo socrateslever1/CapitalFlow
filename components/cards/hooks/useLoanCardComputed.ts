@@ -18,6 +18,15 @@ const hasOpenInstallmentBalance = (inst: any): boolean => {
   return open > ZERO_BALANCE_THRESHOLD;
 };
 
+const getActiveOfferDate = (inst: any): string | null => {
+  const today = new Date().toISOString().slice(0, 10);
+  const isActive =
+    String(inst?.paymentOfferStatus || '').toUpperCase() === 'ACTIVE'
+    && String(inst?.paymentOfferValidUntil || '').slice(0, 10) >= today
+    && Number(inst?.paymentOfferAmount || 0) > ZERO_BALANCE_THRESHOLD;
+  return isActive ? String(inst.paymentOfferAgreedDate || inst.paymentOfferValidUntil || '').slice(0, 10) : null;
+};
+
 export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isStealthMode: boolean = false) => {
   // 1. Reconstrói o estado financeiro do contrato para garantir que parciais sejam abatidos
   const loan = useMemo(() => rebuildLoanStateFromLedger(loanRaw), [loanRaw]);
@@ -66,7 +75,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
       })
       .sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime())[0];
 
-    const dueDate = nextInst?.dueDate || null;
+    const dueDate = getActiveOfferDate(nextInst) || nextInst?.dueDate || null;
     const days = dueDate ? -getDaysDiff(dueDate) : 0;
 
     return { nextDueDate: dueDate, daysUntilDue: days };

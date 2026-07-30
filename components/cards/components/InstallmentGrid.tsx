@@ -5,6 +5,7 @@ import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
 import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
+import { PaymentOfferModal } from './PaymentOfferModal';
 
 type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
@@ -27,6 +28,7 @@ interface InstallmentGridProps {
     onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
     isStealthMode?: boolean;
     onNavigate?: () => void;
+    onRefresh?: () => void | Promise<void>;
 }
 
 export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
@@ -36,11 +38,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [showCustomAmount, setShowCustomAmount] = React.useState(false);
     const [quickMode, setQuickMode] = React.useState<'TOTAL' | 'CUSTOM' | 'CHARGES_ONLY'>('TOTAL');
     const [forgiveLateFee, setForgiveLateFee] = React.useState(false);
+    const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
 
     const {
         loan, orderedInstallments, fixedTermStats, isPaid, isZeroBalance, isFullyFinalized,
         showProgress, strategy, isDailyFree, isFixedTerm, isStealthMode, onNavigate,
-        onInstallmentPayment, onReverseInstallmentPayment
+        onInstallmentPayment, onReverseInstallmentPayment, onRefresh
     } = props;
 
     const context = {
@@ -72,12 +75,17 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             onPayInstallment={(_targetLoan, targetInst, targetDebt) => {
                                 setSelectedInst(targetInst);
                                 setSelectedDebt(targetDebt);
-                                setReceiptAmount(String(Number(targetDebt?.total || targetInst.amount || 0).toFixed(2)));
+                                const offerAmount = Number(targetInst.paymentOfferAmount || 0);
+                                const offerIsActive = String(targetInst.paymentOfferStatus || '') === 'ACTIVE'
+                                    && String(targetInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
+                                    && offerAmount > 0.05;
+                                setReceiptAmount(String(Number(offerIsActive ? offerAmount : targetDebt?.total || targetInst.amount || 0).toFixed(2)));
                                 setShowCustomAmount(false);
                                 setQuickMode('TOTAL');
                                 setForgiveLateFee(false);
                             }}
                             onReverseInstallment={onReverseInstallmentPayment}
+                            onPaymentOffer={(_targetLoan, targetInst) => setOfferInstallment(targetInst)}
                             onNavigate={onNavigate}
                         />
                     );
@@ -89,7 +97,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const interest = Math.max(0, Number(selectedDebt?.interest ?? selectedInst.interestRemaining ?? 0) || 0);
                 const lateFee = Math.max(0, Number(selectedDebt?.lateFee ?? selectedInst.lateFeeAccrued ?? 0) || 0);
                 const effectiveLateFee = forgiveLateFee ? 0 : lateFee;
-                const totalAmount = Math.max(0, Number(selectedDebt?.total || 0) - (forgiveLateFee ? lateFee : 0));
+                const activeOfferAmount = String(selectedInst.paymentOfferStatus || '') === 'ACTIVE'
+                    && String(selectedInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
+                    ? Number(selectedInst.paymentOfferAmount || 0)
+                    : 0;
+                const totalAmount = activeOfferAmount > 0.05
+                    ? activeOfferAmount
+                    : Math.max(0, Number(selectedDebt?.total || 0) - (forgiveLateFee ? lateFee : 0));
                 const chargesAmount = Math.max(0, interest + effectiveLateFee);
                 const displayedAmount = quickMode === 'CUSTOM'
                     ? (Number(receiptAmount) || 0)
@@ -97,6 +111,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                         ? chargesAmount
                         : totalAmount;
                 const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
+                const hasActiveOffer = activeOfferAmount > 0.05;
                 const forgivenessMode = forgiveLateFee ? 'FINE_AND_MORA' : 'NONE';
 
                 const modalContent = (
@@ -110,7 +125,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             <p className="text-slate-400 text-[10px] mt-1">Informe se recebeu o total da parcela ou outro valor.</p>
                         </div>
                         <div className="space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
+                            {hasActiveOffer ? (
+                                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center">
+                                    <p className="text-[9px] font-black uppercase text-emerald-400">Condição especial ativa</p>
+                                    <p className="mt-0.5 text-[9px] text-slate-400">O recebimento deve usar exatamente o valor acordado.</p>
+                                </div>
+                            ) : <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={() => {
                                         setQuickMode('TOTAL');
@@ -130,8 +150,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 >
                                     Outro valor
                                 </button>
-                            </div>
-                            {canReceiveChargesOnly && (
+                            </div>}
+                            {!hasActiveOffer && canReceiveChargesOnly && (
                                 <button
                                     onClick={() => {
                                         setQuickMode('CHARGES_ONLY');
@@ -143,7 +163,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     Somente juros/encargos
                                 </button>
                             )}
-                            {lateFee > 0.05 && (
+                            {!hasActiveOffer && lateFee > 0.05 && (
                                 <button
                                     type="button"
                                     onClick={() => setForgiveLateFee(prev => !prev)}
@@ -152,7 +172,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     {forgiveLateFee ? 'Atraso perdoado' : `Perdoar atraso (${formatMoney(lateFee, isStealthMode)})`}
                                 </button>
                             )}
-                            {showCustomAmount && (
+                            {!hasActiveOffer && showCustomAmount && (
                                 <input
                                     type="number"
                                     step="0.01"
@@ -168,7 +188,9 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-rose-400">Atr. {formatMoney(lateFee, isStealthMode)}</span>
                             </div>
                             <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-center">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Valor a receber</p>
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
+                                    {activeOfferAmount > 0.05 ? 'Valor da condição especial' : 'Valor a receber'}
+                                </p>
                                 <p className="text-base font-black text-emerald-400">{formatMoney(displayedAmount, isStealthMode)}</p>
                             </div>
                         </div>
@@ -205,6 +227,18 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 );
                 return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
             })()}
+
+            {offerInstallment && typeof document !== 'undefined' && createPortal(
+                <PaymentOfferModal
+                    loan={loan}
+                    installment={offerInstallment}
+                    onClose={() => setOfferInstallment(null)}
+                    onSaved={async () => {
+                        await onRefresh?.();
+                    }}
+                />,
+                document.body
+            )}
         </>
     );
 };

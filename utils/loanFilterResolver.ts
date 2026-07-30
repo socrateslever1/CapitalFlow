@@ -1,4 +1,4 @@
-import { Loan, LoanStatus } from '../types';
+import { Installment, Loan, LoanStatus } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { getDaysDiff } from './dateHelpers';
 import { ZERO_BALANCE_THRESHOLD, isInstallmentPaid } from '../domain/finance/calculations';
@@ -11,6 +11,11 @@ export type LoanVisualClassification =
   | 'RENEGOCIADO'
   | 'ARQUIVADO'
   | 'IGNORAR';
+
+const hasValidPaymentOffer = (installment: Installment | any) =>
+  String(installment?.paymentOfferStatus || '').toUpperCase() === 'ACTIVE'
+  && String(installment?.paymentOfferValidUntil || '').slice(0, 10) >= new Date().toISOString().slice(0, 10)
+  && Number(installment?.paymentOfferAmount || 0) > ZERO_BALANCE_THRESHOLD;
 
 export const getLoanNextDueDate = (loan: Loan): string => {
   const hasActiveAgreement = !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
@@ -78,10 +83,11 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     const maxDelay = Math.max(
       0,
       ...loan.installments.map((i) => {
-        if (isInstallmentPaid(i, loan.status) || i.status === LoanStatus.RENEGOCIADO) return 0;
+        if (isInstallmentPaid(i, loan.status) || i.status === LoanStatus.RENEGOCIADO || hasValidPaymentOffer(i)) return 0;
         return getDaysDiff(i.dueDate);
       })
     );
+    if (maxDelay <= 0) return 'EM_DIA';
     return maxDelay >= 30 ? 'CRITICO' : 'ATRASADO';
   }
 

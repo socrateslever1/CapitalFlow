@@ -250,39 +250,58 @@ serve(async (req) => {
       return json({ success: true, message: null });
     }
 
-    const allocation = allocatePaymentAmount(approvedAmount, {
-      principal: Number(installment.principal_remaining || 0),
-      interest: Number(installment.interest_remaining || 0),
-      lateFee: Number(installment.late_fee_accrued || 0),
-    });
-
-    if (allocation.overpayment > 0.05) {
-      await updateCharge({ status: "PENDING", provider_status: "OVERPAYMENT" });
-      return json({ success: false, message: "Valor pago maior que saldo aberto. Reconciliacao manual necessaria." }, 400);
-    }
-
     const caixaLivreId = await resolveCaixaLivreId(supabase, ownerProfileId);
     if (!caixaLivreId) {
       await updateCharge({ status: "PENDING", provider_status: "CAIXA_LIVRE_NOT_FOUND" });
       return json({ success: false, message: "Caixa Livre nao encontrado." }, 400);
     }
 
-    const { error: rpcError } = await supabase.rpc("process_payment_v3_selective", {
-      p_idempotency_key: charge.id,
-      p_loan_id: loanId,
-      p_installment_id: installmentId,
-      p_profile_id: ownerProfileId,
-      p_operator_id: ownerProfileId,
-      p_principal_paid: allocation.principalPaid,
-      p_interest_paid: allocation.interestPaid,
-      p_late_fee_paid: allocation.lateFeePaid,
-      p_late_fee_forgiven: 0,
-      p_interest_forgiven: 0,
-      p_payment_date: new Date().toISOString().split("T")[0],
-      p_capitalize_remaining: false,
-      p_source_id: sourceId,
-      p_caixa_livre_id: caixaLivreId,
-    });
+    const isOfferPayment = payload?.offer_active === true;
+    let rpcError: any = null;
+
+    if (isOfferPayment) {
+      const offerResult = await supabase.rpc("process_installment_payment_offer", {
+        p_idempotency_key: charge.id,
+        p_loan_id: loanId,
+        p_installment_id: installmentId,
+        p_profile_id: ownerProfileId,
+        p_operator_id: ownerProfileId,
+        p_amount_paid: approvedAmount,
+        p_payment_date: new Date().toISOString().split("T")[0],
+        p_source_id: sourceId,
+        p_caixa_livre_id: caixaLivreId,
+      });
+      rpcError = offerResult.error;
+    } else {
+      const allocation = allocatePaymentAmount(approvedAmount, {
+        principal: Number(installment.principal_remaining || 0),
+        interest: Number(installment.interest_remaining || 0),
+        lateFee: Number(installment.late_fee_accrued || 0),
+      });
+
+      if (allocation.overpayment > 0.05) {
+        await updateCharge({ status: "PENDING", provider_status: "OVERPAYMENT" });
+        return json({ success: false, message: "Valor pago maior que saldo aberto. Reconciliacao manual necessaria." }, 400);
+      }
+
+      const paymentResult = await supabase.rpc("process_payment_v3_selective", {
+        p_idempotency_key: charge.id,
+        p_loan_id: loanId,
+        p_installment_id: installmentId,
+        p_profile_id: ownerProfileId,
+        p_operator_id: ownerProfileId,
+        p_principal_paid: allocation.principalPaid,
+        p_interest_paid: allocation.interestPaid,
+        p_late_fee_paid: allocation.lateFeePaid,
+        p_late_fee_forgiven: 0,
+        p_interest_forgiven: 0,
+        p_payment_date: new Date().toISOString().split("T")[0],
+        p_capitalize_remaining: false,
+        p_source_id: sourceId,
+        p_caixa_livre_id: caixaLivreId,
+      });
+      rpcError = paymentResult.error;
+    }
 
     if (rpcError && !rpcError.message?.includes("quitada") && !rpcError.message?.includes("paga")) {
       await updateCharge({ status: "PENDING", provider_status: "RPC_ERROR" });

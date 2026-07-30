@@ -28,10 +28,15 @@ interface BillingViewProps {
     isProcessingInfinitePay?: boolean;
     receiptFile?: File | null;
     onFileChange?: (file: File | null) => void;
+    paymentOffer?: {
+        originalTotal: number;
+        validUntil: string;
+        discountApplied: number;
+    };
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({
-    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onInfinitePay, onAsaas, isProcessingAsaas = false, isProcessingInfinitePay = false, receiptFile, onFileChange
+    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onInfinitePay, onAsaas, isProcessingAsaas = false, isProcessingInfinitePay = false, receiptFile, onFileChange, paymentOffer
 }) => {
     // Usa o helper centralizado para determinar a mensagem
     const { label, variant, detail } = getPortalDueLabel(daysLateRaw, dueDateISO);
@@ -58,10 +63,30 @@ export const BillingView: React.FC<BillingViewProps> = ({
     return (
         <div className="space-y-6">
             <div className="text-center space-y-1">
-                <p className="text-slate-400 text-xs uppercase font-bold tracking-widest">Valor Total Atualizado</p>
+                <p className="text-slate-400 text-xs uppercase font-bold tracking-widest">
+                    {paymentOffer ? 'Condição especial' : 'Valor Total Atualizado'}
+                </p>
                 <div className="flex items-center justify-center gap-2">
                     <span className="text-4xl font-black text-white tracking-tight">{formatMoney(totalToPay)}</span>
                 </div>
+
+                {paymentOffer && (
+                    <div className="mx-auto mt-3 max-w-xs rounded-md border border-amber-500/25 bg-amber-500/10 p-2.5">
+                        <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase text-amber-400">
+                            <Calendar size={12} />
+                            Válida até {new Date(`${paymentOffer.validUntil.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')}
+                        </div>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                            De <span className="line-through">{formatMoney(paymentOffer.originalTotal)}</span>
+                            {' '}por <strong className="text-white">{formatMoney(totalToPay)}</strong>
+                        </p>
+                        {paymentOffer.discountApplied > 0.05 && (
+                            <p className="mt-0.5 text-[9px] font-bold text-emerald-400">
+                                Economia de {formatMoney(paymentOffer.discountApplied)}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border mt-2 ${statusBg}`}>
                     <Icon size={12} className={statusText}/>

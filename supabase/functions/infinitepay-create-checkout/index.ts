@@ -251,6 +251,10 @@ serve(async (req) => {
     const interestDue = roundMoney(due?.interest_due);
     const lateFeeDue = roundMoney(due?.late_fee_due);
     const daysLate = Math.max(0, Number(due?.days_late || 0));
+    const offerActive = due?.offer_active === true;
+    const grossDue = roundMoney(due?.gross_due ?? chargeAmount);
+    const discountApplied = roundMoney(due?.discount_applied);
+    const lateFeeForgiven = roundMoney(due?.late_fee_forgiven);
 
     if (!Number.isFinite(chargeAmount) || chargeAmount <= 0.05) {
       return json(req, {
@@ -295,7 +299,9 @@ serve(async (req) => {
         {
           quantity: 1,
           price: cents(chargeAmount),
-          description: daysLate > 0
+          description: offerActive
+            ? `Condicao especial de pagamento - Contrato ${String(loan_id).slice(0, 8)}`
+            : daysLate > 0
             ? `Parcela atualizada com encargos - Contrato ${String(loan_id).slice(0, 8)}`
             : `Pagamento de parcela - Contrato ${String(loan_id).slice(0, 8)}`,
         },
@@ -373,6 +379,12 @@ serve(async (req) => {
           interest_due: interestDue,
           late_fee_due: lateFeeDue,
           days_late: daysLate,
+          offer_active: offerActive,
+          offer_valid_until: due?.offer_valid_until || null,
+          offer_agreed_date: due?.offer_agreed_date || null,
+          gross_due: grossDue,
+          discount_applied: discountApplied,
+          late_fee_forgiven: lateFeeForgiven,
         },
       })
       .select("id")
@@ -400,6 +412,11 @@ serve(async (req) => {
         interest: interestDue,
         late_fee: lateFeeDue,
         days_late: daysLate,
+        offer_active: offerActive,
+        gross_due: grossDue,
+        discount_applied: discountApplied,
+        late_fee_forgiven: lateFeeForgiven,
+        offer_valid_until: due?.offer_valid_until || null,
       },
     });
   } catch (err: any) {

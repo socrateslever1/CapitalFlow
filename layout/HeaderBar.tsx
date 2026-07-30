@@ -250,7 +250,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       case 'DASHBOARD':
         return <LayoutDashboard size={14} className="text-blue-500" />;
       case 'DOSSIER':
-        return <FolderSearch size={14} className="text-cyan-400" />;
+        return <ArrowRightLeft size={14} className="text-cyan-400" />;
       case 'CLIENTS':
         return <Users size={14} className="text-indigo-500" />;
       case 'TEAM':
@@ -281,7 +281,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       case 'DASHBOARD':
         return 'Painel';
       case 'DOSSIER':
-        return 'Dossiê';
+        return 'Extrato';
       case 'CLIENTS':
         return 'Clientes';
       case 'TEAM':

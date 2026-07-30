@@ -5,9 +5,9 @@
     "active": true,
     "nodes": [
       {
-        "parameters": { "rule": { "interval": [{ "field": "seconds", "secondsInterval": 30 }] } },
+        "parameters": { "rule": { "interval": [{ "field": "seconds", "secondsInterval": 60 }] } },
         "id": "manual-collection-schedule",
-        "name": "Every 30 Seconds",
+        "name": "Every 60 Seconds",
         "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
         "position": [-520, 0]
@@ -21,7 +21,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: 'claim', profile_id: $env.CAPITALFLOW_PROFILE_ID }) }}",
+          "body": "={{ JSON.stringify({ action: 'claim_all' }) }}",
           "options": { "timeout": 15000 }
         },
         "id": "claim-manual-collections",
@@ -143,7 +143,7 @@
       }
     ],
     "connections": {
-      "Every 30 Seconds": { "main": [[{ "node": "Claim Pending Collections", "type": "main", "index": 0 }]] },
+      "Every 60 Seconds": { "main": [[{ "node": "Claim Pending Collections", "type": "main", "index": 0 }]] },
       "Claim Pending Collections": { "main": [[{ "node": "Expand Pending Collections", "type": "main", "index": 0 }]] },
       "Expand Pending Collections": { "main": [[{ "node": "Resolve WhatsApp Contact", "type": "main", "index": 0 }]] },
       "Resolve WhatsApp Contact": { "main": [[{ "node": "Attach Resolved Contact", "type": "main", "index": 0 }]] },
@@ -152,7 +152,12 @@
       "Guard Financial Facts": { "main": [[{ "node": "Send Manual Collection", "type": "main", "index": 0 }]] },
       "Send Manual Collection": { "main": [[{ "node": "Confirm Manual Collection", "type": "main", "index": 0 }], [{ "node": "Fail Manual Collection", "type": "main", "index": 0 }]] }
     },
-    "settings": { "executionOrder": "v1", "timezone": "America/Manaus" },
+    "settings": {
+      "executionOrder": "v1",
+      "timezone": "America/Manaus",
+      "saveDataSuccessExecution": "none",
+      "saveExecutionProgress": false
+    },
     "pinData": {},
     "tags": []
   }

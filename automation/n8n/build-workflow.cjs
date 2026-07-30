@@ -61,7 +61,7 @@ const lidGateNode = {
   id: 'capitalflow-lid-gate',
   name: 'Needs LID Resolution',
   type: 'n8n-nodes-base.if',
-  typeVersion: 2.2,
+  typeVersion: 2,
   position: [-430, 0],
 };
 

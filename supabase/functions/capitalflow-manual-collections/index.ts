@@ -29,6 +29,38 @@ Deno.serve(async (req) => {
     const action = String(body.action || "enqueue");
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 
+    if (action === "claim_all") {
+      const secret = req.headers.get("x-capitalflow-secret") || "";
+      const secretHash = await sha256(secret);
+      const { data: integrations, error: integrationsError } = await admin
+        .from("n8n_automation_integrations")
+        .select("profile_id, session_name")
+        .eq("secret_hash", secretHash)
+        .eq("active", true);
+      if (integrationsError) throw integrationsError;
+      if (!integrations?.length) return json(req, { error: "unauthorized" }, 401);
+
+      const messages = [];
+      for (const integration of integrations) {
+        const { data: pending, error: pendingError } = await admin.rpc("claim_whatsapp_queue", {
+          p_profile_id: integration.profile_id,
+          p_limit: 10,
+        });
+        if (pendingError) throw pendingError;
+        messages.push(...(pending || []).map((item) => ({
+          queue_id: item.id,
+          profile_id: item.profile_id,
+          lock_token: item.lock_token,
+          attempt: item.attempts,
+          session: integration.session_name,
+          chat_id: `${digits(item.phone).startsWith("55") ? digits(item.phone) : `55${digits(item.phone)}`}@c.us`,
+          message: item.message,
+        })));
+      }
+
+      return json(req, { ok: true, messages });
+    }
+
     if (action === "claim" || action === "ack") {
       const profileId = String(body.profile_id || "");
       const secret = req.headers.get("x-capitalflow-secret") || "";

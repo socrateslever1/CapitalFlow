@@ -48,7 +48,7 @@ import { CustomerAcquisitionPage } from './pages/Comercial/CaptacaoClientes';
 import { ReportsPage } from './features/reports/pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ContractDetailsPage } from './pages/ContractDetailsPage';
-import { DossierPage } from './pages/DossierPage';
+import { FinancialStatementPage } from './pages/FinancialStatementPage';
 
 import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
@@ -522,28 +522,23 @@ export const App: React.FC = () => {
 
               {activeTab === 'DOSSIER' && (
                 <motion.div
-                  key="dossier-view"
+                  key="statement-view"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
-                  <DossierPage
+                  <FinancialStatementPage
+                    profileId={activeProfileId || activeUser?.id || ''}
                     loans={loans}
-                    clients={clients}
-                    activeUser={activeUser}
+                    sources={sources}
                     isStealthMode={ui.isStealthMode}
+                    isLoading={isLoadingData}
+                    onRefresh={() => activeProfileId ? fetchFullData(activeProfileId) : Promise.resolve()}
                     onOpenLoan={(loanId) => {
                       ui.setSelectedLoanId(loanId);
                       navigate(`/contrato/${loanId}`);
                     }}
-                    onOpenLegal={(loanId) => navigate(`/legal/editor/${loanId}`)}
-                    onOpenSimulator={() => handleSetActiveTab('SIMULATOR')}
-                    onRenegotiate={(loan) => {
-                      ui.setRenegotiationModalLoans([loan]);
-                      ui.openModal('RENEGOTIATION', loan);
-                    }}
-                    showToast={showToast}
                   />
                 </motion.div>
               )}

@@ -92,7 +92,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       case 'DASHBOARD':
         return 'Painel';
       case 'DOSSIER':
-        return 'Dossiê';
+        return 'Extrato';
       case 'CLIENTS':
         return 'Clientes';
       case 'SOURCES':

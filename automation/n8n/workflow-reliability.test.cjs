@@ -7,14 +7,17 @@ const workflowsDir = path.join(__dirname, "workflows");
 const readWorkflow = (name) =>
   JSON.parse(fs.readFileSync(path.join(workflowsDir, name), "utf8"))[0];
 
-test("manual collection workflow carries lock identity through both acknowledgements", () => {
+test("manual collection workflow claims all configured tenants without persisting empty cycles", () => {
   const workflow = readWorkflow("capitalflow-manual-collections.json");
   const serialized = JSON.stringify(workflow);
 
-  assert.match(serialized, /CAPITALFLOW_PROFILE_ID/);
+  assert.doesNotMatch(serialized, /CAPITALFLOW_PROFILE_ID/);
+  assert.match(serialized, /claim_all/);
   assert.doesNotMatch(serialized, /62dcbb45-f02c-42ba-84a4-916af9854dea/);
   assert.match(serialized, /lock_token/);
-  assert.equal(workflow.nodes.find((node) => node.name === "Every 30 Seconds") !== undefined, true);
+  assert.equal(workflow.nodes.find((node) => node.name === "Every 60 Seconds") !== undefined, true);
+  assert.equal(workflow.settings.saveDataSuccessExecution, "none");
+  assert.equal(workflow.settings.saveExecutionProgress, false);
 
   const outputs = workflow.connections["Send Manual Collection"].main;
   assert.equal(outputs.length, 2);

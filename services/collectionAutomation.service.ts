@@ -15,6 +15,7 @@ export interface CollectionPolicy {
   remind_due_today: boolean;
   remind_first_overdue_day: boolean;
   send_hour: number;
+  send_hours: number[];
   max_consecutive_messages: number;
   paused: boolean;
   pause_reason?: string | null;
@@ -28,6 +29,7 @@ export const DEFAULT_COLLECTION_POLICY: Omit<CollectionPolicy, 'profile_id'> = {
   remind_due_today: true,
   remind_first_overdue_day: true,
   send_hour: 9,
+  send_hours: [9],
   max_consecutive_messages: 10,
   paused: false,
   pause_reason: null,
@@ -91,7 +93,8 @@ export const collectionAutomationService = {
       remind_two_days_before: policy.remind_two_days_before,
       remind_due_today: policy.remind_due_today,
       remind_first_overdue_day: policy.remind_first_overdue_day,
-      send_hour: policy.send_hour,
+      send_hour: policy.send_hours[0] ?? policy.send_hour,
+      send_hours: [...new Set(policy.send_hours)].sort((a, b) => a - b),
       max_consecutive_messages: policy.max_consecutive_messages,
       paused: policy.paused,
       pause_reason: policy.pause_reason || null,

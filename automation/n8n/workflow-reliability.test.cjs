@@ -69,3 +69,15 @@ test("collection Edge Functions validate message encoding at the source", () => 
     assert.match(source, /message_encoding_invalid/);
   }
 });
+
+test("daily collections use configured time slots and stop without open balance", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "..", "..", "supabase", "functions", "capitalflow-daily-collections", "index.ts"),
+    "utf8",
+  );
+
+  assert.match(source, /policy\.send_hours/);
+  assert.match(source, /configuredHours\.includes\(currentHour\)/);
+  assert.match(source, /scheduled_hour: currentHour/);
+  assert.match(source, /if \(amount <= 0\.05\) continue/);
+});

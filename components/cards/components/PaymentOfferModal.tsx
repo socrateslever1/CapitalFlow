@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarClock, Check, Percent, Tag, X } from 'lucide-react';
+import { ArrowRight, Calendar, CalendarClock, Check, Percent, Tag, X } from 'lucide-react';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import {
@@ -35,6 +35,12 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     waiveFine: installment.paymentOfferWaiveFine ?? installment.paymentOfferWaiveLateFee ?? false,
     waiveDailyInterest: installment.paymentOfferWaiveDailyInterest ?? installment.paymentOfferWaiveLateFee ?? false,
     note: installment.paymentOfferNote || '',
+  });
+  const [discountInput, setDiscountInput] = React.useState(() => {
+    const currentDiscount = currentMode === 'PERCENT'
+      ? Number(installment.paymentOfferDiscountPercent || 0)
+      : Number(installment.paymentOfferDiscountValue || 0);
+    return currentDiscount > 0 ? String(currentDiscount) : '';
   });
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -94,8 +100,8 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`flex h-12 items-center gap-2 rounded-md border px-3 text-left transition-colors ${
-        checked ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'
+      className={`flex min-h-14 items-center gap-3 rounded-md border px-3 text-left transition-colors ${
+        checked ? 'border-emerald-500/60 bg-emerald-500/10' : 'border-slate-700 bg-slate-950 hover:border-slate-600'
       }`}
     >
       <span className={`grid h-5 w-5 shrink-0 place-items-center rounded border ${
@@ -104,8 +110,10 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
         {checked && <Check size={13} strokeWidth={3} />}
       </span>
       <span className="min-w-0">
-        <span className="block text-[9px] font-black uppercase text-white">{title}</span>
-        <span className="block truncate text-[10px] font-bold text-slate-400">{formatMoney(amount)}</span>
+        <span className="block text-[10px] font-black text-white">{title}</span>
+        <span className={`block truncate text-[9px] font-bold ${checked ? 'text-emerald-400' : 'text-slate-400'}`}>
+          {checked ? 'Será retirado' : 'Manter cobrança'} · {formatMoney(amount)}
+        </span>
       </span>
     </button>
   );
@@ -127,45 +135,73 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
         </header>
 
         <div className="space-y-3 p-4">
-          <section className="grid grid-cols-[1fr_auto] items-end rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
+          <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
             <div>
-              <p className="text-[8px] font-black uppercase text-slate-500">Dívida atual</p>
-              <p className="mt-1 text-xs font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
+              <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
+              <p className="mt-1 text-sm font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
             </div>
+            <ArrowRight size={16} className="mx-3 text-blue-400" />
             <div className="text-right">
-              <p className="text-[8px] font-black uppercase text-blue-400">Cliente paga</p>
+              <p className="text-[9px] font-black uppercase text-blue-400">Valor oferecido</p>
               <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
             </div>
             {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
-              <p className="col-span-2 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
+              <p className="col-span-3 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
                 Economia total: {formatMoney(preview.chargesForgiven + preview.discountApplied)}
               </p>
             )}
           </section>
 
           <section>
-            <p className="mb-1.5 text-[8px] font-black uppercase text-slate-500">Retirar encargos</p>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
             <div className="grid grid-cols-2 gap-2">
-              <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Multa" amount={preview.fine} />
-              <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Mora diária" amount={preview.dailyInterest} />
+              <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
+              <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
             </div>
           </section>
 
           <section>
-            <p className="mb-1.5 text-[8px] font-black uppercase text-slate-500">Desconto adicional</p>
-            <div className="flex gap-1 rounded-md bg-slate-950 p-1">
-              {([['NONE', 'Nenhum'], ['PERCENT', '%'], ['VALUE', 'R$']] as const).map(([mode, label]) => (
-                <button key={mode} type="button" onClick={() => update('discountMode', mode)} className={`h-8 flex-1 rounded text-[9px] font-black uppercase ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
+            <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
+              {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    update('discountMode', mode);
+                    if (mode === 'NONE') {
+                      setDiscountInput('');
+                      update('discount', 0);
+                    }
+                  }}
+                  className={`min-h-9 rounded px-1 text-[8px] font-black uppercase transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
                   {label}
                 </button>
               ))}
+            </div>
               {form.discountMode !== 'NONE' && (
-                <label className="flex h-8 w-28 items-center gap-1 rounded bg-slate-900 px-2">
+                <label className="mt-2 flex h-11 w-full items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-3 focus-within:border-blue-500">
                   {form.discountMode === 'PERCENT' ? <Percent size={12} className="text-blue-400" /> : <Tag size={12} className="text-blue-400" />}
-                  <input type="number" min="0" max={form.discountMode === 'PERCENT' ? 100 : undefined} step="0.01" value={form.discount} onChange={(event) => update('discount', Number(event.target.value))} className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none" />
+                  <input
+                    type="number"
+                    min="0"
+                    max={form.discountMode === 'PERCENT' ? 100 : undefined}
+                    step="0.01"
+                    value={discountInput}
+                    placeholder="0"
+                    onChange={(event) => {
+                      const rawValue = event.target.value;
+                      setDiscountInput(rawValue);
+                      update('discount', rawValue === '' ? 0 : Number(rawValue));
+                    }}
+                    className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-slate-600"
+                  />
+                  <span className="text-[9px] font-black uppercase text-slate-500">
+                    {form.discountMode === 'PERCENT' ? '%' : 'reais'}
+                  </span>
                 </label>
               )}
-            </div>
             {preview.discountApplied > 0.05 && (
               <p className="mt-1.5 text-[9px] font-bold text-emerald-400">
                 Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
@@ -173,16 +209,25 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
             )}
           </section>
 
-          <div className="grid grid-cols-2 gap-2">
+          <section>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label>
-              <span className="mb-1 block text-[8px] font-black uppercase text-slate-500">Pagamento combinado</span>
-              <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-2 text-[10px] font-bold text-white outline-none focus:border-blue-500" />
+              <span className="mb-1 block text-[9px] font-bold text-slate-400">Data combinada</span>
+              <span className="relative block">
+                <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
+                <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
+              </span>
             </label>
             <label>
-              <span className="mb-1 block text-[8px] font-black uppercase text-slate-500">Condição válida até</span>
-              <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-2 text-[10px] font-bold text-white outline-none focus:border-blue-500" />
+              <span className="mb-1 block text-[9px] font-bold text-slate-400">Válida até</span>
+              <span className="relative block">
+                <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
+                <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
+              </span>
             </label>
           </div>
+          </section>
 
           <details className="rounded-md border border-slate-800 bg-slate-950">
             <summary className="cursor-pointer px-3 py-2 text-[9px] font-black uppercase text-slate-500">Adicionar observação</summary>

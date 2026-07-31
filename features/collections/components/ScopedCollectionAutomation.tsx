@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MessageCircle, RotateCcw, Save, Settings2 } from 'lucide-react';
+import { Clock3, MessageCircle, Plus, RotateCcw, Save, Settings2, X } from 'lucide-react';
 import {
   CollectionPolicy,
   DEFAULT_COLLECTION_POLICY,
@@ -64,6 +64,7 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
   if (loading || !available) return null;
 
   const effective = policy || inherited || ({ ...DEFAULT_COLLECTION_POLICY, profile_id: profileId } as CollectionPolicy);
+  const effectiveHours = effective.send_hours?.length ? effective.send_hours : [effective.send_hour || 9];
   const patch = (next: Partial<CollectionPolicy>) => {
     setPolicy((current) => ({
       ...(current || effective),
@@ -89,6 +90,22 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
     } finally {
       setSaving(false);
     }
+  };
+  const updateHour = (index: number, hour: number) => {
+    const nextHours = effectiveHours.map((value, currentIndex) => currentIndex === index ? hour : value);
+    patch({ send_hours: [...new Set(nextHours)].sort((a, b) => a - b) });
+  };
+  const addHour = () => {
+    if (effectiveHours.length >= 3) return;
+    const nextAvailable = Array.from({ length: 11 }, (_, index) => index + 8)
+      .find((hour) => !effectiveHours.includes(hour));
+    if (nextAvailable !== undefined) {
+      patch({ send_hours: [...effectiveHours, nextAvailable].sort((a, b) => a - b) });
+    }
+  };
+  const removeHour = (index: number) => {
+    if (effectiveHours.length === 1) return;
+    patch({ send_hours: effectiveHours.filter((_, currentIndex) => currentIndex !== index) });
   };
 
   const reset = async () => {
@@ -149,6 +166,38 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
               </label>
             ))}
           </div>
+
+          {effective.overdue_cadence !== 'MANUAL' && (
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2.5">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1 text-[8px] font-black uppercase text-slate-500">
+                  <Clock3 size={11} /> Horários de envio
+                </span>
+                <button type="button" onClick={addHour} disabled={effectiveHours.length >= 3} className="flex items-center gap-1 text-[8px] font-black uppercase text-emerald-400 disabled:text-slate-700">
+                  <Plus size={11} /> Adicionar
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                {effectiveHours.map((hour, index) => (
+                  <label key={`${hour}-${index}`} className="flex items-center gap-1 rounded-md border border-slate-800 bg-slate-900 px-2">
+                    <select value={hour} onChange={(event) => updateHour(index, Number(event.target.value))} className="h-9 min-w-0 flex-1 bg-transparent text-[10px] font-bold text-white outline-none">
+                      {Array.from({ length: 11 }, (_, hourIndex) => hourIndex + 8).map((optionHour) => (
+                        <option key={optionHour} value={optionHour}>{String(optionHour).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                    {effectiveHours.length > 1 && (
+                      <button type="button" onClick={() => removeHour(index)} className="text-slate-600 hover:text-rose-400" aria-label={`Remover horário ${String(hour).padStart(2, '0')}:00`}>
+                        <X size={12} />
+                      </button>
+                    )}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-[8px] text-slate-600">
+                {effectiveHours.length === 1 ? 'Uma cobrança por dia' : `${effectiveHours.length} cobranças por dia`}, somente enquanto houver saldo aberto.
+              </p>
+            </div>
+          )}
 
           <button type="button" onClick={() => patch({ enabled: !effective.enabled })} className={`w-full rounded-lg border p-2 text-[9px] font-black uppercase ${effective.enabled ? 'border-emerald-500/30 text-emerald-300' : 'border-slate-800 text-slate-500'}`}>
             {effective.enabled ? 'Automação ativa' : 'Automação desligada'}

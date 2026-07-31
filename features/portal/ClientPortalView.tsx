@@ -44,6 +44,7 @@ interface ContractBlockProps {
 
 // Componente Interno: Bloco de Contrato Individual
 const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isChatOpen, portalToken, portalCode }) => {
+    const [showAllInstallments, setShowAllInstallments] = useState(false);
     const summary = useMemo(() => resolveDebtSummary(loan, loan.installments), [loan]);
     const { hasLateInstallments, totalDue, pendingCount, nextDueDate } = summary;
     const unreadCount = usePortalUnread(loan?.id, isChatOpen, portalToken, portalCode);
@@ -115,11 +116,13 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, onChat, isCh
             {/* Lista de Parcelas (Apenas as próximas 2 para economizar espaço) */}
             {!isPaidOff && (
                 <div className="space-y-2 mb-4 bg-slate-950/50 p-2 rounded-lg border border-slate-800/50">
-                    {loan.installments.filter((i:any) => !isPortalInstallmentPaid(i)).slice(0, 2).map((inst: any) => (
+                    {loan.installments.filter((i:any) => !isPortalInstallmentPaid(i)).slice(0, showAllInstallments ? pendingCount : 2).map((inst: any) => (
                          <PortalInstallmentItem key={inst.id} loan={loan} installment={inst} />
                     ))}
                     {pendingCount > 2 && (
-                        <p className="text-[9px] text-center text-slate-500 italic py-1">...e mais {pendingCount - 2} parcelas</p>
+                        <button type="button" onClick={() => setShowAllInstallments((value) => !value)} className="w-full py-1 text-center text-[9px] font-black uppercase text-blue-400">
+                            {showAllInstallments ? 'Mostrar menos' : `Mostrar mais ${pendingCount - 2} parcelas`}
+                        </button>
                     )}
                 </div>
             )}

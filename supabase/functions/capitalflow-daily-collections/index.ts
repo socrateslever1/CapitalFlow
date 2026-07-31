@@ -112,7 +112,10 @@ Deno.serve(async (req) => {
       const policy = overrides.get(contract.id) || clientOverrides.get(client.id) || defaultPolicy;
       if (!policy) continue;
       if (!policy.enabled || policy.paused) continue;
-      if (!dryRun && currentHour !== Number(policy.send_hour)) continue;
+      const configuredHours = Array.isArray(policy.send_hours) && policy.send_hours.length
+        ? policy.send_hours.map(Number)
+        : [Number(policy.send_hour || 9)];
+      if (!dryRun && !configuredHours.includes(currentHour)) continue;
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       const [recentReply, openHandoff, activePromise] = await Promise.all([
         supabase.from("n8n_message_events").select("id", { head: true, count: "exact" })
@@ -136,9 +139,6 @@ Deno.serve(async (req) => {
         else if (policy.overdue_cadence === "WEEKLY" && (daysLate - 1) % 7 === 0) stage = "OVERDUE";
       }
       if (!stage) continue;
-      const { count } = await supabase.from("n8n_collection_dispatches").select("id", { count: "exact", head: true })
-        .eq("profile_id", profileId).eq("installment_id", installment.id).eq("stage", "OVERDUE").in("status", ["QUEUED", "SENT"]);
-      if (stage === "OVERDUE" && Number(count || 0) >= Number(policy.max_consecutive_messages || 10)) continue;
       const { data: dueData, error: dueError } = await supabase.rpc("prepare_installment_for_online_payment", {
         p_loan_id: contract.id, p_installment_id: installment.id, p_reference_date: today,
       });
@@ -153,7 +153,8 @@ Deno.serve(async (req) => {
       if (!dryRun) {
         const inserted = await supabase.from("n8n_collection_dispatches").insert({
           profile_id: profileId, loan_id: contract.id, installment_id: installment.id, stage, scheduled_date: today,
-          phone_hash: await sha256(phone), amount, days_late: Number(due.days_late || 0), tone: policy.tone, message, status: "QUEUED",
+          scheduled_hour: currentHour, phone_hash: await sha256(phone), amount,
+          days_late: Number(due.days_late || 0), tone: policy.tone, message, status: "QUEUED",
         }).select("id").maybeSingle();
         if (inserted.error?.code === "23505") continue;
         if (inserted.error) throw inserted.error;

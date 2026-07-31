@@ -204,108 +204,133 @@ serve(async (req) => {
       return json({ success: false, message: "Valor pago invalido." }, 400);
     }
 
-    const loanId = charge.loan_id;
-    const installmentId = charge.installment_id;
-    if (!loanId || !installmentId) {
+    const storedTargets = Array.isArray(payload?.installments) ? payload.installments : [];
+    const targets = storedTargets.length > 0
+      ? storedTargets
+      : [{
+          loan_id: charge.loan_id,
+          installment_id: charge.installment_id,
+          idempotency_key: charge.id,
+          amount: approvedAmount,
+          offer_active: payload?.offer_active === true,
+        }];
+    if (
+      targets.length === 0
+      || targets.some((target: any) => !(target?.loan_id || charge.loan_id) || !target?.installment_id)
+    ) {
       await updateCharge({ status: "PENDING", provider_status: "MISSING_TARGET" });
       return json({ success: false, message: "Cobranca sem contrato ou parcela." }, 400);
     }
-
-    const { data: contract } = await supabase
-      .from("contratos")
-      .select("id, owner_id, profile_id, source_id, client_id")
-      .eq("id", loanId)
-      .maybeSingle();
-
-    if (!contract?.id) {
-      await updateCharge({ status: "PENDING", provider_status: "CONTRACT_NOT_FOUND" });
-      return json({ success: false, message: "Contrato nao encontrado." }, 400);
+    const expectedAmount = targets.reduce((sum: number, target: any) => sum + Number(target.amount || 0), 0);
+    if (Math.abs(expectedAmount - approvedAmount) > 0.05) {
+      await updateCharge({ status: "PENDING", provider_status: "AMOUNT_MISMATCH" });
+      return json({ success: false, message: "Valor pago diverge das parcelas selecionadas." }, 400);
     }
 
-    const ownerProfileId = contract.profile_id || contract.owner_id;
-    const sourceId = contract.source_id;
-    if (!ownerProfileId || !sourceId) {
-      await updateCharge({ status: "PENDING", provider_status: "MISSING_OWNER_OR_SOURCE" });
-      return json({ success: false, message: "Contrato sem perfil ou fonte." }, 400);
-    }
-
-    const { data: installment } = await supabase
-      .from("parcelas")
-      .select("id, loan_id, status, principal_remaining, interest_remaining, late_fee_accrued")
-      .eq("id", installmentId)
-      .maybeSingle();
-
-    if (!installment?.id || installment.loan_id !== loanId) {
-      await updateCharge({ status: "PENDING", provider_status: "INSTALLMENT_NOT_FOUND" });
-      return json({ success: false, message: "Parcela nao encontrada." }, 400);
-    }
-
-    const totalOpen =
-      Number(installment.principal_remaining || 0) +
-      Number(installment.interest_remaining || 0) +
-      Number(installment.late_fee_accrued || 0);
-
-    if (String(installment.status || "").toUpperCase() === "PAID" || totalOpen <= 0.05) {
-      await updateCharge({ status: "PAID", paid_at: new Date().toISOString(), provider_status: "PAID" });
-      return json({ success: true, message: null });
-    }
-
-    const caixaLivreId = await resolveCaixaLivreId(supabase, ownerProfileId);
-    if (!caixaLivreId) {
-      await updateCharge({ status: "PENDING", provider_status: "CAIXA_LIVRE_NOT_FOUND" });
-      return json({ success: false, message: "Caixa Livre nao encontrado." }, 400);
-    }
-
-    const isOfferPayment = payload?.offer_active === true;
-    let rpcError: any = null;
-
-    if (isOfferPayment) {
-      const offerResult = await supabase.rpc("process_installment_payment_offer", {
-        p_idempotency_key: charge.id,
-        p_loan_id: loanId,
-        p_installment_id: installmentId,
-        p_profile_id: ownerProfileId,
-        p_operator_id: ownerProfileId,
-        p_amount_paid: approvedAmount,
-        p_payment_date: new Date().toISOString().split("T")[0],
-        p_source_id: sourceId,
-        p_caixa_livre_id: caixaLivreId,
-      });
-      rpcError = offerResult.error;
-    } else {
-      const allocation = allocatePaymentAmount(approvedAmount, {
-        principal: Number(installment.principal_remaining || 0),
-        interest: Number(installment.interest_remaining || 0),
-        lateFee: Number(installment.late_fee_accrued || 0),
-      });
-
-      if (allocation.overpayment > 0.05) {
-        await updateCharge({ status: "PENDING", provider_status: "OVERPAYMENT" });
-        return json({ success: false, message: "Valor pago maior que saldo aberto. Reconciliacao manual necessaria." }, 400);
+    const paidInstallmentIds: string[] = [];
+    const paidLoanIds = new Set<string>();
+    const contractCache = new Map<string, any>();
+    const caixaLivreCache = new Map<string, string>();
+    let ownerProfileId = "";
+    for (const target of targets) {
+      const loanId = String(target.loan_id || charge.loan_id || "");
+      let contract = contractCache.get(loanId);
+      if (!contract) {
+        const { data } = await supabase
+          .from("contratos")
+          .select("id, owner_id, profile_id, source_id, client_id")
+          .eq("id", loanId)
+          .maybeSingle();
+        contract = data;
+        if (contract?.id) contractCache.set(loanId, contract);
+      }
+      if (!contract?.id) {
+        await updateCharge({ status: "PENDING", provider_status: "CONTRACT_NOT_FOUND" });
+        return json({ success: false, message: "Um contrato da cobranca nao foi encontrado." }, 400);
+      }
+      const targetProfileId = String(contract.profile_id || contract.owner_id || "");
+      const sourceId = contract.source_id;
+      if (!targetProfileId || !sourceId || (ownerProfileId && ownerProfileId !== targetProfileId)) {
+        await updateCharge({ status: "PENDING", provider_status: "MISSING_OWNER_OR_SOURCE" });
+        return json({ success: false, message: "Contratos com perfil ou fonte inconsistentes." }, 400);
+      }
+      ownerProfileId = targetProfileId;
+      let caixaLivreId = caixaLivreCache.get(targetProfileId);
+      if (!caixaLivreId) {
+        caixaLivreId = await resolveCaixaLivreId(supabase, targetProfileId);
+        if (caixaLivreId) caixaLivreCache.set(targetProfileId, caixaLivreId);
+      }
+      if (!caixaLivreId) {
+        await updateCharge({ status: "PENDING", provider_status: "CAIXA_LIVRE_NOT_FOUND" });
+        return json({ success: false, message: "Caixa Livre nao encontrado." }, 400);
+      }
+      const installmentId = String(target.installment_id);
+      const { data: installment } = await supabase
+        .from("parcelas")
+        .select("id, loan_id, status, principal_remaining, interest_remaining, late_fee_accrued")
+        .eq("id", installmentId)
+        .maybeSingle();
+      if (!installment?.id || installment.loan_id !== loanId) {
+        await updateCharge({ status: "PENDING", provider_status: "INSTALLMENT_NOT_FOUND" });
+        return json({ success: false, message: "Uma parcela da cobranca nao foi encontrada." }, 400);
+      }
+      const totalOpen = Number(installment.principal_remaining || 0) +
+        Number(installment.interest_remaining || 0) + Number(installment.late_fee_accrued || 0);
+      if (String(installment.status || "").toUpperCase() === "PAID" || totalOpen <= 0.05) {
+        paidInstallmentIds.push(installmentId);
+        paidLoanIds.add(loanId);
+        continue;
       }
 
-      const paymentResult = await supabase.rpc("process_payment_v3_selective", {
-        p_idempotency_key: charge.id,
-        p_loan_id: loanId,
-        p_installment_id: installmentId,
-        p_profile_id: ownerProfileId,
-        p_operator_id: ownerProfileId,
-        p_principal_paid: allocation.principalPaid,
-        p_interest_paid: allocation.interestPaid,
-        p_late_fee_paid: allocation.lateFeePaid,
-        p_late_fee_forgiven: 0,
-        p_interest_forgiven: 0,
-        p_payment_date: new Date().toISOString().split("T")[0],
-        p_capitalize_remaining: false,
-        p_source_id: sourceId,
-        p_caixa_livre_id: caixaLivreId,
-      });
-      rpcError = paymentResult.error;
-    }
-
-    if (rpcError && !rpcError.message?.includes("quitada") && !rpcError.message?.includes("paga")) {
-      await updateCharge({ status: "PENDING", provider_status: "RPC_ERROR" });
-      return json({ success: false, message: rpcError.message }, 400);
+      const idempotencyKey = String(target.idempotency_key || charge.id);
+      let rpcError: any = null;
+      if (target.offer_active === true) {
+        const result = await supabase.rpc("process_installment_payment_offer", {
+          p_idempotency_key: idempotencyKey,
+          p_loan_id: loanId,
+          p_installment_id: installmentId,
+          p_profile_id: ownerProfileId,
+          p_operator_id: ownerProfileId,
+          p_amount_paid: Number(target.amount || 0),
+          p_payment_date: new Date().toISOString().split("T")[0],
+          p_source_id: sourceId,
+          p_caixa_livre_id: caixaLivreId,
+        });
+        rpcError = result.error;
+      } else {
+        const allocation = allocatePaymentAmount(Number(target.amount || 0), {
+          principal: Number(installment.principal_remaining || 0),
+          interest: Number(installment.interest_remaining || 0),
+          lateFee: Number(installment.late_fee_accrued || 0),
+        });
+        if (allocation.overpayment > 0.05) {
+          await updateCharge({ status: "PENDING", provider_status: "OVERPAYMENT" });
+          return json({ success: false, message: "Valor maior que o saldo de uma parcela." }, 400);
+        }
+        const result = await supabase.rpc("process_payment_v3_selective", {
+          p_idempotency_key: idempotencyKey,
+          p_loan_id: loanId,
+          p_installment_id: installmentId,
+          p_profile_id: ownerProfileId,
+          p_operator_id: ownerProfileId,
+          p_principal_paid: allocation.principalPaid,
+          p_interest_paid: allocation.interestPaid,
+          p_late_fee_paid: allocation.lateFeePaid,
+          p_late_fee_forgiven: 0,
+          p_interest_forgiven: 0,
+          p_payment_date: new Date().toISOString().split("T")[0],
+          p_capitalize_remaining: false,
+          p_source_id: sourceId,
+          p_caixa_livre_id: caixaLivreId,
+        });
+        rpcError = result.error;
+      }
+      if (rpcError && !rpcError.message?.includes("quitada") && !rpcError.message?.includes("paga")) {
+        await updateCharge({ status: "PENDING", provider_status: "RPC_ERROR" });
+        return json({ success: false, message: rpcError.message }, 400);
+      }
+      paidInstallmentIds.push(installmentId);
+      paidLoanIds.add(loanId);
     }
 
     await updateCharge({
@@ -320,26 +345,31 @@ serve(async (req) => {
       .update({ read_at: readAt })
       .eq("profile_id", ownerProfileId)
       .eq("item_type", "parcela")
-      .eq("item_id", installmentId)
+      .in("item_id", paidInstallmentIds)
       .is("read_at", null);
-    await supabase
-      .from("notificacoes")
-      .update({ read_at: readAt })
-      .eq("profile_id", ownerProfileId)
-      .eq("item_type", "parcela")
-      .like("item_id", `${installmentId}:%`)
-      .is("read_at", null);
+    for (const paidInstallmentId of paidInstallmentIds) {
+      await supabase
+        .from("notificacoes")
+        .update({ read_at: readAt })
+        .eq("profile_id", ownerProfileId)
+        .eq("item_type", "parcela")
+        .like("item_id", `${paidInstallmentId}:%`)
+        .is("read_at", null);
+    }
 
-    if (contract.client_id) {
-      await supabase.from("payment_intents").insert({
-        client_id: contract.client_id,
-        loan_id: loanId,
-        profile_id: ownerProfileId,
-        tipo: "INFINITEPAY",
-        status: "APPROVED",
-        comprovante_url: receiptUrl,
-        method: mapPaymentMethod(checkData?.capture_method || body?.capture_method),
-      });
+    for (const loanId of paidLoanIds) {
+      const contract = contractCache.get(loanId);
+      if (contract?.client_id) {
+        await supabase.from("payment_intents").insert({
+          client_id: contract.client_id,
+          loan_id: loanId,
+          profile_id: ownerProfileId,
+          tipo: "INFINITEPAY",
+          status: "APPROVED",
+          comprovante_url: receiptUrl,
+          method: mapPaymentMethod(checkData?.capture_method || body?.capture_method),
+        });
+      }
     }
 
     await supabase.from("notificacoes").insert({
@@ -348,7 +378,13 @@ serve(async (req) => {
       mensagem: "URGENTE: pagamento de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " confirmado pelo portal e baixado automaticamente.",
       item_type: "pagamento",
       item_id: transactionNsu || charge.id,
-      metadata: { loan_id: loanId, installment_id: installmentId, payment_id: transactionNsu, provider: "INFINITEPAY", urgent: true },
+      metadata: {
+        loan_ids: Array.from(paidLoanIds),
+        installment_ids: paidInstallmentIds,
+        payment_id: transactionNsu,
+        provider: "INFINITEPAY",
+        urgent: true,
+      },
     });
 
     await notifyOperatorWhatsApp(

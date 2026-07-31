@@ -1,13 +1,14 @@
 // src/features/portal/components/PortalPaymentModal.tsx
 
 import React, { useState, useMemo } from 'react';
-import { X, Wallet, CheckCircle2, QrCode, Copy } from 'lucide-react';
+import { X, Wallet, CheckCircle2, QrCode, Copy, ChevronDown } from 'lucide-react';
 import { Loan, Installment } from '../../../types';
 import { portalService } from '../../../services/portal.service';
 import { supabasePortal } from '../../../lib/supabasePortal';
 import { resolvePaymentOptions, debugDebtCheck, type PaymentOptions } from '../mappers/portalDebtRules';
 import { BillingView, NotifyingView, SuccessView } from './payment/PaymentViews';
 import { AsaasCheckoutModal } from './AsaasCheckoutModal';
+import { formatMoney } from '../../../utils/formatters';
 
 interface PortalPaymentModalProps {
   portalToken: string;
@@ -56,6 +57,15 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   const [isProcessingOnline, setIsProcessingOnline] = useState(false);
   const [isProcessingInfinitePay, setIsProcessingInfinitePay] = useState(false);
   const [showAsaasModal, setShowAsaasModal] = useState(false);
+  const openInstallments = useMemo(
+    () => (loan.installments || []).filter((item: any) => !isInstallmentPaid(item)),
+    [loan.installments]
+  );
+  const initialInstallmentId = String((installment as any)?.id || openInstallments[0]?.id || '');
+  const [selectedInstallmentIds, setSelectedInstallmentIds] = useState<string[]>(
+    initialInstallmentId ? [initialInstallmentId] : []
+  );
+  const [showAllInstallments, setShowAllInstallments] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'IDLE' | 'UPLOADING' | 'UPLOADED' | 'ERROR'>('IDLE');
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
@@ -103,6 +113,31 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     debugDebtCheck(loan, installment);
     return resolvePaymentOptions(loan, installment);
   }, [loan, installment, shouldBlock]);
+
+  const selectedInstallments = useMemo(
+    () => openInstallments.filter((item: any) => selectedInstallmentIds.includes(String(item.id))),
+    [openInstallments, selectedInstallmentIds]
+  );
+  const selectedTotal = useMemo(
+    () => selectedInstallments.reduce(
+      (sum: number, item: any) => sum + resolvePaymentOptions(loan, item).totalToPay,
+      0
+    ),
+    [loan, selectedInstallments]
+  );
+  const multipleSelected = selectedInstallments.length > 1;
+  const toggleInstallment = (id: string) => {
+    const targetIndex = openInstallments.findIndex((item: any) => String(item.id) === id);
+    if (targetIndex < 0) return;
+    setSelectedInstallmentIds((current) => current.includes(id)
+      ? openInstallments
+          .slice(0, Math.max(1, targetIndex))
+          .map((item: any) => String(item.id))
+      : openInstallments
+          .slice(0, targetIndex + 1)
+          .map((item: any) => String(item.id))
+    );
+  };
 
   const pixKey = (loan as any).pixKey || (loan as any).pix_key || '';
 
@@ -249,8 +284,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
         portalToken,
         portalCode,
         loan.id,
-        (installment as any).id,
-        options.totalToPay,
+        selectedInstallmentIds,
+        selectedTotal,
         clientData
       );
 
@@ -293,14 +328,68 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
           </h2>
 
           {step === 'BILLING' && (
+            <>
+            <section className="mb-4 rounded-md border border-slate-700 bg-slate-950/70 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase text-slate-500">Parcelas para pagamento</p>
+                  <p className="text-[10px] font-bold text-slate-300">{selectedInstallments.length} selecionada(s)</p>
+                </div>
+                <p className="text-sm font-black text-emerald-400">{formatMoney(selectedTotal)}</p>
+              </div>
+              <div className="space-y-1.5">
+                {(showAllInstallments ? openInstallments : openInstallments.slice(0, 3)).map((item: any, index: number) => {
+                  const itemOptions = resolvePaymentOptions(loan, item);
+                  const selected = selectedInstallmentIds.includes(String(item.id));
+                  const totalCount = loan.installments?.length || openInstallments.length;
+                  const itemNumber = Number(item.number || index + 1);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => toggleInstallment(String(item.id))}
+                      className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left ${
+                        selected ? 'border-blue-500 bg-blue-500/10' : 'border-slate-800 bg-slate-900'
+                      }`}
+                    >
+                      <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border text-[10px] ${
+                        selected ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-600'
+                      }`}>{selected ? '✓' : ''}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[10px] font-black text-white">
+                          Parcela {String(itemNumber).padStart(2, '0')} de {String(totalCount).padStart(2, '0')}
+                        </span>
+                        {Number(item.paymentOfferDiscountPercent || 0) > 0 ? (
+                          <span className="block text-[8px] font-bold text-emerald-400">
+                            Você recebeu {Number(item.paymentOfferDiscountPercent)}% de desconto
+                          </span>
+                        ) : Number(item.paymentOfferDiscountApplied || 0) + Number(item.paymentOfferLateFeeForgiven || 0) > 0.05 && (
+                          <span className="block text-[8px] font-bold text-emerald-400">
+                            Você recebeu {formatMoney(Number(item.paymentOfferDiscountApplied || 0) + Number(item.paymentOfferLateFeeForgiven || 0))} de desconto
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-[10px] font-black text-white">{formatMoney(itemOptions.totalToPay)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {openInstallments.length > 3 && (
+                <button type="button" onClick={() => setShowAllInstallments((value) => !value)} className="mt-2 flex w-full items-center justify-center gap-1 text-[9px] font-black uppercase text-blue-400">
+                  {showAllInstallments ? 'Mostrar menos' : `Mostrar mais ${openInstallments.length - 3}`}
+                  <ChevronDown size={12} className={showAllInstallments ? 'rotate-180' : ''} />
+                </button>
+              )}
+              {multipleSelected && <p className="mt-2 text-[8px] text-slate-500">Pagamento conjunto disponível pela InfinitePay.</p>}
+            </section>
             <BillingView
-              totalToPay={options.totalToPay}
+              totalToPay={selectedTotal}
               interestOnlyWithFees={options.renewToPay}
               dueDateISO={options.dueDateISO}
               daysLateRaw={options.daysLate}
               pixKey={pixKey}
               onCopyPix={copyPixKey}
-              onNotify={handleNotifyPayment}
+              onNotify={multipleSelected ? undefined : handleNotifyPayment}
               error={error}
               isInstallmentPaid={shouldBlock}
               isProcessing={isProcessing}
@@ -308,8 +397,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
               isProcessingInfinitePay={isProcessingInfinitePay}
               uploadStatus={uploadStatus}
               uploadMessage={uploadMessage}
-              onMercadoPago={handleMercadoPago}
-              onMercadoPagoCard={handleMercadoPagoCard}
+              onMercadoPago={multipleSelected ? undefined : handleMercadoPago}
+              onMercadoPagoCard={multipleSelected ? undefined : handleMercadoPagoCard}
               onInfinitePay={handleInfinitePay}
               receiptFile={receiptFile}
               onFileChange={(file) => {
@@ -317,13 +406,14 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
                 setUploadStatus('IDLE');
                 setUploadMessage(null);
               }}
-              onAsaas={() => setShowAsaasModal(true)}
+              onAsaas={multipleSelected ? undefined : () => setShowAsaasModal(true)}
               paymentOffer={options.hasPaymentOffer ? {
                 originalTotal: Number(options.originalTotal || options.totalToPay),
                 validUntil: String(options.offerValidUntil || ''),
                 discountApplied: Number(options.discountApplied || 0),
               } : undefined}
             />
+            </>
           )}
 
           {step === 'PIX_AUTO' && pixData && (

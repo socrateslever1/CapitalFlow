@@ -18,6 +18,7 @@ import { formatMoney, formatShortName } from '../../../utils/formatters';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
+import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 
 interface HeaderProps {
   loan: Loan;
@@ -122,14 +123,19 @@ export const Header: React.FC<HeaderProps> = ({
     const total = Math.max(0, Number(balance.totalRemaining) || capital + juros);
     return { capital, juros, total, shouldShow: total > ZERO_BALANCE_THRESHOLD };
   }, [loan]);
-  const activePaymentOffer = React.useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return (loan.installments || []).find((installment) =>
-      String(installment.paymentOfferStatus || '').toUpperCase() === 'ACTIVE'
-      && String(installment.paymentOfferValidUntil || '').slice(0, 10) >= today
-      && Number(installment.paymentOfferAmount || 0) > ZERO_BALANCE_THRESHOLD
-    );
-  }, [loan.installments]);
+  const activePaymentOffer = (loan.installments || []).find((installment) =>
+    isPaymentOfferActive(installment)
+  );
+  const activeOfferLabel = activePaymentOffer
+    ? Number(activePaymentOffer.paymentOfferDiscountPercent || 0) > 0
+      ? `Desconto ${Number(activePaymentOffer.paymentOfferDiscountPercent).toLocaleString('pt-BR')}% |`
+      : Number(activePaymentOffer.paymentOfferDiscountApplied || activePaymentOffer.paymentOfferDiscountValue || 0) > 0
+        ? `${formatMoney(
+            Number(activePaymentOffer.paymentOfferDiscountApplied || activePaymentOffer.paymentOfferDiscountValue),
+            isStealthMode
+          )} |`
+        : ''
+    : '';
 
   // Badges refinados
   let Badge = null;
@@ -249,6 +255,7 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <CalendarClock size={8} />
                   <span className="truncate text-[7px] font-black uppercase">
+                    {activeOfferLabel}{' '}
                     Condição até {new Date(`${activePaymentOffer.paymentOfferValidUntil}T12:00:00`).toLocaleDateString('pt-BR')}
                   </span>
                 </div>

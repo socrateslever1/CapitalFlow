@@ -76,6 +76,8 @@ serve(async (req) => {
       payer_phone,
       loan_id,
       installment_id,
+      installment_ids,
+      payment_targets,
       portal_token,
       portal_code,
       return_url,
@@ -86,8 +88,30 @@ serve(async (req) => {
     if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
       return json(req, { ok: false, error: "Valor invalido.", code: "INVALID_AMOUNT" });
     }
-    if (!loan_id || !installment_id) {
+    const requestedGroups = (Array.isArray(payment_targets) && payment_targets.length > 0
+      ? payment_targets
+      : [{
+          loan_id,
+          installment_ids: Array.isArray(installment_ids) && installment_ids.length > 0
+            ? installment_ids
+            : [installment_id],
+        }]
+    ).map((group: any) => ({
+      loan_id: String(group?.loan_id || "").trim(),
+      installment_ids: Array.from(new Set(
+        (Array.isArray(group?.installment_ids) ? group.installment_ids : [])
+          .map((value: unknown) => String(value || "").trim())
+          .filter(Boolean),
+      )),
+    })).filter((group: any) => group.loan_id && group.installment_ids.length > 0);
+    const requestedLoanIds = Array.from(new Set(requestedGroups.map((group: any) => group.loan_id))).slice(0, 12);
+    const requestedInstallmentIds = requestedGroups.flatMap((group: any) => group.installment_ids);
+
+    if (requestedLoanIds.length === 0 || requestedInstallmentIds.length === 0) {
       return json(req, { ok: false, error: "Contrato ou parcela nao informado.", code: "MISSING_REFERENCE" });
+    }
+    if (requestedGroups.length !== requestedLoanIds.length || requestedInstallmentIds.length > 24) {
+      return json(req, { ok: false, error: "Selecao de contratos invalida.", code: "INVALID_TARGETS" });
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -112,13 +136,15 @@ serve(async (req) => {
         });
       }
 
-      const { data: targetContract } = await supabaseAdmin
+      const { data: targetContracts } = await supabaseAdmin
         .from("contratos")
-        .select("client_id")
-        .eq("id", loan_id)
-        .maybeSingle();
+        .select("id, client_id")
+        .in("id", requestedLoanIds);
 
-      if (!targetContract || targetContract.client_id !== urlContract.client_id) {
+      if (
+        (targetContracts || []).length !== requestedLoanIds.length
+        || (targetContracts || []).some((contract: any) => contract.client_id !== urlContract.client_id)
+      ) {
         return json(req, {
           ok: false,
           error: "Contrato nao pertence ao cliente do portal.",
@@ -179,13 +205,12 @@ serve(async (req) => {
       isAuthorized = true;
     }
 
-    const { data: loan, error: loanErr } = await supabaseAdmin
+    const { data: loans, error: loanErr } = await supabaseAdmin
       .from("contratos")
       .select("id, owner_id, profile_id, source_id, client_id, debtor_name")
-      .eq("id", loan_id)
-      .maybeSingle();
+      .in("id", requestedLoanIds);
 
-    if (loanErr || !loan?.id) {
+    if (loanErr || (loans || []).length !== requestedLoanIds.length) {
       return json(req, {
         ok: false,
         error: "Contrato nao encontrado.",
@@ -193,7 +218,9 @@ serve(async (req) => {
       });
     }
 
-    const targetProfileId = loan.profile_id || loan.owner_id || callerProfileId;
+    const loanMap = new Map((loans || []).map((item: any) => [String(item.id), item]));
+    const loan: any = loanMap.get(String(requestedLoanIds[0]));
+    const targetProfileId = loan?.profile_id || loan?.owner_id || callerProfileId;
     if (!targetProfileId) {
       return json(req, {
         ok: false,
@@ -228,41 +255,54 @@ serve(async (req) => {
     }
 
     const referenceDate = new Date().toISOString().slice(0, 10);
-    const { data: dueData, error: dueError } = await supabaseAdmin.rpc(
-      "prepare_installment_for_online_payment",
-      {
-        p_loan_id: loan_id,
-        p_installment_id: installment_id,
-        p_reference_date: referenceDate,
-      },
-    );
-
-    if (dueError) {
+    const targets: any[] = [];
+    for (const group of requestedGroups) {
+      for (const targetInstallmentId of group.installment_ids) {
+        const { data: dueData, error: dueError } = await supabaseAdmin.rpc(
+          "prepare_installment_for_online_payment",
+          { p_loan_id: group.loan_id, p_installment_id: targetInstallmentId, p_reference_date: referenceDate },
+        );
+        if (dueError) {
+          return json(req, {
+            ok: false,
+            error: "Falha ao calcular uma das parcelas: " + dueError.message,
+            code: "DUE_CALCULATION_FAILED",
+          });
+        }
+        const due = Array.isArray(dueData) ? dueData[0] : dueData;
+        const total = roundMoney(due?.total_due);
+        if (!Number.isFinite(total) || total <= 0.05) {
+          return json(req, { ok: false, error: "Uma das parcelas ja esta quitada.", code: "INSTALLMENT_PAID" });
+        }
+        targets.push({
+          loan_id: group.loan_id,
+          installment_id: targetInstallmentId,
+          idempotency_key: crypto.randomUUID(),
+          amount: total,
+          principal_due: roundMoney(due?.principal_due),
+          interest_due: roundMoney(due?.interest_due),
+          late_fee_due: roundMoney(due?.late_fee_due),
+          days_late: Math.max(0, Number(due?.days_late || 0)),
+          offer_active: due?.offer_active === true,
+          gross_due: roundMoney(due?.gross_due ?? total),
+          discount_applied: roundMoney(due?.discount_applied),
+          late_fee_forgiven: roundMoney(due?.late_fee_forgiven),
+          offer_valid_until: due?.offer_valid_until || null,
+          offer_agreed_date: due?.offer_agreed_date || null,
+        });
+      }
+    }
+    if ((loans || []).some((item: any) =>
+      String(item.profile_id || item.owner_id || "") !== String(targetProfileId)
+      || String(item.client_id || "") !== String(loan?.client_id || "")
+    )) {
       return json(req, {
         ok: false,
-        error: "Falha ao calcular o valor atualizado da parcela: " + dueError.message,
-        code: "DUE_CALCULATION_FAILED",
+        error: "Os contratos selecionados nao pertencem ao mesmo cliente e perfil.",
+        code: "TARGET_OWNERSHIP_MISMATCH",
       });
     }
-
-    const due = Array.isArray(dueData) ? dueData[0] : dueData;
-    const chargeAmount = roundMoney(due?.total_due);
-    const principalDue = roundMoney(due?.principal_due);
-    const interestDue = roundMoney(due?.interest_due);
-    const lateFeeDue = roundMoney(due?.late_fee_due);
-    const daysLate = Math.max(0, Number(due?.days_late || 0));
-    const offerActive = due?.offer_active === true;
-    const grossDue = roundMoney(due?.gross_due ?? chargeAmount);
-    const discountApplied = roundMoney(due?.discount_applied);
-    const lateFeeForgiven = roundMoney(due?.late_fee_forgiven);
-
-    if (!Number.isFinite(chargeAmount) || chargeAmount <= 0.05) {
-      return json(req, {
-        ok: false,
-        error: "Parcela ja esta quitada.",
-        code: "INSTALLMENT_PAID",
-      });
-    }
+    const chargeAmount = roundMoney(targets.reduce((sum, target) => sum + target.amount, 0));
 
     const amountAdjusted = Math.abs(chargeAmount - requestedAmount) > 0.05;
 
@@ -295,17 +335,11 @@ serve(async (req) => {
       redirect_url: redirectUrl,
       webhook_url: webhookUrl,
       order_nsu: orderNsu,
-      items: [
-        {
+      items: targets.map((target, index) => ({
           quantity: 1,
-          price: cents(chargeAmount),
-          description: offerActive
-            ? `Condicao especial de pagamento - Contrato ${String(loan_id).slice(0, 8)}`
-            : daysLate > 0
-            ? `Parcela atualizada com encargos - Contrato ${String(loan_id).slice(0, 8)}`
-            : `Pagamento de parcela - Contrato ${String(loan_id).slice(0, 8)}`,
-        },
-      ],
+          price: cents(target.amount),
+          description: `Parcela ${String(index + 1).padStart(2, "0")} de ${String(targets.length).padStart(2, "0")} - Contrato ${String(target.loan_id).slice(0, 8)}`,
+        })),
     };
 
     const customerName = String(payer_name || loan.debtor_name || "").trim();
@@ -354,8 +388,8 @@ serve(async (req) => {
         provider: "INFINITEPAY",
         provider_payment_id: null,
         status: "PENDING",
-        loan_id,
-        installment_id,
+        loan_id: requestedLoanIds[0],
+        installment_id: requestedInstallmentIds[0],
         amount: chargeAmount,
         currency: "BRL",
         external_reference: orderNsu,
@@ -374,17 +408,16 @@ serve(async (req) => {
           requested_amount: requestedAmount,
           charged_amount: chargeAmount,
           amount_adjusted: amountAdjusted,
+          installments: targets,
+          loan_ids: requestedLoanIds,
+          installment_ids: requestedInstallmentIds,
           calculation_reference_date: referenceDate,
-          principal_due: principalDue,
-          interest_due: interestDue,
-          late_fee_due: lateFeeDue,
-          days_late: daysLate,
-          offer_active: offerActive,
-          offer_valid_until: due?.offer_valid_until || null,
-          offer_agreed_date: due?.offer_agreed_date || null,
-          gross_due: grossDue,
-          discount_applied: discountApplied,
-          late_fee_forgiven: lateFeeForgiven,
+          principal_due: roundMoney(targets.reduce((sum, target) => sum + target.principal_due, 0)),
+          interest_due: roundMoney(targets.reduce((sum, target) => sum + target.interest_due, 0)),
+          late_fee_due: roundMoney(targets.reduce((sum, target) => sum + target.late_fee_due, 0)),
+          offer_active: targets.some((target) => target.offer_active),
+          discount_applied: roundMoney(targets.reduce((sum, target) => sum + target.discount_applied, 0)),
+          late_fee_forgiven: roundMoney(targets.reduce((sum, target) => sum + target.late_fee_forgiven, 0)),
         },
       })
       .select("id")
@@ -408,15 +441,12 @@ serve(async (req) => {
       charged_amount: chargeAmount,
       amount_adjusted: amountAdjusted,
       breakdown: {
-        principal: principalDue,
-        interest: interestDue,
-        late_fee: lateFeeDue,
-        days_late: daysLate,
-        offer_active: offerActive,
-        gross_due: grossDue,
-        discount_applied: discountApplied,
-        late_fee_forgiven: lateFeeForgiven,
-        offer_valid_until: due?.offer_valid_until || null,
+        installments: targets,
+        principal: roundMoney(targets.reduce((sum, target) => sum + target.principal_due, 0)),
+        interest: roundMoney(targets.reduce((sum, target) => sum + target.interest_due, 0)),
+        late_fee: roundMoney(targets.reduce((sum, target) => sum + target.late_fee_due, 0)),
+        discount_applied: roundMoney(targets.reduce((sum, target) => sum + target.discount_applied, 0)),
+        late_fee_forgiven: roundMoney(targets.reduce((sum, target) => sum + target.late_fee_forgiven, 0)),
       },
     });
   } catch (err: any) {

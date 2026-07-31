@@ -13,7 +13,7 @@ interface BillingViewProps {
     daysLateRaw: number; // Still needed for internal calc but label logic is delegated
     pixKey: string;
     onCopyPix: () => void;
-    onNotify: () => void;
+    onNotify?: () => void;
     error: string | null;
     isInstallmentPaid?: boolean;
     isProcessing?: boolean;
@@ -175,7 +175,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                                {uploadStatus !== 'UPLOADED' && (
+                                {uploadStatus !== 'UPLOADED' && onNotify && (
                                     <button
                                         onClick={onNotify}
                                         disabled={uploadStatus === 'UPLOADING' || isProcessing}
@@ -199,7 +199,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                         <div className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
                             <CheckCircle2 size={16} /> Comprovante enviado ao operador
                         </div>
-                    ) : receiptFile ? null : (
+                    ) : receiptFile ? null : onNotify ? (
                         <button
                             onClick={onNotify}
                             disabled={isProcessing}
@@ -211,7 +211,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                                 <><CheckCircle2 size={16} /> Informar pagamento sem comprovante</>
                             )}
                         </button>
-                    )}
+                    ) : null}
                 </div>
             )}
 

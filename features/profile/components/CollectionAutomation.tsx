@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock3, History, MessageCircle, PauseCircle, Save, ShieldCheck } from 'lucide-react';
+import { Clock3, History, MessageCircle, PauseCircle, Plus, Save, ShieldCheck, X } from 'lucide-react';
 import {
   CollectionCadence,
   CollectionPolicy,
@@ -16,7 +16,7 @@ const toneLabels: Record<CollectionTone, string> = {
   CORDIAL: 'Cordial', OBJECTIVE: 'Objetivo', MEDIATOR: 'Mediador', FIRM_RESPECTFUL: 'Firme e respeitoso',
 };
 const cadenceLabels: Record<CollectionCadence, string> = {
-  MANUAL: 'Manual após o primeiro atraso', DAILY: 'Uma vez por dia', WEEKLY: 'Uma vez por semana',
+  MANUAL: 'Manual após o primeiro atraso', DAILY: 'Todos os dias', WEEKLY: 'Uma vez por semana',
 };
 
 export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) => {
@@ -49,6 +49,21 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
   if (available === false) return null;
   if (available === null || !policy) return <div className="h-40 rounded-lg bg-slate-900 animate-pulse" />;
   const patch = (next: Partial<CollectionPolicy>) => setPolicy((current) => current ? { ...current, ...next } : current);
+  const sendHours = policy.send_hours?.length ? policy.send_hours : [policy.send_hour || 9];
+  const updateHour = (index: number, hour: number) => {
+    const nextHours = sendHours.map((value, currentIndex) => currentIndex === index ? hour : value);
+    patch({ send_hours: [...new Set(nextHours)].sort((a, b) => a - b) });
+  };
+  const addHour = () => {
+    if (sendHours.length >= 3) return;
+    const nextAvailable = Array.from({ length: 11 }, (_, index) => index + 8)
+      .find((hour) => !sendHours.includes(hour));
+    if (nextAvailable !== undefined) patch({ send_hours: [...sendHours, nextAvailable].sort((a, b) => a - b) });
+  };
+  const removeHour = (index: number) => {
+    if (sendHours.length === 1) return;
+    patch({ send_hours: sendHours.filter((_, currentIndex) => currentIndex !== index) });
+  };
   const save = async () => {
     setSaving(true);
     try {
@@ -69,9 +84,40 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <label className="text-[10px] font-black uppercase text-slate-500">Recorrência após atraso<select value={policy.overdue_cadence} onChange={(e) => patch({ overdue_cadence: e.target.value as CollectionCadence })} className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-xs text-white">{Object.entries(cadenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label className="text-[10px] font-black uppercase text-slate-500">Tom da mensagem<select value={policy.tone} onChange={(e) => patch({ tone: e.target.value as CollectionTone })} className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-xs text-white">{Object.entries(toneLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <label className="text-[10px] font-black uppercase text-slate-500">Horário comercial<select value={policy.send_hour} onChange={(e) => patch({ send_hour: Number(e.target.value) })} className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-xs text-white">{Array.from({ length: 11 }, (_, i) => i + 8).map((hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')}:00</option>)}</select></label>
-      <label className="text-[10px] font-black uppercase text-slate-500">Limite de cobranças consecutivas<input type="number" min={1} max={30} value={policy.max_consecutive_messages} onChange={(e) => patch({ max_consecutive_messages: Math.min(30, Math.max(1, Number(e.target.value))) })} className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-3 text-xs text-white" /></label>
     </div>
+
+    {policy.overdue_cadence !== 'MANUAL' && (
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400"><Clock3 size={14} /> Horários de envio</p>
+            <p className="mt-1 text-[9px] text-slate-600">Defina até três cobranças por dia.</p>
+          </div>
+          <button type="button" onClick={addHour} disabled={sendHours.length >= 3} className="flex items-center gap-1 rounded-md border border-emerald-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-emerald-400 disabled:border-slate-800 disabled:text-slate-700">
+            <Plus size={12} /> Adicionar
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {sendHours.map((hour, index) => (
+            <label key={`${hour}-${index}`} className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950 px-3">
+              <select value={hour} onChange={(event) => updateHour(index, Number(event.target.value))} className="h-11 min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none">
+                {Array.from({ length: 11 }, (_, hourIndex) => hourIndex + 8).map((optionHour) => (
+                  <option key={optionHour} value={optionHour}>{String(optionHour).padStart(2, '0')}:00</option>
+                ))}
+              </select>
+              {sendHours.length > 1 && (
+                <button type="button" onClick={() => removeHour(index)} className="text-slate-600 hover:text-rose-400" aria-label={`Remover horário ${String(hour).padStart(2, '0')}:00`}>
+                  <X size={14} />
+                </button>
+              )}
+            </label>
+          ))}
+        </div>
+        <p className="mt-2 text-[9px] font-bold text-emerald-400">
+          {sendHours.length === 1 ? 'Uma cobrança por dia' : `${sendHours.length} cobranças por dia`} até o pagamento.
+        </p>
+      </div>
+    )}
 
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">{[
       ['remind_two_days_before', 'Dois dias antes'], ['remind_due_today', 'No vencimento'], ['remind_first_overdue_day', 'Primeiro dia em atraso'],

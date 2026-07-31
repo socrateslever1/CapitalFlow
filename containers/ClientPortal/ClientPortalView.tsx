@@ -28,7 +28,6 @@ import { usePortalPushNotifications } from '../../features/portal/hooks/usePorta
 import { notificationService } from '../../services/notification.service';
 import { PortalChatDrawer } from '../../features/portal/components/PortalChatDrawer';
 import { resolveDebtSummary, resolveInstallmentDebt, resolvePaymentOptions, getPortalDueLabel, isPortalInstallmentPaid } from '../../features/portal/mappers/portalDebtRules';
-import { PortalInstallmentItem } from './components/PortalInstallmentItem';
 import { PortalEducationalAI } from '../../features/portal/components/PortalEducationalAI';
 import { formatMoney } from '../../utils/formatters';
 import { legalDocumentService } from '../../services/legalDocument.service';
@@ -42,11 +41,19 @@ interface ClientPortalViewProps {
 
 interface ContractBlockProps {
   loan: any;
-  onPay: () => Promise<void>;
-  isProcessingPayment: boolean;
+  isPaymentActive: boolean;
+  onToggleNormalContract: (installmentId: string, amount: number) => void;
+  onInstallmentSelectionChange: (installmentIds: string[], amount: number) => void;
 }
 
-const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessingPayment }) => {
+const ContractBlock: React.FC<ContractBlockProps> = ({
+  loan,
+  isPaymentActive,
+  onToggleNormalContract,
+  onInstallmentSelectionChange,
+}) => {
+  const [showAllInstallments, setShowAllInstallments] = useState(false);
+  const [selectedInstallmentIds, setSelectedInstallmentIds] = useState<string[]>([]);
   const summary = useMemo(() => {
     const insts = (loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO'))
       ? (loan.activeAgreement.installments || [])
@@ -64,6 +71,49 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessing
   }, [loan]);
 
   const nextInst = installmentsToShow.find((i: any) => !isPortalInstallmentPaid(i));
+  const isInstallmentPlan = loan.billingCycle === 'INSTALLMENT_FIXED';
+  const openInstallments = useMemo(
+    () => installmentsToShow.filter((item: any) => !isPortalInstallmentPaid(item)),
+    [installmentsToShow]
+  );
+  const visibleInstallments = showAllInstallments ? openInstallments : openInstallments.slice(0, 3);
+  const selectedInstallments = useMemo(
+    () => openInstallments.filter((item: any) => selectedInstallmentIds.includes(String(item.id))),
+    [openInstallments, selectedInstallmentIds]
+  );
+  const selectedTotal = useMemo(
+    () => selectedInstallments.reduce(
+      (sum: number, item: any) => sum + resolvePaymentOptions(loan, item).totalToPay,
+      0
+    ),
+    [loan, selectedInstallments]
+  );
+
+  useEffect(() => {
+    const firstOpenId = String(openInstallments[0]?.id || '');
+    setSelectedInstallmentIds((current) => {
+      const validIds = current.filter((id) => openInstallments.some((item: any) => String(item.id) === id));
+      return validIds.length > 0 ? validIds : firstOpenId ? [firstOpenId] : [];
+    });
+  }, [openInstallments]);
+
+  const toggleInstallment = (id: string) => {
+    const targetIndex = openInstallments.findIndex((item: any) => String(item.id) === id);
+    if (targetIndex < 0) return;
+
+    const nextIds = selectedInstallmentIds.includes(id)
+      ? openInstallments
+          .slice(0, Math.max(1, targetIndex))
+          .map((item: any) => String(item.id))
+      : openInstallments
+          .slice(0, targetIndex + 1)
+          .map((item: any) => String(item.id));
+    const nextTotal = openInstallments
+      .filter((item: any) => nextIds.includes(String(item.id)))
+      .reduce((sum: number, item: any) => sum + resolvePaymentOptions(loan, item).totalToPay, 0);
+    setSelectedInstallmentIds(nextIds);
+    onInstallmentSelectionChange(nextIds, nextTotal);
+  };
   const statusInfo = nextInst
     ? getPortalDueLabel(resolveInstallmentDebt(loan, nextInst).daysLate, nextInst.dueDate)
     : { label: 'Quitado', variant: 'OK' };
@@ -76,10 +126,19 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessing
     : isPaidOff
     ? 'text-emerald-400'
     : 'text-blue-400';
+  const directPaymentTotal = nextInst ? resolvePaymentOptions(loan, nextInst).totalToPay : 0;
+  const directDiscountPercent = Number(nextInst?.paymentOfferDiscountPercent || 0);
+  const directDiscountAmount = Number(nextInst?.paymentOfferDiscountApplied || 0)
+    + Number(nextInst?.paymentOfferLateFeeForgiven || 0);
 
   return (
     <div
-      className={`relative group border rounded-lg p-3 transition-all duration-300 overflow-hidden flex items-center justify-between gap-4 ${
+      onClick={() => {
+        if (!isPaidOff && nextInst && !isInstallmentPlan) {
+          onToggleNormalContract(String(nextInst.id), directPaymentTotal);
+        }
+      }}
+      className={`relative group border rounded-lg p-3 transition-all duration-300 ${
         hasLateInstallments
           ? 'bg-rose-950/10 border-rose-500/20 hover:border-rose-500/40'
           : isPaidOff
@@ -92,8 +151,27 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessing
         hasLateInstallments ? 'bg-rose-500' : isPaidOff ? 'bg-emerald-500' : 'bg-blue-500'
       }`}></div>
 
+      {!isPaidOff && nextInst && !isInstallmentPlan && (
+        <button
+          type="button"
+          aria-pressed={isPaymentActive}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleNormalContract(String(nextInst.id), directPaymentTotal);
+          }}
+          className={`absolute right-3 top-3 z-20 flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[9px] font-black uppercase transition-colors ${
+          isPaymentActive
+            ? 'border-blue-400 bg-blue-600 text-white'
+            : 'border-slate-700 bg-slate-950 text-slate-300'
+        }`}>
+          <span className="text-xs">{isPaymentActive ? '✓' : '+'}</span>
+          {isPaymentActive ? 'Selecionado' : 'Selecionar'}
+        </button>
+      )}
+
+      <div>
       {/* Lado Esquerdo: Info do Contrato */}
-      <div className="flex-1 min-w-0 space-y-1 relative z-10">
+      <div className={`flex-1 min-w-0 space-y-1 relative z-10 ${!isPaidOff && !isInstallmentPlan ? 'pr-28' : ''}`}>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
             {loan.activeAgreement ? 'Renegociação' : translateBillingCycle(loan.billingCycle)}
@@ -121,6 +199,14 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessing
           </div>
         )}
 
+        {!isPaidOff && !isInstallmentPlan && (directDiscountPercent > 0 || directDiscountAmount > 0.05) && (
+          <p className="text-[9px] font-bold text-emerald-400">
+            {directDiscountPercent > 0
+              ? `Você recebeu ${directDiscountPercent}% de desconto`
+              : `Você recebeu ${formatMoney(directDiscountAmount)} de desconto`}
+          </p>
+        )}
+
         {isPaidOff && (
           <span className="text-[9px] font-black uppercase text-emerald-400 flex items-center gap-1">
             <CheckCircle2 size={10} /> Liquidado
@@ -129,34 +215,77 @@ const ContractBlock: React.FC<ContractBlockProps> = ({ loan, onPay, isProcessing
       </div>
 
       {/* Lado Direito: Botão Compacto de Pagamento */}
-      <div className="shrink-0 relative z-10">
-        <button
-          onClick={onPay}
-          disabled={isPaidOff || isProcessingPayment}
-          aria-label={isPaidOff ? 'Contrato quitado' : 'Pagar com InfinitePay'}
-          className={`px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all duration-300 shadow-md ${
-            isPaidOff
-              ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50 shadow-none'
-              : isProcessingPayment
-              ? 'bg-slate-800 text-slate-300 cursor-wait shadow-none'
-              : hasLateInstallments
-              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/25 active:scale-95'
-              : 'bg-white hover:bg-blue-50 text-slate-950 shadow-white/5 active:scale-95'
-          }`}
-        >
-          {isProcessingPayment ? (
-            <>
-              <RefreshCw size={12} className="animate-spin" />
-              <span>Gerando</span>
-            </>
-          ) : (
-            <>
-              <img src="/images/infinitepay.png" alt="InfinitePay" className="h-4 w-auto max-w-[72px] object-contain" />
-              <span>Pagar</span>
-            </>
-          )}
-        </button>
       </div>
+
+      {!isPaidOff && isInstallmentPlan && openInstallments.length > 0 && (
+        <div className="relative z-10 mt-4">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Escolha as parcelas</span>
+            <span className="text-[9px] font-bold text-blue-400">
+              {selectedInstallmentIds.length} selecionada{selectedInstallmentIds.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className={`overflow-x-hidden rounded-lg border border-slate-800/70 bg-slate-950/35 ${
+            showAllInstallments ? 'max-h-72 overflow-y-auto overscroll-contain' : 'overflow-y-hidden'
+          }`}>
+          {visibleInstallments.map((item: any, index: number) => {
+            const itemNumber = Number(item.number || item.numero_parcela || index + 1);
+            const itemTotal = resolvePaymentOptions(loan, item).totalToPay;
+            const selected = selectedInstallmentIds.includes(String(item.id));
+            const discountPercent = Number(item.paymentOfferDiscountPercent || 0);
+            const discountAmount = Number(item.paymentOfferDiscountApplied || 0)
+              + Number(item.paymentOfferLateFeeForgiven || 0);
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => toggleInstallment(String(item.id))}
+                className={`flex min-h-14 w-full items-center gap-3 border-b border-slate-800/70 px-3 py-2.5 text-left transition-colors last:border-b-0 ${
+                  selected ? 'bg-blue-500/15' : 'hover:bg-slate-900/70'
+                }`}
+              >
+                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded border text-[11px] ${
+                  selected ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-600 text-transparent'
+                }`}>
+                  {selected ? '✓' : ''}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-black text-white">
+                    Parcela {String(itemNumber).padStart(2, '0')} de {String(installmentsToShow.length).padStart(2, '0')}
+                  </span>
+                  <span className="block text-[8px] font-bold text-slate-500">
+                    Vence {formatBRDate(item.dueDate || item.data_vencimento)}
+                  </span>
+                  {discountPercent > 0 ? (
+                    <span className="block text-[8px] font-bold text-emerald-400">
+                      Você recebeu {discountPercent}% de desconto
+                    </span>
+                  ) : discountAmount > 0.05 ? (
+                    <span className="block text-[8px] font-bold text-emerald-400">
+                      Você recebeu {formatMoney(discountAmount)} de desconto
+                    </span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-[10px] font-black text-white">{formatMoney(itemTotal)}</span>
+              </button>
+            );
+          })}
+          {openInstallments.length > 3 && (
+            <button
+              type="button"
+              onClick={() => setShowAllInstallments((current) => !current)}
+              className="w-full border-t border-slate-800/70 px-3 py-2 text-[9px] font-black uppercase tracking-wider text-blue-400 transition-colors hover:bg-slate-900/70 hover:text-blue-300"
+            >
+              {showAllInstallments
+                ? 'Mostrar menos'
+                : `Mostrar mais ${openInstallments.length - 3} parcelas`}
+            </button>
+          )}
+          </div>
+
+        </div>
+      )}
     </div>
   );
 };
@@ -224,6 +353,12 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
     useClientPortalLogic(initialPortalToken, initialPortalCode);
 
   const [processingPaymentLoanId, setProcessingPaymentLoanId] = useState<string | null>(null);
+  const [paymentSelections, setPaymentSelections] = useState<Array<{
+    loan: any;
+    installmentIds: string[];
+    amount: number;
+    mode: 'NORMAL' | 'INSTALLMENT';
+  }>>([]);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
   const [isFilesOpen, setIsFilesOpen] = useState(false);
@@ -360,28 +495,24 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
 
   usePortalPushNotifications(clientContracts, loggedClient?.id || null);
 
-  const handleInfinitePay = useCallback(async (loan: any) => {
-    const installment = (loan.installments || []).find((item: any) => !isPortalInstallmentPaid(item));
-    if (!installment) {
-      setPaymentError('Este contrato nao possui parcela em aberto.');
-      return;
-    }
-
-    const amount = resolvePaymentOptions(loan, installment).totalToPay;
-    if (!Number.isFinite(amount) || amount <= 0.05) {
-      setPaymentError('Nao foi encontrado valor valido para pagamento.');
+  const handleInfinitePay = useCallback(async () => {
+    const amount = paymentSelections.reduce((sum, selection) => sum + selection.amount, 0);
+    if (paymentSelections.length === 0 || !Number.isFinite(amount) || amount <= 0.05) {
+      setPaymentError('Selecione ao menos uma parcela valida para pagamento.');
       return;
     }
 
     setPaymentError(null);
-    setProcessingPaymentLoanId(loan.id);
+    setProcessingPaymentLoanId(paymentSelections.map((selection) => selection.loan.id).join(','));
 
     try {
-      const checkout = await portalService.createInfinitePayCheckout(
+      const checkout = await portalService.createInfinitePayCheckoutForTargets(
         initialPortalToken,
         initialPortalCode,
-        loan.id,
-        installment.id,
+        paymentSelections.map((selection) => ({
+          loanId: selection.loan.id,
+          installmentIds: selection.installmentIds,
+        })),
         amount,
         {
           name: loggedClient.name,
@@ -397,7 +528,44 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
       setPaymentError(error?.message || 'Falha ao gerar pagamento InfinitePay.');
       setProcessingPaymentLoanId(null);
     }
-  }, [initialPortalCode, initialPortalToken, loggedClient]);
+  }, [initialPortalCode, initialPortalToken, loggedClient, paymentSelections]);
+
+  useEffect(() => {
+    setPaymentSelections((current) => {
+      const validCurrent = current.filter((selection) =>
+        clientContracts.some((contract) => contract.id === selection.loan.id)
+      );
+      if (validCurrent.length > 0) return validCurrent;
+      const loan = clientContracts.find((contract) => {
+        const installments = contract.activeAgreement
+          && ['ACTIVE', 'ATIVO'].includes(String(contract.activeAgreement.status || '').toUpperCase())
+          ? contract.activeAgreement.installments || []
+          : contract.installments || [];
+        return installments.some((installment: any) => !isPortalInstallmentPaid(installment));
+      });
+      if (!loan) return [];
+
+      const installments = loan.activeAgreement
+        && ['ACTIVE', 'ATIVO'].includes(String(loan.activeAgreement.status || '').toUpperCase())
+        ? loan.activeAgreement.installments || []
+        : loan.installments || [];
+      const openInstallments = installments.filter((installment: any) => !isPortalInstallmentPaid(installment));
+      const installmentIds = openInstallments[0]?.id
+        ? [String(openInstallments[0].id)]
+        : [];
+      if (installmentIds.length === 0) return [];
+
+      const amount = openInstallments
+        .filter((installment: any) => installmentIds.includes(String(installment.id)))
+        .reduce((sum: number, installment: any) => sum + resolvePaymentOptions(loan, installment).totalToPay, 0);
+      return [{
+        loan,
+        installmentIds,
+        amount,
+        mode: loan.billingCycle === 'INSTALLMENT_FIXED' ? 'INSTALLMENT' : 'NORMAL',
+      }];
+    });
+  }, [clientContracts]);
 
   const globalSummary = useMemo(() => {
     let total = 0;
@@ -513,7 +681,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         </div>
       )}
 
-      <div className="w-full max-w-lg bg-slate-900/10 sm:rounded-lg flex flex-col h-full sm:h-[92vh] sm:border border-slate-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative backdrop-blur-3xl">
+      <div className="w-full max-w-lg bg-slate-900/10 sm:rounded-lg flex h-[100dvh] flex-col sm:h-[92vh] sm:border border-slate-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative backdrop-blur-3xl">
         <div className="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 p-4 flex items-center justify-between shrink-0 relative z-10">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-xl border-2 border-slate-900 relative">
@@ -541,7 +709,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3 relative pb-20">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3 relative pb-32">
           {alertTheme && <div className="absolute top-0 right-0 w-full h-80 bg-rose-500/5 blur-[120px] pointer-events-none"></div>}
 
           <div
@@ -638,8 +806,29 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 <ContractBlock
                   key={contract.id}
                   loan={contract}
-                  onPay={() => handleInfinitePay(contract)}
-                  isProcessingPayment={processingPaymentLoanId === contract.id}
+                  isPaymentActive={paymentSelections.some((selection) => selection.loan.id === contract.id)}
+                  onToggleNormalContract={(installmentId, amount) => {
+                    setPaymentSelections((current) => {
+                      const exists = current.some((selection) => selection.loan.id === contract.id);
+                      const normalSelections = current.filter((selection) => selection.mode === 'NORMAL');
+                      return exists
+                        ? normalSelections.filter((selection) => selection.loan.id !== contract.id)
+                        : [...normalSelections, {
+                            loan: contract,
+                            installmentIds: [installmentId],
+                            amount,
+                            mode: 'NORMAL',
+                          }];
+                    });
+                  }}
+                  onInstallmentSelectionChange={(installmentIds, amount) => {
+                    setPaymentSelections([{
+                      loan: contract,
+                      installmentIds,
+                      amount,
+                      mode: 'INSTALLMENT',
+                    }]);
+                  }}
                 />
               ))
             )}
@@ -669,13 +858,52 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         </div>
         
         {/* Botão de Suporte (WhatsApp do Operador ou Chat Interno) */}
+        {paymentSelections.length > 0 && (
+          <div className="absolute inset-x-0 bottom-0 z-[120] border-t border-slate-700/80 bg-slate-950/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_30px_rgba(2,6,23,0.75)] backdrop-blur-xl">
+            <div className="mx-auto flex max-w-md items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-black uppercase text-white">Pix ou cartão</p>
+                <p className="truncate text-[10px] font-semibold text-slate-300">
+                  {paymentSelections[0].mode === 'INSTALLMENT'
+                    ? `${paymentSelections[0].installmentIds.length} parcela${paymentSelections[0].installmentIds.length === 1 ? '' : 's'} selecionada${paymentSelections[0].installmentIds.length === 1 ? '' : 's'}`
+                    : `${paymentSelections.length} contrato${paymentSelections.length === 1 ? '' : 's'} selecionado${paymentSelections.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleInfinitePay()}
+                disabled={processingPaymentLoanId !== null}
+                aria-label={`Pagar ${formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))} com InfinitePay`}
+                className={`flex min-h-12 min-w-[220px] items-center justify-center gap-2 rounded-lg border px-4 py-3 text-[12px] font-black uppercase shadow-xl transition-all active:scale-[0.98] ${
+                  processingPaymentLoanId !== null
+                    ? 'cursor-wait border-slate-700 bg-slate-800 text-white'
+                    : 'border-white bg-white text-slate-950 shadow-black/40 hover:bg-blue-50'
+                }`}
+              >
+                {processingPaymentLoanId !== null ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    Gerando pagamento
+                  </>
+                ) : (
+                  <>
+                    <img src="/images/infinitepay.png" alt="InfinitePay" className="h-5 w-auto max-w-[82px] object-contain" />
+                    <span>Pagar {formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleSupportAction}
-          className="fixed bottom-8 right-6 w-16 h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-[0_20px_40px_rgba(16,185,129,0.3)] flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 z-[100] group overflow-hidden"
+          aria-label="Abrir atendimento"
+          className="group absolute bottom-24 right-3 z-[130] flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/50 bg-emerald-600 text-white shadow-[0_0_18px_rgba(16,185,129,0.45)] transition-all duration-300 hover:scale-105 hover:bg-emerald-500 active:scale-95 sm:right-4"
         >
-           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-           <MessageCircle size={28} className="relative z-10 group-hover:rotate-12 transition-transform" />
-           <div className="absolute top-1 right-1 w-3 h-3 bg-emerald-400 border-2 border-emerald-600 rounded-full animate-pulse"></div>
+           <span className="pointer-events-none absolute inset-0 rounded-full bg-emerald-400/25 motion-safe:animate-ping [animation-duration:2.8s]"></span>
+           <span className="pointer-events-none absolute -inset-1 rounded-full bg-emerald-400/10 blur-md motion-safe:animate-pulse"></span>
+           <MessageCircle size={21} className="relative z-10 transition-transform group-hover:scale-105" />
         </button>
       </div>
 
@@ -844,6 +1072,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           </div>
         </div>
       )}
+
     </div>
   );
 };

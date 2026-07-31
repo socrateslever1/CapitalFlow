@@ -14,6 +14,12 @@ export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ lo
     // ✅ Fonte Única de Verdade para Status e Valores
     const details = resolveInstallmentDebt(loan, installment);
     const isPaid = isPortalInstallmentPaid(installment);
+    const installmentNumber = Number(installment.number || installment.numero_parcela || 1);
+    const isAgreementInstallment = Boolean(installment.agreementId || installment.acordo_id);
+    const installmentSource = isAgreementInstallment && loan.activeAgreement
+        ? loan.activeAgreement.installments
+        : loan.installments;
+    const installmentCount = Math.max(installmentNumber, Number(installmentSource?.length || 1));
 
     // Ajuste de ícone baseado no statusColor (simples heurística visual)
     const bgIcon = details.statusColor.includes('emerald') ? 'bg-emerald-500/10 text-emerald-500' :
@@ -25,12 +31,13 @@ export const PortalInstallmentItem: React.FC<PortalInstallmentItemProps> = ({ lo
         <div className="flex justify-between items-center p-2 px-3 border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors">
             <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${bgIcon}`}>
-                    {installment.number || installment.numero_parcela}
+                    {installmentNumber}
                 </div>
                 <div>
                     <p className="text-[10px] font-bold uppercase text-slate-300">
-                        {formatBRDate(installment.dueDate || installment.data_vencimento)}
+                        Parcela {String(installmentNumber).padStart(2, '0')} de {String(installmentCount).padStart(2, '0')}
                     </p>
+                    <p className="text-[8px] font-bold text-slate-500">{formatBRDate(installment.dueDate || installment.data_vencimento)}</p>
                     <p className={`text-[9px] font-bold uppercase ${details.statusColor}`}>
                         {details.statusLabel}
                     </p>

@@ -371,13 +371,36 @@ export const portalService = {
     };
   },
 
-  async createInfinitePayCheckout(token: string, code: string, loanId: string, installmentId: string, amount: number, clientData: any) {
+  async createInfinitePayCheckout(token: string, code: string, loanId: string, installmentIds: string[], amount: number, clientData: any) {
+    return this.createInfinitePayCheckoutForTargets(
+      token,
+      code,
+      [{ loanId, installmentIds }],
+      amount,
+      clientData,
+    );
+  },
+
+  async createInfinitePayCheckoutForTargets(
+    token: string,
+    code: string,
+    targets: Array<{ loanId: string; installmentIds: string[] }>,
+    amount: number,
+    clientData: any,
+  ) {
     if (!token || !code) throw new Error('Credenciais do portal incompletas.');
+    const validTargets = targets.filter((target) => target.loanId && target.installmentIds.length > 0);
+    if (validTargets.length === 0) throw new Error('Selecione ao menos um contrato para pagamento.');
 
     const { data, error } = await supabasePortal.functions.invoke('infinitepay-create-checkout', {
       body: {
-        loan_id: loanId,
-        installment_id: installmentId,
+        loan_id: validTargets[0].loanId,
+        installment_id: validTargets[0].installmentIds[0],
+        installment_ids: validTargets[0].installmentIds,
+        payment_targets: validTargets.map((target) => ({
+          loan_id: target.loanId,
+          installment_ids: target.installmentIds,
+        })),
         amount,
         payer_name: clientData.name,
         payer_email: clientData.email || 'cliente@capitalflow.app',

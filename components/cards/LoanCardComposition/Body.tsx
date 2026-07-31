@@ -1,9 +1,10 @@
 import React from 'react';
-import { CheckCircle2, Handshake, Info, Layers } from 'lucide-react';
+import { BadgePercent, CalendarClock, CheckCircle2, Handshake, Info, Layers } from 'lucide-react';
 import { AgreementView } from '../../../features/agreements/components/AgreementView';
 import { InstallmentGrid } from '../components/InstallmentGrid';
 import { Loan, UserProfile, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
+import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
 
 interface BodyProps {
@@ -53,9 +54,70 @@ export const Body: React.FC<BodyProps> = ({
             markers.some(marker => String(l.notes || '').includes(marker))
         );
     }, [allLoans, loan.id]);
+    const activePaymentOffer = (loan.installments || []).find((installment) =>
+        isPaymentOfferActive(installment)
+    );
+    const activeOfferDiscount = activePaymentOffer
+        ? Math.max(0, Number(
+            activePaymentOffer.paymentOfferDiscountApplied
+            || activePaymentOffer.paymentOfferDiscountValue
+            || 0
+        ))
+        : 0;
+    const activeOfferPercent = Math.max(0, Number(activePaymentOffer?.paymentOfferDiscountPercent || 0));
+    const activeOfferWaivesCharges = Boolean(
+        activePaymentOffer?.paymentOfferWaiveLateFee
+        || activePaymentOffer?.paymentOfferWaiveFine
+        || activePaymentOffer?.paymentOfferWaiveDailyInterest
+    );
+    const activeOfferValidUntil = activePaymentOffer?.paymentOfferValidUntil
+        ? new Date(`${String(activePaymentOffer.paymentOfferValidUntil).slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')
+        : '';
 
     return (
         <div className="space-y-4 pt-1">
+            {activePaymentOffer && (
+                <section
+                    className="flex flex-col gap-3 rounded-lg border border-amber-400/35 bg-amber-400/[0.07] px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    aria-label={`Condição especial válida até ${activeOfferValidUntil}`}
+                >
+                    <div className="flex min-w-0 items-start gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-amber-400/30 bg-amber-400/10 text-amber-300">
+                            <BadgePercent size={16} />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="text-[10px] font-black uppercase text-amber-300">
+                                    Condição especial ativa
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-100/75">
+                                    <CalendarClock size={11} />
+                                    Até {activeOfferValidUntil}
+                                </span>
+                            </div>
+                            <p className="mt-1 text-[10px] font-semibold text-slate-300">
+                                {activeOfferPercent > 0
+                                    ? `${activeOfferPercent.toLocaleString('pt-BR')}% de desconto`
+                                    : activeOfferDiscount > 0
+                                        ? `${formatMoney(activeOfferDiscount, isStealthMode)} de desconto`
+                                        : 'Condição de pagamento negociada'}
+                                {activeOfferWaivesCharges ? ' + encargos retirados' : ''}
+                            </p>
+                            {activePaymentOffer.paymentOfferNote && (
+                                <p className="mt-1 truncate text-[9px] text-slate-500" title={activePaymentOffer.paymentOfferNote}>
+                                    {activePaymentOffer.paymentOfferNote}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex shrink-0 items-baseline justify-between gap-3 border-t border-amber-400/15 pt-2 sm:block sm:border-0 sm:pt-0 sm:text-right">
+                        <span className="text-[8px] font-black uppercase text-slate-500">Valor combinado</span>
+                        <strong className="block text-sm font-black text-white">
+                            {formatMoney(Number(activePaymentOffer.paymentOfferAmount || 0), isStealthMode)}
+                        </strong>
+                    </div>
+                </section>
+            )}
             {/* Seção de resumo de status, visível apenas se expandido. */}
             <div className="flex flex-wrap items-center gap-2 pb-2">
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-900/50 rounded-lg border border-slate-800/50">

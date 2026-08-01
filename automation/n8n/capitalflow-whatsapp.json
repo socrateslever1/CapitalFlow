@@ -1,7 +1,7 @@
 [
   {
     "createdAt": "2026-07-20T04:33:48.197Z",
-    "updatedAt": "2026-07-21T14:48:17.000Z",
+    "updatedAt": "2026-07-31T07:48:51.000Z",
     "id": "A32nJE98EjcJBKZk",
     "name": "CapitalFlow - Atendimento WhatsApp",
     "active": true,
@@ -108,7 +108,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);\n\nfunction onlyDigits(value) {\n  return String(value ?? '').replace(/\\D/g, '');\n}\n\nfunction firstNonEmpty(...values) {\n  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');\n}\n\nfunction normalizeBoolean(value) {\n  return value === true || value === 1 || String(value).toLowerCase() === 'true';\n}\n\nfunction resolveSenderJids(payload) {\n  const candidates = [\n    payload.from,\n    payload.remoteJid,\n    payload.key?.remoteJid,\n    payload.remoteJidAlt,\n    payload.key?.remoteJidAlt,\n    payload._data?.key?.remoteJidAlt,\n    payload._data?.Info?.Sender,\n    payload._data?.Info?.Chat,\n    payload.participant,\n    payload.key?.participant,\n  ]\n    .map((value) => String(value ?? '').trim())\n    .filter(Boolean);\n  const phoneJid = candidates.find((value) => /@(c\\.us|s\\.whatsapp\\.net)$/i.test(value));\n  const lidJid = candidates.find((value) => /@lid$/i.test(value));\n\n  return {\n    remoteJid: candidates[0] || '',\n    identityJid: phoneJid || candidates[0] || '',\n    lidJid: lidJid || '',\n  };\n}\n\nfunction isAutomatedServiceMessage(value) {\n  const message = String(value ?? '')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase();\n\n  return [\n    /mensagem enviada pela inteligencia artificial da vivo/,\n    /\\b(app vivo|produtos e servicos da vivo|sms da vivo|recarga.*vivo)\\b/,\n    /termos e condicoes de uso da vivo/,\n    /escolha uma das opcoes apresentadas/,\n    /limite de tentativas excedido/,\n    /codigo (pix|perde a validade|tem validade)/,\n    /protocolo de atendimento:\\s*\\d{8,}/,\n    /ocorreu um erro inesperado.*tente novamente mais tarde/,\n    /um erro inesperado me impediu de te ajudar/,\n  ].some((pattern) => pattern.test(message));\n}\n\nfunction resolveOrganizationId(body, tenantMap = {}) {\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '')).trim();\n  const receiver = onlyDigits(firstNonEmpty(body.me?.id, body.me?.phone, body.payload?.to, ''));\n\n  return String(tenantMap[session] ?? tenantMap[receiver] ?? '').trim();\n}\n\nfunction normalizeWahaMessage(input, options = {}) {\n  const body = input?.body ?? input ?? {};\n  const payload = body.payload ?? {};\n  const event = String(firstNonEmpty(body.event, body.eventType, '') ?? '').toLowerCase();\n  const { remoteJid, identityJid, lidJid } = resolveSenderJids(payload);\n  const fromMe = normalizeBoolean(firstNonEmpty(payload.fromMe, payload.key?.fromMe, false));\n  const isGroup = remoteJid.endsWith('@g.us') || normalizeBoolean(payload.isGroup);\n  const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();\n  const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();\n  const messageType = rawType === 'ptt' ? 'voice' : rawType;\n  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();\n  const identityIsLid = /@lid$/i.test(identityJid);\n  const phone = identityIsLid ? '' : onlyDigits(identityJid.split('@')[0]);\n  const organizationId = resolveOrganizationId(body, options.tenantMap);\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();\n\n  if (!['message', 'message.any'].includes(event)) return { accepted: false, reason: 'unsupported_event' };\n  if (!remoteJid || isGroup) return { accepted: false, reason: 'group_or_invalid_sender' };\n  if (fromMe) return { accepted: false, reason: 'from_me' };\n  if (isAutomatedServiceMessage(message)) return { accepted: false, reason: 'automated_service' };\n  if (!messageId) return { accepted: false, reason: 'missing_message_id' };\n  if (!SUPPORTED_MESSAGE_TYPES.has(messageType)) return { accepted: false, reason: 'unsupported_message_type' };\n  if ((!phone || phone.length < 10) && !lidJid) return { accepted: false, reason: 'invalid_phone' };\n  if (!organizationId) return { accepted: false, reason: 'missing_organization_id' };\n\n  return {\n    accepted: true,\n    value: {\n      message_id: messageId,\n      message,\n      phone,\n      sender_lid: lidJid,\n      requires_lid_resolution: !phone && Boolean(lidJid),\n      remote_jid: remoteJid,\n      from_me: false,\n      is_group: false,\n      organization_id: organizationId,\n      session_id: `${organizationId}:${phone}`,\n      whatsapp_session: session,\n      message_type: messageType,\n      timestamp: firstNonEmpty(payload.timestamp, body.timestamp, new Date().toISOString()),\n    },\n  };\n}\n\n\nlet tenantMap = {};\ntry {\n  tenantMap = JSON.parse($env.CAPITALFLOW_TENANT_MAP || '{}');\n} catch {\n  throw new Error('CAPITALFLOW_TENANT_MAP deve conter um objeto JSON válido.');\n}\n\nconst accepted = [];\nfor (const item of $input.all()) {\n  const result = normalizeWahaMessage(item.json, { tenantMap });\n  if (result.accepted) accepted.push({ json: result.value });\n}\nreturn accepted;"
+          "jsCode": "const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);\n\nfunction onlyDigits(value) {\n  return String(value ?? '').replace(/\\D/g, '');\n}\n\nfunction normalizeBrazilianWhatsappPhone(value) {\n  const phone = onlyDigits(value);\n  if (/^55\\d{2}[6-9]\\d{7}$/.test(phone)) {\n    return `${phone.slice(0, 4)}9${phone.slice(4)}`;\n  }\n  return phone;\n}\n\nfunction firstNonEmpty(...values) {\n  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');\n}\n\nfunction normalizeBoolean(value) {\n  return value === true || value === 1 || String(value).toLowerCase() === 'true';\n}\n\nfunction resolveSenderJids(payload) {\n  const candidates = [\n    payload.from,\n    payload.remoteJid,\n    payload.key?.remoteJid,\n    payload.remoteJidAlt,\n    payload.key?.remoteJidAlt,\n    payload._data?.key?.remoteJidAlt,\n    payload._data?.Info?.Sender,\n    payload._data?.Info?.Chat,\n    payload.participant,\n    payload.key?.participant,\n  ]\n    .map((value) => String(value ?? '').trim())\n    .filter(Boolean);\n  const phoneJid = candidates.find((value) => /@(c\\.us|s\\.whatsapp\\.net)$/i.test(value));\n  const lidJid = candidates.find((value) => /@lid$/i.test(value));\n\n  return {\n    remoteJid: candidates[0] || '',\n    identityJid: phoneJid || candidates[0] || '',\n    lidJid: lidJid || '',\n  };\n}\n\nfunction isAutomatedServiceMessage(value) {\n  const message = String(value ?? '')\n    .normalize('NFD')\n    .replace(/[\\u0300-\\u036f]/g, '')\n    .toLowerCase();\n\n  return [\n    /mensagem enviada pela inteligencia artificial da vivo/,\n    /\\b(app vivo|produtos e servicos da vivo|sms da vivo|recarga.*vivo)\\b/,\n    /termos e condicoes de uso da vivo/,\n    /escolha uma das opcoes apresentadas/,\n    /limite de tentativas excedido/,\n    /codigo (pix|perde a validade|tem validade)/,\n    /protocolo de atendimento:\\s*\\d{8,}/,\n    /ocorreu um erro inesperado.*tente novamente mais tarde/,\n    /um erro inesperado me impediu de te ajudar/,\n  ].some((pattern) => pattern.test(message));\n}\n\nfunction resolveOrganizationId(body, tenantMap = {}) {\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '')).trim();\n  const receiver = onlyDigits(firstNonEmpty(body.me?.id, body.me?.phone, body.payload?.to, ''));\n\n  return String(tenantMap[session] ?? tenantMap[receiver] ?? '').trim();\n}\n\nfunction normalizeWahaMessage(input, options = {}) {\n  const body = input?.body ?? input ?? {};\n  const payload = body.payload ?? {};\n  const event = String(firstNonEmpty(body.event, body.eventType, '') ?? '').toLowerCase();\n  const { remoteJid, identityJid, lidJid } = resolveSenderJids(payload);\n  const fromMe = normalizeBoolean(firstNonEmpty(payload.fromMe, payload.key?.fromMe, false));\n  const isGroup = remoteJid.endsWith('@g.us') || normalizeBoolean(payload.isGroup);\n  const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();\n  const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();\n  const messageType = rawType === 'ptt' ? 'voice' : rawType;\n  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();\n  const identityIsLid = /@lid$/i.test(identityJid);\n  const phone = identityIsLid ? '' : normalizeBrazilianWhatsappPhone(identityJid.split('@')[0]);\n  const organizationId = resolveOrganizationId(body, options.tenantMap);\n  const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();\n\n  if (!['message', 'message.any'].includes(event)) return { accepted: false, reason: 'unsupported_event' };\n  if (!remoteJid || isGroup) return { accepted: false, reason: 'group_or_invalid_sender' };\n  if (fromMe) return { accepted: false, reason: 'from_me' };\n  if (isAutomatedServiceMessage(message)) return { accepted: false, reason: 'automated_service' };\n  if (!messageId) return { accepted: false, reason: 'missing_message_id' };\n  if (!SUPPORTED_MESSAGE_TYPES.has(messageType)) return { accepted: false, reason: 'unsupported_message_type' };\n  if ((!phone || phone.length < 10) && !lidJid) return { accepted: false, reason: 'invalid_phone' };\n  if (!organizationId) return { accepted: false, reason: 'missing_organization_id' };\n\n  return {\n    accepted: true,\n    value: {\n      message_id: messageId,\n      message,\n      phone,\n      sender_lid: lidJid,\n      requires_lid_resolution: !phone && Boolean(lidJid),\n      remote_jid: remoteJid,\n      from_me: false,\n      is_group: false,\n      organization_id: organizationId,\n      session_id: `${organizationId}:${phone}`,\n      whatsapp_session: session,\n      message_type: messageType,\n      timestamp: firstNonEmpty(payload.timestamp, body.timestamp, new Date().toISOString()),\n    },\n  };\n}\n\n\nlet tenantMap = {};\ntry {\n  tenantMap = JSON.parse($env.CAPITALFLOW_TENANT_MAP || '{}');\n} catch {\n  throw new Error('CAPITALFLOW_TENANT_MAP deve conter um objeto JSON válido.');\n}\n\nconst accepted = [];\nfor (const item of $input.all()) {\n  const result = normalizeWahaMessage(item.json, { tenantMap });\n  if (result.accepted) accepted.push({ json: result.value });\n}\nreturn accepted;"
         },
         "id": "capitalflow-normalize-filter",
         "name": "Normalize and Filter",
@@ -155,7 +155,7 @@
       },
       {
         "parameters": {
-          "url": "=http://waha:3000/api/{{ $json.session }}/lids/{{ encodeURIComponent($json.sender_lid) }}",
+          "url": "=http://waha:3000/api/{{ $json.whatsapp_session }}/lids/{{ encodeURIComponent($json.sender_lid) }}",
           "options": {
             "timeout": 10000
           }
@@ -167,11 +167,12 @@
         "position": [
           -220,
           -80
-        ]
+        ],
+        "onError": "continueRegularOutput"
       },
       {
         "parameters": {
-          "jsCode": "const source = $(\"Normalize and Filter\").item.json;\nconst phone = String($json.pn || \"\").replace(/\\D/g, \"\");\nif (phone.length < 10) throw new Error(\"O WAHA não retornou um telefone válido para o LID recebido.\");\nreturn [{ json: { ...source, phone, requires_lid_resolution: false, phone_resolved_from_lid: true } }];"
+          "jsCode": "const source = $(\"Normalize and Filter\").item.json;\nconst rawPhone = String($json.pn || \"\").replace(/\\D/g, \"\");\nconst phone = /^55\\d{2}[6-9]\\d{7}$/.test(rawPhone) ? rawPhone.slice(0, 4) + \"9\" + rawPhone.slice(4) : rawPhone;\nif (phone.length < 10) return [];\nreturn [{ json: { ...source, phone, requires_lid_resolution: false, phone_resolved_from_lid: true } }];"
         },
         "id": "capitalflow-apply-resolved-phone",
         "name": "Apply Resolved Phone",
@@ -184,29 +185,17 @@
       },
       {
         "parameters": {
-          "method": "POST",
-          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-admin-whatsapp",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "x-capitalflow-secret",
-                "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}"
-              }
-            ]
-          },
-          "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ organization_id: $(\"Normalize and Filter\").item.json.organization_id, phone: $(\"Normalize and Filter\").item.json.phone, message_id: $(\"Normalize and Filter\").item.json.message_id, message: $(\"Normalize and Filter\").item.json.message }) }}",
+          "source": "database",
+          "workflowId": "capitalflowOperatorSystem",
+          "mode": "once",
           "options": {
-            "timeout": 15000
+            "waitForSubWorkflow": true
           }
         },
         "id": "capitalflow-admin-command",
         "name": "Admin Command",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1,
         "position": [
           -400,
           -160
@@ -239,6 +228,42 @@
           70,
           -260
         ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nVoce e o assistente administrativo do CapitalFlow. Escreva em portugues natural, profissional, direto e curto. O Supabase forneceu apenas o resultado seguro da operacao; voce conduz a conversa. Preserve literalmente todos os valores, datas, links, codigos de confirmacao e referencias de contrato existentes no resultado. Nao invente, arredonde, omita ou altere dados. Nao execute nem confirme acao que o resultado nao confirmou. Nunca remova uma exigencia de confirmacao. Nao mencione n8n, Supabase, banco, API ou detalhes tecnicos, exceto quando o operador perguntar explicitamente pelo status do sistema. Retorne somente a mensagem final para o operador.\" }, { role: \"user\", content: \"Pedido do operador: \" + $(\"Normalize and Filter\").item.json.message + \"\\nResultado seguro da ferramenta: \" + String($json.reply || \"\") + \"\\nMetadados: \" + JSON.stringify({ intent: $json.intent, status: $json.status, action: $json.action, success: $json.success, requires_confirmation: $json.requires_confirmation }) }], temperature: 0.1, max_tokens: 500, stream: false }) }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "capitalflow-admin-conversation",
+        "name": "Admin Conversation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          70,
+          -300
+        ],
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const tool = $(\"Admin Command\").item.json || {};\nconst fallback = String(tool.reply || \"Comando administrativo processado.\").trim();\nconst payload = $json || {};\nconst candidate = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? \"\"\n).replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nconst collectProtected = (text) => {\n  const patterns = [\n    /R\\$\\s*[\\d.]+,\\d{2}/g,\n    /https?:\\/\\/[^\\s]+/g,\n    /\\b\\d{2}\\/\\d{2}\\/\\d{4}\\b/g,\n    /\\b(?:contrato\\s*)?#?[A-F0-9]{6}\\b/gi,\n    /\\b\\d{4}\\b/g,\n  ];\n  return [...new Set(patterns.flatMap((pattern) => String(text).match(pattern) || []))];\n};\n\nconst protectedValues = collectProtected(fallback);\nconst missingProtectedValue = protectedValues.some((value) => !candidate.includes(value));\nconst unsafe = !candidate\n  || candidate.length > 3500\n  || /<think>|\\b(?:supabase|n8n|api|edge function|banco de dados)\\b/i.test(candidate)\n  || missingProtectedValue;\n\nreturn [{ json: {\n  reply: (unsafe ? fallback : candidate).slice(0, 3500),\n  admin_conversation_source: unsafe ? \"deterministic_fallback\" : \"n8n_local_ai\",\n} }];"
+        },
+        "id": "capitalflow-admin-conversation-guard",
+        "name": "Admin Conversation Guard",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          300,
+          -300
+        ],
+        "onError": "continueErrorOutput"
       },
       {
         "parameters": {
@@ -477,7 +502,7 @@
         "main": [
           [
             {
-              "node": "Admin Reply",
+              "node": "Admin Conversation",
               "type": "main",
               "index": 0
             }
@@ -485,6 +510,42 @@
           [
             {
               "node": "Drop Duplicates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Conversation": {
+        "main": [
+          [
+            {
+              "node": "Admin Conversation Guard",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Admin Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Admin Conversation Guard": {
+        "main": [
+          [
+            {
+              "node": "Send WhatsApp Reply",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Admin Reply",
               "type": "main",
               "index": 0
             }

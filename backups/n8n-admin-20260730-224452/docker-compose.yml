@@ -1,0 +1,75 @@
+############################################
+# LEIA AQUI                                
+############################################
+# Criado por GUILHERME LAZAROTTO           
+# Youtube: www.youtube.com/@guilherme_laz  
+# Curso completo:       
+############################################
+
+services:
+  redis:
+    image: redis:latest
+    command: redis-server --requirepass default
+    environment:
+      REDIS_USER: default
+      REDIS_PASSWORD: default
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: default
+      POSTGRES_PASSWORD: default
+      POSTGRES_DB: default
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  waha:
+    image: devlikeapro/waha:latest
+    environment:
+      WHATSAPP_HOOK_URL: http://n8n:5678/webhook/webhook
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WHATSAPP_HOOK_EVENTS: message
+      WAHA_NO_API_KEY: true
+      WAHA_DASHBOARD_NO_PASSWORD: true
+      WHATSAPP_SWAGGER_NO_PASSWORD: true
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  n8n:
+    image: n8nio/n8n:1.50.0
+    env_file:
+      - .env.n8n
+    environment:
+      WEBHOOK_URL: http://host.docker.internal:5678
+      N8N_HOST: host.docker.internal
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      N8N_LOG_LEVEL: info
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: "10000"
+      N8N_SECURE_COOKIE: false
+      N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE: true
+      CAPITALFLOW_LOCAL_AI_URL: http://koboldcpp:5001/v1/chat/completions
+      CAPITALFLOW_LOCAL_AI_MODEL: koboldcpp/Qwen3-4B-Q4_K_M
+      CAPITALFLOW_PROFILE_ID: "62dcbb45-f02c-42ba-84a4-916af9854dea"
+      # Mapeie cada sessao WAHA para o UUID do perfil/tenant antes de liberar atendimento.
+      CAPITALFLOW_TENANT_MAP: '{"default":"62dcbb45-f02c-42ba-84a4-916af9854dea"}'
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "127.0.0.1:5678:5678"
+
+volumes:
+  pgdata:
+  waha_sessions:
+  waha_media:
+  n8n_data:

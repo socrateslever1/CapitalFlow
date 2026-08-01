@@ -6,6 +6,14 @@ function onlyDigits(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+function normalizeBrazilianWhatsappPhone(value) {
+  const phone = onlyDigits(value);
+  if (/^55\d{2}[6-9]\d{7}$/.test(phone)) {
+    return `${phone.slice(0, 4)}9${phone.slice(4)}`;
+  }
+  return phone;
+}
+
 function firstNonEmpty(...values) {
   return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
 }
@@ -77,7 +85,7 @@ function normalizeWahaMessage(input, options = {}) {
   const messageType = rawType === 'ptt' ? 'voice' : rawType;
   const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();
   const identityIsLid = /@lid$/i.test(identityJid);
-  const phone = identityIsLid ? '' : onlyDigits(identityJid.split('@')[0]);
+  const phone = identityIsLid ? '' : normalizeBrazilianWhatsappPhone(identityJid.split('@')[0]);
   const organizationId = resolveOrganizationId(body, options.tenantMap);
   const session = String(firstNonEmpty(body.session, body.instance, body.instanceName, '') ?? '').trim();
 
@@ -112,6 +120,7 @@ function normalizeWahaMessage(input, options = {}) {
 
 module.exports = {
   isAutomatedServiceMessage,
+  normalizeBrazilianWhatsappPhone,
   normalizeWahaMessage,
   resolveOrganizationId,
   resolveSenderJids,

@@ -1,7 +1,7 @@
 import { getSynchronizedSession } from '../lib/supabase';
 
 export const DEV_WHATSAPP_PROFILE_ID = '62dcbb45-f02c-42ba-84a4-916af9854dea';
-export type AutomaticMessageType = 'COLLECTION' | 'WELCOME' | 'REMINDER' | 'LATE' | 'PAID';
+export type AutomaticMessageType = 'COLLECTION' | 'WELCOME' | 'REMINDER' | 'LATE' | 'PAID' | 'CUSTOM';
 const MANUAL_COLLECTION_URL = 'https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-manual-collections';
 
 export const manualCollectionService = {
@@ -9,7 +9,7 @@ export const manualCollectionService = {
     return profileId === DEV_WHATSAPP_PROFILE_ID;
   },
 
-  async enqueue(profileId: string, loanId: string, messageType: AutomaticMessageType = 'COLLECTION') {
+  async enqueue(profileId: string, loanId: string, messageType: AutomaticMessageType = 'COLLECTION', customMessage?: string) {
     if (!this.isEnabled(profileId)) throw new Error('Envio automático ainda não está habilitado para este perfil.');
     const { data: sessionData, error: sessionError } = await getSynchronizedSession({ minValidityMs: 120_000 });
     const accessToken = sessionData?.session?.access_token;
@@ -23,7 +23,13 @@ export const manualCollectionService = {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'enqueue', profile_id: profileId, loan_id: loanId, message_type: messageType }),
+        body: JSON.stringify({
+          action: 'enqueue',
+          profile_id: profileId,
+          loan_id: loanId,
+          message_type: messageType,
+          ...(messageType === 'CUSTOM' ? { custom_message: String(customMessage || '').trim() } : {}),
+        }),
       });
     } catch (error: any) {
       throw new Error(`Não foi possível conectar à automação: ${error?.message || 'falha de rede'}`);
@@ -33,6 +39,7 @@ export const manualCollectionService = {
     if (!response.ok) {
       const detail = String(data?.error || data?.message || '');
       const messages: Record<string, string> = {
+        custom_message_invalid: 'Escreva uma mensagem entre 10 e 800 caracteres.',
         client_phone_missing: 'O cliente não possui um WhatsApp válido cadastrado.',
         no_open_installment: 'O contrato não possui parcela em aberto para cobrança.',
         no_amount_due: 'Não há valor pendente para cobrar neste contrato.',

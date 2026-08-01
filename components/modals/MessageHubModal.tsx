@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2, UserRound, Phone, Clock3, Send, Settings2, Copy, ExternalLink } from 'lucide-react';
+import { HandCoins, CalendarClock, ShieldAlert, CheckCircle2, UserRound, Phone, Clock3, Send, Settings2, Copy, ExternalLink, MessageSquareText } from 'lucide-react';
 import { Installment, Loan } from '../../types';
 import { Modal } from '../ui/Modal';
 import { calculateTotalDue } from '../../domain/finance/calculations';
@@ -25,6 +25,8 @@ const getGreeting = (): string => {
 export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?: any, onClose: () => void }) => {
     const [loading, setLoading] = useState(false);
     const [section, setSection] = useState<'SEND' | 'AUTOMATION'>('SEND');
+    const [showCustomMessage, setShowCustomMessage] = useState(false);
+    const [customMessage, setCustomMessage] = useState('');
     const { showToast, loans, activeUser } = useModal();
 
     const currentLoan = useMemo(() => (
@@ -68,6 +70,25 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
             onClose();
         } catch (error: any) {
             showToast(error.message || 'Não foi possível enviar a cobrança automática.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCustomMessage = async () => {
+        if (!activeUser?.id) return;
+        const message = customMessage.trim();
+        if (message.length < 10 || message.length > 800) {
+            showToast('Escreva uma mensagem entre 10 e 800 caracteres.', 'error');
+            return;
+        }
+        setLoading(true);
+        try {
+            await manualCollectionService.enqueue(activeUser.id, currentLoan.id, 'CUSTOM', message);
+            showToast('Mensagem personalizada adicionada à fila do WhatsApp.', 'success');
+            onClose();
+        } catch (error: any) {
+            showToast(error.message || 'Não foi possível enviar a mensagem personalizada.', 'error');
         } finally {
             setLoading(false);
         }
@@ -233,6 +254,46 @@ export const MessageHubModal = ({ loan, client, onClose }: { loan: Loan, client?
                 )}
 
                 {section === 'SEND' && <div className="space-y-3">
+                <section className="rounded-lg border border-blue-500/25 bg-blue-950/15 p-3">
+                    <button
+                        type="button"
+                        onClick={() => setShowCustomMessage((current) => !current)}
+                        className="flex w-full items-center justify-between gap-3 text-left"
+                    >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                            <MessageSquareText size={16} className="shrink-0 text-blue-400" />
+                            <span>
+                                <span className="block text-[11px] font-black uppercase text-white">Mensagem personalizada</span>
+                                <span className="mt-0.5 block text-[9px] text-slate-400">Você escreve; o link seguro do portal entra automaticamente.</span>
+                            </span>
+                        </span>
+                        <span className="text-[9px] font-black uppercase text-blue-400">{showCustomMessage ? 'Fechar' : 'Escrever'}</span>
+                    </button>
+
+                    {showCustomMessage && (
+                        <div className="mt-3 space-y-2 border-t border-blue-500/15 pt-3">
+                            <textarea
+                                value={customMessage}
+                                onChange={(event) => setCustomMessage(event.target.value.slice(0, 800))}
+                                rows={4}
+                                placeholder="Ex.: Olá, ficou faltando uma parte do pagamento combinado. Consulte o valor atualizado no portal abaixo."
+                                className="w-full resize-y rounded-md border border-slate-700 bg-slate-950 px-3 py-2.5 text-xs leading-relaxed text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                            />
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-[9px] text-slate-500">O nome e o link não precisam ser colados.</span>
+                                <span className={`text-[9px] font-bold ${customMessage.length > 800 ? 'text-rose-400' : 'text-slate-500'}`}>{customMessage.length}/800</span>
+                            </div>
+                            <button
+                                type="button"
+                                disabled={loading || customMessage.trim().length < 10}
+                                onClick={() => void handleCustomMessage()}
+                                className="flex h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-[10px] font-black uppercase text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <Send size={13} /> Enviar com link do portal
+                            </button>
+                        </div>
+                    )}
+                </section>
                 <button
                     disabled={loading || !relevantInstallment}
                     onClick={handleAutomaticCollection}

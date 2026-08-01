@@ -2,9 +2,18 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeWahaMessage } = require('./normalize-waha-message.cjs');
+const {
+  normalizeBrazilianWhatsappPhone,
+  normalizeWahaMessage,
+} = require('./normalize-waha-message.cjs');
 
 const tenantMap = { default: '00000000-0000-4000-8000-000000000001' };
+
+test('normaliza nono digito de celular brasileiro retornado pelo WhatsApp', () => {
+  assert.equal(normalizeBrazilianWhatsappPhone('559293836812'), '5592993836812');
+  assert.equal(normalizeBrazilianWhatsappPhone('559232345678'), '559232345678');
+  assert.equal(normalizeBrazilianWhatsappPhone('5592993836812'), '5592993836812');
+});
 
 function payload(overrides = {}) {
   return {

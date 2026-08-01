@@ -74,9 +74,29 @@ function hasPermission(admin: any, permission: string) {
 async function findClient(adminDb: any, profileId: string, query: string) {
   const cleaned = query.replace(/^(a|o|da|do|de|para|cliente|a cliente|o cliente)\s+/i, "").replace(/[?.!,]+$/g, "").trim();
   if (cleaned.length < 2) return { error: "Diga o nome ou código do cliente." };
-  const { data, error } = await adminDb.from("clientes").select("id,name,phone,client_number")
-    .eq("owner_id", profileId).or(`name.ilike.%${cleaned.replace(/[%_,()]/g, "")}%,client_number.eq.${cleaned}`).limit(6);
+  const document = digits(cleaned);
+  const isDocument = /^[\d.\-\/\s]+$/.test(cleaned) && [11, 14].includes(document.length);
+  const directFilter = isDocument
+    ? `document.eq.${document},cpf.eq.${document}`
+    : `name.ilike.%${cleaned.replace(/[%_,()]/g, "")}%,client_number.eq.${cleaned}`;
+  const { data: directMatches, error } = await adminDb.from("clientes").select("id,name,phone,client_number")
+    .eq("owner_id", profileId).or(directFilter).limit(6);
   if (error) throw error;
+  let data = directMatches || [];
+  if (!data.length) {
+    const tokens = normalize(cleaned)
+      .split(/\s+/)
+      .filter((token) => token.length >= 2 && !["da", "de", "do", "das", "dos", "e"].includes(token));
+    if (tokens.length) {
+      const candidates = await adminDb.from("clientes").select("id,name,phone,client_number")
+        .eq("owner_id", profileId).limit(1000);
+      if (candidates.error) throw candidates.error;
+      data = (candidates.data || []).filter((candidate: any) => {
+        const normalizedName = normalize(candidate.name);
+        return tokens.every((token) => normalizedName.includes(token));
+      }).slice(0, 6);
+    }
+  }
   if (!data?.length) return { error: `Não encontrei cliente com “${cleaned}”.` };
   if (data.length > 1) return { error: `Encontrei mais de um: ${data.map((item: any) => item.name).join(", ")}. Diga o nome completo.` };
   return { client: data[0] };
@@ -180,10 +200,12 @@ function detectIntent(raw: string) {
   if (/^(quando vence|qual .*vencimento)/.test(message)) return "due";
   if (/\b(?:saldo|limite|disponivel|disponibilidade)\b[\s\S]*\b(?:carteiras?|fontes?)\b|\b(?:carteiras?|fontes?)\b[\s\S]*\b(?:saldo|limite|disponivel|disponibilidade)\b/.test(message)) return "wallet";
   if (/^(quanto|qual .*valor|valor|saldo)/.test(message)) return "amount";
-  if (/\b(contrato|situacao|status)\b/.test(message) && /^(?:(?:me )?(?:mostre|mostra|mostrar)|quero (?:ver|consultar)|consulte|ver|como esta|situacao|status|contrato)/.test(message)) return "status";  if (/\b(quem pagou|pagamentos recebidos|pagamentos de hoje|recebimentos de hoje)\b/.test(message)) return "payments_today";
+  if (/\b(status do sistema|status das integracoes|integracoes|n8n|whatsapp esta funcionando|whatsapp conectado|automacoes falharam)\b/.test(message)) return "system_status";
+  if (/\b(contrato|situacao|status)\b/.test(message) && /^(?:(?:me )?(?:mostre|mostra|mostrar)|quero (?:ver|consultar)|consulte|ver|como esta|situacao|status|contrato)/.test(message)) return "status";
+  if (/\b(quem pagou|pagamentos recebidos|pagamentos de hoje|recebimentos de hoje)\b/.test(message)) return "payments_today";
   if (/\b(quem pediu|solicitacoes? de atendimento|atendimento humano|handoffs?)\b/.test(message)) return "handoffs";
   if (/\b(resumo de hoje|o que aconteceu hoje|atividades de hoje)\b/.test(message)) return "daily_summary";
-  if (/\b(status do sistema|status das integracoes|integracoes|n8n|whatsapp esta funcionando|whatsapp conectado|automacoes falharam)\b/.test(message)) return "system_status";  if (/\b(todos os contratos|contratos ativos|listar contratos|liste contratos)\b/.test(message)) return "contracts";
+  if (/\b(todos os contratos|contratos ativos|listar contratos|liste contratos)\b/.test(message)) return "contracts";
   if (/\b(todos os clientes|listar clientes|liste clientes|clientes cadastrados)\b/.test(message)) return "clients";
   return "unknown";
 }
@@ -634,7 +656,7 @@ async function operatorQuery(adminDb: any, profileId: string, intent: string) {
     if (error) throw error;
     const active = (data || []).filter((item: any) => !closed.includes(String(item.status || "").toUpperCase()));
     const total = active.reduce((sum: number, item: any) => sum + Number(item.total_to_receive || 0), 0);
-    const lines = active.slice(0, 20).map((item: any, index: number) => `${index + 1}. 👤 ${item.debtor_name || "Cliente"} — ${money(item.total_to_receive)} — ${item.status}`).join("\n");
+    const lines = active.slice(0, 20).map((item: any, index: number) => `${index + 1}. 👤 ${item.debtor_name || "Cliente"} — ${money(item.total_to_receive)} — ${contractStatusLabel(item.status)}`).join("\n");
     return `📄 *Contratos ativos*\n\n• Contratos: *${active.length}*\n• Total contratado: *${money(total)}*\n\n${lines || "Nenhum contrato ativo encontrado."}`;
   }  if (intent === "daily_summary") {
     const [{ data: payments }, { data: handoffs }, { data: events }, { data: queue }] = await Promise.all([
@@ -815,7 +837,7 @@ function renderChargeSelectionList(title: string, items: any[], page = 1, pageSi
       : "\n\nFim da lista.";
 
   const pageLabel = showAll ? "Lista completa" : `Página ${currentPage}/${totalPages}`;
-  return `${title}\n\n📊 Total listado: *${safeItems.length}* contrato${safeItems.length === 1 ? "" : "s"}\n💰 Valor atualizado: *${money(total)}*\n${pageLabel}\n\n${lines}${footer}\n\nPara cobrar, responda:\n• *cobre 1*\n• *cobre 1, 3*\n• *cobre todos*`;
+  return `${title}\n\n📊 Total listado: *${safeItems.length}* contrato${safeItems.length === 1 ? "" : "s"}\n💰 Valor atualizado: *${money(total)}*\n${pageLabel}\n\n${lines}${footer}\n\nPara abrir um contrato, responda:\n• *contrato 1*\n• *abrir 1*\n\nA cobrança só fica disponível depois que o contrato for aberto.`;
 }
 
 function renderClientChargeSelectionList(title: string, items: any[], page = 1, pageSize = 10, showAll = false) {
@@ -961,7 +983,46 @@ async function loadClientContractsForAdmin(adminDb: any, profileId: string, clie
 }
 
 function contractLabel(contract: any) {
-  return String(contract.modalidade || contract.loan_mode || contract.mode || contract.payment_type || contract.billing_cycle || "Contrato").replace(/_/g, " ");
+  const value = String(contract.modalidade || contract.loan_mode || contract.mode || contract.payment_type || contract.billing_cycle || "CONTRATO").toUpperCase();
+  const labels: Record<string, string> = {
+    MONTHLY: "Mensal",
+    MENSAL: "Mensal",
+    INSTALLMENT: "Parcelado",
+    INSTALLMENTS: "Parcelado",
+    FIXED_INSTALLMENTS: "Parcelado fixo",
+    PARCELADO: "Parcelado",
+    PARCELADO_FIXO: "Parcelado fixo",
+    INTEREST_ONLY: "Somente juros",
+    JUROS: "Somente juros",
+    DAILY: "Diario",
+    DIARIO: "Diario",
+    FIXED_TERM: "Prazo fixo",
+    PRAZO_FIXO: "Prazo fixo",
+    CONTRATO: "Contrato",
+  };
+  return labels[value] || value.toLowerCase().replace(/_/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function contractStatusLabel(status: unknown) {
+  const value = String(status || "").toUpperCase();
+  const labels: Record<string, string> = {
+    PENDING: "Pendente",
+    OPEN: "Em aberto",
+    ACTIVE: "Ativo",
+    ATIVO: "Ativo",
+    OVERDUE: "Atrasado",
+    LATE: "Atrasado",
+    ATRASADO: "Atrasado",
+    PARTIAL: "Parcial",
+    PAID: "Quitado",
+    PAGO: "Quitado",
+    QUITADO: "Quitado",
+    EM_ACORDO: "Em acordo",
+    RENEGOCIADO: "Renegociado",
+    CANCELLED: "Cancelado",
+    CANCELADO: "Cancelado",
+  };
+  return labels[value] || (value ? value.toLowerCase().replace(/_/g, " ").replace(/^\w/, (letter) => letter.toUpperCase()) : "Sem status");
 }
 
 function renderAdminContractList(client: any, contracts: any[]) {
@@ -1102,8 +1163,8 @@ async function handleAdminNavigationContext(adminDb: any, profileId: string, adm
     if (chargeNumber > 0) {
       const contract = contracts[chargeNumber - 1];
       if (!contract) return `Essa lista só tem ${contracts.length} contrato${contracts.length === 1 ? "" : "s"}. Escolha um número válido.`;
-      const selected = contract.overdue_installments.length ? contract.overdue_installments : contract.open_installments;
-      return await prepareContractScopedCharge(adminDb, profileId, admin, client, contract, selected);
+      await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_DETAIL", { client, contracts, contract_index: chargeNumber - 1 });
+      return `${renderAdminContractDetail(client, contract)}\n\nAgora escolha as parcelas deste contrato. Ex.: *cobrar vencidas* ou *cobrar parcela 1*.`;
     }
     const portalNumber = Number(normalized.match(/(?:portal|link)\s+(\d{1,3})/)?.[1] || 0);
     if (portalNumber > 0) {
@@ -1281,6 +1342,17 @@ Deno.serve(async (req) => {
     if (intent === "greeting" || intent === "collection_brief") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, admin, adminName, greeting) });
     const contextualReply = await handleAdminNavigationContext(adminDb, profileId, admin, rawMessage);
     if (contextualReply) return json({ handled: true, admin: true, reply: contextualReply });
+    const bareDocument = digits(rawMessage);
+    if (/^[\d.\-\/\s]+$/.test(rawMessage) && [11, 14].includes(bareDocument.length)) {
+      if (!hasPermission(admin, "READ")) return json({ handled: true, admin: true, reply: "Seu numero nao possui permissao para consultar clientes." });
+      const found = await findClient(adminDb, profileId, bareDocument);
+      if (found.error) return json({ handled: true, admin: true, reply: found.error });
+      return json({
+        handled: true,
+        admin: true,
+        reply: await openClientOperationalPanel(adminDb, profileId, admin, found.client, "status"),
+      });
+    }
     const contractRequest = parseContractRequest(rawMessage);
     if (contractRequest) {
       if (!hasPermission(admin, "CONTRACT_CREATE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para criar contratos." });
@@ -1363,18 +1435,16 @@ Deno.serve(async (req) => {
       return json({ handled: true, admin: true, reply: `Últimas mensagens: ${counts.SENT || 0} enviadas, ${counts.PENDING || 0} pendentes, ${counts.PROCESSING || 0} processando e ${counts.ERROR || 0} com erro.` });
     }
     if (intent === "due_today") {
-      const items = groupChargeItemsByClient(await listOpenInstallments(adminDb, profileId, "due_today"));
+      const items = await listOpenInstallments(adminDb, profileId, "due_today");
       if (!items.length) return json({ handled: true, admin: true, reply: `${adminName}, não há parcelas vencendo hoje.` });
       await saveChargeSelectionList(adminDb, profileId, admin, "DUE_TODAY_LIST", items);
-      return json({ handled: true, admin: true, reply: renderClientChargeSelectionList(`📅 *Vencem hoje*`, items) });
-      return json({ handled: true, admin: true, reply: renderChargeSelectionList(`📅 *Vencem hoje*`, items) });
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(`📅 *Contratos que vencem hoje*`, items) });
     }
     if (intent === "overdue") {
-      const items = groupChargeItemsByClient(await listOpenInstallments(adminDb, profileId, "overdue"));
+      const items = await listOpenInstallments(adminDb, profileId, "overdue");
       if (!items.length) return json({ handled: true, admin: true, reply: "Não há parcelas vencidas em aberto agora." });
       await saveChargeSelectionList(adminDb, profileId, admin, "OVERDUE_LIST", items);
-      return json({ handled: true, admin: true, reply: renderClientChargeSelectionList(`⚠️ *Clientes com atraso*`, items) });
-      return json({ handled: true, admin: true, reply: renderChargeSelectionList(`⚠️ *Contratos vencidos para cobrança*`, items) });
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(`⚠️ *Contratos vencidos*`, items) });
     }
     if (intent === "list_next_page") {
       const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
@@ -1384,11 +1454,11 @@ Deno.serve(async (req) => {
       const currentPage = Number(list.payload?.page || 1);
       const nextPage = currentPage + 1;
       if ((nextPage - 1) * pageSize >= items.length) {
-        return json({ handled: true, admin: true, reply: "Você já está na última página dessa lista. Para cobrar, responda *cobre 1*, *cobre 1, 3* ou *cobre todos*." });
+        return json({ handled: true, admin: true, reply: "Você já está na última página. Abra um contrato com *contrato 1*." });
       }
       await adminDb.from("whatsapp_admin_commands").update({ payload: { ...list.payload, page: nextPage } }).eq("id", list.id);
       const title = list.intent === "OVERDUE_LIST" ? `⚠️ *Contratos vencidos para cobrança*` : list.intent === "DUE_TODAY_LIST" ? `📅 *Vencem hoje*` : `⚠️ *Prioridade de cobrança*`;
-      return json({ handled: true, admin: true, reply: renderClientChargeSelectionList(title, items, nextPage, pageSize) });
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(title, items, nextPage, pageSize) });
     }
     if (intent === "list_all") {
       const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
@@ -1397,7 +1467,7 @@ Deno.serve(async (req) => {
       const pageSize = Number(list.payload?.page_size || 10);
       const title = list.intent === "OVERDUE_LIST" ? `⚠️ *Contratos vencidos para cobrança*` : list.intent === "DUE_TODAY_LIST" ? `📅 *Vencem hoje*` : `⚠️ *Prioridade de cobrança*`;
       await adminDb.from("whatsapp_admin_commands").update({ payload: { ...list.payload, page: 1, show_all: true } }).eq("id", list.id);
-      return json({ handled: true, admin: true, reply: renderClientChargeSelectionList(title, items, 1, pageSize, true) });
+      return json({ handled: true, admin: true, reply: renderChargeSelectionList(title, items, 1, pageSize, true) });
     }
     if (intent === "charge_selection") {
       if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });
@@ -1405,17 +1475,20 @@ Deno.serve(async (req) => {
       if (!list) return json({ handled: true, admin: true, reply: "A lista venceu ou ainda não foi aberta. Envie *atrasados* ou *vencem hoje* novamente." });
       const allItems = list.payload?.items || [];
       const normalized = normalize(rawMessage);
-      const selected = /todos|todas/.test(normalized) ? allItems : [...new Set((normalized.match(/\d+/g) || []).map(Number))].map((number) => allItems[number - 1]).filter(Boolean);
-      if (!selected.length) return json({ handled: true, admin: true, reply: "Não reconheci os números. Exemplo: *cobre 1, 3*." });
-      const names = selected.slice(0, 8).map((item: any) => item.name).join(", ");
-      const suffix = selected.length > 8 ? ` e mais ${selected.length - 8}` : "";
-      const total = selected.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
-      const hasOverdue = list.intent === "OVERDUE_LIST" || selected.some((item: any) => Number(item.days_late || 0) > 0);
-      const description = hasOverdue
-        ? `Enviar cobrança de contrato vencido para ${selected.length} cliente${selected.length === 1 ? "" : "s"} (${names}${suffix}), total de ${money(total)}?`
-        : `Enviar lembrete de vencimento hoje para ${selected.length} cliente${selected.length === 1 ? "" : "s"} (${names}${suffix}), total de ${money(total)}?`;
-      const reply = await createPending(adminDb, profileId, admin, "BATCH_CHARGE", { items: selected }, description);
-      return json({ handled: true, admin: true, reply });
+      if (/todos|todas/.test(normalized)) {
+        return json({ handled: true, admin: true, reply: "Por segurança, não envio cobranças de vários contratos de uma vez. Abra um contrato e escolha somente as parcelas dele." });
+      }
+      const numbers = [...new Set((normalized.match(/\d+/g) || []).map(Number))];
+      if (numbers.length !== 1) return json({ handled: true, admin: true, reply: "Escolha um contrato por vez. Exemplo: *contrato 1*." });
+      const item = allItems[numbers[0] - 1];
+      if (!item) return json({ handled: true, admin: true, reply: "Não reconheci esse contrato. Abra a lista novamente e escolha um número válido." });
+      const found = await findClient(adminDb, profileId, item.name || item.phone || "");
+      if (found.error) return json({ handled: true, admin: true, reply: found.error });
+      const contracts = await loadClientContractsForAdmin(adminDb, profileId, found.client);
+      const contractIndex = contracts.findIndex((contract) => contract.id === item.loan_id);
+      if (contractIndex < 0) return json({ handled: true, admin: true, reply: "Esse contrato não está mais disponível para cobrança." });
+      await saveAdminNavigationContext(adminDb, profileId, admin, "ADMIN_CONTRACT_DETAIL", { client: found.client, contracts, contract_index: contractIndex });
+      return json({ handled: true, admin: true, reply: renderAdminContractDetail(found.client, contracts[contractIndex]) });
     }
     /*
     Legacy list handlers kept only as historical reference after the unified

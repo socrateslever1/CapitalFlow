@@ -115,11 +115,24 @@ Deno.serve(async (req) => {
     const phone = digits(loan.debtor_phone);
     if (phone.length < 10) return json(req, { error: "client_phone_missing" }, 400);
     const requestedType = String(body.message_type || "COLLECTION").toUpperCase();
-    const allowedTypes = new Set(["COLLECTION", "WELCOME", "REMINDER", "LATE", "PAID"]);
+    const allowedTypes = new Set(["COLLECTION", "WELCOME", "REMINDER", "LATE", "PAID", "CUSTOM"]);
     if (!allowedTypes.has(requestedType)) return json(req, { error: "invalid_message_type" }, 400);
     const firstName = String(loan.debtor_name || "Cliente").trim().split(/\s+/)[0];
     const portalLink = loan.portal_token && loan.portal_shortcode
       ? `${APP_ORIGIN}/?portal=${encodeURIComponent(loan.portal_token)}&portal_code=${encodeURIComponent(loan.portal_shortcode)}` : null;
+
+    if (requestedType === "CUSTOM") {
+      const customMessage = String(body.custom_message || "").trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+      if (customMessage.length < 10 || customMessage.length > 800) {
+        return json(req, { error: "custom_message_invalid" }, 400);
+      }
+      const message = assertCleanEncoding(`[[CF_CUSTOM]]\n${customMessage}${portalLink ? `\n\nAcesse seu portal: ${portalLink}` : ""}`);
+      const { data: queued, error: queueError } = await admin.from("whatsapp_queue").insert({
+        profile_id: profileId, phone, message, status: "PENDING", loan_id: loanId,
+      }).select("id").single();
+      if (queueError) throw queueError;
+      return json(req, { ok: true, queue_id: queued.id, status: "PENDING" }, 202);
+    }
 
     if (requestedType === "WELCOME" || requestedType === "PAID") {
       const message = assertCleanEncoding(requestedType === "WELCOME"

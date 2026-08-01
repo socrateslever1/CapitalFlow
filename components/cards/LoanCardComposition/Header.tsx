@@ -19,6 +19,7 @@ import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
+import { formatBRDate } from '../../../utils/dateHelpers';
 
 interface HeaderProps {
   loan: Loan;
@@ -256,7 +257,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <CalendarClock size={8} />
                   <span className="truncate text-[7px] font-black uppercase">
                     {activeOfferLabel}{' '}
-                    Condição até {new Date(`${activePaymentOffer.paymentOfferValidUntil}T12:00:00`).toLocaleDateString('pt-BR')}
+                    Condição até {formatBRDate(activePaymentOffer.paymentOfferValidUntil)}
                   </span>
                 </div>
               )}

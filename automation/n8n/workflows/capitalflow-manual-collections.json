@@ -28,7 +28,11 @@
         "name": "Claim Pending Collections",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
-        "position": [-300, 0]
+        "position": [-300, 0],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 3000,
+        "onError": "continueRegularOutput"
       },
       {
         "parameters": { "jsCode": "return ($json.messages || []).filter((item) => item.queue_id && item.chat_id && item.message).map((item) => ({ json: item }));" },
@@ -60,6 +64,36 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [360, 0]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [{
+              "id": "manual-custom-message-condition",
+              "leftValue": "={{ String($json.message || '').startsWith('[[CF_CUSTOM]]') }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "manual-custom-message-gate",
+        "name": "Is Custom Message",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [570, -120]
+      },
+      {
+        "parameters": {
+          "jsCode": "const message = String($json.message || '').replace(/^\\[\\[CF_CUSTOM\\]\\]\\s*/, '').trim();\nif (message.length < 10) throw new Error('Mensagem personalizada invalida');\nreturn [{ json: { ...$json, message, ai_used: false, custom_message: true } }];"
+        },
+        "id": "manual-prepare-custom-message",
+        "name": "Prepare Custom Message",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [800, -160]
       },
       {
         "parameters": {
@@ -147,7 +181,9 @@
       "Claim Pending Collections": { "main": [[{ "node": "Expand Pending Collections", "type": "main", "index": 0 }]] },
       "Expand Pending Collections": { "main": [[{ "node": "Resolve WhatsApp Contact", "type": "main", "index": 0 }]] },
       "Resolve WhatsApp Contact": { "main": [[{ "node": "Attach Resolved Contact", "type": "main", "index": 0 }]] },
-      "Attach Resolved Contact": { "main": [[{ "node": "Local AI Naturalize", "type": "main", "index": 0 }]] },
+      "Attach Resolved Contact": { "main": [[{ "node": "Is Custom Message", "type": "main", "index": 0 }]] },
+      "Is Custom Message": { "main": [[{ "node": "Prepare Custom Message", "type": "main", "index": 0 }], [{ "node": "Local AI Naturalize", "type": "main", "index": 0 }]] },
+      "Prepare Custom Message": { "main": [[{ "node": "Send Manual Collection", "type": "main", "index": 0 }]] },
       "Local AI Naturalize": { "main": [[{ "node": "Guard Financial Facts", "type": "main", "index": 0 }]] },
       "Guard Financial Facts": { "main": [[{ "node": "Send Manual Collection", "type": "main", "index": 0 }]] },
       "Send Manual Collection": { "main": [[{ "node": "Confirm Manual Collection", "type": "main", "index": 0 }], [{ "node": "Fail Manual Collection", "type": "main", "index": 0 }]] }

@@ -101,7 +101,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                         )}
                         {hasActiveOffer && !isPaid && (
                             <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-400">
-                                Condição até {new Date(`${originalInst.paymentOfferValidUntil}T12:00:00`).toLocaleDateString('pt-BR')}
+                                Condição até {formatBRDate(originalInst.paymentOfferValidUntil)}
                             </span>
                         )}
                     </div>

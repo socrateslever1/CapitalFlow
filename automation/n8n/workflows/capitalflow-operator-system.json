@@ -1,0 +1,90 @@
+[
+  {
+    "id": "capitalflowOperatorSystem",
+    "name": "CapitalFlow - Modulo Interno do Operador (nao ativar)",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "operator-workflow-input",
+        "name": "Operator Workflow Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1,
+        "position": [-480, 0]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-admin-whatsapp",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-capitalflow-secret",
+                "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify($json.body || $json) }}",
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "operator-secure-command",
+        "name": "Secure Operator Command",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [-240, 0],
+        "retryOnFail": true,
+        "maxTries": 2,
+        "waitBetweenTries": 2000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const result = $json || {};\nconst isOperator = result.admin === true && result.handled === true;\nconst isPublic = result.audience === 'public' || result.status === 'not_identified';\nif (isOperator) return [{ json: result }];\nif (isPublic) return [{ json: { handled: false, admin: false, audience: 'public' } }];\nreturn [{ json: { handled: true, admin: true, routing_error: true, reply: 'Sócrates, o atendimento administrativo está temporariamente indisponível. Nenhuma ação foi executada. Tente novamente em instantes.' } }];"
+        },
+        "id": "operator-route-guard",
+        "name": "Operator Route Guard",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [0, 0]
+      }
+    ],
+    "connections": {
+      "Operator Workflow Input": {
+        "main": [
+          [
+            {
+              "node": "Secure Operator Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Secure Operator Command": {
+        "main": [
+          [
+            {
+              "node": "Operator Route Guard",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "timezone": "America/Manaus",
+      "saveDataSuccessExecution": "none",
+      "saveExecutionProgress": false
+    },
+    "pinData": {},
+    "tags": []
+  }
+]

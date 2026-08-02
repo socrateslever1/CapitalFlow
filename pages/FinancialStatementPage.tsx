@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Landmark,
   RefreshCw,
+  RotateCcw,
   Search,
   Wallet,
 } from 'lucide-react';
@@ -32,6 +33,10 @@ type Movement = LedgerEntry & {
   debtorName: string;
   sourceName: string;
   direction: 'IN' | 'OUT';
+  createdAt?: string;
+  operatorId?: string | null;
+  idempotencyKey?: string | null;
+  reversedOfTransactionId?: string | null;
 };
 
 type PeriodMode = 'DAY' | 'MONTH' | 'RANGE';
@@ -93,6 +98,21 @@ const getMovementDirection = (entry: LedgerEntry): 'IN' | 'OUT' => {
   return Number(entry.amount || 0) < 0 ? 'OUT' : 'IN';
 };
 
+const getPaymentGroupKey = (movement: Pick<Movement, 'idempotencyKey'>) =>
+  String(movement.idempotencyKey || '').replace(/(_lucro|_profit)$/i, '');
+
+const formatDateTime = (value?: string) => {
+  const date = parseDate(value || '');
+  if (date.getTime() <= 0) return 'data não registrada';
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const getLoanOpenAmount = (loan: Loan) => {
   const agreement = loan.activeAgreement;
   if (agreement && ['ACTIVE', 'ATIVO'].includes(String(agreement.status).toUpperCase())) {
@@ -129,6 +149,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
   const [view, setView] = useState<'ALL' | 'IN' | 'OUT' | 'RECEIVABLE'>('ALL');
   const [databaseEntries, setDatabaseEntries] = useState<any[] | null>(null);
   const [statementRefreshKey, setStatementRefreshKey] = useState(0);
+  const [reversingGroupKey, setReversingGroupKey] = useState<string | null>(null);
 
   useEffect(() => {
     const safeProfileId = safeUUID(profileId);
@@ -140,7 +161,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
     let cancelled = false;
     void supabase
       .from('transacoes')
-      .select('id, loan_id, source_id, installment_id, agreement_id, date, type, amount, principal_delta, interest_delta, late_fee_delta, notes, category, meta')
+      .select('id, loan_id, source_id, installment_id, agreement_id, date, type, amount, principal_delta, interest_delta, late_fee_delta, notes, category, meta, idempotency_key, operator_id, created_at, reversed_of_transaction_id')
       .eq('profile_id', safeProfileId)
       .order('date', { ascending: false })
       .limit(5000)
@@ -162,6 +183,45 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
   const handleRefresh = async () => {
     await onRefresh();
     setStatementRefreshKey((current) => current + 1);
+  };
+
+  const handleReversePaymentGroup = async (movement: Movement) => {
+    const groupKey = getPaymentGroupKey(movement);
+    const safeProfileId = safeUUID(profileId);
+    if (!safeProfileId || !groupKey) {
+      alert('Não foi possível identificar o grupo deste recebimento.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Estornar o recebimento de ${movement.debtorName}?\n\n` +
+      `O sistema vai criar lançamentos negativos, devolver o saldo da parcela e ajustar a fonte de capital/lucro.`
+    );
+    if (!confirmed) return;
+
+    setReversingGroupKey(groupKey);
+    const { data, error } = await supabase.rpc('reverse_payment_group', {
+      p_profile_id: safeProfileId,
+      p_idempotency_key: groupKey,
+      p_reason: 'Estorno manual pelo extrato',
+      p_operator_id: safeProfileId,
+    });
+    setReversingGroupKey(null);
+
+    if (error) {
+      console.error('[FinancialStatement] Falha ao estornar recebimento:', error);
+      alert(error.message || 'Erro ao estornar recebimento.');
+      return;
+    }
+
+    const summary = data as any;
+    alert(
+      `Estorno registrado.\n\n` +
+      `Valor: ${formatMoney(Number(summary?.amount || 0), isStealthMode)}\n` +
+      `Capital: ${formatMoney(Number(summary?.principal || 0), isStealthMode)}\n` +
+      `Lucro/juros: ${formatMoney(Number(summary?.interest || 0) + Number(summary?.late_fee || 0), isStealthMode)}`
+    );
+    await handleRefresh();
   };
 
   const operationalSources = useMemo(() => filterOperationalSources(sources), [sources]);
@@ -199,6 +259,10 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
           notes: entry.notes,
           category: entry.category,
           meta: entry.meta,
+          createdAt: entry.created_at ? String(entry.created_at) : undefined,
+          operatorId: entry.operator_id ? String(entry.operator_id) : null,
+          idempotencyKey: entry.idempotency_key ? String(entry.idempotency_key) : null,
+          reversedOfTransactionId: entry.reversed_of_transaction_id ? String(entry.reversed_of_transaction_id) : null,
         }))
       : operationalLoans.flatMap((loan) =>
           (loan.ledger || []).map((entry) => ({ ...entry, loanId: loan.id }))
@@ -238,6 +302,15 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
       return dateKey >= selectedPeriod.startKey && dateKey <= selectedPeriod.endKey;
     });
   }, [movements, selectedPeriod]);
+
+  const reversedPaymentGroups = useMemo(() => {
+    const groups = new Set<string>();
+    movements.forEach((movement) => {
+      const key = String(movement.meta?.reversal_of_idempotency_key || '');
+      if (key) groups.add(key);
+    });
+    return groups;
+  }, [movements]);
 
   const totals = useMemo(() => {
     return periodMovements.reduce(
@@ -434,6 +507,29 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
         </div>
       </section>
 
+      <section className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="text-[9px] font-black uppercase text-emerald-300/80">Capital retornado</div>
+          <div className="mt-1 text-sm font-black text-emerald-300 md:text-lg">{formatMoney(totals.principal, isStealthMode)}</div>
+          <p className="mt-1 text-[9px] leading-3 text-slate-500">Principal que voltou para a fonte do contrato.</p>
+        </div>
+        <div className="rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
+          <div className="text-[9px] font-black uppercase text-cyan-300/80">Lucro na casa</div>
+          <div className="mt-1 text-sm font-black text-cyan-300 md:text-lg">{formatMoney(totals.profit, isStealthMode)}</div>
+          <p className="mt-1 text-[9px] leading-3 text-slate-500">Juros, mora e multa recebidos.</p>
+        </div>
+        <div className="rounded-md border border-slate-700 bg-slate-900/60 p-3">
+          <div className="text-[9px] font-black uppercase text-slate-500">Entradas</div>
+          <div className="mt-1 text-sm font-black text-white md:text-lg">{formatMoney(totals.in, isStealthMode)}</div>
+          <p className="mt-1 text-[9px] leading-3 text-slate-500">Capital + lucro no período.</p>
+        </div>
+        <div className="rounded-md border border-slate-700 bg-slate-900/60 p-3">
+          <div className="text-[9px] font-black uppercase text-slate-500">Saídas/Estornos</div>
+          <div className="mt-1 text-sm font-black text-rose-300 md:text-lg">{formatMoney(totals.out, isStealthMode)}</div>
+          <p className="mt-1 text-[9px] leading-3 text-slate-500">Retiradas e ajustes negativos.</p>
+        </div>
+      </section>
+
       <section className="grid grid-cols-2 overflow-hidden border-y border-slate-800/70 bg-[#020817]/40 lg:grid-cols-4 lg:gap-2 lg:overflow-visible lg:border-0 lg:bg-transparent">
         {[
           { id: 'IN', label: 'Entradas no período', value: totals.in, icon: ArrowDownLeft, tone: 'text-emerald-400' },
@@ -470,7 +566,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
             <div>
               <h2 className="text-sm font-black uppercase text-white">{view === 'RECEIVABLE' ? 'Valores a receber' : 'Movimentações'}</h2>
               <p className="text-[10px] text-slate-500">
-                Principal recebido: {formatMoney(totals.principal, isStealthMode)} · Juros e mora: {formatMoney(totals.profit, isStealthMode)}
+                Capital retornado: {formatMoney(totals.principal, isStealthMode)} · Lucro/juros: {formatMoney(totals.profit, isStealthMode)}
               </p>
             </div>
             <label className="flex h-9 items-center gap-2 rounded-md border border-slate-800 bg-slate-900 px-3">
@@ -491,17 +587,37 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
                 </button>
               ))
             ) : filteredMovements.length > 0 ? (
-              filteredMovements.map((movement) => (
-                <button type="button" key={movement.id} onClick={() => movement.loanId && onOpenLoan(movement.loanId)} disabled={!movement.loanId} className="grid min-h-[82px] w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left hover:bg-slate-900 disabled:cursor-default">
+              filteredMovements.map((movement) => {
+                const groupKey = getPaymentGroupKey(movement);
+                const canReverse =
+                  movement.direction === 'IN' &&
+                  Number(movement.amount || 0) > 0 &&
+                  Boolean(groupKey) &&
+                  ['PAGAMENTO', 'LUCRO'].includes(String(movement.category || '').toUpperCase()) &&
+                  !movement.reversedOfTransactionId &&
+                  !reversedPaymentGroups.has(groupKey);
+                const isReversing = Boolean(groupKey && reversingGroupKey === groupKey);
+
+                return (
+                <div key={movement.id} role={movement.loanId ? 'button' : undefined} tabIndex={movement.loanId ? 0 : undefined} onClick={() => movement.loanId && onOpenLoan(movement.loanId)} onKeyDown={(event) => { if (movement.loanId && (event.key === 'Enter' || event.key === ' ')) onOpenLoan(movement.loanId); }} className={`grid min-h-[92px] w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left ${movement.loanId ? 'cursor-pointer hover:bg-slate-900' : ''}`}>
                   <div className="min-w-0">
                     <div className="truncate text-xs font-black uppercase text-white">{movement.debtorName}</div>
                     <div className="mt-1 truncate text-[10px] text-slate-400">{movement.notes || movement.category || movement.type}</div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 text-[9px] uppercase text-slate-600">
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[9px] uppercase text-slate-600">
                       <span>{parseDate(movement.date).toLocaleDateString('pt-BR')}</span>
                       <span>Destino: {movement.sourceName}</span>
+                      <span>Criado: {formatDateTime(movement.createdAt || movement.date)}</span>
+                      <span>Operador: {movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'não registrado'}</span>
                     </div>
+                    {groupKey && (
+                      <div className="mt-1 text-[9px] uppercase text-slate-700">
+                        Grupo: {groupKey.slice(0, 12).toUpperCase()}
+                        {reversedPaymentGroups.has(groupKey) ? ' · estornado' : ''}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
+                  <div className="flex flex-col items-end gap-2 text-right">
+                    <div>
                     <div className={`text-sm font-black ${movement.direction === 'IN' ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {movement.direction === 'IN' ? '+' : '-'} {formatMoney(Math.abs(Number(movement.amount || 0)), isStealthMode)}
                     </div>
@@ -511,9 +627,25 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
                         {' · '}Lucro {formatMoney(Math.max(0, Number(movement.interestDelta || 0)) + Math.max(0, Number(movement.lateFeeDelta || 0)), isStealthMode)}
                       </div>
                     )}
+                    </div>
+                    {canReverse && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleReversePaymentGroup(movement);
+                        }}
+                        disabled={isReversing}
+                        className="inline-flex h-7 items-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 px-2 text-[9px] font-black uppercase text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                      >
+                        <RotateCcw size={12} />
+                        {isReversing ? 'Estornando' : 'Estornar'}
+                      </button>
+                    )}
                   </div>
-                </button>
-              ))
+                </div>
+                );
+              })
             ) : (
               <div className="px-4 py-14 text-center text-xs text-slate-500">Nenhuma movimentação encontrada neste período.</div>
             )}
@@ -522,10 +654,10 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
 
         <aside className="space-y-3">
           <div className="rounded-md border border-slate-800 bg-slate-900/70 p-4">
-            <div className="text-[10px] font-bold uppercase text-slate-500">Caixa Livre atual</div>
+            <div className="text-[10px] font-bold uppercase text-slate-500">Caixa Livre atual (lucro)</div>
             <div className="mt-2 text-xl font-black text-emerald-400">{formatMoney(caixaLivre?.balance || 0, isStealthMode)}</div>
             <p className="mt-2 text-[10px] leading-4 text-slate-500">
-              Recebe juros e mora. Pagamentos de principal retornam para a fonte de capital do contrato.
+              Recebe juros, mora e multa. Capital retornado volta para a fonte do contrato e aparece separado no extrato.
             </p>
           </div>
 

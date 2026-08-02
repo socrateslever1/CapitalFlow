@@ -109,13 +109,13 @@ export const allocatePayment = (
 ): PaymentResult => {
   let remaining = round(paymentAmount);
   
-  // PRIORIDADE 1: Multa/Mora
-  const payLateFee = Math.min(remaining, debt.lateFee);
-  remaining = round(remaining - payLateFee);
-
-  // PRIORIDADE 2: Juros
+  // PRIORIDADE 1: Juros contratados
   const payInterest = Math.min(remaining, debt.interest);
   remaining = round(remaining - payInterest);
+
+  // PRIORIDADE 2: Multa/Mora
+  const payLateFee = Math.min(remaining, debt.lateFee);
+  remaining = round(remaining - payLateFee);
 
   // PRIORIDADE 3: Principal (Nunca pagar mais que o saldo devedor de principal)
   const payPrincipal = Math.min(remaining, debt.principal);

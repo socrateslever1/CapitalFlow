@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 
     if (action === "claim_all") {
+      const claimLimit = Math.min(Math.max(Number(body.limit) || 10, 1), 50);
       const secret = req.headers.get("x-capitalflow-secret") || "";
       const secretHash = await sha256(secret);
       const { data: integrations, error: integrationsError } = await admin
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
       for (const integration of integrations) {
         const { data: pending, error: pendingError } = await admin.rpc("claim_whatsapp_queue", {
           p_profile_id: integration.profile_id,
-          p_limit: 10,
+          p_limit: claimLimit,
         });
         if (pendingError) throw pendingError;
         messages.push(...(pending || []).map((item) => ({
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
 
       const { data: pending, error: pendingError } = await admin.rpc("claim_whatsapp_queue", {
         p_profile_id: profileId,
-        p_limit: 10,
+        p_limit: Math.min(Math.max(Number(body.limit) || 10, 1), 50),
       });
       if (pendingError) throw pendingError;
       return json(req, { ok: true, messages: (pending || []).map((item) => ({

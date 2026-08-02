@@ -102,7 +102,7 @@ const engine = {
 
   /**
    * Amortizacao seletiva por contrato inteiro:
-   * multa -> juros -> principal
+   * juros -> multa/mora -> principal
    */
   calculateAmortization(amount: number, loan: Loan): Amortization {
     const balance = engine.computeRemainingBalance(loan);
@@ -126,7 +126,7 @@ const engine = {
 
   /**
    * Amortizacao seletiva da parcela atual:
-   * multa -> juros -> principal
+   * juros -> multa/mora -> principal
    */
   calculateInstallmentAmortization(
     amount: number,

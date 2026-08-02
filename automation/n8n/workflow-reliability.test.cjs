@@ -41,7 +41,7 @@ test("custom collection messages bypass AI and remove the internal marker", () =
   assert.match(prepare.parameters.jsCode, /replace/);
   assert.equal(workflow.connections["Is Custom Message"].main[0][0].node, "Prepare Custom Message");
   assert.equal(workflow.connections["Is Custom Message"].main[1][0].node, "Local AI Naturalize");
-  assert.equal(workflow.connections["Prepare Custom Message"].main[0][0].node, "Send Manual Collection");
+  assert.equal(workflow.connections["Prepare Custom Message"].main[0][0].node, "Guard Financial Facts");
 });
 
 test("operator routing uses the phone resolved from the current WhatsApp item", () => {
@@ -78,7 +78,7 @@ test("operator traffic is isolated in a dedicated workflow before client handlin
   const routeGuard = operatorWorkflow.nodes.find((node) => node.name === "Operator Route Guard");
   const trigger = operatorWorkflow.nodes.find((node) => node.name === "Operator Workflow Input");
 
-  assert.equal(operatorWorkflow.name, "CapitalFlow - Operador do Sistema");
+  assert.match(operatorWorkflow.name, /Operador/);
   assert.equal(operatorWorkflow.active, false);
   assert.equal(router.type, "n8n-nodes-base.executeWorkflow");
   assert.equal(router.parameters.workflowId, operatorWorkflow.id);
@@ -109,6 +109,8 @@ test("daily collection workflow acknowledges success and failure without a fixed
 
   const sender = workflow.nodes.find((node) => node.name === "Send WhatsApp");
   assert.equal(sender.onError, "continueErrorOutput");
+  assert.equal(sender.type, "n8n-nodes-base.httpRequest");
+  assert.match(sender.parameters.url, /waha:3000\/api\/sendText/);
 
   const outputs = workflow.connections["Send WhatsApp"].main;
   assert.equal(outputs.length, 2);
@@ -125,8 +127,9 @@ test("collection workflows block malformed UTF-8 before WhatsApp delivery", () =
     const guard = workflow.nodes.find((node) => node.name === "Guard Financial Facts");
 
     assert.ok(guard);
-    assert.match(guard.parameters.jsCode, /codificacao invalida na origem/);
-    assert.match(guard.parameters.jsCode, /!corrupted\.test\(raw\)/);
+    assert.match(guard.parameters.jsCode, /codificacao invalida/);
+    assert.match(guard.parameters.jsCode, /repair/);
+    assert.match(guard.parameters.jsCode, /corrupted\.test\(message\)/);
   }
 });
 

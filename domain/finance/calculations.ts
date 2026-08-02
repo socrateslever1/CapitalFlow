@@ -430,11 +430,11 @@ export const allocatePaymentFromBuckets = (params: {
 
   let remaining = round(params.paymentAmount);
 
-  const payLateFee = Math.min(remaining, Math.max(0, Number(params.lateFee || 0)));
-  remaining = round(remaining - payLateFee);
-
   const payInterest = Math.min(remaining, Math.max(0, Number(params.interest || 0)));
   remaining = round(remaining - payInterest);
+
+  const payLateFee = Math.min(remaining, Math.max(0, Number(params.lateFee || 0)));
+  remaining = round(remaining - payLateFee);
 
   const payPrincipal = Math.min(remaining, Math.max(0, Number(params.principal || 0)));
   remaining = round(remaining - payPrincipal);

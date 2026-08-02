@@ -456,10 +456,10 @@ async function executePending(adminDb: any, profileId: string, admin: any, rawMe
     const totalDue = Number(position.installment.total_due || 0);
     if (amount <= 0 || amount > totalDue + 0.005) throw new Error("Valor incompatível com o saldo atual.");
     let remaining = amount;
-    const lateFeePaid = Math.min(remaining, Number(position.installment.late_fee_due || 0));
-    remaining -= lateFeePaid;
     const interestPaid = Math.min(remaining, Number(position.installment.interest_due || 0));
     remaining -= interestPaid;
+    const lateFeePaid = Math.min(remaining, Number(position.installment.late_fee_due || 0));
+    remaining -= lateFeePaid;
     const principalPaid = Math.min(remaining, Number(position.installment.principal_due || 0));
     const { data: profitSources, error: profitSourceError } = await adminDb.from("fontes")
       .select("id,name").eq("profile_id", profileId).limit(100);

@@ -264,15 +264,15 @@ export const paymentsService = {
       avExtra = roundMoney(Math.max(0, amountToPay - currentPrincipalOpen));
     }
 
-    // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Mora -> Juros -> Principal)
+    // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Juros -> Mora/Multa -> Principal)
     if (!shouldSettleWithForgivenCharges && effectiveForgivenessMode === 'NONE' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
       let remaining = amountToPay;
 
-      lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
-      remaining = roundMoney(remaining - lateFeePaid);
-
       interestPaid = Math.min(remaining, renewalBuckets.interest);
       remaining = roundMoney(remaining - interestPaid);
+
+      lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
+      remaining = roundMoney(remaining - lateFeePaid);
 
       principalPaid = remaining;
       totalPaid = amountToPay;

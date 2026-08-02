@@ -35,10 +35,10 @@ function allocatePaymentAmount(
   balances: { principal: number; interest: number; lateFee: number },
 ) {
   let remaining = round(amount);
-  const lateFeePaid = Math.min(remaining, round(Math.max(0, balances.lateFee)));
-  remaining = round(remaining - lateFeePaid);
   const interestPaid = Math.min(remaining, round(Math.max(0, balances.interest)));
   remaining = round(remaining - interestPaid);
+  const lateFeePaid = Math.min(remaining, round(Math.max(0, balances.lateFee)));
+  remaining = round(remaining - lateFeePaid);
   const principalPaid = Math.min(remaining, round(Math.max(0, balances.principal)));
   remaining = round(remaining - principalPaid);
 

@@ -5,6 +5,10 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { "content-type": "application/json; charset=utf-8" },
 });
 const digits = (value: unknown) => String(value ?? "").replace(/\D/g, "");
+const whatsappChatId = (value: unknown) => {
+  const phone = digits(value);
+  return `${phone.startsWith("55") ? phone : `55${phone}`}@c.us`;
+};
 const closed = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO", "RENEGOCIADO"];
 const paid = ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO", "CLOSED", "ENCERRADO", "CANCELADO"];
 
@@ -161,7 +165,7 @@ Deno.serve(async (req) => {
         dispatchId = inserted.data?.id || null;
       }
       handledClients.add(client.id);
-      messages.push({ dispatch_id: dispatchId, session: integration.session_name, chat_id: `${phone}@c.us`, message, stage, dry_run: dryRun });
+      messages.push({ dispatch_id: dispatchId, session: integration.session_name, chat_id: whatsappChatId(phone), message, stage, dry_run: dryRun });
     }
     return json({ ok: true, date: today, messages });
   } catch (error) {

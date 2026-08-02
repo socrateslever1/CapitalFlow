@@ -5,154 +5,372 @@
     "active": true,
     "nodes": [
       {
-        "parameters": { "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8-18 * * *" }] } },
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 8-18 * * *"
+              }
+            ]
+          }
+        },
         "id": "capitalflow-collection-schedule",
         "name": "Hourly Business Window",
         "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
-        "position": [-520, 0]
+        "position": [
+          -520,
+          0
+        ]
       },
       {
         "parameters": {
           "method": "POST",
           "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-daily-collections",
           "sendHeaders": true,
-          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-capitalflow-secret",
+                "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}"
+              }
+            ]
+          },
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
           "body": "={{ JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'collect', dry_run: false }) }}",
-          "options": { "timeout": 60000 }
+          "options": {
+            "timeout": 60000
+          }
         },
         "id": "capitalflow-collect-due",
         "name": "Prepare Collections",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
-        "position": [-300, 0]
+        "position": [
+          -300,
+          0
+        ]
       },
       {
-        "parameters": { "jsCode": "const messages = $json.messages || [];\nreturn messages.filter((item) => item.dispatch_id && item.chat_id && item.message).map((item) => ({ json: item }));" },
+        "parameters": {
+          "jsCode": "const messages = $json.messages || [];\nreturn messages.filter((item) => item.dispatch_id && item.chat_id && item.message).map((item) => ({ json: item }));"
+        },
         "id": "capitalflow-expand-collections",
         "name": "Expand Messages",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
-        "position": [-80, 0]
+        "position": [
+          -80,
+          0
+        ]
       },
       {
         "parameters": {
           "url": "=http://waha:3000/api/contacts/check-exists",
           "sendQuery": true,
-          "queryParameters": { "parameters": [{ "name": "session", "value": "={{ $json.session }}" }, { "name": "phone", "value": "={{ $json.chat_id.replace('@c.us', '') }}" }] },
-          "options": { "timeout": 15000 }
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "session",
+                "value": "={{ $json.session }}"
+              },
+              {
+                "name": "phone",
+                "value": "={{ $json.chat_id.replace('@c.us', '') }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 15000
+          }
         },
         "id": "daily-resolve-whatsapp-contact",
         "name": "Resolve WhatsApp Contact",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
-        "position": [140, 0]
+        "position": [
+          140,
+          0
+        ]
       },
       {
         "parameters": {
-          "jsCode": "const source = $('Expand Messages').item.json;\nif (!$json.numberExists || !$json.chatId) throw new Error('Numero nao existe no WhatsApp');\nreturn [{ json: { ...source, chat_id: $json.chatId } }];"
+          "jsCode": "const source = $('Expand Messages').item.json;\nconst contactValid = Boolean($json.numberExists && $json.chatId);\nreturn [{\n  json: {\n    ...source,\n    chat_id: contactValid ? $json.chatId : source.chat_id,\n    contact_valid: contactValid,\n    error: contactValid ? undefined : { message: `Numero nao existe no WhatsApp: ${source.chat_id}` }\n  }\n}];"
         },
         "id": "daily-attach-whatsapp-contact",
         "name": "Attach Resolved Contact",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
-        "position": [360, 0]
+        "position": [
+          360,
+          0
+        ]
       },
       {
         "parameters": {
-          "method": "POST",
-          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
-          "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"koboldcpp/Qwen3-4B-Q4_K_M\", messages: [{ role: \"system\", content: \"/no_think\\nReescreva a cobranca como um atendente humano brasileiro, natural, breve e respeitoso. Preserve exatamente todos os valores, datas e links. Nao invente, nao ameace, nao constranja e nao ofereca emprestimo. Retorne somente a mensagem final.\" }, { role: \"user\", content: $json.message }], temperature: 0.35, max_tokens: 350, stream: false }) }}",
-          "options": { "timeout": 45000 }
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "daily-contact-valid-condition",
+                "leftValue": "={{ $json.contact_valid }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "daily-contact-valid-gate",
+        "name": "Is WhatsApp Contact Valid",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          470,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => ({ json: { ...item.json, ai_used: false } }));"
         },
         "id": "daily-collection-local-ai",
         "name": "Local AI Naturalize",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [580, 0],
-        "onError": "continueRegularOutput"
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          580,
+          0
+        ]
       },
       {
         "parameters": {
-          "jsCode": "const source = $('Attach Resolved Contact').item.json;\nconst corrupted = /(?:Ã.|Â.|�)/u;\nconst original = String(source.message || '');\nif (corrupted.test(original)) throw new Error('Mensagem bloqueada: codificacao invalida na origem');\nconst raw = String($json?.choices?.[0]?.message?.content || $json?.choices?.[0]?.text || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, '').replace(/\\/no_think/gi, '').trim();\nconst required = [...original.matchAll(/https?:\\/\\/\\S+|R\\$\\s*[\\d.,]+|\\b\\d{2}\\/\\d{2}\\/\\d{4}\\b/g)].map((match) => match[0].replace(/[.,;:!?]+$/, ''));\nconst valid = raw.length >= 20 && raw.length <= 1800 && !corrupted.test(raw) && required.every((token) => raw.includes(token));\nreturn [{ json: { ...source, message: valid ? raw : original, ai_used: valid } }];"
+          "jsCode": "const repair = (value) => String(value || '')\n  .replace(/??/g, '?').replace(/??/g, '?').replace(/??/g, '?').replace(/??/g, '?')\n  .replace(/??/g, '?').replace(/??/g, '?').replace(/??/g, '?').replace(/??/g, '?')\n  .replace(/??/g, '?').replace(/? /g, ' ').replace(/?/g, '');\nconst corrupted = /(?:?.|?.|?|???)/u;\nreturn $input.all().map((item) => {\n  const source = item.json || {};\n  const message = repair(source.message).trim();\n  if (message.length < 10 || message.length > 1800 || corrupted.test(message)) throw new Error('Mensagem bloqueada: codificacao invalida');\n  return { json: { ...source, message, ai_used: false } };\n});"
         },
         "id": "daily-collection-ai-guard",
         "name": "Guard Financial Facts",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
-        "position": [800, 0]
+        "position": [
+          800,
+          0
+        ]
       },
       {
         "parameters": {
-          "resource": "Chatting",
-          "operation": "Send Text",
-          "session": "={{ $json.session }}",
-          "chatId": "={{ $json.chat_id }}",
-          "text": "={{ $json.message }}",
-          "requestOptions": {}
+          "method": "POST",
+          "url": "http://waha:3000/api/sendText",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ session: $json.session, chatId: $json.chat_id, text: $json.message }) }}",
+          "options": {
+            "timeout": 15000
+          }
         },
         "id": "capitalflow-send-collection",
         "name": "Send WhatsApp",
-        "type": "n8n-nodes-waha.WAHA",
-        "typeVersion": 202411,
-        "position": [1020, 0],
-        "onError": "continueErrorOutput",
-        "credentials": { "wahaApi": { "id": "fSoBCAg2xaTKYlOi", "name": "WAHA account" } }
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1020,
+          0
+        ],
+        "onError": "continueErrorOutput"
       },
       {
         "parameters": {
           "method": "POST",
           "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-daily-collections",
           "sendHeaders": true,
-          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-capitalflow-secret",
+                "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}"
+              }
+            ]
+          },
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'ack', dispatch_id: $('Expand Messages').all()[$itemIndex].json.dispatch_id, success: true }) }}",
-          "options": { "timeout": 15000 }
+          "body": "={{ (() => { const source = $json.dispatch_id ? $json : $('Guard Financial Facts').item.json; return JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'ack', dispatch_id: source.dispatch_id, success: true }); })() }}",
+          "options": {
+            "timeout": 15000
+          }
         },
         "id": "capitalflow-ack-collection",
         "name": "Confirm Sent",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
-        "position": [1240, 0]
+        "position": [
+          1240,
+          0
+        ]
       },
       {
         "parameters": {
           "method": "POST",
           "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-daily-collections",
           "sendHeaders": true,
-          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-capitalflow-secret",
+                "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}"
+              }
+            ]
+          },
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'ack', dispatch_id: $('Expand Messages').all()[$itemIndex].json.dispatch_id, success: false, error: $json.error?.message || $json.message || 'Falha no WAHA' }) }}",
-          "options": { "timeout": 15000 }
+          "body": "={{ (() => { const source = $json.dispatch_id ? $json : $('Guard Financial Facts').item.json; return JSON.stringify({ profile_id: $env.CAPITALFLOW_PROFILE_ID, action: 'ack', dispatch_id: source.dispatch_id, success: false, error: source.error?.message || $json.error?.message || source.message || 'Falha no WAHA' }); })() }}",
+          "options": {
+            "timeout": 15000
+          }
         },
         "id": "capitalflow-fail-collection",
         "name": "Fail Dispatch",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
-        "position": [1240, 120]
+        "position": [
+          1240,
+          120
+        ]
       }
     ],
     "connections": {
-      "Hourly Business Window": { "main": [[{ "node": "Prepare Collections", "type": "main", "index": 0 }]] },
-      "Prepare Collections": { "main": [[{ "node": "Expand Messages", "type": "main", "index": 0 }]] },
-      "Expand Messages": { "main": [[{ "node": "Resolve WhatsApp Contact", "type": "main", "index": 0 }]] },
-      "Resolve WhatsApp Contact": { "main": [[{ "node": "Attach Resolved Contact", "type": "main", "index": 0 }]] },
-      "Attach Resolved Contact": { "main": [[{ "node": "Local AI Naturalize", "type": "main", "index": 0 }]] },
-      "Local AI Naturalize": { "main": [[{ "node": "Guard Financial Facts", "type": "main", "index": 0 }]] },
-      "Guard Financial Facts": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]] },
-      "Send WhatsApp": { "main": [[{ "node": "Confirm Sent", "type": "main", "index": 0 }], [{ "node": "Fail Dispatch", "type": "main", "index": 0 }]] }
+      "Hourly Business Window": {
+        "main": [
+          [
+            {
+              "node": "Prepare Collections",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Collections": {
+        "main": [
+          [
+            {
+              "node": "Expand Messages",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Expand Messages": {
+        "main": [
+          [
+            {
+              "node": "Resolve WhatsApp Contact",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve WhatsApp Contact": {
+        "main": [
+          [
+            {
+              "node": "Attach Resolved Contact",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Attach Resolved Contact": {
+        "main": [
+          [
+            {
+              "node": "Is WhatsApp Contact Valid",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Local AI Naturalize": {
+        "main": [
+          [
+            {
+              "node": "Guard Financial Facts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Guard Financial Facts": {
+        "main": [
+          [
+            {
+              "node": "Send WhatsApp",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send WhatsApp": {
+        "main": [
+          [
+            {
+              "node": "Confirm Sent",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Fail Dispatch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is WhatsApp Contact Valid": {
+        "main": [
+          [
+            {
+              "node": "Local AI Naturalize",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Fail Dispatch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
     },
-    "settings": { "executionOrder": "v1", "timezone": "America/Manaus" },
+    "settings": {
+      "executionOrder": "v1",
+      "timezone": "America/Manaus"
+    },
     "pinData": {},
     "tags": []
   }

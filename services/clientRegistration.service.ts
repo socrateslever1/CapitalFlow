@@ -22,6 +22,9 @@ async function request(body: FormData | Record<string, unknown>, authenticated =
 
     return data;
   } catch (error) {
+    if (error instanceof Error && /Failed to send a request to the Edge Function/i.test(error.message)) {
+      throw new Error('Nao foi possivel acessar o cadastro. Verifique sua conexao e tente novamente.');
+    }
     if (error instanceof Error && error.message) throw error;
     throw new Error('Sem conexao com o cadastro. Verifique a internet e tente novamente.');
   }

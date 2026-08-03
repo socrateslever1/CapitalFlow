@@ -6,7 +6,6 @@ import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
-import { ScopedCollectionAutomation } from '../features/collections/components/ScopedCollectionAutomation';
 import { clientRegistrationService } from '../services/clientRegistration.service';
 
 interface ClientsPageProps {
@@ -187,14 +186,14 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         </div>
 
         {/* GRID COMPACTA E MODERNA */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[...filteredClients].sort((a, b) => a.name.localeCompare(b.name)).map(client => {
                 const contractIndicators = getClientContractIndicators(client);
 
                 return (
                 <div
                     key={client.id}
-                    className={`bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`self-start bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : undefined}
                 >
                     {isBulkDeleteMode && (
@@ -283,16 +282,6 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             </div>
                         )}
                     </div>
-                    {!isBulkDeleteMode && profileId && (
-                        <ScopedCollectionAutomation
-                            profileId={profileId}
-                            scope="CLIENT"
-                            scopeId={client.id}
-                            label={client.name}
-                            showToast={showToast}
-                            compact
-                        />
-                    )}
                 </div>
                 );
             })}

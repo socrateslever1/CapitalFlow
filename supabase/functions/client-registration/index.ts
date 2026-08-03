@@ -8,7 +8,7 @@ const portalStatuses = new Set(['ATIVO', 'ACTIVE', 'EM_DIA', 'ATRASADO', 'PENDIN
 
 const corsFor = (req: Request) => ({
   'Access-Control-Allow-Origin': allowedOrigins.has(req.headers.get('origin') || '') ? req.headers.get('origin')! : appOrigin,
-  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Vary': 'Origin',
 });

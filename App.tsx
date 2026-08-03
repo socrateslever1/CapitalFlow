@@ -52,6 +52,7 @@ import { FinancialStatementPage } from './pages/FinancialStatementPage';
 
 import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
+import { ClientRegistrationPage } from './pages/Public/ClientRegistrationPage';
 import { PortalReceiptViewer } from './features/portal/components/PortalReceiptViewer';
 
 export const App: React.FC = () => {
@@ -63,6 +64,7 @@ export const App: React.FC = () => {
   // ✅ SEMPRE calcular params, mas NÃO dar return antes dos hooks
   const urlParams = new URLSearchParams(window.location.search);
   const campaignId = urlParams.get('campaign_id');
+  const clientRegistrationToken = urlParams.get('cadastro');
   const legalSignTokenParam = urlParams.get('legal_sign');
   const rawPortalTokenParam = urlParams.get('portal');
   const rawPortalCodeParam = urlParams.get('portal_code') || urlParams.get('code');
@@ -161,7 +163,7 @@ export const App: React.FC = () => {
   const legalSignToken = legalSignTokenParam || legalSignTokenFromHook;
 
   // ✅ view pública: portalToken OU rota pública de campanha OU assinatura pública
-  const isPublicView = hasPortalAccessParams || !!portalToken || !!campaignId || !!legalSignToken;
+  const isPublicView = hasPortalAccessParams || !!portalToken || !!campaignId || !!legalSignToken || !!clientRegistrationToken;
 
   useEffect(() => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
@@ -325,6 +327,7 @@ export const App: React.FC = () => {
       <PublicCampaignPage />
     </Suspense>
   );
+  if (clientRegistrationToken) return <ClientRegistrationPage token={clientRegistrationToken} />;
   if (legalSignToken) return (
     <Suspense fallback={<LoadingScreen />}>
       <PublicSignaturePage />

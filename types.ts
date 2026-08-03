@@ -122,6 +122,9 @@ export interface Client {
   createdAt: string;
   access_code?: string;
   client_number?: string;
+  registration_status?: 'PENDING_REVIEW' | 'REVIEWED' | null;
+  registration_submitted_at?: string | null;
+  registration_document_count?: number;
 }
 
 /* =====================================================

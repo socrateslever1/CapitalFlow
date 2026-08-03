@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, ChevronLeft, Users, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy } from 'lucide-react';
 import { Client, Loan } from '../types';
 import { startDictation } from '../utils/speech';
 import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
@@ -7,6 +7,7 @@ import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
 import { ScopedCollectionAutomation } from '../features/collections/components/ScopedCollectionAutomation';
+import { clientRegistrationService } from '../services/clientRegistration.service';
 
 interface ClientsPageProps {
   profileId: string;
@@ -36,6 +37,38 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   isStealthMode
 }) => {
   const today = todayDateOnlyUTC();
+  const [registrationLink, setRegistrationLink] = React.useState('');
+  const [creatingLink, setCreatingLink] = React.useState(false);
+
+  const copyRegistrationLink = async (link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Link de inscrição copiado.', 'success');
+    } catch {
+      showToast('Link criado. Copie-o no campo exibido.', 'info');
+    }
+  };
+
+  const createRegistrationLink = async () => {
+    setCreatingLink(true);
+    try {
+      const result = await clientRegistrationService.createLink(profileId);
+      setRegistrationLink(result.url);
+      await copyRegistrationLink(result.url);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao criar link.', 'error');
+    } finally { setCreatingLink(false); }
+  };
+
+  const openRegistrationDocuments = async (client: Client) => {
+    try {
+      const documents = await clientRegistrationService.getDocumentUrls(client.id);
+      if (!documents.length) return showToast('Esta inscrição não possui documentos.', 'info');
+      documents.forEach((document, index) => window.setTimeout(() => window.open(document.url, '_blank', 'noopener,noreferrer'), index * 150));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao abrir documentos.', 'error');
+    }
+  };
 
   const getLoanOpenAmount = (loan: Loan) => {
     const loanStatus = String((loan as any).status || '').toUpperCase();
@@ -120,6 +153,9 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
             </div>
 
             <div className="flex gap-2 w-full md:w-auto">
+                <button type="button" onClick={createRegistrationLink} disabled={creatingLink} className="px-4 py-2 bg-slate-800 border border-slate-700 text-blue-300 rounded-lg text-[10px] font-black uppercase hover:border-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50" title="Criar link público de inscrição">
+                    <Link2 size={16}/> Inscrição
+                </button>
                 {isBulkDeleteMode ? (
                     <div className="flex gap-2 w-full md:w-auto animate-in fade-in slide-in-from-right">
                         <button onClick={executeBulkDelete} disabled={selectedClientsToDelete.length === 0} className="flex-1 md:flex-none px-4 py-2 bg-rose-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-rose-500 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
@@ -141,6 +177,8 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 )}
             </div>
         </div>
+
+        {registrationLink && <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-2"><input readOnly value={registrationLink} onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 bg-transparent px-2 text-xs text-blue-100 outline-none"/><button type="button" className="p-2 text-blue-300" title="Copiar link" onClick={() => void copyRegistrationLink(registrationLink)}><Copy size={16}/></button></div>}
 
         <div className="bg-slate-900 border border-slate-800 p-2 rounded-lg flex items-center gap-2">
             <Search className="text-slate-500 ml-2 shrink-0" size={18}/>
@@ -189,6 +227,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                 )}
                             </div>
                         </div>
+                        {client.registration_status === 'PENDING_REVIEW' && <button type="button" onClick={(event) => { event.stopPropagation(); void openRegistrationDocuments(client); }} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300" title="Abrir documentos enviados">Inscrição nova · {client.registration_document_count || 0} doc.</button>}
                         {!isBulkDeleteMode && (
                             <div className="flex gap-1">
                                 <button onClick={() => openClientModal(client)} className="p-2 text-slate-500 hover:text-white bg-slate-950 rounded-lg hover:bg-slate-800 transition-colors" title="Editar">

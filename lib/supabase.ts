@@ -28,8 +28,6 @@ const REAL_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const SUPABASE_URL = getSafeEnv('VITE_SUPABASE_URL', REAL_URL).trim();
 const SUPABASE_ANON_KEY = getSafeEnv('VITE_SUPABASE_ANON_KEY', REAL_KEY).trim();
 
-export const supabaseUrl = SUPABASE_URL;
-
 if (isDev) {
   console.log('[BOOT] Supabase Initialized with:', {
     url: SUPABASE_URL.substring(0, 15) + '...',

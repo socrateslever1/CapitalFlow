@@ -1,28 +1,30 @@
-import { supabase, supabaseUrl } from '../lib/supabase';
-
-const functionUrl = `${supabaseUrl}/functions/v1/client-registration`;
+import { supabase } from '../lib/supabase';
+import { supabasePortal } from '../lib/supabasePortal';
 
 async function request(body: FormData | Record<string, unknown>, authenticated = false) {
-  const headers: Record<string, string> = {};
-  if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (authenticated) {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
-    headers.Authorization = `Bearer ${data.session.access_token}`;
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw new Error('Nao foi possivel validar sua sessao. Entre novamente.');
+    if (!data.session?.access_token) throw new Error('Sessao expirada. Entre novamente.');
   }
-  let response: Response;
+
+  const client = authenticated ? supabase : supabasePortal;
   try {
-    response = await fetch(functionUrl, {
-      method: 'POST',
-      headers,
-      body: body instanceof FormData ? body : JSON.stringify(body),
-    });
-  } catch {
+    const { data, error } = await client.functions.invoke('client-registration', { body });
+
+    if (error) {
+      const context = (error as { context?: Response }).context;
+      const payload = context instanceof Response
+        ? await context.clone().json().catch(() => null) as { error?: string } | null
+        : null;
+      throw new Error(payload?.error || error.message || 'Nao foi possivel concluir o cadastro.');
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error && error.message) throw error;
     throw new Error('Sem conexao com o cadastro. Verifique a internet e tente novamente.');
   }
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || 'Não foi possível concluir o cadastro.');
-  return result;
 }
 
 export const clientRegistrationService = {

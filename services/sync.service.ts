@@ -143,7 +143,13 @@ export const syncService = {
       if (paymentIntentsRes.error) console.warn('[SYNC] payment_intents indisponivel:', paymentIntentsRes.error);
 
       // 2. Salvar Clientes
-      const mappedClients = (clientsRes.data || []).map(mapClientFromDB);
+      const rejectedClientIds = (clientsRes.data || [])
+        .filter((client: any) => client.registration_status === 'REJECTED')
+        .map((client: any) => client.id);
+      if (rejectedClientIds.length > 0) await db.clientes.bulkDelete(rejectedClientIds);
+      const mappedClients = (clientsRes.data || [])
+        .filter((client: any) => client.registration_status !== 'REJECTED')
+        .map(mapClientFromDB);
       await db.clientes.bulkPut(mappedClients);
 
       // 3. Salvar Fontes
@@ -297,7 +303,7 @@ export const syncService = {
 
     return {
       loans: enrichedLoans,
-      clients: clients.map(mapClientFromDB),
+      clients: clients.filter((client: any) => client.registration_status !== 'REJECTED').map(mapClientFromDB),
       sources
     };
   },

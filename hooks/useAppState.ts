@@ -28,7 +28,7 @@ const sanitizeTabs = (tabs: any[] | undefined, fallback: AppTab[]) => {
 };
 
 const normalizeClients = (clients: any[] | undefined): Client[] =>
-  (clients || []).map((client: any) => ({
+  (clients || []).filter((client: any) => client.registration_status !== 'REJECTED').map((client: any) => ({
     ...client,
     fotoUrl: client.foto_url || client.fotoUrl || null,
   })) as Client[];

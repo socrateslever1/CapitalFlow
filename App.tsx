@@ -519,6 +519,7 @@ export const App: React.FC = () => {
                     showToast={showToast}
                     ui={ui}
                     isStealthMode={ui.isStealthMode}
+                    onRefresh={() => fetchFullData(activeUser?.id || '')}
                   />
                 </motion.div>
               )}

@@ -14,10 +14,11 @@ interface ClientsContainerProps {
   showToast: any;
   ui: any; // Added ui for accessing state
   isStealthMode?: boolean;
+  onRefresh: () => Promise<void>;
 }
 
 export const ClientsContainer: React.FC<ClientsContainerProps> = ({
-  profileId, clients, loans, clientSearchTerm, setClientSearchTerm, clientCtrl, loanCtrl, showToast, ui, isStealthMode
+  profileId, clients, loans, clientSearchTerm, setClientSearchTerm, clientCtrl, loanCtrl, showToast, ui, isStealthMode, onRefresh
 }) => {
   const filteredClients = useMemo(() => filterClients(clients, clientSearchTerm), [clients, clientSearchTerm]);
 
@@ -34,6 +35,7 @@ export const ClientsContainer: React.FC<ClientsContainerProps> = ({
         onDeleteClient={(id) => loanCtrl.openConfirmation({ type: 'DELETE_CLIENT', target: id })}
         loans={loans}
         isStealthMode={ui.isStealthMode}
+        onRefresh={onRefresh}
     />
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch } from 'lucide-react';
 import { Client, Loan } from '../types';
 import { startDictation } from '../utils/speech';
 import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
@@ -25,6 +25,7 @@ interface ClientsPageProps {
   executeBulkDelete: () => void;
   onDeleteClient: (id: string) => void; // NOVO PROP
   goBack?: () => void;
+  onRefresh: () => Promise<void>;
 }
 
 export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean }> = ({
@@ -33,11 +34,27 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   isBulkDeleteMode, toggleBulkDeleteMode, selectedClientsToDelete, toggleClientSelection, executeBulkDelete,
   onDeleteClient,
   goBack,
-  isStealthMode
+  isStealthMode,
+  onRefresh
 }) => {
   const today = todayDateOnlyUTC();
   const [registrationLink, setRegistrationLink] = React.useState('');
   const [creatingLink, setCreatingLink] = React.useState(false);
+  const [reviewingClientId, setReviewingClientId] = React.useState<string | null>(null);
+
+  const reviewRegistration = async (client: Client, status: 'APPROVED' | 'REJECTED') => {
+    if (status === 'REJECTED' && !window.confirm(`Negar o cadastro de ${client.name}? Ele saira da carteira de clientes.`)) return;
+    setReviewingClientId(client.id);
+    try {
+      await clientRegistrationService.review(client.id, status);
+      showToast(status === 'APPROVED' ? 'Cliente aprovado.' : 'Cadastro negado e removido da carteira.', 'success');
+      await onRefresh();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao concluir análise.', 'error');
+    } finally {
+      setReviewingClientId(null);
+    }
+  };
 
   const copyRegistrationLink = async (link: string) => {
     try {
@@ -187,13 +204,13 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
         {/* GRID COMPACTA E MODERNA */}
         <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[...filteredClients].sort((a, b) => a.name.localeCompare(b.name)).map(client => {
+            {filteredClients.filter((client) => client.registration_status !== 'REJECTED').sort((a, b) => a.name.localeCompare(b.name)).map(client => {
                 const contractIndicators = getClientContractIndicators(client);
 
                 return (
                 <div
                     key={client.id}
-                    className={`self-start bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`h-48 self-start overflow-hidden bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : undefined}
                 >
                     {isBulkDeleteMode && (
@@ -226,7 +243,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                 )}
                             </div>
                         </div>
-                        {client.registration_status === 'PENDING_REVIEW' && <button type="button" onClick={(event) => { event.stopPropagation(); void openRegistrationDocuments(client); }} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300" title="Abrir documentos enviados">Inscrição nova · {client.registration_document_count || 0} doc.</button>}
+                        {client.registration_status === 'PENDING_REVIEW' && <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300">Em análise{client.cpf_in_identity ? ' · CPF no RG' : ''}</span>}
                         {!isBulkDeleteMode && (
                             <div className="flex gap-1">
                                 <button onClick={() => openClientModal(client)} className="p-2 text-slate-500 hover:text-white bg-slate-950 rounded-lg hover:bg-slate-800 transition-colors" title="Editar">
@@ -238,6 +255,14 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             </div>
                         )}
                     </div>
+
+                    {client.registration_status === 'PENDING_REVIEW' && (
+                      <div className="mb-3 grid grid-cols-3 gap-1.5" onClick={(event) => event.stopPropagation()}>
+                        <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex h-8 items-center justify-center gap-1 rounded-md border border-slate-700 bg-slate-950 text-[8px] font-black uppercase text-slate-300" title="Ver documentos"><FileSearch size={12}/> Docs ({client.registration_document_count || 0})</button>
+                        <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-black uppercase text-emerald-300 disabled:opacity-50"><Check size={12}/> Aprovar</button>
+                        <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'REJECTED')} className="flex h-8 items-center justify-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 text-[8px] font-black uppercase text-rose-300 disabled:opacity-50"><X size={12}/> Negar</button>
+                      </div>
+                    )}
 
                     {contractIndicators.length > 0 && (
                         <div className="mb-3 flex items-center gap-1.5 overflow-hidden">

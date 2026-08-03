@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 const getPublicKey = () => {
   const env = (import.meta as any).env;
-  return String(env?.VITE_WEB_PUSH_PUBLIC_KEY || '').trim();
+  return String(env?.VITE_WEB_PUSH_PUBLIC_KEY || 'BLwcLv8hA5MGgUZcqm52lf-x_BP0gLfea7tJaeXI3TXyOTeeLThfcLn72sovse7d_rNEJKdHrdv0JHE9R6m0Bs8').trim();
 };
 
 const urlBase64ToUint8Array = (base64String: string) => {
@@ -18,6 +18,13 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
+const sameApplicationServerKey = (subscription: PushSubscription, expected: Uint8Array) => {
+  const current = subscription.options.applicationServerKey;
+  if (!current) return false;
+  const bytes = new Uint8Array(current);
+  return bytes.length === expected.length && bytes.every((value, index) => value === expected[index]);
+};
+
 export const pushSubscriptionService = {
   isSupported() {
     return typeof window !== 'undefined' &&
@@ -30,10 +37,15 @@ export const pushSubscriptionService = {
     if (!profileId || !this.isSupported() || Notification.permission !== 'granted') return false;
 
     const registration = await navigator.serviceWorker.ready;
-    const existing = await registration.pushManager.getSubscription();
+    const applicationServerKey = urlBase64ToUint8Array(getPublicKey());
+    let existing = await registration.pushManager.getSubscription();
+    if (existing && !sameApplicationServerKey(existing, applicationServerKey)) {
+      await existing.unsubscribe();
+      existing = null;
+    }
     const subscription = existing || await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(getPublicKey()),
+      applicationServerKey,
     });
 
     const json = subscription.toJSON();

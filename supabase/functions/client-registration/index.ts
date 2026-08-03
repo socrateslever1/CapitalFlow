@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import webpush from 'npm:web-push@3.6.7';
 
 const appOrigin = (Deno.env.get('APP_ORIGIN') || 'https://capflow.pages.dev').replace(/\/$/, '');
 const allowedOrigins = new Set([
@@ -46,6 +47,48 @@ const hasValidDocumentSignature = async (file: File) => {
   if (file.type.startsWith('image/')) return hasValidImageSignature(file);
   const bytes = new Uint8Array(await file.slice(0, 5).arrayBuffer());
   return file.type === 'application/pdf' && bytes.length === 5 && String.fromCharCode(...bytes) === '%PDF-';
+};
+
+const sendRegistrationPush = async (
+  admin: ReturnType<typeof createClient>,
+  profileId: string,
+  notificationId: string,
+  clientId: string,
+  clientName: string,
+) => {
+  const publicKey = Deno.env.get('VAPID_PUBLIC_KEY') || '';
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY') || '';
+  if (!publicKey || !privateKey) return;
+
+  webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT') || appOrigin, publicKey, privateKey);
+  const { data: subscriptions, error } = await admin
+    .from('push_subscriptions')
+    .select('id,endpoint,p256dh,auth')
+    .eq('profile_id', profileId);
+  if (error || !subscriptions?.length) return;
+
+  const payload = JSON.stringify({
+    title: 'Novo cadastro para análise',
+    body: `${clientName} enviou o cadastro e aguarda sua análise.`,
+    url: `/clientes?highlight=${clientId}`,
+    tag: `client-registration-${clientId}`,
+    notification_id: notificationId,
+  });
+
+  await Promise.allSettled(subscriptions.map(async (subscription: any) => {
+    try {
+      await webpush.sendNotification({
+        endpoint: subscription.endpoint,
+        keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+      }, payload, { TTL: 60 * 60 * 24, urgency: 'high' });
+    } catch (cause: any) {
+      if (cause?.statusCode === 404 || cause?.statusCode === 410) {
+        await admin.from('push_subscriptions').delete().eq('id', subscription.id);
+        return;
+      }
+      console.warn('client-registration push', cause?.message || 'delivery_failed');
+    }
+  }));
 };
 
 Deno.serve(async (req) => {
@@ -206,8 +249,35 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date().toISOString();
-    const linked = await admin.from('client_registration_links').update({ client_id: clientId, submitted_at: now, last_used_at: now }).eq('id', link.id).is('client_id', null);
+    const linked = await admin.from('client_registration_links')
+      .update({ client_id: clientId, submitted_at: now, last_used_at: now })
+      .eq('id', link.id)
+      .is('client_id', null)
+      .select('id')
+      .maybeSingle();
     if (linked.error) throw linked.error;
+    if (!linked.data) return reply({ success: true, state: 'SUBMITTED' });
+
+    const notification = await admin.from('notificacoes').insert({
+      profile_id: link.profile_id,
+      titulo: 'Novo cadastro para análise',
+      mensagem: `${name} enviou o cadastro e aguarda sua análise.`,
+      action_url: `/clientes?highlight=${clientId}`,
+      item_type: 'cliente',
+      item_id: clientId,
+      metadata: {
+        client_id: clientId,
+        registration_link_id: link.id,
+        registration_status: 'PENDING_REVIEW',
+        source: 'client_registration',
+      },
+    }).select('id').single();
+    if (notification.error) {
+      console.warn('client-registration notification', notification.error.message);
+    } else {
+      await sendRegistrationPush(admin, link.profile_id, notification.data.id, clientId, name);
+    }
+
     return reply({ success: true, state: 'SUBMITTED' });
   } catch (error) {
     console.error('client-registration', error instanceof Error ? error.message : 'unknown');

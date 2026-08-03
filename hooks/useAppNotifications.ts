@@ -89,6 +89,7 @@ const typeByItem: Record<string, InAppNotification['type']> = {
   lead: 'info',
   parcela: 'info',
   acordo: 'warning',
+  cliente: 'info',
 };
 
 export const useAppNotifications = ({
@@ -351,6 +352,10 @@ export const useAppNotifications = ({
           flushQueue();
           if (mapped.item_type === 'pagamento' && mapped.metadata?.urgent) {
             showToast('Pagamento recebido pelo portal.', 'success');
+            onDataChanged?.();
+          }
+          if (mapped.item_type === 'cliente' && mapped.metadata?.registration_status === 'PENDING_REVIEW') {
+            showToast('Novo cadastro aguardando análise.', 'info');
             onDataChanged?.();
           }
         }

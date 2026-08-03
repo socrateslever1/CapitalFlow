@@ -1,6 +1,6 @@
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 
-const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/client-registration`;
+const functionUrl = `${supabaseUrl}/functions/v1/client-registration`;
 
 async function request(body: FormData | Record<string, unknown>, authenticated = false) {
   const headers: Record<string, string> = {};
@@ -10,7 +10,16 @@ async function request(body: FormData | Record<string, unknown>, authenticated =
     if (!data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
     headers.Authorization = `Bearer ${data.session.access_token}`;
   }
-  const response = await fetch(functionUrl, { method: 'POST', headers, body: body instanceof FormData ? body : JSON.stringify(body) });
+  let response: Response;
+  try {
+    response = await fetch(functionUrl, {
+      method: 'POST',
+      headers,
+      body: body instanceof FormData ? body : JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('Sem conexao com o cadastro. Verifique a internet e tente novamente.');
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'Não foi possível concluir o cadastro.');
   return result;

@@ -308,13 +308,10 @@ export const paymentsService = {
     const sourceId = safeUUID((loan as any).sourceId);
     if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
 
-    const nextCycleInterest = roundMoney(
-      Number(installmentSnapshot.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100)
-    );
     const isInterestRenewal =
-      principalPaid <= ZERO_BALANCE_THRESHOLD &&
       renewalBuckets.total > ZERO_BALANCE_THRESHOLD &&
       amountToPay >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD &&
+      interestPaid + lateFeePaid >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD &&
       Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
     if (
@@ -503,6 +500,9 @@ export const paymentsService = {
       // precisamos repor os juros do próximo mês se o capital ainda existe.
       const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
       const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
+      const nextCycleInterest = roundMoney(
+        Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100)
+      );
 
       if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && isInterestRenewal) {
         // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
@@ -525,6 +525,15 @@ export const paymentsService = {
 
       if (dateError) {
         console.error('Erro ao atualizar data de vencimento:', dateError);
+      }
+
+      const { error: contractDueDateError } = await supabase
+        .from('contratos')
+        .update({ next_due_date: nextDueDate })
+        .eq('id', loanId);
+
+      if (contractDueDateError) {
+        console.error('Erro ao atualizar próximo vencimento do contrato:', contractDueDateError);
       }
     }
 

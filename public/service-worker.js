@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v9-network-first';
+const CACHE_NAME = 'capitalflow-v10-registration-flow';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 const isCacheableAsset = (href) => {

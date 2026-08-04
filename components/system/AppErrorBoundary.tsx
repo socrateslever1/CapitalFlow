@@ -1,7 +1,5 @@
-
 import React, { ReactNode } from 'react';
 
-// Using optional children in Props to fix "Property 'children' is missing" errors in main.tsx
 interface Props {
   children?: ReactNode;
 }
@@ -12,25 +10,16 @@ interface State {
   stack?: string;
 }
 
-/**
- * AppErrorBoundary handles runtime errors and prevents total system failure.
- * Updated to use React.Component and explicit property declaration to resolve 
- * "Property 'state' does not exist on type 'AppErrorBoundary'" errors.
- */
 export class AppErrorBoundary extends React.Component<Props, State> {
-  // Explicitly define state property for the class to ensure it's tracked by TypeScript
   public state: State = {
     hasError: false,
     message: ''
   };
 
-  // Explicitly declare props to resolve "Property 'props' does not exist on type 'AppErrorBoundary'" errors
-  // This satisfies environments where TypeScript fails to pick up inherited properties from React.Component
   public props: Props;
 
   constructor(props: Props) {
     super(props);
-    // Initialize props and state in constructor as well for base class consistency
     this.props = props;
     this.state = { hasError: false, message: '' };
   }
@@ -50,7 +39,8 @@ export class AppErrorBoundary extends React.Component<Props, State> {
         'cm_last_boot_error',
         JSON.stringify({
           message: String(err?.message || err),
-          stack: String(err?.stack || '')
+          stack: String(err?.stack || ''),
+          timestamp: new Date().toISOString()
         })
       );
     } catch {}
@@ -124,7 +114,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
             <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 24, lineHeight: 1.6 }}>
               {this.state.message?.includes('Configuração do Supabase ausente') 
                 ? 'As variáveis de ambiente do Supabase não foram detectadas. Verifique as configurações no painel do Cloudflare Pages.'
-                : 'Ocorreu um erro inesperado ao carregar a aplicação. Tente recarregar a página ou entre em contato com o suporte.'}
+                : 'Ocorreu um erro inesperado ao carregar a aplicação. Tente recarregar a página, tentar novamente ou limpar o cache.'}
             </p>
 
             <div style={{
@@ -153,11 +143,12 @@ export class AppErrorBoundary extends React.Component<Props, State> {
               </pre>
             </div>
 
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
                 style={{
                   flex: 1,
-                  padding: '14px 24px',
+                  minWidth: 130,
+                  padding: '14px 18px',
                   borderRadius: 16,
                   background: '#2563eb',
                   color: 'white',
@@ -167,13 +158,31 @@ export class AppErrorBoundary extends React.Component<Props, State> {
                   fontSize: 13,
                   transition: 'all 0.2s'
                 }}
-                onClick={() => location.reload()}
+                onClick={() => this.setState({ hasError: false, message: '' })}
               >
-                Recarregar Sistema
+                Tentar Novamente
               </button>
               <button
                 style={{
-                  padding: '14px 24px',
+                  flex: 1,
+                  minWidth: 130,
+                  padding: '14px 18px',
+                  borderRadius: 16,
+                  background: '#334155',
+                  color: 'white',
+                  fontWeight: 800,
+                  border: 0,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  transition: 'all 0.2s'
+                }}
+                onClick={() => location.reload()}
+              >
+                Recarregar
+              </button>
+              <button
+                style={{
+                  padding: '14px 18px',
                   borderRadius: 16,
                   background: '#1e293b',
                   color: '#94a3b8',
@@ -192,7 +201,6 @@ export class AppErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // Correctly return children from props, ensuring null fallback if undefined
     return this.props.children || null;
   }
 }

@@ -50,6 +50,7 @@ const readCache = (profileId: string): AppCacheSnapshot | null => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.ts || Date.now() - parsed.ts > CACHE_MAX_AGE) return null;
+    if (!Array.isArray(parsed?.loans) || !Array.isArray(parsed?.clients) || !Array.isArray(parsed?.sources)) return null;
     return parsed as AppCacheSnapshot;
   } catch {
     return null;

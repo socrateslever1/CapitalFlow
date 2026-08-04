@@ -76,14 +76,21 @@ export const clientRegistrationService = {
   async getDocumentUrls(clientId: string) {
     const { data, error } = await supabase
       .from('client_registration_documents')
-      .select('storage_path,original_name')
+      .select('id,document_type,storage_path,original_name,mime_type,created_at')
       .eq('client_id', clientId)
       .order('created_at');
     if (error) throw error;
     const urls = await Promise.all((data || []).map(async (document: any) => {
       const signed = await supabase.storage.from('client-registrations').createSignedUrl(document.storage_path, 300);
       if (signed.error) throw signed.error;
-      return { name: document.original_name, url: signed.data.signedUrl };
+      return {
+        id: document.id,
+        type: document.document_type,
+        name: document.original_name,
+        mimeType: document.mime_type,
+        createdAt: document.created_at,
+        url: signed.data.signedUrl,
+      };
     }));
     return urls;
   },
@@ -91,6 +98,6 @@ export const clientRegistrationService = {
 
 export type ClientRegistrationLinkState = {
   valid: true;
-  state: 'REGISTRATION' | 'SUBMITTED' | 'PORTAL';
+  state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'PORTAL';
   portalUrl?: string;
 };

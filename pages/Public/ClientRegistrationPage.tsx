@@ -17,17 +17,18 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
 
   useEffect(() => {
     let active = true;
-    clientRegistrationService.getLink(token)
+    let timer: number | undefined;
+    const refreshLink = () => clientRegistrationService.getLink(token)
       .then((result: ClientRegistrationLinkState) => {
         if (!active) return;
-        if (result.state === 'PORTAL' && result.portalUrl) {
-          window.location.replace(result.portalUrl);
-          return;
-        }
         setLinkState(result);
+        if (result.state === 'SUBMITTED' || result.state === 'APPROVED') {
+          timer = window.setTimeout(refreshLink, 15000);
+        }
       })
       .catch(() => active && setInvalid(true));
-    return () => { active = false; };
+    void refreshLink();
+    return () => { active = false; if (timer) window.clearTimeout(timer); };
   }, [token]);
 
   useEffect(() => {
@@ -81,6 +82,8 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
 
   if (invalid) return <div className="min-h-screen bg-slate-950 grid place-items-center p-5 text-center text-slate-300">Este link de cadastro é inválido ou expirou.</div>;
   if (!linkState) return <div className="min-h-screen bg-slate-950 grid place-items-center"><Loader2 className="animate-spin text-blue-500" /></div>;
+  if (linkState.state === 'PORTAL' && linkState.portalUrl) return <div className="min-h-screen bg-slate-950 grid place-items-center p-5"><div className="w-full max-w-sm rounded-lg border border-emerald-500/30 bg-slate-900 p-6 text-center shadow-2xl"><CheckCircle2 className="mx-auto mb-4 text-emerald-400" size={52}/><span className="inline-flex rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase text-emerald-300">Cadastro aprovado</span><h1 className="mt-4 text-2xl font-bold text-white">Parabéns, seu cadastro foi aceito</h1><p className="mt-2 text-sm text-slate-400">Sua área do cliente está pronta para consulta de contratos, documentos e pagamentos.</p><button type="button" onClick={() => window.location.assign(linkState.portalUrl!)} className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-500">Entrar na área do cliente</button></div></div>;
+  if (linkState.state === 'APPROVED') return <div className="min-h-screen bg-slate-950 grid place-items-center p-5"><div className="w-full max-w-sm rounded-lg border border-emerald-500/30 bg-slate-900 p-6 text-center shadow-2xl"><CheckCircle2 className="mx-auto mb-4 text-emerald-400" size={52}/><span className="inline-flex rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase text-emerald-300">Cadastro aprovado</span><h1 className="mt-4 text-2xl font-bold text-white">Parabéns, seu cadastro foi aceito</h1><p className="mt-2 text-sm text-slate-400">Sua área do cliente está sendo preparada. Este mesmo link liberará seus contratos e documentos assim que estiverem disponíveis.</p><div className="mt-5 flex items-center justify-center gap-2 text-xs font-bold text-slate-500"><Loader2 className="animate-spin" size={14}/> Aguardando documentos</div></div></div>;
   if (done || linkState.state === 'SUBMITTED') return <div className="min-h-screen bg-slate-950 grid place-items-center p-5"><div className="max-w-sm text-center"><CheckCircle2 className="mx-auto mb-4 text-amber-400" size={48}/><span className="inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase text-amber-300">Em análise</span><h1 className="mt-3 text-xl font-bold text-white">Aguarde o término da análise</h1><p className="mt-2 text-sm text-slate-400">Seus dados foram recebidos. Quando o crédito for aprovado, este mesmo link abrirá sua área do cliente.</p></div></div>;
 
   const input = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-blue-500';

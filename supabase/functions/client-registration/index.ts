@@ -154,6 +154,9 @@ Deno.serve(async (req) => {
           const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`;
           return reply({ valid: true, state: 'PORTAL', portalUrl });
         }
+        if (registrationApproved) {
+          return reply({ valid: true, state: 'APPROVED' });
+        }
         return reply({ valid: true, state: 'SUBMITTED' });
       }
       return reply({ valid: true, state: 'REGISTRATION' });

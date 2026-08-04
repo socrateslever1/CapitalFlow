@@ -13,6 +13,7 @@ const safeText = (value: unknown): string => {
 const safeDateBR = (value: unknown): string => {
   if (!value) return FILL;
   if (String(value).includes(' de ')) return String(value);
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(value))) return String(value);
   
   const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? FILL : date.toLocaleDateString("pt-BR");
@@ -100,13 +101,9 @@ export const generateConfissaoDividaV2HTML = (
   };
 
   const totalDebtNumber = Number(data.totalDebt || data.amount || 0);
-  const principalNumber = Number((data as any).principalAmount ?? data.amount ?? 0);
-  const interestIncludedNumber = Math.max(0, totalDebtNumber - principalNumber);
-  const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).toUpperCase() : FILL;
-
-  const multa = data.multaPercentual || 10;
-  const juros = data.jurosMensal || 1;
-  const honorarios = data.honorariosPercentual || 20;
+  const originalPrincipalNumber = Number(data.originalPrincipalAmount ?? totalDebtNumber);
+  const principalPaidNumber = Number(data.principalPaidAmount ?? Math.max(0, originalPrincipalNumber - totalDebtNumber));
+  const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).trim().toUpperCase() : FILL;
 
   const installments = Array.isArray(data.installments) ? data.installments : [];
   const installmentsCount = installments.length;
@@ -134,8 +131,10 @@ export const generateConfissaoDividaV2HTML = (
   const cicloTraduzido = translateBillingCycle(cycleToUse);
   const cicloTextoCompromisso = translateBillingCycleLower(cycleToUse);
   const valorFormatado = Number(totalDebtNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const principalFormatado = Number(principalNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const jurosInclusosFormatado = Number(interestIncludedNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const capitalOriginalFormatado = originalPrincipalNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const capitalPagoFormatado = principalPaidNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const dataDisponibilizacao = safeDateBR(data.contractDate);
+  const referenciaContrato = safeText(data.codigo_contrato || data.loanId?.substring(0, 8).toUpperCase());
   const durationDays = data.contractDurationDays || 30;
 
   // Títulos
@@ -154,7 +153,7 @@ export const generateConfissaoDividaV2HTML = (
     const installmentValue = installmentsCount > 0 ? Number(installments[0].amount) : 0;
     const installmentValueFormatado = installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     const primeiroVencimento = installmentsCount > 0 ? safeDateBR(installments[0].dueDate) : FILL;
-    const extensoValorParcela = installmentValue > 0 ? numberToWordsBRL(installmentValue).toUpperCase() : FILL;
+    const extensoValorParcela = installmentValue > 0 ? numberToWordsBRL(installmentValue).trim().toUpperCase() : FILL;
     
     parcelamentoHTML = `
         <p class="indent" style="margin-top: 15px;">
@@ -167,6 +166,9 @@ export const generateConfissaoDividaV2HTML = (
   }
 
   const vencimentoUnico = installments[0]?.dueDate ? safeDateBR(installments[0].dueDate) : FILL;
+  const vencimentoNotaPromissoria = installments.length > 0
+    ? safeDateBR(installments[installments.length - 1].dueDate)
+    : FILL;
 
   return `
   <!DOCTYPE html>
@@ -207,14 +209,18 @@ export const generateConfissaoDividaV2HTML = (
 
       <h2>CLÁUSULA PRIMEIRA - DO OBJETO E RECONHECIMENTO INCONDICIONAL DA DÍVIDA</h2>
       ${isAgreement ? `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong>, por este instrumento, reconhece e confessa ser devedor(a) ao <strong>CREDOR</strong> da quantia líquida, certa e exigível de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, referente à <strong>RENEGOCIAÇÃO</strong> do contrato de mútuo financeiro original, cujas condições primitivas ficam integralmente substituídas pelas ora estipuladas.</p>
+        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> reconhece que recebeu do <strong>CREDOR</strong> o capital identificado abaixo, decorrente do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, celebrado em <strong>${dataDisponibilizacao}</strong>. Em razão da reorganização formalizada pelo acordo de <strong>${safeDateBR(data.agreementDate)}</strong>, confessa como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
       ` : `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong>, por este instrumento, reconhece e confessa ser devedor(a) ao <strong>CREDOR</strong> da quantia líquida, certa e exigível de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, referente a transações comerciais/financeiras anteriormente realizadas e aqui consolidadas.</p>
+        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> declara que recebeu do <strong>CREDOR</strong>, em <strong>${dataDisponibilizacao}</strong>, o capital objeto do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, e reconhece como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
       `}
-      ${principalNumber > 0 && totalDebtNumber > principalNumber ? `
-        <p class="indent"><strong>COMPOSICAO DO VALOR CONFESSADO:</strong> o valor acima considera o capital/base de <strong>R$ ${principalFormatado}</strong> e encargos remuneratorios pactuados de <strong>R$ ${jurosInclusosFormatado}</strong>, formando o total confessado de <strong>R$ ${valorFormatado}</strong>.</p>
-      ` : ''}      <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
-      <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O <strong>DEVEDOR</strong> renuncia expressamente a qualquer discussão sobre a origem da dívida, reconhecendo que o presente título preenche todos os requisitos legais para execução imediata.</p>
+      <table style="width: 100%; border-collapse: collapse; margin: 18px 0; page-break-inside: avoid;">
+        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>Capital originalmente disponibilizado</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;">R$ ${capitalOriginalFormatado}</td></tr>
+        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(-) Amortizações comprovadas do principal</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;">R$ ${capitalPagoFormatado}</td></tr>
+        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(=) Saldo de capital confessado</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;"><strong>R$ ${valorFormatado}</strong></td></tr>
+      </table>
+      <p class="indent"><strong>COMPOSIÇÃO DO VALOR CONFESSADO:</strong> o saldo acima não incorpora juros remuneratórios, multa, mora ou outros encargos anteriores. O contrato de referência, os comprovantes de disponibilização do capital e os comprovantes de amortização eventualmente existentes integram o conjunto probatório desta obrigação.</p>
+      <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
+      <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O <strong>DEVEDOR</strong> declara ter conferido o demonstrativo acima e reconhece a origem, a composição e o saldo do capital, sem prejuízo dos direitos e garantias que não possam ser afastados por convenção particular.</p>
 
       <h2>CLÁUSULA SEGUNDA - DA FORMA E LOCAL DE PAGAMENTO</h2>
       ${isSinglePayment ? `
@@ -225,26 +231,27 @@ export const generateConfissaoDividaV2HTML = (
       `}
       <p class="indent"><strong>FORMA DE QUITAÇÃO:</strong> O pagamento deverá ser realizado via transferência bancária ou PIX para a chave informada pelo CREDOR. O comprovante de transação bancária servirá como recibo de quitação da respectiva parcela.</p>
 
-      <h2>CLÁUSULA TERCEIRA - DO VENCIMENTO ANTECIPADO E ENCARGOS MORATÓRIOS</h2>
-      <p class="indent">O não pagamento de qualquer das parcelas em seu respectivo vencimento implicará no <strong>VENCIMENTO ANTECIPADO DE TODA A DÍVIDA</strong>, independentemente de notificação judicial ou extrajudicial.</p>
-      <p class="indent">Sobre o valor total em aberto, incidirão os seguintes encargos:</p>
+      <h2>CLÁUSULA TERCEIRA - ${isSinglePayment ? 'DA MORA E DOS ENCARGOS MORATÓRIOS' : 'DO VENCIMENTO ANTECIPADO E DOS ENCARGOS MORATÓRIOS'}</h2>
+      ${isSinglePayment ? `
+        <p class="indent">O não pagamento da obrigação na data de vencimento constituirá o <strong>DEVEDOR</strong> em mora, passando a ser exigível o saldo de capital confessado, acrescido exclusivamente dos encargos previstos nesta cláusula.</p>
+      ` : `
+        <p class="indent">O não pagamento de qualquer parcela em seu vencimento poderá acarretar o <strong>VENCIMENTO ANTECIPADO DO SALDO REMANESCENTE</strong>, observados a legislação aplicável e os requisitos de constituição em mora.</p>
+      `}
+      <p class="indent">Sobre o saldo de capital vencido e não pago incidirão, a partir da mora, exclusivamente os seguintes encargos:</p>
       <ul style="margin-left: 2cm;">
-        <li><strong>MULTA PENAL DE ${multa}%</strong> sobre o saldo devedor atualizado;</li>
-        <li><strong>JUROS DE MORA DE ${juros}% AO MÊS</strong>, calculados pro rata die;</li>
-        <li><strong>HONORÁRIOS ADVOCATÍCIOS DE ${honorarios}%</strong> em caso de necessidade de intervenção profissional para cobrança, seja amigável ou judicial.</li>
+        <li><strong>MULTA MORATÓRIA DE 2%</strong> sobre a prestação vencida e não paga;</li>
+        <li><strong>JUROS DE MORA PELA TAXA LEGAL</strong> prevista no art. 406 do Código Civil, calculados pro rata die conforme a metodologia oficial aplicável ao período;</li>
+        <li><strong>ATUALIZAÇÃO MONETÁRIA</strong> pelo IPCA, ou pelo índice que legalmente o substituir, a partir do vencimento;</li>
+        <li><strong>CUSTAS E HONORÁRIOS ADVOCATÍCIOS</strong> somente quando efetivamente devidos e fixados na forma da legislação aplicável.</li>
       </ul>
 
-      <h2>CLÁUSULA QUARTA - DAS MEDIDAS COERCITIVAS E GARANTIA PATRIMONIAL</h2>
-      <p class="indent">O <strong>DEVEDOR</strong> declara estar ciente de que responde pelo cumprimento desta obrigação com <strong>TODOS OS SEUS BENS PRESENTES E FUTUROS</strong> (Art. 789 do CPC). Fica o CREDOR expressamente autorizado a:</p>
-      <p class="indent">
-        a) Inserir o nome do devedor nos cadastros de inadimplentes (SPC/SERASA);<br/>
-        b) Requerer judicialmente a penhora online de ativos financeiros (SISBAJUD) e restrição de veículos (RENAJUD);<br/>
-        c) Proceder com o arresto de bens suficientes à satisfação do crédito.
-      </p>
+      <h2>CLÁUSULA QUARTA - DA COBRANÇA E RESPONSABILIDADE PATRIMONIAL</h2>
+      <p class="indent">Em caso de inadimplemento, o <strong>CREDOR</strong> poderá adotar as medidas extrajudiciais e judiciais legalmente cabíveis para cobrança do saldo de capital e dos encargos previstos neste instrumento, sempre com observância do devido processo legal, da legislação de proteção de dados e das determinações da autoridade competente.</p>
+      <p class="indent">A responsabilidade patrimonial do <strong>DEVEDOR</strong> observará os limites, as impenhorabilidades e as demais garantias estabelecidas em lei, cabendo exclusivamente ao Poder Judiciário determinar eventual pesquisa, indisponibilidade, arresto ou penhora de bens.</p>
 
       ${data.incluirGarantia ? `
         <h2>CLÁUSULA QUINTA - DA GARANTIA ESPECÍFICA</h2>
-        <p class="indent">Para assegurar o pagamento, o DEVEDOR oferece em garantia o seguinte bem: <b>${safeText(data.tipoGarantia)} - ${safeText(data.descricaoGarantia)}</b>, o qual poderá ser objeto de busca e apreensão ou penhora imediata em caso de mora.</p>
+        <p class="indent">Para assegurar o pagamento, o DEVEDOR indica o seguinte bem em garantia: <b>${safeText(data.tipoGarantia)} - ${safeText(data.descricaoGarantia)}</b>. Qualquer constrição, excussão, busca, apreensão ou penhora dependerá do procedimento e dos requisitos previstos na legislação aplicável.</p>
       ` : ''}
 
       ${data.incluirAvalista ? `
@@ -252,7 +259,7 @@ export const generateConfissaoDividaV2HTML = (
         <p class="indent">O(A) Sr(a). <b>${safeText(data.avalistaNome)}</b>, CPF nº ${safeText(data.avalistaCPF)}, assina este instrumento como AVALISTA E PRINCIPAL PAGADOR, assumindo responsabilidade <strong>SOLIDÁRIA</strong> por toda a dívida, renunciando ao benefício de ordem previsto no Art. 827 do Código Civil.</p>
       ` : ''}
 
-      <h2>CLÁUSULA SÉTIMA - DA TOLERÂNCIA E FORO</h2>
+      <h2>CLÁUSULA FINAL - DA TOLERÂNCIA E FORO</h2>
       <p class="indent">A eventual tolerância do CREDOR em relação a atrasos não constituirá novação contratual, sendo mera liberalidade. As partes elegem o Foro da Comarca de <b>${safeText(vm.city)}</b> para dirimir quaisquer dúvidas deste contrato.</p>
 
       <p style="margin-top: 50px; text-align: center;"><span class="uppercase">${safeText(vm.city)}</span>, <span class="bold">${vm.date}</span>.</p>
@@ -273,7 +280,7 @@ export const generateConfissaoDividaV2HTML = (
         <div style="flex: 1;">
             <strong>CapitalFlow Compliance System:</strong><br/>
             ID REGISTRO: <code>${docId || 'PENDENTE'}</code> | HASH DE SEGURANÇA: <b>${hash?.toUpperCase() || 'AGUARDANDO_ASSINATURA'}</b><br/>
-            Este documento possui validade jurídica plena conforme MP 2.200-2/2001.
+            A integridade eletrônica deste documento é registrada por hash, sem prejuízo da verificação dos requisitos legais aplicáveis ao caso concreto.
         </div>
       </div>
 
@@ -284,7 +291,8 @@ export const generateConfissaoDividaV2HTML = (
         </div>
 
         <div class="np-body">
-          <p>Ao(s) <span class="bold">${vencimentoUnico}</span>, pagarei por esta única via de Nota Promissória a <span class="bold">${safeText(vm.creditorName)}</span>, CPF/CNPJ nº ${safeText(vm.creditorDoc)}, ou à sua ordem, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, pagável em <span class="bold">${safeText(vm.city)}</span>.</p>
+          <p>Ao(s) <span class="bold">${vencimentoNotaPromissoria}</span>, pagarei por esta única via de Nota Promissória a <span class="bold">${safeText(vm.creditorName)}</span>, CPF/CNPJ nº ${safeText(vm.creditorDoc)}, ou à sua ordem, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, pagável em <span class="bold">${safeText(vm.city)}</span>.</p>
+          <p style="font-size: 9pt; line-height: 1.4;"><strong>VÍNCULO E NÃO CUMULAÇÃO:</strong> esta nota promissória representa a mesma e única obrigação de capital reconhecida na Confissão de Dívida de referência <strong>${referenciaContrato}</strong>. Todo pagamento realizado em qualquer dos instrumentos abaterá, na mesma proporção, o saldo do outro, sendo vedada cobrança cumulativa ou em duplicidade.</p>
           <p style="margin-top: 20px;">
             <span class="bold">EMITENTE (DEVEDOR):</span> ${safeText(vm.debtorName)}<br/>
             <span class="bold">CPF/CNPJ:</span> ${safeText(vm.debtorDoc)}<br/>

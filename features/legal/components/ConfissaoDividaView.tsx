@@ -21,6 +21,7 @@ import {
 import { Loan, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { WitnessBaseManager } from './WitnessBaseManager';
+import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
 
 // Subcomponentes e Hooks Refatorados
 import { useConfissaoDividaState } from './ConfissaoDivida/useConfissaoDividaState';
@@ -252,7 +253,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                                             isSelected ? 'text-white/90' : isAgreement ? 'text-purple-300' : 'text-white'
                                                         }`}
                                                     >
-                                                        {formatMoney(loan.totalToReceive, isStealthMode)}
+                                                        {formatMoney(buildCapitalOnlyLegalTerms(loan, loan.activeAgreement).principalAmount, isStealthMode)}
                                                     </p>
                                                     <span
                                                         className={`text-[8px] font-bold uppercase ${

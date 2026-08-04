@@ -5,6 +5,7 @@ import { Agreement, Loan, UserProfile, LegalDocumentParams, LegalDocumentRecord 
 import { generateSHA256, createLegalSnapshot } from '../../../utils/crypto';
 import { isUUID, safeUUID } from '../../../utils/uuid';
 import { fetchWithRetry } from '../../../utils/fetchWithRetry';
+import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
 
 const resolveDocumentAccessToken = (row: any): string | undefined =>
   row?.view_token || row?.public_access_token || undefined;
@@ -44,7 +45,7 @@ const mapLegalDocumentRecord = (row: any): LegalDocumentRecord => ({
 export const legalService = {
   prepareDocumentParams: (loan: Loan, activeUser: UserProfile, agreement?: Agreement): LegalDocumentParams => {
     // Para fins jurídicos, a dívida confessada é o Total a Receber (Principal + Juros Acordados)
-    const valorConfessado = agreement?.negotiatedTotal || loan.totalToReceive;
+    const legalTerms = buildCapitalOnlyLegalTerms(loan, agreement);
 
     return {
       loanId: loan.id,
@@ -56,15 +57,18 @@ export const legalService = {
       creditorName: activeUser.fullName || activeUser.businessName || activeUser.name,
       creditorDoc: activeUser.document || 'Não informado',
       creditorAddress: activeUser.address || `${activeUser.city || 'Manaus'} - ${activeUser.state || 'AM'}`,
-      amount: loan.principal,
-      totalDebt: valorConfessado,
-      originDescription: agreement ? `Instrumento particular de crédito ID ${loan.id.substring(0, 8)} consolidado via Acordo nº ${agreement.id.substring(0, 8)}. O valor engloba o capital principal e os juros remuneratórios pactuados.` : `Instrumento particular de crédito ID ${loan.id.substring(0, 8)}.`,
+      amount: legalTerms.principalAmount,
+      principalAmount: legalTerms.principalAmount,
+      originalPrincipalAmount: legalTerms.originalPrincipalAmount,
+      principalPaidAmount: legalTerms.principalPaidAmount,
+      totalDebt: legalTerms.principalAmount,
+      originDescription: agreement ? `Saldo de capital efetivamente disponibilizado no instrumento particular de crédito ID ${loan.id.substring(0, 8)}, reorganizado pelo Acordo nº ${agreement.id.substring(0, 8)}.` : `Saldo de capital efetivamente disponibilizado no instrumento particular de crédito ID ${loan.id.substring(0, 8)}.`,
       city: activeUser.city || 'Manaus',
       state: activeUser.state || 'AM',
       witnesses: (loan as any).witnesses || [],
       contractDate: formatBRDate(loan.startDate),
       agreementDate: agreement ? new Date(agreement.createdAt).toLocaleDateString('pt-BR') : undefined,
-      installments: (agreement?.installments || loan.installments) as any[],
+      installments: legalTerms.installments,
       billingCycle: loan.billingCycle,
       amortizationType: loan.amortizationType,
       isAgreement: !!agreement,
@@ -76,6 +80,26 @@ export const legalService = {
   },
 
   async generateAndRegisterDocument(entityId: string, params: LegalDocumentParams, profileId: string, type?: string): Promise<LegalDocumentRecord> {
+    const principalOnlyAmount = Number(params.principalAmount ?? params.amount ?? 0);
+    if (!Number.isFinite(principalOnlyAmount) || principalOnlyAmount <= 0) {
+      throw new Error('Nao existe saldo de capital em aberto para gerar a confissao de divida.');
+    }
+
+    params = {
+      ...params,
+      amount: principalOnlyAmount,
+      principalAmount: principalOnlyAmount,
+      totalDebt: principalOnlyAmount,
+    };
+
+    const installmentTotal = (params.installments || []).reduce(
+      (sum, installment) => sum + (Number(installment.amount) || 0),
+      0,
+    );
+    if (params.installments?.length && Math.abs(installmentTotal - principalOnlyAmount) > 0.01) {
+      throw new Error('O cronograma juridico nao corresponde ao saldo de capital confessado.');
+    }
+
     const snapshotStr = createLegalSnapshot(params);
     const hash = await generateSHA256(snapshotStr);
 

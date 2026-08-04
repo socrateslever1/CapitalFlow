@@ -15,6 +15,7 @@ import {
     Highlighter,
     Eraser,
     CaseSensitive,
+    Printer,
 } from 'lucide-react';
 
 interface DocumentEditorProps {
@@ -221,6 +222,57 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
     const setMargin = (side: MarginSide, value: number) => {
         setMargins((prev) => ({ ...prev, [side]: clampMargin(side, value, prev) }));
         setIsDirty(true);
+    };
+
+    const printA4Document = () => {
+        const source = editorRef.current;
+        if (!source) return;
+
+        const printable = source.cloneNode(true) as HTMLElement;
+        printable.querySelectorAll('script, iframe, object, embed, button, input, textarea, select').forEach((node) => node.remove());
+        printable.querySelectorAll<HTMLElement>('*').forEach((element) => {
+            element.removeAttribute('contenteditable');
+            Array.from(element.attributes).forEach((attribute) => {
+                if (attribute.name.toLowerCase().startsWith('on')) element.removeAttribute(attribute.name);
+                if ((attribute.name === 'href' || attribute.name === 'src') && /^javascript:/i.test(attribute.value.trim())) {
+                    element.removeAttribute(attribute.name);
+                }
+            });
+        });
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+        printWindow.opener = null;
+
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Confissão de Dívida</title>
+  <style>
+    @page { size: A4 portrait; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    body { font-family: ${fontFamily}; font-size: ${fontSize}; line-height: ${lineHeight}; }
+    .print-document { width: 100%; max-width: none; margin: 0; padding: 0; text-align: justify; }
+    .print-document .container { width: 100%; max-width: none; margin: 0; }
+    .print-document p { orphans: 3; widows: 3; }
+    .print-document h1, .print-document h2, .print-document h3 { page-break-after: avoid; break-after: avoid-page; }
+    .print-document table, .print-document .signatures-grid { page-break-inside: avoid; break-inside: avoid-page; }
+    .print-document .nota-promissoria { page-break-before: always; break-before: page; }
+    @media screen { body { width: 210mm; min-height: 297mm; margin: 0 auto; } }
+    @media print { .print-document { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+  </style>
+</head>
+<body>
+  <main class="print-document">${printable.innerHTML}</main>
+  <style>@page { size: A4 portrait; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }</style>
+</body>
+</html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        window.setTimeout(() => printWindow.print(), 300);
     };
 
     const applyAlignment = (align: AlignMode) => {
@@ -585,14 +637,19 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                 </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 px-4">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 px-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <Info size={14} className="text-amber-500" />
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Edicao manual permitida, alinhamento, listas, recuo e marcador de paragrafo ativos na minuta</p>
                 </div>
-                <button type="button" onClick={() => { onSave(editorRef.current?.innerHTML || ''); setIsDirty(false); }} className={`px-10 py-4 text-white rounded-lg font-black uppercase text-[11px] tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl active:scale-95 ${isDirty ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-500/20' : 'bg-slate-950 hover:bg-slate-900'}`}>
-                    <Save size={18} /> {isDirty ? 'Salvar Alteracoes' : 'Salvar Minuta'}
-                </button>
+                <div className="flex items-center gap-3">
+                    <button type="button" onClick={printA4Document} className="px-6 py-4 bg-white border border-slate-300 text-slate-800 rounded-lg font-black uppercase text-[11px] tracking-[0.15em] transition-all flex items-center gap-3 shadow-md hover:border-indigo-400 hover:text-indigo-700 active:scale-95">
+                        <Printer size={18} /> Imprimir A4
+                    </button>
+                    <button type="button" onClick={() => { onSave(editorRef.current?.innerHTML || ''); setIsDirty(false); }} className={`px-10 py-4 text-white rounded-lg font-black uppercase text-[11px] tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl active:scale-95 ${isDirty ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-500/20' : 'bg-slate-950 hover:bg-slate-900'}`}>
+                        <Save size={18} /> {isDirty ? 'Salvar Alteracoes' : 'Salvar Minuta'}
+                    </button>
+                </div>
             </div>
         </div>
     );

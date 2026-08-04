@@ -11,6 +11,7 @@ import { Loan, UserProfile, LegalWitness, LegalDocumentRecord, LegalDocumentPara
 import { safeUUID } from '../../../../utils/uuid';
 import { DocumentTemplates } from '../../templates/DocumentTemplates';
 import { legalService } from '../../services/legalService';
+import { buildCapitalOnlyLegalTerms } from '../../domain/capitalOnlyLegalTerms';
 import { witnessService } from '../../services/witness.service';
 import { toast } from 'sonner';
 
@@ -47,20 +48,17 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
     const [documentContent, setDocumentContent] = useState('');
     const [activeScenario, setActiveScenario] = useState<'UNICO' | 'PARCELADO' | 'AUTO'>('AUTO');
     const [clauses, setClauses] = useState([
-        { id: 'penhora', label: 'Penhora Automática', active: true, description: 'Autoriza a penhora de bens em caso de inadimplência.' },
+        { id: 'penhora', label: 'Cobrança Judicial', active: true, description: 'Prevê medidas judiciais cabíveis, sempre mediante decisão da autoridade competente.' },
         { id: 'avalista', label: 'Avalista Solidário', active: true, description: 'Inclui a responsabilidade solidária de um terceiro.' },
         { id: 'foro', label: 'Foro de Eleição', active: true, description: 'Define a comarca para resolução de conflitos.' },
-        { id: 'multa', label: 'Multa Moratória', active: true, description: 'Estabelece multa de 10% sobre o saldo devedor.' },
+        { id: 'multa', label: 'Multa Moratória', active: true, description: 'Estabelece multa de 2% sobre a prestação vencida e não paga.' },
     ]);
 
     const creditorName = activeUser?.fullName || activeUser?.businessName || activeUser?.name || '';
     const creditorDoc = activeUser?.document || '';
-    const creditorFullAddress = `${activeUser?.address || ''}, ${activeUser?.addressNumber || ''} - ${activeUser?.neighborhood || ''}, ${activeUser?.city || ''}/${activeUser?.state || ''}`;
-
-    const isPaidStatus = (status: any) => {
-        const value = String(status || '').toUpperCase().trim();
-        return value === 'PAID' || value === 'PAGO' || value === 'QUITADO' || value === 'FINALIZADO';
-    };
+    const creditorStreet = [activeUser?.address, activeUser?.addressNumber].filter(Boolean).join(', ');
+    const creditorCityState = [activeUser?.city, activeUser?.state].filter(Boolean).join('/');
+    const creditorFullAddress = [creditorStreet, activeUser?.neighborhood, creditorCityState].filter(Boolean).join(', ');
 
     useEffect(() => {
         if (!initialLoanId || appliedInitialLoanIdRef.current === initialLoanId) return;
@@ -73,59 +71,12 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
         appliedInitialLoanIdRef.current = initialLoanId;
     }, [initialLoanId, loans]);
 
-    const getInstallmentOpenAmount = (inst: any) => {
-        if (!inst || isPaidStatus(inst.status)) return 0;
-        const balance =
-            Number(inst.principalRemaining || inst.principal_remaining || 0) +
-            Number(inst.interestRemaining || inst.interest_remaining || 0) +
-            Number(inst.lateFeeAccrued || inst.late_fee_accrued || 0);
-
-        if (balance > 0.05) return balance;
-
-        const nominal = Number(inst.amount || inst.valor || inst.valor_parcela || 0);
-        const paid = Number(inst.paidAmount || inst.paid_amount || inst.paidTotal || inst.paid_total || 0);
-        return Math.max(0, nominal - paid);
-    };
-
-    const getInstallmentNominalAmount = (inst: any) => {
-        return Number(inst?.amount || inst?.valor || inst?.valor_parcela || 0);
-    };
-
     const resolveDocumentInstallments = (loan: Loan) => {
-        const source = loan.activeAgreement?.installments?.length
-            ? loan.activeAgreement.installments
-            : loan.installments;
-
-        return (source || []).map((i: any, index: number) => {
-            const openAmount = getInstallmentOpenAmount(i);
-            const nominalAmount = getInstallmentNominalAmount(i);
-            return {
-                number: i.number || i.numero || index + 1,
-                dueDate: i.dueDate || i.due_date || i.data_vencimento,
-                amount: openAmount > 0.05 ? openAmount : nominalAmount,
-                id: i.id || '',
-                agreementId: loan.activeAgreement?.id || i.agreementId || i.acordo_id || '',
-                status: i.status || 'PENDING',
-                paidAmount: i.paidAmount || i.paid_amount || 0
-            };
-        });
+        return buildCapitalOnlyLegalTerms(loan, loan.activeAgreement).installments;
     };
 
     const resolveLegalTotal = (loan: Loan) => {
-        if (loan.activeAgreement) {
-            const agreementInstallments = loan.activeAgreement.installments || [];
-            const openAgreementTotal = agreementInstallments.reduce((acc: number, inst: any) => acc + getInstallmentOpenAmount(inst), 0);
-            const nominalAgreementTotal = agreementInstallments.reduce((acc: number, inst: any) => acc + getInstallmentNominalAmount(inst), 0);
-            return openAgreementTotal > 0.05
-                ? openAgreementTotal
-                : Number(loan.activeAgreement.negotiatedTotal || nominalAgreementTotal || 0);
-        }
-
-        const openTotal = (loan.installments || []).reduce((acc, inst) => acc + getInstallmentOpenAmount(inst), 0);
-        const nominalTotal = (loan.installments || []).reduce((acc, inst) => acc + getInstallmentNominalAmount(inst), 0);
-        return openTotal > 0.05
-            ? openTotal
-            : Number(nominalTotal || loan.totalToReceive || loan.principal || 0);
+        return buildCapitalOnlyLegalTerms(loan, loan.activeAgreement).principalAmount;
     };
 
     const resolveContractDurationDays = (loan: Loan) => {
@@ -239,6 +190,7 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
 
         const legalTotal = resolveLegalTotal(selectedLoan);
         const docInstallments = resolveDocumentInstallments(selectedLoan);
+        const legalTerms = buildCapitalOnlyLegalTerms(selectedLoan, selectedLoan.activeAgreement);
 
         const params = {
             loanId: selectedLoan.id,
@@ -248,7 +200,10 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             debtorName: selectedLoan.debtorName.toUpperCase(),
             debtorDoc: selectedLoan.debtorDocument,
             debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
-            amount: selectedLoan.principal,
+            amount: legalTotal,
+            principalAmount: legalTotal,
+            originalPrincipalAmount: legalTerms.originalPrincipalAmount,
+            principalPaidAmount: legalTerms.principalPaidAmount,
             totalDebt: legalTotal,
             installments: docInstallments,
             city: activeUser.city || 'Manaus',
@@ -264,9 +219,7 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
                 availableWitnesses.find(w => w.id === selectedW1),
                 availableWitnesses.find(w => w.id === selectedW2)
             ].filter(Boolean),
-            multaPercentual: selectedLoan.finePercent || 10,
-            jurosMensal: selectedLoan.interestRate || 1,
-            honorariosPercentual: 20
+            multaPercentual: 2
         };
 
         const content = DocumentTemplates.confissaoDivida(params);
@@ -299,6 +252,11 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
     const handleRegister = async () => {
         if (!selectedLoan || !activeUser) return;
 
+        if (!selectedLoan.debtorAddress?.trim()) {
+            toast.warning("Complete o endereço do devedor antes de registrar o documento.");
+            return;
+        }
+
         const w1 = availableWitnesses.find(w => w.id === selectedW1);
         const w2 = availableWitnesses.find(w => w.id === selectedW2);
 
@@ -309,6 +267,7 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
 
         setIsGenerating(true);
         try {
+            const legalTerms = buildCapitalOnlyLegalTerms(selectedLoan, selectedLoan.activeAgreement);
             const params: LegalDocumentParams = {
                 loanId: selectedLoan.id,
                 clientName: selectedLoan.debtorName,
@@ -319,7 +278,10 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
                 debtorDoc: selectedLoan.debtorDocument,
                 debtorPhone: selectedLoan.debtorPhone,
                 debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
-                amount: selectedLoan.principal,
+                amount: resolveLegalTotal(selectedLoan),
+                principalAmount: resolveLegalTotal(selectedLoan),
+                originalPrincipalAmount: legalTerms.originalPrincipalAmount,
+                principalPaidAmount: legalTerms.principalPaidAmount,
                 totalDebt: resolveLegalTotal(selectedLoan),
                 originDescription: `Operação de mútuo financeiro ID ${selectedLoan.id.substring(0, 8)}.`,
                 city: activeUser.city || 'Manaus',
@@ -329,7 +291,7 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
                 isAgreement: !!selectedLoan.activeAgreement,
                 witnesses: [w1, w2],
                 contractDate: selectedLoan.startDate,
-                agreementDate: new Date().toISOString(),
+                agreementDate: selectedLoan.activeAgreement?.createdAt,
                 contractDurationDays: resolveContractDurationDays(selectedLoan),
                 installments: resolveDocumentInstallments(selectedLoan) as any[],
                 timestamp: new Date().toISOString(),

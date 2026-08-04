@@ -5,6 +5,7 @@ import { Loan, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { DocumentTemplates } from '../templates/DocumentTemplates';
 import { Tooltip } from '../../../components/ui/Tooltip';
+import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
 
 interface NotaPromissoriaViewProps {
     loans: Loan[];
@@ -18,10 +19,12 @@ export const NotaPromissoriaView: React.FC<NotaPromissoriaViewProps> = ({ loans,
 
     const handlePrint = (loan: Loan) => {
         if (!activeUser) return;
+        const legalTerms = buildCapitalOnlyLegalTerms(loan, loan.activeAgreement);
         const html = DocumentTemplates.notaPromissoria({
             loanId: loan.id,
-            // Alterado de loan.principal para loan.totalToReceive (Capital + Juros)
-            amount: loan.totalToReceive,
+            amount: legalTerms.principalAmount,
+            principalAmount: legalTerms.principalAmount,
+            totalDebt: legalTerms.principalAmount,
             creditorName: activeUser.fullName || activeUser.businessName || activeUser.name,
             creditorDoc: activeUser.document,
             debtorName: loan.debtorName,
@@ -30,7 +33,7 @@ export const NotaPromissoriaView: React.FC<NotaPromissoriaViewProps> = ({ loans,
             dueDate: loan.installments[0].dueDate,
             city: activeUser.city || 'Manaus',
             contractDate: loan.startDate,
-            installments: loan.installments
+            installments: legalTerms.installments
         });
 
         const win = window.open('', '_blank');
@@ -68,7 +71,7 @@ export const NotaPromissoriaView: React.FC<NotaPromissoriaViewProps> = ({ loans,
                         <div className="mt-auto pt-4 border-t border-slate-800 flex items-center justify-between">
                             <div>
                                 <p className="text-[9px] text-slate-500 uppercase font-black">Valor do Título</p>
-                                <p className="text-lg font-black text-white">{formatMoney(loan.totalToReceive, isStealthMode)}</p>
+                                <p className="text-lg font-black text-white">{formatMoney(buildCapitalOnlyLegalTerms(loan, loan.activeAgreement).principalAmount, isStealthMode)}</p>
                             </div>
                             <Tooltip content="Gerar documento para impressão" position="top">
                                 <button

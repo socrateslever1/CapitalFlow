@@ -19,6 +19,7 @@ import 'tinymce/plugins/wordcount';
 import { Loan, UserProfile, CapitalSource } from '../types';
 import { ArrowLeft, Save, RefreshCw, FileText } from 'lucide-react';
 import { legalService } from '../features/legal/services/legalService';
+import { buildCapitalOnlyLegalTerms } from '../features/legal/domain/capitalOnlyLegalTerms';
 import { safeUUID } from '../utils/uuid';
 import { toast } from 'sonner';
 import { translateBillingCycle } from '../utils/translationHelpers';
@@ -55,7 +56,8 @@ export const LegalDocumentEditorPage: React.FC<Props> = ({ loanId: propLoanId, l
     // Mapeamento de campos para o template solicitado
     const debtorName = loan.debtorName || '[PREENCHER]';
     const debtorCpf = loan.debtorDocument || '[PREENCHER]';
-    const totalToReceive = loan.totalToReceive?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '[PREENCHER]';
+    const legalTerms = buildCapitalOnlyLegalTerms(loan, loan.activeAgreement);
+    const capitalToConfess = legalTerms.principalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
     // Encontrar próxima data de vencimento
     const nextInstallment = loan.installments?.find(i => i.status === 'PENDING' || i.status === 'LATE');
@@ -84,7 +86,9 @@ CLÁUSULA 1 - DO RECONHECIMENTO DA DÍVIDA
 
 O DEVEDOR reconhece dívida líquida, certa e exigível no valor de:
 
-R$ ${totalToReceive}
+R$ ${capitalToConfess}
+
+Este valor corresponde exclusivamente ao saldo de capital efetivamente disponibilizado e ainda não restituído, sem incorporação de juros remuneratórios, multa, mora ou outros encargos anteriores.
 
 PARÁGRAFO ÚNICO: Este instrumento constitui Título Executivo Extrajudicial (Art. 784, III, CPC).
 
@@ -96,9 +100,10 @@ Vencimento: ${nextDueDate}
 
 CLÁUSULA 3 - DOS ENCARGOS
 
-- Multa: 10%
-- Juros: 1% ao mês
-- Honorários: 20%
+- Multa moratoria: 2% sobre a prestacao vencida e nao paga.
+- Juros de mora: taxa legal prevista no art. 406 do Código Civil, calculada pro rata die.
+- Atualização monetária: IPCA, ou índice que legalmente o substituir, a partir do vencimento.
+- Custas e honorários: somente quando devidos e fixados na forma da legislação aplicável.
 
 CLÁUSULA 4 - RESPONSABILIDADE PATRIMONIAL
 
@@ -106,14 +111,11 @@ O DEVEDOR responde com todos os bens (Art. 789 CPC).
 
 CLÁUSULA 5 - MEDIDAS COERCITIVAS
 
-Autorizado:
-- SISBAJUD
-- RENAJUD
-- SPC/SERASA
+O CREDOR poderá adotar as medidas extrajudiciais e judiciais legalmente cabíveis, observados o devido processo legal e as determinações da autoridade competente.
 
 CLÁUSULA 6 - PENHORA
 
-Autorizada constrição judicial em caso de inadimplência.
+Qualquer constrição ou penhora dependerá de decisão judicial e observará os limites e as impenhorabilidades previstos em lei.
 
 CLÁUSULA 7 - FORO
 
@@ -135,7 +137,7 @@ TESTEMUNHAS:
 
 NOTA PROMISSÓRIA
 
-Valor: R$ ${totalToReceive}
+Valor: R$ ${capitalToConfess}
 
 Prometo pagar a ${creditorName} a quantia acima.
 
@@ -167,14 +169,16 @@ Assinatura: ______________________
       const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
       if (!ownerId) throw new Error("Erro de autenticação.");
 
+      const legalParams = legalService.prepareDocumentParams(loan, activeUser, loan.activeAgreement);
+
       await legalService.generateAndRegisterDocument(
         loan.id,
         {
+          ...legalParams,
           customContent: content,
           creditorName: creditorName,
           debtorName: loan.debtorName,
-          totalDebt: loan.totalToReceive
-        } as any,
+        },
         ownerId,
         'CONFISSAO'
       );

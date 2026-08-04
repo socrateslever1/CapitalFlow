@@ -363,6 +363,9 @@ export interface LegalDocumentParams {
   codigo_contrato?: string;
   clientName: string;
   amount: number;
+  principalAmount?: number;
+  originalPrincipalAmount?: number;
+  principalPaidAmount?: number;
   creditorName?: string;
   creditorDoc?: string;
   creditorAddress?: string;

@@ -57,7 +57,7 @@ export const legalTemplateService = {
 
         <section style="margin-bottom: 25px;">
           <h2 style="font-size: 16px; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 15px; font-weight: bold;">4. DOS ENCARGOS E MORA</h2>
-          <p>O atraso no pagamento de qualquer das parcelas pactuadas incidirá em multa moratória de ${divida.multa_percentual || 10}%, juros de mora de ${divida.juros_mes_percentual || 1}% ao mês e correção monetária.</p>
+          <p>O atraso no pagamento de qualquer parcela acarretará multa moratória de 2% sobre a prestação vencida e não paga, juros de mora pela taxa legal prevista no art. 406 do Código Civil, calculados pro rata die, e atualização monetária pelo IPCA, ou pelo índice que legalmente o substituir.</p>
         </section>
 
         <section style="margin-bottom: 25px;">

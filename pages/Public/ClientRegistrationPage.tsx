@@ -3,6 +3,7 @@ import { Camera, CheckCircle2, ExternalLink, FileSignature, FileUp, Loader2, Ref
 import { clientRegistrationService, ClientRegistrationLinkState } from '../../services/clientRegistration.service';
 import { isValidCPF } from '../../utils/validateCPF';
 import { maskDocument, maskPhone, formatShortName } from '../../utils/formatters';
+import { ClientPortalView } from '../../containers/ClientPortal/ClientPortalView';
 
 export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) => {
   const [linkState, setLinkState] = useState<ClientRegistrationLinkState | null>(null);
@@ -31,6 +32,11 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
       .then((result: ClientRegistrationLinkState) => {
         if (!active) return;
         setLinkState(result);
+
+        // Se o cliente aprovado possui portalToken e portalCode (ou portalUrl), redireciona para o Portal do Cliente oficial
+        if ((result?.state === 'APPROVED' || result?.state === 'PORTAL') && result?.portalUrl) {
+          window.location.href = result.portalUrl;
+        }
       })
       .catch(() => active && setInvalid(true));
 
@@ -95,7 +101,19 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
       }, profilePhoto);
       setDone(true);
     }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Falha ao enviar cadastro.'); }
+    catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'Falha ao enviar cadastro.';
+      if (/inscrição já foi enviada/i.test(msg) || /ja foi enviada/i.test(msg)) {
+        const updated = await clientRegistrationService.getLink(token).catch(() => null);
+        if (updated) {
+          setLinkState(updated);
+        } else {
+          setDone(true);
+        }
+      } else {
+        setError(msg);
+      }
+    }
     finally { setBusy(false); }
   };
 
@@ -124,6 +142,10 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
   // 2. CADASTRO APROVADO (PORTAL DO CLIENTE DEFINITIVO)
   // =========================================================================
   if (linkState.state === 'APPROVED' || linkState.state === 'PORTAL') {
+    if (linkState.portalToken && linkState.portalCode) {
+      return <ClientPortalView initialPortalToken={linkState.portalToken} initialPortalCode={linkState.portalCode} />;
+    }
+
     const docs = linkState.documents || [];
     const clientInfo = linkState.client || {};
 

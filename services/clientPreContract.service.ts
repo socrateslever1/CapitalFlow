@@ -164,6 +164,12 @@ export const clientPreContractService = {
 
     if (error) throw new Error(error.message || 'Não foi possível criar o documento para assinatura.');
 
+    // Marca a inscrição como APROVADA no banco de dados para garantir abertura imediata do portal
+    await supabase
+      .from('clientes')
+      .update({ registration_status: 'APPROVED' })
+      .eq('id', resolvedClientId);
+
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     return {
       documentId: data.id as string,

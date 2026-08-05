@@ -30,6 +30,19 @@ async function request(body: FormData | Record<string, unknown>, authenticated =
   }
 }
 
+export function normalizeOriginUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (typeof window === 'undefined') return url;
+
+  try {
+    const parsed = new URL(url);
+    const currentOrigin = window.location.origin;
+    return `${currentOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return url;
+  }
+}
+
 export const clientRegistrationService = {
   async createLink(profileId: string) {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -47,7 +60,22 @@ export const clientRegistrationService = {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     return { token, url: `${origin}/?cadastro=${encodeURIComponent(token)}` };
   },
-  getLink: (token: string) => request({ action: 'get_link', token }),
+  async getLink(token: string) {
+    const result = await request({ action: 'get_link', token });
+    if (result && typeof result === 'object') {
+      if (result.portalUrl) {
+        result.portalUrl = normalizeOriginUrl(result.portalUrl);
+      }
+      if (Array.isArray(result.documents)) {
+        result.documents = result.documents.map((doc: any) => ({
+          ...doc,
+          sign_url: normalizeOriginUrl(doc.sign_url) || doc.sign_url,
+          view_url: normalizeOriginUrl(doc.view_url) || doc.view_url,
+        }));
+      }
+    }
+    return result;
+  },
   submit: (
     token: string,
     fields: Record<string, string>,
@@ -105,13 +133,17 @@ export const clientRegistrationService = {
     if (!data?.token || !data?.url || !data?.linkId || !data?.clientId) {
       throw new Error('Nao foi possivel gerar o link publico do cliente.');
     }
-    return { token: String(data.token), url: String(data.url), linkId: String(data.linkId), clientId: String(data.clientId) };
+    const rawUrl = String(data.url);
+    const normalizedUrl = normalizeOriginUrl(rawUrl) || rawUrl;
+    return { token: String(data.token), url: normalizedUrl, linkId: String(data.linkId), clientId: String(data.clientId) };
   },
 };
 
 export type ClientRegistrationLinkState = {
   valid: true;
   state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'DOCUMENTS' | 'PORTAL';
+  portalToken?: string;
+  portalCode?: string;
   portalUrl?: string;
   client?: {
     id?: string;

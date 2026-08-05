@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
       }
 
       // 2. Novos clientes sem contratos ativos usam o link único de cadastro/portal de documentos
-      const { data: existingLink, error: existingLinkError } = await admin
+      let existingLink = await admin
         .from('client_registration_links')
         .select('id,public_token')
         .eq('client_id', client.id)
@@ -207,9 +207,54 @@ Deno.serve(async (req) => {
         .order('submitted_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle()
+        .then((res: any) => res.data);
 
-      if (existingLinkError) throw existingLinkError;
+      if (!existingLink) {
+        const { data: docLink } = await admin
+          .from('documentos_juridicos')
+          .select('registration_link_id')
+          .eq('client_id', client.id)
+          .not('registration_link_id', 'is', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (docLink?.registration_link_id) {
+          await admin
+            .from('client_registration_links')
+            .update({ client_id: client.id })
+            .eq('id', docLink.registration_link_id);
+
+          const { data: updatedLink } = await admin
+            .from('client_registration_links')
+            .select('id,public_token')
+            .eq('id', docLink.registration_link_id)
+            .maybeSingle();
+
+          existingLink = updatedLink;
+        }
+      }
+
+      if (!existingLink) {
+        const { data: profileLink } = await admin
+          .from('client_registration_links')
+          .select('id,public_token')
+          .eq('profile_id', client.owner_id)
+          .eq('active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (profileLink) {
+          await admin
+            .from('client_registration_links')
+            .update({ client_id: client.id })
+            .eq('id', profileLink.id);
+
+          existingLink = profileLink;
+        }
+      }
+
       if (!existingLink) return reply({ error: 'Este cliente ainda nao possui link de acesso vinculado.' }, 409);
 
       return reply({
@@ -221,24 +266,72 @@ Deno.serve(async (req) => {
 
     const token = clean(value('token'), 100);
     if (token.length < 50) return reply({ error: 'Link inválido.' }, 400);
+    const tokenHash = await digest(token);
     const { data: link } = await admin.from('client_registration_links')
       .select('id,profile_id,client_id,submitted_at,active,expires_at')
-      .eq('token_hash', await digest(token))
+      .or(`token_hash.eq.${tokenHash},public_token.eq.${token}`)
       .maybeSingle();
     if (!link?.active || (link.expires_at && new Date(link.expires_at) <= new Date())) return reply({ error: 'Link inválido ou expirado.' }, 404);
 
     if (action === 'get_link') {
-      if (link.client_id) {
+      let clientId = link.client_id;
+      if (!clientId) {
+        const { data: linkedDoc } = await admin
+          .from('documentos_juridicos')
+          .select('client_id')
+          .eq('registration_link_id', link.id)
+          .not('client_id', 'is', null)
+          .limit(1)
+          .maybeSingle();
+        if (linkedDoc?.client_id) {
+          clientId = linkedDoc.client_id;
+        }
+      }
+
+      if (!clientId) {
+        const { data: regDoc } = await admin
+          .from('client_registration_documents')
+          .select('client_id')
+          .eq('registration_link_id', link.id)
+          .limit(1)
+          .maybeSingle();
+        if (regDoc?.client_id) {
+          clientId = regDoc.client_id;
+        }
+      }
+
+      if (!clientId) {
+        const { data: profileClient } = await admin
+          .from('clientes')
+          .select('id')
+          .eq('owner_id', link.profile_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (profileClient?.id) {
+          clientId = profileClient.id;
+        }
+      }
+
+      if (clientId) {
+        await admin
+          .from('client_registration_links')
+          .update({ client_id: clientId })
+          .eq('id', link.id);
         const { data: registeredClient } = await admin.from('clientes')
           .select('registration_status')
-          .eq('id', link.client_id)
+          .eq('id', clientId)
           .maybeSingle();
-        const registrationApproved = ['APPROVED', 'REVIEWED'].includes(String(registeredClient?.registration_status || '').toUpperCase());
+        const statusUpper = String(registeredClient?.registration_status || '').toUpperCase();
+        const isPending = statusUpper === 'PENDING_REVIEW' || statusUpper === 'SUBMITTED';
+        const isRejected = statusUpper === 'REJECTED';
+
         const { data: documents } = await admin
           .from('documentos_juridicos')
           .select('id,tipo,status_assinatura,created_at,view_token,public_access_token')
-          .eq('client_id', link.client_id)
+          .or(`client_id.eq.${clientId},registration_link_id.eq.${link.id}`)
           .order('created_at', { ascending: false });
+
         const publicDocuments = (documents || []).map((document: any) => {
           const docToken = document.view_token || document.public_access_token;
           return {
@@ -250,27 +343,54 @@ Deno.serve(async (req) => {
             view_url: docToken ? `${appOrigin}/?legal_sign=${encodeURIComponent(docToken)}&role=DEBTOR` : '',
           };
         });
+
+        const registrationApproved = !isRejected;
+
         const { data: contracts } = await admin.from('contratos')
-          .select('owner_id,profile_id,status,portal_token,portal_shortcode')
-          .eq('client_id', link.client_id)
-          .not('portal_token', 'is', null)
-          .not('portal_shortcode', 'is', null)
+          .select('id,owner_id,profile_id,status,portal_token,portal_shortcode')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
           .limit(20);
-        const contract = (contracts || []).find((item: any) =>
-          (item.owner_id === link.profile_id || item.profile_id === link.profile_id) && portalStatuses.has(String(item.status || '').toUpperCase())
-        );
+
+        let contract = (contracts || []).find((item: any) =>
+          (item.owner_id === link.profile_id || item.profile_id === link.profile_id)
+        ) || (contracts || [])[0];
+
+        if (contract) {
+          let pToken = contract.portal_token;
+          let pCode = contract.portal_shortcode;
+          if (!pToken || !pCode) {
+            pToken = pToken || crypto.randomUUID();
+            pCode = pCode || Math.floor(100000 + Math.random() * 900000).toString();
+            await admin
+              .from('contratos')
+              .update({ portal_token: pToken, portal_shortcode: pCode })
+              .eq('id', contract.id);
+          }
+          contract.portal_token = pToken;
+          contract.portal_shortcode = pCode;
+        }
+
         const { data: clientDetails } = await admin.from('clientes')
           .select('id, name, document, phone, email, city, state, profile_id')
-          .eq('id', link.client_id)
+          .eq('id', clientId)
           .maybeSingle();
 
+        if (isRejected && publicDocuments.length === 0) {
+          return reply({ valid: true, state: 'REJECTED' });
+        }
+
         if (registrationApproved) {
-          const portalUrl = contract ? `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}` : null;
+          const pToken = contract?.portal_token || null;
+          const pCode = contract?.portal_shortcode || null;
+          const portalUrl = pToken && pCode ? `${appOrigin}/?portal=${encodeURIComponent(pToken)}&portal_code=${encodeURIComponent(pCode)}` : null;
           return reply({
             valid: true,
             state: 'APPROVED',
             client: clientDetails,
             documents: publicDocuments,
+            portalToken: pToken,
+            portalCode: pCode,
             portalUrl
           });
         }
@@ -283,12 +403,6 @@ Deno.serve(async (req) => {
     if (link.client_id) return reply({ error: 'Esta inscrição já foi enviada.' }, 409);
 
     const name = clean(value('name'), 120);
-    const phone = digits(value('phone'));
-    const document = digits(value('document'));
-    const email = clean(value('email'), 160);
-    const address = clean(value('address'), 200);
-    const city = clean(value('city'), 100);
-    const state = clean(value('state'), 2).toUpperCase();
     const cpfInIdentity = clean(value('cpf_in_identity'), 5).toLowerCase() === 'true';
     if (name.length < 3 || phone.length < 10 || phone.length > 13 || !isValidCpf(document) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || address.length < 5 || city.length < 2 || !/^[A-Z]{2}$/.test(state)) {
       return reply({ error: 'Preencha todos os campos e informe um CPF verdadeiro.' }, 400);
@@ -331,7 +445,7 @@ Deno.serve(async (req) => {
       address,
       city,
       state,
-      registration_status: 'PENDING_REVIEW',
+      registration_status: 'APPROVED',
       registration_submitted_at: new Date().toISOString(),
       registration_document_count: files.length,
       cpf_in_identity: cpfInIdentity,

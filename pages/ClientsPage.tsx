@@ -9,6 +9,7 @@ import { loanEngine } from '../domain/loanEngine';
 import { clientRegistrationService } from '../services/clientRegistration.service';
 import { clientPreContractService } from '../services/clientPreContract.service';
 import { getOrCreatePortalLink } from '../utils/portalLink';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface ClientsPageProps {
   profileId: string;
@@ -72,8 +73,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   const copyRegistrationLink = async (link: string) => {
     try {
-      await navigator.clipboard.writeText(link);
-      showToast('Link de inscrição copiado.', 'success');
+      const ok = await copyToClipboard(link);
+      if (ok) {
+        showToast('Link de inscrição copiado.', 'success');
+      } else {
+        showToast('Link criado. Copie-o no campo exibido.', 'info');
+      }
     } catch {
       showToast('Link criado. Copie-o no campo exibido.', 'info');
     }
@@ -102,14 +107,14 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         
         if (token && code) {
           const portalUrl = `${window.location.origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`;
-          await navigator.clipboard.writeText(portalUrl);
+          await copyToClipboard(portalUrl);
           showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
           return;
         }
 
         if (existingLoan.id) {
           const portalUrl = await getOrCreatePortalLink(existingLoan.id);
-          await navigator.clipboard.writeText(portalUrl);
+          await copyToClipboard(portalUrl);
           showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
           return;
         }
@@ -125,7 +130,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
       });
 
       if (result?.url) {
-        await navigator.clipboard.writeText(result.url);
+        await copyToClipboard(result.url);
         showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
       } else {
         throw new Error('Link não disponível para este cliente.');
@@ -360,7 +365,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         )}
                     </div>
 
-                    {client.registration_status === 'PENDING_REVIEW' && (
+                    {client.registration_status !== 'APPROVED' && client.registration_status !== 'REJECTED' && (
                       <div className="mb-3 grid grid-cols-3 gap-1.5" onClick={(event) => event.stopPropagation()}>
                         <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex h-8 items-center justify-center gap-1 rounded-md border border-slate-700 bg-slate-950 text-[8px] font-black uppercase text-slate-300" title="Ver documentos"><FileSearch size={12}/> Docs ({client.registration_document_count || 0})</button>
                         <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-black uppercase text-emerald-300 disabled:opacity-50"><Check size={12}/> Aprovar</button>
@@ -388,22 +393,6 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                     )}
 
                     <div className="space-y-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
-                        {/* BOTÃO EM DESTAQUE PARA COPIAR LINK DO PORTAL DO CLIENTE JÁ CADASTRADO */}
-                        <button
-                            type="button"
-                            onClick={() => void copyClientPortalLink(client)}
-                            className="flex w-full items-center justify-between gap-2 text-[10px] text-blue-300 bg-blue-950/40 border border-blue-800/40 p-2 rounded-lg hover:bg-blue-900/50 transition-colors group/link cursor-pointer"
-                            title="Copiar link pessoal do portal deste cliente"
-                        >
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Link2 size={12} className="text-blue-400 shrink-0 group-hover/link:rotate-45 transition-transform"/>
-                                <span className="font-bold uppercase text-[9px] tracking-wider text-blue-200 truncate">Link do Portal</span>
-                            </div>
-                            <span className="shrink-0 text-[8px] font-black uppercase bg-blue-600/30 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">
-                                Copiar Link
-                            </span>
-                        </button>
-
                         <a
                             href={client.phone ? `https://wa.me/55${client.phone.replace(/\D/g, '')}` : '#'}
                             target="_blank"

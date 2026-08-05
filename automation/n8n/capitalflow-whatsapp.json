@@ -231,42 +231,6 @@
       },
       {
         "parameters": {
-          "method": "POST",
-          "url": "={{ $env.CAPITALFLOW_LOCAL_AI_URL || \"http://koboldcpp:5001/v1/chat/completions\" }}",
-          "sendBody": true,
-          "contentType": "raw",
-          "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ model: $env.CAPITALFLOW_LOCAL_AI_MODEL || \"qwen3-4b-instruct\", messages: [{ role: \"system\", content: \"/no_think\\nVoce e o assistente administrativo do CapitalFlow. Escreva em portugues natural, profissional, direto e curto. O Supabase forneceu apenas o resultado seguro da operacao; voce conduz a conversa. Preserve literalmente todos os valores, datas, links, codigos de confirmacao e referencias de contrato existentes no resultado. Nao invente, arredonde, omita ou altere dados. Nao execute nem confirme acao que o resultado nao confirmou. Nunca remova uma exigencia de confirmacao. Nao mencione n8n, Supabase, banco, API ou detalhes tecnicos, exceto quando o operador perguntar explicitamente pelo status do sistema. Retorne somente a mensagem final para o operador.\" }, { role: \"user\", content: \"Pedido do operador: \" + $(\"Normalize and Filter\").item.json.message + \"\\nResultado seguro da ferramenta: \" + String($json.reply || \"\") + \"\\nMetadados: \" + JSON.stringify({ intent: $json.intent, status: $json.status, action: $json.action, success: $json.success, requires_confirmation: $json.requires_confirmation }) }], temperature: 0.1, max_tokens: 500, stream: false }) }}",
-          "options": {
-            "timeout": 30000
-          }
-        },
-        "id": "capitalflow-admin-conversation",
-        "name": "Admin Conversation",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          70,
-          -300
-        ],
-        "onError": "continueErrorOutput"
-      },
-      {
-        "parameters": {
-          "jsCode": "const tool = $(\"Admin Command\").item.json || {};\nconst fallback = String(tool.reply || \"Comando administrativo processado.\").trim();\nconst payload = $json || {};\nconst candidate = String(\n  payload.choices?.[0]?.message?.content\n  ?? payload.output\n  ?? payload.response\n  ?? payload.text\n  ?? \"\"\n).replace(/<think>[\\s\\S]*?<\\/think>/gi, \"\").trim();\n\nconst collectProtected = (text) => {\n  const patterns = [\n    /R\\$\\s*[\\d.]+,\\d{2}/g,\n    /https?:\\/\\/[^\\s]+/g,\n    /\\b\\d{2}\\/\\d{2}\\/\\d{4}\\b/g,\n    /\\b(?:contrato\\s*)?#?[A-F0-9]{6}\\b/gi,\n    /\\b\\d{4}\\b/g,\n  ];\n  return [...new Set(patterns.flatMap((pattern) => String(text).match(pattern) || []))];\n};\n\nconst protectedValues = collectProtected(fallback);\nconst missingProtectedValue = protectedValues.some((value) => !candidate.includes(value));\nconst unsafe = !candidate\n  || candidate.length > 3500\n  || /<think>|\\b(?:supabase|n8n|api|edge function|banco de dados)\\b/i.test(candidate)\n  || missingProtectedValue;\n\nreturn [{ json: {\n  reply: (unsafe ? fallback : candidate).slice(0, 3500),\n  admin_conversation_source: unsafe ? \"deterministic_fallback\" : \"n8n_local_ai\",\n} }];"
-        },
-        "id": "capitalflow-admin-conversation-guard",
-        "name": "Admin Conversation Guard",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          300,
-          -300
-        ],
-        "onError": "continueErrorOutput"
-      },
-      {
-        "parameters": {
           "jsCode": "return $input.all().filter((item) => ![\"duplicate\", \"ignored_automation\"].includes(item.json.status));"
         },
         "id": "capitalflow-drop-duplicates",
@@ -502,7 +466,7 @@
         "main": [
           [
             {
-              "node": "Admin Conversation",
+              "node": "Admin Reply",
               "type": "main",
               "index": 0
             }
@@ -510,42 +474,6 @@
           [
             {
               "node": "Drop Duplicates",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Admin Conversation": {
-        "main": [
-          [
-            {
-              "node": "Admin Conversation Guard",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Admin Reply",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Admin Conversation Guard": {
-        "main": [
-          [
-            {
-              "node": "Send WhatsApp Reply",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "Admin Reply",
               "type": "main",
               "index": 0
             }

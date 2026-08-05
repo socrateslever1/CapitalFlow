@@ -170,6 +170,35 @@ Deno.serve(async (req) => {
       const authorized = !!target && (requesters || []).some((profile: any) => profile.id === profileId || tenantRoot(profile) === tenantRoot(target));
       if (!authorized) return reply({ error: 'Perfil nao autorizado para este cliente.' }, 403);
 
+      // 1. Clientes com contratos/empréstimos existentes usam prioritariamente o link do portal do contrato
+      const { data: existingContract } = await admin
+        .from('contratos')
+        .select('id,portal_token,portal_shortcode')
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingContract) {
+        let pToken = existingContract.portal_token;
+        let pCode = existingContract.portal_shortcode;
+
+        if (!pToken || !pCode) {
+          pToken = pToken || crypto.randomUUID();
+          pCode = pCode || Math.floor(100000 + Math.random() * 900000).toString();
+          await admin
+            .from('contratos')
+            .update({ portal_token: pToken, portal_shortcode: pCode })
+            .eq('id', existingContract.id);
+        }
+
+        return reply({
+          clientId: client.id,
+          url: `${appOrigin}/?portal=${encodeURIComponent(pToken)}&portal_code=${encodeURIComponent(pCode)}`,
+        });
+      }
+
+      // 2. Novos clientes sem contratos ativos usam o link único de cadastro/portal de documentos
       const { data: existingLink, error: existingLinkError } = await admin
         .from('client_registration_links')
         .select('id,public_token')
@@ -179,8 +208,9 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
       if (existingLinkError) throw existingLinkError;
-      if (!existingLink) return reply({ error: 'Este cliente ainda nao possui link unico de cadastro vinculado.' }, 409);
+      if (!existingLink) return reply({ error: 'Este cliente ainda nao possui link de acesso vinculado.' }, 409);
 
       return reply({
         linkId: existingLink.id,

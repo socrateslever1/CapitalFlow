@@ -8,6 +8,7 @@ import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
 import { clientRegistrationService } from '../services/clientRegistration.service';
 import { clientPreContractService } from '../services/clientPreContract.service';
+import { getOrCreatePortalLink } from '../utils/portalLink';
 
 interface ClientsPageProps {
   profileId: string;
@@ -91,6 +92,30 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   const copyClientPortalLink = async (client: Client) => {
     try {
+      // 1. Para clientes já cadastrados que já possuem contratos de empréstimo: usa prioritariamente o link do portal do contrato existente
+      const clientLoans = loans.filter((l) => l.clientId === client.id && !l.isArchived);
+      const existingLoan = clientLoans.find((l: any) => l.portalToken || l.portal_token || l.id);
+
+      if (existingLoan) {
+        const token = (existingLoan as any).portalToken || (existingLoan as any).portal_token;
+        const code = (existingLoan as any).portalCode || (existingLoan as any).portal_shortcode || (existingLoan as any).portalShortcode;
+        
+        if (token && code) {
+          const portalUrl = `${window.location.origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`;
+          await navigator.clipboard.writeText(portalUrl);
+          showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
+          return;
+        }
+
+        if (existingLoan.id) {
+          const portalUrl = await getOrCreatePortalLink(existingLoan.id);
+          await navigator.clipboard.writeText(portalUrl);
+          showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
+          return;
+        }
+      }
+
+      // 2. Para novos clientes/prospects sem contratos ativos: busca/gera o link de acesso único
       const result = await clientRegistrationService.createClientAccessLink(client.id, {
         profileId,
         document: client.document,

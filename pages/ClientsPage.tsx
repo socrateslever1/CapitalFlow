@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2 } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
 import { startDictation } from '../utils/speech';
 import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
@@ -24,7 +24,7 @@ interface ClientsPageProps {
   selectedClientsToDelete: string[];
   toggleClientSelection: (id: string) => void;
   executeBulkDelete: () => void;
-  onDeleteClient: (id: string) => void; // NOVO PROP
+  onDeleteClient: (id: string) => void;
   goBack?: () => void;
   onRefresh: () => Promise<void>;
   activeUser: UserProfile | null;
@@ -44,13 +44,19 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   const [registrationLink, setRegistrationLink] = React.useState('');
   const [creatingLink, setCreatingLink] = React.useState(false);
   const [reviewingClientId, setReviewingClientId] = React.useState<string | null>(null);
+
   const [preContractClient, setPreContractClient] = React.useState<Client | null>(null);
   const [preContractForm, setPreContractForm] = React.useState({ amount: '', dueDate: '', notes: '' });
   const [preContractBusy, setPreContractBusy] = React.useState(false);
   const [preContractResult, setPreContractResult] = React.useState<{ portalUrl: string; signUrl: string } | null>(null);
 
+  const [documentClient, setDocumentClient] = React.useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
+  const [registrationDocuments, setRegistrationDocuments] = React.useState<Awaited<ReturnType<typeof clientRegistrationService.getDocumentUrls>>>([]);
+  const [loadingDocuments, setLoadingDocuments] = React.useState(false);
+
   const reviewRegistration = async (client: Client, status: 'APPROVED' | 'REJECTED') => {
-    if (status === 'REJECTED' && !window.confirm(`Negar o cadastro de ${client.name}? Ele saira da carteira de clientes.`)) return;
+    if (status === 'REJECTED' && !window.confirm(`Negar o cadastro de ${client.name}? Ele sairá da carteira de clientes.`)) return;
     setReviewingClientId(client.id);
     try {
       await clientRegistrationService.review(client.id, status);
@@ -83,6 +89,20 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     } finally { setCreatingLink(false); }
   };
 
+  const openRegistrationDocuments = async (client: Client) => {
+    setDocumentClient(client);
+    setLoadingDocuments(true);
+    try {
+      const documents = await clientRegistrationService.getDocumentUrls(client.id);
+      setRegistrationDocuments(documents);
+      if (!documents.length) showToast('Esta inscrição não possui documentos.', 'info');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao abrir documentos.', 'error');
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
+
   const openPreContractModal = (client: Client) => {
     setPreContractClient(client);
     setPreContractForm({ amount: '', dueDate: '', notes: '' });
@@ -93,28 +113,23 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     if (!preContractClient || !activeUser) return;
     setPreContractBusy(true);
     try {
-      const result = await clientPreContractService.createAndSend(preContractClient, activeUser, {
-        amount: Number(String(preContractForm.amount).replace(',', '.')),
+      const amount = Number(preContractForm.amount);
+      if (isNaN(amount) || amount <= 0) throw new Error('Valor inválido.');
+
+      const result = await clientPreContractService.create({
+        clientId: preContractClient.id,
+        amount,
         dueDate: preContractForm.dueDate || undefined,
-        notes: preContractForm.notes,
+        notes: preContractForm.notes || undefined,
+        operatorProfileId: activeUser.id
       });
+
       setPreContractResult({ portalUrl: result.portalUrl, signUrl: result.signUrl });
-      await navigator.clipboard.writeText(result.portalUrl).catch(() => undefined);
-      showToast('Documento enviado. Link do cliente copiado.', 'success');
+      showToast('Pré-contrato criado com sucesso.', 'success');
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao enviar documento.', 'error');
+      showToast(error instanceof Error ? error.message : 'Falha ao criar pré-contrato.', 'error');
     } finally {
       setPreContractBusy(false);
-    }
-  };
-
-  const openRegistrationDocuments = async (client: Client) => {
-    try {
-      const documents = await clientRegistrationService.getDocumentUrls(client.id);
-      if (!documents.length) return showToast('Esta inscrição não possui documentos.', 'info');
-      documents.forEach((document, index) => window.setTimeout(() => window.open(document.url, '_blank', 'noopener,noreferrer'), index * 150));
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Falha ao abrir documentos.', 'error');
     }
   };
 
@@ -242,8 +257,8 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`h-48 self-start overflow-hidden bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
-                    onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : undefined}
+                    className={`min-h-[220px] h-full self-start overflow-hidden bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : () => setSelectedClient(client)}
                 >
                     {isBulkDeleteMode && (
                         <div className="absolute top-3 right-3 text-blue-500 z-10">
@@ -277,10 +292,15 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         </div>
                         {client.registration_status === 'PENDING_REVIEW' && <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300">Em análise{client.cpf_in_identity ? ' · CPF no RG' : ''}</span>}
                         {!isBulkDeleteMode && (
-                            <div className="flex gap-1">
-                                <button onClick={(event) => { event.stopPropagation(); openPreContractModal(client); }} className="p-2 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-lg hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
+                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => openPreContractModal(client)} className="p-2 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-lg hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
                                     <FileSignature size={14}/>
                                 </button>
+                                {(client.registration_document_count || 0) > 0 && (
+                                  <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-2 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-lg hover:bg-blue-950/30 transition-colors" title={`Ver documentos do cadastro (${client.registration_document_count})`}>
+                                      <FileSearch size={14}/>
+                                  </button>
+                                )}
                                 <button onClick={() => openClientModal(client)} className="p-2 text-slate-500 hover:text-white bg-slate-950 rounded-lg hover:bg-slate-800 transition-colors" title="Editar">
                                     <Edit size={14}/>
                                 </button>
@@ -318,26 +338,25 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         </div>
                     )}
 
-                    <div className="space-y-1.5 mt-auto">
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
-                            <Phone size={12} className="text-blue-500"/>
+                    <div className="space-y-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+                        <a
+                            href={client.phone ? `https://wa.me/55${client.phone.replace(/\D/g, '')}` : '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-[10px] text-slate-300 bg-slate-950/50 p-2 rounded-lg hover:bg-emerald-950/30 hover:text-emerald-300 transition-colors"
+                        >
+                            <Phone size={12} className="text-emerald-500 shrink-0"/>
                             <span className="truncate">{maskPhone(client.phone, isStealthMode)}</span>
-                        </div>
-                        {client.document && (
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
-                                <CheckSquare size={12} className="text-indigo-500"/>
-                                <span className="truncate">{maskDocument(client.document, isStealthMode)}</span>
-                            </div>
-                        )}
+                        </a>
                         {client.email && (
                             <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
-                                <Users size={12} className="text-purple-500"/>
+                                <Users size={12} className="text-purple-500 shrink-0"/>
                                 <span className="truncate">{client.email}</span>
                             </div>
                         )}
                         {(client as any).address && (
                             <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
-                                <MapPin size={12} className="text-emerald-500"/>
+                                <MapPin size={12} className="text-emerald-500 shrink-0"/>
                                 <span className="truncate">{(client as any).address}</span>
                             </div>
                         )}
@@ -418,6 +437,69 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {selectedClient && (
+          <div className="fixed inset-0 z-[170] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="client-record-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedClient(null); }}>
+            <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+              <header className="flex items-center gap-3 border-b border-slate-800 p-4">
+                {selectedClient.fotoUrl ? <img src={selectedClient.fotoUrl} className="h-14 w-14 shrink-0 rounded-full border border-slate-700 object-cover" alt={selectedClient.name}/> : <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-slate-700 bg-slate-800 text-lg font-black text-blue-400">{selectedClient.name.charAt(0)}</div>}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-blue-400">Ficha do cliente</p>
+                  <h2 id="client-record-title" className="truncate text-lg font-black uppercase text-white">{selectedClient.name}</h2>
+                  <p className="text-[10px] text-slate-500">Cadastro desde {selectedClient.createdAt ? new Date(selectedClient.createdAt).toLocaleDateString('pt-BR') : 'data não informada'}</p>
+                </div>
+                <button type="button" onClick={() => setSelectedClient(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Fechar ficha"><X size={18}/></button>
+              </header>
+              <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3"><p className="text-[9px] font-black uppercase text-slate-500">CPF</p><p className="mt-1 text-sm font-semibold text-slate-100">{maskDocument(selectedClient.document, isStealthMode) || 'Não informado'}</p></div>
+                  <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3"><p className="text-[9px] font-black uppercase text-slate-500">WhatsApp</p><p className="mt-1 text-sm font-semibold text-slate-100">{maskPhone(selectedClient.phone, isStealthMode) || 'Não informado'}</p></div>
+                  <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 sm:col-span-2"><p className="text-[9px] font-black uppercase text-slate-500">E-mail</p><p className="mt-1 break-words text-sm font-semibold text-slate-100">{selectedClient.email || 'Não informado'}</p></div>
+                  <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 sm:col-span-2"><p className="text-[9px] font-black uppercase text-slate-500">Endereço</p><p className="mt-1 text-sm font-semibold text-slate-100">{[selectedClient.address, selectedClient.city, selectedClient.state].filter(Boolean).join(' - ') || 'Não informado'}</p></div>
+                  {selectedClient.notes && <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3 sm:col-span-2"><p className="text-[9px] font-black uppercase text-slate-500">Observações</p><p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{selectedClient.notes}</p></div>}
+                </div>
+              </div>
+              <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-800 p-4">
+                {(selectedClient.registration_document_count || 0) > 0 && <button type="button" onClick={() => void openRegistrationDocuments(selectedClient)} className="flex h-10 items-center gap-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-4 text-xs font-black uppercase text-blue-300"><FileSearch size={15}/> Documentos ({selectedClient.registration_document_count})</button>}
+                <button type="button" onClick={() => { const client = selectedClient; setSelectedClient(null); openClientModal(client); }} className="flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-xs font-black uppercase text-white hover:bg-blue-500"><Edit size={15}/> Editar cadastro</button>
+              </footer>
+            </div>
+          </div>
+        )}
+
+        {documentClient && (
+          <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="registration-documents-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setDocumentClient(null); }}>
+            <div className="flex max-h-[min(36rem,calc(100dvh-2rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+                <div className="min-w-0">
+                  <h2 id="registration-documents-title" className="truncate text-sm font-black uppercase text-white">Documentos de {documentClient.name}</h2>
+                  <p className="mt-0.5 text-[10px] text-slate-500">Arquivos enviados no cadastro</p>
+                </div>
+                <button type="button" onClick={() => setDocumentClient(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Fechar documentos"><X size={18}/></button>
+              </div>
+              <div className="min-h-32 flex-1 overflow-y-auto p-4 custom-scrollbar">
+                {loadingDocuments ? (
+                  <div className="grid min-h-28 place-items-center text-slate-400"><Loader2 className="animate-spin" size={24}/></div>
+                ) : registrationDocuments.length === 0 ? (
+                  <div className="grid min-h-28 place-items-center text-center text-xs text-slate-500">Nenhum documento foi encontrado para este cadastro.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {registrationDocuments.map((document) => (
+                      <a key={document.id} href={document.url} target="_blank" rel="noreferrer" className="flex min-h-14 items-center gap-3 rounded-md border border-slate-800 bg-slate-950/70 px-3 py-2 hover:border-blue-500/50">
+                        <FileSearch size={18} className="shrink-0 text-blue-400"/>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-slate-100">{document.name}</p>
+                          <p className="mt-0.5 text-[9px] font-black uppercase text-slate-500">{String(document.type).replaceAll('_', ' ')}</p>
+                        </div>
+                        <ExternalLink size={15} className="shrink-0 text-slate-500"/>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

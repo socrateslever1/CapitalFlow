@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
 
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const token = `${crypto.randomUUID()}${crypto.randomUUID().replaceAll('-', '')}`;
-        const inserted = await admin.from('client_registration_links').insert({ profile_id: profileId, token_hash: await digest(token), created_by: authData.user.id });
+        const inserted = await admin.from('client_registration_links').insert({ profile_id: profileId, token_hash: await digest(token), public_token: token, created_by: authData.user.id });
         if (!inserted.error) return reply({ token, url: `${appOrigin}/?cadastro=${encodeURIComponent(token)}` });
         if (inserted.error.code !== '23505') throw inserted.error;
       }
@@ -170,23 +170,23 @@ Deno.serve(async (req) => {
       const authorized = !!target && (requesters || []).some((profile: any) => profile.id === profileId || tenantRoot(profile) === tenantRoot(target));
       if (!authorized) return reply({ error: 'Perfil nao autorizado para este cliente.' }, 403);
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const newToken = `${crypto.randomUUID()}${crypto.randomUUID().replaceAll('-', '')}`;
-        const inserted = await admin
-          .from('client_registration_links')
-          .insert({
-            profile_id: profileId,
-            client_id: client.id,
-            token_hash: await digest(newToken),
-            submitted_at: new Date().toISOString(),
-            created_by: authData.user.id,
-          })
-          .select('id')
-          .single();
-        if (!inserted.error) return reply({ token: newToken, linkId: inserted.data.id, clientId: client.id, url: `${appOrigin}/?cadastro=${encodeURIComponent(newToken)}` });
-        if (inserted.error.code !== '23505') throw inserted.error;
-      }
-      return reply({ error: 'Nao foi possivel gerar um token unico.' }, 503);
+      const { data: existingLink, error: existingLinkError } = await admin
+        .from('client_registration_links')
+        .select('id,public_token')
+        .eq('client_id', client.id)
+        .eq('active', true)
+        .order('submitted_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingLinkError) throw existingLinkError;
+      if (!existingLink) return reply({ error: 'Este cliente ainda nao possui link unico de cadastro vinculado.' }, 409);
+
+      return reply({
+        linkId: existingLink.id,
+        clientId: client.id,
+        url: existingLink.public_token ? `${appOrigin}/?cadastro=${encodeURIComponent(existingLink.public_token)}` : null,
+      });
     }
 
     const token = clean(value('token'), 100);
@@ -229,15 +229,20 @@ Deno.serve(async (req) => {
         const contract = (contracts || []).find((item: any) =>
           (item.owner_id === link.profile_id || item.profile_id === link.profile_id) && portalStatuses.has(String(item.status || '').toUpperCase())
         );
-        if (registrationApproved && contract) {
-          const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`;
-          return reply({ valid: true, state: 'PORTAL', portalUrl });
-        }
-        if (registrationApproved && publicDocuments.length > 0) {
-          return reply({ valid: true, state: 'DOCUMENTS', documents: publicDocuments });
-        }
+        const { data: clientDetails } = await admin.from('clientes')
+          .select('id, name, document, phone, email, city, state, profile_id')
+          .eq('id', link.client_id)
+          .maybeSingle();
+
         if (registrationApproved) {
-          return reply({ valid: true, state: 'APPROVED', documents: publicDocuments });
+          const portalUrl = contract ? `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}` : null;
+          return reply({
+            valid: true,
+            state: 'APPROVED',
+            client: clientDetails,
+            documents: publicDocuments,
+            portalUrl
+          });
         }
         return reply({ valid: true, state: 'SUBMITTED' });
       }

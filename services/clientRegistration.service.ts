@@ -94,10 +94,25 @@ export const clientRegistrationService = {
     }));
     return urls;
   },
+  async createClientAccessLink(clientId: string) {
+    const data = await request({ action: 'create_client_link', client_id: clientId }, true) as any;
+    if (!data?.token || !data?.url || !data?.linkId) {
+      throw new Error('Nao foi possivel gerar o link publico do cliente.');
+    }
+    return { token: String(data.token), url: String(data.url), linkId: String(data.linkId) };
+  },
 };
 
 export type ClientRegistrationLinkState = {
   valid: true;
   state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'PORTAL';
   portalUrl?: string;
+  documents?: Array<{
+    id: string;
+    tipo: string;
+    status_assinatura: string;
+    created_at: string;
+    sign_url: string;
+    view_url: string;
+  }>;
 };

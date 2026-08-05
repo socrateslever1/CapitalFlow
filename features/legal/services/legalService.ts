@@ -7,6 +7,7 @@ import { isUUID, safeUUID } from '../../../utils/uuid';
 import { fetchWithRetry } from '../../../utils/fetchWithRetry';
 import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
 import { buildPreContractNotice } from './preContractNotice';
+import { isValidCPForCNPJ } from '../../../utils/validators';
 
 const resolveDocumentAccessToken = (row: any): string | undefined =>
   row?.view_token || row?.public_access_token || undefined;
@@ -27,6 +28,57 @@ const normalizeSignatureRole = (value: string | null | undefined): string => {
   if (role === 'TESTEMUNHA' || role === 'WITNESS') return 'WITNESS_1';
 
   return role;
+};
+
+const isMissingAddress = (value?: string) => {
+  const normalized = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  return !normalized || normalized.includes('endereco nao informado') || normalized === 'nao informado';
+};
+
+const validateDocumentParams = (params: LegalDocumentParams): string[] => {
+  const errors: string[] = [];
+  const principalAmount = Number(params.principalAmount ?? params.amount ?? 0);
+  const legalTotal = Number(params.legalTotalAmount ?? params.totalDebt ?? params.amount ?? 0);
+  const installmentTotal = (params.installments || []).reduce(
+    (sum, installment: any) => sum + (Number(installment.amount) || 0),
+    0,
+  );
+  const promissoryAmount = Number((params as any).promissoryAmount ?? legalTotal);
+
+  if (!Number.isFinite(principalAmount) || principalAmount <= 0) {
+    errors.push('Nao existe saldo de capital em aberto para gerar a confissao de divida.');
+  }
+
+  if (!params.debtorDoc || !isValidCPForCNPJ(params.debtorDoc)) {
+    errors.push('CPF ou CNPJ do devedor invalido.');
+  }
+
+  if (isMissingAddress(params.debtorAddress)) {
+    errors.push('Endereco do devedor ausente.');
+  }
+
+  if (params.legalReconciliation && !params.legalReconciliation.isReconciled) {
+    errors.push('Saldo juridico nao esta reconciliado com o capital operacional.');
+  }
+
+  if (params.installments?.length && Math.abs(installmentTotal - legalTotal) > 0.01) {
+    errors.push('O cronograma juridico nao corresponde ao total juridico previsto.');
+  }
+
+  if (Math.abs(promissoryAmount - legalTotal) > 0.01) {
+    errors.push('A nota promissoria possui valor diferente da obrigacao juridica.');
+  }
+
+  if (params.legalReconciliation && Math.abs(params.legalReconciliation.capitalDifferenceAmount) > 0.01) {
+    errors.push('Ha divergencia entre capital pago e saldo restante.');
+  }
+
+  return Array.from(new Set(errors));
 };
 
 const mapLegalDocumentRecord = (row: any): LegalDocumentRecord => ({
@@ -112,11 +164,15 @@ export const legalService = {
       creditorName: activeUser.fullName || activeUser.businessName || activeUser.name,
       creditorDoc: activeUser.document || 'Não informado',
       creditorAddress: activeUser.address || `${activeUser.city || 'Manaus'} - ${activeUser.state || 'AM'}`,
-      amount: legalTerms.principalAmount,
+      amount: legalTerms.legalTotalAmount,
       principalAmount: legalTerms.principalAmount,
       originalPrincipalAmount: legalTerms.originalPrincipalAmount,
       principalPaidAmount: legalTerms.principalPaidAmount,
-      totalDebt: legalTerms.principalAmount,
+      legalInterestRatePercent: legalTerms.legalInterestRatePercent,
+      legalInterestAmount: legalTerms.legalInterestAmount,
+      legalTotalAmount: legalTerms.legalTotalAmount,
+      legalReconciliation: legalTerms.reconciliation,
+      totalDebt: legalTerms.legalTotalAmount,
       originDescription: agreement ? `Saldo de capital efetivamente disponibilizado no instrumento particular de crédito ID ${loan.id.substring(0, 8)}, reorganizado pelo Acordo nº ${agreement.id.substring(0, 8)}.` : `Saldo de capital efetivamente disponibilizado no instrumento particular de crédito ID ${loan.id.substring(0, 8)}.`,
       city: activeUser.city || 'Manaus',
       state: activeUser.state || 'AM',
@@ -136,23 +192,53 @@ export const legalService = {
 
   async generateAndRegisterDocument(entityId: string, params: LegalDocumentParams, profileId: string, type?: string): Promise<LegalDocumentRecord> {
     const principalOnlyAmount = Number(params.principalAmount ?? params.amount ?? 0);
+    const legalTotalAmount = Number(params.legalTotalAmount ?? params.totalDebt ?? params.amount ?? 0);
     if (!Number.isFinite(principalOnlyAmount) || principalOnlyAmount <= 0) {
       throw new Error('Nao existe saldo de capital em aberto para gerar a confissao de divida.');
     }
 
+    const validationErrors = validateDocumentParams(params);
+    if (validationErrors.length > 0) {
+      throw new Error(`Documento juridico bloqueado: ${validationErrors.join(' ')}`);
+    }
+
+    const { data: signedDocs, error: signedDocsError } = await supabase
+      .from('documentos_juridicos')
+      .select('id, snapshot, hash_sha256, status_assinatura, created_at')
+      .eq('loan_id', safeUUID(params.loanId))
+      .eq('tipo', type || 'CONFISSAO')
+      .eq('status_assinatura', 'ASSINADO')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (signedDocsError) throw signedDocsError;
+
+    const conflictingSignedDoc = (signedDocs || []).find((doc: any) => {
+      const snapshot = doc?.snapshot || {};
+      const signedPrincipal = Number(snapshot.principalAmount ?? snapshot.amount ?? 0);
+      const signedTotal = Number(snapshot.legalTotalAmount ?? snapshot.totalDebt ?? snapshot.amount ?? 0);
+      return Math.abs(signedPrincipal - principalOnlyAmount) > 0.01
+        || Math.abs(signedTotal - legalTotalAmount) > 0.01;
+    });
+
+    if (conflictingSignedDoc) {
+      throw new Error('Ja existe documento assinado conflitante para este contrato. Revise o historico juridico antes de gerar outro.');
+    }
+
     params = {
       ...params,
-      amount: principalOnlyAmount,
+      amount: legalTotalAmount,
       principalAmount: principalOnlyAmount,
-      totalDebt: principalOnlyAmount,
+      legalTotalAmount,
+      totalDebt: legalTotalAmount,
     };
 
     const installmentTotal = (params.installments || []).reduce(
       (sum, installment) => sum + (Number(installment.amount) || 0),
       0,
     );
-    if (params.installments?.length && Math.abs(installmentTotal - principalOnlyAmount) > 0.01) {
-      throw new Error('O cronograma juridico nao corresponde ao saldo de capital confessado.');
+    if (params.installments?.length && Math.abs(installmentTotal - legalTotalAmount) > 0.01) {
+      throw new Error('O cronograma juridico nao corresponde ao total juridico previsto.');
     }
 
     const snapshotStr = createLegalSnapshot(params);

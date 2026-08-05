@@ -16,7 +16,7 @@ import { DocumentEditor } from './DocumentEditor';
 import {
     ChevronLeft, Scroll, UserCheck, ShieldCheck,
     Users, MapPin, Loader2, Scale, RotateCcw,
-    Gavel, Search, Calendar
+    Gavel, Search, Calendar, AlertTriangle, Calculator, CheckCircle2
 } from 'lucide-react';
 import { Loan, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
@@ -89,6 +89,11 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
         isDocumentDeletable,
         buildSigningLinks
     } = useConfissaoDividaState({ loans, initialLoanId, activeUser, showToast });
+
+    const selectedLegalTerms = selectedLoan
+        ? buildCapitalOnlyLegalTerms(selectedLoan, selectedLoan.activeAgreement)
+        : null;
+    const reconciliation = selectedLegalTerms?.reconciliation;
 
     // Efeito para geração inicial da minuta
     useEffect(() => {
@@ -372,14 +377,75 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                             </div>
                         </section>
 
+                        {selectedLoan && reconciliation && (
+                            <section className="space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-6 h-6 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-500 font-black text-[10px]">
+                                        04
+                                    </div>
+                                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Reconciliação Jurídica</h3>
+                                </div>
+                                <div className={`border p-4 rounded-lg space-y-3 ${
+                                    reconciliation.isReconciled
+                                        ? 'bg-emerald-950/20 border-emerald-900/50'
+                                        : 'bg-amber-950/20 border-amber-800/60'
+                                }`}>
+                                    <div className="flex items-start gap-3">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                            reconciliation.isReconciled ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950'
+                                        }`}>
+                                            {reconciliation.isReconciled ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+                                        </div>
+                                        <div>
+                                            <p className={`text-[9px] font-black uppercase tracking-widest ${
+                                                reconciliation.isReconciled ? 'text-emerald-300' : 'text-amber-200'
+                                            }`}>
+                                                {reconciliation.isReconciled ? 'Capital reconciliado' : 'Geração bloqueada'}
+                                            </p>
+                                            <p className="text-[8px] text-slate-400 leading-relaxed mt-1">
+                                                O jurídico considera apenas capital entregue menos capital devolvido. Juros, multa, mora e custos internos ficam separados.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            ['Capital original', reconciliation.originalPrincipalAmount],
+                                            ['Capital devolvido', reconciliation.principalPaidAmount],
+                                            ['Saldo jurídico', reconciliation.legalPrincipalBalance],
+                                            ['Capital operacional', reconciliation.operationalPrincipalBalance],
+                                            ['Juros/encargos oper.', reconciliation.operationalInterestBalance + reconciliation.operationalLateFeeBalance],
+                                            ['Diferença capital', reconciliation.capitalDifferenceAmount],
+                                        ].map(([label, value]) => (
+                                            <div key={String(label)} className="bg-slate-950/50 border border-slate-800/60 rounded-lg p-2">
+                                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">{label}</p>
+                                                <p className="text-[10px] text-white font-black mt-1">{formatMoney(Number(value), isStealthMode)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {reconciliation.warnings.length > 0 && (
+                                        <div className="space-y-1">
+                                            {reconciliation.warnings.map((warning) => (
+                                                <p key={warning} className="text-[8px] text-amber-200 leading-relaxed flex gap-2">
+                                                    <AlertTriangle size={10} className="mt-0.5 shrink-0" />
+                                                    {warning}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
                         {/* STEP 4: ACTION */}
                         <section className="pt-2">
                             <button
                                 onClick={handleRegister}
-                                disabled={!selectedLoan || isGenerating || !selectedW1 || !selectedW2}
+                                disabled={!selectedLoan || isGenerating || !selectedW1 || !selectedW2 || !reconciliation?.isReconciled}
                                 className="w-full py-4 bg-indigo-600 text-white rounded-lg font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-900/20 hover:bg-indigo-500 transition-all disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-3 active:scale-95"
                             >
-                                {isGenerating ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
+                                {isGenerating ? <Loader2 className="animate-spin" size={16} /> : reconciliation?.isReconciled ? <ShieldCheck size={16} /> : <Calculator size={16} />}
                                 Registrar Documento
                             </button>
                         </section>

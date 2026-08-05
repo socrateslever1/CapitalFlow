@@ -520,6 +520,7 @@ export const App: React.FC = () => {
                     ui={ui}
                     isStealthMode={ui.isStealthMode}
                     onRefresh={() => fetchFullData(activeUser?.id || '')}
+                    activeUser={activeUser}
                   />
                 </motion.div>
               )}

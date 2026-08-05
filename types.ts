@@ -153,6 +153,9 @@ export interface AgreementInstallment {
   number: number;
   dueDate: string;
   amount: number;
+  principalAmount?: number;
+  legalInterestAmount?: number;
+  principalBalanceAfter?: number;
   status: 'PENDING' | 'PAID' | 'LATE' | 'PARTIAL' | 'PAGO';
   paidAmount: number;
   paidDate?: string;
@@ -366,6 +369,26 @@ export interface LegalDocumentParams {
   principalAmount?: number;
   originalPrincipalAmount?: number;
   principalPaidAmount?: number;
+  legalInterestRatePercent?: number;
+  legalInterestAmount?: number;
+  legalTotalAmount?: number;
+  legalReconciliation?: {
+    originalPrincipalAmount: number;
+    principalPaidAmount: number;
+    legalPrincipalBalance: number;
+    operationalPrincipalBalance: number;
+    operationalTotalBalance: number;
+    operationalInterestBalance: number;
+    operationalLateFeeBalance: number;
+    ledgerPrincipalPaidAmount: number;
+    installmentPrincipalPaidAmount: number;
+    differenceAmount: number;
+    capitalDifferenceAmount: number;
+    isReconciled: boolean;
+    warnings: string[];
+  };
+  legalValidationErrors?: string[];
+  requiredSignatureRoles?: string[];
   creditorName?: string;
   creditorDoc?: string;
   creditorAddress?: string;

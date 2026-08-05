@@ -74,45 +74,121 @@ function mapPaymentMethod(captureMethod: string | null | undefined) {
   return "CREDIT_CARD";
 }
 
-async function notifyOperatorWhatsApp(
-  supabase: any,
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  profileId: string,
-  message: string,
-) {
-  try {
-    const { data: profile } = await supabase
-      .from("perfis")
-      .select("*")
-      .eq("id", profileId)
-      .maybeSingle();
-    const phone = String(
-      profile?.contato_whatsapp ||
-      profile?.support_phone ||
-      profile?.telefone ||
-      profile?.phone ||
-      profile?.whatsapp ||
-      "",
-    ).replace(/\D/g, "");
-    if (phone.length < 10) return;
+const digits = (value: unknown) => String(value || "").replace(/\D/g, "");
+const money = (value: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+}).format(value);
 
-    await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "apikey": serviceRoleKey,
-      },
-      body: JSON.stringify({
-        profile_id: profileId,
-        phone,
-        message,
-      }),
+type PaymentTarget = {
+  loan_id?: string;
+  installment_id?: string;
+  amount?: number;
+};
+
+async function queuePaymentNotifications(
+  supabase: any,
+  charge: any,
+  approvedAmount: number,
+  receiptUrl: string | null,
+) {
+  const payload = charge.provider_payload || {};
+  const storedTargets: PaymentTarget[] = Array.isArray(payload.installments) ? payload.installments : [];
+  const targets = storedTargets.length > 0
+    ? storedTargets
+    : [{ loan_id: charge.loan_id, installment_id: charge.installment_id, amount: approvedAmount }];
+  const loanIds = [...new Set(targets.map((target) => String(target.loan_id || charge.loan_id || "")).filter(Boolean))];
+  if (!loanIds.length) return;
+
+  const { data: contracts, error: contractError } = await supabase
+    .from("contratos")
+    .select("id,owner_id,profile_id,client_id,debtor_name,debtor_phone,portal_token,portal_shortcode")
+    .in("id", loanIds);
+  if (contractError) throw contractError;
+  if (!contracts?.length) return;
+
+  const profileId = String(contracts[0].profile_id || contracts[0].owner_id || "");
+  if (!profileId) return;
+  const contractById = new Map(contracts.map((contract: any) => [String(contract.id), contract]));
+  const clients = new Map<string, { name: string; phone: string; amount: number; loanId: string; portalLink: string | null }>();
+
+  targets.forEach((target) => {
+    const loanId = String(target.loan_id || charge.loan_id || "");
+    const contract: any = contractById.get(loanId);
+    if (!contract) return;
+    const phone = digits(contract.debtor_phone);
+    if (phone.length < 10) return;
+    const key = String(contract.client_id || phone);
+    const current = clients.get(key);
+    const targetAmount = Number(target.amount || (targets.length === 1 ? approvedAmount : 0));
+    const portalLink = contract.portal_token && contract.portal_shortcode
+      ? `https://capitalflow.app/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`
+      : null;
+    clients.set(key, {
+      name: String(contract.debtor_name || current?.name || "Cliente").trim(),
+      phone,
+      amount: round(Number(current?.amount || 0) + targetAmount),
+      loanId: current?.loanId || loanId,
+      portalLink: current?.portalLink || portalLink,
     });
-  } catch (err) {
-    console.warn("[infinitepay-webhook] Falha ao notificar operador por WhatsApp:", err);
+  });
+
+  if (clients.size === 1) {
+    const [clientKey, client] = [...clients.entries()][0];
+    clients.set(clientKey, { ...client, amount: round(approvedAmount) });
   }
+
+  const queueRows: Record<string, unknown>[] = [];
+  for (const [clientKey, client] of clients) {
+    const firstName = client.name.split(/\s+/)[0] || "Cliente";
+    const receiptLine = receiptUrl
+      ? `\n\nComprovante: ${receiptUrl}`
+      : client.portalLink
+        ? `\n\nSeu recibo e o saldo atualizado estão no portal: ${client.portalLink}`
+        : "";
+    queueRows.push({
+      profile_id: profileId,
+      phone: client.phone,
+      message: `[[CF_CUSTOM]]\nOlá, ${firstName}. Confirmamos o seu pagamento de ${money(client.amount)} pela InfinitePay. O valor já foi baixado no CapitalFlow.${receiptLine}`,
+      status: "PENDING",
+      loan_id: client.loanId,
+      category: "CONFIRMACAO",
+      dedupe_key: `infinitepay:${charge.id}:client:${clientKey}`,
+    });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("perfis")
+    .select("*")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  const operatorPhone = digits(
+    profile?.contato_whatsapp ||
+    profile?.support_phone ||
+    profile?.telefone ||
+    profile?.phone ||
+    profile?.whatsapp,
+  );
+  if (operatorPhone.length >= 10) {
+    const names = [...clients.values()].map((client) => client.name).filter(Boolean);
+    const payer = names.length === 1 ? names[0] : names.length > 1 ? names.join(", ") : "Cliente";
+    queueRows.push({
+      profile_id: profileId,
+      phone: operatorPhone,
+      message: `[[CF_CUSTOM]]\n${payer} pagou ${money(approvedAmount)} pela InfinitePay. O pagamento foi baixado automaticamente no CapitalFlow.`,
+      status: "PENDING",
+      loan_id: loanIds[0],
+      category: "AVISO",
+      dedupe_key: `infinitepay:${charge.id}:operator`,
+    });
+  }
+
+  if (!queueRows.length) return;
+  const { error: queueError } = await supabase
+    .from("whatsapp_queue")
+    .upsert(queueRows, { onConflict: "dedupe_key", ignoreDuplicates: true });
+  if (queueError) throw queueError;
 }
 
 serve(async (req) => {
@@ -173,6 +249,12 @@ serve(async (req) => {
 
     if (String(charge.status || "").toUpperCase() === "PAID") {
       await updateCharge({ status: "PAID", paid_at: new Date().toISOString(), provider_status: "PAID" });
+      await queuePaymentNotifications(
+        supabase,
+        charge,
+        Number(charge.amount || 0),
+        receiptUrl || payload?.receipt_url || payload?.webhook_payload?.receipt_url || null,
+      );
       return json({ success: true, message: null });
     }
 
@@ -387,13 +469,7 @@ serve(async (req) => {
       },
     });
 
-    await notifyOperatorWhatsApp(
-      supabase,
-      SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY,
-      ownerProfileId,
-      "CapitalFlow: pagamento InfinitePay de R$ " + approvedAmount.toFixed(2).replace(".", ",") + " recebido e baixado automaticamente.",
-    );
+    await queuePaymentNotifications(supabase, charge, approvedAmount, receiptUrl);
 
     return json({ success: true, message: null });
   } catch (err: any) {

@@ -6,6 +6,7 @@ import { generateSHA256, createLegalSnapshot } from '../../../utils/crypto';
 import { isUUID, safeUUID } from '../../../utils/uuid';
 import { fetchWithRetry } from '../../../utils/fetchWithRetry';
 import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
+import { buildPreContractNotice } from './preContractNotice';
 
 const resolveDocumentAccessToken = (row: any): string | undefined =>
   row?.view_token || row?.public_access_token || undefined;
@@ -43,6 +44,60 @@ const mapLegalDocumentRecord = (row: any): LegalDocumentRecord => ({
 });
 
 export const legalService = {
+  async enqueuePreContractNotice(
+    document: LegalDocumentRecord,
+    loan: Loan,
+    profileId: string,
+    links: { signUrl?: string | null; portalUrl?: string | null },
+  ): Promise<{ queued: boolean }> {
+    const safeProfileId = safeUUID(profileId);
+    const safeClientId = safeUUID(loan.clientId);
+    const safeDocumentId = safeUUID(document.id);
+    const safeLoanId = safeUUID(loan.id);
+
+    if (!safeProfileId || !safeClientId || !safeDocumentId || !safeLoanId) {
+      throw new Error('Cliente, documento ou contrato invalido para o aviso do pre-contrato.');
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from('clientes')
+      .select('name, phone')
+      .eq('id', safeClientId)
+      .eq('owner_id', safeProfileId)
+      .maybeSingle();
+
+    if (clientError) throw new Error(`Falha ao consultar o cliente: ${clientError.message}`);
+    if (!client) throw new Error('Cliente cadastrado nao encontrado para este contrato.');
+
+    const phone = String(client.phone || '').replace(/\D/g, '');
+    if (phone.length < 10 || phone.length > 13) {
+      throw new Error('Telefone do cliente nao cadastrado ou invalido.');
+    }
+
+    const notice = buildPreContractNotice({
+      clientName: client.name,
+      signUrl: links.signUrl,
+      portalUrl: links.portalUrl,
+    });
+    const dedupeKey = `precontract:${safeDocumentId}:client`;
+
+    const { data, error } = await supabase
+      .from('whatsapp_queue')
+      .upsert({
+        profile_id: safeProfileId,
+        phone,
+        message: `[[CF_CUSTOM]] ${notice.message}`,
+        status: 'PENDING',
+        loan_id: safeLoanId,
+        dedupe_key: dedupeKey,
+      }, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw new Error(`Falha ao enfileirar o aviso do pre-contrato: ${error.message}`);
+    return { queued: !!data?.id };
+  },
+
   prepareDocumentParams: (loan: Loan, activeUser: UserProfile, agreement?: Agreement): LegalDocumentParams => {
     // Para fins jurídicos, a dívida confessada é o Total a Receber (Principal + Juros Acordados)
     const legalTerms = buildCapitalOnlyLegalTerms(loan, agreement);

@@ -174,3 +174,47 @@ test("daily collections use configured time slots and stop without open balance"
   assert.match(source, /scheduled_hour: currentHour/);
   assert.match(source, /if \(amount <= 0\.05\) continue/);
 });
+
+test("InfinitePay queues one receipt for the client and one payment alert for the operator", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "..", "..", "supabase", "functions", "infinitepay-webhook", "index.ts"),
+    "utf8",
+  );
+  const migration = fs.readFileSync(
+    path.join(__dirname, "..", "..", "supabase", "migrations", "20260805002000_add_whatsapp_queue_dedupe_key.sql"),
+    "utf8",
+  );
+
+  assert.match(source, /async function queuePaymentNotifications/);
+  assert.match(source, /category: "CONFIRMACAO"/);
+  assert.match(source, /category: "AVISO"/);
+  assert.match(source, /Comprovante:/);
+  assert.match(source, /pagou \$\{money\(approvedAmount\)\}/);
+  assert.match(source, /onConflict: "dedupe_key", ignoreDuplicates: true/);
+  assert.doesNotMatch(source, /functions\/v1\/whatsapp-send/);
+  assert.match(migration, /unique index if not exists whatsapp_queue_dedupe_key_uidx/);
+
+  const workflow = readWorkflow("capitalflow-manual-collections.json");
+  assert.equal(workflow.connections["Is Custom Message"].main[0][0].node, "Prepare Custom Message");
+});
+
+test("customer support uses interactive menus and link buttons with text fallback", () => {
+  const workflow = readWorkflow("capitalflow-whatsapp.json");
+  const prepare = workflow.nodes.find((node) => node.name === "Prepare WhatsApp Message");
+  const sender = workflow.nodes.find((node) => node.name === "Send WhatsApp Reply");
+  const fallback = workflow.nodes.find((node) => node.name === "Fallback WhatsApp Text");
+
+  assert.ok(prepare);
+  assert.match(prepare.parameters.jsCode, /api\/sendList/);
+  assert.match(prepare.parameters.jsCode, /api\/sendButtons/);
+  assert.match(prepare.parameters.jsCode, /consultar_divida/);
+  assert.match(prepare.parameters.jsCode, /solicitar_emprestimo/);
+  assert.match(prepare.parameters.jsCode, /falar_atendente/);
+  assert.match(prepare.parameters.jsCode, /Falar com operador/);
+  assert.match(prepare.parameters.jsCode, /Abrir portal/);
+  assert.equal(sender.parameters.url, "={{ $json.endpoint }}");
+  assert.equal(sender.onError, "continueErrorOutput");
+  assert.equal(fallback.parameters.url, "http://waha:3000/api/sendText");
+  assert.equal(workflow.connections["Output Guard"].main[0][0].node, "Prepare WhatsApp Message");
+  assert.equal(workflow.connections["Send WhatsApp Reply"].main[1][0].node, "Fallback WhatsApp Text");
+});

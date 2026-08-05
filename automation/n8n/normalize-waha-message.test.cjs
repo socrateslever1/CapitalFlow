@@ -76,6 +76,15 @@ test('exige identificador para permitir deduplicação', () => {
   });
 });
 
+test('converte a selecao interna do menu em uma intencao legivel', () => {
+  const result = normalizeWahaMessage(payload({
+    body: 'solicitar_emprestimo',
+  }), { tenantMap });
+
+  assert.equal(result.accepted, true);
+  assert.equal(result.value.message, 'Solicitar emprestimo');
+});
+
 test('usa o telefone alternativo quando o remetente principal é um LID oculto', () => {
   const result = normalizeWahaMessage(payload({
     from: '123456789012345@lid',

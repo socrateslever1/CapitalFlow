@@ -315,7 +315,24 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
 
             const token = resolveDocumentToken(docRecord);
             if (token) {
-                setSigningLinks(buildSigningLinks(token));
+                const links = buildSigningLinks(token);
+                setSigningLinks(links);
+                try {
+                    const notice = await legalService.enqueuePreContractNotice(
+                        docRecord,
+                        selectedLoan,
+                        ownerId,
+                        { signUrl: links.debtor }
+                    );
+                    toast.success(notice.queued
+                        ? "Aviso de assinatura enviado para a fila do WhatsApp."
+                        : "O aviso deste documento ja estava na fila do WhatsApp.");
+                } catch (noticeError: any) {
+                    console.error('[LegalDocument] Falha ao enfileirar aviso de assinatura:', noticeError);
+                    toast.warning(noticeError?.message || "Documento criado, mas o aviso de assinatura nao foi enfileirado.");
+                }
+            } else {
+                toast.warning("Documento criado sem link publico; o aviso de assinatura nao foi enfileirado.");
             }
             setLoanDocuments(prev => mergeDocumentRecords(prev, docRecord));
             await refreshLoanDocuments(selectedLoan.id, docRecord);

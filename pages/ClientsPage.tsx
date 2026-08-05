@@ -308,7 +308,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`min-h-[240px] h-full self-start overflow-hidden bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`min-h-[180px] self-start overflow-hidden bg-slate-900 border p-3.5 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : () => setSelectedClient(client)}
                 >
                     {isBulkDeleteMode && (

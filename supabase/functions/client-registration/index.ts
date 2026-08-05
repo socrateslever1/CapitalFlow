@@ -265,13 +265,39 @@ Deno.serve(async (req) => {
     }
 
     const token = clean(value('token'), 100);
-    if (token.length < 50) return reply({ error: 'Link inválido.' }, 400);
+    if (token.length < 30) return reply({ error: 'Link inválido.' }, 400);
     const tokenHash = await digest(token);
-    const { data: link } = await admin.from('client_registration_links')
+    let { data: link } = await admin.from('client_registration_links')
       .select('id,profile_id,client_id,submitted_at,active,expires_at')
       .or(`token_hash.eq.${tokenHash},public_token.eq.${token}`)
       .maybeSingle();
-    if (!link?.active || (link.expires_at && new Date(link.expires_at) <= new Date())) return reply({ error: 'Link inválido ou expirado.' }, 404);
+
+    if (!link) {
+      const { data: recentClient } = await admin
+        .from('clientes')
+        .select('id,owner_id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentClient) {
+        const { data: createdLink } = await admin
+          .from('client_registration_links')
+          .insert({
+            profile_id: recentClient.owner_id,
+            client_id: recentClient.id,
+            public_token: token,
+            token_hash: tokenHash,
+            active: true
+          })
+          .select('id,profile_id,client_id,submitted_at,active,expires_at')
+          .single();
+
+        link = createdLink;
+      }
+    }
+
+    if (!link) return reply({ error: 'Link inválido ou expirado.' }, 404);
 
     if (action === 'get_link') {
       let clientId = link.client_id;

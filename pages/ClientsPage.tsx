@@ -8,6 +8,8 @@ import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
 import { clientRegistrationService } from '../services/clientRegistration.service';
 import { clientPreContractService } from '../services/clientPreContract.service';
+import { witnessService } from '../features/legal/services/witness.service';
+import { supabase } from '../lib/supabase';
 import { getOrCreatePortalLink } from '../utils/portalLink';
 import { copyToClipboard } from '../utils/clipboard';
 
@@ -154,10 +156,65 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     }
   };
 
-  const openPreContractModal = (client: Client) => {
+  const openPreContractModal = async (client: Client) => {
     setPreContractClient(client);
-    setPreContractForm({ amount: '', dueDate: '', notes: '', witness1Name: '', witness1Doc: '', witness2Name: '', witness2Doc: '' });
     setPreContractResult(null);
+
+    let w1Name = '';
+    let w1Doc = '';
+    let w2Name = '';
+    let w2Doc = '';
+
+    try {
+      const dbWitnesses = await witnessService.list(profileId);
+      if (dbWitnesses && dbWitnesses.length > 0) {
+        if (dbWitnesses[0]) {
+          w1Name = dbWitnesses[0].name || '';
+          w1Doc = dbWitnesses[0].document || '';
+        }
+        if (dbWitnesses[1]) {
+          w2Name = dbWitnesses[1].name || '';
+          w2Doc = dbWitnesses[1].document || '';
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
+    if (!w1Name && !w2Name) {
+      try {
+        const { data: lastDoc } = await supabase
+          .from('documentos_juridicos')
+          .select('snapshot')
+          .not('snapshot', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const snap = lastDoc?.snapshot as any;
+        const snapWitnesses = Array.isArray(snap?.witnesses) ? snap.witnesses : [];
+        if (snapWitnesses[0] || snap?.witness1Name) {
+          w1Name = snapWitnesses[0]?.name || snap?.witness1Name || '';
+          w1Doc = snapWitnesses[0]?.document || snapWitnesses[0]?.documento || snap?.witness1Doc || '';
+        }
+        if (snapWitnesses[1] || snap?.witness2Name) {
+          w2Name = snapWitnesses[1]?.name || snap?.witness2Name || '';
+          w2Doc = snapWitnesses[1]?.document || snapWitnesses[1]?.documento || snap?.witness2Doc || '';
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    setPreContractForm({
+      amount: '',
+      dueDate: '',
+      notes: '',
+      witness1Name: w1Name,
+      witness1Doc: w1Doc,
+      witness2Name: w2Name,
+      witness2Doc: w2Doc,
+    });
   };
 
   const createPreContract = async () => {
@@ -166,6 +223,13 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     try {
       const amount = Number(preContractForm.amount);
       if (isNaN(amount) || amount <= 0) throw new Error('Valor inválido.');
+
+      if (preContractForm.witness1Name.trim()) {
+        witnessService.save({ id: '', name: preContractForm.witness1Name, document: preContractForm.witness1Doc }, profileId).catch(() => {});
+      }
+      if (preContractForm.witness2Name.trim()) {
+        witnessService.save({ id: '', name: preContractForm.witness2Name, document: preContractForm.witness2Doc }, profileId).catch(() => {});
+      }
 
       const result = await clientPreContractService.create({
         clientId: preContractClient.id,
@@ -312,7 +376,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`min-h-[140px] self-start overflow-hidden bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`h-[145px] self-start overflow-hidden bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col justify-between ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : () => setSelectedClient(client)}
                 >
                     {isBulkDeleteMode && (
@@ -321,102 +385,88 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         </div>
                     )}
 
-                    <div className="flex items-center gap-3 mb-3">
+                    {/* CABEÇALHO DO CARD */}
+                    <div className="flex items-center gap-2.5">
                         {client.fotoUrl ? (
-                            <img src={client.fotoUrl} className="w-10 h-10 rounded-full object-cover border border-slate-700" alt={client.name}/>
+                            <img src={client.fotoUrl} className="w-9 h-9 rounded-full object-cover border border-slate-700 shrink-0" alt={client.name}/>
                         ) : (
-                            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-500 font-black text-sm group-hover:text-blue-500 transition-colors border border-slate-700 shrink-0">
+                            <div className="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 font-black text-xs group-hover:text-blue-400 transition-colors border border-slate-700 shrink-0">
                                 {client.name.charAt(0)}
                             </div>
                         )}
                         <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-white text-sm truncate uppercase">{formatShortName(client.name)}</h3>
-                            <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-white text-xs truncate uppercase leading-tight">{formatShortName(client.name)}</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
                                 <p className="text-[10px] text-slate-500 truncate font-mono">{maskDocument((client as any).document, isStealthMode) || 'S/ CPF'}</p>
                                 {clientHasCapitalOnlyRecovery(loans, client) && (
-                                    <span className="inline-flex items-center gap-1 text-[8px] text-rose-500 font-black uppercase">
-                                        <ShieldAlert size={10}/> Somente Capital
-                                    </span>
-                                )}
-                                {client.createdAt && (
-                                    <span className="text-[8px] text-slate-600 font-medium uppercase tracking-tighter">
-                                        • {new Date(client.createdAt).toLocaleDateString('pt-BR')}
+                                    <span className="inline-flex items-center gap-0.5 text-[8px] text-rose-400 font-black uppercase">
+                                        <ShieldAlert size={9}/> Capital
                                     </span>
                                 )}
                             </div>
                         </div>
-                        {client.registration_status === 'PENDING_REVIEW' && <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300">Em análise{client.cpf_in_identity ? ' · CPF no RG' : ''}</span>}
+
                         {!isBulkDeleteMode && (
-                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-2 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-lg hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente">
-                                    <Link2 size={14}/>
+                            <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-1.5 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-md hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente">
+                                    <Link2 size={13}/>
                                 </button>
-                                <button onClick={() => openPreContractModal(client)} className="p-2 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-lg hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
-                                    <FileSignature size={14}/>
+                                <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
+                                    <FileSignature size={13}/>
                                 </button>
-                                {(client.registration_document_count || 0) > 0 && (
-                                  <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-2 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-lg hover:bg-blue-950/30 transition-colors" title={`Ver documentos do cadastro (${client.registration_document_count})`}>
-                                      <FileSearch size={14}/>
-                                  </button>
-                                )}
-                                <button onClick={() => openClientModal(client)} className="p-2 text-slate-500 hover:text-white bg-slate-950 rounded-lg hover:bg-slate-800 transition-colors" title="Editar">
-                                    <Edit size={14}/>
+                                <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Editar">
+                                    <Edit size={13}/>
                                 </button>
-                                <button onClick={() => onDeleteClient(client.id)} className="p-2 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-lg hover:bg-rose-950/30 transition-colors" title="Excluir">
-                                    <Trash2 size={14}/>
+                                <button onClick={() => onDeleteClient(client.id)} className="p-1.5 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-md hover:bg-rose-950/30 transition-colors" title="Excluir">
+                                    <Trash2 size={13}/>
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {client.registration_status !== 'APPROVED' && client.registration_status !== 'REJECTED' && (
-                      <div className="mb-3 grid grid-cols-3 gap-1.5" onClick={(event) => event.stopPropagation()}>
-                        <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex h-8 items-center justify-center gap-1 rounded-md border border-slate-700 bg-slate-950 text-[8px] font-black uppercase text-slate-300" title="Ver documentos"><FileSearch size={12}/> Docs ({client.registration_document_count || 0})</button>
-                        <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex h-8 items-center justify-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-black uppercase text-emerald-300 disabled:opacity-50"><Check size={12}/> Aprovar</button>
-                        <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'REJECTED')} className="flex h-8 items-center justify-center gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 text-[8px] font-black uppercase text-rose-300 disabled:opacity-50"><X size={12}/> Negar</button>
-                      </div>
-                    )}
-
-                    {contractIndicators.length > 0 && (
-                        <div className="mb-3 flex items-center gap-1.5 overflow-hidden">
-                            {contractIndicators.slice(0, 3).map((item) => (
+                    {/* INDICADORES DE CONTRATO (MÁXIMO 1 + INDICATIVO +N) */}
+                    <div className="flex items-center gap-1.5 min-h-[22px]">
+                        {contractIndicators.length > 0 ? (
+                            <>
                                 <span
-                                    key={item.id}
-                                    className={`min-w-0 truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${item.colorClass}`}
-                                    title={item.label}
+                                    className={`truncate rounded-md border px-1.5 py-0.5 text-[8px] font-black uppercase ${contractIndicators[0].colorClass}`}
+                                    title={contractIndicators[0].label}
                                 >
-                                    {item.label}
+                                    {contractIndicators[0].label}
                                 </span>
-                            ))}
-                            {contractIndicators.length > 3 && (
-                                <span className="rounded-md border border-slate-700 bg-slate-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
-                                    +{contractIndicators.length - 3}
-                                </span>
-                            )}
-                        </div>
-                    )}
+                                {contractIndicators.length > 1 && (
+                                    <span className="rounded-md border border-slate-700 bg-slate-950/80 px-1.5 py-0.5 text-[8px] font-black text-slate-300" title={`${contractIndicators.length - 1} contrato(s) adicional(is)`}>
+                                        +{contractIndicators.length - 1}
+                                    </span>
+                                )}
+                            </>
+                        ) : client.registration_status !== 'APPROVED' && client.registration_status !== 'REJECTED' ? (
+                            <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-slate-700 bg-slate-950 text-[8px] font-bold uppercase text-slate-300" title="Docs"><FileSearch size={10}/> Docs ({client.registration_document_count || 0})</button>
+                                <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-bold uppercase text-emerald-300"><Check size={10}/> Aprovar</button>
+                            </div>
+                        ) : (
+                            <span className="text-[9px] text-slate-600 italic">Sem contratos ativos</span>
+                        )}
+                    </div>
 
-                    <div className="space-y-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+                    {/* RODAPÉ DO CARD (CONTATO / ENDEREÇO EM 1 LINHA) */}
+                    <div className="flex items-center justify-between text-[10px] bg-slate-950/60 px-2 py-1.5 rounded-md" onClick={(e) => e.stopPropagation()}>
                         <a
                             href={client.phone ? `https://wa.me/55${client.phone.replace(/\D/g, '')}` : '#'}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-[10px] text-slate-300 bg-slate-950/50 p-2 rounded-lg hover:bg-emerald-950/30 hover:text-emerald-300 transition-colors"
+                            className="flex items-center gap-1.5 text-slate-300 hover:text-emerald-400 transition-colors min-w-0"
                         >
-                            <Phone size={12} className="text-emerald-500 shrink-0"/>
-                            <span className="truncate">{maskPhone(client.phone, isStealthMode)}</span>
+                            <Phone size={11} className="text-emerald-500 shrink-0"/>
+                            <span className="truncate font-mono text-[9px]">{maskPhone(client.phone, isStealthMode) || 'S/ telefone'}</span>
                         </a>
-                        {client.email && (
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
-                                <Users size={12} className="text-purple-500 shrink-0"/>
-                                <span className="truncate">{client.email}</span>
-                            </div>
-                        )}
+
                         {(client as any).address && (
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 bg-slate-950/50 p-2 rounded-lg">
-                                <MapPin size={12} className="text-emerald-500 shrink-0"/>
+                            <span className="flex items-center gap-1 text-[8px] text-slate-500 truncate max-w-[110px]" title={(client as any).address}>
+                                <MapPin size={9} className="text-slate-600 shrink-0"/>
                                 <span className="truncate">{(client as any).address}</span>
-                            </div>
+                            </span>
                         )}
                     </div>
                 </div>

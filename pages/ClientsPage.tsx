@@ -43,12 +43,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   activeUser
 }) => {
   const today = todayDateOnlyUTC();
-  const [registrationLink, setRegistrationLink] = React.useState('');
-  const [creatingLink, setCreatingLink] = React.useState(false);
   const [reviewingClientId, setReviewingClientId] = React.useState<string | null>(null);
+  const [creatingLink, setCreatingLink] = React.useState(false);
+  const [registrationLink, setRegistrationLink] = React.useState<string | null>(null);
 
   const [preContractClient, setPreContractClient] = React.useState<Client | null>(null);
-  const [preContractForm, setPreContractForm] = React.useState({ amount: '', dueDate: '', notes: '' });
+  const [preContractForm, setPreContractForm] = React.useState({ amount: '', dueDate: '', notes: '', witness1Name: '', witness1Doc: '', witness2Name: '', witness2Doc: '' });
   const [preContractBusy, setPreContractBusy] = React.useState(false);
   const [preContractResult, setPreContractResult] = React.useState<{ portalUrl: string; signUrl: string } | null>(null);
 
@@ -156,7 +156,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   const openPreContractModal = (client: Client) => {
     setPreContractClient(client);
-    setPreContractForm({ amount: '', dueDate: '', notes: '' });
+    setPreContractForm({ amount: '', dueDate: '', notes: '', witness1Name: '', witness1Doc: '', witness2Name: '', witness2Doc: '' });
     setPreContractResult(null);
   };
 
@@ -172,7 +172,11 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         amount,
         dueDate: preContractForm.dueDate || undefined,
         notes: preContractForm.notes || undefined,
-        operatorProfileId: activeUser.id
+        operatorProfileId: activeUser.id,
+        witness1Name: preContractForm.witness1Name || undefined,
+        witness1Doc: preContractForm.witness1Doc || undefined,
+        witness2Name: preContractForm.witness2Name || undefined,
+        witness2Doc: preContractForm.witness2Doc || undefined,
       });
 
       setPreContractResult({ portalUrl: result.portalUrl, signUrl: result.signUrl });
@@ -308,7 +312,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`min-h-[180px] self-start overflow-hidden bg-slate-900 border p-3.5 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`min-h-[140px] self-start overflow-hidden bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : () => setSelectedClient(client)}
                 >
                     {isBulkDeleteMode && (
@@ -462,10 +466,57 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                     <textarea
                       value={preContractForm.notes}
                       onChange={(event) => setPreContractForm((current) => ({ ...current, notes: event.target.value }))}
-                      className="min-h-20 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                      className="min-h-16 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
                       placeholder="Opcional"
                     />
                   </label>
+
+                  {/* TESTEMUNHAS INSTRUMENTÁRIAS */}
+                  <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3 space-y-3">
+                    <span className="block text-[10px] font-black uppercase tracking-wider text-indigo-400">Testemunhas Instrumentárias (Opcional)</span>
+                    
+                    {/* TESTEMUNHA 1 */}
+                    <div className="space-y-1.5">
+                      <span className="block text-[9px] font-bold uppercase text-slate-400">Testemunha 1</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={preContractForm.witness1Name}
+                          onChange={(e) => setPreContractForm(curr => ({ ...curr, witness1Name: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                          placeholder="Nome completo da testemunha 1"
+                        />
+                        <input
+                          type="text"
+                          value={preContractForm.witness1Doc}
+                          onChange={(e) => setPreContractForm(curr => ({ ...curr, witness1Doc: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-mono"
+                          placeholder="CPF da testemunha 1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* TESTEMUNHA 2 */}
+                    <div className="space-y-1.5">
+                      <span className="block text-[9px] font-bold uppercase text-slate-400">Testemunha 2</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={preContractForm.witness2Name}
+                          onChange={(e) => setPreContractForm(curr => ({ ...curr, witness2Name: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                          placeholder="Nome completo da testemunha 2"
+                        />
+                        <input
+                          type="text"
+                          value={preContractForm.witness2Doc}
+                          onChange={(e) => setPreContractForm(curr => ({ ...curr, witness2Doc: e.target.value }))}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-indigo-500 font-mono"
+                          placeholder="CPF da testemunha 2"
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <button
                     type="button"
                     disabled={preContractBusy || !preContractForm.amount}

@@ -16,6 +16,14 @@ export type ClientPreContractInput = {
   amount: number;
   dueDate?: string;
   notes?: string;
+  witness1Name?: string;
+  witness1Doc?: string;
+  witness2Name?: string;
+  witness2Doc?: string;
+  avalistaNome?: string;
+  avalistaCPF?: string;
+  tipoGarantia?: string;
+  descricaoGarantia?: string;
 };
 
 export type CreatePreContractOptions = {
@@ -24,6 +32,14 @@ export type CreatePreContractOptions = {
   dueDate?: string;
   notes?: string;
   operatorProfileId?: string;
+  witness1Name?: string;
+  witness1Doc?: string;
+  witness2Name?: string;
+  witness2Doc?: string;
+  avalistaNome?: string;
+  avalistaCPF?: string;
+  tipoGarantia?: string;
+  descricaoGarantia?: string;
 };
 
 export const clientPreContractService = {
@@ -74,6 +90,14 @@ export const clientPreContractService = {
       amount: options.amount,
       dueDate: options.dueDate,
       notes: options.notes,
+      witness1Name: options.witness1Name,
+      witness1Doc: options.witness1Doc,
+      witness2Name: options.witness2Name,
+      witness2Doc: options.witness2Doc,
+      avalistaNome: options.avalistaNome,
+      avalistaCPF: options.avalistaCPF,
+      tipoGarantia: options.tipoGarantia,
+      descricaoGarantia: options.descricaoGarantia,
     });
   },
 
@@ -94,7 +118,15 @@ export const clientPreContractService = {
     const today = new Date().toISOString().slice(0, 10);
     const dueDate = input.dueDate || addDaysUTC(today, 30).toISOString().slice(0, 10);
 
-    const params: LegalDocumentParams & { clientId: string; requiredSignatureRoles?: string[] } = {
+    const witnesses: Array<{ name: string; document: string }> = [];
+    if (input.witness1Name || input.witness1Doc) {
+      witnesses.push({ name: input.witness1Name || '', document: input.witness1Doc || '' });
+    }
+    if (input.witness2Name || input.witness2Doc) {
+      witnesses.push({ name: input.witness2Name || '', document: input.witness2Doc || '' });
+    }
+
+    const params: LegalDocumentParams & { clientId: string; requiredSignatureRoles?: string[]; witnesses?: any[]; witness1Name?: string; witness1Doc?: string; witness2Name?: string; witness2Doc?: string; incluirAvalista?: boolean; avalistaNome?: string; avalistaCPF?: string; incluirGarantia?: boolean; tipoGarantia?: string; descricaoGarantia?: string } = {
       loanId: resolvedClientId,
       clientId: resolvedClientId,
       clientName: client.name,
@@ -134,6 +166,17 @@ export const clientPreContractService = {
       }],
       requiredSignatureRoles: ['DEBTOR'],
       customContent: input.notes?.trim() || undefined,
+      witnesses: witnesses.length > 0 ? witnesses : undefined,
+      witness1Name: input.witness1Name,
+      witness1Doc: input.witness1Doc,
+      witness2Name: input.witness2Name,
+      witness2Doc: input.witness2Doc,
+      incluirAvalista: !!input.avalistaNome?.trim(),
+      avalistaNome: input.avalistaNome?.trim() || undefined,
+      avalistaCPF: input.avalistaCPF?.trim() || undefined,
+      incluirGarantia: !!input.descricaoGarantia?.trim(),
+      tipoGarantia: input.tipoGarantia?.trim() || 'BEM EM GARANTIA',
+      descricaoGarantia: input.descricaoGarantia?.trim() || undefined,
     };
 
     const snapshotStr = createLegalSnapshot(params);

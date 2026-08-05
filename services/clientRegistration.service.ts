@@ -111,8 +111,18 @@ export const clientRegistrationService = {
 
 export type ClientRegistrationLinkState = {
   valid: true;
-  state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'DOCUMENTS' | 'PORTAL';
+  state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'DOCUMENTS' | 'PORTAL';
   portalUrl?: string;
+  client?: {
+    id?: string;
+    name?: string;
+    document?: string;
+    phone?: string;
+    email?: string;
+    city?: string;
+    state?: string;
+    profile_id?: string;
+  };
   documents?: Array<{
     id: string;
     tipo: string;

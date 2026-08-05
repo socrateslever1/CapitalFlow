@@ -67,6 +67,27 @@ async function sha256(value: string) {
   return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function phoneIdentityVariants(value: unknown) {
+  const phone = digits(value);
+  const variants = new Set<string>();
+  if (phone.length >= 10) variants.add(phone);
+
+  const national = phone.startsWith("55") ? phone.slice(2) : phone;
+  if (national.length >= 10) {
+    variants.add(national);
+    variants.add(`55${national}`);
+  }
+
+  // Brazilian mobile numbers may arrive from WhatsApp with or without the ninth digit.
+  if (national.length === 11 && national[2] === "9") {
+    const legacyNational = `${national.slice(0, 2)}${national.slice(3)}`;
+    variants.add(legacyNational);
+    variants.add(`55${legacyNational}`);
+  }
+
+  return [...variants];
+}
+
 function hasPermission(admin: any, permission: string) {
   return admin.role === "OWNER" || admin.role === "ADMIN" || (admin.permissions || []).includes(permission);
 }
@@ -1292,8 +1313,13 @@ Deno.serve(async (req) => {
     const adminDb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
     const { data: integration } = await adminDb.from("n8n_automation_integrations").select("profile_id").eq("profile_id", profileId).eq("secret_hash", await sha256(secret)).eq("active", true).maybeSingle();
     if (!integration) return json({ error: "unauthorized" }, 401);
-    const phoneHash = await sha256(phone);
-    const { data: admin } = await adminDb.from("whatsapp_admin_users").select("*").eq("profile_id", profileId).eq("phone_hash", phoneHash).eq("active", true).maybeSingle();
+    const phoneHashes = await Promise.all(phoneIdentityVariants(phone).map(sha256));
+    const { data: admin } = await adminDb.from("whatsapp_admin_users").select("*")
+      .eq("profile_id", profileId)
+      .in("phone_hash", phoneHashes)
+      .eq("active", true)
+      .limit(1)
+      .maybeSingle();
     if (!admin) {
       const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-n8n-tools`, {
         method: "POST",

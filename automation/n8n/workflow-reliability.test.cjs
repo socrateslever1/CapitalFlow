@@ -54,6 +54,20 @@ test("operator routing uses the phone resolved from the current WhatsApp item", 
   assert.equal(adminCommand.type, "n8n-nodes-base.executeWorkflow");
   assert.equal(adminCommand.parameters.workflowId, "capitalflowOperatorSystem");
   assert.equal(adminCommand.parameters.options.waitForSubWorkflow, true);
+  assert.equal(workflow.nodes.some((node) => node.name === "Admin Conversation"), false);
+  assert.equal(workflow.nodes.some((node) => node.name === "Admin Conversation Guard"), false);
+  assert.equal(workflow.connections["Admin Gate"].main[0][0].node, "Admin Reply");
+});
+
+test("operator identity accepts legitimate Brazilian WhatsApp phone variants", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "..", "..", "supabase", "functions", "capitalflow-admin-whatsapp", "index.ts"),
+    "utf8",
+  );
+
+  assert.match(source, /function phoneIdentityVariants/);
+  assert.match(source, /national\[2\] === "9"/);
+  assert.match(source, /\.in\("phone_hash", phoneHashes\)/);
 });
 
 test("administrative WhatsApp accepts a bare CPF as a client lookup", () => {
@@ -130,6 +144,7 @@ test("collection workflows block malformed UTF-8 before WhatsApp delivery", () =
     assert.match(guard.parameters.jsCode, /codificacao invalida/);
     assert.match(guard.parameters.jsCode, /repair/);
     assert.match(guard.parameters.jsCode, /corrupted\.test\(message\)/);
+    assert.doesNotThrow(() => new Function(guard.parameters.jsCode));
   }
 });
 

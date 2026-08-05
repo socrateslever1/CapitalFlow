@@ -98,14 +98,14 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
     );
   }
 
-  if (linkState.state === 'APPROVED') {
+  if (linkState.state === 'DOCUMENTS') {
     const docs = linkState.documents || [];
     return (
       <div className="min-h-screen bg-slate-950 grid place-items-center p-5 text-slate-300">
         <div className="w-full max-w-md rounded-lg border border-slate-800 bg-slate-900 p-5">
           <CheckCircle2 className="mx-auto mb-4 text-emerald-400" size={48}/>
-          <h1 className="text-center text-xl font-bold text-white">Parabéns, seu cadastro foi aceito</h1>
-          <p className="mt-2 text-center text-sm text-slate-400">Quando houver contrato ativo, este mesmo link abrirá seu portal. Enquanto isso, confira os documentos enviados para leitura e assinatura.</p>
+          <h1 className="text-center text-xl font-bold text-white">Área do cliente</h1>
+          <p className="mt-2 text-center text-sm text-slate-400">Seu documento está disponível para leitura e assinatura. Depois que o contrato operacional existir, este mesmo link abrirá o portal completo.</p>
           <div className="mt-5 space-y-3">
             {docs.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-700 p-4 text-center text-xs font-bold uppercase text-slate-500">
@@ -133,7 +133,7 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
           </div>
           <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
             <RefreshCw size={12} className="animate-spin"/>
-            Verificando portal
+            Verificando contrato
           </div>
         </div>
       </div>
@@ -141,6 +141,21 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
   }
 
   if (done || linkState.state === 'SUBMITTED') return <div className="min-h-screen bg-slate-950 grid place-items-center p-5"><div className="max-w-sm text-center"><CheckCircle2 className="mx-auto mb-4 text-amber-400" size={48}/><span className="inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase text-amber-300">Em análise</span><h1 className="mt-3 text-xl font-bold text-white">Aguarde o término da análise</h1><p className="mt-2 text-sm text-slate-400">Seus dados foram recebidos. Quando o crédito for aprovado, este mesmo link abrirá sua área do cliente.</p></div></div>;
+
+  if (linkState.state === 'APPROVED') {
+    return (
+      <div className="min-h-screen bg-slate-950 grid place-items-center p-5 text-slate-300">
+        <div className="w-full max-w-md rounded-lg border border-slate-800 bg-slate-900 p-5">
+          <CheckCircle2 className="mx-auto mb-4 text-emerald-400" size={48}/>
+          <h1 className="text-center text-xl font-bold text-white">Parabéns, seu cadastro foi aceito</h1>
+          <p className="mt-2 text-center text-sm text-slate-400">Sua área está sendo preparada. Assim que um documento ou contrato for enviado, este mesmo link será atualizado automaticamente.</p>
+          <div className="mt-5 rounded-lg border border-dashed border-slate-700 p-4 text-center text-xs font-bold uppercase text-slate-500">
+            Esta tela verifica novamente a cada 15 segundos.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const input = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-blue-500';
   return <main className="min-h-screen bg-slate-950 px-4 py-8 text-white"><form noValidate onSubmit={submit} className="mx-auto max-w-lg space-y-5 rounded-lg border border-slate-800 bg-slate-900 p-5">

@@ -116,12 +116,10 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
       const amount = Number(preContractForm.amount);
       if (isNaN(amount) || amount <= 0) throw new Error('Valor inválido.');
 
-      const result = await clientPreContractService.create({
-        clientId: preContractClient.id,
+      const result = await clientPreContractService.createAndSend(preContractClient, activeUser, {
         amount,
         dueDate: preContractForm.dueDate || undefined,
         notes: preContractForm.notes || undefined,
-        operatorProfileId: activeUser.id
       });
 
       setPreContractResult({ portalUrl: result.portalUrl, signUrl: result.signUrl });

@@ -132,14 +132,37 @@ Deno.serve(async (req) => {
       if (authError || !authData.user) return reply({ error: 'Sessao expirada. Entre novamente.' }, 401);
 
       const clientId = clean(value('client_id'), 50);
-      const { data: client } = await admin
+      const lookupProfileId = clean(value('profile_id'), 50);
+      const lookupDocument = digits(value('document'));
+      const lookupPhone = digits(value('phone'));
+      let { data: client } = await admin
         .from('clientes')
-        .select('id,owner_id,profile_id,name')
+        .select('id,owner_id,name')
         .eq('id', clientId)
         .maybeSingle();
+
+      if (!client && lookupProfileId && (lookupDocument || lookupPhone)) {
+        let query = admin
+          .from('clientes')
+          .select('id,owner_id,name')
+          .eq('owner_id', lookupProfileId)
+          .limit(1);
+
+        if (lookupDocument && lookupPhone) {
+          query = query.or(`document.eq.${lookupDocument},cpf.eq.${lookupDocument},phone.eq.${lookupPhone}`);
+        } else if (lookupDocument) {
+          query = query.or(`document.eq.${lookupDocument},cpf.eq.${lookupDocument}`);
+        } else {
+          query = query.eq('phone', lookupPhone);
+        }
+
+        const fallback = await query.maybeSingle();
+        client = fallback.data;
+      }
+
       if (!client) return reply({ error: 'Cliente nao encontrado.' }, 404);
 
-      const profileId = client.owner_id || client.profile_id;
+      const profileId = client.owner_id;
       const [{ data: target }, { data: requesters }] = await Promise.all([
         admin.from('perfis').select('id,owner_profile_id,supervisor_id').eq('id', profileId).maybeSingle(),
         admin.from('perfis').select('id,owner_profile_id,supervisor_id').eq('user_id', authData.user.id),
@@ -160,7 +183,7 @@ Deno.serve(async (req) => {
           })
           .select('id')
           .single();
-        if (!inserted.error) return reply({ token: newToken, linkId: inserted.data.id, url: `${appOrigin}/?cadastro=${encodeURIComponent(newToken)}` });
+        if (!inserted.error) return reply({ token: newToken, linkId: inserted.data.id, clientId: client.id, url: `${appOrigin}/?cadastro=${encodeURIComponent(newToken)}` });
         if (inserted.error.code !== '23505') throw inserted.error;
       }
       return reply({ error: 'Nao foi possivel gerar um token unico.' }, 503);
@@ -209,6 +232,9 @@ Deno.serve(async (req) => {
         if (registrationApproved && contract) {
           const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`;
           return reply({ valid: true, state: 'PORTAL', portalUrl });
+        }
+        if (registrationApproved && publicDocuments.length > 0) {
+          return reply({ valid: true, state: 'DOCUMENTS', documents: publicDocuments });
         }
         if (registrationApproved) {
           return reply({ valid: true, state: 'APPROVED', documents: publicDocuments });

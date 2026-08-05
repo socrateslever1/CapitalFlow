@@ -94,18 +94,24 @@ export const clientRegistrationService = {
     }));
     return urls;
   },
-  async createClientAccessLink(clientId: string) {
-    const data = await request({ action: 'create_client_link', client_id: clientId }, true) as any;
-    if (!data?.token || !data?.url || !data?.linkId) {
+  async createClientAccessLink(clientId: string, lookup?: { profileId?: string; document?: string; phone?: string }) {
+    const data = await request({
+      action: 'create_client_link',
+      client_id: clientId,
+      profile_id: lookup?.profileId,
+      document: lookup?.document,
+      phone: lookup?.phone,
+    }, true) as any;
+    if (!data?.token || !data?.url || !data?.linkId || !data?.clientId) {
       throw new Error('Nao foi possivel gerar o link publico do cliente.');
     }
-    return { token: String(data.token), url: String(data.url), linkId: String(data.linkId) };
+    return { token: String(data.token), url: String(data.url), linkId: String(data.linkId), clientId: String(data.clientId) };
   },
 };
 
 export type ClientRegistrationLinkState = {
   valid: true;
-  state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'PORTAL';
+  state: 'REGISTRATION' | 'SUBMITTED' | 'APPROVED' | 'DOCUMENTS' | 'PORTAL';
   portalUrl?: string;
   documents?: Array<{
     id: string;

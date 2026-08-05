@@ -25,14 +25,20 @@ export const clientPreContractService = {
     if (!client.document) throw new Error('Cliente sem CPF/CNPJ cadastrado.');
     if (!client.address) throw new Error('Cliente sem endereco cadastrado.');
 
-    const portalLink = await clientRegistrationService.createClientAccessLink(client.id);
+    const ownerId = (client as any).owner_id || (profile as any).supervisor_id || profile.id;
+    const portalLink = await clientRegistrationService.createClientAccessLink(client.id, {
+      profileId: ownerId,
+      document: client.document,
+      phone: client.phone,
+    });
+    const resolvedClientId = portalLink.clientId;
     const viewToken = makeViewToken();
     const today = new Date().toISOString().slice(0, 10);
     const dueDate = input.dueDate || addDaysUTC(today, 30).toISOString().slice(0, 10);
 
     const params: LegalDocumentParams & { clientId: string; requiredSignatureRoles?: string[] } = {
-      loanId: client.id,
-      clientId: client.id,
+      loanId: resolvedClientId,
+      clientId: resolvedClientId,
       clientName: client.name,
       debtorName: client.name,
       debtorDoc: client.document,
@@ -57,7 +63,7 @@ export const clientPreContractService = {
       templateId: 'CONFISSAO_UNICO',
       contractDurationDays: Math.max(1, Math.round((new Date(dueDate).getTime() - new Date(today).getTime()) / 86400000)),
       installments: [{
-        id: `pre-${client.id}`,
+        id: `pre-${resolvedClientId}`,
         agreementId: '',
         number: 1,
         dueDate,
@@ -79,10 +85,10 @@ export const clientPreContractService = {
     const { data, error } = await supabase
       .from('documentos_juridicos')
       .insert({
-        client_id: client.id,
+        client_id: resolvedClientId,
         registration_link_id: portalLink.linkId,
-        profile_id: profile.id,
-        dono_id: profile.id,
+        profile_id: ownerId,
+        dono_id: ownerId,
         tipo: 'PRE_CONTRATO',
         tipo_documento: 'PRE_CONTRATO',
         snapshot: params,

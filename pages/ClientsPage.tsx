@@ -8,6 +8,7 @@ import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
 import { clientRegistrationService } from '../services/clientRegistration.service';
 import { clientPreContractService } from '../services/clientPreContract.service';
+import { getOrCreatePortalLink } from '../utils/portalLink';
 
 interface ClientsPageProps {
   profileId: string;
@@ -87,6 +88,51 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Falha ao criar link.', 'error');
     } finally { setCreatingLink(false); }
+  };
+
+  const copyClientPortalLink = async (client: Client) => {
+    try {
+      // 1. Para clientes já cadastrados que já possuem contratos de empréstimo: usa prioritariamente o link do portal do contrato existente
+      const clientLoans = loans.filter((l) => l.clientId === client.id && !l.isArchived);
+      const existingLoan = clientLoans.find((l: any) => l.portalToken || l.portal_token || l.id);
+
+      if (existingLoan) {
+        const token = (existingLoan as any).portalToken || (existingLoan as any).portal_token;
+        const code = (existingLoan as any).portalCode || (existingLoan as any).portal_shortcode || (existingLoan as any).portalShortcode;
+        
+        if (token && code) {
+          const portalUrl = `${window.location.origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`;
+          await navigator.clipboard.writeText(portalUrl);
+          showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
+          return;
+        }
+
+        if (existingLoan.id) {
+          const portalUrl = await getOrCreatePortalLink(existingLoan.id);
+          await navigator.clipboard.writeText(portalUrl);
+          showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
+          return;
+        }
+      }
+
+      // 2. Para novos clientes/prospects sem contratos ativos: busca/gera o link de acesso único
+      const result = await clientRegistrationService.createClientAccessLink(client.id, {
+        profileId,
+        document: client.document,
+        phone: client.phone,
+      }).catch(async () => {
+        return await clientRegistrationService.createLink(profileId);
+      });
+
+      if (result?.url) {
+        await navigator.clipboard.writeText(result.url);
+        showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
+      } else {
+        throw new Error('Link não disponível para este cliente.');
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao obter link do cliente.', 'error');
+    }
   };
 
   const openRegistrationDocuments = async (client: Client) => {
@@ -217,7 +263,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
             <div className="flex gap-2 w-full md:w-auto">
                 <button type="button" onClick={createRegistrationLink} disabled={creatingLink} className="px-4 py-2 bg-slate-800 border border-slate-700 text-blue-300 rounded-lg text-[10px] font-black uppercase hover:border-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50" title="Criar link público de inscrição">
-                    <Link2 size={16}/> Inscrição
+                    <Link2 size={16}/> Novo Link de Inscrição
                 </button>
                 {isBulkDeleteMode ? (
                     <div className="flex gap-2 w-full md:w-auto animate-in fade-in slide-in-from-right">
@@ -249,7 +295,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
             <button onClick={() => startDictation(setClientSearchTerm, (msg) => showToast(msg, 'error'))} className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 hover:text-white hover:border-slate-600 transition-colors text-xs font-black uppercase shrink-0" title="Buscar por voz" type="button">🎙</button>
         </div>
 
-        {/* GRID COMPACTA E MODERNA */}
+        {/* GRID COMPACTA E MODERNA DE CARDS DE CLIENTES */}
         <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredClients.filter((client) => client.registration_status !== 'REJECTED').sort((a, b) => a.name.localeCompare(b.name)).map(client => {
                 const contractIndicators = getClientContractIndicators(client);
@@ -257,7 +303,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`min-h-[220px] h-full self-start overflow-hidden bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`min-h-[240px] h-full self-start overflow-hidden bg-slate-900 border p-4 rounded-lg transition-all group relative flex flex-col ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : () => setSelectedClient(client)}
                 >
                     {isBulkDeleteMode && (
@@ -293,6 +339,9 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         {client.registration_status === 'PENDING_REVIEW' && <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300">Em análise{client.cpf_in_identity ? ' · CPF no RG' : ''}</span>}
                         {!isBulkDeleteMode && (
                             <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-2 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-lg hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente">
+                                    <Link2 size={14}/>
+                                </button>
                                 <button onClick={() => openPreContractModal(client)} className="p-2 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-lg hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
                                     <FileSignature size={14}/>
                                 </button>
@@ -339,6 +388,22 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                     )}
 
                     <div className="space-y-1.5 mt-auto" onClick={(e) => e.stopPropagation()}>
+                        {/* BOTÃO EM DESTAQUE PARA COPIAR LINK DO PORTAL DO CLIENTE JÁ CADASTRADO */}
+                        <button
+                            type="button"
+                            onClick={() => void copyClientPortalLink(client)}
+                            className="flex w-full items-center justify-between gap-2 text-[10px] text-blue-300 bg-blue-950/40 border border-blue-800/40 p-2 rounded-lg hover:bg-blue-900/50 transition-colors group/link cursor-pointer"
+                            title="Copiar link pessoal do portal deste cliente"
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Link2 size={12} className="text-blue-400 shrink-0 group-hover/link:rotate-45 transition-transform"/>
+                                <span className="font-bold uppercase text-[9px] tracking-wider text-blue-200 truncate">Link do Portal</span>
+                            </div>
+                            <span className="shrink-0 text-[8px] font-black uppercase bg-blue-600/30 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded">
+                                Copiar Link
+                            </span>
+                        </button>
+
                         <a
                             href={client.phone ? `https://wa.me/55${client.phone.replace(/\D/g, '')}` : '#'}
                             target="_blank"
@@ -463,6 +528,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 </div>
               </div>
               <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-800 p-4">
+                <button type="button" onClick={() => void copyClientPortalLink(selectedClient)} className="flex h-10 items-center gap-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-4 text-xs font-black uppercase text-blue-300 hover:bg-blue-500/20"><Link2 size={15}/> Copiar Link do Portal</button>
                 {(selectedClient.registration_document_count || 0) > 0 && <button type="button" onClick={() => void openRegistrationDocuments(selectedClient)} className="flex h-10 items-center gap-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-4 text-xs font-black uppercase text-blue-300"><FileSearch size={15}/> Documentos ({selectedClient.registration_document_count})</button>}
                 <button type="button" onClick={() => { const client = selectedClient; setSelectedClient(null); openClientModal(client); }} className="flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-xs font-black uppercase text-white hover:bg-blue-500"><Edit size={15}/> Editar cadastro</button>
               </footer>

@@ -18,21 +18,85 @@ export type ClientPreContractInput = {
   notes?: string;
 };
 
+export type CreatePreContractOptions = {
+  clientId: string;
+  amount: number;
+  dueDate?: string;
+  notes?: string;
+  operatorProfileId?: string;
+};
+
 export const clientPreContractService = {
+  async create(options: CreatePreContractOptions) {
+    const { data: client, error: clientErr } = await supabase
+      .from('clientes')
+      .select('id, name, document, phone, address, city, state, owner_id')
+      .eq('id', options.clientId)
+      .single();
+
+    if (clientErr || !client) throw new Error('Cliente não encontrado no sistema.');
+
+    let profile: any = null;
+    if (options.operatorProfileId) {
+      const { data: prof } = await supabase
+        .from('perfis')
+        .select('id, name, full_name, business_name, document, address, city, state')
+        .eq('id', options.operatorProfileId)
+        .maybeSingle();
+      profile = prof;
+    }
+
+    if (!profile) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      if (userId) {
+        const { data: prof } = await supabase
+          .from('perfis')
+          .select('id, name, full_name, business_name, document, address, city, state')
+          .eq('user_id', userId)
+          .maybeSingle();
+        profile = prof;
+      }
+    }
+
+    const fallbackProfile: UserProfile = {
+      id: profile?.id || options.operatorProfileId || client.owner_id || 'system',
+      name: profile?.name || profile?.full_name || 'Operador',
+      fullName: profile?.full_name || profile?.name || 'Operador',
+      businessName: profile?.business_name || profile?.name || 'Operador',
+      document: profile?.document || 'Nao informado',
+      address: profile?.address || 'Nao informado',
+      city: profile?.city || client.city || 'Manaus',
+      state: profile?.state || client.state || 'AM',
+    } as any;
+
+    return this.createAndSend(client as any, fallbackProfile, {
+      amount: options.amount,
+      dueDate: options.dueDate,
+      notes: options.notes,
+    });
+  },
+
   async createAndSend(client: Client, profile: UserProfile, input: ClientPreContractInput) {
     const amount = toMoney(input.amount);
     if (amount <= 0) throw new Error('Informe um valor maior que zero.');
     if (!client.document) throw new Error('Cliente sem CPF/CNPJ cadastrado.');
-    if (!client.address) throw new Error('Cliente sem endereco cadastrado.');
+    if (!client.address) throw new Error('Cliente sem endereço cadastrado.');
 
-    const portalLink = await clientRegistrationService.createClientAccessLink(client.id);
+    const ownerId = (client as any).owner_id || (profile as any).supervisor_id || profile.id;
+    const portalLink = await clientRegistrationService.createClientAccessLink(client.id, {
+      profileId: ownerId,
+      document: client.document,
+      phone: client.phone,
+    });
+    const resolvedClientId = portalLink.clientId;
     const viewToken = makeViewToken();
     const today = new Date().toISOString().slice(0, 10);
     const dueDate = input.dueDate || addDaysUTC(today, 30).toISOString().slice(0, 10);
 
     const params: LegalDocumentParams & { clientId: string; requiredSignatureRoles?: string[] } = {
-      loanId: client.id,
-      clientId: client.id,
+      loanId: resolvedClientId,
+      clientId: resolvedClientId,
       clientName: client.name,
       debtorName: client.name,
       debtorDoc: client.document,
@@ -49,7 +113,7 @@ export const clientPreContractService = {
       legalInterestAmount: 0,
       legalTotalAmount: amount,
       totalDebt: amount,
-      originDescription: `Proposta juridica de credito vinculada ao cliente ${client.name}.`,
+      originDescription: `Proposta jurídica de crédito vinculada ao cliente ${client.name}.`,
       city: profile.city || client.city || 'Manaus',
       state: profile.state || client.state || 'AM',
       contractDate: today,
@@ -57,7 +121,7 @@ export const clientPreContractService = {
       templateId: 'CONFISSAO_UNICO',
       contractDurationDays: Math.max(1, Math.round((new Date(dueDate).getTime() - new Date(today).getTime()) / 86400000)),
       installments: [{
-        id: `pre-${client.id}`,
+        id: `pre-${resolvedClientId}`,
         agreementId: '',
         number: 1,
         dueDate,
@@ -79,10 +143,10 @@ export const clientPreContractService = {
     const { data, error } = await supabase
       .from('documentos_juridicos')
       .insert({
-        client_id: client.id,
+        client_id: resolvedClientId,
         registration_link_id: portalLink.linkId,
-        profile_id: profile.id,
-        dono_id: profile.id,
+        profile_id: ownerId,
+        dono_id: ownerId,
         tipo: 'PRE_CONTRATO',
         tipo_documento: 'PRE_CONTRATO',
         snapshot: params,
@@ -98,7 +162,7 @@ export const clientPreContractService = {
       .select('id,view_token')
       .single();
 
-    if (error) throw new Error(error.message || 'Nao foi possivel criar o documento para assinatura.');
+    if (error) throw new Error(error.message || 'Não foi possível criar o documento para assinatura.');
 
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     return {

@@ -264,8 +264,11 @@ if (context.status === "session_ended") {
   output = "Encontrei mais de um cadastro compat\\u00edvel. Para confirmar com seguran\\u00e7a, informe seu c\\u00f3digo de cliente.";
 } else if (context.status === "not_identified") {
   const isHelp = /^(ajuda|como funciona|o que posso fazer|opcoes|comandos)/.test(message);
+  const asksDebt = /\\b(divida|debito|saldo|parcela|contrato|valor|quanto devo|pagar|pagamento)\\b/.test(normalizedMessage);
   const asksCompany = /\\b(que empresa|qual empresa|quem sao voces|quem e voces|capital flow|capitalflow|como funciona|do que se trata|o que e isso)\\b/.test(message);
-  if (asksCompany) {
+  if (asksDebt) {
+    output = "Para consultar sua d\u00edvida com seguran\u00e7a, informe seu CPF ou c\u00f3digo de cliente.";
+  } else if (asksCompany) {
     output = "Somos a CapitalFlow. Este WhatsApp atende consultas de contratos, parcelas e pagamentos. Se j\\u00e1 for cliente, informe seu CPF ou c\\u00f3digo de cliente para eu localizar seu atendimento com seguran\\u00e7a.";
   } else if (isHelp) {
     output = "Posso ajudar com o b\\u00e1sico: consultar contrato e parcela, informar o valor atualizado e enviar o link para pagamento. Se j\\u00e1 \\u00e9 nosso cliente, digite seu CPF ou c\\u00f3digo do cliente.";
@@ -360,6 +363,7 @@ const renderContractList = () => {
   const suffix = contracts.length > 5 ? "\\n\\nMostrei os 5 primeiros. Para ver tudo, acesse o portal." : "";
   return name + ", encontrei " + contracts.length + " " + (contracts.length === 1 ? "contrato" : "contratos") + " no seu cadastro:\\n" + rows.join("\\n") + suffix + (context.portal_link ? "\\n\\nPortal do cliente:\\n" + context.portal_link : "");
 };
+
 if (context.status === "session_ended" || (context.status === "identified" && isFarewellMessage)) {
   reply = farewellReply;
 } else if (context.status === "identified" && refusesDetails) {
@@ -458,6 +462,108 @@ return [{ json: { reply: reply.slice(0, 1800) } }];`,
   position: [100, 0],
 };
 
+const prepareWhatsAppMessageNode = {
+  parameters: {
+    jsCode: `const context = $("Admin Command").item.json || {};
+const input = $("Normalize and Filter").item.json || {};
+const reply = String($json.reply || "").trim() || "Olá! Escolha uma opção para continuar.";
+const normalized = String(input.message || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+const session = input.whatsapp_session;
+const chatId = input.remote_jid;
+const status = String(context.status || "");
+const isAdmin = context.admin === true;
+const greetingOrMenu = /^(oi+|ola+|bom dia|boa tarde|boa noite|menu|ajuda|opcoes|inicio|comecar|voltar)$/.test(normalized);
+const identityMessage = input.message && String(input.message).replace(/\\D/g, "").length === 11;
+const asksDebt = /\\b(divida|debito|saldo|parcela|contrato|valor|quanto devo|pagar|pagamento)\\b/.test(normalized);
+
+const publicRows = [
+  { title: "💰 Consultar minha dívida", rowId: "consultar_divida", description: "Consulte contratos, parcelas e saldo" },
+  { title: "📝 Solicitar empréstimo", rowId: "solicitar_emprestimo", description: "Encaminhar pedido para análise" },
+  { title: "👤 Falar com atendente", rowId: "falar_atendente", description: "Solicitar atendimento humano" },
+  { title: "ℹ️ Como funciona", rowId: "como_funciona", description: "Conheça o atendimento CapitalFlow" },
+];
+const clientRows = [
+  { title: "💰 Consultar minha dívida", rowId: "consultar_divida", description: "Ver valor atualizado e vencimento" },
+  { title: "📄 Ver meus contratos", rowId: "ver_contratos", description: "Consultar seus contratos ativos" },
+  { title: "💳 Pagar agora", rowId: "pagar_agora", description: "Abrir o portal de pagamento" },
+  { title: "👤 Falar com atendente", rowId: "falar_atendente", description: "Solicitar atendimento humano" },
+];
+
+const emoji = (codePoint) => String.fromCodePoint(codePoint);
+publicRows.splice(0, publicRows.length,
+  { title: emoji(0x1F4B0) + " Consultar minha d\u00edvida", rowId: "consultar_divida", description: "Consulte contratos, parcelas e saldo" },
+  { title: emoji(0x1F4DD) + " Solicitar empr\u00e9stimo", rowId: "solicitar_emprestimo", description: "Encaminhar pedido para an\u00e1lise" },
+  { title: emoji(0x1F464) + " Falar com atendente", rowId: "falar_atendente", description: "Solicitar atendimento humano" },
+  { title: emoji(0x2139) + " Como funciona", rowId: "como_funciona", description: "Conhe\u00e7a o atendimento CapitalFlow" },
+);
+clientRows.splice(0, clientRows.length,
+  { title: emoji(0x1F4B0) + " Consultar minha d\u00edvida", rowId: "consultar_divida", description: "Ver valor atualizado e vencimento" },
+  { title: emoji(0x1F4C4) + " Ver meus contratos", rowId: "ver_contratos", description: "Consultar seus contratos ativos" },
+  { title: emoji(0x1F4B3) + " Pagar agora", rowId: "pagar_agora", description: "Abrir o portal de pagamento" },
+  { title: emoji(0x1F464) + " Falar com atendente", rowId: "falar_atendente", description: "Solicitar atendimento humano" },
+);
+
+if (!isAdmin && ((status === "not_identified" && !asksDebt) || (status === "identified" && (greetingOrMenu || identityMessage)))) {
+  const identified = status === "identified";
+  const rows = identified ? clientRows : publicRows;
+  const description = identified
+    ? "Olá, " + String(context.client?.display_name || "cliente").split(/\\s+/)[0] + ". O que deseja consultar?"
+    : "Olá! Escolha uma opção para continuar.";
+  const safeDescription = identified
+    ? "Ol\u00e1, " + String(context.client?.display_name || "cliente").split(/\\s+/)[0] + ". O que deseja consultar?"
+    : "Ol\u00e1! Escolha uma op\u00e7\u00e3o para continuar.";
+  const fallback = safeDescription + "\\n\\n" + rows.map((row) => "• " + row.title).join("\\n") + "\\n\\nResponda com o texto da opcao desejada.";
+  return [{ json: {
+    endpoint: "http://waha:3000/api/sendList",
+    payload: { session, chatId, message: { title: "CapitalFlow", description: safeDescription, footer: "Atendimento seguro e objetivo", button: "Ver opcoes", sections: [{ title: "Atendimento", rows }] } },
+    fallback_text: fallback,
+  } }];
+}
+
+const urls = reply.match(/https?:\\/\\/[^\\s]+/g) || [];
+const actionUrl = urls.find((url) => url === context.portal_link || url === context.operator_contact?.whatsapp_url) || urls[0];
+if (!isAdmin && actionUrl) {
+  const isOperator = actionUrl === context.operator_contact?.whatsapp_url;
+  const body = reply.replace(actionUrl, "").replace(/(?:Portal do cliente|Fale com o operador por aqui|Você pode falar com ele por aqui|Fale por aqui):?\\s*$/i, "").trim();
+  const safeBody = reply.replace(actionUrl, "").replace(/\\s+/g, " ").trim();
+  return [{ json: {
+    endpoint: "http://waha:3000/api/sendButtons",
+    payload: { session, chatId, header: "CapitalFlow", body: safeBody, footer: "Toque no botao abaixo para continuar", buttons: [{ type: "url", text: isOperator ? "Falar com operador" : "Abrir portal", url: actionUrl }] },
+    fallback_text: reply,
+  } }];
+}
+
+return [{ json: {
+  endpoint: "http://waha:3000/api/sendText",
+  payload: { session, chatId, text: reply },
+  fallback_text: reply,
+} }];`,
+  },
+  id: 'capitalflow-prepare-whatsapp-message',
+  name: 'Prepare WhatsApp Message',
+  type: 'n8n-nodes-base.code',
+  typeVersion: 2,
+  position: [1800, 80],
+};
+
+const fallbackWhatsAppTextNode = {
+  parameters: {
+    method: 'POST',
+    url: 'http://waha:3000/api/sendText',
+    sendBody: true,
+    contentType: 'raw',
+    rawContentType: 'application/json',
+    body: '={{ JSON.stringify({ session: $("Normalize and Filter").item.json.whatsapp_session, chatId: $("Normalize and Filter").item.json.remote_jid, text: $("Prepare WhatsApp Message").item.json.fallback_text }) }}',
+    options: { timeout: 15000 },
+  },
+  id: 'capitalflow-fallback-whatsapp-text',
+  name: 'Fallback WhatsApp Text',
+  type: 'n8n-nodes-base.httpRequest',
+  typeVersion: 4.2,
+  position: [2240, 180],
+  onError: 'continueRegularOutput',
+};
+
 const semanticGate = (name, id, position) => ({
   parameters: {
     jsCode: [
@@ -502,6 +608,8 @@ workflow.nodes = workflow.nodes
     'Needs LID Resolution',
     'Resolve WhatsApp LID',
     'Apply Resolved Phone',
+    'Prepare WhatsApp Message',
+    'Fallback WhatsApp Text',
   ].includes(node.name))
   .map((node) => {
     if (node.name === 'Redis Chat Memory') {
@@ -534,21 +642,21 @@ workflow.nodes = workflow.nodes
       node.parameters.options.systemMessage = farewellInstruction + ' Converse em portugues como um atendente humano, direto e natural. Use no maximo duas frases, salvo quando incluir o portal do cliente. Dados financeiros vem exclusivamente dos campos *_display do contexto atual; memoria nunca e fonte financeira. current_contract e o contrato da parcela prioritaria. Nunca transforme R$ 1,30 em R$ 1.300,00 nem R$ 2,59 em R$ 2.590,00. Nao invente valores, datas, contratos, atrasos, pagamentos ou links. Se a pessoa discordar, encaminhe ao operador. Nao ofereca emprestimo. Continue a conversa sem mencionar que houve falha ou troca de IA. Se a mensagem for informal ou ambigua, responda de forma humana e faca uma unica pergunta curta para entender a necessidade. Quando houver contexto identificado, conduza naturalmente para o contrato, parcela, vencimento ou portal do cliente; quando nao houver identificacao, peca CPF ou codigo do cliente. Nunca envie link direto de pagamento externo.';
       node.onError = 'continueErrorOutput';
     }
-    if (node.name === 'WAHA1') {
+    if (node.name === 'WAHA1' || node.name === 'Send WhatsApp Reply') {
       node.name = 'Send WhatsApp Reply';
       node.type = 'n8n-nodes-base.httpRequest';
       node.typeVersion = 4.2;
       delete node.credentials;
       node.parameters = {
         method: 'POST',
-        url: 'http://waha:3000/api/sendText',
+        url: '={{ $json.endpoint }}',
         sendBody: true,
         contentType: 'raw',
         rawContentType: 'application/json',
-        body: '={{ JSON.stringify({ session: $("Normalize and Filter").item.json.whatsapp_session, chatId: $("Normalize and Filter").item.json.remote_jid, text: $json.reply }) }}',
+        body: '={{ JSON.stringify($json.payload) }}',
         options: { timeout: 15000 },
       };
-      node.onError = 'continueRegularOutput';
+      node.onError = 'continueErrorOutput';
     }
     return node;
   });
@@ -583,6 +691,8 @@ workflow.nodes.push(
   semanticGate('Groq Semantic Gate', 'capitalflow-groq-semantic-gate', [1890, 420]),
   conventionalFallbackNode,
   outputGuardNode,
+  prepareWhatsAppMessageNode,
+  fallbackWhatsAppTextNode,
 );
 
 const memoryConnections = workflow.connections['Redis Chat Memory'];
@@ -606,7 +716,7 @@ workflow.connections = {
   'Apply Resolved Phone': { main: [[{ node: 'Admin Command', type: 'main', index: 0 }]] },
   'Admin Command': { main: [[{ node: 'Admin Gate', type: 'main', index: 0 }]] },
   'Admin Gate': { main: [[{ node: 'Admin Reply', type: 'main', index: 0 }], [{ node: 'Drop Duplicates', type: 'main', index: 0 }]] },
-  'Admin Reply': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
+  'Admin Reply': { main: [[{ node: 'Prepare WhatsApp Message', type: 'main', index: 0 }]] },
   'Drop Duplicates': { main: [[{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
   'Conventional Bot Fallback': { main: [[{ node: 'Conventional Gate', type: 'main', index: 0 }]] },
   'Conventional Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Local AI Request', type: 'main', index: 0 }]] },
@@ -619,7 +729,9 @@ workflow.connections = {
   'Gemini Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Groq Fallback Agent', type: 'main', index: 0 }]] },
   'Groq Fallback Agent': { main: [[{ node: 'Groq Semantic Gate', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
   'Groq Semantic Gate': { main: [[{ node: 'Output Guard', type: 'main', index: 0 }], [{ node: 'Conventional Bot Fallback', type: 'main', index: 0 }]] },
-  'Output Guard': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
+  'Output Guard': { main: [[{ node: 'Prepare WhatsApp Message', type: 'main', index: 0 }]] },
+  'Prepare WhatsApp Message': { main: [[{ node: 'Send WhatsApp Reply', type: 'main', index: 0 }]] },
+  'Send WhatsApp Reply': { main: [[], [{ node: 'Fallback WhatsApp Text', type: 'main', index: 0 }]] },
 };
 
 delete workflow.versionId;

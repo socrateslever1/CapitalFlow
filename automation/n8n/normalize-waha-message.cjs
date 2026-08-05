@@ -2,6 +2,15 @@
 
 const SUPPORTED_MESSAGE_TYPES = new Set(['text', 'chat', 'image', 'audio', 'voice', 'document']);
 
+const MENU_SELECTIONS = new Map([
+  ['consultar_divida', 'Consultar minha divida'],
+  ['solicitar_emprestimo', 'Solicitar emprestimo'],
+  ['falar_atendente', 'Falar com atendente'],
+  ['como_funciona', 'Como funciona'],
+  ['ver_contratos', 'Ver meus contratos'],
+  ['pagar_agora', 'Pagar agora'],
+]);
+
 function onlyDigits(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
@@ -83,7 +92,16 @@ function normalizeWahaMessage(input, options = {}) {
   const messageId = String(firstNonEmpty(payload.id, payload.messageId, payload.key?.id, '') ?? '').trim();
   const rawType = String(firstNonEmpty(payload.type, payload.messageType, payload._data?.type, 'text') ?? 'text').toLowerCase();
   const messageType = rawType === 'ptt' ? 'voice' : rawType;
-  const message = String(firstNonEmpty(payload.body, payload.text, payload.caption, '') ?? '').trim();
+  const rawMessage = String(firstNonEmpty(
+    payload.body,
+    payload.text,
+    payload.caption,
+    payload.selectedRowId,
+    payload.selectedButtonID,
+    payload._data?.selectedRowId,
+    '',
+  ) ?? '').trim();
+  const message = MENU_SELECTIONS.get(rawMessage.toLowerCase()) || rawMessage;
   const identityIsLid = /@lid$/i.test(identityJid);
   const phone = identityIsLid ? '' : normalizeBrazilianWhatsappPhone(identityJid.split('@')[0]);
   const organizationId = resolveOrganizationId(body, options.tenantMap);

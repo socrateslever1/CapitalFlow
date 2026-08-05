@@ -23,6 +23,10 @@ const normalizeRole = (value: string | null | undefined) => {
 };
 
 const resolveRequiredRoles = (snapshot: any) => {
+    if (Array.isArray(snapshot?.requiredSignatureRoles) && snapshot.requiredSignatureRoles.length > 0) {
+        return snapshot.requiredSignatureRoles.map((role: string) => normalizeRole(role)).filter(Boolean);
+    }
+
     const requiredRoles = new Set<string>();
 
     if (snapshot?.debtorName) requiredRoles.add('DEBTOR');

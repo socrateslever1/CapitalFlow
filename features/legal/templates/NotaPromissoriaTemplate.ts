@@ -6,9 +6,15 @@ import { buildConfissaoDividaVM } from "../viewModels/confissaoVM";
 
 export const generateNotaPromissoriaHTML = (data: LegalDocumentParams, docId?: string, hash?: string) => {
     const vm = buildConfissaoDividaVM(data);
+    const installments = Array.isArray(data.installments) ? data.installments : [];
+    const principalAmount = Number(data.principalAmount ?? data.amount ?? 0);
+    const legalInterestAmount = Number(data.legalInterestAmount ?? Math.max(0, Number(data.totalDebt || data.amount || 0) - principalAmount));
+    const totalAmount = Number(data.legalTotalAmount ?? data.totalDebt ?? data.amount ?? 0);
+    const reference = data.codigo_contrato || data.loanId?.substring(0, 8).toUpperCase() || 'PENDENTE';
+    const contractDate = data.contractDate ? new Date(data.contractDate) : new Date();
     
     // Calcula data de vencimento final (última parcela) ou específica
-    const lastInstallment = data.installments[data.installments.length - 1];
+    const lastInstallment = installments[installments.length - 1];
     const dueDate = lastInstallment ? formatBRDate(lastInstallment.dueDate) : new Date().toLocaleDateString('pt-BR');
 
     return `
@@ -51,7 +57,7 @@ export const generateNotaPromissoriaHTML = (data: LegalDocumentParams, docId?: s
             
             <div class="header">
                 <div class="title">NOTA PROMISSÓRIA</div>
-                <div class="value">${vm.totalDebt}</div>
+                <div class="value">${formatMoney(totalAmount)}</div>
             </div>
 
             <div class="details">
@@ -67,7 +73,13 @@ export const generateNotaPromissoriaHTML = (data: LegalDocumentParams, docId?: s
 
             <div class="content">
                 <p>
-                    Aos <b>${new Date(data.contractDate).getDate()}</b> dias do mês de <b>${new Date(data.contractDate).toLocaleDateString('pt-BR', {month: 'long'})}</b> de <b>${new Date(data.contractDate).getFullYear()}</b>, pagarei(emos) por esta única via de <b>NOTA PROMISSÓRIA</b> a <b>${vm.creditorName}</b>, inscrito(a) no CPF/CNPJ sob o nº ${vm.creditorDoc}, ou à sua ordem, a quantia líquida e certa de <b>${vm.totalDebt}</b>${data.installments.length > 1 ? `, em ${data.installments.length} parcelas de ${formatMoney(data.installments[0].amount)},` : ''} em moeda corrente deste país.
+                    Aos <b>${contractDate.getDate()}</b> dias do mês de <b>${contractDate.toLocaleDateString('pt-BR', {month: 'long'})}</b> de <b>${contractDate.getFullYear()}</b>, pagarei(emos) por esta única via de <b>NOTA PROMISSÓRIA</b> a <b>${vm.creditorName}</b>, inscrito(a) no CPF/CNPJ sob o nº ${vm.creditorDoc}, ou à sua ordem, a quantia líquida e certa de <b>${formatMoney(totalAmount)}</b>${installments.length > 1 ? `, em ${installments.length} parcelas conforme o contrato vinculado,` : ''} em moeda corrente deste país.
+                </p>
+                <p style="font-size: 10pt; margin-top: 20px;">
+                    <b>Vínculo e não cumulação:</b> esta nota representa a mesma obrigação jurídica do contrato/confissão de referência <b>${reference}</b>. Não constitui nova dívida, não autoriza cobrança duplicada e será quitada juntamente com a obrigação principal.
+                </p>
+                <p style="font-size: 10pt; margin-top: 20px;">
+                    <b>Memória do valor:</b> capital jurídico ${formatMoney(principalAmount)}${legalInterestAmount > 0 ? ` + juros remuneratórios jurídicos ${formatMoney(legalInterestAmount)}` : ' sem juros remuneratórios jurídicos'} = ${formatMoney(totalAmount)}. Multa, mora, correção, custas, honorários e custos internos permanecem separados.
                 </p>
                 <p style="font-size: 10pt; margin-top: 20px;">
                     <b>Praça de Pagamento:</b> ${vm.city}.

@@ -1,12 +1,13 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch } from 'lucide-react';
-import { Client, Loan } from '../types';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, Loader2 } from 'lucide-react';
+import { Client, Loan, UserProfile } from '../types';
 import { startDictation } from '../utils/speech';
 import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
 import { clientRegistrationService } from '../services/clientRegistration.service';
+import { clientPreContractService } from '../services/clientPreContract.service';
 
 interface ClientsPageProps {
   profileId: string;
@@ -26,6 +27,7 @@ interface ClientsPageProps {
   onDeleteClient: (id: string) => void; // NOVO PROP
   goBack?: () => void;
   onRefresh: () => Promise<void>;
+  activeUser: UserProfile | null;
 }
 
 export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean }> = ({
@@ -35,12 +37,17 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   onDeleteClient,
   goBack,
   isStealthMode,
-  onRefresh
+  onRefresh,
+  activeUser
 }) => {
   const today = todayDateOnlyUTC();
   const [registrationLink, setRegistrationLink] = React.useState('');
   const [creatingLink, setCreatingLink] = React.useState(false);
   const [reviewingClientId, setReviewingClientId] = React.useState<string | null>(null);
+  const [preContractClient, setPreContractClient] = React.useState<Client | null>(null);
+  const [preContractForm, setPreContractForm] = React.useState({ amount: '', dueDate: '', notes: '' });
+  const [preContractBusy, setPreContractBusy] = React.useState(false);
+  const [preContractResult, setPreContractResult] = React.useState<{ portalUrl: string; signUrl: string } | null>(null);
 
   const reviewRegistration = async (client: Client, status: 'APPROVED' | 'REJECTED') => {
     if (status === 'REJECTED' && !window.confirm(`Negar o cadastro de ${client.name}? Ele saira da carteira de clientes.`)) return;
@@ -74,6 +81,31 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Falha ao criar link.', 'error');
     } finally { setCreatingLink(false); }
+  };
+
+  const openPreContractModal = (client: Client) => {
+    setPreContractClient(client);
+    setPreContractForm({ amount: '', dueDate: '', notes: '' });
+    setPreContractResult(null);
+  };
+
+  const createPreContract = async () => {
+    if (!preContractClient || !activeUser) return;
+    setPreContractBusy(true);
+    try {
+      const result = await clientPreContractService.createAndSend(preContractClient, activeUser, {
+        amount: Number(String(preContractForm.amount).replace(',', '.')),
+        dueDate: preContractForm.dueDate || undefined,
+        notes: preContractForm.notes,
+      });
+      setPreContractResult({ portalUrl: result.portalUrl, signUrl: result.signUrl });
+      await navigator.clipboard.writeText(result.portalUrl).catch(() => undefined);
+      showToast('Documento enviado. Link do cliente copiado.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Falha ao enviar documento.', 'error');
+    } finally {
+      setPreContractBusy(false);
+    }
   };
 
   const openRegistrationDocuments = async (client: Client) => {
@@ -246,6 +278,9 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         {client.registration_status === 'PENDING_REVIEW' && <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[8px] font-black uppercase text-amber-300">Em análise{client.cpf_in_identity ? ' · CPF no RG' : ''}</span>}
                         {!isBulkDeleteMode && (
                             <div className="flex gap-1">
+                                <button onClick={(event) => { event.stopPropagation(); openPreContractModal(client); }} className="p-2 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-lg hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
+                                    <FileSignature size={14}/>
+                                </button>
                                 <button onClick={() => openClientModal(client)} className="p-2 text-slate-500 hover:text-white bg-slate-950 rounded-lg hover:bg-slate-800 transition-colors" title="Editar">
                                     <Edit size={14}/>
                                 </button>
@@ -311,6 +346,81 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 );
             })}
         </div>
+
+        {preContractClient && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-lg border border-indigo-500/30 bg-slate-900 p-5 shadow-2xl">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Pré-contrato digital</p>
+                  <h2 className="mt-1 text-base font-black uppercase text-white">{formatShortName(preContractClient.name)}</h2>
+                  <p className="mt-1 text-xs text-slate-500">O documento será enviado para o link público do cliente antes de lançar o contrato.</p>
+                </div>
+                <button type="button" onClick={() => setPreContractClient(null)} className="rounded-lg bg-slate-800 p-2 text-slate-400 hover:text-white">
+                  <X size={16}/>
+                </button>
+              </div>
+
+              {!preContractResult ? (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-slate-500">Valor do capital</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={preContractForm.amount}
+                      onChange={(event) => setPreContractForm((current) => ({ ...current, amount: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                      placeholder="Ex: 1200,00"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-slate-500">Vencimento</span>
+                    <input
+                      type="date"
+                      value={preContractForm.dueDate}
+                      onChange={(event) => setPreContractForm((current) => ({ ...current, dueDate: event.target.value }))}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-slate-500">Observação interna</span>
+                    <textarea
+                      value={preContractForm.notes}
+                      onChange={(event) => setPreContractForm((current) => ({ ...current, notes: event.target.value }))}
+                      className="min-h-20 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-indigo-500"
+                      placeholder="Opcional"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={preContractBusy || !preContractForm.amount}
+                    onClick={() => void createPreContract()}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-indigo-500 disabled:opacity-40"
+                  >
+                    {preContractBusy ? <Loader2 className="animate-spin" size={15}/> : <Send size={15}/>}
+                    Enviar para assinatura
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+                    Documento criado. Envie o link do cliente; ele verá a área de documentos e poderá assinar.
+                  </div>
+                  <label className="block">
+                    <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-slate-500">Link do cliente</span>
+                    <input readOnly value={preContractResult.portalUrl} onFocus={(event) => event.currentTarget.select()} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-xs text-blue-200 outline-none"/>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => void navigator.clipboard.writeText(preContractResult.portalUrl)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-[9px] font-black uppercase text-slate-300">Copiar portal</button>
+                    <button type="button" onClick={() => window.open(preContractResult.signUrl, '_blank', 'noopener,noreferrer')} className="rounded-lg bg-indigo-600 px-3 py-2 text-[9px] font-black uppercase text-white">Abrir assinatura</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
     </div>
   );
 };

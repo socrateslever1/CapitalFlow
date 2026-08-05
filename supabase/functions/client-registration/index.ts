@@ -126,6 +126,46 @@ Deno.serve(async (req) => {
       return reply({ error: 'Não foi possível gerar um token único.' }, 503);
     }
 
+    if (action === 'create_client_link') {
+      const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
+      const { data: authData, error: authError } = await admin.auth.getUser(bearer);
+      if (authError || !authData.user) return reply({ error: 'Sessao expirada. Entre novamente.' }, 401);
+
+      const clientId = clean(value('client_id'), 50);
+      const { data: client } = await admin
+        .from('clientes')
+        .select('id,owner_id,profile_id,name')
+        .eq('id', clientId)
+        .maybeSingle();
+      if (!client) return reply({ error: 'Cliente nao encontrado.' }, 404);
+
+      const profileId = client.owner_id || client.profile_id;
+      const [{ data: target }, { data: requesters }] = await Promise.all([
+        admin.from('perfis').select('id,owner_profile_id,supervisor_id').eq('id', profileId).maybeSingle(),
+        admin.from('perfis').select('id,owner_profile_id,supervisor_id').eq('user_id', authData.user.id),
+      ]);
+      const authorized = !!target && (requesters || []).some((profile: any) => profile.id === profileId || tenantRoot(profile) === tenantRoot(target));
+      if (!authorized) return reply({ error: 'Perfil nao autorizado para este cliente.' }, 403);
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const newToken = `${crypto.randomUUID()}${crypto.randomUUID().replaceAll('-', '')}`;
+        const inserted = await admin
+          .from('client_registration_links')
+          .insert({
+            profile_id: profileId,
+            client_id: client.id,
+            token_hash: await digest(newToken),
+            submitted_at: new Date().toISOString(),
+            created_by: authData.user.id,
+          })
+          .select('id')
+          .single();
+        if (!inserted.error) return reply({ token: newToken, linkId: inserted.data.id, url: `${appOrigin}/?cadastro=${encodeURIComponent(newToken)}` });
+        if (inserted.error.code !== '23505') throw inserted.error;
+      }
+      return reply({ error: 'Nao foi possivel gerar um token unico.' }, 503);
+    }
+
     const token = clean(value('token'), 100);
     if (token.length < 50) return reply({ error: 'Link inválido.' }, 400);
     const { data: link } = await admin.from('client_registration_links')
@@ -141,6 +181,22 @@ Deno.serve(async (req) => {
           .eq('id', link.client_id)
           .maybeSingle();
         const registrationApproved = ['APPROVED', 'REVIEWED'].includes(String(registeredClient?.registration_status || '').toUpperCase());
+        const { data: documents } = await admin
+          .from('documentos_juridicos')
+          .select('id,tipo,status_assinatura,created_at,view_token,public_access_token')
+          .eq('client_id', link.client_id)
+          .order('created_at', { ascending: false });
+        const publicDocuments = (documents || []).map((document: any) => {
+          const docToken = document.view_token || document.public_access_token;
+          return {
+            id: document.id,
+            tipo: document.tipo || 'DOCUMENTO',
+            status_assinatura: document.status_assinatura || 'PENDENTE',
+            created_at: document.created_at,
+            sign_url: docToken ? `${appOrigin}/?legal_sign=${encodeURIComponent(docToken)}&role=DEBTOR` : '',
+            view_url: docToken ? `${appOrigin}/?legal_sign=${encodeURIComponent(docToken)}&role=DEBTOR` : '',
+          };
+        });
         const { data: contracts } = await admin.from('contratos')
           .select('owner_id,profile_id,status,portal_token,portal_shortcode')
           .eq('client_id', link.client_id)
@@ -153,6 +209,9 @@ Deno.serve(async (req) => {
         if (registrationApproved && contract) {
           const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`;
           return reply({ valid: true, state: 'PORTAL', portalUrl });
+        }
+        if (registrationApproved) {
+          return reply({ valid: true, state: 'APPROVED', documents: publicDocuments });
         }
         return reply({ valid: true, state: 'SUBMITTED' });
       }

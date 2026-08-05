@@ -101,8 +101,11 @@ export const generateConfissaoDividaV2HTML = (
   };
 
   const totalDebtNumber = Number(data.totalDebt || data.amount || 0);
-  const originalPrincipalNumber = Number(data.originalPrincipalAmount ?? totalDebtNumber);
-  const principalPaidNumber = Number(data.principalPaidAmount ?? Math.max(0, originalPrincipalNumber - totalDebtNumber));
+  const principalAmountNumber = Number(data.principalAmount ?? data.amount ?? 0);
+  const originalPrincipalNumber = Number(data.originalPrincipalAmount ?? principalAmountNumber);
+  const principalPaidNumber = Number(data.principalPaidAmount ?? Math.max(0, originalPrincipalNumber - principalAmountNumber));
+  const legalInterestAmountNumber = Number(data.legalInterestAmount ?? Math.max(0, totalDebtNumber - principalAmountNumber));
+  const legalInterestRatePercent = Number(data.legalInterestRatePercent || 0);
   const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).trim().toUpperCase() : FILL;
 
   const installments = Array.isArray(data.installments) ? data.installments : [];
@@ -131,8 +134,10 @@ export const generateConfissaoDividaV2HTML = (
   const cicloTraduzido = translateBillingCycle(cycleToUse);
   const cicloTextoCompromisso = translateBillingCycleLower(cycleToUse);
   const valorFormatado = Number(totalDebtNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const saldoCapitalFormatado = principalAmountNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   const capitalOriginalFormatado = originalPrincipalNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   const capitalPagoFormatado = principalPaidNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const jurosJuridicosFormatado = legalInterestAmountNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
   const dataDisponibilizacao = safeDateBR(data.contractDate);
   const referenciaContrato = safeText(data.codigo_contrato || data.loanId?.substring(0, 8).toUpperCase());
   const durationDays = data.contractDurationDays || 30;
@@ -148,6 +153,24 @@ export const generateConfissaoDividaV2HTML = (
     ? `PAGAMENTO ÚNICO - PRAZO DE ${durationDays} DIAS` 
     : `PAGAMENTO PARCELADO - CICLO ${cicloTraduzido} (${installmentsCount > 0 ? installmentsCount : 'X'} PARCELAS)`;
 
+  const installmentRowsHTML = installments.map((installment: any, index) => {
+    const principalAmount = Number(installment.principalAmount ?? installment.scheduledPrincipal ?? installment.amount ?? 0);
+    const legalInterestAmount = Number(installment.legalInterestAmount ?? Math.max(0, Number(installment.amount || 0) - principalAmount));
+    const totalAmount = Number(installment.amount || 0);
+    const balanceAfter = Number(installment.principalBalanceAfter ?? Math.max(0, principalAmountNumber - principalAmount));
+
+    return `
+      <tr>
+        <td style="border: 1pt solid #000; padding: 6px; text-align: center;">${installment.number ?? index + 1}</td>
+        <td style="border: 1pt solid #000; padding: 6px; text-align: center;">${safeDateBR(installment.dueDate)}</td>
+        <td style="border: 1pt solid #000; padding: 6px; text-align: right;">R$ ${principalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+        <td style="border: 1pt solid #000; padding: 6px; text-align: right;">R$ ${legalInterestAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+        <td style="border: 1pt solid #000; padding: 6px; text-align: right;"><strong>R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+        <td style="border: 1pt solid #000; padding: 6px; text-align: right;">R$ ${balanceAfter.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+      </tr>
+    `;
+  }).join('');
+
   let parcelamentoHTML = "";
   if (!isSinglePayment) {
     const installmentValue = installmentsCount > 0 ? Number(installments[0].amount) : 0;
@@ -162,6 +185,19 @@ export const generateConfissaoDividaV2HTML = (
             O vencimento da primeira parcela ocorrerá impreterivelmente em <strong>${primeiroVencimento}</strong>, e as demais seguirão o ciclo estabelecido até a quitação integral do saldo devedor de R$ ${valorFormatado}.
         </p>
         <p class="indent">Assim, o(a) <strong>DEVEDOR(A)</strong> se compromete a pagar ao <strong>CREDOR</strong> o valor de <strong>R$ ${installmentValueFormatado}</strong> ${cicloTextoCompromisso}, ate a quitacao integral da divida confessada.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 9.5pt; page-break-inside: auto;">
+          <thead>
+            <tr>
+              <th style="border: 1pt solid #000; padding: 6px;">Parcela</th>
+              <th style="border: 1pt solid #000; padding: 6px;">Vencimento</th>
+              <th style="border: 1pt solid #000; padding: 6px;">Capital amortizado</th>
+              <th style="border: 1pt solid #000; padding: 6px;">Juros remuneratorios juridicos</th>
+              <th style="border: 1pt solid #000; padding: 6px;">Total da parcela</th>
+              <th style="border: 1pt solid #000; padding: 6px;">Saldo de capital restante</th>
+            </tr>
+          </thead>
+          <tbody>${installmentRowsHTML}</tbody>
+        </table>
     `;
   }
 
@@ -209,22 +245,24 @@ export const generateConfissaoDividaV2HTML = (
 
       <h2>CLÁUSULA PRIMEIRA - DO OBJETO E RECONHECIMENTO INCONDICIONAL DA DÍVIDA</h2>
       ${isAgreement ? `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> reconhece que recebeu do <strong>CREDOR</strong> o capital identificado abaixo, decorrente do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, celebrado em <strong>${dataDisponibilizacao}</strong>. Em razão da reorganização formalizada pelo acordo de <strong>${safeDateBR(data.agreementDate)}</strong>, confessa como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
+        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> reconhece que recebeu do <strong>CREDOR</strong> o capital identificado abaixo, decorrente do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, celebrado em <strong>${dataDisponibilizacao}</strong>. Em razão da reorganização formalizada pelo acordo de <strong>${safeDateBR(data.agreementDate)}</strong>, confessa como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${saldoCapitalFormatado}</span>, sem incorporar encargos operacionais ao capital.</p>
       ` : `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> declara que recebeu do <strong>CREDOR</strong>, em <strong>${dataDisponibilizacao}</strong>, o capital objeto do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, e reconhece como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
+        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> declara que recebeu do <strong>CREDOR</strong>, em <strong>${dataDisponibilizacao}</strong>, o capital objeto do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, e reconhece como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${saldoCapitalFormatado}</span>, sem incorporar juros, multa, mora, correção monetária ou custo de captação ao capital.</p>
       `}
       <table style="width: 100%; border-collapse: collapse; margin: 18px 0; page-break-inside: avoid;">
         <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>Capital originalmente disponibilizado</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;">R$ ${capitalOriginalFormatado}</td></tr>
         <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(-) Amortizações comprovadas do principal</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;">R$ ${capitalPagoFormatado}</td></tr>
-        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(=) Saldo de capital confessado</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;"><strong>R$ ${valorFormatado}</strong></td></tr>
+        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(=) Saldo de capital confessado</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;"><strong>R$ ${saldoCapitalFormatado}</strong></td></tr>
+        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(+) Juros remuneratorios juridicos expressos</strong><br/><small>Taxa juridica: ${legalInterestRatePercent > 0 ? `${legalInterestRatePercent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}%` : 'nao definida - contrato gerado apenas com capital'}</small></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;">R$ ${jurosJuridicosFormatado}</td></tr>
+        <tr><td style="border: 1pt solid #000; padding: 7px;"><strong>(=) Total juridico contratual</strong></td><td style="border: 1pt solid #000; padding: 7px; text-align: right;"><strong>R$ ${valorFormatado}</strong></td></tr>
       </table>
-      <p class="indent"><strong>COMPOSIÇÃO DO VALOR CONFESSADO:</strong> o saldo acima não incorpora juros remuneratórios, multa, mora ou outros encargos anteriores. O contrato de referência, os comprovantes de disponibilização do capital e os comprovantes de amortização eventualmente existentes integram o conjunto probatório desta obrigação.</p>
+      <p class="indent"><strong>COMPOSIÇÃO DO VALOR CONFESSADO:</strong> o capital acima não incorpora multa, juros de mora, atualização monetária, custas, honorários, custo de cartão, custo de captação ou lucro operacional esperado. Juros remuneratórios somente integram o total contratual quando expressamente indicados nesta memória de cálculo.</p>
       <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
       <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O <strong>DEVEDOR</strong> declara ter conferido o demonstrativo acima e reconhece a origem, a composição e o saldo do capital, sem prejuízo dos direitos e garantias que não possam ser afastados por convenção particular.</p>
 
       <h2>CLÁUSULA SEGUNDA - DA FORMA E LOCAL DE PAGAMENTO</h2>
       ${isSinglePayment ? `
-        <p class="indent">O pagamento integral da dívida, referente ao período de <strong>${durationDays} dias</strong> de operação, deverá ser realizado em uma <strong>ÚNICA PARCELA</strong> no valor de <span class="bold">R$ ${valorFormatado}</span>, com vencimento improrrogável em <span class="bold">${vencimentoUnico}</span>.</p>
+        <p class="indent">O pagamento integral da obrigação, referente ao período de <strong>${durationDays} dias</strong>, deverá ser realizado em uma <strong>ÚNICA PARCELA</strong> no valor de <span class="bold">R$ ${valorFormatado}</span>, composta por capital de <strong>R$ ${saldoCapitalFormatado}</strong>${legalInterestAmountNumber > 0 ? ` e juros remuneratórios jurídicos de <strong>R$ ${jurosJuridicosFormatado}</strong>` : ', sem juros remuneratórios jurídicos'}, com vencimento improrrogável em <span class="bold">${vencimentoUnico}</span>.</p>
       ` : `
         <p class="indent">O pagamento do débito será realizado de forma <strong>PARCELADA</strong>, nos seguintes termos:</p>
         ${parcelamentoHTML}

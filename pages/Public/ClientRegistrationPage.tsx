@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Camera, CheckCircle2, FileUp, Loader2, UserPlus } from 'lucide-react';
+import { Camera, CheckCircle2, ExternalLink, FileSignature, FileUp, Loader2, RefreshCw, UserPlus } from 'lucide-react';
 import { clientRegistrationService, ClientRegistrationLinkState } from '../../services/clientRegistration.service';
 import { isValidCPF } from '../../utils/validateCPF';
 
@@ -17,7 +17,7 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
 
   useEffect(() => {
     let active = true;
-    clientRegistrationService.getLink(token)
+    const loadLink = () => clientRegistrationService.getLink(token)
       .then((result: ClientRegistrationLinkState) => {
         if (!active) return;
         if (result.state === 'PORTAL' && result.portalUrl) {
@@ -27,7 +27,11 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
         setLinkState(result);
       })
       .catch(() => active && setInvalid(true));
-    return () => { active = false; };
+    void loadLink();
+    const interval = window.setInterval(() => {
+      if (active) void loadLink();
+    }, 15000);
+    return () => { active = false; window.clearInterval(interval); };
   }, [token]);
 
   useEffect(() => {
@@ -81,6 +85,47 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
 
   if (invalid) return <div className="min-h-screen bg-slate-950 grid place-items-center p-5 text-center text-slate-300">Este link de cadastro é inválido ou expirou.</div>;
   if (!linkState) return <div className="min-h-screen bg-slate-950 grid place-items-center"><Loader2 className="animate-spin text-blue-500" /></div>;
+  if (linkState.state === 'APPROVED') {
+    const docs = linkState.documents || [];
+    return (
+      <div className="min-h-screen bg-slate-950 grid place-items-center p-5 text-slate-300">
+        <div className="w-full max-w-md rounded-lg border border-slate-800 bg-slate-900 p-5">
+          <CheckCircle2 className="mx-auto mb-4 text-emerald-400" size={48}/>
+          <h1 className="text-center text-xl font-bold text-white">Parabéns, seu cadastro foi aceito</h1>
+          <p className="mt-2 text-center text-sm text-slate-400">Quando houver contrato ativo, este mesmo link abrirá seu portal. Enquanto isso, confira os documentos enviados para leitura e assinatura.</p>
+          <div className="mt-5 space-y-3">
+            {docs.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-700 p-4 text-center text-xs font-bold uppercase text-slate-500">
+                Sua área está sendo preparada. Esta tela verifica novamente a cada 15 segundos.
+              </div>
+            ) : docs.map((doc) => (
+              <div key={doc.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                <div className="flex items-start gap-3">
+                  <FileSignature className="mt-0.5 shrink-0 text-indigo-400" size={18}/>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black uppercase text-white">{doc.tipo === 'PRE_CONTRATO' ? 'Contrato para assinatura' : doc.tipo}</p>
+                    <p className="mt-1 text-[10px] font-bold uppercase text-slate-500">
+                      {String(doc.status_assinatura).toUpperCase() === 'ASSINADO' ? 'Assinado' : 'Pendente de assinatura'}
+                      <span className="mx-1">·</span>
+                      {new Date(doc.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => window.open(doc.sign_url || doc.view_url, '_blank', 'noopener,noreferrer')} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-[10px] font-black uppercase tracking-widest text-white">
+                  <ExternalLink size={14}/>
+                  {String(doc.status_assinatura).toUpperCase() === 'ASSINADO' ? 'Abrir documento' : 'Ler e assinar'}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
+            <RefreshCw size={12} className="animate-spin"/>
+            Verificando portal
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (done || linkState.state === 'SUBMITTED') return <div className="min-h-screen bg-slate-950 grid place-items-center p-5"><div className="max-w-sm text-center"><CheckCircle2 className="mx-auto mb-4 text-amber-400" size={48}/><span className="inline-flex rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase text-amber-300">Em análise</span><h1 className="mt-3 text-xl font-bold text-white">Aguarde o término da análise</h1><p className="mt-2 text-sm text-slate-400">Seus dados foram recebidos. Quando o crédito for aprovado, este mesmo link abrirá sua área do cliente.</p></div></div>;
 
   const input = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-blue-500';

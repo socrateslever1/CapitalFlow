@@ -269,14 +269,16 @@ export const legalService = {
     }
 
     try {
-      let renderedHtml = '';
-      if (type === 'CONFISSAO' || !type) {
-          const { generateConfissaoDividaHTML } = await import('../templates/ConfissaoDividaTemplate');
-          renderedHtml = generateConfissaoDividaHTML(params, row.id, row.hash_sha256);
-      } else {
-          const { DocumentTemplates } = await import('../templates/DocumentTemplates');
-          const templateFn = (DocumentTemplates as any)[type.toLowerCase()] || (DocumentTemplates as any).confissaoDivida;
-          renderedHtml = templateFn(params);
+      let renderedHtml = params.customContent || '';
+      if (!renderedHtml) {
+        if (type === 'CONFISSAO' || !type) {
+            const { generateConfissaoDividaV2HTML } = await import('../templates/ConfissaoDividaV2Template');
+            renderedHtml = generateConfissaoDividaV2HTML(params, row.id, row.hash_sha256);
+        } else {
+            const { DocumentTemplates } = await import('../templates/DocumentTemplates');
+            const templateFn = (DocumentTemplates as any)[type.toLowerCase()] || (DocumentTemplates as any).confissaoDivida;
+            renderedHtml = templateFn(params);
+        }
       }
 
       if (renderedHtml) {

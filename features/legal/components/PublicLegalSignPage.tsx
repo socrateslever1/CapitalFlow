@@ -50,7 +50,14 @@ export const PublicLegalSignPage: React.FC<PublicLegalSignPageProps> = ({ token 
                 setExpectedName(name);
 
                 const audit = await legalPublicService.getAuditByToken(token);
-                const html = generateConfissaoDividaHTML(doc.snapshot, doc.id, doc.hash_sha256, audit.signatures);
+
+                // Prioriza o HTML exato salvo/editado no banco para que o cliente veja 100% o mesmo texto que o operador
+                let html = doc.snapshot_rendered_html;
+                if (!html) {
+                    const { generateConfissaoDividaV2HTML } = await import('../templates/ConfissaoDividaV2Template');
+                    html = generateConfissaoDividaV2HTML(doc.snapshot, doc.id, doc.hash_sha256, audit.signatures);
+                }
+
                 setHtmlContent(html);
                 setStatus('READY');
             } catch (e: any) {

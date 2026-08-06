@@ -62,6 +62,8 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
       }
     };
     fetchDocsAndClients();
+    const interval = setInterval(fetchDocsAndClients, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const pendingFeedbacks = useMemo(() => {

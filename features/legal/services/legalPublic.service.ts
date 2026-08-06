@@ -247,6 +247,20 @@ export const legalPublicService = {
         // ignore
       }
     }
+
+    try {
+      const clientName = signerName || doc.snapshot?.debtorName || doc.snapshot?.client_name || 'Cliente';
+      await supabase.from('notificacoes').insert({
+        tipo: 'AJUSTE_CONTRATO',
+        titulo: '💬 Ajuste de Contrato Solicitado',
+        mensagem: `${clientName} solicitou ajustes no contrato: "${notes}"`,
+        read: false,
+        created_at: new Date().toISOString(),
+        owner_id: doc.dono_id || doc.profile_id
+      });
+      localStorage.setItem('cf_legal_event_signal', JSON.stringify({ type: 'AJUSTE', docId: safeDocId, ts: Date.now() }));
+    } catch {}
+
     return true;
   },
 
@@ -295,6 +309,20 @@ export const legalPublicService = {
         // ignore
       }
     }
+
+    try {
+      const clientName = signerName || doc.snapshot?.debtorName || doc.snapshot?.client_name || 'Cliente';
+      await supabase.from('notificacoes').insert({
+        tipo: 'RECUSA_CONTRATO',
+        titulo: '⚠️ Contrato Recusado pelo Cliente',
+        mensagem: `${clientName} recusou o contrato de confissão/mútuo. Motivo: "${reason}"`,
+        read: false,
+        created_at: new Date().toISOString(),
+        owner_id: doc.dono_id || doc.profile_id
+      });
+      localStorage.setItem('cf_legal_event_signal', JSON.stringify({ type: 'RECUSA', docId: safeDocId, ts: Date.now() }));
+    } catch {}
+
     return true;
   },
 };

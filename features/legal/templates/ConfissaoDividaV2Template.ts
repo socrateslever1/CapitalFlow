@@ -245,9 +245,9 @@ export const generateConfissaoDividaV2HTML = (
 
       <h2>CLÁUSULA PRIMEIRA - DO OBJETO E RECONHECIMENTO INCONDICIONAL DA DÍVIDA</h2>
       ${isAgreement ? `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> reconhece que recebeu do <strong>CREDOR</strong> o capital decorrente do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, celebrado em <strong>${dataDisponibilizacao}</strong>. Em razão da reorganização formalizada pelo acordo de <strong>${safeDateBR(data.agreementDate)}</strong>, confessa expressamente como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
+        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> reconhece que recebeu do <strong>CREDOR</strong> o capital decorrente da operação financeira celebrada em <strong>${dataDisponibilizacao}</strong>. Em razão da reorganização formalizada pelo acordo de <strong>${safeDateBR(data.agreementDate)}</strong>, confessa expressamente como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
       ` : `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> declara que recebeu do <strong>CREDOR</strong>, em <strong>${dataDisponibilizacao}</strong>, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, objeto do contrato de mútuo de referência <strong>${referenciaContrato}</strong>, e reconhece este valor como saldo de capital líquido, certo e exigível, confessando expressamente a dívida para todos os fins de direito.</p>
+        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> declara que recebeu do <strong>CREDOR</strong>, em <strong>${dataDisponibilizacao}</strong>, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, objeto deste instrumento, e reconhece este valor como saldo de capital líquido, certo e exigível, confessando expressamente a dívida para todos os fins de direito.</p>
       `}
       <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão de dívida é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
       <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O <strong>DEVEDOR</strong> declara ter conferido os valores acima indicados e reconhece integralmente a origem, a composição e o saldo do capital confessado, sem prejuízo dos direitos e garantias que não possam ser afastados por convenção particular.</p>
@@ -322,7 +322,7 @@ export const generateConfissaoDividaV2HTML = (
 
         <div class="np-body">
           <p>Ao(s) <span class="bold">${vencimentoNotaPromissoria}</span>, pagarei por esta única via de Nota Promissória a <span class="bold">${safeText(vm.creditorName)}</span>, CPF/CNPJ nº ${safeText(vm.creditorDoc)}, ou à sua ordem, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, pagável em <span class="bold">${safeText(vm.city)}</span>.</p>
-          <p style="font-size: 9pt; line-height: 1.4;"><strong>VÍNCULO E NÃO CUMULAÇÃO:</strong> esta nota promissória representa a mesma e única obrigação de capital reconhecida na Confissão de Dívida de referência <strong>${referenciaContrato}</strong>. Todo pagamento realizado em qualquer dos instrumentos abaterá, na mesma proporção, o saldo do outro, sendo vedada cobrança cumulativa ou em duplicidade.</p>
+          <p style="font-size: 9pt; line-height: 1.4;"><strong>VÍNCULO E NÃO CUMULAÇÃO:</strong> esta nota promissória representa a mesma e única obrigação de capital reconhecida no presente instrumento de Confissão de Dívida. Todo pagamento realizado em qualquer dos instrumentos abaterá, na mesma proporção, o saldo do outro, sendo vedada cobrança cumulativa ou em duplicidade.</p>
           <p style="margin-top: 20px;">
             <span class="bold">EMITENTE (DEVEDOR):</span> ${safeText(vm.debtorName)}<br/>
             <span class="bold">CPF/CNPJ:</span> ${safeText(vm.debtorDoc)}<br/>

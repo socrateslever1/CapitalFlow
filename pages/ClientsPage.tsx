@@ -58,6 +58,61 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
   const [registrationDocuments, setRegistrationDocuments] = React.useState<Awaited<ReturnType<typeof clientRegistrationService.getDocumentUrls>>>([]);
   const [loadingDocuments, setLoadingDocuments] = React.useState(false);
+  const [clientLegalDocs, setClientLegalDocs] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        const { data } = await supabase.from('documentos_juridicos').select('*').order('updated_at', { ascending: false });
+        if (data) setClientLegalDocs(data);
+      } catch {}
+    };
+    fetchDocs();
+    const interval = setInterval(fetchDocs, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getClientDocAlert = React.useCallback((client: Client) => {
+    const cDoc = String((client as any).document || (client as any).cpf || (client as any).cpf_cnpj || '').replace(/\D/g, '');
+    const cName = String(client.name || '').toLowerCase().trim();
+
+    const clientDocs = clientLegalDocs.filter(d => {
+      const dDoc = String(d.snapshot?.debtorDoc || d.cpf_devedor || '').replace(/\D/g, '');
+      if (cDoc && dDoc && cDoc === dDoc) return true;
+      const dName = String(d.snapshot?.debtorName || d.snapshot?.client_name || d.nome_devedor || '').toLowerCase().trim();
+      if (cName && dName && (cName.includes(dName) || dName.includes(cName))) return true;
+      return false;
+    });
+
+    const refused = clientDocs.find(d => ['RECUSADO', 'RECUSA'].includes(String(d.status_assinatura || d.status || '').toUpperCase()));
+    if (refused) {
+      return {
+        type: 'RECUSADO',
+        label: 'CONTRATO RECUSADO',
+        reason: refused.observacoes || refused.snapshot?.client_refusal_reason || 'Cliente recusou o contrato enviado.'
+      };
+    }
+
+    const adjustment = clientDocs.find(d => ['AJUSTE_SOLICITADO', 'AJUSTE'].includes(String(d.status_assinatura || d.status || '').toUpperCase()));
+    if (adjustment) {
+      return {
+        type: 'AJUSTE_SOLICITADO',
+        label: 'AJUSTE SOLICITADO',
+        reason: adjustment.observacoes || adjustment.snapshot?.client_adjustment_request || 'Cliente solicitou ajustes no contrato.'
+      };
+    }
+
+    const pending = clientDocs.find(d => ['PENDENTE', 'EM_ASSINATURA'].includes(String(d.status_assinatura || d.status || '').toUpperCase()));
+    if (pending) {
+      return {
+        type: 'PENDENTE',
+        label: 'MINUTA ENVIADA',
+        reason: 'Aguardando aprovação / assinatura do cliente.'
+      };
+    }
+
+    return null;
+  }, [clientLegalDocs]);
 
   const reviewRegistration = async (client: Client, status: 'APPROVED' | 'REJECTED') => {
     if (status === 'REJECTED' && !window.confirm(`Negar o cadastro de ${client.name}? Ele sairá da carteira de clientes.`)) return;
@@ -461,20 +516,41 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                 <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-slate-700 bg-slate-950 text-[8px] font-bold uppercase text-slate-300" title="Docs"><FileSearch size={10}/> Docs ({client.registration_document_count || 0})</button>
                                 <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-bold uppercase text-emerald-300"><Check size={10}/> Aprovar</button>
                             </div>
-                        ) : (
-                            <div className="flex items-center justify-between w-full" onClick={(e) => e.stopPropagation()}>
-                                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-black uppercase tracking-wider">
-                                    Sem Contrato Registrado
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => openPreContractModal(client)}
-                                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all"
-                                >
-                                    <FileSignature size={10} /> Gerar Contrato
-                                </button>
-                            </div>
-                        )}
+                        ) : (() => {
+                            const docAlert = getClientDocAlert(client);
+                            return (
+                                <div className="flex items-center justify-between w-full" onClick={(e) => e.stopPropagation()}>
+                                    {docAlert ? (
+                                        <span
+                                            className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-1 border ${
+                                                docAlert.type === 'RECUSADO'
+                                                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                                                    : docAlert.type === 'AJUSTE_SOLICITADO'
+                                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
+                                                        : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                                            }`}
+                                            title={docAlert.reason}
+                                        >
+                                            {docAlert.type === 'RECUSADO' && <AlertCircle size={9} />}
+                                            {docAlert.type === 'AJUSTE_SOLICITADO' && <MessageCircle size={9} />}
+                                            {docAlert.type === 'PENDENTE' && <Clock size={9} />}
+                                            {docAlert.label}
+                                        </span>
+                                    ) : (
+                                        <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-black uppercase tracking-wider">
+                                            Sem Contrato Registrado
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => openPreContractModal(client)}
+                                        className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all"
+                                    >
+                                        <FileSignature size={10} /> Gerar Contrato
+                                    </button>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* RODAPÉ DO CARD (CONTATO / ENDEREÇO EM 1 LINHA) */}

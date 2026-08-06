@@ -231,11 +231,11 @@ export const clientPreContractService = {
 
     if (error) throw new Error(error.message || 'Não foi possível criar o documento para assinatura.');
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     return {
       documentId: data.id as string,
       portalUrl: portalLink.url,
-      signUrl: `${origin}/?legal_sign=${encodeURIComponent(String(data.view_token || viewToken))}&role=DEBTOR`,
+      // Mantém compatibilidade com a tela atual, mas direciona para o portal oficial.
+      signUrl: portalLink.url,
       status: 'AGUARDANDO_ASSINATURA' as const,
     };
   },

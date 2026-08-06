@@ -1,75 +1,57 @@
-
 import React from 'react';
-import { ChevronLeft, User, Scale, MapPin, Building, Lock } from 'lucide-react';
+import { Building, ChevronLeft, FileText, Lock, Mail, MapPin, Phone, User } from 'lucide-react';
 import { UserProfile } from '../../../types';
 
 interface LegalProfileViewProps {
-    activeUser: UserProfile | null;
-    onBack: () => void;
+  activeUser: UserProfile | null;
+  onBack: () => void;
 }
 
+const valueOrMissing = (value: unknown) => String(value || '').trim() || 'Não informado';
+
 export const LegalProfileView: React.FC<LegalProfileViewProps> = ({ activeUser, onBack }) => {
-    if (!activeUser) return null;
+  if (!activeUser) return null;
 
-    return (
-        <div className="w-full relative z-10">
-            {/* HEADER SECTION */}
-            <header className="bg-slate-900/50 border-b border-slate-800 sticky top-0 z-30 backdrop-blur-md -mx-3 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-8 px-3 sm:px-6 lg:px-8 py-6 mb-8">
-                <div className="max-w-[1800px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                    <div className="flex items-center gap-5">
-                        <button
-                            onClick={onBack}
-                            className="w-12 h-12 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-all border border-slate-700 hover:border-indigo-500 shadow-lg"
-                        >
-                            <ChevronLeft size={20} className="text-slate-300" />
-                        </button>
-                        <div className="w-14 h-14 bg-indigo-600 rounded-lg flex items-center justify-center shadow-xl shadow-indigo-500/20 ring-1 ring-white/10 hidden sm:flex">
-                            <User className="text-white" size={28} />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tighter leading-none">Perfil <span className="text-indigo-500">Jurídico</span></h1>
-                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2">
-                                Identificação e Prerrogativas do Credor
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </header>
+  const fullAddress = [
+    (activeUser as any).address,
+    (activeUser as any).addressNumber,
+    (activeUser as any).neighborhood,
+    (activeUser as any).zipCode,
+  ].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
 
-            <div className="bg-slate-900 border border-slate-800 p-8 rounded-lg max-w-2xl">
-                <div className="space-y-6">
-                    <div className="flex items-center gap-4 p-4 bg-slate-950 rounded-lg border border-slate-800">
-                        <div className="p-3 bg-blue-500/10 text-blue-500 rounded-full"><Building size={20}/></div>
-                        <div>
-                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Nome Jurídico / Razão</p>
-                            <p className="text-white font-bold">{activeUser.fullName || activeUser.businessName || 'Não informado'}</p>
-                        </div>
-                    </div>
+  const cards = [
+    { label: 'Nome jurídico / razão', value: activeUser.fullName || activeUser.businessName || activeUser.name, icon: Building, tone: 'bg-blue-500/10 text-blue-500' },
+    { label: 'CPF / CNPJ', value: activeUser.document, icon: Lock, tone: 'bg-emerald-500/10 text-emerald-500' },
+    { label: 'Endereço do credor', value: fullAddress, icon: MapPin, tone: 'bg-violet-500/10 text-violet-400' },
+    { label: 'Praça de pagamento / foro', value: [activeUser.city, activeUser.state].filter(Boolean).join(' - '), icon: FileText, tone: 'bg-amber-500/10 text-amber-400' },
+    { label: 'Telefone / WhatsApp', value: (activeUser as any).phone || (activeUser as any).whatsapp || (activeUser as any).contatoWhatsapp, icon: Phone, tone: 'bg-cyan-500/10 text-cyan-400' },
+    { label: 'E-mail', value: (activeUser as any).email || (activeUser as any).usuarioEmail, icon: Mail, tone: 'bg-rose-500/10 text-rose-400' },
+  ];
 
-                    <div className="flex items-center gap-4 p-4 bg-slate-950 rounded-lg border border-slate-800">
-                        <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-full"><Lock size={20}/></div>
-                        <div>
-                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">CPF / CNPJ</p>
-                            <p className="text-white font-bold">{activeUser.document || 'Não informado'}</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 bg-slate-950 rounded-lg border border-slate-800">
-                        <div className="p-3 bg-purple-500/10 text-purple-500 rounded-full"><MapPin size={20}/></div>
-                        <div>
-                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Praça de Pagamento (Foro)</p>
-                            <p className="text-white font-bold">{activeUser.city || 'Manaus'} - {activeUser.state || 'AM'}</p>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-blue-900/10 border border-blue-500/20 rounded-lg">
-                        <p className="text-xs text-blue-300 leading-relaxed font-medium">
-                            <span className="font-black uppercase text-[10px] block mb-1">Nota Legal:</span>
-                            Estes dados são utilizados automaticamente na geração dos títulos executivos e termos de quitação. Certifique-se de que estão corretos conforme seus documentos oficiais.
-                        </p>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="relative z-10 w-full">
+      <header className="sticky top-0 z-30 -mx-3 -mt-4 mb-8 border-b border-slate-800 bg-slate-900/80 px-3 py-6 backdrop-blur-md sm:-mx-6 sm:-mt-8 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="mx-auto flex max-w-[1800px] items-center gap-5">
+          <button onClick={onBack} className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 shadow-lg transition-all hover:border-indigo-500 hover:bg-slate-700"><ChevronLeft size={20} className="text-slate-300" /></button>
+          <div className="hidden h-14 w-14 items-center justify-center rounded-lg bg-indigo-600 shadow-xl shadow-indigo-500/20 ring-1 ring-white/10 sm:flex"><User className="text-white" size={28} /></div>
+          <div><h1 className="text-2xl font-black uppercase leading-none tracking-tighter text-white sm:text-3xl">Perfil <span className="text-indigo-500">jurídico</span></h1><p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dados do credor usados nos documentos</p></div>
         </div>
-    );
+      </header>
+
+      <div className="max-w-3xl rounded-lg border border-slate-800 bg-slate-900 p-5 sm:p-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {cards.map(({ label, value, icon: Icon, tone }) => (
+            <div key={label} className="flex items-start gap-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <div className={`rounded-full p-3 ${tone}`}><Icon size={20} /></div>
+              <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{label}</p><p className="mt-1 break-words font-bold text-white">{valueOrMissing(value)}</p></div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 rounded-lg border border-blue-500/20 bg-blue-900/10 p-4">
+          <p className="text-xs font-medium leading-relaxed text-blue-300"><span className="mb-1 block text-[10px] font-black uppercase">Origem dos dados</span>Estas informações são carregadas do perfil autenticado na tabela <code>perfis</code>. Nome, documento, endereço e foro devem estar completos antes da emissão. O sistema não deve preencher Manaus/AM ou qualquer outro dado por padrão quando o cadastro estiver vazio.</p>
+        </div>
+      </div>
+    </div>
+  );
 };

@@ -32,7 +32,7 @@ import { PortalEducationalAI } from '../../features/portal/components/PortalEduc
 import { formatMoney } from '../../utils/formatters';
 import { legalDocumentService } from '../../services/legalDocument.service';
 import { portalService } from '../../services/portal.service';
-import { translateBillingCycle } from '../../utils/translationHelpers';
+import { translateBillingCycle, translateDocumentType } from '../../utils/translationHelpers';
 
 interface ClientPortalViewProps {
   initialPortalToken: string;
@@ -919,92 +919,124 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
       )}
 
       {isLegalOpen && (
-        <div className="fixed inset-0 bg-slate-950/98 flex items-center justify-center z-[250] p-4 backdrop-blur-xl animate-in fade-in duration-500">
-          <div className="bg-slate-900 border border-indigo-500/20 rounded-lg shadow-2xl relative w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-400">
-                        <Gavel size={24} />
-                    </div>
-                    <div>
-                        <h2 className="text-white font-black uppercase text-base tracking-tight leading-none">Central Jurídica</h2>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Sua Regularidade</p>
-                    </div>
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center z-[250] p-4 animate-in fade-in duration-300">
+          <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-2xl shadow-[0_0_50px_rgba(79,70,229,0.15)] relative w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/80 backdrop-blur-md relative overflow-hidden">
+              <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="flex items-center gap-3.5 relative z-10">
+                <div className="w-11 h-11 bg-gradient-to-br from-indigo-500/20 to-violet-500/10 rounded-xl border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
+                  <Gavel size={22} className="drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
                 </div>
-                <button
-                  onClick={() => setIsLegalOpen(false)}
-                  className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg text-slate-500 hover:text-white transition-all shadow-inner"
-                >
-                  <X size={20} />
-                </button>
+                <div>
+                  <h2 className="text-white font-black uppercase text-sm tracking-wide leading-none">Central Jurídica</h2>
+                  <p className="text-[9px] text-indigo-300/80 font-extrabold uppercase tracking-[0.2em] mt-1">Sua Regularidade & Documentos</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsLegalOpen(false)}
+                className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:border-slate-700 transition-all shadow-inner active:scale-95"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
-              <div className="bg-gradient-to-br from-indigo-500/10 to-transparent p-6 rounded-lg border border-indigo-500/20 text-center relative overflow-hidden group">
-                <Lock className="mx-auto text-indigo-400 mb-2 relative z-10" size={32} />
-                <h4 className="text-white font-black text-sm uppercase tracking-wide relative z-10">Assinatura Eletrônica</h4>
-                <p className="text-[10px] text-slate-400 mt-2 font-medium leading-relaxed relative z-10">
-                    Seus documentos são criptografados e possuem validade jurídica conforme a lei vigente.
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-5">
+              <div className="bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-violet-950/40 p-5 rounded-xl border border-indigo-500/20 text-center relative overflow-hidden group shadow-lg">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
+                <div className="w-10 h-10 mx-auto mb-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 relative z-10">
+                  <Lock size={20} className="relative z-10" />
+                </div>
+                <h4 className="text-white font-black text-xs uppercase tracking-wider relative z-10">Assinatura Eletrônica Segura</h4>
+                <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed max-w-xs mx-auto relative z-10">
+                  Seus documentos possuem criptografia ponta a ponta e total validade jurídica conforme a lei vigente.
                 </p>
               </div>
 
               {loadingDocs ? (
-                <div className="py-20 flex flex-col items-center gap-4">
-                  <RefreshCw className="animate-spin text-indigo-500 w-10 h-10" />
-                  <p className="text-[10px] text-slate-600 font-black uppercase tracking-widest animate-pulse">Sincronizando Arquivos...</p>
+                <div className="py-16 flex flex-col items-center justify-center gap-3">
+                  <RefreshCw className="animate-spin text-indigo-500 w-8 h-8" />
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest animate-pulse">Carregando Seus Documentos...</p>
                 </div>
               ) : legalDocsError ? (
-                <div className="w-full bg-rose-500/5 border border-rose-500/20 rounded-lg p-6 text-center">
-                  <AlertTriangle className="mx-auto text-rose-500 mb-2" size={32} />
-                  <p className="text-rose-100 text-xs font-bold leading-tight mb-4">{legalDocsError}</p>
+                <div className="w-full bg-rose-500/10 border border-rose-500/30 rounded-xl p-5 text-center">
+                  <AlertTriangle className="mx-auto text-rose-400 mb-2" size={28} />
+                  <p className="text-rose-200 text-xs font-bold leading-tight mb-3">{legalDocsError}</p>
                   <button
                     onClick={loadDocs}
-                    className="px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-rose-900/30 transition-all"
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-rose-900/30 transition-all active:scale-95"
                   >
-                    Tentar Sincronização
+                    Tentar Novamente
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {docList.length === 0 ? (
-                    <div className="py-20 text-center">
-                        <CheckCircle2 size={32} className="mx-auto text-slate-800 mb-3" />
-                        <p className="text-slate-600 text-xs font-black uppercase tracking-widest">Nenhuma pendência encontrada</p>
+                    <div className="py-16 text-center bg-slate-950/30 border border-dashed border-slate-800 rounded-xl">
+                      <CheckCircle2 size={30} className="mx-auto text-emerald-500/60 mb-2" />
+                      <p className="text-slate-400 text-xs font-black uppercase tracking-widest">Nenhuma pendência encontrada</p>
+                      <p className="text-slate-600 text-[10px] mt-1">Todos os seus documentos estão em dia.</p>
                     </div>
                   ) : (
-                    docList.map((doc) => (
-                      <button
-                        key={doc.id}
-                        onClick={() => openPublicLegalDocument(doc)}
-                        className="w-full p-5 bg-slate-950/40 hover:bg-slate-800 border border-slate-800/50 rounded-lg flex items-center justify-between group transition-all"
-                      >
-                        <div className="flex items-center gap-4 text-left">
-                          <div className={`p-3 rounded-lg shadow-lg transition-colors ${
-                              (doc.status_assinatura || '').toUpperCase() === 'ASSINADO' 
-                              ? 'bg-emerald-500/10 text-emerald-500' 
-                              : 'bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white'
-                          }`}>
-                            <FileText size={20} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-black text-white uppercase tracking-tight">{doc.tipo || 'Instrumento Jurídico'}</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Criado em {new Date(doc.created_at).toLocaleDateString()}</p>
-                          </div>
-                        </div>
+                    docList.map((doc) => {
+                      const st = (doc.status_assinatura || '').toUpperCase();
+                      const isSigned = st === 'ASSINADO';
+                      const isAdjustment = st === 'AJUSTE_SOLICITADO';
+                      const isRejected = st === 'RECUSADO';
 
-                        {(doc.status_assinatura || '').toUpperCase() === 'ASSINADO' ? (
-                          <div className="flex flex-col items-end gap-1">
-                              <CheckCircle2 size={18} className="text-emerald-500" />
-                              <span className="text-[7px] text-emerald-500/60 font-black uppercase tracking-widest">Assinado</span>
+                      return (
+                        <button
+                          key={doc.id}
+                          onClick={() => openPublicLegalDocument(doc)}
+                          className="w-full p-4 bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800/80 hover:border-indigo-500/40 rounded-xl flex items-center justify-between group transition-all duration-300 shadow-md text-left"
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className={`p-3 rounded-xl shadow-md transition-all shrink-0 ${
+                              isSigned 
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                : isAdjustment 
+                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                : isRejected
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white'
+                            }`}>
+                              <FileText size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-white uppercase tracking-tight truncate">
+                                {translateDocumentType(doc.tipo || doc.type || 'CONFISSAO')}
+                              </p>
+                              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
+                                Criado em {new Date(doc.created_at).toLocaleDateString('pt-BR')}
+                              </p>
+                            </div>
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-2 bg-amber-500 text-slate-950 px-3 py-1.5 rounded-full shadow-lg shadow-amber-900/20">
-                             <span className="text-[8px] uppercase font-black tracking-widest">Pendente</span>
-                             <ChevronRight size={12} />
+
+                          <div className="shrink-0 ml-3">
+                            {isSigned ? (
+                              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded-full">
+                                <CheckCircle2 size={12} />
+                                <span className="text-[8px] font-black uppercase tracking-wider">Assinado</span>
+                              </div>
+                            ) : isAdjustment ? (
+                              <div className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-300 px-3 py-1 rounded-full">
+                                <span className="text-[8px] font-black uppercase tracking-wider">Ajuste Solicitado</span>
+                              </div>
+                            ) : isRejected ? (
+                              <div className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 px-3 py-1 rounded-full">
+                                <span className="text-[8px] font-black uppercase tracking-wider">Recusado</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-1.5 rounded-full font-black shadow-md shadow-amber-950/40 transition-all">
+                                <span className="text-[8px] uppercase tracking-wider">Pendente</span>
+                                <ChevronRight size={12} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </button>
-                    ))
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               )}

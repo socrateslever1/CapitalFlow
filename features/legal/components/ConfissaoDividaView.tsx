@@ -11,7 +11,7 @@ import { formatBRDate } from '../../../utils/dateHelpers';
  * e subcomponentes dedicados (SigningLinkCard e LegalDocumentHistory).
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { DocumentEditor } from './DocumentEditor';
 import {
     ChevronLeft, Scroll, UserCheck, ShieldCheck,
@@ -19,6 +19,7 @@ import {
     Gavel, Search, Calendar, AlertTriangle, Calculator, CheckCircle2
 } from 'lucide-react';
 import { Loan, UserProfile } from '../../../types';
+import { supabase } from '../../../lib/supabase';
 import { formatMoney } from '../../../utils/formatters';
 import { WitnessBaseManager } from './WitnessBaseManager';
 import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
@@ -27,6 +28,7 @@ import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
 import { useConfissaoDividaState } from './ConfissaoDivida/useConfissaoDividaState';
 import { SigningLinkCard } from './ConfissaoDivida/SigningLinkCard';
 import { LegalDocumentHistory } from './ConfissaoDivida/LegalDocumentHistory';
+import { legalService } from '../services/legalService';
 
 interface ConfissaoDividaViewProps {
     loans: Loan[];
@@ -89,6 +91,50 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
         isDocumentDeletable,
         buildSigningLinks
     } = useConfissaoDividaState({ loans, initialLoanId, activeUser, showToast });
+
+    const [allRegisteredClients, setAllRegisteredClients] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                const { data } = await supabase.from('clientes').select('*');
+                if (data) setAllRegisteredClients(data);
+            } catch {
+                // ignore
+            }
+        };
+        fetchClients();
+    }, []);
+
+    const allClientEntries = useMemo(() => {
+        const entries: Loan[] = [...loans];
+        const existingDocs = new Set(loans.map((l) => String(l.debtorDocument || '').replace(/\D/g, '')));
+        const existingNames = new Set(loans.map((l) => String(l.debtorName || '').toLowerCase().trim()));
+
+        allRegisteredClients.forEach((c) => {
+            const cDoc = String(c.document || c.cpf || c.cpf_cnpj || '').replace(/\D/g, '');
+            const cName = String(c.name || c.full_name || c.nome || '').trim();
+
+            if (cName && (!cDoc || !existingDocs.has(cDoc)) && !existingNames.has(cName.toLowerCase())) {
+                existingDocs.add(cDoc || cName);
+                existingNames.add(cName.toLowerCase());
+                entries.push({
+                    id: `virtual-confissao-${c.id}`,
+                    clientId: c.id,
+                    debtorName: c.name || c.full_name || c.nome || 'Cliente',
+                    debtorDocument: c.document || c.cpf || c.cpf_cnpj || '',
+                    principal: 0,
+                    status: 'PENDING' as any,
+                    installments: [],
+                    startDate: c.created_at || new Date().toISOString(),
+                    notes: 'Cliente cadastrado (Sem contrato)',
+                    sourceId: '',
+                } as any);
+            }
+        });
+
+        return entries;
+    }, [loans, allRegisteredClients]);
 
     const selectedLegalTerms = selectedLoan
         ? buildCapitalOnlyLegalTerms(selectedLoan, selectedLoan.activeAgreement)
@@ -170,9 +216,9 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                     <div className="w-6 h-6 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-center text-indigo-500 font-black text-[10px]">
                                         01
                                     </div>
-                                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Contratos</h3>
+                                    <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Clientes</h3>
                                 </div>
-                                <div className="text-[9px] font-bold text-slate-500 uppercase">{loans.length} Total</div>
+                                <div className="text-[9px] font-bold text-slate-500 uppercase">{allClientEntries.length} Total</div>
                             </div>
 
                             {/* BUSCA E FILTRO */}
@@ -191,16 +237,17 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                             </div>
 
                             <div className="grid grid-cols-1 gap-2 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
-                                {loans
-                                    .filter(
-                                        (l) =>
-                                            !l.isArchived &&
-                                            (l.debtorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                                l.debtorDocument.includes(searchQuery))
-                                    )
-                                    .sort((a, b) => a.debtorName.localeCompare(b.debtorName))
+                                {allClientEntries
+                                    .filter((l) => {
+                                        const dName = String(l.debtorName || '').toLowerCase();
+                                        const dDoc = String(l.debtorDocument || '');
+                                        const q = (searchQuery || '').toLowerCase();
+                                        return dName.includes(q) || dDoc.includes(q);
+                                    })
+                                    .sort((a, b) => String(a.debtorName || '').localeCompare(String(b.debtorName || '')))
                                     .map((loan) => {
                                         const isAgreement = !!loan.activeAgreement;
+                                        const isVirtual = loan.id.startsWith('virtual-confissao-');
                                         const isSelected = selectedLoan?.id === loan.id;
 
                                         let itemClass = '';
@@ -225,13 +272,22 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                             >
                                                 <div className="flex justify-between items-start mb-1">
                                                     <p
-                                                        className={`text-[10px] font-black uppercase tracking-tight truncate max-w-[130px] ${
+                                                        className={`text-[10px] font-black uppercase tracking-tight truncate max-w-[140px] ${
                                                             isSelected ? 'text-white' : isAgreement ? 'text-purple-200' : 'text-slate-300'
                                                         }`}
                                                     >
-                                                        {loan.debtorName}
+                                                        {loan.debtorName} <span className="opacity-60 text-[8px] font-mono">#{loan.id.slice(0, 5).toUpperCase()}</span>
                                                     </p>
                                                     <div className="flex items-center gap-1.5">
+                                                        {isVirtual && (
+                                                            <span
+                                                                className={`text-[7px] font-black px-1.5 py-0.5 rounded shadow-sm ${
+                                                                    isSelected ? 'bg-amber-400 text-slate-950' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                                }`}
+                                                            >
+                                                                SEM CONTRATO
+                                                            </span>
+                                                        )}
                                                         {isAgreement && (
                                                             <span
                                                                 className={`text-[7px] font-black px-1.5 py-0.5 rounded shadow-sm ${
@@ -513,6 +569,22 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                 buildSigningLinks={buildSigningLinks}
                                 copyToClipboard={copyToClipboard}
                                 handleDeleteDocument={handleDeleteDocument}
+                                onEditDocument={async (doc) => {
+                                    try {
+                                        let content = (doc as any).snapshot_rendered_html || (doc as any).rendered_html;
+                                        if (!content && doc.id) {
+                                            content = await legalService.getRenderedHTML(doc.id);
+                                        }
+                                        if (content) {
+                                            setDocumentContent(content);
+                                            showToast("Minuta carregada no editor ao lado! Você pode editar o texto livremente.", "info");
+                                            return;
+                                        }
+                                    } catch (e) {
+                                        console.warn("[ConfissaoDividaView] Erro ao carregar minuta no editor:", e);
+                                    }
+                                    handleGenerate();
+                                }}
                             />
                         )}
                     </div>

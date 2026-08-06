@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   FileSignature,
   ArrowLeft,
+  Printer,
 } from 'lucide-react';
 import { maskDocument } from '../../utils/formatters';
 
@@ -154,15 +155,36 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
         </div>
 
-        {isSigned ? (
-          <span className="text-emerald-500 flex items-center gap-1 text-xs font-bold">
-            <CheckCircle2 size={14} /> Assinado
-          </span>
-        ) : (
-          <span className="text-amber-500 flex items-center gap-1 text-xs font-bold">
-            <FileSignature size={14} /> Pendente
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              const html = document?.snapshot_rendered_html || document?.rendered_html;
+              if (!html) {
+                alert('O documento não possui versão formatada para download.');
+                return;
+              }
+              const printWin = window.open('', '_blank');
+              if (!printWin) return;
+              printWin.document.write(html);
+              printWin.document.close();
+              printWin.focus();
+              setTimeout(() => { printWin.print(); }, 500);
+            }}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-bold uppercase flex items-center gap-1.5 shadow transition-all"
+          >
+            <Printer size={14} /> Baixar PDF / Imprimir
+          </button>
+
+          {isSigned ? (
+            <span className="text-emerald-500 flex items-center gap-1 text-xs font-bold">
+              <CheckCircle2 size={14} /> Assinado
+            </span>
+          ) : (
+            <span className="text-amber-500 flex items-center gap-1 text-xs font-bold">
+              <FileSignature size={14} /> Pendente
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -243,14 +265,58 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             <button
               onClick={handleSign}
               disabled={!canSign || signing}
-              className={`w-full py-3 rounded text-xs font-bold ${
+              className={`w-full py-3 rounded text-xs font-bold mb-2 ${
                 !canSign
                   ? 'bg-slate-700 text-slate-500'
-                  : 'bg-blue-600 text-white'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
               }`}
             >
-              {signing ? 'Assinando...' : 'Assinar Documento'}
+              {signing ? 'Processando...' : 'Assinar & Aceitar Documento'}
             </button>
+
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                onClick={async () => {
+                  const notes = prompt('Descreva o que você gostaria que fosse ajustado no contrato:');
+                  if (!notes || !notes.trim()) return;
+                  try {
+                    setSigning(true);
+                    await legalDocumentService.requestAdjustment(docId, notes, signerName);
+                    alert('Solicitação de ajustes enviada com sucesso ao responsável!');
+                    onSigned();
+                  } catch (e: any) {
+                    alert(e.message || 'Erro ao enviar solicitação.');
+                  } finally {
+                    setSigning(false);
+                  }
+                }}
+                disabled={signing}
+                className="py-2 px-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500 hover:text-slate-950 rounded text-[10px] font-bold transition-all"
+              >
+                Pedir Ajustes
+              </button>
+
+              <button
+                onClick={async () => {
+                  const reason = prompt('Informe o motivo da recusa deste contrato:');
+                  if (!reason || !reason.trim()) return;
+                  try {
+                    setSigning(true);
+                    await legalDocumentService.rejectDoc(docId, reason, signerName);
+                    alert('Contrato recusado. O responsável foi notificado.');
+                    onSigned();
+                  } catch (e: any) {
+                    alert(e.message || 'Erro ao recusar documento.');
+                  } finally {
+                    setSigning(false);
+                  }
+                }}
+                disabled={signing}
+                className="py-2 px-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded text-[10px] font-bold transition-all"
+              >
+                Recusar
+              </button>
+            </div>
           </div>
         )}
       </div>

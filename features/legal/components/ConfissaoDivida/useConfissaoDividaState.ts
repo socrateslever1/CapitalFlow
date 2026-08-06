@@ -131,10 +131,10 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
         );
     }, []);
 
-    const refreshLoanDocuments = useCallback(async (loanId: string, fallbackDoc?: LegalDocumentRecord | null) => {
+    const refreshLoanDocuments = useCallback(async (loanId: string, fallbackDoc?: LegalDocumentRecord | null, debtorDoc?: string, debtorName?: string) => {
         setIsLoadingDocuments(true);
         try {
-            const docs = await legalService.listDocumentsByLoanId(loanId);
+            const docs = await legalService.listDocumentsByLoanId(loanId, debtorDoc, debtorName);
             const mergedDocs = mergeDocumentRecords(docs, fallbackDoc);
             setLoanDocuments(mergedDocs);
             setSelectedDocIds(prev => prev.filter(id => mergedDocs.some(doc => doc.id === id && isDocumentDeletable(doc))));
@@ -170,8 +170,8 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             return;
         }
 
-        void refreshLoanDocuments(selectedLoan.id);
-    }, [refreshLoanDocuments, selectedLoan?.id]);
+        void refreshLoanDocuments(selectedLoan.id, null, selectedLoan.debtorDocument, selectedLoan.debtorName);
+    }, [refreshLoanDocuments, selectedLoan?.id, selectedLoan?.debtorDocument, selectedLoan?.debtorName]);
 
     const deletableDocIds = useMemo(
         () => loanDocuments.filter(doc => isDocumentDeletable(doc)).map(doc => doc.id),
@@ -188,9 +188,16 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
     const handleGenerate = useCallback(() => {
         if (!selectedLoan || !activeUser) return;
 
-        const legalTotal = resolveLegalTotal(selectedLoan);
+        const snap = (loanDocuments[0]?.snapshot || {}) as any;
+        const legalTotalRaw = resolveLegalTotal(selectedLoan);
         const docInstallments = resolveDocumentInstallments(selectedLoan);
         const legalTerms = buildCapitalOnlyLegalTerms(selectedLoan, selectedLoan.activeAgreement);
+
+        const fallbackPrincipal = Number(snap.principalAmount || snap.amount || snap.totalDebt || 0);
+        const fallbackTotal = Number(snap.legalTotalAmount || snap.totalDebt || snap.amount || fallbackPrincipal);
+
+        const legalTotal = legalTotalRaw > 0 ? legalTotalRaw : fallbackPrincipal;
+        const finalTotalDebt = legalTerms.legalTotalAmount > 0 ? legalTerms.legalTotalAmount : (fallbackTotal > 0 ? fallbackTotal : legalTotal);
 
         const params = {
             loanId: selectedLoan.id,
@@ -200,21 +207,21 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             debtorName: selectedLoan.debtorName.toUpperCase(),
             debtorDoc: selectedLoan.debtorDocument,
             debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
-            amount: legalTerms.legalTotalAmount,
+            amount: finalTotalDebt,
             principalAmount: legalTotal,
-            originalPrincipalAmount: legalTerms.originalPrincipalAmount,
+            originalPrincipalAmount: legalTerms.originalPrincipalAmount > 0 ? legalTerms.originalPrincipalAmount : legalTotal,
             principalPaidAmount: legalTerms.principalPaidAmount,
             legalInterestRatePercent: legalTerms.legalInterestRatePercent,
             legalInterestAmount: legalTerms.legalInterestAmount,
-            legalTotalAmount: legalTerms.legalTotalAmount,
+            legalTotalAmount: finalTotalDebt,
             legalReconciliation: legalTerms.reconciliation,
-            totalDebt: legalTerms.legalTotalAmount,
-            installments: docInstallments,
+            totalDebt: finalTotalDebt,
+            installments: docInstallments.length > 0 ? docInstallments : (snap.installments || []),
             city: activeUser.city || 'Manaus',
             state: activeUser.state || 'AM',
-            billingCycle: selectedLoan.billingCycle,
-            amortizationType: selectedLoan.amortizationType,
-            isAgreement: !!selectedLoan.activeAgreement,
+            billingCycle: selectedLoan.billingCycle || snap.billingCycle,
+            amortizationType: selectedLoan.amortizationType || snap.amortizationType,
+            isAgreement: !!selectedLoan.activeAgreement || snap.isAgreement,
             agreementDate: selectedLoan.activeAgreement?.createdAt,
             clauses: clauses.reduce((acc, c) => ({ ...acc, [c.id]: c.active }), {}),
             templateId: resolveTemplateId(selectedLoan),

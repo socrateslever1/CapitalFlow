@@ -101,12 +101,18 @@ export const translateBillingCycle = (cycle: string): string => {
 
 export const translateDocumentType = (type: string): string => {
   const translations: Record<string, string> = {
+    MUTUO_PRE_DESEMBOLSO: 'Contrato de Empréstimo (Mútuo)',
+    PRE_CONTRATO: 'Pré-Contrato Digital',
+    MUTUO: 'Contrato de Mútuo',
+    TERMO_ADESAO: 'Termo de Adesão',
     CONFISSAO: 'Confissão de Dívida',
     CONFISSAO_AUTO: 'Confissão de Dívida',
     CONFISSAO_UNICO: 'Confissão de Dívida',
     CONFISSAO_DIVIDA: 'Confissão de Dívida',
-    NOTA_PROMISSORIA: 'Nota Promissória',
+    NOTA_PROMISSORIA: 'Nota Promissória Digital',
+    PROMISSORIA: 'Nota Promissória Digital',
     NOTIFICACAO: 'Notificação de Cobrança',
+    NOTIFICACAO_EXTRAJUDICIAL: 'Notificação Extrajudicial',
     TERMO_QUITACAO: 'Termo de Quitação',
     QUITACAO: 'Termo de Quitação',
     ACORDO_EXTRAJUDICIAL: 'Acordo Extrajudicial',

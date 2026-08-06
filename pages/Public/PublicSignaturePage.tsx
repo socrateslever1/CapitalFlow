@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { ShieldCheck, FileSignature, Loader2, AlertTriangle, CheckCircle2, Lock, Info, Scale, Gavel, Download, Eraser, Type, Upload, Image } from 'lucide-react';
+import { ShieldCheck, FileSignature, Loader2, AlertTriangle, CheckCircle2, Lock, Info, Scale, Gavel, Download, Eraser, Type, Upload, Image, Printer } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { legalPublicService } from '../../features/legal/services/legalPublic.service';
 import { generateConfissaoDividaHTML } from '../../features/legal/templates/ConfissaoDividaTemplate';
@@ -110,6 +110,11 @@ export const PublicSignaturePage = () => {
     const [signerDoc, setSignerDoc] = useState('');
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showTerms, setShowTerms] = useState(false);
+    const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+    const [adjustmentNotes, setAdjustmentNotes] = useState('');
+    const [showRefusalModal, setShowRefusalModal] = useState(false);
+    const [refusalReason, setRefusalReason] = useState('');
+    const [actionSuccessMsg, setActionSuccessMsg] = useState('');
 
     const sigCanvas = useRef<any>(null);
     const [hasSignature, setHasSignature] = useState(false);
@@ -341,11 +346,50 @@ export const PublicSignaturePage = () => {
 
             const nextHtml = await buildRenderedHtml(docData, updatedAudit.signatures || []);
             setHtmlContent(nextHtml);
+            setActionSuccessMsg('Documento assinado com sucesso!');
             setStatus('SUCCESS');
         } catch (e: any) {
             console.error("Erro na assinatura:", e);
             setErrorMessage(e.message || "Ocorreu um erro inesperado ao processar sua assinatura.");
             setStatus('ERROR');
+        }
+    };
+
+    const handleRequestAdjustment = async () => {
+        if (!token) return;
+        if (!adjustmentNotes.trim()) {
+            setLocalError('Descreva o que deseja que seja ajustado no contrato.');
+            return;
+        }
+        setStatus('SIGNING');
+        setLocalError(null);
+        try {
+            await legalPublicService.requestAdjustmentByToken(token, adjustmentNotes, expectedName);
+            setShowAdjustmentModal(false);
+            setActionSuccessMsg('Sua solicitação de ajustes foi enviada com sucesso! O responsável legal revisará seu contrato.');
+            setStatus('SUCCESS');
+        } catch (err: any) {
+            setLocalError(err.message || 'Falha ao enviar solicitação de ajustes.');
+            setStatus('READY');
+        }
+    };
+
+    const handleRejectContract = async () => {
+        if (!token) return;
+        if (!refusalReason.trim()) {
+            setLocalError('Informe o motivo da recusa.');
+            return;
+        }
+        setStatus('SIGNING');
+        setLocalError(null);
+        try {
+            await legalPublicService.rejectDocumentByToken(token, refusalReason, expectedName);
+            setShowRefusalModal(false);
+            setActionSuccessMsg('Contrato recusado com sucesso. As informações foram enviadas de volta ao responsável.');
+            setStatus('SUCCESS');
+        } catch (err: any) {
+            setLocalError(err.message || 'Falha ao recusar contrato.');
+            setStatus('READY');
         }
     };
 
@@ -456,10 +500,26 @@ export const PublicSignaturePage = () => {
                             title="Contrato View"
                         />
                     </div>
-                    {/* CONFIDENTIALity TAG */}
-                    <div className="mt-4 flex items-center justify-center gap-2 text-slate-600">
-                        <Lock size={12}/>
-                        <span className="text-[9px] font-black uppercase tracking-widest">Documento Protegido por Criptografia de Ponta a Ponta</span>
+                    {/* CONFIDENTIALity TAG & PRINT BUTTON */}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-slate-400">
+                        <div className="flex items-center gap-2 text-slate-500">
+                            <Lock size={14}/>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Documento Protegido com Criptografia de Ponta a Ponta</span>
+                        </div>
+                        <button
+                            onClick={() => {
+                                const iframe = document.querySelector('iframe');
+                                if (iframe && iframe.contentWindow) {
+                                    iframe.contentWindow.focus();
+                                    iframe.contentWindow.print();
+                                } else {
+                                    window.print();
+                                }
+                            }}
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-black uppercase flex items-center gap-2 shadow-lg transition-all"
+                        >
+                            <Printer size={15} /> Baixar PDF / Imprimir (ABNT)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -722,28 +782,48 @@ export const PublicSignaturePage = () => {
                                     <span className="text-[10px] font-black uppercase tracking-widest">Você já assinou este documento</span>
                                 </div>
                             ) : (
-                                <button
-                                    onClick={handleSign}
-                                    disabled={!acceptedTerms || !signerDoc || status === 'SIGNING' || (signatureMode === 'DRAW' && (!hasSignature || sigCanvas.current?.isEmpty?.())) || (signatureMode === 'TYPE' && !typedText.trim()) || (signatureMode === 'UPLOAD' && !uploadedImage)}
-                                    className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg font-black uppercase text-xs shadow-2xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                >
-                                    {status === 'SIGNING' ? (
-                                        <>
-                                            <Loader2 size={20} className="animate-spin" />
-                                            Processando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FileSignature size={20}/> Confirmar Assinatura
-                                        </>
-                                    )}
-                                </button>
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={handleSign}
+                                        disabled={!acceptedTerms || !signerDoc || status === 'SIGNING' || (signatureMode === 'DRAW' && (!hasSignature || sigCanvas.current?.isEmpty?.())) || (signatureMode === 'TYPE' && !typedText.trim()) || (signatureMode === 'UPLOAD' && !uploadedImage)}
+                                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg font-black uppercase text-xs shadow-2xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        {status === 'SIGNING' ? (
+                                            <>
+                                                <Loader2 size={18} className="animate-spin" />
+                                                Processando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FileSignature size={18}/> Assinar & Aceitar Contrato
+                                            </>
+                                        )}
+                                    </button>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button
+                                            onClick={() => { setLocalError(null); setShowAdjustmentModal(true); }}
+                                            disabled={status === 'SIGNING'}
+                                            className="py-3 px-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500 hover:text-slate-950 rounded-lg font-black uppercase text-[10px] transition-all flex items-center justify-center gap-1.5"
+                                        >
+                                            <Info size={14}/> Pedir Ajustes
+                                        </button>
+
+                                        <button
+                                            onClick={() => { setLocalError(null); setShowRefusalModal(true); }}
+                                            disabled={status === 'SIGNING'}
+                                            className="py-3 px-2 bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white rounded-lg font-black uppercase text-[10px] transition-all flex items-center justify-center gap-1.5"
+                                        >
+                                            <AlertTriangle size={14}/> Recusar Contrato
+                                        </button>
+                                    </div>
+                                </div>
                             )}
 
                             <button
                                 onClick={handleDownload}
                                 disabled={!isComplete}
-                                className={`w-full py-4 rounded-lg font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${isComplete ? 'bg-white text-slate-950 hover:bg-slate-200 shadow-xl' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                                className={`w-full py-3.5 rounded-lg font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${isComplete ? 'bg-white text-slate-950 hover:bg-slate-200 shadow-xl' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
                             >
                                 <Download size={16}/> {isComplete ? 'Baixar PDF Final' : 'Aguardando Assinaturas'}
                             </button>
@@ -755,6 +835,96 @@ export const PublicSignaturePage = () => {
                     </div>
                 )}
             </div>
+
+            {/* MODAL SOLICITAR AJUSTES */}
+            {showAdjustmentModal && (
+                <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-amber-500/30 w-full max-w-lg rounded-2xl p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+                            <div className="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl">
+                                <Info size={22} />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-black uppercase text-sm">Solicitar Ajustes no Contrato</h3>
+                                <p className="text-[10px] text-slate-400 mt-0.5">Descreva o que precisa ser alterado antes da assinatura</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Descreva as alterações desejadas *</label>
+                            <textarea
+                                value={adjustmentNotes}
+                                onChange={(e) => setAdjustmentNotes(e.target.value)}
+                                placeholder="Ex: Solicito alteração do prazo da 2ª parcela ou correção de dados de endereço..."
+                                rows={4}
+                                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl p-3 text-xs text-white outline-none resize-none"
+                            />
+                        </div>
+
+                        {localError && <p className="text-xs text-rose-400 font-medium">{localError}</p>}
+
+                        <div className="flex gap-2 pt-2">
+                            <button
+                                onClick={() => setShowAdjustmentModal(false)}
+                                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-black uppercase transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleRequestAdjustment}
+                                className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-amber-950/40"
+                            >
+                                Enviar ao Responsável
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL RECUSAR CONTRATO */}
+            {showRefusalModal && (
+                <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-rose-500/30 w-full max-w-lg rounded-2xl p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
+                            <div className="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl">
+                                <AlertTriangle size={22} />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-black uppercase text-sm">Recusar Contrato</h3>
+                                <p className="text-[10px] text-slate-400 mt-0.5">Informe o motivo pelo qual está recusando este título</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Motivo da Recusa *</label>
+                            <textarea
+                                value={refusalReason}
+                                onChange={(e) => setRefusalReason(e.target.value)}
+                                placeholder="Ex: Não concordo com as condições financeiras acordadas..."
+                                rows={4}
+                                className="w-full bg-slate-950 border border-slate-700 focus:border-rose-500 rounded-xl p-3 text-xs text-white outline-none resize-none"
+                            />
+                        </div>
+
+                        {localError && <p className="text-xs text-rose-400 font-medium">{localError}</p>}
+
+                        <div className="flex gap-2 pt-2">
+                            <button
+                                onClick={() => setShowRefusalModal(false)}
+                                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-black uppercase transition-all"
+                            >
+                                Voltar
+                            </button>
+                            <button
+                                onClick={handleRejectContract}
+                                className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black uppercase transition-all shadow-lg shadow-rose-950/40"
+                            >
+                                Confirmar Recusa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* TERMS MODAL */}
             {showTerms && (

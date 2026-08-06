@@ -132,4 +132,81 @@ export const legalDocumentService = {
 
     return Array.isArray(data) ? data[0] : data ?? { ok: true };
   },
+
+  /**
+   * Solicitar ajustes no documento (Portal)
+   */
+  async requestAdjustment(docId: string, notes: string, signerName?: string) {
+    const { data, error } = await supabasePortal.rpc('rpc_doc_patch_snapshot', {
+      p_documento_id: docId,
+      p_patch: {
+        status_assinatura: 'AJUSTE_SOLICITADO',
+        client_adjustment_request: notes,
+        client_name: signerName,
+      },
+    });
+
+    if (error) {
+      console.warn('RPC patch error, trying direct update fallback:', error.message);
+      const { error: directErr } = await supabasePortal
+        .from('documentos_juridicos')
+        .update({
+          status_assinatura: 'AJUSTE_SOLICITADO',
+          observacoes: `[AJUSTE SOLICITADO por ${signerName || 'Cliente'}] ${notes}`,
+        })
+        .eq('id', docId);
+
+      if (directErr) throw new Error(directErr.message || 'Falha ao solicitar ajustes.');
+    }
+
+    return Array.isArray(data) ? data[0] : data ?? { ok: true };
+  },
+
+  /**
+   * Recusar documento (Portal)
+   */
+  async rejectDoc(docId: string, reason: string, signerName?: string) {
+    const { data, error } = await supabasePortal.rpc('rpc_doc_patch_snapshot', {
+      p_documento_id: docId,
+      p_patch: {
+        status_assinatura: 'RECUSADO',
+        client_refusal_reason: reason,
+        client_name: signerName,
+      },
+    });
+
+    if (error) {
+      console.warn('RPC patch error, trying direct update fallback:', error.message);
+      const { error: directErr } = await supabasePortal
+        .from('documentos_juridicos')
+        .update({
+          status_assinatura: 'RECUSADO',
+          observacoes: `[RECUSADO por ${signerName || 'Cliente'}] Motivo: ${reason}`,
+        })
+        .eq('id', docId);
+
+      if (directErr) throw new Error(directErr.message || 'Falha ao recusar documento.');
+    }
+
+    return Array.isArray(data) ? data[0] : data ?? { ok: true };
+  },
+
+  /**
+   * Apaga/exclui um documento jurídico do banco de dados
+   */
+  async deleteDoc(docId: string): Promise<void> {
+    const { error } = await supabasePortal
+      .from('documentos_juridicos')
+      .delete()
+      .eq('id', docId);
+
+    if (error) {
+      console.warn('Portal delete error, trying direct fallback:', error.message);
+      const { error: directErr } = await supabasePortal
+        .from('documentos_juridicos')
+        .delete()
+        .eq('id', docId);
+      if (directErr) throw new Error(directErr.message || 'Falha ao excluir documento jurídico.');
+    }
+  },
 };

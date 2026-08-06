@@ -201,4 +201,100 @@ export const legalPublicService = {
 
     return true;
   },
+
+  /**
+   * Solicita ajustes no contrato (Cliente)
+   */
+  async requestAdjustmentByToken(
+    token: string,
+    notes: string,
+    signerName?: string
+  ) {
+    const { data: docData, error: docError } = await supabase.rpc('get_documento_juridico_by_view_token', {
+      p_view_token: token,
+    });
+    if (docError || !docData || docData.length === 0) {
+      throw new Error('Documento inválido ou não encontrado.');
+    }
+    const doc = docData[0];
+    const safeDocId = safeUUID(doc.id);
+    if (!safeDocId) throw new Error('ID do documento inválido.');
+
+    const updatePayload = {
+      status_assinatura: 'AJUSTE_SOLICITADO',
+      status: 'AJUSTE_SOLICITADO',
+      observacoes: `[AJUSTE SOLICITADO por ${signerName || 'Cliente'}] ${notes}`,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: updateErr } = await supabase
+      .from('documentos_juridicos')
+      .update(updatePayload)
+      .eq('id', safeDocId);
+
+    if (updateErr) {
+      console.warn('Falha no update direto ao pedir ajustes, tentando patch:', updateErr.message);
+      try {
+        await supabase.rpc('rpc_doc_patch_snapshot', {
+          p_documento_id: safeDocId,
+          p_patch: {
+            status_assinatura: 'AJUSTE_SOLICITADO',
+            client_adjustment_request: notes,
+            client_name: signerName,
+          },
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+    return true;
+  },
+
+  /**
+   * Recusa contrato (Cliente)
+   */
+  async rejectDocumentByToken(
+    token: string,
+    reason: string,
+    signerName?: string
+  ) {
+    const { data: docData, error: docError } = await supabase.rpc('get_documento_juridico_by_view_token', {
+      p_view_token: token,
+    });
+    if (docError || !docData || docData.length === 0) {
+      throw new Error('Documento inválido ou não encontrado.');
+    }
+    const doc = docData[0];
+    const safeDocId = safeUUID(doc.id);
+    if (!safeDocId) throw new Error('ID do documento inválido.');
+
+    const updatePayload = {
+      status_assinatura: 'RECUSADO',
+      status: 'RECUSADO',
+      observacoes: `[RECUSADO por ${signerName || 'Cliente'}] Motivo: ${reason}`,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: updateErr } = await supabase
+      .from('documentos_juridicos')
+      .update(updatePayload)
+      .eq('id', safeDocId);
+
+    if (updateErr) {
+      console.warn('Falha no update direto ao recusar documento:', updateErr.message);
+      try {
+        await supabase.rpc('rpc_doc_patch_snapshot', {
+          p_documento_id: safeDocId,
+          p_patch: {
+            status_assinatura: 'RECUSADO',
+            client_refusal_reason: reason,
+            client_name: signerName,
+          },
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+    return true;
+  },
 };

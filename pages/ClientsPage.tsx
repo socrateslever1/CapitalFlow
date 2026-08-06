@@ -293,11 +293,23 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     return (next as any)?.dueDate ? parseDateOnlyUTC((next as any).dueDate) : null;
   };
 
-  const getClientContractIndicators = (client: Client) => loans
-    .filter((loan) => loan.clientId === client.id && !loan.isArchived)
-    .map((loan) => ({ loan, amount: getLoanOpenAmount(loan) }))
-    .filter(({ amount }) => amount > 0.5)
-    .map(({ loan, amount }, index) => {
+  const getClientContractIndicators = (client: Client) => {
+    const cDoc = String((client as any).document || (client as any).cpf || (client as any).cpf_cnpj || '').replace(/\D/g, '');
+    const cName = String(client.name || '').toLowerCase().trim();
+
+    return loans
+      .filter((loan) => {
+        if (loan.isArchived) return false;
+        if (loan.clientId && loan.clientId === client.id) return true;
+        const lDoc = String(loan.debtorDocument || '').replace(/\D/g, '');
+        if (cDoc && lDoc && cDoc === lDoc) return true;
+        const lName = String(loan.debtorName || '').toLowerCase().trim();
+        if (cName && lName && (cName.includes(lName) || lName.includes(cName))) return true;
+        return false;
+      })
+      .map((loan) => ({ loan, amount: getLoanOpenAmount(loan) }))
+      .filter(({ amount }) => amount > 0.5)
+      .map(({ loan, amount }, index) => {
       const due = getNextOpenDueDate(loan);
       const diffDays = due ? Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
       const status = due && due.getTime() < today.getTime()
@@ -318,6 +330,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         colorClass,
       };
     });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in">
@@ -408,13 +421,16 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
                         {!isBulkDeleteMode && (
                             <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-1.5 text-slate-400 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Documentos enviados do cliente">
+                                    <FileSearch size={13}/>
+                                </button>
                                 <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-1.5 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-md hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente">
                                     <Link2 size={13}/>
                                 </button>
-                                <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400/80 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors" title="Enviar documento para assinatura">
+                                <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors" title="Criar pré-contrato / Gerar documento">
                                     <FileSignature size={13}/>
                                 </button>
-                                <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Editar">
+                                <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Editar cliente">
                                     <Edit size={13}/>
                                 </button>
                                 <button onClick={() => onDeleteClient(client.id)} className="p-1.5 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-md hover:bg-rose-950/30 transition-colors" title="Excluir">
@@ -446,7 +462,18 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                 <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-bold uppercase text-emerald-300"><Check size={10}/> Aprovar</button>
                             </div>
                         ) : (
-                            <span className="text-[9px] text-slate-600 italic">Sem contratos ativos</span>
+                            <div className="flex items-center justify-between w-full" onClick={(e) => e.stopPropagation()}>
+                                <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[8px] font-black uppercase tracking-wider">
+                                    Sem Contrato Registrado
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => openPreContractModal(client)}
+                                    className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all"
+                                >
+                                    <FileSignature size={10} /> Gerar Contrato
+                                </button>
+                            </div>
                         )}
                     </div>
 

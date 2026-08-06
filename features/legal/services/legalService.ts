@@ -253,7 +253,7 @@ export const legalService = {
     });
 
     if (error) throw new Error(`Falha na base de dados: ${error.message}`);
-    
+
     let row = Array.isArray(created) ? created[0] : created;
 
     if (row?.id && !resolveDocumentAccessToken(row)) {
@@ -268,8 +268,6 @@ export const legalService = {
       }
     }
 
-    // ✅ GERAÇÃO AUTOMÁTICA DO TEXTO (MOTOR JURÍDICO)
-    // Geramos o HTML logo após criar o registro para que o portal já tenha o conteúdo
     try {
       let renderedHtml = '';
       if (type === 'CONFISSAO' || !type) {
@@ -310,55 +308,56 @@ export const legalService = {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    
-    if (error) return { data: null };
 
-    if (!data) return { data: null };
+    if (error || !data) return { data: null };
 
     return { data: mapLegalDocumentRecord(data) };
   },
 
-  async _deleteDocumentLegacy(docId: string) {
-    const safeDocId = safeUUID(docId);
-    if (!safeDocId) throw new Error('ID inválido');
-
-    const { count, error: signaturesCountError } = await supabase
-      .from('assinaturas_documento')
-      .select('id', { count: 'exact', head: true })
-      .eq('document_id', safeDocId);
-
-    if (signaturesCountError) throw signaturesCountError;
-
-    if ((count || 0) > 0) {
-      throw new Error('Nao e seguro apagar um documento que ja possui assinaturas registradas.');
-    }
-
-    const { error: logsError } = await supabase
-      .from('logs_assinatura')
-      .delete()
-      .eq('documento_id', safeDocId);
-
-    if (logsError) throw logsError;
-
-    const { error } = await supabase.from('documentos_juridicos')
-      .delete()
-      .eq('id', safeDocId);
-
-    if (error) throw error;
-  },
-
-  async listDocumentsByLoanId(loanId: string): Promise<LegalDocumentRecord[]> {
+  async listDocumentsByLoanId(loanId: string, debtorDoc?: string, debtorName?: string): Promise<LegalDocumentRecord[]> {
     const safeLoanId = safeUUID(loanId);
-    if (!safeLoanId) return [];
+    const cleanDoc = String(debtorDoc || '').replace(/\D/g, '');
+    const cleanName = String(debtorName || '').trim();
 
-    const { data, error } = await supabase.from('documentos_juridicos')
-      .select('*')
-      .eq('loan_id', safeLoanId)
-      .order('created_at', { ascending: false });
+    try {
+      let query = supabase.from('documentos_juridicos').select('*');
 
-    if (error) throw error;
+      if (safeLoanId && cleanDoc) {
+        query = query.or(`loan_id.eq.${safeLoanId},snapshot->>debtorDoc.ilike.%${cleanDoc}%`);
+      } else if (safeLoanId) {
+        query = query.eq('loan_id', safeLoanId);
+      } else if (cleanDoc) {
+        query = query.or(`snapshot->>debtorDoc.ilike.%${cleanDoc}%,snapshot->>debtorName.ilike.%${cleanName}%`);
+      } else if (cleanName) {
+        query = query.ilike('snapshot->>debtorName', `%${cleanName}%`);
+      } else {
+        return [];
+      }
 
-    return (data || []).map((row: any) => mapLegalDocumentRecord(row));
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) {
+        if (safeLoanId) {
+          const { data: fallbackData } = await supabase.from('documentos_juridicos')
+            .select('*')
+            .eq('loan_id', safeLoanId)
+            .order('created_at', { ascending: false });
+          return (fallbackData || []).map((row: any) => mapLegalDocumentRecord(row));
+        }
+        return [];
+      }
+
+      return (data || []).map((row: any) => mapLegalDocumentRecord(row));
+    } catch {
+      if (safeLoanId) {
+        const { data: fallbackData } = await supabase.from('documentos_juridicos')
+          .select('*')
+          .eq('loan_id', safeLoanId)
+          .order('created_at', { ascending: false });
+        return (fallbackData || []).map((row: any) => mapLegalDocumentRecord(row));
+      }
+      return [];
+    }
   },
 
   async deleteDocuments(docIds: string[]): Promise<{ deletedIds: string[]; blockedIds: string[] }> {
@@ -390,10 +389,7 @@ export const legalService = {
 
     const signedDocIds = new Set((signatures || []).map((row: any) => row.document_id));
 
-    const deletableIds = safeDocIds.filter((id) => {
-      const status = statusById.get(id);
-      return !!status && PENDING_DOCUMENT_STATUSES.has(status) && !signedDocIds.has(id);
-    });
+    const deletableIds = safeDocIds.filter((id) => !signedDocIds.has(id));
 
     const blockedIds = safeDocIds.filter((id) => !deletableIds.includes(id));
 
@@ -403,7 +399,7 @@ export const legalService = {
         .delete()
         .in('documento_id', deletableIds);
 
-      if (logsError) throw logsError;
+      if (logsError) console.warn(logsError);
 
       const { error: docsDeleteError } = await supabase
         .from('documentos_juridicos')
@@ -431,38 +427,6 @@ export const legalService = {
     }
   },
 
-  async getDocumentByLoanId(loanId: string) {
-    const safeLoanId = safeUUID(loanId);
-    if (!safeLoanId) return null;
-
-    const { data } = await supabase.from('documentos_juridicos')
-      .select('*')
-      .eq('loan_id', safeLoanId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return data ? mapLegalDocumentRecord(data) : null;
-  },
-
-  async getFullAuditData(docId: string) {
-    const safeDocId = safeUUID(docId);
-    if (!safeDocId) return { doc: null, signatures: [], logs: [] };
-
-    const { data: doc } = await supabase.from('documentos_juridicos').select('*').eq('id', safeDocId).single();
-    if (!doc) return { doc: null, signatures: [], logs: [] };
-    
-    const [signaturesRes, logsRes] = await Promise.all([
-      supabase.from('assinaturas_documento').select('*').eq('document_id', doc.id).order('signed_at', { ascending: true }),
-      supabase.from('logs_assinatura').select('*').eq('document_id', doc.id).order('timestamp', { ascending: true })
-    ]);
-
-    return { 
-      doc, 
-      signatures: (signaturesRes.data || []).map((sig: any) => ({ ...sig, role: sig.papel || sig.role })), 
-      logs: logsRes.data || [] 
-    };
-  },
-
   async signDocument(docId: string, profileId: string, signerInfo: { name: string; doc: string }, role: string): Promise<void> {
     const safeDocId = safeUUID(docId);
     if (!safeDocId) throw new Error('ID do documento inválido');
@@ -488,7 +452,7 @@ export const legalService = {
       signer_name: signerInfo.name.toUpperCase(),
       signer_document: signerInfo.doc,
       role: normalizedRole,
-      papel: normalizedRole, // CREDITOR, DEBTOR, AVALISTA, WITNESS_1, WITNESS_2
+      papel: normalizedRole,
       assinatura_hash: hash,
       hash_assinado: hash,
       ip_origem: ip,
@@ -504,7 +468,6 @@ export const legalService = {
     const { doc, signatures } = await this.getFullAuditData(docId);
     if (!doc) throw new Error('Documento não encontrado');
     
-    // Se o snapshot tiver campos do modelo V2, usa o novo template
     if (doc.snapshot?.incluirGarantia !== undefined || doc.snapshot?.incluirAvalista !== undefined) {
       const { generateConfissaoDividaV2HTML } = await import('../templates/ConfissaoDividaV2Template');
       return generateConfissaoDividaV2HTML(doc.snapshot, doc.id, doc.hash_sha256, signatures);
@@ -512,6 +475,25 @@ export const legalService = {
 
     const { generateConfissaoDividaHTML } = await import('../templates/ConfissaoDividaTemplate');
     return generateConfissaoDividaHTML(doc.snapshot, doc.id, doc.hash_sha256, signatures);
+  },
+
+  async getFullAuditData(docId: string) {
+    const safeDocId = safeUUID(docId);
+    if (!safeDocId) return { doc: null, signatures: [], logs: [] };
+
+    const { data: doc } = await supabase.from('documentos_juridicos').select('*').eq('id', safeDocId).single();
+    if (!doc) return { doc: null, signatures: [], logs: [] };
+
+    const [signaturesRes, logsRes] = await Promise.all([
+      supabase.from('assinaturas_documento').select('*').eq('document_id', doc.id).order('signed_at', { ascending: true }),
+      supabase.from('logs_assinatura').select('*').eq('document_id', doc.id).order('timestamp', { ascending: true })
+    ]);
+
+    return { 
+      doc, 
+      signatures: (signaturesRes.data || []).map((sig: any) => ({ ...sig, role: sig.papel || sig.role })), 
+      logs: logsRes.data || [] 
+    };
   },
 
   async generatePDF(elementId: string, filename: string): Promise<void> {

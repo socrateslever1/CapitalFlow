@@ -1,5 +1,5 @@
 import React from 'react';
-import { BadgePercent, CalendarClock, CheckCircle2, Handshake, Info, Layers } from 'lucide-react';
+import { BadgePercent, CalendarClock, CheckCircle2, Handshake, Info, Layers, FolderOpen, FileText, ExternalLink } from 'lucide-react';
 import { AgreementView } from '../../../features/agreements/components/AgreementView';
 import { InstallmentGrid } from '../components/InstallmentGrid';
 import { Loan, UserProfile, Installment, Agreement, AgreementInstallment } from '../../../types';

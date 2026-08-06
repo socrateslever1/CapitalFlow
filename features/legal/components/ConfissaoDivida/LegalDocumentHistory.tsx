@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Loader2, Trash2, ExternalLink, Copy } from 'lucide-react';
+import { Loader2, Trash2, ExternalLink, Copy, Edit3 } from 'lucide-react';
 import { LegalDocumentRecord } from '../../../../types';
 import { translateDocumentType } from '../../../../utils/translationHelpers';
 
@@ -28,6 +28,7 @@ interface LegalDocumentHistoryProps {
     buildSigningLinks: (token: string) => { debtor: string; creditor: string; witness1: string; witness2: string };
     copyToClipboard: (text: string, label: string) => void;
     handleDeleteDocument: (doc: LegalDocumentRecord) => void;
+    onEditDocument?: (doc: LegalDocumentRecord) => void;
 }
 
 export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
@@ -47,7 +48,8 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
     isDocumentDeletable,
     buildSigningLinks,
     copyToClipboard,
-    handleDeleteDocument
+    handleDeleteDocument,
+    onEditDocument
 }) => {
     return (
         <section className="space-y-4">
@@ -141,6 +143,10 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
                                         className={`px-2 py-1 rounded-md text-[8px] font-black uppercase tracking-widest border ${
                                             status === 'ASSINADO'
                                                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                : status === 'AJUSTE_SOLICITADO'
+                                                ? 'bg-blue-500/10 text-blue-300 border-blue-500/30'
+                                                : status === 'RECUSADO'
+                                                ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                                                 : status === 'EM_ASSINATURA'
                                                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                                 : 'bg-slate-800 text-slate-400 border-slate-700'
@@ -149,6 +155,12 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
                                         {status.replace('_', ' ')}
                                     </span>
                                 </div>
+
+                                {(doc as any).observacoes && (
+                                    <div className="bg-slate-900 p-2.5 rounded-md border border-slate-800 text-[9px] text-amber-300 font-medium">
+                                        {(doc as any).observacoes}
+                                    </div>
+                                )}
 
                                 <div className="flex flex-col gap-3">
                                     {token && (
@@ -183,19 +195,26 @@ export const LegalDocumentHistory: React.FC<LegalDocumentHistoryProps> = ({
                                             </button>
                                         </div>
                                     )}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            onClick={() => onEditDocument?.(doc)}
+                                            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all shadow"
+                                        >
+                                            <Edit3 size={12} />
+                                            Editar Minuta
+                                        </button>
                                         <button
                                             onClick={() => token && window.open(link, '_blank')}
                                             disabled={!token}
-                                            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
+                                            className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all"
                                         >
                                             <ExternalLink size={12} />
-                                            Visualizar Doc
+                                            Visualizar / PDF
                                         </button>
                                         <button
                                             onClick={() => handleDeleteDocument(doc)}
                                             disabled={!canDelete || activeDocumentActionId === doc.id}
-                                            className="ml-auto px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-30 disabled:cursor-not-allowed text-rose-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border border-rose-500/20"
+                                            className="ml-auto px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed text-rose-400 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all border border-rose-500/20"
                                             title={canDelete ? 'Apagar registro antigo' : 'Documentos com assinatura nao podem ser apagados'}
                                         >
                                             {activeDocumentActionId === doc.id ? (

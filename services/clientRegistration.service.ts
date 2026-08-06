@@ -60,6 +60,7 @@ export const clientRegistrationService = {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     return { token, url: `${origin}/?cadastro=${encodeURIComponent(token)}` };
   },
+
   async getLink(token: string) {
     const result = await request({ action: 'get_link', token });
     if (result && typeof result === 'object') {
@@ -76,6 +77,7 @@ export const clientRegistrationService = {
     }
     return result;
   },
+
   submit: (
     token: string,
     fields: Record<string, string>,
@@ -93,6 +95,7 @@ export const clientRegistrationService = {
     form.append('profile_photo', profilePhoto);
     return request(form);
   },
+
   async review(clientId: string, status: 'APPROVED' | 'REJECTED') {
     const { data, error } = await supabase.rpc('review_client_registration', {
       p_client_id: clientId,
@@ -101,6 +104,7 @@ export const clientRegistrationService = {
     if (error) throw new Error(error.message || 'Não foi possível concluir a análise.');
     return data;
   },
+
   async getDocumentUrls(clientId: string) {
     const { data, error } = await supabase
       .from('client_registration_documents')
@@ -108,7 +112,8 @@ export const clientRegistrationService = {
       .eq('client_id', clientId)
       .order('created_at');
     if (error) throw error;
-    const urls = await Promise.all((data || []).map(async (document: any) => {
+
+    return Promise.all((data || []).map(async (document: any) => {
       const signed = await supabase.storage.from('client-registrations').createSignedUrl(document.storage_path, 300);
       if (signed.error) throw signed.error;
       return {
@@ -120,8 +125,8 @@ export const clientRegistrationService = {
         url: signed.data.signedUrl,
       };
     }));
-    return urls;
   },
+
   async createClientAccessLink(clientId: string, lookup?: { profileId?: string; document?: string; phone?: string }) {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
 
@@ -136,7 +141,7 @@ export const clientRegistrationService = {
         token,
         code,
         url: `${origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`,
-        linkId: '',
+        linkId: portalData.linkId ? String(portalData.linkId) : '',
         clientId: String(portalData.clientId),
         state: 'PORTAL' as const,
       };

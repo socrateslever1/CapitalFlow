@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
 import { startDictation } from '../utils/speech';
 import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';

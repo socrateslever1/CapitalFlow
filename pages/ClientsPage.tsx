@@ -12,6 +12,7 @@ import { witnessService } from '../features/legal/services/witness.service';
 import { supabase } from '../lib/supabase';
 import { getOrCreatePortalLink } from '../utils/portalLink';
 import { copyToClipboard } from '../utils/clipboard';
+import { Tooltip } from '../components/ui/Tooltip';
 
 interface ClientsPageProps {
   profileId: string;
@@ -476,21 +477,31 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
                         {!isBulkDeleteMode && (
                             <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-1.5 text-slate-400 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Documentos enviados do cliente">
-                                    <FileSearch size={13}/>
-                                </button>
-                                <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-1.5 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-md hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente">
-                                    <Link2 size={13}/>
-                                </button>
-                                <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors" title="Criar pré-contrato / Gerar documento">
-                                    <FileSignature size={13}/>
-                                </button>
-                                <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Editar cliente">
-                                    <Edit size={13}/>
-                                </button>
-                                <button onClick={() => onDeleteClient(client.id)} className="p-1.5 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-md hover:bg-rose-950/30 transition-colors" title="Excluir">
-                                    <Trash2 size={13}/>
-                                </button>
+                                <Tooltip content="Documentos de Cadastro" position="top">
+                                    <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-1.5 text-slate-400 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Documentos enviados do cliente" aria-label="Documentos de cadastro">
+                                        <FileSearch size={13}/>
+                                    </button>
+                                </Tooltip>
+                                <Tooltip content="Copiar Link do Portal" position="top">
+                                    <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-1.5 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-md hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente" aria-label="Copiar link do portal">
+                                        <Link2 size={13}/>
+                                    </button>
+                                </Tooltip>
+                                <Tooltip content="Gerar Contrato / Minuta" position="top">
+                                    <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors" title="Criar pré-contrato / Gerar documento" aria-label="Gerar contrato ou minuta">
+                                        <FileSignature size={13}/>
+                                    </button>
+                                </Tooltip>
+                                <Tooltip content="Editar Cadastro" position="top">
+                                    <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Editar cadastro do cliente" aria-label="Editar cadastro">
+                                        <Edit size={13}/>
+                                    </button>
+                                </Tooltip>
+                                <Tooltip content="Excluir Cliente" position="top">
+                                    <button onClick={() => onDeleteClient(client.id)} className="p-1.5 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-md hover:bg-rose-950/30 transition-colors" title="Excluir cliente" aria-label="Excluir cliente">
+                                        <Trash2 size={13}/>
+                                    </button>
+                                </Tooltip>
                             </div>
                         )}
                     </div>

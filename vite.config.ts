@@ -22,7 +22,8 @@ function spaFallbackPlugin() {
 /**
  * Correções concentradas de apresentação para não alterar o modelo contábil:
  * - o Jurídico conta apenas versões vigentes e deixa de chamar todo documento de pré-contrato;
- * - o Extrato consolida as duas pernas do mesmo recebimento (capital + lucro) em uma linha.
+ * - o Extrato consolida as duas pernas do mesmo recebimento (capital + lucro) em uma linha;
+ * - a ficha do cliente reutiliza o painel único de documentos jurídicos.
  */
 function sourceConsistencyFixesPlugin(): Plugin {
   return {
@@ -38,14 +39,33 @@ function sourceConsistencyFixesPlugin(): Plugin {
           .replace('/* ABA: DOCUMENTOS JURÍDICOS & PRÉ-CONTRATOS EMITIDOS */', '/* ABA: DOCUMENTOS JURÍDICOS EMITIDOS */');
       }
 
+      if (id.endsWith('/pages/ClientsPage.tsx')) {
+        let transformed = source;
+        if (!transformed.includes("ClientLegalDocumentsPanel")) {
+          transformed = transformed.replace(
+            "import { Tooltip } from '../components/ui/Tooltip';",
+            "import { Tooltip } from '../components/ui/Tooltip';\nimport { ClientLegalDocumentsPanel } from '../features/legal/components/ClientLegalDocumentsPanel';"
+          );
+        }
+        transformed = transformed
+          .replace('Pré-contrato digital', 'Minuta jurídica pré-desembolso')
+          .replace('A Confissão de Dívida individual foi gerada pelo setor jurídico e está pronta para envio ou assinatura.', 'O instrumento jurídico foi gerado pela mesma Central Jurídica e está disponível no Portal do Cliente.')
+          .replace('Link do Documento Jurídico (Assinatura Directa)', 'Acesso ao documento pelo Portal do Cliente')
+          .replace(
+            '<div className="flex-1 overflow-y-auto p-4 custom-scrollbar">',
+            '<div className="flex-1 overflow-y-auto p-4 custom-scrollbar">\n                <ClientLegalDocumentsPanel clientId={selectedClient.id} onNotify={showToast} />'
+          );
+        return transformed;
+      }
+
       if (id.endsWith('/pages/FinancialStatementPage.tsx')) {
         const anchor = `  const caixaLivre = operationalSources.find((source) =>\n    /caixa livre|lucro|dispon[ií]vel/i.test(source.name || '')\n  );`;
         const grouped = `  const displayMovements = useMemo<Movement[]>(() => {\n    const groupedByPayment = new Map<string, Movement>();\n    const standalone: Movement[] = [];\n\n    filteredMovements.forEach((movement) => {\n      const category = String(movement.category || '').toUpperCase();\n      const key = getPaymentGroupKey(movement);\n      const isPaymentPart = movement.direction === 'IN' && Boolean(key) && ['PAGAMENTO', 'LUCRO'].includes(category) && !movement.reversedOfTransactionId;\n\n      if (!isPaymentPart) {\n        standalone.push(movement);\n        return;\n      }\n\n      const existing = groupedByPayment.get(key);\n      if (!existing) {\n        groupedByPayment.set(key, {\n          ...movement,\n          id: 'payment-group-' + key,\n          notes: 'Recebimento consolidado',\n          sourceName: movement.sourceName,\n        });\n        return;\n      }\n\n      const sources = new Set([existing.sourceName, movement.sourceName].filter(Boolean));\n      groupedByPayment.set(key, {\n        ...existing,\n        amount: Number(existing.amount || 0) + Number(movement.amount || 0),\n        principalDelta: Number(existing.principalDelta || 0) + Number(movement.principalDelta || 0),\n        interestDelta: Number(existing.interestDelta || 0) + Number(movement.interestDelta || 0),\n        lateFeeDelta: Number(existing.lateFeeDelta || 0) + Number(movement.lateFeeDelta || 0),\n        operatorId: existing.operatorId || movement.operatorId,\n        sourceName: Array.from(sources).join(' + '),\n      });\n    });\n\n    return [...groupedByPayment.values(), ...standalone]\n      .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());\n  }, [filteredMovements]);\n\n${anchor}`;
 
         return source
           .replace(anchor, grouped)
-          .replace("filteredMovements.length > 0 ? (", "displayMovements.length > 0 ? (")
-          .replace("filteredMovements.map((movement) => {", "displayMovements.map((movement) => {")
+          .replace('filteredMovements.length > 0 ? (', 'displayMovements.length > 0 ? (')
+          .replace('filteredMovements.map((movement) => {', 'displayMovements.map((movement) => {')
           .replace("movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'não registrado'", "movement.operatorId === profileId ? 'VOCÊ' : movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'NÃO REGISTRADO'");
       }
 

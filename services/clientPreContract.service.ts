@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import { Client, LegalDocumentParams, UserProfile } from '../types';
 import { createLegalSnapshot, generateSHA256 } from '../utils/crypto';
 import { addDaysUTC } from '../utils/dateHelpers';
-import { generateConfissaoDividaV2HTML } from '../features/legal/templates/ConfissaoDividaV2Template';
+import { generateMutuoPreDesembolsoHTML } from '../features/legal/templates/MutuoPreDesembolsoTemplate';
 import { clientRegistrationService } from './clientRegistration.service';
 
 const toMoney = (value: unknown): number => {
@@ -46,11 +46,16 @@ export const clientPreContractService = {
   async create(options: CreatePreContractOptions) {
     const { data: client, error: clientErr } = await supabase
       .from('clientes')
-      .select('id, name, document, phone, address, city, state, owner_id')
+      .select('id, name, document, phone, address, city, state, owner_id, registration_status')
       .eq('id', options.clientId)
       .single();
 
     if (clientErr || !client) throw new Error('Cliente não encontrado no sistema.');
+
+    const registrationStatus = String(client.registration_status || '').toUpperCase();
+    if (!['APPROVED', 'PORTAL'].includes(registrationStatus)) {
+      throw new Error('O documento pré-desembolso só pode ser enviado após a aprovação do cadastro do cliente.');
+    }
 
     let profile: any = null;
     if (options.operatorProfileId) {
@@ -126,7 +131,23 @@ export const clientPreContractService = {
       witnesses.push({ name: input.witness2Name || '', document: input.witness2Doc || '' });
     }
 
-    const params: LegalDocumentParams & { clientId: string; requiredSignatureRoles?: string[]; witnesses?: any[]; witness1Name?: string; witness1Doc?: string; witness2Name?: string; witness2Doc?: string; incluirAvalista?: boolean; avalistaNome?: string; avalistaCPF?: string; incluirGarantia?: boolean; tipoGarantia?: string; descricaoGarantia?: string } = {
+    const params: LegalDocumentParams & {
+      clientId: string;
+      requiredSignatureRoles?: string[];
+      witnesses?: any[];
+      witness1Name?: string;
+      witness1Doc?: string;
+      witness2Name?: string;
+      witness2Doc?: string;
+      incluirAvalista?: boolean;
+      avalistaNome?: string;
+      avalistaCPF?: string;
+      incluirGarantia?: boolean;
+      tipoGarantia?: string;
+      descricaoGarantia?: string;
+      legalDocumentKind?: string;
+      effectivenessCondition?: string;
+    } = {
       loanId: resolvedClientId,
       clientId: resolvedClientId,
       clientName: client.name,
@@ -145,12 +166,12 @@ export const clientPreContractService = {
       legalInterestAmount: 0,
       legalTotalAmount: amount,
       totalDebt: amount,
-      originDescription: `Proposta jurídica de crédito vinculada ao cliente ${client.name}.`,
+      originDescription: `Capital previsto para futura disponibilização ao cliente ${client.name}. A obrigação somente nasce após comprovação do desembolso.`,
       city: profile.city || client.city || 'Manaus',
       state: profile.state || client.state || 'AM',
       contractDate: today,
       timestamp: new Date().toISOString(),
-      templateId: 'CONFISSAO_UNICO',
+      templateId: 'MUTUO_PRE_DESEMBOLSO',
       contractDurationDays: Math.max(1, Math.round((new Date(dueDate).getTime() - new Date(today).getTime()) / 86400000)),
       installments: [{
         id: `pre-${resolvedClientId}`,
@@ -177,11 +198,13 @@ export const clientPreContractService = {
       incluirGarantia: !!input.descricaoGarantia?.trim(),
       tipoGarantia: input.tipoGarantia?.trim() || 'BEM EM GARANTIA',
       descricaoGarantia: input.descricaoGarantia?.trim() || undefined,
+      legalDocumentKind: 'MUTUO_PRE_DESEMBOLSO',
+      effectivenessCondition: 'EFFECTIVE_ONLY_AFTER_CONFIRMED_DISBURSEMENT',
     };
 
     const snapshotStr = createLegalSnapshot(params);
     const hash = await generateSHA256(snapshotStr);
-    const renderedHtml = generateConfissaoDividaV2HTML(params, undefined, hash);
+    const renderedHtml = generateMutuoPreDesembolsoHTML(params, undefined, hash);
 
     const { data, error } = await supabase
       .from('documentos_juridicos')
@@ -190,8 +213,8 @@ export const clientPreContractService = {
         registration_link_id: portalLink.linkId,
         profile_id: ownerId,
         dono_id: ownerId,
-        tipo: 'PRE_CONTRATO',
-        tipo_documento: 'PRE_CONTRATO',
+        tipo: 'MUTUO_PRE_DESEMBOLSO',
+        tipo_documento: 'MUTUO_PRE_DESEMBOLSO',
         snapshot: params,
         snapshot_json: params,
         snapshot_rendered_html: renderedHtml,
@@ -199,25 +222,21 @@ export const clientPreContractService = {
         view_token: viewToken,
         public_access_token: viewToken,
         status_assinatura: 'PENDENTE',
-        status: 'PENDENTE',
-        testemunhas: [],
+        status: 'AGUARDANDO_ASSINATURA',
+        template_version: 'MUTUO_PRE_DESEMBOLSO_V1',
+        testemunhas: witnesses,
       })
       .select('id,view_token')
       .single();
 
     if (error) throw new Error(error.message || 'Não foi possível criar o documento para assinatura.');
 
-    // Marca a inscrição como APROVADA no banco de dados para garantir abertura imediata do portal
-    await supabase
-      .from('clientes')
-      .update({ registration_status: 'APPROVED' })
-      .eq('id', resolvedClientId);
-
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     return {
       documentId: data.id as string,
       portalUrl: portalLink.url,
       signUrl: `${origin}/?legal_sign=${encodeURIComponent(String(data.view_token || viewToken))}&role=DEBTOR`,
+      status: 'AGUARDANDO_ASSINATURA' as const,
     };
   },
 };

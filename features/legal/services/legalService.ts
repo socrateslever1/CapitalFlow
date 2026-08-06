@@ -521,7 +521,6 @@ export const legalService = {
         status_assinatura: 'PENDENTE',
         status: 'PENDENTE',
         snapshot_rendered_html: updatedHtml,
-        observacoes: '[MINUTA ATUALIZADA E REENVIADA] O documento foi editado e reenviado ao cliente.',
         updated_at: new Date().toISOString(),
       })
       .eq('id', safeDocId);

@@ -194,9 +194,8 @@ function targetFrom(message: string, intent: string) {
 
 function detectIntent(raw: string) {
   const message = normalize(raw);
-  if (/^(jarvis|chama jarvis|ei jarvis|oi jarvis|ola jarvis|bom dia jarvis|boa tarde jarvis|boa noite jarvis)$/.test(message)) return "greeting";
-  if (/^(oi|ola|bom dia|boa tarde|boa noite|fala|e ai)$/.test(message)) return "greeting";
-  if (/\b(fala|opa|e ai)\b/.test(message) && /\b(mano|jarvis|ta por ai|esta por ai|por ai)\b/.test(message)) return "greeting";
+  if (/^(jarvis|chama jarvis|ei jarvis|oi jarvis|ola jarvis|bom dia jarvis|boa tarde jarvis|boa noite jarvis|menu|ajuda)$/.test(message)) return "greeting";
+  if (/\bjarvis\b/.test(message)) return "greeting";
   if (/^(ajuda|comandos|menu|o que voce faz)$/.test(message)) return "help";
   if (/^(confirmar|confirma|sim)(\s+\d{4})?$/.test(message) || /^\d{4}$/.test(message)) return "confirm";
   if (/^(cancelar|cancela|nao)$/.test(message)) return "cancel";
@@ -298,37 +297,8 @@ async function classifyAdminIntentWithGemini(raw: string) {
   }
 }
 
-async function adminConversationFallbackWithGemini(raw: string, adminName: string) {
-  const apiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("VITE_GOOGLE_API_KEY");
-  const fallback = `*JARVIS à disposição, ${adminName}.*\n\nPosso consultar a carteira, listar atrasados, mostrar vencimentos, localizar cliente, ver contrato, gerar cobrança ou enviar portal.\n\nExemplos:\n• *quem cobrar agora*\n• *cobre Maria*\n• *liste a dívida da Maria*\n• *mostre o contrato do João*\n• *vencem hoje*`;
-  if (!apiKey) return fallback;
-  try {
-    const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai@0.14.0");
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: Deno.env.get("GOOGLE_ADMIN_MODEL") || "gemini-1.5-flash" });
-    const prompt = [
-      `Você é o JARVIS, assistente operacional do CapitalFlow para o operador autorizado ${adminName}.`,
-      "Responda em português, natural, direto e útil, no máximo 4 linhas.",
-      "Não invente dados, clientes, contratos, valores, pagamentos, status ou resultados.",
-      "Não diga que executou ação sem o backend executar.",
-      "Se a mensagem for conversa informal, responda naturalmente e conduza para uma ação útil da operação.",
-      "Se não der para executar, explique em linguagem simples o que precisa: cliente, contrato, período ou ação.",
-      "Não cite n8n, Supabase, workflow, classificação, prompt ou erro técnico, salvo se o operador perguntar especificamente sobre status do sistema.",
-      "Comandos reais: atrasados, vencem hoje, quem cobrar agora, cobre Nome do Cliente, liste a dívida da cliente Nome, mostre o contrato da cliente Nome, leia as últimas 7 mensagens.",
-      `Mensagem do operador: ${JSON.stringify(raw)}`,
-    ].join("\n");
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```[\s\S]*?```/g, "").trim();
-    if (!text || /cliente_id|profile_id|supabase|prompt|instru[cç][aã]o interna/i.test(text)) return fallback;
-    return text.slice(0, 900);
-  } catch (error) {
-    console.error("gemini-admin-fallback", error instanceof Error ? error.message : "unknown_error");
-    return fallback;
-  }
-}
-
-function adminHelp(adminName: string) {
-  return `*JARVIS à disposição, ${adminName}.*\n\nVocê pode me pedir em linguagem natural:\n\n*Consultas*\n• *quem cobrar agora*\n• *atrasados*\n• *vencem hoje*\n• *liste a dívida da Maria*\n• *mostre o contrato do João*\n• *quanto Carlos deve?*\n• *pagamentos de hoje*\n• *leia as últimas 7 mensagens*\n\n*Ações com confirmação*\n• *cobre Maria*\n• *cobre Maria mais firme*\n• *mande o portal para João*\n• *ative cobrança diária para Ana*\n• *cadastre 1000 de empréstimo para Pedro, pagamento para 30 dias*\n• *recebi 250 da Maria*\n\nPara diagnóstico, peça explicitamente: *status do sistema* ou *status do WhatsApp*.\n\nEu consulto o sistema antes de responder. Quando for ação sensível, mostro a prévia e peço confirmação.`;
+function adminMenu(adminName: string, greeting: string = "Olá") {
+  return `${greeting}, ${adminName}. Eu sou o *JARVIS* 🤖\n\nEscolha uma opção numérica:\n\n1️⃣ 📊 Resumo da Carteira\n2️⃣ 📅 Cobranças de Hoje\n3️⃣ ⚠️ Contratos Atrasados\n4️⃣ 📝 Cadastrar Cliente/Contrato\n5️⃣ 💬 Enviar Mensagem Avulsa\n6️⃣ ⚙️ Status do Sistema\n\n_Ou digite um comando direto (ex: "cobrar João")._`;
 }
 
 async function prepareContractDraft(adminDb: any, profileId: string, admin: any, request: any, details: any = {}) {
@@ -1320,7 +1290,23 @@ Deno.serve(async (req) => {
       .eq("active", true)
       .limit(1)
       .maybeSingle();
-    if (!admin) {
+    // Verify if there is an active admin session to handle 'unknown' intents
+    let hasActiveAdminSession = false;
+    if (admin) {
+      const { count } = await adminDb.from("whatsapp_admin_commands")
+        .select("*", { count: "exact", head: true })
+        .eq("profile_id", profileId)
+        .eq("admin_user_id", admin.id)
+        .eq("status", "PENDING")
+        .gt("expires_at", new Date().toISOString());
+      if (count && count > 0) hasActiveAdminSession = true;
+    }
+
+    const rawMessage = String(body.message || "").trim().slice(0, 1000);
+    const localIntent = detectIntent(rawMessage);
+
+    // If not admin, or admin but typed something unknown with no active session, forward to client flow
+    if (!admin || (localIntent === "unknown" && !hasActiveAdminSession && !parseClientDetails(rawMessage).phone)) {
       const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/capitalflow-n8n-tools`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-capitalflow-secret": secret },
@@ -1328,8 +1314,6 @@ Deno.serve(async (req) => {
       });
       return new Response(await response.text(), { status: response.status, headers: { "content-type": "application/json; charset=utf-8" } });
     }
-    const rawMessage = String(body.message || "").trim().slice(0, 1000);
-    const localIntent = detectIntent(rawMessage);
     const deterministicIntents = new Set([
       "confirm",
       "cancel",
@@ -1365,7 +1349,7 @@ Deno.serve(async (req) => {
     const adminName = String(admin.display_name || "Sócrates").trim().split(/\s+/)[0];
     const hour = Number(new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Manaus" }).format(new Date()));
     const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
-    if (intent === "greeting" || intent === "collection_brief") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, admin, adminName, greeting) });
+    if (intent === "collection_brief") return json({ handled: true, admin: true, reply: await operatorCollectionBrief(adminDb, profileId, admin, adminName, greeting) });
     const contextualReply = await handleAdminNavigationContext(adminDb, profileId, admin, rawMessage);
     if (contextualReply) return json({ handled: true, admin: true, reply: contextualReply });
     const bareDocument = digits(rawMessage);
@@ -1433,8 +1417,8 @@ Deno.serve(async (req) => {
       if (!hasPermission(admin, "READ")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para consultar informações administrativas." });
       return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, intent) });
     }
-    if (intent === "unknown") return json({ handled: true, admin: true, reply: await adminConversationFallbackWithGemini(rawMessage, adminName) });
-    if (intent === "help") return json({ handled: true, admin: true, reply: adminHelp(adminName) });
+    if (intent === "unknown") return json({ handled: true, admin: true, reply: adminMenu(adminName, "Desculpe, não entendi") });
+    if (intent === "help" || intent === "greeting") return json({ handled: true, admin: true, reply: adminMenu(adminName, greeting) });
     if (intent === "confirm") return json({ handled: true, admin: true, reply: await executePending(adminDb, profileId, admin, rawMessage) });
     if (intent === "cancel") {
       await adminDb.from("whatsapp_admin_commands").update({ status: "CANCELLED" }).eq("profile_id", profileId).eq("admin_user_id", admin.id).eq("status", "PENDING");
@@ -1498,9 +1482,22 @@ Deno.serve(async (req) => {
     if (intent === "charge_selection") {
       if (!hasPermission(admin, "CHARGE")) return json({ handled: true, admin: true, reply: "Seu número não possui permissão para cobrar clientes." });
       const list = await loadLatestChargeSelectionList(adminDb, profileId, admin);
-      if (!list) return json({ handled: true, admin: true, reply: "A lista venceu ou ainda não foi aberta. Envie *atrasados* ou *vencem hoje* novamente." });
-      const allItems = list.payload?.items || [];
       const normalized = normalize(rawMessage);
+      if (!list) {
+        const num = Number(normalized);
+        if (num === 1) return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, "portfolio") });
+        if (num === 2) return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, "payments_today") });
+        if (num === 3) {
+          const items = await listOpenInstallments(adminDb, profileId, "overdue");
+          if (!items.length) return json({ handled: true, admin: true, reply: "Não há parcelas vencidas em aberto agora." });
+          await saveChargeSelectionList(adminDb, profileId, admin, "OVERDUE_LIST", items);
+          return json({ handled: true, admin: true, reply: renderChargeSelectionList(`⚠️ *Contratos vencidos*`, items) });
+        }
+        if (num === 4) return json({ handled: true, admin: true, reply: "Para cadastrar, envie o nome, CPF e WhatsApp do cliente, tudo na mesma mensagem. Ou cadastre o contrato informando valores."});
+        if (num === 5) return json({ handled: true, admin: true, reply: "Para enviar mensagem, digite:\n*envie mensagem para [Nome] dizendo [Sua Mensagem]*"});
+        if (num === 6) return json({ handled: true, admin: true, reply: await operatorQuery(adminDb, profileId, "system_status") });
+        return json({ handled: true, admin: true, reply: adminMenu(adminName, "Opção inválida") });
+      }
       if (/todos|todas/.test(normalized)) {
         return json({ handled: true, admin: true, reply: "Por segurança, não envio cobranças de vários contratos de uma vez. Abra um contrato e escolha somente as parcelas dele." });
       }

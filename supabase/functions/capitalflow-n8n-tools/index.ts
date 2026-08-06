@@ -289,42 +289,27 @@ Deno.serve(async (req) => {
         }
       }
 
-      const loanNegation = /\bn[aã]o\s+(e|é|quero|preciso|estou)\b/i.test(message);
-      const wantsLoan = !loanNegation && /\b(empr[e\u00e9]stimo|dinheiro emprestado|cr[e\u00e9]dito)\b/i.test(message);
-      const wantsHuman = /\b(atendente|humano|pessoa|falar com algu[eé]m)\b/i.test(message);
-      const isProof = ["image", "document"].includes(String(body.message_type ?? "")) && /comprovante|pix|pagamento/i.test(message || "comprovante");
-      const wantsLoanNatural = !loanNegation && /\b(empr[e\u00e9]stimo|dinheiro emprestado|cr[e\u00e9]dito)\b/i.test(message);
-      const wantsHumanNatural = /\b(atendente|humano|pessoa|falar com algu[e\u00e9]m)\b/i.test(message);
-      const wantsToBecomeClient = /\b(quero|gostaria|desejo|como fa[cç]o|posso)\b/i.test(message)
-        && /\b(ser|virar|tornar|me cadastrar|cadastro)\b/i.test(message)
-        && /\b(cliente|usu[aá]rio)\b/i.test(message);
-      if (wantsToBecomeClient) {
-        const reason = "Pessoa ainda não identificada deseja se tornar cliente.";
-        await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: clients[0]?.id ?? null, phone_hash: phoneHash, reason });
-        await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Novo interessado em ser cliente", mensagem: reason, item_type: "WHATSAPP_HANDOFF" });
-        return json({ status: "prospective_client", operator_contact: operatorContact });
+      if (!clients?.length) {
+        let reply = "Olá! Como posso ajudar?\n\n1️⃣ 🤝 Quero ser Cliente (Empréstimo)\n2️⃣ 🙋 Falar com Atendente";
+        if (suppliedDigits === "1") {
+          await supabase.from("n8n_loan_leads").insert({ profile_id: organizationId, client_id: null, phone_hash: phoneHash, full_name: null });
+          await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Novo interesse em empréstimo", mensagem: "Novo interessado solicitou contato pelo WhatsApp.", item_type: "WHATSAPP_LEAD" });
+          reply = "Ótimo! Um de nossos atendentes entrará em contato em breve para conversar sobre o empréstimo.";
+        } else if (suppliedDigits === "2") {
+          await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: null, phone_hash: phoneHash, reason: "Contato não identificado pediu para falar com atendente." });
+          await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Atendimento humano solicitado", mensagem: "Contato não identificado pediu para falar com atendente.", item_type: "WHATSAPP_HANDOFF" });
+          reply = "Certo! Transferindo você para um atendente humano. Aguarde um instante.";
+        } else if (normalizedMessage && !/^\s*$/.test(normalizedMessage)) {
+          reply = "Desculpe, não entendi. Por favor, digite o NÚMERO da opção desejada:\n\n1️⃣ 🤝 Quero ser Cliente (Empréstimo)\n2️⃣ 🙋 Falar com Atendente";
+        }
+        return json({
+          handled: true,
+          reply,
+          status: "not_identified",
+          audience: "public",
+          operator_contact: operatorContact,
+        });
       }
-      if (wantsLoan || wantsLoanNatural) {
-        await supabase.from("n8n_loan_leads").insert({ profile_id: organizationId, client_id: clients[0]?.id ?? null, phone_hash: phoneHash, full_name: clients[0]?.name ?? null });
-        await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Novo interesse em empréstimo", mensagem: "Novo interessado solicitou contato pelo WhatsApp.", item_type: "WHATSAPP_LEAD" });
-        return json({ status: "lead_registered", operator_contact: operatorContact });
-      }
-      if (wantsHuman || wantsHumanNatural || isProof) {
-        const reason = isProof ? "Comprovante recebido pelo WhatsApp para conferência manual." : "Cliente solicitou atendimento humano pelo WhatsApp.";
-        await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: clients[0]?.id ?? null, phone_hash: phoneHash, reason });
-        await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: isProof ? "Comprovante recebido" : "Atendimento humano solicitado", mensagem: reason, item_type: "WHATSAPP_HANDOFF" });
-        return json({ status: isProof ? "proof_received" : "human_handoff_registered", operator_contact: operatorContact });
-      }
-      if (!clients?.length) return json({
-        status: "not_identified",
-        audience: "public",
-        operator_contact: operatorContact,
-        public_capabilities: [
-          "Explicar de forma geral como funciona o atendimento e o acompanhamento de contratos.",
-          "Orientar quem deseja se tornar cliente a falar com o operador.",
-          "Responder dúvidas gerais sem prometer crédito, aprovação, taxas ou condições.",
-        ],
-      });
       if (clients.length > 1) return json({ status: "ambiguous", request: "cpf_or_client_code" });
 
       const client = clients[0];
@@ -412,107 +397,19 @@ Deno.serve(async (req) => {
           : portalLink;
       }
 
-      const disputesAmount = /\b(discordo|errado|incorreto|n[aã]o concordo|valor diferente|contestar|revisar|revis[aã]o)\b/i.test(message);
-      if (disputesAmount) {
-        const reason = "Cliente discorda do valor informado pelo WhatsApp.";
-        await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: client.id, phone_hash: phoneHash, reason });
-        await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Revisão de valor solicitada", mensagem: reason, item_type: "WHATSAPP_HANDOFF" });
-        return json({ status: "amount_disputed", operator_contact: operatorContact });
+      let reply = `Olá, ${client.name.split(" ")[0]}! Como posso ajudar?\n\n1️⃣ 📄 Ver Meu Contrato\n2️⃣ 💰 Pagar Parcela (Boleto/Pix)\n3️⃣ 🙋 Falar com Atendente`;
+      
+      if (suppliedDigits === "1") {
+        reply = `Seu contrato atual está ${primaryContract?.status === 'ACTIVE' ? 'ativo' : 'em andamento'}.\nVocê pode ver todos os detalhes acessando o portal:\n${portalShortLink || portalLink}`;
+      } else if (suppliedDigits === "2") {
+        reply = `Para pagar sua parcela, acesse o portal pelo link abaixo para gerar o Pix ou Boleto:\n${portalShortLink || portalLink}`;
+      } else if (suppliedDigits === "3") {
+        await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: client.id, phone_hash: phoneHash, reason: "Cliente selecionou falar com atendente." });
+        await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Atendimento humano solicitado", mensagem: "Cliente pediu para falar com atendente.", item_type: "WHATSAPP_HANDOFF" });
+        reply = "Certo! Transferindo você para um atendente humano. Aguarde um instante.";
+      } else if (normalizedMessage && !/^\s*$/.test(normalizedMessage)) {
+        reply = "Desculpe, não entendi. Por favor, digite o NÚMERO da opção desejada:\n\n1️⃣ 📄 Ver Meu Contrato\n2️⃣ 💰 Pagar Parcela (Boleto/Pix)\n3️⃣ 🙋 Falar com Atendente";
       }
-
-      const wantsPayment = /\b(pagar|pagamento|link de pagamento|pix|checkout|quitar)\b/i.test(message)
-        && !/\b(n[aã]o|depois|agora n[aã]o)\b/i.test(message);
-      const normalizedPaymentIntent = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-      const wantsDetailsOrPayment = wantsPayment
-        || /^(sim|isso|quero|pode|pode ser|manda|envia|ok|certo|detalhes|ver detalhes|saber mais|contrato|parcela)\b/.test(normalizedPaymentIntent)
-        || /\b(contrato|parcela|pendencia|pendente|quem e|quem eh|do que)\b/.test(normalizedPaymentIntent);
-      let paymentLink: string | null = null;
-      let paymentLinkError: string | null = null;
-      const shouldPreparePaymentLink = false;
-      if (shouldPreparePaymentLink) {
-        const target = pending[0];
-        const targetContract = activeContracts.find((contract) => contract.id === target._loan_id);
-        if (targetContract?.portal_token && targetContract.portal_shortcode) {
-          const { data: config } = await supabase
-            .from("perfis_config_infinitepay")
-            .select("infinitepay_handle")
-            .eq("profile_id", organizationId)
-            .maybeSingle();
-          const handle = String(config?.infinitepay_handle || Deno.env.get("INFINITEPAY_HANDLE") || "").trim().replace(/^[@$]+/, "");
-          if (!handle) {
-            paymentLinkError = "HANDLE_NOT_CONFIGURED";
-          } else {
-            const orderNsu = crypto.randomUUID();
-            const checkoutResponse = await fetch(infinitePayLinksUrl, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              handle,
-              redirect_url: portalLink || appOrigin,
-              webhook_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/infinitepay-webhook`,
-              order_nsu: orderNsu,
-              items: [{
-                quantity: 1,
-                price: cents(target.total_due),
-                description: `Pagamento de parcela - Contrato ${String(target._loan_id).slice(0, 8)}`,
-              }],
-              customer: {
-                name: client.name,
-                email: "cliente@capitalflow.app",
-                phone_number: phone,
-              },
-            }),
-          });
-          const checkout = await checkoutResponse.json().catch(() => null);
-            const checkoutUrl = checkout?.url || checkout?.checkout_url;
-          if (checkoutResponse.ok && checkoutUrl) {
-              const chargeResult = await supabase.from("payment_charges").insert({
-                provider: "INFINITEPAY",
-                provider_payment_id: null,
-                status: "PENDING",
-                loan_id: target._loan_id,
-                installment_id: target._installment_id,
-                amount: Number(target.total_due || 0),
-                currency: "BRL",
-                external_reference: orderNsu,
-                payer_name: client.name,
-                checkout_url: String(checkoutUrl),
-                provider_payload: {
-                  provider: "INFINITEPAY",
-                  handle,
-                  order_nsu: orderNsu,
-                  profile_id: organizationId,
-                  client_id: client.id,
-                  checkout_url: String(checkoutUrl),
-                  calculation_reference_date: new Date().toISOString().slice(0, 10),
-                  principal_due: target.principal_due,
-                  interest_due: target.interest_due,
-                  late_fee_due: target.late_fee_due,
-                  days_late: target.days_late,
-                },
-              });
-            if (chargeResult.error) {
-              paymentLinkError = `charge_record_failed:${chargeResult.error.code || "unknown"}`;
-            } else {
-              const shortCode = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
-              const shortLink = await supabase.from("n8n_short_links").insert({
-                code: shortCode,
-                profile_id: organizationId,
-                target_url: String(checkoutUrl),
-              });
-              paymentLink = shortLink.error
-                ? String(checkoutUrl)
-                : String(checkoutUrl);
-            }
-          } else {
-            paymentLinkError = String(checkout?.code || checkout?.error || `checkout_http_${checkoutResponse.status}`).slice(0, 160);
-          }
-          }
-        } else {
-          paymentLinkError = "portal_credentials_unavailable";
-        }
-      }
-
       await supabase.from("n8n_message_events").update({ status: "PROCESSED", client_id: client.id })
         .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
       return json({
@@ -548,9 +445,8 @@ Deno.serve(async (req) => {
         })),
         portal_link: portalShortLink || portalLink,
         portal_original_link: portalLink,
-        payment_link: paymentLink,
-        payment_link_error: paymentLinkError,
-        payment_requested: wantsDetailsOrPayment,
+        handled: true,
+        reply,
         operator_contact: operatorContact,
       });
     }

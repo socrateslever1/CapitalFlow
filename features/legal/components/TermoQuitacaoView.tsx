@@ -41,15 +41,24 @@ export const TermoQuitacaoView: React.FC<TermoQuitacaoViewProps> = ({ loans, act
 
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
-            <div className="flex items-center gap-4 mb-8">
-                <button onClick={onBack} className="text-slate-500 hover:text-white transition-colors" title="Voltar">
-                    <ChevronLeft size={24}/>
+            <div className="flex items-center gap-3 mb-6">
+                <button
+                    onClick={onBack}
+                    title="Voltar"
+                    className="p-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:border-slate-700 transition-all shadow-md shrink-0 flex items-center justify-center"
+                >
+                    <ChevronLeft size={18} />
                 </button>
+                <div className="w-10 h-10 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-emerald-950/40">
+                    <ShieldCheck size={20} />
+                </div>
                 <div>
-                    <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
-                        <ShieldCheck className="text-emerald-500" size={24}/> Termos de Quitação
-                    </h2>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Prova Plena de Pagamento (Art. 320 CC)</p>
+                    <h1 className="text-base font-black text-white uppercase tracking-wider leading-tight">
+                        Termos de Quitação
+                    </h1>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                        Prova Plena de Pagamento (Art. 320 CC)
+                    </p>
                 </div>
             </div>
 

@@ -499,5 +499,44 @@ export const legalService = {
   async generatePDF(elementId: string, filename: string): Promise<void> {
     const { generatePDF } = await import('../../../utils/printHelpers');
     return generatePDF(elementId, filename);
+  },
+
+  async updateAndResendDocument(docId: string, updatedHtml: string) {
+    const safeDocId = safeUUID(docId);
+    if (!safeDocId) throw new Error('ID do documento inválido.');
+
+    const { data: currentDoc, error: fetchErr } = await supabase
+      .from('documentos_juridicos')
+      .select('*')
+      .eq('id', safeDocId)
+      .single();
+
+    if (fetchErr || !currentDoc) throw new Error('Documento não encontrado para atualização.');
+
+    const { error: updateErr } = await supabase
+      .from('documentos_juridicos')
+      .update({
+        status_assinatura: 'PENDENTE',
+        status: 'PENDENTE',
+        snapshot_rendered_html: updatedHtml,
+        observacoes: '[MINUTA ATUALIZADA E REENVIADA] O documento foi editado e reenviado ao cliente.',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', safeDocId);
+
+    if (updateErr) throw new Error(`Erro ao atualizar e reenviar minuta: ${updateErr.message}`);
+
+    try {
+      await supabase.from('notificacoes').insert({
+        tipo: 'REENVIO_CONTRATO',
+        titulo: '🚀 Minuta Reenviada ao Cliente',
+        mensagem: `A minuta de ${currentDoc.snapshot?.debtorName || currentDoc.nome_devedor || 'Cliente'} foi atualizada e reenviada com sucesso.`,
+        read: false,
+        created_at: new Date().toISOString(),
+        owner_id: currentDoc.dono_id || currentDoc.profile_id
+      });
+    } catch {}
+
+    return true;
   }
 };

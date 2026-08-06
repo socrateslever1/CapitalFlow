@@ -555,9 +555,14 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                     <button
                                         type="button"
                                         onClick={() => openPreContractModal(client)}
-                                        className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all"
+                                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all ${
+                                            docAlert?.type === 'RECUSADO' || docAlert?.type === 'AJUSTE_SOLICITADO'
+                                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
+                                                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                                        }`}
                                     >
-                                        <FileSignature size={10} /> Gerar Contrato
+                                        <FileSignature size={10} />
+                                        {docAlert?.type === 'RECUSADO' || docAlert?.type === 'AJUSTE_SOLICITADO' ? 'Reenviar / Editar Minuta' : 'Gerar Contrato'}
                                     </button>
                                 </div>
                             );

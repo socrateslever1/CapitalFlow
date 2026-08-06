@@ -44,15 +44,24 @@ export const NotaPromissoriaView: React.FC<NotaPromissoriaViewProps> = ({ loans,
 
     return (
         <div className="space-y-6 animate-in slide-in-from-right duration-300">
-            <div className="flex items-center gap-4 mb-8">
-                <button onClick={onBack} className="text-slate-500 hover:text-white transition-colors" title="Voltar">
-                    <ChevronLeft size={24}/>
+            <div className="flex items-center gap-3 mb-6">
+                <button
+                    onClick={onBack}
+                    title="Voltar"
+                    className="p-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:border-slate-700 transition-all shadow-md shrink-0 flex items-center justify-center"
+                >
+                    <ChevronLeft size={18} />
                 </button>
+                <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-950/40">
+                    <Printer size={20} />
+                </div>
                 <div>
-                    <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
-                        <Printer className="text-blue-500" size={24}/> Notas Promissórias
-                    </h2>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Garantia Líquida e Certa (Dec. 2.044/1908)</p>
+                    <h1 className="text-base font-black text-white uppercase tracking-wider leading-tight">
+                        Notas Promissórias
+                    </h1>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                        Garantia Líquida e Certa (Dec. 2.044/1908)
+                    </p>
                 </div>
             </div>
 

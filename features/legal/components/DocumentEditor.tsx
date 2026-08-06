@@ -16,11 +16,14 @@ import {
     Eraser,
     CaseSensitive,
     Printer,
+    Send,
 } from 'lucide-react';
 
 interface DocumentEditorProps {
     initialContent: string;
     onSave: (content: string) => void;
+    onResend?: (content: string) => void;
+    resendLabel?: string;
     clauses: { id: string; label: string; active: boolean; description?: string }[];
     onToggleClause: (id: string) => void;
 }
@@ -37,7 +40,7 @@ const MIN_H = 40;
 const BLOCKS = 'p, div, h1, h2, h3, h4, h5, h6, li, td, th, blockquote';
 const BUTTON = 'p-1.5 rounded transition-all text-slate-800 hover:bg-slate-100';
 
-export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, onSave, clauses, onToggleClause }) => {
+export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, onSave, onResend, resendLabel, clauses, onToggleClause }) => {
     const editorRef = useRef<HTMLDivElement>(null);
     const horizontalRulerRef = useRef<HTMLDivElement>(null);
     const verticalRulerRef = useRef<HTMLDivElement>(null);
@@ -643,12 +646,37 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Edicao manual permitida, alinhamento, listas, recuo e marcador de paragrafo ativos na minuta</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button type="button" onClick={printA4Document} className="px-6 py-4 bg-white border border-slate-300 text-slate-800 rounded-lg font-black uppercase text-[11px] tracking-[0.15em] transition-all flex items-center gap-3 shadow-md hover:border-indigo-400 hover:text-indigo-700 active:scale-95">
-                        <Printer size={18} /> Imprimir A4
+                    <button
+                        type="button"
+                        onClick={printA4Document}
+                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all flex items-center gap-2 shadow-md hover:border-indigo-500/50 active:scale-95"
+                    >
+                        <Printer size={15} /> Imprimir A4
                     </button>
-                    <button type="button" onClick={() => { onSave(editorRef.current?.innerHTML || ''); setIsDirty(false); }} className={`px-10 py-4 text-white rounded-lg font-black uppercase text-[11px] tracking-[0.2em] transition-all flex items-center gap-3 shadow-xl active:scale-95 ${isDirty ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-500/20' : 'bg-slate-950 hover:bg-slate-900'}`}>
-                        <Save size={18} /> {isDirty ? 'Salvar Alteracoes' : 'Salvar Minuta'}
+                    <button
+                        type="button"
+                        onClick={() => { onSave(editorRef.current?.innerHTML || ''); setIsDirty(false); }}
+                        className={`px-4 py-2.5 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all flex items-center gap-2 shadow-md border active:scale-95 ${
+                            isDirty
+                                ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 shadow-indigo-900/30'
+                                : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700'
+                        }`}
+                    >
+                        <Save size={15} /> Salvar Rascunho
                     </button>
+                    {onResend && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const html = editorRef.current?.innerHTML || '';
+                                onResend(html);
+                                setIsDirty(false);
+                            }}
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-[10px] tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 active:scale-95 shrink-0 border border-emerald-500/30"
+                        >
+                            <Send size={15} /> {resendLabel || 'Salvar & Reenviar Minuta'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

@@ -89,7 +89,8 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
         resolveDocumentToken,
         normalizeDocumentStatus,
         isDocumentDeletable,
-        buildSigningLinks
+        buildSigningLinks,
+        refreshLoanDocuments
     } = useConfissaoDividaState({ loans, initialLoanId, activeUser, showToast });
 
     const [allRegisteredClients, setAllRegisteredClients] = useState<any[]>([]);
@@ -148,6 +149,25 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
         }
     }, [selectedLoan, documentContent, handleGenerate]);
 
+    const [editingDocId, setEditingDocId] = useState<string | null>(null);
+
+    const handleResendEditedDoc = async (content: string) => {
+        const targetDocId = editingDocId || (loanDocuments.length > 0 ? loanDocuments[0].id : null);
+        if (!targetDocId) {
+            showToast("Selecione um documento existente para atualizar e reenviar.", "warning");
+            return;
+        }
+        try {
+            await legalService.updateAndResendDocument(targetDocId, content);
+            showToast("🚀 Minuta atualizada e reenviada ao cliente com sucesso! O mesmo link de assinatura foi preservado.", "success");
+            if (selectedLoan) {
+                await refreshLoanDocuments(selectedLoan.id, null, selectedLoan.debtorDocument, selectedLoan.debtorName);
+            }
+        } catch (e: any) {
+            showToast(e.message || "Erro ao reenviar minuta.", "error");
+        }
+    };
+
     // Efeito para regerar a minuta sob alterações de cláusulas ou testemunhas
     useEffect(() => {
         if (selectedLoan) {
@@ -169,18 +189,18 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                         <button
                             onClick={onBack}
                             title="Voltar"
-                            className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-all border border-slate-700 shadow-lg"
+                            className="p-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:border-slate-700 transition-all shadow-md shrink-0 flex items-center justify-center"
                         >
-                            <ChevronLeft size={18} className="text-slate-300" />
+                            <ChevronLeft size={18} />
                         </button>
-                        <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/10 ring-1 ring-white/5 hidden sm:flex">
-                            <Scroll className="text-white" size={18} />
+                        <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-950/40">
+                            <Scroll size={20} />
                         </div>
                         <div>
-                            <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-tight leading-none">
-                                Confissão de <span className="text-indigo-500">Dívida</span>
+                            <h1 className="text-base font-black text-white uppercase tracking-wider leading-tight">
+                                Confissão de Dívida
                             </h1>
-                            <p className="text-slate-500 text-[7px] font-black uppercase tracking-[0.1em] mt-0.5">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
                                 TÍTULO EXECUTIVO EXTRAJUDICIAL • ART. 784, III CPC
                             </p>
                         </div>
@@ -570,6 +590,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                 copyToClipboard={copyToClipboard}
                                 handleDeleteDocument={handleDeleteDocument}
                                 onEditDocument={async (doc) => {
+                                    setEditingDocId(doc.id);
                                     try {
                                         let content = (doc as any).snapshot_rendered_html || (doc as any).rendered_html;
                                         if (!content && doc.id) {
@@ -577,7 +598,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                         }
                                         if (content) {
                                             setDocumentContent(content);
-                                            showToast("Minuta carregada no editor ao lado! Você pode editar o texto livremente.", "info");
+                                            showToast("Minuta carregada no editor ao lado! Edite e clique em 'Salvar & Reenviar Minuta'.", "info");
                                             return;
                                         }
                                     } catch (e) {
@@ -643,6 +664,8 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                 <DocumentEditor
                                     initialContent={documentContent || 'Gerando minuta...'}
                                     onSave={handleSave}
+                                    onResend={handleResendEditedDoc}
+                                    resendLabel="Salvar & Reenviar Minuta"
                                     clauses={clauses}
                                     onToggleClause={handleToggleClause}
                                 />

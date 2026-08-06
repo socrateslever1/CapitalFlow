@@ -254,7 +254,19 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
         if (!activeUser || activeUser.id === 'DEMO') return;
         try {
             const data = await witnessService.list(activeUser.id);
-            setAvailableWitnesses(data);
+            const unique = (data || []).reduce((acc: LegalWitness[], item) => {
+                const nameClean = String(item.name || '').toUpperCase().trim();
+                const docClean = String(item.document || '').replace(/\D/g, '');
+                const isDup = acc.some(w => {
+                    const wName = String(w.name || '').toUpperCase().trim();
+                    const wDoc = String(w.document || '').replace(/\D/g, '');
+                    if (docClean && wDoc && docClean === wDoc) return true;
+                    return nameClean && wName && nameClean === wName;
+                });
+                if (!isDup) acc.push(item);
+                return acc;
+            }, []);
+            setAvailableWitnesses(unique);
         } catch (e) {
             console.error("Erro ao listar testemunhas", e);
         }
@@ -502,6 +514,7 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
         resolveDocumentToken,
         normalizeDocumentStatus,
         isDocumentDeletable,
-        buildSigningLinks
+        buildSigningLinks,
+        refreshLoanDocuments
     };
 };

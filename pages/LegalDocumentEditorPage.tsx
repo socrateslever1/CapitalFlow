@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Editor } from '@tinymce/tinymce-react';
 import tinymce from 'tinymce/tinymce';
@@ -6,7 +6,6 @@ import tinymce from 'tinymce/tinymce';
 import 'tinymce/icons/default';
 import 'tinymce/themes/silver';
 import 'tinymce/models/dom';
-
 import 'tinymce/plugins/advlist';
 import 'tinymce/plugins/autolink';
 import 'tinymce/plugins/lists';
@@ -17,14 +16,14 @@ import 'tinymce/plugins/fullscreen';
 import 'tinymce/plugins/wordcount';
 
 import { Loan, UserProfile, CapitalSource } from '../types';
-import { ArrowLeft, Save, RefreshCw, FileText } from 'lucide-react';
+import { ArrowLeft, Save, FileText } from 'lucide-react';
 import { legalService } from '../features/legal/services/legalService';
 import { buildCapitalOnlyLegalTerms } from '../features/legal/domain/capitalOnlyLegalTerms';
 import { safeUUID } from '../utils/uuid';
 import { toast } from 'sonner';
 import { translateBillingCycle } from '../utils/translationHelpers';
+import { supabase } from '../lib/supabase';
 
-// Essencial para o funcionamento do @tinymce/tinymce-react em modo bundled
 if (typeof window !== 'undefined') {
   (window as any).tinymce = tinymce;
 }
@@ -37,157 +36,174 @@ interface Props {
   onBack: () => void;
 }
 
+type ExistingDocument = {
+  id: string;
+  loan_id?: string | null;
+  client_id?: string | null;
+  tipo?: string | null;
+  snapshot?: any;
+  snapshot_rendered_html?: string | null;
+  document_version?: number | null;
+  status_assinatura?: string | null;
+};
+
+const buildInitialText = (loan: Loan, sources: CapitalSource[], activeUser: UserProfile | null) => {
+  const source = sources.find((item) => item.id === loan.sourceId);
+  const creditorName = source?.name || activeUser?.businessName || activeUser?.name || '[PREENCHER]';
+  const creditorCpf = activeUser?.document || '[PREENCHER]';
+  const debtorName = loan.debtorName || '[PREENCHER]';
+  const debtorCpf = loan.debtorDocument || '[PREENCHER]';
+  const legalTerms = buildCapitalOnlyLegalTerms(loan, loan.activeAgreement);
+  const capitalToConfess = legalTerms.principalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const nextInstallment = loan.installments?.find((item) => item.status === 'PENDING' || item.status === 'LATE');
+  const nextDueDate = nextInstallment?.dueDate ? new Date(nextInstallment.dueDate).toLocaleDateString('pt-BR') : '[PREENCHER]';
+  const city = activeUser?.city || '[PREENCHER]';
+  const installmentsCount = loan.installments?.length || 0;
+  const billingCycle = translateBillingCycle(loan.billingCycle || 'MONTHLY');
+  const paymentText = installmentsCount === 1 ? 'EM PARCELA ÚNICA' : `DE FORMA PARCELADA (${billingCycle})`;
+
+  return `
+<h1>INSTRUMENTO PARTICULAR DE CONFISSÃO DE DÍVIDA E PROMESSA DE PAGAMENTO</h1>
+<h2>PARTES</h2>
+<p><strong>CREDOR:</strong> ${creditorName}, CPF: ${creditorCpf}, residente em [ENDEREÇO COMPLETO].</p>
+<p><strong>DEVEDOR:</strong> ${debtorName}, CPF: ${debtorCpf}, residente em [ENDEREÇO COMPLETO].</p>
+<h2>CLÁUSULA 1 - DO RECONHECIMENTO DA DÍVIDA</h2>
+<p>O DEVEDOR reconhece dívida líquida, certa e exigível no valor de <strong>R$ ${capitalToConfess}</strong>.</p>
+<p>O valor corresponde ao saldo de capital juridicamente apurado, conforme a memória de cálculo vinculada ao documento.</p>
+<p><strong>PARÁGRAFO ÚNICO:</strong> Este instrumento constitui título executivo extrajudicial quando preenchidos os requisitos legais aplicáveis.</p>
+<h2>CLÁUSULA 2 - DA FORMA DE PAGAMENTO</h2>
+<p>O pagamento será realizado ${paymentText}. Vencimento: ${nextDueDate}.</p>
+<h2>CLÁUSULA 3 - DOS ENCARGOS</h2>
+<ul><li>Multa moratória: 2% sobre a prestação vencida e não paga.</li><li>Juros de mora: taxa legal aplicável, calculada proporcionalmente.</li><li>Atualização monetária pelo índice juridicamente aplicável.</li><li>Custas e honorários somente quando efetivamente devidos.</li></ul>
+<h2>CLÁUSULA 4 - RESPONSABILIDADE PATRIMONIAL</h2>
+<p>A responsabilidade patrimonial observará os limites, garantias e impenhorabilidades previstos em lei.</p>
+<h2>CLÁUSULA 5 - FORO</h2>
+<p>Foro: ${city}.</p>
+<p>Data: ${new Date().toLocaleDateString('pt-BR')}.</p>
+<h2>ASSINATURAS</h2>
+<p>CREDOR: ${creditorName}</p><p>DEVEDOR: ${debtorName}</p>
+<p>TESTEMUNHA 1: [PREENCHER] - CPF: [PREENCHER]</p>
+<p>TESTEMUNHA 2: [PREENCHER] - CPF: [PREENCHER]</p>`;
+};
+
 export const LegalDocumentEditorPage: React.FC<Props> = ({ loanId: propLoanId, loans, sources, activeUser, onBack }) => {
   const { loanId: paramLoanId } = useParams();
-  const loanId = propLoanId || paramLoanId;
+  const routeId = propLoanId || paramLoanId || '';
+  const loan = useMemo(() => loans.find((item) => String(item.id) === String(routeId)), [loans, routeId]);
+  const virtualClientId = routeId.startsWith('virtual-client-') ? routeId.replace('virtual-client-', '') : null;
+  const resolvedClientId = safeUUID(loan?.clientId) || safeUUID(virtualClientId);
+
   const [content, setContent] = useState('');
+  const [existingDocument, setExistingDocument] = useState<ExistingDocument | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!loanId || !loans.length) return;
+    let cancelled = false;
 
-    const loan = loans.find(l => String(l.id) === String(loanId));
-    if (!loan) return;
+    const loadCanonicalDocument = async () => {
+      setIsLoading(true);
+      try {
+        let query = supabase
+          .from('documentos_juridicos')
+          .select('id,loan_id,client_id,tipo,snapshot,snapshot_rendered_html,document_version,status_assinatura')
+          .neq('status_assinatura', 'SUPERSEDED');
 
-    const source = sources.find(s => s.id === loan.sourceId);
-    const creditorName = source?.name || activeUser?.businessName || activeUser?.name || '[PREENCHER]';
-    const creditorCpf = activeUser?.document || '[PREENCHER]';
+        if (resolvedClientId && safeUUID(loan?.id)) {
+          query = query.or(`client_id.eq.${resolvedClientId},loan_id.eq.${safeUUID(loan?.id)}`);
+        } else if (resolvedClientId) {
+          query = query.eq('client_id', resolvedClientId);
+        } else if (safeUUID(loan?.id)) {
+          query = query.eq('loan_id', safeUUID(loan?.id));
+        } else {
+          if (!cancelled) {
+            setContent('');
+            setExistingDocument(null);
+          }
+          return;
+        }
 
-    // Mapeamento de campos para o template solicitado
-    const debtorName = loan.debtorName || '[PREENCHER]';
-    const debtorCpf = loan.debtorDocument || '[PREENCHER]';
-    const legalTerms = buildCapitalOnlyLegalTerms(loan, loan.activeAgreement);
-    const capitalToConfess = legalTerms.principalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+        const { data, error } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle();
+        if (error) throw error;
 
-    // Encontrar próxima data de vencimento
-    const nextInstallment = loan.installments?.find(i => i.status === 'PENDING' || i.status === 'LATE');
-    const nextDueDate = nextInstallment?.dueDate ? new Date(nextInstallment.dueDate).toLocaleDateString() : '[PREENCHER]';
+        if (!cancelled && data?.snapshot_rendered_html) {
+          setExistingDocument(data as ExistingDocument);
+          setContent(data.snapshot_rendered_html);
+          return;
+        }
 
-    const city = activeUser?.city || '[PREENCHER]';
+        if (!cancelled && loan) {
+          setExistingDocument(null);
+          setContent(buildInitialText(loan, sources, activeUser));
+        }
+      } catch (error: any) {
+        if (!cancelled) toast.error(error?.message || 'Não foi possível carregar a minuta jurídica.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
 
-    const installmentsCount = loan.installments?.length || 0;
-    const isSinglePayment = installmentsCount === 1;
-    const billingCycle = translateBillingCycle(loan.billingCycle || 'MONTHLY');
-
-    const formaPagamentoText = isSinglePayment
-      ? 'EM PARCELA ÚNICA'
-      : `DE FORMA PARCELADA (${billingCycle})`;
-
-    const baseText = `
-INSTRUMENTO PARTICULAR DE CONFISSÃO DE DÍVIDA E PROMESSA DE PAGAMENTO
-
-PARTES
-
-CREDOR: ${creditorName}, [NACIONALIDADE], [ESTADO CIVIL], [PROFISSÃO], CPF: ${creditorCpf}, residente em [ENDEREÇO COMPLETO].
-
-DEVEDOR: ${debtorName}, [NACIONALIDADE], [ESTADO CIVIL], [PROFISSÃO], CPF: ${debtorCpf}, residente em [ENDEREÇO COMPLETO].
-
-CLÁUSULA 1 - DO RECONHECIMENTO DA DÍVIDA
-
-O DEVEDOR reconhece dívida líquida, certa e exigível no valor de:
-
-R$ ${capitalToConfess}
-
-Este valor corresponde exclusivamente ao saldo de capital efetivamente disponibilizado e ainda não restituído, sem incorporação de juros remuneratórios, multa, mora ou outros encargos anteriores.
-
-PARÁGRAFO ÚNICO: Este instrumento constitui Título Executivo Extrajudicial (Art. 784, III, CPC).
-
-CLÁUSULA 2 - DA FORMA DE PAGAMENTO
-
-O pagamento será realizado ${formaPagamentoText}.
-
-Vencimento: ${nextDueDate}
-
-CLÁUSULA 3 - DOS ENCARGOS
-
-- Multa moratoria: 2% sobre a prestacao vencida e nao paga.
-- Juros de mora: taxa legal prevista no art. 406 do Código Civil, calculada pro rata die.
-- Atualização monetária: IPCA, ou índice que legalmente o substituir, a partir do vencimento.
-- Custas e honorários: somente quando devidos e fixados na forma da legislação aplicável.
-
-CLÁUSULA 4 - RESPONSABILIDADE PATRIMONIAL
-
-O DEVEDOR responde com todos os bens (Art. 789 CPC).
-
-CLÁUSULA 5 - MEDIDAS COERCITIVAS
-
-O CREDOR poderá adotar as medidas extrajudiciais e judiciais legalmente cabíveis, observados o devido processo legal e as determinações da autoridade competente.
-
-CLÁUSULA 6 - PENHORA
-
-Qualquer constrição ou penhora dependerá de decisão judicial e observará os limites e as impenhorabilidades previstos em lei.
-
-CLÁUSULA 7 - FORO
-
-Foro: ${city}
-
-DATA: ${new Date().toLocaleDateString()}
-
-ASSINATURAS
-
-CREDOR: ${creditorName}
-DEVEDOR: ${debtorName}
-
-TESTEMUNHAS:
-
-1. [PREENCHER] - CPF: [PREENCHER]
-2. [PREENCHER] - CPF: [PREENCHER]
-
---------------------------------------------------
-
-NOTA PROMISSÓRIA
-
-Valor: R$ ${capitalToConfess}
-
-Prometo pagar a ${creditorName} a quantia acima.
-
-Emitente: ${debtorName}
-
-CPF: ${debtorCpf}
-
-Local: ${city}
-Data: ${new Date().toLocaleDateString()}
-
-Assinatura: ______________________
-`;
-
-    setContent(baseText);
-
-  }, [loanId, loans, sources, activeUser]);
+    void loadCanonicalDocument();
+    return () => { cancelled = true; };
+  }, [activeUser, loan, resolvedClientId, sources]);
 
   const handleSave = async () => {
-    if (!loanId || !activeUser || !content) return;
-
-    const loan = loans.find(l => String(l.id) === String(loanId));
-    if (!loan) return;
-
-    const source = sources.find(s => s.id === loan.sourceId);
-    const creditorName = source?.name || activeUser?.businessName || activeUser?.name || '[PREENCHER]';
+    if (!activeUser || !content.trim()) return;
+    if (!loan && !existingDocument) {
+      toast.error('Não existe minuta vinculada a este cliente para edição.');
+      return;
+    }
 
     setIsSaving(true);
     try {
       const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
-      if (!ownerId) throw new Error("Erro de autenticação.");
+      if (!ownerId) throw new Error('Erro de autenticação.');
 
-      const legalParams = legalService.prepareDocumentParams(loan, activeUser, loan.activeAgreement);
+      const prepared = loan
+        ? legalService.prepareDocumentParams(loan, activeUser, loan.activeAgreement)
+        : (existingDocument?.snapshot || {});
 
-      await legalService.generateAndRegisterDocument(
-        loan.id,
-        {
-          ...legalParams,
-          customContent: content,
-          creditorName: creditorName,
-          debtorName: loan.debtorName,
-        },
-        ownerId,
-        'CONFISSAO'
-      );
+      const snapshot = {
+        ...existingDocument?.snapshot,
+        ...prepared,
+        clientId: resolvedClientId || existingDocument?.client_id,
+        loanId: safeUUID(loan?.id) || existingDocument?.loan_id,
+        customContent: content,
+        timestamp: new Date().toISOString(),
+        previousDocumentId: existingDocument?.id || null,
+        previousVersion: existingDocument?.document_version || null,
+      };
 
-      toast.success("Documento salvo com sucesso!");
+      const { data, error } = await supabase.rpc('create_documento_juridico_versionado', {
+        p_base_document_id: existingDocument?.id || null,
+        p_client_id: resolvedClientId || existingDocument?.client_id || null,
+        p_loan_id: safeUUID(loan?.id) || existingDocument?.loan_id || null,
+        p_tipo: existingDocument?.tipo || 'CONFISSAO',
+        p_snapshot: snapshot,
+        p_rendered_html: content,
+        p_profile_id: ownerId,
+        p_registration_link_id: null,
+      });
+
+      const saved = Array.isArray(data) ? data[0] : data;
+      if (error || !saved?.id) throw new Error(error?.message || 'Falha ao salvar a versão jurídica.');
+
+      setExistingDocument({
+        id: saved.id,
+        loan_id: safeUUID(loan?.id) || existingDocument?.loan_id || null,
+        client_id: resolvedClientId || existingDocument?.client_id || null,
+        tipo: existingDocument?.tipo || 'CONFISSAO',
+        snapshot,
+        snapshot_rendered_html: content,
+        document_version: Number(saved.document_version || 1),
+        status_assinatura: saved.status_assinatura,
+      });
+
+      toast.success(`Minuta unificada salva como versão ${saved.document_version || 1}.`);
       onBack();
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Erro ao salvar: " + e.message);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(`Erro ao salvar: ${error?.message || 'falha desconhecida'}`);
     } finally {
       setIsSaving(false);
     }
@@ -195,75 +211,53 @@ Assinatura: ______________________
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-all border border-slate-700 shadow-lg"
-          >
+          <button onClick={onBack} className="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-all border border-slate-700 shadow-lg">
             <ArrowLeft size={18} className="text-slate-300" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-900/20">
-              <FileText size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-900/20"><FileText size={20} /></div>
             <div>
-              <h1 className="text-xl font-semibold text-white uppercase tracking-wider leading-none">
-                Editor <span className="text-indigo-500">Jurídico</span>
-              </h1>
+              <h1 className="text-xl font-semibold text-white uppercase tracking-wider leading-none">Editor <span className="text-indigo-500">Jurídico</span></h1>
               <p className="text-sm text-slate-500 font-medium uppercase mt-1 tracking-widest">
-                Personalização de Instrumento
+                {existingDocument ? `Documento único • versão ${existingDocument.document_version || 1}` : 'Nova minuta jurídica'}
               </p>
             </div>
           </div>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase shadow-lg shadow-emerald-500/20"
-        >
-          {isSaving ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Save size={16} />
-          )}
-          {isSaving ? 'Salvando...' : 'Salvar Documento'}
+        <button onClick={handleSave} disabled={isSaving || isLoading || !content.trim()} className="w-full md:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase shadow-lg shadow-emerald-500/20">
+          {isSaving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={16} />}
+          {isSaving ? 'Salvando versão...' : 'Salvar mesma minuta'}
         </button>
       </div>
 
-      {/* EDITOR CONTAINER */}
-      <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-white/10">
-        <Editor
-          value={content}
-          onEditorChange={(newValue) => setContent(newValue)}
-          init={{
-            height: 600,
-            menubar: true,
-            plugins: [
-              'advlist autolink lists link table',
-              'code fullscreen wordcount'
-            ],
-            toolbar:
-              'undo redo | formatselect | bold italic | ' +
-              'alignleft aligncenter alignright alignjustify | ' +
-              'bullist numlist | table | code fullscreen',
-            content_style:
-              'body { font-family:Arial,sans-serif; font-size:14px }',
-            branding: false,
-            promotion: false,
-            skin: 'oxide',
-            content_css: 'default',
-            licenseKey: 'gpl'
-          }}
-        />
+      <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 p-3 text-xs text-indigo-100">
+        Card do cliente, Central Jurídica e Portal usam este mesmo documento. Ao salvar, a versão anterior é preservada e o cliente passa a ver somente a versão atual.
       </div>
 
-      <div className="mt-6 p-4 bg-slate-900/50 border border-slate-800 rounded-lg">
-        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-          Este documento será salvo como a versão oficial do contrato. Certifique-se de que todos os dados do Credor e Devedor estão corretos antes de finalizar.
-        </p>
+      <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-white/10">
+        {isLoading ? (
+          <div className="flex h-[600px] items-center justify-center text-slate-500">Carregando a minuta oficial...</div>
+        ) : (
+          <Editor
+            value={content}
+            onEditorChange={setContent}
+            init={{
+              height: 600,
+              menubar: true,
+              plugins: ['advlist autolink lists link table', 'code fullscreen wordcount'],
+              toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist | table | code fullscreen',
+              content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
+              branding: false,
+              promotion: false,
+              skin: 'oxide',
+              content_css: 'default',
+              licenseKey: 'gpl',
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import { supabase } from '../lib/supabase';
 import { Client, LegalDocumentParams, UserProfile } from '../types';
-import { createLegalSnapshot, generateSHA256 } from '../utils/crypto';
 import { addDaysUTC } from '../utils/dateHelpers';
 import { generateMutuoPreDesembolsoHTML } from '../features/legal/templates/MutuoPreDesembolsoTemplate';
 import { clientRegistrationService } from './clientRegistration.service';
@@ -9,8 +8,6 @@ const toMoney = (value: unknown): number => {
   const number = Number(value);
   return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
 };
-
-const makeViewToken = () => crypto.randomUUID();
 
 export type ClientPreContractInput = {
   amount: number;
@@ -26,21 +23,12 @@ export type ClientPreContractInput = {
   descricaoGarantia?: string;
 };
 
-export type CreatePreContractOptions = {
+export type CreatePreContractOptions = ClientPreContractInput & {
   clientId: string;
-  amount: number;
-  dueDate?: string;
-  notes?: string;
   operatorProfileId?: string;
-  witness1Name?: string;
-  witness1Doc?: string;
-  witness2Name?: string;
-  witness2Doc?: string;
-  avalistaNome?: string;
-  avalistaCPF?: string;
-  tipoGarantia?: string;
-  descricaoGarantia?: string;
 };
+
+const editableStatuses = ['PENDENTE', 'PENDING', 'AJUSTE_SOLICITADO', 'RECUSADO', 'AGUARDANDO_ASSINATURA', 'DRAFT'];
 
 export const clientPreContractService = {
   async create(options: CreatePreContractOptions) {
@@ -91,19 +79,7 @@ export const clientPreContractService = {
       state: profile?.state || client.state || 'AM',
     } as any;
 
-    return this.createAndSend(client as any, fallbackProfile, {
-      amount: options.amount,
-      dueDate: options.dueDate,
-      notes: options.notes,
-      witness1Name: options.witness1Name,
-      witness1Doc: options.witness1Doc,
-      witness2Name: options.witness2Name,
-      witness2Doc: options.witness2Doc,
-      avalistaNome: options.avalistaNome,
-      avalistaCPF: options.avalistaCPF,
-      tipoGarantia: options.tipoGarantia,
-      descricaoGarantia: options.descricaoGarantia,
-    });
+    return this.createAndSend(client as any, fallbackProfile, options);
   },
 
   async createAndSend(client: Client, profile: UserProfile, input: ClientPreContractInput) {
@@ -119,7 +95,6 @@ export const clientPreContractService = {
       phone: client.phone,
     });
     const resolvedClientId = portalLink.clientId;
-    const viewToken = makeViewToken();
     const today = new Date().toISOString().slice(0, 10);
     const dueDate = input.dueDate || addDaysUTC(today, 30).toISOString().slice(0, 10);
 
@@ -131,23 +106,7 @@ export const clientPreContractService = {
       witnesses.push({ name: input.witness2Name || '', document: input.witness2Doc || '' });
     }
 
-    const params: LegalDocumentParams & {
-      clientId: string;
-      requiredSignatureRoles?: string[];
-      witnesses?: any[];
-      witness1Name?: string;
-      witness1Doc?: string;
-      witness2Name?: string;
-      witness2Doc?: string;
-      incluirAvalista?: boolean;
-      avalistaNome?: string;
-      avalistaCPF?: string;
-      incluirGarantia?: boolean;
-      tipoGarantia?: string;
-      descricaoGarantia?: string;
-      legalDocumentKind?: string;
-      effectivenessCondition?: string;
-    } = {
+    const params: LegalDocumentParams & Record<string, any> = {
       loanId: resolvedClientId,
       clientId: resolvedClientId,
       clientName: client.name,
@@ -202,39 +161,38 @@ export const clientPreContractService = {
       effectivenessCondition: 'EFFECTIVE_ONLY_AFTER_CONFIRMED_DISBURSEMENT',
     };
 
-    const snapshotStr = createLegalSnapshot(params);
-    const hash = await generateSHA256(snapshotStr);
-    const renderedHtml = generateMutuoPreDesembolsoHTML(params, undefined, hash);
+    const renderedHtml = generateMutuoPreDesembolsoHTML(params);
 
-    const { data, error } = await supabase
+    const { data: latest } = await supabase
       .from('documentos_juridicos')
-      .insert({
-        client_id: resolvedClientId,
-        registration_link_id: portalLink.linkId,
-        profile_id: ownerId,
-        dono_id: ownerId,
-        tipo: 'MUTUO_PRE_DESEMBOLSO',
-        tipo_documento: 'MUTUO_PRE_DESEMBOLSO',
-        snapshot: params,
-        snapshot_json: params,
-        snapshot_rendered_html: renderedHtml,
-        hash_sha256: hash,
-        view_token: viewToken,
-        public_access_token: viewToken,
-        status_assinatura: 'PENDENTE',
-        status: 'AGUARDANDO_ASSINATURA',
-        template_version: 'MUTUO_PRE_DESEMBOLSO_V1',
-        testemunhas: witnesses,
-      })
-      .select('id,view_token')
-      .single();
+      .select('id,status_assinatura')
+      .eq('client_id', resolvedClientId)
+      .eq('tipo', 'MUTUO_PRE_DESEMBOLSO')
+      .in('status_assinatura', editableStatuses)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (error) throw new Error(error.message || 'Não foi possível criar o documento para assinatura.');
+    const { data, error } = await supabase.rpc('create_documento_juridico_versionado', {
+      p_base_document_id: latest?.id || null,
+      p_client_id: resolvedClientId,
+      p_loan_id: null,
+      p_tipo: 'MUTUO_PRE_DESEMBOLSO',
+      p_snapshot: params,
+      p_rendered_html: renderedHtml,
+      p_profile_id: ownerId,
+      p_registration_link_id: portalLink.linkId || null,
+    });
+
+    const created = Array.isArray(data) ? data[0] : data;
+    if (error || !created?.id) {
+      throw new Error(error?.message || 'Não foi possível criar a versão jurídica para assinatura.');
+    }
 
     return {
-      documentId: data.id as string,
+      documentId: created.id as string,
+      documentVersion: Number(created.document_version || 1),
       portalUrl: portalLink.url,
-      // Mantém compatibilidade com a tela atual, mas direciona para o portal oficial.
       signUrl: portalLink.url,
       status: 'AGUARDANDO_ASSINATURA' as const,
     };

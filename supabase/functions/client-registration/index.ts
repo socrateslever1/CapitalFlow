@@ -236,23 +236,22 @@ Deno.serve(async (req) => {
       }
 
       if (!existingLink) {
-        const { data: profileLink } = await admin
+        const publicToken = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
+        const tokenHash = await digest(publicToken);
+
+        const { data: newLink } = await admin
           .from('client_registration_links')
+          .insert({
+            profile_id: client.owner_id,
+            client_id: client.id,
+            public_token: publicToken,
+            token_hash: tokenHash,
+            active: true
+          })
           .select('id,public_token')
-          .eq('profile_id', client.owner_id)
-          .eq('active', true)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .single();
 
-        if (profileLink) {
-          await admin
-            .from('client_registration_links')
-            .update({ client_id: client.id })
-            .eq('id', profileLink.id);
-
-          existingLink = profileLink;
-        }
+        existingLink = newLink;
       }
 
       if (!existingLink) return reply({ error: 'Este cliente ainda nao possui link de acesso vinculado.' }, 409);
@@ -267,35 +266,10 @@ Deno.serve(async (req) => {
     const token = clean(value('token'), 100);
     if (token.length < 30) return reply({ error: 'Link inválido.' }, 400);
     const tokenHash = await digest(token);
-    let { data: link } = await admin.from('client_registration_links')
+    const { data: link } = await admin.from('client_registration_links')
       .select('id,profile_id,client_id,submitted_at,active,expires_at')
       .or(`token_hash.eq.${tokenHash},public_token.eq.${token}`)
       .maybeSingle();
-
-    if (!link) {
-      const { data: recentClient } = await admin
-        .from('clientes')
-        .select('id,owner_id')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (recentClient) {
-        const { data: createdLink } = await admin
-          .from('client_registration_links')
-          .insert({
-            profile_id: recentClient.owner_id,
-            client_id: recentClient.id,
-            public_token: token,
-            token_hash: tokenHash,
-            active: true
-          })
-          .select('id,profile_id,client_id,submitted_at,active,expires_at')
-          .single();
-
-        link = createdLink;
-      }
-    }
 
     if (!link) return reply({ error: 'Link inválido ou expirado.' }, 404);
 
@@ -327,15 +301,26 @@ Deno.serve(async (req) => {
       }
 
       if (!clientId) {
-        const { data: profileClient } = await admin
-          .from('clientes')
-          .select('id')
-          .eq('owner_id', link.profile_id)
+        const { data: docWithClient } = await admin
+          .from('documentos_juridicos')
+          .select('client_id')
+          .eq('profile_id', link.profile_id)
+          .not('client_id', 'is', null)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (profileClient?.id) {
-          clientId = profileClient.id;
+
+        if (docWithClient?.client_id) {
+          const { data: clientLink } = await admin
+            .from('client_registration_links')
+            .select('id')
+            .eq('client_id', docWithClient.client_id)
+            .limit(1)
+            .maybeSingle();
+
+          if (!clientLink) {
+            clientId = docWithClient.client_id;
+          }
         }
       }
 
@@ -344,6 +329,7 @@ Deno.serve(async (req) => {
           .from('client_registration_links')
           .update({ client_id: clientId })
           .eq('id', link.id);
+
         const { data: registeredClient } = await admin.from('clientes')
           .select('registration_status')
           .eq('id', clientId)
@@ -355,7 +341,7 @@ Deno.serve(async (req) => {
         const { data: documents } = await admin
           .from('documentos_juridicos')
           .select('id,tipo,status_assinatura,created_at,view_token,public_access_token')
-          .or(`client_id.eq.${clientId},registration_link_id.eq.${link.id}`)
+          .eq('client_id', clientId)
           .order('created_at', { ascending: false });
 
         const publicDocuments = (documents || []).map((document: any) => {
@@ -407,9 +393,10 @@ Deno.serve(async (req) => {
         }
 
         if (registrationApproved) {
-          const pToken = contract?.portal_token || null;
-          const pCode = contract?.portal_shortcode || null;
-          const portalUrl = pToken && pCode ? `${appOrigin}/?portal=${encodeURIComponent(pToken)}&portal_code=${encodeURIComponent(pCode)}` : null;
+          const pToken = contract?.portal_token || link.public_token || crypto.randomUUID();
+          const pCode = contract?.portal_shortcode || link.id.slice(0, 6) || '123456';
+          const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(pToken)}&portal_code=${encodeURIComponent(pCode)}`;
+
           return reply({
             valid: true,
             state: 'APPROVED',

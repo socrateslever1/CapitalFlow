@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/integrate-client-legal-panel.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write

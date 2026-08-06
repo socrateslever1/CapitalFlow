@@ -123,6 +123,25 @@ export const clientRegistrationService = {
     return urls;
   },
   async createClientAccessLink(clientId: string, lookup?: { profileId?: string; document?: string; phone?: string }) {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
+
+    const { data: portalData, error: portalError } = await supabase.rpc('ensure_client_portal_access', {
+      p_client_id: clientId,
+    });
+
+    if (!portalError && portalData?.token && portalData?.code && portalData?.clientId) {
+      const token = String(portalData.token);
+      const code = String(portalData.code);
+      return {
+        token,
+        code,
+        url: `${origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`,
+        linkId: '',
+        clientId: String(portalData.clientId),
+        state: 'PORTAL' as const,
+      };
+    }
+
     const data = await request({
       action: 'create_client_link',
       client_id: clientId,
@@ -130,12 +149,21 @@ export const clientRegistrationService = {
       document: lookup?.document,
       phone: lookup?.phone,
     }, true) as any;
-    if (!data?.token || !data?.url || !data?.linkId || !data?.clientId) {
-      throw new Error('Nao foi possivel gerar o link publico do cliente.');
+
+    if (!data?.url || !data?.clientId) {
+      throw new Error(portalError?.message || 'Nao foi possivel gerar o acesso do cliente.');
     }
+
     const rawUrl = String(data.url);
     const normalizedUrl = normalizeOriginUrl(rawUrl) || rawUrl;
-    return { token: String(data.token), url: normalizedUrl, linkId: String(data.linkId), clientId: String(data.clientId) };
+    return {
+      token: String(data.token || ''),
+      code: data.code ? String(data.code) : undefined,
+      url: normalizedUrl,
+      linkId: data.linkId ? String(data.linkId) : '',
+      clientId: String(data.clientId),
+      state: data.state || 'REGISTRATION',
+    };
   },
 };
 

@@ -108,9 +108,44 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
     }, []);
 
     const allClientEntries = useMemo(() => {
-        const entries: Loan[] = [...loans];
-        const existingDocs = new Set(loans.map((l) => String(l.debtorDocument || '').replace(/\D/g, '')));
-        const existingNames = new Set(loans.map((l) => String(l.debtorName || '').toLowerCase().trim()));
+        // Agrupa empréstimos por cliente para evitar cards duplicados ou contratos zerados de um mesmo cliente
+        const loansByClientMap = new Map<string, Loan[]>();
+
+        (loans || []).forEach((loan) => {
+            const docKey = String(loan.debtorDocument || '').replace(/\D/g, '');
+            const nameKey = String(loan.debtorName || '').toLowerCase().trim();
+            const clientKey = docKey || nameKey;
+            if (!clientKey) return;
+
+            if (!loansByClientMap.has(clientKey)) {
+                loansByClientMap.set(clientKey, []);
+            }
+            loansByClientMap.get(clientKey)!.push(loan);
+        });
+
+        const selectedLoans: Loan[] = [];
+
+        // Para cada cliente, seleciona o contrato ativo principal (priorizando valor > 0 e contrato não arquivado)
+        loansByClientMap.forEach((clientLoans) => {
+            clientLoans.sort((a, b) => {
+                const aArchived = a.isArchived ? 1 : 0;
+                const bArchived = b.isArchived ? 1 : 0;
+                if (aArchived !== bArchived) return aArchived - bArchived;
+
+                const aHasVal = (a.principal || 0) > 0 ? 1 : 0;
+                const bHasVal = (b.principal || 0) > 0 ? 1 : 0;
+                if (aHasVal !== bHasVal) return bHasVal - aHasVal;
+
+                const aTime = new Date(a.startDate || 0).getTime();
+                const bTime = new Date(b.startDate || 0).getTime();
+                return bTime - aTime;
+            });
+
+            selectedLoans.push(clientLoans[0]);
+        });
+
+        const existingDocs = new Set(selectedLoans.map((l) => String(l.debtorDocument || '').replace(/\D/g, '')));
+        const existingNames = new Set(selectedLoans.map((l) => String(l.debtorName || '').toLowerCase().trim()));
 
         allRegisteredClients.forEach((c) => {
             const cDoc = String(c.document || c.cpf || c.cpf_cnpj || '').replace(/\D/g, '');
@@ -119,7 +154,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
             if (cName && (!cDoc || !existingDocs.has(cDoc)) && !existingNames.has(cName.toLowerCase())) {
                 existingDocs.add(cDoc || cName);
                 existingNames.add(cName.toLowerCase());
-                entries.push({
+                selectedLoans.push({
                     id: `virtual-confissao-${c.id}`,
                     clientId: c.id,
                     debtorName: c.name || c.full_name || c.nome || 'Cliente',
@@ -134,7 +169,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
             }
         });
 
-        return entries;
+        return selectedLoans;
     }, [loans, allRegisteredClients]);
 
     const selectedLegalTerms = selectedLoan

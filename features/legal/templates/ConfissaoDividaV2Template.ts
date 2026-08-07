@@ -2,21 +2,24 @@ import { LegalDocumentParams } from "../../../types";
 import { numberToWordsBRL, formatMoney } from "../../../utils/formatters";
 import { buildConfissaoDividaVM } from "../viewModels/confissaoVM";
 
-const FILL = "[PREENCHER]";
+const FILL = "Não informado";
 
-const safeText = (value: unknown): string => {
-  if (value === null || value === undefined) return FILL;
+const safeText = (value: unknown, fallback = "Não informado"): string => {
+  if (value === null || value === undefined) return fallback;
   const text = String(value).trim();
-  return text.length > 0 ? text : FILL;
+  if (text === '[PREENCHER]' || text.length === 0) return fallback;
+  return text;
 };
 
-const safeDateBR = (value: unknown): string => {
-  if (!value) return FILL;
-  if (String(value).includes(' de ')) return String(value);
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(String(value))) return String(value);
+const safeDateBR = (value: unknown, fallback?: string): string => {
+  if (!value) return fallback || new Date().toLocaleDateString("pt-BR");
+  const str = String(value).trim();
+  if (str === '[PREENCHER]' || !str) return fallback || new Date().toLocaleDateString("pt-BR");
+  if (str.includes(' de ')) return str;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
   
-  const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? FILL : date.toLocaleDateString("pt-BR");
+  const date = new Date(str);
+  return Number.isNaN(date.getTime()) ? (fallback || new Date().toLocaleDateString("pt-BR")) : date.toLocaleDateString("pt-BR");
 };
 
 const translateBillingCycle = (cycle?: string): string => {
@@ -31,7 +34,7 @@ const translateBillingCycle = (cycle?: string): string => {
 
 const translateBillingCycleLower = (cycle?: string): string => {
   const translated = translateBillingCycle(cycle).toLowerCase();
-  if (translated === "mensal") return "por mes";
+  if (translated === "mensal") return "por mês";
   if (translated === "semanal") return "por semana";
   if (translated === "quinzenal") return "por quinzena";
   if (translated.includes("rio")) return "por dia";
@@ -106,7 +109,7 @@ export const generateConfissaoDividaV2HTML = (
   const principalPaidNumber = Number(data.principalPaidAmount ?? Math.max(0, originalPrincipalNumber - principalAmountNumber));
   const legalInterestAmountNumber = Number(data.legalInterestAmount ?? Math.max(0, totalDebtNumber - principalAmountNumber));
   const legalInterestRatePercent = Number(data.legalInterestRatePercent || 0);
-  const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).trim().toUpperCase() : FILL;
+  const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).trim().toUpperCase() : 'VALOR TOTAL CONTRATADO';
 
   const installments = Array.isArray(data.installments) ? data.installments : [];
   const installmentsCount = installments.length;
@@ -115,7 +118,6 @@ export const generateConfissaoDividaV2HTML = (
   let cycleToUse = data.billingCycle || 'MONTHLY';
   const tId = data.templateId || 'CONFISSAO_AUTO';
   
-  // Se for um Acordo, força identificação de Acordo, mesmo que o template selecionado seja 'Auto'
   const isAgreement = data.isAgreement || tId === 'RENEGOCIACAO';
 
   if (tId === 'CONFISSAO_AUTO') {
@@ -132,17 +134,12 @@ export const generateConfissaoDividaV2HTML = (
   }
 
   const cicloTraduzido = translateBillingCycle(cycleToUse);
-  const cicloTextoCompromisso = translateBillingCycleLower(cycleToUse);
   const valorFormatado = Number(totalDebtNumber).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const saldoCapitalFormatado = principalAmountNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const capitalOriginalFormatado = originalPrincipalNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const capitalPagoFormatado = principalPaidNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const jurosJuridicosFormatado = legalInterestAmountNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const dataDisponibilizacao = safeDateBR(data.contractDate);
-  const referenciaContrato = safeText(data.codigo_contrato || data.loanId?.substring(0, 8).toUpperCase());
+  
+  const contractDateRaw = data.contractDate || (data as any).startDate || (data as any).created_at || new Date().toISOString();
+  const dataDisponibilizacao = safeDateBR(contractDateRaw);
   const durationDays = data.contractDurationDays || 30;
 
-  // Títulos
   const tituloDocumento = isAgreement 
     ? "TERMO DE RENEGOCIAÇÃO E CONFISSÃO DE DÍVIDA"
     : "INSTRUMENTO PARTICULAR DE CONFISSÃO DE DÍVIDA E PROMESSA DE PAGAMENTO";
@@ -151,60 +148,26 @@ export const generateConfissaoDividaV2HTML = (
   
   const modalidadeTexto = isSinglePayment 
     ? `PAGAMENTO ÚNICO - PRAZO DE ${durationDays} DIAS` 
-    : `PAGAMENTO PARCELADO - CICLO ${cicloTraduzido} (${installmentsCount > 0 ? installmentsCount : 'X'} PARCELAS)`;
+    : `PAGAMENTO PARCELADO - CICLO ${cicloTraduzido} (${installmentsCount > 0 ? installmentsCount : 1} PARCELAS)`;
 
-  const installmentRowsHTML = installments.map((installment: any, index) => {
-    const principalAmount = Number(installment.principalAmount ?? installment.scheduledPrincipal ?? installment.amount ?? 0);
-    const legalInterestAmount = Number(installment.legalInterestAmount ?? Math.max(0, Number(installment.amount || 0) - principalAmount));
-    const totalAmount = Number(installment.amount || 0);
-    const balanceAfter = Number(installment.principalBalanceAfter ?? Math.max(0, principalAmountNumber - principalAmount));
-
-    return `
-      <tr>
-        <td style="border: 1pt solid #000; padding: 6px; text-align: center;">${installment.number ?? index + 1}</td>
-        <td style="border: 1pt solid #000; padding: 6px; text-align: center;">${safeDateBR(installment.dueDate)}</td>
-        <td style="border: 1pt solid #000; padding: 6px; text-align: right;">R$ ${principalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-        <td style="border: 1pt solid #000; padding: 6px; text-align: right;">R$ ${legalInterestAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-        <td style="border: 1pt solid #000; padding: 6px; text-align: right;"><strong>R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
-        <td style="border: 1pt solid #000; padding: 6px; text-align: right;">R$ ${balanceAfter.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-      </tr>
-    `;
-  }).join('');
-
-  let parcelamentoHTML = "";
-  if (!isSinglePayment) {
-    const installmentValue = installmentsCount > 0 ? Number(installments[0].amount) : 0;
-    const installmentValueFormatado = installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-    const primeiroVencimento = installmentsCount > 0 ? safeDateBR(installments[0].dueDate) : FILL;
-    const extensoValorParcela = installmentValue > 0 ? numberToWordsBRL(installmentValue).trim().toUpperCase() : FILL;
-    
-    parcelamentoHTML = `
-        <p class="indent" style="margin-top: 15px;">
-            O débito será quitado em <strong>${installmentsCount > 0 ? installmentsCount : 'X'} (${installmentsCount > 0 ? numberToWordsBRL(installmentsCount).replace(' reais', '').toUpperCase() : FILL}) parcelas</strong> fixas e sucessivas, 
-            no valor individual de <strong>R$ ${installmentValueFormatado} (${extensoValorParcela})</strong>, com periodicidade <strong>${cicloTraduzido}</strong>. 
-            O vencimento da primeira parcela ocorrerá impreterivelmente em <strong>${primeiroVencimento}</strong>, e as demais seguirão o ciclo estabelecido até a quitação integral do saldo devedor de R$ ${valorFormatado}.
-        </p>
-        <p class="indent">Assim, o(a) <strong>DEVEDOR(A)</strong> se compromete a pagar ao <strong>CREDOR</strong> o valor de <strong>R$ ${installmentValueFormatado}</strong> ${cicloTextoCompromisso}, ate a quitacao integral da divida confessada.</p>
-        <table style="width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 9.5pt; page-break-inside: auto;">
-          <thead>
-            <tr>
-              <th style="border: 1pt solid #000; padding: 6px;">Parcela</th>
-              <th style="border: 1pt solid #000; padding: 6px;">Vencimento</th>
-              <th style="border: 1pt solid #000; padding: 6px;">Capital amortizado</th>
-              <th style="border: 1pt solid #000; padding: 6px;">Juros remuneratorios juridicos</th>
-              <th style="border: 1pt solid #000; padding: 6px;">Total da parcela</th>
-              <th style="border: 1pt solid #000; padding: 6px;">Saldo de capital restante</th>
-            </tr>
-          </thead>
-          <tbody>${installmentRowsHTML}</tbody>
-        </table>
-    `;
-  }
-
-  const vencimentoUnico = installments[0]?.dueDate ? safeDateBR(installments[0].dueDate) : FILL;
-  const vencimentoNotaPromissoria = installments.length > 0
+  const primeiroVencimento = installmentsCount > 0 ? safeDateBR(installments[0].dueDate) : safeDateBR(new Date().toISOString());
+  const vencimentoUnico = primeiroVencimento;
+  const vencimentoNotaPromissoria = installmentsCount > 0
     ? safeDateBR(installments[installments.length - 1].dueDate)
-    : FILL;
+    : primeiroVencimento;
+
+  const installmentValue = Number(installments[0]?.amount || (totalDebtNumber / (installmentsCount || 1)));
+  const installmentValueFormatado = installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const extensoValorParcela = installmentValue > 0 ? numberToWordsBRL(installmentValue).trim().toUpperCase() : 'VALOR DA PARCELA';
+
+  const parcelamentoHTML = `
+      <p class="indent">
+          O débito confessado no valor total de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span> será quitado de forma <strong>PARCELADA</strong> em <strong>${installmentsCount} (${numberToWordsBRL(installmentsCount).replace(' reais', '').toUpperCase()}) parcelas</strong> fixas e sucessivas, no valor individual de <span class="bold">R$ ${installmentValueFormatado} (${extensoValorParcela})</span> cada, com periodicidade <strong>${cicloTraduzido}</strong>. 
+      </p>
+      <p class="indent">
+          O vencimento da primeira parcela ocorrerá impreterivelmente em <strong>${primeiroVencimento}</strong> e a última parcela vencerá em <strong>${vencimentoNotaPromissoria}</strong>, devendo os pagamentos ser efetuados via transferência bancária ou chave PIX indicadas pelo CREDOR.
+      </p>
+  `;
 
   return `
   <!DOCTYPE html>

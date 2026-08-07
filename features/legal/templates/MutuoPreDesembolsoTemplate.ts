@@ -1,8 +1,9 @@
 import { LegalDocumentParams } from '../../../types';
 import { numberToWordsBRL } from '../../../utils/formatters';
 
-const safe = (value: unknown, fallback = '[PREENCHER]'): string => {
+const safe = (value: unknown, fallback = 'Não informado'): string => {
   const text = String(value ?? '').trim();
+  if (text === '[PREENCHER]') return fallback;
   return text || fallback;
 };
 
@@ -11,10 +12,10 @@ const money = (value: unknown): string =>
 
 const dateBR = (value: unknown): string => {
   const raw = String(value || '').trim();
-  if (!raw) return '[PREENCHER]';
+  if (!raw || raw === '[PREENCHER]') return new Date().toLocaleDateString('pt-BR');
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw;
   const date = new Date(`${raw.slice(0, 10)}T12:00:00`);
-  return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString('pt-BR');
+  return Number.isNaN(date.getTime()) ? new Date().toLocaleDateString('pt-BR') : date.toLocaleDateString('pt-BR');
 };
 
 export const generateMutuoPreDesembolsoHTML = (
@@ -36,7 +37,7 @@ export const generateMutuoPreDesembolsoHTML = (
   const installments = Array.isArray(data.installments) ? data.installments : [];
   const firstDueDate = installments[0]?.dueDate;
   const lastDueDate = installments[installments.length - 1]?.dueDate || firstDueDate;
-  const valueInWords = principal > 0 ? numberToWordsBRL(principal).trim().toUpperCase() : '[PREENCHER]';
+  const valueInWords = principal > 0 ? numberToWordsBRL(principal).trim().toUpperCase() : 'VALOR CONTRATADO';
   const isInstallment = installments.length > 1;
 
   const scheduleRows = installments.length

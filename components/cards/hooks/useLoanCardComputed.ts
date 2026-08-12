@@ -1,6 +1,6 @@
 
 import { useMemo } from 'react';
-import { Loan, CapitalSource, LoanStatus, Installment } from '../../../types';
+import { Loan, CapitalSource, Installment } from '../../../types';
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { hasActiveAgreement as hasActiveAgreementData, rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { loanEngine } from '../../../domain/loanEngine';

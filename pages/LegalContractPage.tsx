@@ -3,7 +3,6 @@ import { formatBRDate } from '../utils/dateHelpers';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Scale,
-  ChevronLeft,
   FileText,
   Printer,
   Scroll,
@@ -18,6 +17,7 @@ import {
   FileCheck,
   AlertCircle
 } from 'lucide-react';
+import { SystemBackButton } from '../components/ui/SystemBackButton';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loan, UserProfile, CapitalSource, LegalDocumentRecord } from '../types';
 import { legalService } from '../features/legal/services/legalService';
@@ -164,20 +164,11 @@ export const LegalContractPage: React.FC<LegalContractPageProps> = ({
   return (
     <div className="min-h-screen bg-slate-950 pb-20">
       {/* STICKY HEADER */}
-      <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-4 py-4 flex items-center gap-4">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        <div>
-          <h1 className="text-lg font-black text-white uppercase tracking-tight leading-none">
-            Módulo Jurídico
-          </h1>
-          <p className="text-[10px] text-slate-500 font-black uppercase mt-1 tracking-widest">
-            Contrato #{loan.id.substring(0, 8)}
-          </p>
+      <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/80 px-4 py-4 backdrop-blur-xl">
+        <SystemBackButton onClick={onBack} />
+        <div className="mt-3">
+          <h1 className="text-lg font-black uppercase leading-none tracking-tight text-white">Módulo Jurídico</h1>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-500">Contrato #{loan.id.substring(0, 8)}</p>
         </div>
       </header>
 

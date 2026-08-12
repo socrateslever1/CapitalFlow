@@ -14,10 +14,11 @@ import { formatBRDate } from '../../../utils/dateHelpers';
 import React, { useEffect, useState, useMemo } from 'react';
 import { DocumentEditor } from './DocumentEditor';
 import {
-    ChevronLeft, Scroll, UserCheck, ShieldCheck,
+    Scroll, ShieldCheck,
     Users, MapPin, Loader2, Scale, RotateCcw,
     Gavel, Search, Calendar, AlertTriangle, Calculator, CheckCircle2
 } from 'lucide-react';
+import { SystemBackButton } from '../../../components/ui/SystemBackButton';
 import { Loan, UserProfile } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { formatMoney } from '../../../utils/formatters';
@@ -219,29 +220,20 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
         <div className="w-full relative z-10">
             {/* HEADER SECTION */}
             <header className="bg-slate-900/40 border-b border-slate-800/60 -mx-3 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-8 px-4 sm:px-6 lg:px-8 py-2 sm:py-3 mb-4 sm:mb-6 transition-all backdrop-blur-md sticky top-0 z-50">
-                <div className="max-w-[1800px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4">
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={onBack}
-                            title="Voltar"
-                            className="p-2.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-800 hover:border-slate-700 transition-all shadow-md shrink-0 flex items-center justify-center"
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-950/40">
-                            <Scroll size={20} />
+                <div className="max-w-[1800px] mx-auto flex flex-col gap-2 sm:gap-4">
+                    <SystemBackButton onClick={onBack} className="self-start" />
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-950/40">
+                                <Scroll size={20} />
+                            </div>
+                            <div>
+                                <h1 className="text-base font-black text-white uppercase tracking-wider leading-tight">Confissão de Dívida</h1>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">TÍTULO EXECUTIVO EXTRAJUDICIAL • ART. 784, III CPC</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-base font-black text-white uppercase tracking-wider leading-tight">
-                                Confissão de Dívida
-                            </h1>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                                TÍTULO EXECUTIVO EXTRAJUDICIAL • ART. 784, III CPC
-                            </p>
-                        </div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3">
                         <button
                             onClick={() => setShowManager(!showManager)}
                             className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all flex items-center gap-2 border shadow-md ${
@@ -252,6 +244,7 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                         >
                             <Users size={14} /> {showManager ? 'Voltar para Emissão' : 'Gerenciar Testemunhas'}
                         </button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -411,7 +404,6 @@ export const ConfissaoDividaView: React.FC<ConfissaoDividaViewProps> = ({
                                                 }`}
                                             >
                                                 {clause.id === 'penhora' && <Gavel size={14} />}
-                                                {clause.id === 'avalista' && <UserCheck size={14} />}
                                                 {clause.id === 'foro' && <MapPin size={14} />}
                                                 {clause.id === 'multa' && <Scale size={14} />}
                                             </div>

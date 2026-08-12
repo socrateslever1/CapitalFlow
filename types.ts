@@ -434,6 +434,12 @@ export interface LegalDocumentParams {
   isAgreement?: boolean;
   contractDurationDays?: number;
   templateId?: string;
+  clauses?: {
+    penhora?: boolean;
+    avalista?: boolean;
+    foro?: boolean;
+    multa?: boolean;
+  };
   campos_faltantes?: string[];
   customContent?: string;
 }

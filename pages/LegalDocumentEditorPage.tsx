@@ -28,7 +28,8 @@ import 'tinymce/plugins/visualchars';
 import 'tinymce/plugins/wordcount';
 
 import { Loan, UserProfile, CapitalSource } from '../types';
-import { ArrowLeft, FileText, RotateCcw, Save, ShieldCheck } from 'lucide-react';
+import { FileText, RotateCcw, Save, ShieldCheck } from 'lucide-react';
+import { SystemBackButton } from '../components/ui/SystemBackButton';
 import { legalService } from '../features/legal/services/legalService';
 import { buildCapitalOnlyLegalTerms } from '../features/legal/domain/capitalOnlyLegalTerms';
 import { safeUUID } from '../utils/uuid';
@@ -265,16 +266,16 @@ export const LegalDocumentEditorPage: React.FC<Props> = ({ loanId: propLoanId, l
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 pb-10">
       <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={handleBack} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700" aria-label="Voltar">
-            <ArrowLeft size={18} />
-          </button>
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white"><FileText size={20} /></div>
-          <div className="min-w-0">
-            <h1 className="text-lg font-black uppercase tracking-wide text-white">Editor <span className="text-indigo-400">Jurídico</span></h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-wider">
-              <span className="text-slate-500">{existingDocument ? `Documento único • versão ${existingDocument.document_version || 1}` : 'Nova minuta jurídica'}</span>
-              <span className={`rounded-full border px-2 py-0.5 ${isDirty ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>{isDirty ? 'Alterações não salvas' : 'Sincronizado'}</span>
+        <div className="min-w-0">
+          <SystemBackButton onClick={handleBack} />
+          <div className="mt-3 flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white"><FileText size={20} /></div>
+            <div className="min-w-0">
+              <h1 className="text-lg font-black uppercase tracking-wide text-white">Editor <span className="text-indigo-400">Jurídico</span></h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[9px] font-bold uppercase tracking-wider">
+                <span className="text-slate-500">{existingDocument ? `Documento único • versão ${existingDocument.document_version || 1}` : 'Nova minuta jurídica'}</span>
+                <span className={`rounded-full border px-2 py-0.5 ${isDirty ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'}`}>{isDirty ? 'Alterações não salvas' : 'Sincronizado'}</span>
+              </div>
             </div>
           </div>
         </div>

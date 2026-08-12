@@ -70,6 +70,16 @@ const validateDocumentParams = (params: LegalDocumentParams): string[] => {
     errors.push('O cronograma juridico nao corresponde ao total juridico previsto.');
   }
 
+  const originalPrincipal = Number(params.originalPrincipalAmount ?? principalAmount);
+  const principalPaid = Number(params.principalPaidAmount ?? 0);
+  const legalInterest = Number(params.legalInterestAmount ?? Math.max(0, legalTotal - principalAmount));
+  if (Math.abs(originalPrincipal - principalPaid - principalAmount) > 0.01) {
+    errors.push('A memoria de capital original, capital pago e saldo confessado nao fecha.');
+  }
+  if (Math.abs(principalAmount + legalInterest - legalTotal) > 0.01) {
+    errors.push('A composicao do valor total da confissao nao fecha.');
+  }
+
   if (Math.abs(promissoryAmount - legalTotal) > 0.01) {
     errors.push('A nota promissoria possui valor diferente da obrigacao juridica.');
   }
@@ -183,6 +193,10 @@ export const legalService = {
       billingCycle: loan.billingCycle,
       amortizationType: loan.amortizationType,
       isAgreement: !!agreement,
+      multaPercentual: loan.finePercent,
+      incluirGarantia: Boolean(loan.guaranteeDescription?.trim()),
+      tipoGarantia: loan.guaranteeDescription?.trim() ? 'Garantia descrita no contrato de origem' : undefined,
+      descricaoGarantia: loan.guaranteeDescription?.trim() || undefined,
       timestamp: new Date().toISOString(),
       discount: agreement?.discount,
       gracePeriod: agreement?.gracePeriod,

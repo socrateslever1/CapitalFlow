@@ -1,5 +1,5 @@
 import { LegalDocumentParams } from "../../../types";
-import { numberToWordsBRL, formatMoney } from "../../../utils/formatters";
+import { numberToWordsBRL } from "../../../utils/formatters";
 import { buildConfissaoDividaVM } from "../viewModels/confissaoVM";
 
 const FILL = "Não informado";
@@ -17,6 +17,8 @@ const safeDateBR = (value: unknown, fallback?: string): string => {
   if (str === '[PREENCHER]' || !str) return fallback || new Date().toLocaleDateString("pt-BR");
   if (str.includes(' de ')) return str;
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+  const isoDate = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (isoDate) return `${isoDate[3]}/${isoDate[2]}/${isoDate[1]}`;
   
   const date = new Date(str);
   return Number.isNaN(date.getTime()) ? (fallback || new Date().toLocaleDateString("pt-BR")) : date.toLocaleDateString("pt-BR");
@@ -32,19 +34,10 @@ const translateBillingCycle = (cycle?: string): string => {
   return cycle;
 };
 
-const translateBillingCycleLower = (cycle?: string): string => {
-  const translated = translateBillingCycle(cycle).toLowerCase();
-  if (translated === "mensal") return "por mês";
-  if (translated === "semanal") return "por semana";
-  if (translated === "quinzenal") return "por quinzena";
-  if (translated.includes("rio")) return "por dia";
-  return translated;
-};
-
 export const generateConfissaoDividaV2HTML = (
   data: LegalDocumentParams & { templateId?: string },
-  docId?: string,
-  hash?: string,
+  _docId?: string,
+  _hash?: string,
   signatures: any[] = []
 ) => {
   const vm = buildConfissaoDividaVM(data);
@@ -67,6 +60,15 @@ export const generateConfissaoDividaV2HTML = (
   const renderSignatureBlock = (role: string, name: string, doc: string) => {
     const sig = findSig(role);
     const displayRole = role.replace('DEBTOR', 'DEVEDOR').replace('CREDITOR', 'CREDOR').replace('WITNESS', 'TESTEMUNHA').replace('_', ' ');
+    const isWitness = normalizeRole(role).startsWith('WITNESS_');
+    const isMissing = (value: unknown) => {
+      const normalized = String(value || '').trim().toLocaleLowerCase('pt-BR');
+      return !normalized || normalized === '[preencher]' || normalized === FILL.toLocaleLowerCase('pt-BR');
+    };
+    const displayName = isMissing(name)
+      ? (isWitness ? 'Testemunha a definir' : 'Não informado')
+      : safeText(name);
+    const displayCpf = isMissing(doc) ? 'A definir' : safeText(doc);
 
     let geoText = '';
     if (sig?.dispositivo_info) {
@@ -83,22 +85,22 @@ export const generateConfissaoDividaV2HTML = (
     }
 
     return `
-      <div style="text-align: center; border-top: 1.5pt solid #000; padding-top: 10px; position: relative; page-break-inside: avoid; margin-top: 60px; min-height: 80px;">
+      <div class="signature-block${sig ? ' is-signed' : ''}">
         ${sig ? `
-            <div style="position: absolute; top: -85px; left: 50%; transform: translateX(-50%); width: 90%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center;">
+            <div class="signature-proof">
                 ${sig.assinatura_imagem ? `
-                    <img src="${sig.assinatura_imagem}" style="max-height: 70px; max-width: 100%; object-fit: contain; margin-bottom: -15px; filter: contrast(150%) brightness(90%);" />
+                    <img class="signature-image" src="${sig.assinatura_imagem}" />
                 ` : ''}
-                <div style="border: 1px solid #059669; color: #059669; padding: 6px 10px; font-family: sans-serif; font-size: 6pt; font-weight: bold; background: rgba(236, 253, 245, 0.95); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); line-height: 1.3; text-align: center; border-left: 4px solid #059669;">
-                    <span style="font-size: 7pt;">✓ ASSINATURA DIGITAL VÁLIDA</span><br/>
+                <div class="signature-seal">
+                    <span class="signature-seal-title">✓ ASSINATURA DIGITAL VÁLIDA</span><br/>
                     <span style="opacity: 0.8;">MP 2.200-2/2001 • DATA: ${new Date(sig.signed_at).toLocaleString('pt-BR')}</span><br/>
                     <span style="opacity: 0.8;">IP: ${sig.ip_origem || sig.ip || '---'}${geoText} • HASH: ${sig.assinatura_hash?.substring(0, 12).toUpperCase()}</span>
                 </div>
             </div>
         ` : ''}
-        <b style="text-transform: uppercase; font-size: 11pt; display: block; margin-bottom: 2px;">${safeText(name)}</b>
-        <span style="font-size: 9pt; color: #444; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${displayRole}</span><br/>
-        <small style="font-size: 8pt; color: #666;">DOC: ${safeText(doc)}</small>
+        <b class="signature-name">${displayName}</b>
+        <span class="signature-role">${displayRole}</span>
+        <small class="signature-cpf">CPF: ${displayCpf}</small>
       </div>
     `;
   };
@@ -109,6 +111,19 @@ export const generateConfissaoDividaV2HTML = (
   const principalPaidNumber = Number(data.principalPaidAmount ?? Math.max(0, originalPrincipalNumber - principalAmountNumber));
   const legalInterestAmountNumber = Number(data.legalInterestAmount ?? Math.max(0, totalDebtNumber - principalAmountNumber));
   const legalInterestRatePercent = Number(data.legalInterestRatePercent || 0);
+  const clauses = data.clauses || {};
+  const includeCollectionClause = clauses.penhora !== false;
+  const includeForumClause = clauses.foro !== false;
+  const includeLateFine = clauses.multa !== false;
+  const includeGuarantor = Boolean(
+    data.incluirAvalista && clauses.avalista !== false && data.avalistaNome && data.avalistaCPF,
+  );
+  const configuredFinePercent = Math.max(0, Number(data.multaPercentual ?? 2));
+  const contractReference = safeText(
+    data.originDescription,
+    `Contrato de origem nº ${safeText(data.codigo_contrato || data.loanId?.substring(0, 8)?.toUpperCase(), 'não informado')}.`,
+  );
+  const formatBRL = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const valorExtenso = totalDebtNumber > 0 ? numberToWordsBRL(totalDebtNumber).trim().toUpperCase() : 'VALOR TOTAL CONTRATADO';
 
   const installments = Array.isArray(data.installments) ? data.installments : [];
@@ -138,35 +153,33 @@ export const generateConfissaoDividaV2HTML = (
   
   const contractDateRaw = data.contractDate || (data as any).startDate || (data as any).created_at || new Date().toISOString();
   const dataDisponibilizacao = safeDateBR(contractDateRaw);
-  const durationDays = data.contractDurationDays || 30;
-
   const tituloDocumento = isAgreement 
     ? "TERMO DE RENEGOCIAÇÃO E CONFISSÃO DE DÍVIDA"
-    : "INSTRUMENTO PARTICULAR DE CONFISSÃO DE DÍVIDA E PROMESSA DE PAGAMENTO";
-    
-  const subtituloDocumento = "TÍTULO EXECUTIVO EXTRAJUDICIAL - ART. 784, III DO CPC/2015";
-  
-  const modalidadeTexto = isSinglePayment 
-    ? `PAGAMENTO ÚNICO - PRAZO DE ${durationDays} DIAS` 
-    : `PAGAMENTO PARCELADO - CICLO ${cicloTraduzido} (${installmentsCount > 0 ? installmentsCount : 1} PARCELAS)`;
+    : "INSTRUMENTO PARTICULAR DE CONFISSÃO DE DÍVIDA";
 
   const primeiroVencimento = installmentsCount > 0 ? safeDateBR(installments[0].dueDate) : safeDateBR(new Date().toISOString());
   const vencimentoUnico = primeiroVencimento;
-  const vencimentoNotaPromissoria = installmentsCount > 0
+  const ultimoVencimento = installmentsCount > 0
     ? safeDateBR(installments[installments.length - 1].dueDate)
     : primeiroVencimento;
 
-  const installmentValue = Number(installments[0]?.amount || (totalDebtNumber / (installmentsCount || 1)));
-  const installmentValueFormatado = installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  const extensoValorParcela = installmentValue > 0 ? numberToWordsBRL(installmentValue).trim().toUpperCase() : 'VALOR DA PARCELA';
-
   const parcelamentoHTML = `
       <p class="indent">
-          O débito confessado no valor total de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span> será quitado de forma <strong>PARCELADA</strong> em <strong>${installmentsCount} (${numberToWordsBRL(installmentsCount).replace(' reais', '').toUpperCase()}) parcelas</strong> fixas e sucessivas, no valor individual de <span class="bold">R$ ${installmentValueFormatado} (${extensoValorParcela})</span> cada, com periodicidade <strong>${cicloTraduzido}</strong>. 
+          O débito confessado no valor total de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span> será quitado em <strong>${installmentsCount} parcelas</strong>, com periodicidade <strong>${cicloTraduzido}</strong>, conforme o cronograma abaixo.
       </p>
-      <p class="indent">
-          O vencimento da primeira parcela ocorrerá impreterivelmente em <strong>${primeiroVencimento}</strong> e a última parcela vencerá em <strong>${vencimentoNotaPromissoria}</strong>, devendo os pagamentos ser efetuados via transferência bancária ou chave PIX indicadas pelo CREDOR.
-      </p>
+      <table class="payment-schedule">
+        <thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th></tr></thead>
+        <tbody>
+          ${installments.map((installment: any, index) => `
+            <tr>
+              <td>${Number(installment.number ?? index + 1)}</td>
+              <td>${safeDateBR(installment.dueDate)}</td>
+              <td>R$ ${formatBRL(Number(installment.amount || 0))}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <p class="schedule-summary">Primeiro vencimento: <strong>${primeiroVencimento}</strong> • Último vencimento: <strong>${ultimoVencimento}</strong>.</p>
   `;
 
   return `
@@ -175,54 +188,211 @@ export const generateConfissaoDividaV2HTML = (
   <head>
     <meta charset="UTF-8">
     <style>
-      @page { size: A4; margin: 2.5cm 2.5cm 2.5cm 3cm; }
-      body { font-family: 'Times New Roman', Times, serif; line-height: 1.5; color: #000; font-size: 11pt; text-align: justify; margin: 0; padding: 0; }
-      .container { max-width: 800px; margin: auto; }
-      .header-box { text-align: center; border: 2.5pt solid #000; padding: 20px; margin-bottom: 35px; }
-      h1 { font-size: 14pt; margin: 0; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
-      h2 { font-size: 11pt; margin: 25px 0 12px 0; text-transform: uppercase; font-weight: bold; border-left: 4pt solid #000; padding-left: 10px; }
-      .signatures-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 60px; page-break-inside: avoid; }
-      .indent { text-indent: 1.5cm; margin-bottom: 10px; }
+      @page { size: A4; margin: 18mm 20mm 20mm 24mm; }
+      * { box-sizing: border-box; }
+      html, body { background: #fff; }
+      body {
+        font-family: 'Times New Roman', Times, serif;
+        line-height: 1.42;
+        color: #252525;
+        font-size: 10.5pt;
+        text-align: justify;
+        margin: 0;
+        padding: 0;
+      }
+      .container { width: 100%; max-width: 166mm; margin: 0 auto; }
+      .document-header { text-align: center; margin: 0 0 24px; page-break-after: avoid; }
+      h1 {
+        color: #151515;
+        font-size: 14pt;
+        line-height: 1.25;
+        margin: 0;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.35px;
+      }
+      h2 {
+        color: #1f1f1f;
+        font-size: 10.5pt;
+        line-height: 1.3;
+        margin: 19px 0 8px;
+        padding-bottom: 3px;
+        text-transform: uppercase;
+        font-weight: 700;
+        border-bottom: 0.6pt solid #8a8a8a;
+        page-break-after: avoid;
+      }
+      p { margin: 0 0 8px; orphans: 3; widows: 3; }
+      ul { margin: 5px 0 10px 1.15cm; padding-left: 0.45cm; }
+      li { margin-bottom: 4px; }
+      .debt-summary {
+        width: 100%;
+        margin: 9px 0 12px;
+        border-collapse: collapse;
+        font-family: Arial, sans-serif;
+        font-size: 8.5pt;
+      }
+      .debt-summary th, .debt-summary td { padding: 5px 7px; border: 0.6pt solid #777; }
+      .debt-summary th { width: 62%; background: #f1f1f1; color: #111; text-align: left; }
+      .debt-summary td { color: #050505; font-weight: 700; text-align: right; }
+      .payment-schedule {
+        width: 100%;
+        margin: 8px 0 6px;
+        border-collapse: collapse;
+        font-family: Arial, sans-serif;
+        font-size: 8pt;
+        page-break-inside: auto;
+      }
+      .payment-schedule tr { page-break-inside: avoid; }
+      .payment-schedule th, .payment-schedule td { padding: 4px 6px; border: 0.5pt solid #888; }
+      .payment-schedule th { background: #f1f1f1; color: #111; text-transform: uppercase; }
+      .payment-schedule th:first-child, .payment-schedule td:first-child { width: 18%; text-align: center; }
+      .payment-schedule th:nth-child(2), .payment-schedule td:nth-child(2) { text-align: center; }
+      .payment-schedule th:last-child, .payment-schedule td:last-child { text-align: right; }
+      .schedule-summary { margin-top: 4px; font-size: 9pt; text-align: center; }
+      .indent { text-indent: 1.25cm; }
       .bold { font-weight: bold; }
       .uppercase { text-transform: uppercase; }
-      .nota-promissoria { margin-top: 100px; border: 5pt double #000; padding: 35px; page-break-before: always; position: relative; background: #fff; }
-      .np-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5pt solid #000; padding-bottom: 12px; margin-bottom: 25px; }
-      .np-title { font-size: 20pt; font-weight: bold; letter-spacing: 2px; }
-      .np-value { font-size: 18pt; font-weight: bold; border: 2pt solid #000; padding: 8px 20px; background: #f0f0f0; }
-      .np-body { font-size: 12pt; line-height: 1.6; }
+      .execution-date { margin: 30px 0 0; text-align: center; page-break-after: avoid; }
+      .signature-section { margin-top: 26px; }
+      .signature-section-title {
+        margin: 28px 0 0;
+        color: #252525;
+        font-size: 10pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        page-break-after: avoid;
+      }
+      .signatures-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 30px;
+        row-gap: 24px;
+        margin-top: 30px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .signature-block {
+        position: relative;
+        min-width: 0;
+        min-height: 50px;
+        margin-top: 28px;
+        padding: 6px 8px 0;
+        border-top: 1pt solid #333;
+        text-align: center;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .signature-block.is-signed { margin-top: 84px; }
+      .signature-proof {
+        position: absolute;
+        bottom: calc(100% + 5px);
+        left: 50%;
+        width: 94%;
+        transform: translateX(-50%);
+        z-index: 1;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .signature-image {
+        display: block;
+        max-height: 52px;
+        max-width: 92%;
+        object-fit: contain;
+        margin-bottom: -8px;
+        filter: contrast(150%) brightness(90%);
+      }
+      .signature-seal {
+        max-width: 100%;
+        padding: 4px 7px;
+        border: 0.8pt solid #357a5b;
+        border-left-width: 3px;
+        border-radius: 3px;
+        background: #f6fbf8;
+        color: #2f6b50;
+        font-family: Arial, sans-serif;
+        font-size: 5.5pt;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: center;
+      }
+      .signature-seal-title { font-size: 6.5pt; }
+      .signature-name {
+        display: block;
+        overflow-wrap: anywhere;
+        color: #050505;
+        font-size: 9.5pt;
+        font-weight: 700;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+      .signature-role {
+        display: block;
+        margin-top: 3px;
+        color: #171717;
+        font-family: Arial, sans-serif;
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 0.35px;
+        line-height: 1.15;
+        text-transform: uppercase;
+      }
+      .signature-cpf {
+        display: block;
+        margin-top: 4px;
+        color: #111;
+        font-family: Arial, sans-serif;
+        font-size: 7.5pt;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+      @media screen and (max-width: 700px) {
+        body { padding: 20px; }
+        .container { max-width: none; }
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <div class="header-box">
+      <header class="document-header">
         <h1>${tituloDocumento}</h1>
-        <div style="font-size: 10pt; font-weight: bold; margin-top: 8px; text-transform: uppercase;">${subtituloDocumento}</div>
-        <div style="font-size: 10pt; margin-top: 4px; color: #000; font-weight: bold;">MODALIDADE: ${modalidadeTexto}</div>
-      </div>
+      </header>
 
       <p><span class="bold">CREDOR(A):</span> <b>${safeText(vm.creditorName)}</b>, CPF/CNPJ nº <b>${safeText(vm.creditorDoc)}</b>, com endereço profissional/residencial na ${safeText(vm.creditorAddress)}.</p>
       
       <p><span class="bold">DEVEDOR(A):</span> <b>${safeText(vm.debtorName)}</b>, CPF/CNPJ nº <b>${safeText(vm.debtorDoc)}</b>, residente e domiciliado na ${safeText(vm.debtorAddress)}.</p>
 
-      <p class="indent">As partes acima qualificadas, de livre e espontânea vontade, firmam o presente <strong>Título Executivo Extrajudicial</strong>, que se regerá pelas cláusulas e condições seguintes:</p>
+      <p class="indent">As partes acima qualificadas, de livre e espontânea vontade, firmam o presente instrumento particular, que se regerá pelas cláusulas e condições seguintes:</p>
 
       <h2>CLÁUSULA PRIMEIRA - DO OBJETO E RECONHECIMENTO INCONDICIONAL DA DÍVIDA</h2>
       ${isAgreement ? `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> reconhece que recebeu do <strong>CREDOR</strong> o capital decorrente da operação financeira celebrada em <strong>${dataDisponibilizacao}</strong>. Em razão da reorganização formalizada pelo acordo de <strong>${safeDateBR(data.agreementDate)}</strong>, confessa expressamente como saldo de capital líquido, certo e exigível a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>.</p>
+        <p class="indent">A presente confissão decorre de ${contractReference} O(A) <strong>DEVEDOR(A)</strong> reconhece o saldo apurado após os pagamentos registrados e a reorganização formalizada em <strong>${safeDateBR(data.agreementDate)}</strong>.</p>
       ` : `
-        <p class="indent">O(A) <strong>DEVEDOR(A)</strong> declara que recebeu do <strong>CREDOR</strong>, em <strong>${dataDisponibilizacao}</strong>, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, objeto deste instrumento, e reconhece este valor como saldo de capital líquido, certo e exigível, confessando expressamente a dívida para todos os fins de direito.</p>
+        <p class="indent">A presente confissão decorre de ${contractReference} O capital original foi disponibilizado em <strong>${dataDisponibilizacao}</strong>, e o(A) <strong>DEVEDOR(A)</strong> reconhece o saldo apurado após os pagamentos registrados.</p>
       `}
-      <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> A presente confissão de dívida é feita em caráter <strong>IRREVOGÁVEL E IRRETRATÁVEL</strong>, obrigando o devedor, seus herdeiros e sucessores ao fiel cumprimento de todas as obrigações aqui assumidas.</p>
-      <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O <strong>DEVEDOR</strong> declara ter conferido os valores acima indicados e reconhece integralmente a origem, a composição e o saldo do capital confessado, sem prejuízo dos direitos e garantias que não possam ser afastados por convenção particular.</p>
+      <table class="debt-summary">
+        <tbody>
+          <tr><th>Capital originalmente disponibilizado</th><td>R$ ${formatBRL(originalPrincipalNumber)}</td></tr>
+          <tr><th>Capital já pago e abatido</th><td>R$ ${formatBRL(principalPaidNumber)}</td></tr>
+          <tr><th>Saldo de capital confessado</th><td>R$ ${formatBRL(principalAmountNumber)}</td></tr>
+          ${legalInterestAmountNumber > 0 ? `<tr><th>Juros remuneratórios expressamente incluídos${legalInterestRatePercent > 0 ? ` (${formatBRL(legalInterestRatePercent)}%)` : ''}</th><td>R$ ${formatBRL(legalInterestAmountNumber)}</td></tr>` : ''}
+          <tr><th>Valor total desta confissão</th><td>R$ ${valorFormatado}</td></tr>
+        </tbody>
+      </table>
+      <p class="indent">O(A) <strong>DEVEDOR(A)</strong> confessa como obrigação certa e determinada o valor total de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, composto exclusivamente pelos itens acima. Pagamentos posteriores à emissão deverão ser abatidos do saldo exigível.</p>
+      <p class="indent"><strong>PARÁGRAFO PRIMEIRO:</strong> Esta confissão confirma o saldo da obrigação de origem e <strong>não implica novação</strong>, salvo estipulação expressa em sentido contrário.</p>
+      <p class="indent"><strong>PARÁGRAFO SEGUNDO:</strong> O reconhecimento do saldo não afasta direitos que não possam ser renunciados por instrumento particular nem autoriza cobrança em duplicidade.</p>
 
       <h2>CLÁUSULA SEGUNDA - DA FORMA E LOCAL DE PAGAMENTO</h2>
       ${isSinglePayment ? `
-        <p class="indent">O pagamento integral da obrigação, referente ao período de <strong>${durationDays} dias</strong>, deverá ser realizado em uma <strong>ÚNICA PARCELA</strong> no valor de <span class="bold">R$ ${valorFormatado}</span>, com vencimento improrrogável em <span class="bold">${vencimentoUnico}</span>.</p>
+        <p class="indent">O valor confessado deverá ser pago em <strong>PARCELA ÚNICA</strong> de <span class="bold">R$ ${valorFormatado}</span>, com vencimento em <span class="bold">${vencimentoUnico}</span>.</p>
       ` : `
         <p class="indent">O pagamento do débito será realizado de forma <strong>PARCELADA</strong>, nos seguintes termos:</p>
         ${parcelamentoHTML}
       `}
-      <p class="indent"><strong>FORMA DE QUITAÇÃO:</strong> O pagamento deverá ser realizado via transferência bancária ou PIX para a chave informada pelo CREDOR. O comprovante de transação bancária servirá como recibo de quitação da respectiva parcela.</p>
+      <p class="indent"><strong>FORMA DE PAGAMENTO:</strong> O pagamento deverá ser realizado pelo meio indicado pelo CREDOR. O comprovante identifica a transação, e a quitação será reconhecida na extensão do valor efetivamente recebido.</p>
 
       <h2>CLÁUSULA TERCEIRA - ${isSinglePayment ? 'DA MORA E DOS ENCARGOS MORATÓRIOS' : 'DO VENCIMENTO ANTECIPADO E DOS ENCARGOS MORATÓRIOS'}</h2>
       ${isSinglePayment ? `
@@ -230,75 +400,47 @@ export const generateConfissaoDividaV2HTML = (
       ` : `
         <p class="indent">O não pagamento de qualquer parcela em seu vencimento poderá acarretar o <strong>VENCIMENTO ANTECIPADO DO SALDO REMANESCENTE</strong>, observados a legislação aplicável e os requisitos de constituição em mora.</p>
       `}
-      <p class="indent">Sobre o saldo de capital vencido e não pago incidirão, a partir da mora, exclusivamente os seguintes encargos:</p>
-      <ul style="margin-left: 2cm;">
-        <li><strong>MULTA MORATÓRIA DE 2%</strong> sobre a prestação vencida e não paga;</li>
+      <p class="indent">Sobre a obrigação vencida e não paga incidirão, a partir da mora, exclusivamente os seguintes encargos:</p>
+      <ul>
+        ${includeLateFine && configuredFinePercent > 0 ? `<li><strong>MULTA MORATÓRIA DE ${formatBRL(configuredFinePercent)}%</strong> sobre a prestação vencida e não paga;</li>` : ''}
         <li><strong>JUROS DE MORA PELA TAXA LEGAL</strong> prevista no art. 406 do Código Civil, calculados pro rata die conforme a metodologia oficial aplicável ao período;</li>
         <li><strong>ATUALIZAÇÃO MONETÁRIA</strong> pelo IPCA, ou pelo índice que legalmente o substituir, a partir do vencimento;</li>
-        <li><strong>CUSTAS E HONORÁRIOS ADVOCATÍCIOS</strong> somente quando efetivamente devidos e fixados na forma da legislação aplicável.</li>
+        <li><strong>CUSTAS E HONORÁRIOS</strong> somente quando efetivamente devidos ou fixados na forma da legislação aplicável.</li>
       </ul>
 
-      <h2>CLÁUSULA QUARTA - DA COBRANÇA E RESPONSABILIDADE PATRIMONIAL</h2>
-      <p class="indent">Em caso de inadimplemento, o <strong>CREDOR</strong> poderá adotar as medidas extrajudiciais e judiciais legalmente cabíveis para cobrança do saldo de capital e dos encargos previstos neste instrumento, sempre com observância do devido processo legal, da legislação de proteção de dados e das determinações da autoridade competente.</p>
-      <p class="indent">A responsabilidade patrimonial do <strong>DEVEDOR</strong> observará os limites, as impenhorabilidades e as demais garantias estabelecidas em lei, cabendo exclusivamente ao Poder Judiciário determinar eventual pesquisa, indisponibilidade, arresto ou penhora de bens.</p>
-
-      ${data.incluirGarantia ? `
-        <h2>CLÁUSULA QUINTA - DA GARANTIA ESPECÍFICA</h2>
-        <p class="indent">Para assegurar o pagamento, o DEVEDOR indica o seguinte bem em garantia: <b>${safeText(data.tipoGarantia)} - ${safeText(data.descricaoGarantia)}</b>. Qualquer constrição, excussão, busca, apreensão ou penhora dependerá do procedimento e dos requisitos previstos na legislação aplicável.</p>
+      ${includeCollectionClause ? `
+        <h2>CLÁUSULA QUARTA - DA COBRANÇA</h2>
+        <p class="indent">Em caso de inadimplemento, o <strong>CREDOR</strong> poderá adotar as medidas extrajudiciais e judiciais legalmente cabíveis para cobrar o saldo efetivamente devido e os encargos previstos neste instrumento.</p>
       ` : ''}
 
-      ${data.incluirAvalista ? `
-        <h2>CLÁUSULA SEXTA - DO AVALISTA / FIADOR SOLIDÁRIO</h2>
+      ${data.incluirGarantia ? `
+        <h2>CLÁUSULA DE GARANTIA</h2>
+        <p class="indent">Permanece vinculada à obrigação a garantia descrita no contrato de origem: <b>${safeText(data.descricaoGarantia)}</b>. Sua eventual execução observará o contrato de origem e o procedimento legal aplicável.</p>
+      ` : ''}
+
+      ${includeGuarantor ? `
+        <h2>CLÁUSULA DE COOBRIGAÇÃO</h2>
         <p class="indent">O(A) Sr(a). <b>${safeText(data.avalistaNome)}</b>, CPF nº ${safeText(data.avalistaCPF)}, assina este instrumento como AVALISTA E PRINCIPAL PAGADOR, assumindo responsabilidade <strong>SOLIDÁRIA</strong> por toda a dívida, renunciando ao benefício de ordem previsto no Art. 827 do Código Civil.</p>
       ` : ''}
 
-      <h2>CLÁUSULA FINAL - DA TOLERÂNCIA E FORO</h2>
-      <p class="indent">A eventual tolerância do CREDOR em relação a atrasos não constituirá novação contratual, sendo mera liberalidade. As partes elegem o Foro da Comarca de <b>${safeText(vm.city)}</b> para dirimir quaisquer dúvidas deste contrato.</p>
+      <h2>CLÁUSULA FINAL - DA TOLERÂNCIA${includeForumClause ? ' E DO FORO' : ''}</h2>
+      <p class="indent">A eventual tolerância quanto a atraso ou descumprimento não altera as condições deste instrumento nem representa renúncia ao direito correspondente.${includeForumClause ? ` Fica eleito o Foro da Comarca de <b>${safeText(vm.city)}</b>, ressalvado eventual foro legalmente competente que não possa ser afastado por convenção.` : ''}</p>
 
-      <p style="margin-top: 50px; text-align: center;"><span class="uppercase">${safeText(vm.city)}</span>, <span class="bold">${vm.date}</span>.</p>
+      <p class="execution-date"><span class="uppercase">${safeText(vm.city)}</span>, <span class="bold">${vm.date}</span>.</p>
 
-      <div class="signatures-grid">
-        ${renderSignatureBlock("CREDOR", safeText(vm.creditorName), safeText(vm.creditorDoc))}
-        ${renderSignatureBlock("DEVEDOR", safeText(vm.debtorName), safeText(vm.debtorDoc))}
-        ${data.incluirAvalista ? renderSignatureBlock("AVALISTA", safeText(data.avalistaNome), safeText(data.avalistaCPF)) : ""}
-      </div>
-
-      <p style="margin-top: 50px; font-weight: bold; text-decoration: underline;">TESTEMUNHAS INSTRUMENTÁRIAS:</p>
-      <div class="signatures-grid">
-        ${renderSignatureBlock("TESTEMUNHA_1", safeText(data.witnesses?.[0]?.name), safeText((data.witnesses?.[0] as any)?.document || (data.witnesses?.[0] as any)?.documento))}
-        ${renderSignatureBlock("TESTEMUNHA_2", safeText(data.witnesses?.[1]?.name), safeText((data.witnesses?.[1] as any)?.document || (data.witnesses?.[1] as any)?.documento))}
-      </div>
-
-      <div style="margin-top: 100px; padding-top: 20px; border-top: 1pt solid #ddd; font-family: sans-serif; font-size: 8pt; color: #777; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div style="flex: 1;">
-            <strong>CapitalFlow Compliance System:</strong><br/>
-            ID REGISTRO: <code>${docId || 'PENDENTE'}</code> | HASH DE SEGURANÇA: <b>${hash?.toUpperCase() || 'AGUARDANDO_ASSINATURA'}</b><br/>
-            A integridade eletrônica deste documento é registrada por hash, sem prejuízo da verificação dos requisitos legais aplicáveis ao caso concreto.
-        </div>
-      </div>
-
-      <div class="nota-promissoria">
-        <div class="np-header">
-          <div class="np-title">NOTA PROMISSÓRIA</div>
-          <div class="np-value">R$ ${valorFormatado}</div>
+      <section class="signature-section">
+        <div class="signatures-grid">
+          ${renderSignatureBlock("CREDOR", safeText(vm.creditorName), safeText(vm.creditorDoc))}
+          ${renderSignatureBlock("DEVEDOR", safeText(vm.debtorName), safeText(vm.debtorDoc))}
+          ${includeGuarantor ? renderSignatureBlock("AVALISTA", safeText(data.avalistaNome), safeText(data.avalistaCPF)) : ""}
         </div>
 
-        <div class="np-body">
-          <p>Ao(s) <span class="bold">${vencimentoNotaPromissoria}</span>, pagarei por esta única via de Nota Promissória a <span class="bold">${safeText(vm.creditorName)}</span>, CPF/CNPJ nº ${safeText(vm.creditorDoc)}, ou à sua ordem, a quantia de <span class="bold">R$ ${valorFormatado} (${valorExtenso})</span>, pagável em <span class="bold">${safeText(vm.city)}</span>.</p>
-          <p style="font-size: 9pt; line-height: 1.4;"><strong>VÍNCULO E NÃO CUMULAÇÃO:</strong> esta nota promissória representa a mesma e única obrigação de capital reconhecida no presente instrumento de Confissão de Dívida. Todo pagamento realizado em qualquer dos instrumentos abaterá, na mesma proporção, o saldo do outro, sendo vedada cobrança cumulativa ou em duplicidade.</p>
-          <p style="margin-top: 20px;">
-            <span class="bold">EMITENTE (DEVEDOR):</span> ${safeText(vm.debtorName)}<br/>
-            <span class="bold">CPF/CNPJ:</span> ${safeText(vm.debtorDoc)}<br/>
-            <span class="bold">ENDEREÇO:</span> ${safeText(vm.debtorAddress)}
-          </p>
+        <p class="signature-section-title">Testemunhas instrumentárias</p>
+        <div class="signatures-grid">
+          ${renderSignatureBlock("TESTEMUNHA_1", safeText(data.witnesses?.[0]?.name), safeText((data.witnesses?.[0] as any)?.document || (data.witnesses?.[0] as any)?.documento))}
+          ${renderSignatureBlock("TESTEMUNHA_2", safeText(data.witnesses?.[1]?.name), safeText((data.witnesses?.[1] as any)?.document || (data.witnesses?.[1] as any)?.documento))}
         </div>
-
-        <div style="margin-top: 60px; border-top: 2pt solid #000; width: 70%; text-align: center; padding-top: 8px; font-weight: bold; text-transform: uppercase; font-size: 11pt;">
-          Assinatura do Emitente (Devedor)
-        </div>
-        
-        <div style="position: absolute; bottom: 10px; right: 10px; font-size: 7pt; color: #aaa;">Vínculo: Confissão de Dívida ID ${docId?.substring(0,8) || '---'}</div>
-      </div>
+      </section>
     </div>
   </body>
   </html>

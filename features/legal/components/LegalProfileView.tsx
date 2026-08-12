@@ -1,5 +1,6 @@
 import React from 'react';
-import { Building, ChevronLeft, FileText, Lock, Mail, MapPin, Phone, User } from 'lucide-react';
+import { Building, FileText, Lock, Mail, MapPin, Phone, User } from 'lucide-react';
+import { SystemBackButton } from '../../../components/ui/SystemBackButton';
 import { UserProfile } from '../../../types';
 
 interface LegalProfileViewProps {
@@ -31,10 +32,12 @@ export const LegalProfileView: React.FC<LegalProfileViewProps> = ({ activeUser, 
   return (
     <div className="relative z-10 w-full">
       <header className="sticky top-0 z-30 -mx-3 -mt-4 mb-8 border-b border-slate-800 bg-slate-900/80 px-3 py-6 backdrop-blur-md sm:-mx-6 sm:-mt-8 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="mx-auto flex max-w-[1800px] items-center gap-5">
-          <button onClick={onBack} className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 shadow-lg transition-all hover:border-indigo-500 hover:bg-slate-700"><ChevronLeft size={20} className="text-slate-300" /></button>
-          <div className="hidden h-14 w-14 items-center justify-center rounded-lg bg-indigo-600 shadow-xl shadow-indigo-500/20 ring-1 ring-white/10 sm:flex"><User className="text-white" size={28} /></div>
-          <div><h1 className="text-2xl font-black uppercase leading-none tracking-tighter text-white sm:text-3xl">Perfil <span className="text-indigo-500">jurídico</span></h1><p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dados do credor usados nos documentos</p></div>
+        <div className="mx-auto max-w-[1800px]">
+          <SystemBackButton onClick={onBack} />
+          <div className="mt-3 flex items-center gap-5">
+            <div className="hidden h-14 w-14 items-center justify-center rounded-lg bg-indigo-600 shadow-xl shadow-indigo-500/20 ring-1 ring-white/10 sm:flex"><User className="text-white" size={28} /></div>
+            <div><h1 className="text-2xl font-black uppercase leading-none tracking-tighter text-white sm:text-3xl">Perfil <span className="text-indigo-500">jurídico</span></h1><p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Dados do credor usados nos documentos</p></div>
+          </div>
         </div>
       </header>
 

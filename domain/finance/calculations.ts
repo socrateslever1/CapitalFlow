@@ -328,14 +328,13 @@ export const computeLoanRemainingBalance = (loan: Loan): RemainingBalance => {
     // Ignora parcelas que foram movidas para acordo ou canceladas
     const status = String(inst.status || "").toUpperCase();
     if (status === 'RENEGOCIADO' || status === 'CANCELADO') continue;
+    if (isInstallmentPaid(inst, loan.status)) continue;
 
     const rawOpen = round(
       Number(inst.principalRemaining || 0) +
       Number(inst.interestRemaining || 0) +
       Number(inst.lateFeeAccrued || 0)
     );
-    if ((status === 'PAID' || status === 'PAGO' || status === 'QUITADO' || status === 'QUITADA' || status === 'FINALIZADO') && rawOpen <= ZERO_BALANCE_THRESHOLD) continue;
-
     const debt = calculateTotalDue(loan, inst);
     principalRemaining += Math.max(0, Number(debt.principal || 0));
     interestRemaining += Math.max(0, Number(debt.interest || 0));

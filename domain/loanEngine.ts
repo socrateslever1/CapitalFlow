@@ -7,6 +7,7 @@ import {
   hasActiveAgreement,
   InstallmentPaymentPlan,
   isAgreementInstallmentPaid,
+  isInstallmentPaid,
   ZERO_BALANCE_THRESHOLD,
 } from './finance/calculations';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
@@ -75,14 +76,13 @@ const engine = {
         const status = String(inst?.status || '').toUpperCase();
         // Ignora parcelas que foram movidas para acordo ou canceladas
         if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
+        if (isInstallmentPaid(inst, loan.status)) return false;
 
         const principalOpen = n(inst?.principal_remaining ?? inst?.principalRemaining);
         const interestOpen = n(inst?.interest_remaining ?? inst?.interestRemaining);
         const lateFeeOpen = n(inst?.late_fee_accrued ?? inst?.lateFeeAccrued);
         if (principalOpen + interestOpen + lateFeeOpen <= ZERO_BALANCE_THRESHOLD) return false;
 
-        const open = principalOpen + interestOpen + lateFeeOpen;
-        if ((status === 'PAID' || status === 'PAGO' || status === 'QUITADO') && open <= ZERO_BALANCE_THRESHOLD) return false;
       }
 
       const due = getDueDate(inst);

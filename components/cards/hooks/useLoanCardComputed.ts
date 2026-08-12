@@ -7,16 +7,9 @@ import { loanEngine } from '../../../domain/loanEngine';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
 import { calculateRiskProfile } from '../../../domain/finance/riskAnalysis';
+import { isInstallmentOpen, isInstallmentPaidOrSettled } from '../../../utils/loanStatus';
 
-const hasOpenInstallmentBalance = (inst: any): boolean => {
-  const status = String(inst?.status || '').toUpperCase();
-  if (status === 'RENEGOCIADO' || status === 'CANCELADO') return false;
-  const open =
-    Number(inst?.principalRemaining || 0) +
-    Number(inst?.interestRemaining || 0) +
-    Number(inst?.lateFeeAccrued || 0);
-  return open > ZERO_BALANCE_THRESHOLD;
-};
+const hasOpenInstallmentBalance = (inst: any): boolean => isInstallmentOpen(inst);
 
 const getActiveOfferDate = (inst: any): string | null => {
   const today = new Date().toISOString().slice(0, 10);
@@ -154,14 +147,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
       return Number.isFinite(time) ? time : 0;
     };
 
-    const isInstallmentSettled = (inst: any) => {
-      const status = String(inst?.status || '').toUpperCase();
-      const remaining =
-        (Number(inst?.principalRemaining) || 0) +
-        (Number(inst?.interestRemaining) || 0) +
-        (Number(inst?.lateFeeAccrued) || 0);
-      return status === LoanStatus.PAID || status === 'PAGO' || remaining <= ZERO_BALANCE_THRESHOLD;
-    };
+    const isInstallmentSettled = (inst: any) => isInstallmentPaidOrSettled(inst);
 
     let all: Installment[];
 

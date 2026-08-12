@@ -12,6 +12,7 @@ import { InstallmentCardStatus } from './installmentCard/InstallmentCardStatus';
 import { InstallmentCardAmounts } from './installmentCard/InstallmentCardAmounts';
 import { InstallmentCardAction } from './installmentCard/InstallmentCardAction';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
+import { getInstallmentPaidAmount } from '../../../utils/loanStatus';
 
 interface InstallmentCardProps {
     vm: InstallmentViewModel;
@@ -45,6 +46,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
 
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
     const hasActiveOffer = isPaymentOfferActive(originalInst);
+    const displayedAmount = isPaid ? getInstallmentPaidAmount(originalInst) : debt.total;
 
     const containerClasses = `responsive-card rounded-lg border flex flex-col justify-between h-full ${
         isRenegotiated ? 'bg-slate-900/80 border-slate-700/50' :
@@ -87,7 +89,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                         <p className={`text-[12px] font-bold ${isLateInst ? 'text-rose-400' : isPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
-                            {formatMoney(debt.total, isStealthMode)}
+                            {formatMoney(displayedAmount, isStealthMode)}
                         </p>
                         {isPrepaid && !isPaid && (
                             <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 uppercase">
@@ -168,6 +170,11 @@ const arePropsEqual = (prev: InstallmentCardProps, next: InstallmentCardProps) =
         pInst.principalRemaining !== nInst.principalRemaining ||
         pInst.interestRemaining !== nInst.interestRemaining ||
         pInst.lateFeeAccrued !== nInst.lateFeeAccrued ||
+        pInst.paidTotal !== nInst.paidTotal ||
+        pInst.paidAmount !== nInst.paidAmount ||
+        pInst.paidPrincipal !== nInst.paidPrincipal ||
+        pInst.paidInterest !== nInst.paidInterest ||
+        pInst.paidLateFee !== nInst.paidLateFee ||
         pInst.dueDate !== nInst.dueDate
         || pInst.paymentOfferStatus !== nInst.paymentOfferStatus
         || pInst.paymentOfferValidUntil !== nInst.paymentOfferValidUntil

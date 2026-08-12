@@ -49,7 +49,6 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
     const [activeScenario, setActiveScenario] = useState<'UNICO' | 'PARCELADO' | 'AUTO'>('AUTO');
     const [clauses, setClauses] = useState([
         { id: 'penhora', label: 'Cobrança Judicial', active: true, description: 'Prevê medidas judiciais cabíveis, sempre mediante decisão da autoridade competente.' },
-        { id: 'avalista', label: 'Avalista Solidário', active: true, description: 'Inclui a responsabilidade solidária de um terceiro.' },
         { id: 'foro', label: 'Foro de Eleição', active: true, description: 'Define a comarca para resolução de conflitos.' },
         { id: 'multa', label: 'Multa Moratória', active: true, description: 'Estabelece multa de 2% sobre a prestação vencida e não paga.' },
     ]);
@@ -208,7 +207,7 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             debtorDoc: selectedLoan.debtorDocument,
             debtorAddress: selectedLoan.debtorAddress || 'Endereço não informado',
             amount: finalTotalDebt,
-            principalAmount: legalTotal,
+            principalAmount: legalTerms.principalAmount > 0 ? legalTerms.principalAmount : legalTotal,
             originalPrincipalAmount: legalTerms.originalPrincipalAmount > 0 ? legalTerms.originalPrincipalAmount : legalTotal,
             principalPaidAmount: legalTerms.principalPaidAmount,
             legalInterestRatePercent: legalTerms.legalInterestRatePercent,
@@ -223,6 +222,12 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
             amortizationType: selectedLoan.amortizationType || snap.amortizationType,
             isAgreement: !!selectedLoan.activeAgreement || snap.isAgreement,
             agreementDate: selectedLoan.activeAgreement?.createdAt,
+            originDescription: selectedLoan.activeAgreement
+                ? `Contrato de origem nº ${selectedLoan.id.substring(0, 8).toUpperCase()}, com saldo reorganizado pelo acordo nº ${selectedLoan.activeAgreement.id.substring(0, 8).toUpperCase()}.`
+                : `Contrato de origem nº ${selectedLoan.id.substring(0, 8).toUpperCase()}.`,
+            incluirGarantia: Boolean(selectedLoan.guaranteeDescription?.trim()),
+            tipoGarantia: selectedLoan.guaranteeDescription?.trim() ? 'Garantia descrita no contrato de origem' : undefined,
+            descricaoGarantia: selectedLoan.guaranteeDescription?.trim() || undefined,
             clauses: clauses.reduce((acc, c) => ({ ...acc, [c.id]: c.active }), {}),
             templateId: resolveTemplateId(selectedLoan),
             contractDurationDays: resolveContractDurationDays(selectedLoan),
@@ -310,7 +315,9 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
                 legalTotalAmount: legalTerms.legalTotalAmount,
                 legalReconciliation: legalTerms.reconciliation,
                 totalDebt: legalTerms.legalTotalAmount,
-                originDescription: `Operação de mútuo financeiro ID ${selectedLoan.id.substring(0, 8)}.`,
+                originDescription: selectedLoan.activeAgreement
+                    ? `Contrato de origem nº ${selectedLoan.id.substring(0, 8).toUpperCase()}, com saldo reorganizado pelo acordo nº ${selectedLoan.activeAgreement.id.substring(0, 8).toUpperCase()}.`
+                    : `Contrato de origem nº ${selectedLoan.id.substring(0, 8).toUpperCase()}.`,
                 city: activeUser.city || 'Manaus',
                 state: activeUser.state || 'AM',
                 billingCycle: selectedLoan.billingCycle,
@@ -323,6 +330,11 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
                 installments: resolveDocumentInstallments(selectedLoan) as any[],
                 timestamp: new Date().toISOString(),
                 templateId: resolveTemplateId(selectedLoan),
+                clauses: clauses.reduce((acc, clause) => ({ ...acc, [clause.id]: clause.active }), {}),
+                multaPercentual: selectedLoan.finePercent,
+                incluirGarantia: Boolean(selectedLoan.guaranteeDescription?.trim()),
+                tipoGarantia: selectedLoan.guaranteeDescription?.trim() ? 'Garantia descrita no contrato de origem' : undefined,
+                descricaoGarantia: selectedLoan.guaranteeDescription?.trim() || undefined,
                 customContent: documentContent
             };
 

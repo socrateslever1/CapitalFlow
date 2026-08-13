@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Installment, Loan } from '../types';
+import { calculateTotalDue } from '../domain/finance/calculations';
 
 export interface PaymentOfferInput {
   offerType: 'SETTLEMENT' | 'INTEREST_RENEWAL';
@@ -62,18 +63,16 @@ export const calculatePaymentOfferPreview = (
     Math.max(0, Number(installment.principalRemaining || 0))
     + Math.max(0, Number(installment.interestRemaining || 0))
   );
-  const lateCharges = roundMoney(Math.max(0, Number(installment.lateFeeAccrued || 0)));
-  const dueDate = new Date(`${String(installment.dueDate).slice(0, 10)}T12:00:00Z`);
-  const today = new Date(`${todayKey()}T12:00:00Z`);
-  const daysLate = Number.isNaN(dueDate.getTime())
-    ? 0
-    : Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / 86400000));
-  const periods = daysLate > 0 ? Math.ceil(daysLate / 30) : 0;
-  const rawFine = base * (Math.max(0, Number(loan.finePercent || 0)) / 100) * periods;
-  const rawDaily = base * (Math.max(0, Number(loan.dailyInterestPercent || 0)) / 100) * daysLate;
-  const rawTotal = rawFine + rawDaily;
-  const fine = lateCharges > 0 && rawTotal > 0
-    ? roundMoney(lateCharges * rawFine / rawTotal)
+  const debt = calculateTotalDue(loan, installment);
+  const calculatedFine = roundMoney(Math.max(0, Number(debt.finePart || 0)));
+  const calculatedDailyInterest = roundMoney(Math.max(0, Number(debt.moraPart || 0)));
+  const calculatedLateCharges = roundMoney(calculatedFine + calculatedDailyInterest);
+  const lateCharges = roundMoney(Math.max(
+    calculatedLateCharges,
+    Math.max(0, Number(installment.lateFeeAccrued || 0))
+  ));
+  const fine = calculatedLateCharges > 0
+    ? roundMoney(lateCharges * calculatedFine / calculatedLateCharges)
     : lateCharges > 0 && Number(loan.finePercent || 0) > 0 ? lateCharges : 0;
   const dailyInterest = roundMoney(lateCharges - fine);
   const fineForgiven = input.waiveFine ? fine : 0;

@@ -40,8 +40,55 @@ test('interest-renewal offer charges interest and fees without principal', () =>
     waiveDailyInterest: false,
   });
 
-  assert.equal(preview.finalAmount, 320);
+  assert.equal(preview.finalAmount, 365);
   assert.equal(installment.principalRemaining, 1000);
+});
+
+test('interest-renewal offer can waive only the fine', () => {
+  const fullCharges = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL', discountMode: 'NONE', discount: 0,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL',
+    discountMode: 'NONE',
+    discount: 0,
+    waiveFine: true,
+    waiveDailyInterest: false,
+  });
+
+  assert.equal(preview.finalAmount, fullCharges.finalAmount - fullCharges.fine);
+  assert.equal(preview.chargesForgiven, fullCharges.fine);
+});
+
+test('interest-renewal offer can waive only daily interest', () => {
+  const fullCharges = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL', discountMode: 'NONE', discount: 0,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL',
+    discountMode: 'NONE',
+    discount: 0,
+    waiveFine: false,
+    waiveDailyInterest: true,
+  });
+
+  assert.equal(preview.finalAmount, fullCharges.finalAmount - fullCharges.dailyInterest);
+  assert.equal(preview.chargesForgiven, fullCharges.dailyInterest);
+});
+
+test('interest-renewal offer can waive both late charges', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL',
+    discountMode: 'NONE',
+    discount: 0,
+    waiveFine: true,
+    waiveDailyInterest: true,
+  });
+
+  assert.equal(preview.finalAmount, 300);
+  assert.equal(preview.chargesForgiven, 65);
 });
 
 test('settlement offer continues to include the principal', () => {
@@ -53,10 +100,10 @@ test('settlement offer continues to include the principal', () => {
     waiveDailyInterest: false,
   });
 
-  assert.equal(preview.finalAmount, 1320);
+  assert.equal(preview.finalAmount, 1365);
 });
 
-test('interest-renewal offer does not create a zero-value condition', () => {
+test('interest-renewal offer still includes overdue charges when current interest is zero', () => {
   const preview = calculatePaymentOfferPreview(loan, {
     ...installment,
     interestRemaining: 0,
@@ -69,5 +116,5 @@ test('interest-renewal offer does not create a zero-value condition', () => {
     waiveDailyInterest: false,
   });
 
-  assert.equal(preview.finalAmount, 0);
+  assert.equal(preview.finalAmount, 65);
 });

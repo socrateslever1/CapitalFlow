@@ -45,6 +45,13 @@ export interface PaymentOptions {
     originalTotal?: number;
     offerValidUntil?: string;
     discountApplied?: number;
+    discountBreakdown?: {
+        additional: number;
+        fine: number;
+        dailyInterest: number;
+        total: number;
+    };
+    remainingCapital?: number;
     paymentOfferType?: 'SETTLEMENT' | 'INTEREST_RENEWAL';
 }
 
@@ -57,6 +64,15 @@ const isActivePaymentOffer = (inst: any) => {
 
 const paymentOfferAmount = (inst: any) =>
     Number(inst?.paymentOfferAmount ?? inst?.payment_offer_amount ?? 0);
+
+const paymentOfferDiscountBreakdown = (inst: any) => {
+    const additional = Math.max(0, Number(inst?.paymentOfferDiscountApplied ?? inst?.payment_offer_discount_applied ?? 0));
+    const fine = Math.max(0, Number(inst?.paymentOfferFineForgiven ?? inst?.payment_offer_fine_forgiven ?? 0));
+    const dailyInterest = Math.max(0, Number(inst?.paymentOfferDailyInterestForgiven ?? inst?.payment_offer_daily_interest_forgiven ?? 0));
+    const persistedLateCharges = Math.max(0, Number(inst?.paymentOfferLateFeeForgiven ?? inst?.payment_offer_late_fee_forgiven ?? 0));
+    const total = additional + Math.max(persistedLateCharges, fine + dailyInterest);
+    return { additional, fine, dailyInterest, total };
+};
 
 export const isPortalInstallmentPaid = (inst: any): boolean => {
     return isInstallmentPaid(inst);
@@ -109,8 +125,8 @@ export const resolveDebtSummary = (loan: Loan, installments: Installment[]): Por
     pending.forEach(inst => {
         const instCalc = normalizeInstallmentForCalc(inst);
         const debt = calculateTotalDue(loanCalc, instCalc);
-        totalDue += isActivePaymentOffer(inst) ? paymentOfferAmount(inst) : Number(debt.total || 0);
-        if (!isActivePaymentOffer(inst) && debt.daysLate > maxDaysLate) maxDaysLate = debt.daysLate;
+        totalDue += Number(debt.total || 0);
+        if (debt.daysLate > maxDaysLate) maxDaysLate = debt.daysLate;
     });
 
     return {
@@ -196,7 +212,7 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
     }
 
     return {
-        total: isPaidOff ? 0 : hasPaymentOffer ? paymentOfferAmount(inst) : debt.total,
+        total: isPaidOff ? 0 : debt.total,
         principal: isPaidOff ? 0 : debt.principal,
         interest: isPaidOff ? 0 : debt.interest,
         lateFee: isPaidOff ? 0 : debt.lateFee,
@@ -208,7 +224,7 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
         hasPaymentOffer,
         originalTotal: Number(inst.paymentOfferOriginalAmount || 0) || debt.total,
         offerValidUntil: inst.paymentOfferValidUntil,
-        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0),
+        discountApplied: paymentOfferDiscountBreakdown(inst).total,
         paymentOfferType: String(inst.paymentOfferType ?? inst.payment_offer_type ?? 'SETTLEMENT').toUpperCase() === 'INTEREST_RENEWAL' ? 'INTEREST_RENEWAL' : 'SETTLEMENT'
     };
 };
@@ -264,9 +280,11 @@ export const resolvePaymentOptions = (loan: Loan, inst: any): PaymentOptions => 
         daysLate: debt.daysLate,
         dueDateISO: inst.dueDate,
         hasPaymentOffer,
-        originalTotal: debt.total,
+        originalTotal: Number(inst.paymentOfferOriginalAmount ?? inst.payment_offer_original_amount ?? 0) || debt.total,
         offerValidUntil: inst.paymentOfferValidUntil,
-        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0),
+        discountApplied: paymentOfferDiscountBreakdown(inst).total,
+        discountBreakdown: paymentOfferDiscountBreakdown(inst),
+        remainingCapital: debt.principal,
         paymentOfferType: String(inst.paymentOfferType ?? inst.payment_offer_type ?? 'SETTLEMENT').toUpperCase() === 'INTEREST_RENEWAL' ? 'INTEREST_RENEWAL' : 'SETTLEMENT'
     };
 };

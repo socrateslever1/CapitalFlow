@@ -56,6 +56,12 @@ export const normalizeInstallmentForCalc = (inst: any): Installment => {
     paymentOfferAmount: Number(inst.payment_offer_amount ?? inst.paymentOfferAmount ?? 0),
     paymentOfferOriginalAmount: Number(inst.payment_offer_original_amount ?? inst.paymentOfferOriginalAmount ?? 0),
     paymentOfferDiscountApplied: Number(inst.payment_offer_discount_applied ?? inst.paymentOfferDiscountApplied ?? 0),
+    paymentOfferWaiveFine: Boolean(inst.payment_offer_waive_fine ?? inst.paymentOfferWaiveFine),
+    paymentOfferWaiveDailyInterest: Boolean(inst.payment_offer_waive_daily_interest ?? inst.paymentOfferWaiveDailyInterest),
+    paymentOfferFineAmount: Number(inst.payment_offer_fine_amount ?? inst.paymentOfferFineAmount ?? 0),
+    paymentOfferDailyInterestAmount: Number(inst.payment_offer_daily_interest_amount ?? inst.paymentOfferDailyInterestAmount ?? 0),
+    paymentOfferFineForgiven: Number(inst.payment_offer_fine_forgiven ?? inst.paymentOfferFineForgiven ?? 0),
+    paymentOfferDailyInterestForgiven: Number(inst.payment_offer_daily_interest_forgiven ?? inst.paymentOfferDailyInterestForgiven ?? 0),
     paymentOfferLateFeeForgiven: Number(inst.payment_offer_late_fee_forgiven ?? inst.paymentOfferLateFeeForgiven ?? 0),
 
     status: inst.status

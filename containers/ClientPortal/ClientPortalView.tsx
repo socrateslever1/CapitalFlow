@@ -126,10 +126,11 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
     : isPaidOff
     ? 'text-emerald-400'
     : 'text-blue-400';
-  const directPaymentTotal = nextInst ? resolvePaymentOptions(loan, nextInst).totalToPay : 0;
+  const directOptions = nextInst ? resolvePaymentOptions(loan, nextInst) : null;
+  const directPaymentTotal = directOptions?.totalToPay || 0;
   const directDiscountPercent = Number(nextInst?.paymentOfferDiscountPercent || 0);
-  const directDiscountAmount = Number(nextInst?.paymentOfferDiscountApplied || 0)
-    + Number(nextInst?.paymentOfferLateFeeForgiven || 0);
+  const directDiscountAmount = Number(directOptions?.discountBreakdown?.total || 0);
+  const isRenewalPayment = directOptions?.paymentOfferType === 'INTEREST_RENEWAL';
 
   return (
     <div
@@ -181,6 +182,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
           </span>
         </div>
 
+        <p className="text-[8px] font-black uppercase tracking-wider text-slate-500">Você deve hoje</p>
         <div className="flex items-baseline gap-1.5">
           <span className={`text-lg font-black tracking-tight ${hasLateInstallments ? 'text-rose-400' : 'text-white'}`}>
             {formatMoney(totalDue)}
@@ -199,7 +201,28 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
           </div>
         )}
 
-        {!isPaidOff && !isInstallmentPlan && (directDiscountPercent > 0 || directDiscountAmount > 0.05) && (
+        {!isPaidOff && !isInstallmentPlan && isRenewalPayment && directOptions && (
+          <div className="mt-2 space-y-1.5 rounded-md border border-blue-500/20 bg-blue-500/[0.06] p-2.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[9px] font-bold text-slate-400">Você escolheu pagar agora</span>
+              <strong className="shrink-0 text-xs font-black text-white">{formatMoney(directPaymentTotal)}</strong>
+            </div>
+            <p className="text-[8px] font-black uppercase tracking-wider text-blue-400">Pagamento para renovar o contrato</p>
+            <p className="text-[9px] leading-relaxed text-slate-400">
+              Após a confirmação, o capital de <strong className="text-slate-200">{formatMoney(Number(directOptions.remainingCapital || 0))}</strong> continuará em aberto para o próximo período.
+            </p>
+            {directOptions.discountBreakdown && directOptions.discountBreakdown.total > 0.05 && (
+              <div className="border-t border-slate-800/80 pt-1.5 text-[9px] font-bold text-emerald-400">
+                <p>Desconto total: {formatMoney(directOptions.discountBreakdown.total)}</p>
+                {directOptions.discountBreakdown.fine > 0.05 && <p>Multa retirada: {formatMoney(directOptions.discountBreakdown.fine)}</p>}
+                {directOptions.discountBreakdown.dailyInterest > 0.05 && <p>Mora diária retirada: {formatMoney(directOptions.discountBreakdown.dailyInterest)}</p>}
+                {directOptions.discountBreakdown.additional > 0.05 && <p>Desconto adicional: {formatMoney(directOptions.discountBreakdown.additional)}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isPaidOff && !isInstallmentPlan && !isRenewalPayment && (directDiscountPercent > 0 || directDiscountAmount > 0.05) && (
           <p className="text-[9px] font-bold text-emerald-400">
             {directDiscountPercent > 0
               ? `Você recebeu ${directDiscountPercent}% de desconto`
@@ -739,6 +762,16 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                     {formatMoney(globalSummary.total).replace('R$', '').trim()}
                 </p>
               </div>
+              <p className="mt-1 text-[9px] font-bold text-slate-400">Total da dívida hoje</p>
+
+              {paymentSelections.length > 0 && (
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-blue-500/20 bg-blue-500/[0.06] px-2.5 py-2">
+                  <span className="text-[9px] font-bold text-slate-400">Você escolheu pagar agora</span>
+                  <strong className="text-xs font-black text-white">
+                    {formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))}
+                  </strong>
+                </div>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {globalSummary.lateCount > 0 ? (
@@ -862,7 +895,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           <div className="absolute inset-x-0 bottom-0 z-[120] border-t border-slate-700/80 bg-slate-950/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_30px_rgba(2,6,23,0.75)] backdrop-blur-xl">
             <div className="mx-auto flex max-w-md items-center gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-black uppercase text-white">Pix ou cartão</p>
+                <p className="text-[11px] font-black uppercase text-white">Pagamento escolhido</p>
                 <p className="truncate text-[10px] font-semibold text-slate-300">
                   {paymentSelections[0].mode === 'INSTALLMENT'
                     ? `${paymentSelections[0].installmentIds.length} parcela${paymentSelections[0].installmentIds.length === 1 ? '' : 's'} selecionada${paymentSelections[0].installmentIds.length === 1 ? '' : 's'}`
@@ -888,7 +921,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 ) : (
                   <>
                     <img src="/images/infinitepay.png" alt="InfinitePay" className="h-5 w-auto max-w-[82px] object-contain" />
-                    <span>Pagar {formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))}</span>
+                    <span>Pagar agora {formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))}</span>
                   </>
                 )}
               </button>

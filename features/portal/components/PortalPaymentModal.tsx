@@ -411,6 +411,8 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
                 originalTotal: Number(options.originalTotal || options.totalToPay),
                 validUntil: String(options.offerValidUntil || ''),
                 discountApplied: Number(options.discountApplied || 0),
+                remainingCapital: Number(options.remainingCapital || 0),
+                discountBreakdown: options.discountBreakdown,
                 type: options.paymentOfferType,
               } : undefined}
             />

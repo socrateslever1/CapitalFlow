@@ -32,6 +32,13 @@ interface BillingViewProps {
         originalTotal: number;
         validUntil: string;
         discountApplied: number;
+        remainingCapital: number;
+        discountBreakdown?: {
+            additional: number;
+            fine: number;
+            dailyInterest: number;
+            total: number;
+        };
         type?: 'SETTLEMENT' | 'INTEREST_RENEWAL';
     };
 }
@@ -65,7 +72,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
         <div className="space-y-6">
             <div className="text-center space-y-1">
                 <p className="text-slate-400 text-xs uppercase font-bold tracking-widest">
-                    {paymentOffer?.type === 'INTEREST_RENEWAL' ? 'Renovação por juros' : paymentOffer ? 'Condição especial' : 'Valor Total Atualizado'}
+                    {paymentOffer?.type === 'INTEREST_RENEWAL' ? 'Pagamento para renovar' : paymentOffer ? 'Condição especial' : 'Valor Total Atualizado'}
                 </p>
                 <div className="flex items-center justify-center gap-2">
                     <span className="text-4xl font-black text-white tracking-tight">{formatMoney(totalToPay)}</span>
@@ -77,15 +84,39 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             <Calendar size={12} />
                             Válida até {new Date(`${paymentOffer.validUntil.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')}
                         </div>
-                        <p className="mt-1 text-[10px] text-slate-400">
-                            {paymentOffer.type === 'INTEREST_RENEWAL'
-                                ? <>Pague <strong className="text-white">{formatMoney(totalToPay)}</strong> de juros e encargos. O capital será mantido para o próximo mês.</>
-                                : <>De <span className="line-through">{formatMoney(paymentOffer.originalTotal)}</span>{' '}por <strong className="text-white">{formatMoney(totalToPay)}</strong></>}
-                        </p>
-                        {paymentOffer.discountApplied > 0.05 && (
-                            <p className="mt-0.5 text-[9px] font-bold text-emerald-400">
-                                Economia de {formatMoney(paymentOffer.discountApplied)}
-                            </p>
+                        {paymentOffer.type === 'INTEREST_RENEWAL' ? (
+                            <div className="mt-2 space-y-1.5 text-left text-[10px]">
+                                <div className="flex items-center justify-between gap-3 text-slate-400">
+                                    <span>Total da dívida hoje</span>
+                                    <strong className="text-white">{formatMoney(paymentOffer.originalTotal)}</strong>
+                                </div>
+                                <div className="flex items-center justify-between gap-3 text-slate-400">
+                                    <span>Você escolheu pagar agora</span>
+                                    <strong className="text-white">{formatMoney(totalToPay)}</strong>
+                                </div>
+                                {paymentOffer.discountBreakdown && paymentOffer.discountBreakdown.total > 0.05 && (
+                                    <div className="border-t border-amber-500/15 pt-1.5 font-bold text-emerald-400">
+                                        <p>Desconto total: {formatMoney(paymentOffer.discountBreakdown.total)}</p>
+                                        {paymentOffer.discountBreakdown.fine > 0.05 && <p>Multa retirada: {formatMoney(paymentOffer.discountBreakdown.fine)}</p>}
+                                        {paymentOffer.discountBreakdown.dailyInterest > 0.05 && <p>Mora diária retirada: {formatMoney(paymentOffer.discountBreakdown.dailyInterest)}</p>}
+                                        {paymentOffer.discountBreakdown.additional > 0.05 && <p>Desconto adicional: {formatMoney(paymentOffer.discountBreakdown.additional)}</p>}
+                                    </div>
+                                )}
+                                <p className="border-t border-amber-500/15 pt-1.5 leading-relaxed text-slate-400">
+                                    Este pagamento renova o contrato. O capital de <strong className="text-white">{formatMoney(paymentOffer.remainingCapital)}</strong> continuará em aberto para o próximo período.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="mt-1 text-[10px] text-slate-400">
+                                    De <span className="line-through">{formatMoney(paymentOffer.originalTotal)}</span>{' '}por <strong className="text-white">{formatMoney(totalToPay)}</strong>
+                                </p>
+                                {paymentOffer.discountApplied > 0.05 && (
+                                    <p className="mt-0.5 text-[9px] font-bold text-emerald-400">
+                                        Economia de {formatMoney(paymentOffer.discountApplied)}
+                                    </p>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
@@ -97,9 +128,9 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     </p>
                 </div>
 
-                {variant === 'OVERDUE' && (
+                {variant === 'OVERDUE' && !paymentOffer && (
                     <p className="text-[10px] text-slate-500 mt-1">
-                        Renovação (Juros+Taxas): <b>{formatMoney(interestOnlyWithFees)}</b>
+                        Valor para renovar: <b>{formatMoney(interestOnlyWithFees)}</b>
                     </p>
                 )}
             </div>

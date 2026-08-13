@@ -1,14 +1,11 @@
 
 import React, { useState, useMemo } from 'react';
-import { Search, MessageCircle, Users, Briefcase, ChevronRight, CheckSquare, Square, Trash2, X, Megaphone, ChevronDown } from 'lucide-react';
+import { Search, MessageCircle, Users, ChevronRight, CheckSquare, Square, Trash2, X, ChevronDown } from 'lucide-react';
 import { groupContractsByDebtorName } from '../../../utils/chatGroupHelpers';
 
 interface ChatSidebarProps {
     chats: any[];
     clients: any[];
-    team: any[];
-    campaigns: any[];
-    unreadCampaignCount?: number;
     selectedChat: any;
     searchTerm: string;
     setSearchTerm: (v: string) => void;
@@ -19,9 +16,9 @@ interface ChatSidebarProps {
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
-    chats, clients, team, campaigns, unreadCampaignCount = 0, selectedChat, searchTerm, setSearchTerm, onSelectChat, diffLabel, onBulkDelete, chatTheme = 'dark'
+    chats, clients, selectedChat, searchTerm, setSearchTerm, onSelectChat, diffLabel, onBulkDelete, chatTheme = 'dark'
 }) => {
-    const [activeTab, setActiveTab] = useState<'ACTIVE' | 'CLIENTS' | 'TEAM' | 'CAPTACAO'>('ACTIVE');
+    const [activeTab, setActiveTab] = useState<'ACTIVE' | 'CLIENTS'>('ACTIVE');
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -32,14 +29,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         let list: any[] = [];
         if (activeTab === 'ACTIVE') list = chats;
         else if (activeTab === 'CLIENTS') list = clients;
-        else if (activeTab === 'TEAM') list = team;
-        else if (activeTab === 'CAPTACAO') list = campaigns.map(c => ({ ...c, clientName: c.nome, type: 'CAMPAIGN' }));
 
         if (activeTab === 'ACTIVE' || activeTab === 'CLIENTS') {
             return groupContractsByDebtorName(list);
         }
         return list;
-    }, [activeTab, chats, clients, team, campaigns]);
+    }, [activeTab, chats, clients]);
 
     const toggleSelection = (id: string) => {
         if (selectedIds.includes(id)) {
@@ -135,11 +130,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   {activeTab !== 'ACTIVE' && !isSelectionMode && <ChevronRight size={12} className="text-slate-500"/>}
               </div>
 
-              {item.type === 'CAMPAIGN' && (
-                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1.5 tracking-wider">
-                    WhatsApp: {item.whatsapp || 'N/A'}
-                  </p>
-              )}
               {item.type === 'ACTIVE' && (
                   <p className="text-[9px] text-slate-500 font-bold uppercase mt-1.5 tracking-wider">
                     Contrato #{item.loanId?.slice(0,6)}
@@ -148,11 +138,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               {item.type === 'CLIENT' && (
                   <p className="text-[9px] text-slate-500 font-bold uppercase mt-1.5 tracking-wider">
                     Doc: {item.debtorDocument || 'N/A'}
-                  </p>
-              )}
-              {item.type === 'TEAM' && (
-                  <p className="text-[9px] text-slate-500 font-bold uppercase mt-1.5 tracking-wider">
-                    {item.role}
                   </p>
               )}
             </div>
@@ -194,27 +179,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                         >
                             <Users size={12}/> Clientes
                         </button>
-                        {/* Desativado temporariamente: TEAM
-                        <button
-                            onClick={() => setActiveTab('TEAM')}
-                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 ${activeTab === 'TEAM' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                        >
-                            <Briefcase size={12}/> Equipe
-                        </button>
-                        */}
-                        {/* Desativado temporariamente: CAPTACAO
-                        <button
-                            onClick={() => setActiveTab('CAPTACAO')}
-                            className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-1 relative ${activeTab === 'CAPTACAO' ? 'bg-slate-800 text-white shadow' : 'text-slate-500 hover:text-slate-300'}`}
-                        >
-                            <Megaphone size={12}/> Captação
-                            {unreadCampaignCount > 0 && (
-                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full ring-2 ring-slate-900">
-                                    {unreadCampaignCount > 9 ? '9+' : unreadCampaignCount}
-                                </span>
-                            )}
-                        </button>
-                        */}
                     </div>
 
                     {activeTab === 'ACTIVE' && displayList.length > 0 && (

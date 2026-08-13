@@ -125,23 +125,6 @@ export const useAIController = (
       return;
     }
 
-    if (intent === 'ADD_REMINDER') {
-      const newEvent = {
-        id: Date.now(),
-        title: data?.description || 'Lembrete IA',
-        date: data?.date || new Date().toISOString().split('T')[0],
-        desc: 'Agendado via voz'
-      };
-
-      const stored = localStorage.getItem('cm_agenda_events');
-      const events = stored ? JSON.parse(stored) : [];
-      events.push(newEvent);
-      localStorage.setItem('cm_agenda_events', JSON.stringify(events));
-
-      ui.openModal('AGENDA');
-      showToast('Evento agendado com sucesso!', 'success');
-      return;
-    }
   };
 
   return { handleAICommand };

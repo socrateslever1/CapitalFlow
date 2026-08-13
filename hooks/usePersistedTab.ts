@@ -2,7 +2,11 @@
 import { useEffect, useRef } from 'react';
 import { AppTab } from '../types';
 
-const HIDDEN_TABS = new Set(['LEADS', 'ACQUISITION']);
+const VALID_TABS = new Set<AppTab>([
+  'DASHBOARD', 'DOSSIER', 'CLIENTS', 'LEGAL', 'SOURCES', 'PROFILE', 'SETTINGS',
+  'CONTRACT_DETAILS', 'SIMULATOR', 'FLOW', 'LEGAL_DOCUMENT_EDITOR',
+  'EXTRATO', 'SUPPORT', 'REPORTS',
+]);
 
 export const usePersistedTab = (
   activeTab: AppTab,
@@ -14,7 +18,7 @@ export const usePersistedTab = (
   useEffect(() => {
     const lastTab = localStorage.getItem('cm_last_tab');
     if (lastTab && typeof lastTab === 'string') {
-      if (HIDDEN_TABS.has(lastTab)) {
+      if (!VALID_TABS.has(lastTab as AppTab)) {
         localStorage.removeItem('cm_last_tab');
         setActiveTab('DASHBOARD');
         return;
@@ -30,7 +34,7 @@ export const usePersistedTab = (
       return;
     }
 
-    if (activeTab && !HIDDEN_TABS.has(activeTab)) {
+    if (activeTab && VALID_TABS.has(activeTab)) {
       localStorage.setItem('cm_last_tab', activeTab);
     }
   }, [activeTab]);

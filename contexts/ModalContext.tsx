@@ -13,7 +13,6 @@ export type ModalType =
     | 'CONFIRMATION'
     | 'DONATE'
     | 'CALC'
-    | 'AGENDA'
     | 'FLOW'
     | 'MESSAGE_HUB'
     | 'RECEIPT'
@@ -29,7 +28,6 @@ export type ModalType =
     | 'AI_ASSISTANT'
     | 'SUPPORT_CHAT'
     | 'INVITE'
-    | 'TEAM_EDITOR'
     | 'MEMBER_EDITOR';
 
 export interface ModalState {

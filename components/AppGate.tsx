@@ -1,15 +1,9 @@
 // components/AppGate.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ClientPortalView } from '../containers/ClientPortal/ClientPortalView';
 import { PublicSignaturePage } from '../pages/Public/PublicSignaturePage';
-import { PublicLoanLeadPage } from '../pages/PublicLoanLeadPage';
-import { CampanhaLanding } from '../pages/Campanha/CampanhaLanding';
-import { CampanhaChat } from '../pages/Campanha/CampanhaChat';
 import { AuthScreen } from '../features/auth/AuthScreen';
 import { Lock, Loader2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { notificationService } from '../services/notification.service';
-import { playNotificationSound } from '../utils/notificationSound';
 import { AlertTriangle } from 'lucide-react';
 
 interface AppGateProps {
@@ -78,48 +72,11 @@ export const AppGate: React.FC<AppGateProps> = ({
   const [reauthPass, setReauthPass] = useState('');
   const [isReauthing, setIsReauthing] = useState(false);
 
-  const { params, campaignId, path, isPublicLoanLead } = useMemo(() => {
-    const p = new URLSearchParams(window.location.search);
-    const cid = p.get('campaign_id');
-    const pathname = window.location.pathname;
-    return {
-      params: p,
-      campaignId: cid,
-      path: pathname,
-      isPublicLoanLead: p.get('public') === 'emprestimo',
-    };
-  }, []);
-
   useEffect(() => {
     if (loadError && loadError !== 'SESSAO_EXPIRADA') {
       showToast(loadError, 'error');
     }
   }, [loadError, showToast]);
-
-  // 4. Usuário Autenticado: Renderiza o App Shell + Modal de Reauth se necessário
-  useEffect(() => {
-    // Só ativa se estiver logado e NÃO estiver em rotas públicas (portal/legal)
-    if (activeUser && activeProfileId && !portalToken && !legalSignToken) {
-        const channel = supabase.channel('rt_campaign_lead_messages')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'campaign_messages', filter: 'sender=eq.LEAD' },
-                (payload) => {
-                    const msg = payload.new as any;
-                    notificationService.notify(
-                        'Novo lead no chat',
-                        msg?.message ?? 'Mensagem nova'
-                    );
-                    playNotificationSound();
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }
-  }, [activeUser, activeProfileId, portalToken, legalSignToken]);
 
   const handleReauthSubmit = async () => {
     if (!reauthPass) return;
@@ -138,25 +95,6 @@ export const AppGate: React.FC<AppGateProps> = ({
   // =========================
   // Rotas públicas
   // =========================
-  if (isPublicLoanLead) {
-    return <PublicLoanLeadPage />;
-  }
-
-  if (path === '/campanha/chat') {
-    return <CampanhaChat />;
-  }
-
-  if (path === '/campanha' || !!campaignId) {
-    if (!campaignId) {
-      return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-500 text-sm font-bold uppercase">
-          Campanha não especificada.
-        </div>
-      );
-    }
-    return <CampanhaLanding campaignId={campaignId} />;
-  }
-
   if (portalToken) {
     return <ClientPortalView initialPortalToken={portalToken} initialPortalCode={portalCode || ''} />;
   }

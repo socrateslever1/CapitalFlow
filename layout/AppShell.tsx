@@ -7,7 +7,6 @@ import { BottomNav } from './BottomNav';
 import { UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
-import { useCampaignNotifications } from '../hooks/useCampaignNotifications';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -45,9 +44,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const mainRef = useRef<HTMLElement | null>(null);
   const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
-  const { unreadCampaignCount } = useCampaignNotifications(activeUser);
-
-  const totalUnread = unreadSupport + unreadCampaignCount;
+  const totalUnread = unreadSupport;
 
   useEffect(() => {
     if (!activeUser || activeUser.id === 'DEMO') return;

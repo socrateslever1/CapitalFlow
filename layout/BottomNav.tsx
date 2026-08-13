@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { LayoutDashboard, Users, Wallet, LayoutGrid, Plus, Briefcase, ChevronLeft, Calendar, Calculator, ArrowRightLeft, Megaphone, Gavel, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Wallet, LayoutGrid, Calculator, ArrowRightLeft, Gavel, MessageSquare } from 'lucide-react';
 import { Tooltip } from '../components/ui/Tooltip';
 
 interface BottomNavProps {
@@ -55,12 +55,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       case 'DASHBOARD': return <LayoutDashboard size={size} className={active ? 'text-blue-400' : ''}/>;
       case 'DOSSIER': return <ArrowRightLeft size={size} className={active ? 'text-cyan-400' : ''}/>;
       case 'CLIENTS': return <Users size={size} className={active ? 'text-emerald-400' : ''}/>;
-      case 'TEAM': return <Briefcase size={size} className={active ? 'text-indigo-400' : ''}/>;
       case 'SOURCES': return <Wallet size={size} className={active ? 'text-amber-400' : ''}/>;
-      case 'AGENDA': return <Calendar size={size} className={active ? 'text-violet-400' : ''}/>;
       case 'SIMULATOR': return <Calculator size={size} className={active ? 'text-cyan-400' : ''}/>;
       case 'FLOW': return <ArrowRightLeft size={size} className={active ? 'text-rose-400' : ''}/>;
-      case 'ACQUISITION': return <Megaphone size={size} className={active ? 'text-orange-400' : ''}/>;
       case 'LEGAL': return <Gavel size={size} className={active ? 'text-yellow-400' : ''}/>;
       case 'SUPPORT': return <MessageSquare size={size} className={active ? 'text-blue-400' : ''}/>;
       default: return <LayoutGrid size={size} className={active ? 'text-slate-400' : ''}/>;
@@ -72,12 +69,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       case 'DASHBOARD': return 'Painel';
       case 'DOSSIER': return 'Extrato';
       case 'CLIENTS': return 'Clientes';
-      case 'TEAM': return 'Equipe';
       case 'SOURCES': return 'Capital';
-      case 'AGENDA': return 'Agenda';
       case 'SIMULATOR': return 'Simulador';
       case 'FLOW': return 'Extrato';
-      case 'ACQUISITION': return 'Captação';
       case 'PROFILE': return 'Perfil';
       case 'SETTINGS': return 'Ajustes';
       case 'LEGAL': return 'Jurídico';

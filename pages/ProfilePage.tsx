@@ -757,7 +757,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </h4>
 
                   <div className="space-y-2">
-                    {navOrder.filter(t => t !== 'AGENDA' && t !== 'TEAM' && t !== 'LEADS' && t !== 'ACQUISITION').map((tab) => (
+                    {navOrder.map((tab) => (
                       <div
                         key={tab}
                         className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between group"
@@ -797,7 +797,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </h4>
 
                   <div className="space-y-2">
-                    {hubOrder.filter(t => t !== 'AGENDA' && t !== 'TEAM' && t !== 'LEADS' && t !== 'ACQUISITION').map((tab) => (
+                    {hubOrder.map((tab) => (
                       <div
                         key={tab}
                         className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between group"

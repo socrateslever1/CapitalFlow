@@ -510,65 +510,6 @@ export const useAppNotifications = ({
           }
         }
       )
-      /* Desativado temporariamente: Notificações de Captação
-      // EVENTO REALTIME: Novo Lead de Captação
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'leads',
-          filter: `profile_id=eq.${activeUser.id}`,
-        },
-        (payload) => {
-          const onClick = () => {
-              setActiveTab('LEADS');
-          };
-          notificationService.notify(
-            'Novo Lead de Captação!',
-            `O cliente ${payload.new.nome} iniciou uma simulação.`,
-            onClick
-          );
-          addNotification({
-              title: 'Novo Lead de Captação!',
-              message: `O cliente ${payload.new.nome} iniciou uma simulação.`,
-              type: 'info',
-              item_type: 'lead',
-              item_id: payload.new.id
-          });
-          showToast(`Novo lead: ${payload.new.nome}`, 'success');
-        }
-      )
-      // EVENTO REALTIME: Nova Mensagem no Chat de Captação
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'campaign_chat_messages',
-          filter: `profile_id=eq.${activeUser.id}`,
-        },
-        (payload) => {
-          if (payload.new.sender === 'LEAD') {
-            const onClick = () => {
-                setActiveTab('LEADS');
-            };
-            notificationService.notify(
-              'Nova Mensagem de Lead',
-              `Mensagem recebida no chat de captação.`,
-              onClick
-            );
-            addNotification({
-                title: 'Nova Mensagem de Lead',
-                message: `Mensagem recebida no chat de captação.`,
-                type: 'info',
-                item_type: 'lead',
-                item_id: payload.new.lead_id
-            });
-          }
-        }
-      )
-      */
       .subscribe();
 
     return () => {

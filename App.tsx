@@ -37,20 +37,16 @@ import ProfileContainer from '@/containers/ProfileContainer';
 import { LegalContainer } from './containers/LegalContainer';
 
 import OperatorSupportChat from './features/support/OperatorSupportChat';
-import CalendarView from './features/calendar/CalendarView';
 import { SimulatorPanel } from './features/simulator/SimulatorPanel';
 import { FlowModal } from './components/modals/FlowModal';
 
-import { TeamPage } from './pages/TeamPage';
 import { InvitePage } from './pages/InvitePage';
 import { SetupPasswordPage } from './pages/SetupPasswordPage';
-import { CustomerAcquisitionPage } from './pages/Comercial/CaptacaoClientes';
 import { ReportsPage } from './features/reports/pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ContractDetailsPage } from './pages/ContractDetailsPage';
 import { FinancialStatementPage } from './pages/FinancialStatementPage';
 
-import { PublicCampaignPage } from './pages/Public/PublicCampaignPage';
 import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
 import { ClientRegistrationPage } from './pages/Public/ClientRegistrationPage';
 import { PortalReceiptViewer } from './features/portal/components/PortalReceiptViewer';
@@ -63,7 +59,6 @@ export const App: React.FC = () => {
   if (isDev) console.log('[App] Component body execution started');
   // ✅ SEMPRE calcular params, mas NÃO dar return antes dos hooks
   const urlParams = new URLSearchParams(window.location.search);
-  const campaignId = urlParams.get('campaign_id');
   const clientRegistrationToken = urlParams.get('cadastro');
   const legalSignTokenParam = urlParams.get('legal_sign');
   const rawPortalTokenParam = urlParams.get('portal');
@@ -163,7 +158,7 @@ export const App: React.FC = () => {
   const legalSignToken = legalSignTokenParam || legalSignTokenFromHook;
 
   // ✅ view pública: portalToken OU rota pública de campanha OU assinatura pública
-  const isPublicView = hasPortalAccessParams || !!portalToken || !!campaignId || !!legalSignToken || !!clientRegistrationToken;
+  const isPublicView = hasPortalAccessParams || !!portalToken || !!legalSignToken || !!clientRegistrationToken;
 
   useEffect(() => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
@@ -322,11 +317,6 @@ export const App: React.FC = () => {
   }
 
   // ✅ Agora SIM pode retornar rotas públicas (depois dos hooks)
-  if (campaignId) return (
-    <Suspense fallback={<LoadingScreen />}>
-      <PublicCampaignPage />
-    </Suspense>
-  );
   if (clientRegistrationToken) return <ClientRegistrationPage token={clientRegistrationToken} />;
   if (legalSignToken) return (
     <Suspense fallback={<LoadingScreen />}>
@@ -367,27 +357,6 @@ export const App: React.FC = () => {
         }}
         mobileOffset={{ bottom: '80px' }}
       />
-      {/*
-        AGENDA VIEW - REMOVIDA TEMPORARIAMENTE
-        {activeTab === 'AGENDA' && (
-          <motion.div
-            key="agenda-view"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <CalendarView
-              activeUser={activeUser}
-              showToast={showToast}
-              onClose={goBack}
-              isStealthMode={ui.isStealthMode}
-              onSystemAction={(type, meta) => {
-                // ... logic kept for reference
-              }}
-            />
-          </motion.div>
-        )}
-      */}
       {isInvitePath ? (
         <>
           {window.location.pathname === '/invite' && <InvitePage />}
@@ -548,26 +517,6 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Desativado temporariamente: TEAM
-              {activeTab === 'TEAM' && !activeUser?.supervisor_id && (
-                <motion.div
-                  key="team-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <TeamPage
-                    activeUser={activeUser}
-                    showToast={showToast}
-                    onRefresh={() => fetchFullData(activeUser?.id || '')}
-                    ui={ui}
-                    goBack={goBack}
-                    isStealthMode={ui.isStealthMode}
-                  />
-                </motion.div>
-              )}
-              */}
-
               {activeTab === 'SOURCES' && (
                 <motion.div
                   key="sources-view"
@@ -657,19 +606,6 @@ export const App: React.FC = () => {
                   />
                 </motion.div>
               )}
-
-              {/* Desativado temporariamente: ACQUISITION
-              {activeTab === 'ACQUISITION' && (
-                <motion.div
-                  key="acq-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <CustomerAcquisitionPage activeUser={activeUser} goBack={goBack} isStealthMode={ui.isStealthMode} />
-                </motion.div>
-              )}
-              */}
 
               {/* Removido tab SUPPORT não autorizada */}
 
@@ -830,50 +766,6 @@ export const App: React.FC = () => {
                     showToast={showToast}
                     fetchFullData={fetchFullData}
                     isStealthMode={ui.isStealthMode}
-                  />
-                </motion.div>
-              )}
-
-              {activeTab === 'AGENDA' && (
-                <motion.div
-                  key="agenda-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
-                >
-                  <CalendarView
-                    activeUser={activeUser}
-                    showToast={showToast}
-                    onClose={goBack}
-                    isStealthMode={ui.isStealthMode}
-                    onSystemAction={(type, meta) => {
-                      if (type === 'NAVIGATE_CONTRACT' && meta?.loanId) {
-                        ui.setSelectedLoanId(meta.loanId);
-                        handleSetActiveTab('CONTRACT_DETAILS');
-                        return;
-                      }
-                      if (type === 'PAYMENT' && meta && ui) {
-                        ui.setPaymentModal({
-                          loan: {
-                            id: meta.loanId,
-                            debtorName: meta.clientName,
-                            debtorPhone: meta.clientPhone,
-                            sourceId: meta.sourceId,
-                          },
-                          inst: { id: meta.installmentId, dueDate: meta.start_time },
-                          calculations: { total: meta.amount, principal: meta.amount, interest: 0, lateFee: 0 },
-                        });
-                        if (ui.openModal) ui.openModal('PAYMENT');
-                      }
-                      if (type === 'OPEN_CHAT' && meta && ui) {
-                        const loan = loans.find((l: any) => l.id === meta.loanId);
-                        if (loan) {
-                          ui.setMessageModalLoan(loan);
-                          ui.openModal('MESSAGE_HUB');
-                        }
-                      }
-                    }}
                   />
                 </motion.div>
               )}

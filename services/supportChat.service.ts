@@ -297,13 +297,6 @@ export const supportChatService = {
     await supabaseClient.from('support_tickets').delete().eq('loan_id', safeLoanId);
   },
 
-  async deleteCampaignChatHistory(sessionToken: string, supabaseClient: any = supabase) {
-    const safeSessionToken = safeUUID(sessionToken);
-    if (!safeSessionToken) return;
-    const { error } = await supabaseClient.from('campaign_messages').delete().eq('session_token', safeSessionToken);
-    if (error) throw error;
-  },
-
   async deleteMultipleChats(loanIds: string[]) {
     if (loanIds.length === 0) return;
     const safeIds = loanIds.map(id => safeUUID(id)).filter(Boolean) as string[];
@@ -420,25 +413,4 @@ export const supportChatService = {
     }));
   },
 
-  async getTeamMembers(ownerId: string) {
-    const safeOwnerId = safeUUID(ownerId);
-    if (!safeOwnerId) return [];
-
-    const { data, error } = await supabase
-      .from('perfis')
-      .select('id, nome_operador, nome_completo, email, access_level')
-      .or(`id.eq.${safeOwnerId},supervisor_id.eq.${safeOwnerId}`)
-      .order('nome_operador', { ascending: true });
-
-    if (error) return [];
-
-    return (data || []).map((u: any) => ({
-      profileId: u.id,
-      clientName: u.nome_operador || u.nome_completo || 'Membro',
-      role: u.access_level === 1 ? 'Admin' : 'Operador',
-      type: 'TEAM',
-      unreadCount: 0,
-      lastMessage: 'Chat de equipe',
-    }));
-  },
 };

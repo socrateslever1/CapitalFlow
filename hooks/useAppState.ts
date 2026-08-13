@@ -9,7 +9,11 @@ const DEFAULT_HUB: AppTab[] = ['DOSSIER', 'SOURCES', 'LEGAL', 'PROFILE'] as AppT
 const CACHE_KEY = (profileId: string) => `cm_cache_${profileId}`;
 const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
 
-const REMOVED_TABS = new Set(['PERSONAL_FINANCE', 'AGENDA', 'TEAM', 'MASTER', 'ACQUISITION', 'LEADS']);
+const VALID_TABS = new Set<AppTab>([
+  'DASHBOARD', 'DOSSIER', 'CLIENTS', 'LEGAL', 'SOURCES', 'PROFILE', 'SETTINGS',
+  'CONTRACT_DETAILS', 'SIMULATOR', 'FLOW', 'LEGAL_DOCUMENT_EDITOR',
+  'EXTRATO', 'SUPPORT', 'REPORTS',
+]);
 
 type AppCacheSnapshot = {
   ts: number;
@@ -24,7 +28,7 @@ type AppCacheSnapshot = {
 
 const sanitizeTabs = (tabs: any[] | undefined, fallback: AppTab[]) => {
   const source = Array.isArray(tabs) && tabs.length > 0 ? tabs : fallback;
-  return Array.from(new Set(source.filter((tab) => tab && !REMOVED_TABS.has(String(tab))))) as AppTab[];
+  return Array.from(new Set(source.filter((tab) => tab && VALID_TABS.has(String(tab) as AppTab)))) as AppTab[];
 };
 
 const normalizeClients = (clients: any[] | undefined): Client[] =>

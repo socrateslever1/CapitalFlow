@@ -7,7 +7,6 @@ import { buildInternalAIText, processInternalAICommand } from "./internalAI.serv
  */
 export type AIPersona =
   | 'OPERATOR_CRO'
-  | 'TEAM_LEADER'
   | 'CLIENT_MENTOR';
 
 export interface AIResponse {
@@ -22,7 +21,6 @@ export interface AIResponse {
 
 function resolvePersona(context: any): AIPersona {
   if (context?.type === 'PORTAL_CLIENT') return 'CLIENT_MENTOR';
-  if (context?.type === 'TEAM_PAGE') return 'TEAM_LEADER';
   return 'OPERATOR_CRO';
 }
 
@@ -44,8 +42,6 @@ Formato de Resposta Obrigatório:
   switch (persona) {
     case 'CLIENT_MENTOR':
       return `${baseInstruction}\nSua persona: Mentor financeiro para clientes. Foco em educação e encorajamento.`;
-    case 'TEAM_LEADER':
-      return `${baseInstruction}\nSua persona: Líder de equipe. Foco em performance de vendas e gestão de cobrança.`;
     case 'OPERATOR_CRO':
     default:
       return `${baseInstruction}\nSua persona: Chief Risk Officer (CRO). Foco em análise de carteira, score de saúde e mitigação de inadimplência.`;

@@ -8,11 +8,8 @@ import {
   Users,
   LayoutDashboard,
   Wallet,
-  Briefcase,
-  Calendar,
   Calculator,
   ArrowRightLeft,
-  Megaphone,
   User,
   Menu,
   Gavel,
@@ -253,18 +250,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return <ArrowRightLeft size={14} className="text-cyan-400" />;
       case 'CLIENTS':
         return <Users size={14} className="text-indigo-500" />;
-      case 'TEAM':
-        return <Briefcase size={14} className="text-amber-500" />;
       case 'SOURCES':
         return <Wallet size={14} className="text-emerald-500" />;
-      case 'AGENDA':
-        return <Calendar size={14} className="text-purple-500" />;
       case 'SIMULATOR':
         return <Calculator size={14} className="text-blue-400" />;
       case 'FLOW':
         return <ArrowRightLeft size={14} className="text-teal-500" />;
-      case 'ACQUISITION':
-        return <Megaphone size={14} className="text-orange-400" />;
       case 'LEGAL':
         return <Gavel size={14} className="text-yellow-400" />;
       case 'PROFILE':
@@ -284,18 +275,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return 'Extrato';
       case 'CLIENTS':
         return 'Clientes';
-      case 'TEAM':
-        return 'Equipe';
       case 'SOURCES':
         return 'Capital';
-      case 'AGENDA':
-        return 'Agenda';
       case 'SIMULATOR':
         return 'Simulador';
       case 'FLOW':
         return 'Extrato';
-      case 'ACQUISITION':
-        return 'Captação';
       case 'LEGAL':
         return 'Jurídico';
       case 'PROFILE':
@@ -577,9 +562,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             }`}
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            {(navOrder || [])
-              .filter((tab) => tab !== 'PERSONAL_FINANCE' && tab !== 'AGENDA' && tab !== 'TEAM' && tab !== 'LEADS' && tab !== 'ACQUISITION')
-              .map((tab) => {
+            {(navOrder || []).map((tab) => {
                 const isActive = activeTab === tab;
                 return (
                   <button

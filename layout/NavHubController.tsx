@@ -2,7 +2,6 @@
 import React from 'react';
 import { NavHub } from './NavHub';
 import { UserProfile, AppTab } from '../types';
-import { useCampaignNotifications } from '../hooks/useCampaignNotifications';
 
 interface NavHubControllerProps {
   ui: any;
@@ -12,13 +11,7 @@ interface NavHubControllerProps {
 }
 
 export const NavHubController: React.FC<NavHubControllerProps> = ({ ui, setActiveTab, activeUser, hubOrder }) => {
-  const { unreadCampaignCount, clearUnread } = useCampaignNotifications(activeUser);
-
   const handleNavNavigate = (tab: string, modal?: string) => {
-      if (tab === 'ACQUISITION') {
-          clearUnread();
-      }
-
       if (modal) {
           setActiveTab(modal as any);
       } else {
@@ -33,9 +26,8 @@ export const NavHubController: React.FC<NavHubControllerProps> = ({ ui, setActiv
     <NavHub 
         onClose={() => ui.setShowNavHub(false)} 
         onNavigate={handleNavNavigate} 
-        userLevel={activeUser?.accessLevel || 'VIEWER'} 
+        userLevel={activeUser?.accessLevel || 'VIEWER'}
         hubOrder={hubOrder}
-        unreadCampaignCount={unreadCampaignCount}
     />
   );
 };

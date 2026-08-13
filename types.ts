@@ -46,7 +46,7 @@ export interface CapitalSource {
 
 export type SortOption = 'RECENT' | 'NAME' | 'VALUE' | 'STATUS' | 'DUE_DATE_ASC' | 'NAME_ASC' | 'CREATED_DESC' | 'UPDATED_DESC';
 
-export type AppTab = 'DASHBOARD' | 'DOSSIER' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'TEAM' | 'LEADS' | 'ACQUISITION' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'AGENDA' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS';
+export type AppTab = 'DASHBOARD' | 'DOSSIER' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS';
 
 export type LoanBillingModality =
   | 'MONTHLY'
@@ -458,64 +458,6 @@ export interface LegalDocumentRecord {
   status?: 'SIGNED' | 'PENDING';
   status_assinatura?: string;
 }
-
-/* =====================================================
-   CALENDAR
-===================================================== */
-
-/* =====================================================
-   CAMPAIGN & LEADS
-===================================================== */
-
-export interface Campaign {
-  id: string;
-  profile_id: string;
-  name: string;
-  description?: string;
-  public_url?: string;
-  short_code?: string;
-  created_at?: string;
-  is_active?: boolean;
-  status?: 'ACTIVE' | 'INACTIVE';
-  imageUrl?: string;
-  clicks?: number;
-  leads?: number;
-  values: number[];
-  messageTemplate?: string;
-  source?: string; // Assuming 'source' is a string field for campaign origin
-  link?: string;
-  createdAt?: string;
-}
-
-export interface Lead {
-  id: string;
-  profile_id: string;
-  nome: string;
-  whatsapp: string;
-  email?: string;
-  notes?: string;
-  status?: 'NOVO' | 'EM_ATENDIMENTO' | 'CONVERTIDO' | 'REJEITADO';
-  created_at?: string;
-  valor_solicitado: number;
-  origem?: string;
-  utm_source?: string;
-  utm_campaign?: string;
-}
-
-export interface CampaignLead {
-  id: string;
-  campaignId: string;
-  name: string;
-  whatsapp: string;
-  cpf?: string;
-  selectedValue: number;
-  createdAt: string;
-  lgpd?: boolean;
-}
-
-/* =====================================================
-   CALENDAR
-===================================================== */
 
 export type LoanStatusFilter =
   | 'TODOS'

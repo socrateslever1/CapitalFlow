@@ -139,7 +139,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
           onToggleNormalContract(String(nextInst.id), directPaymentTotal);
         }
       }}
-      className={`relative group border rounded-lg p-3 transition-all duration-300 ${
+      className={`relative group overflow-hidden border rounded-lg p-3 transition-colors duration-300 ${
         hasLateInstallments
           ? 'bg-rose-950/10 border-rose-500/20 hover:border-rose-500/40'
           : isPaidOff
@@ -148,7 +148,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
       }`}
     >
       {/* Background Glow Effect */}
-      <div className={`absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-10 rounded-full transition-all duration-500 group-hover:scale-125 ${
+      <div className={`absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-10 rounded-full ${
         hasLateInstallments ? 'bg-rose-500' : isPaidOff ? 'bg-emerald-500' : 'bg-blue-500'
       }`}></div>
 
@@ -160,7 +160,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
             event.stopPropagation();
             onToggleNormalContract(String(nextInst.id), directPaymentTotal);
           }}
-          className={`absolute right-3 top-3 z-20 flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[9px] font-black uppercase transition-colors ${
+          className={`absolute right-3 top-3 z-20 flex h-8 w-24 items-center justify-center gap-1.5 rounded-md border px-2.5 text-[9px] font-black uppercase transition-colors ${
           isPaymentActive
             ? 'border-blue-400 bg-blue-600 text-white'
             : 'border-slate-700 bg-slate-950 text-slate-300'
@@ -172,8 +172,8 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
 
       <div>
       {/* Lado Esquerdo: Info do Contrato */}
-      <div className={`flex-1 min-w-0 space-y-1 relative z-10 ${!isPaidOff && !isInstallmentPlan ? 'pr-28' : ''}`}>
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="relative z-10 min-w-0 flex-1 space-y-1">
+        <div className={`flex items-center gap-2 flex-wrap ${!isPaidOff && !isInstallmentPlan ? 'pr-28' : ''}`}>
           <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">
             {loan.activeAgreement ? 'Renegociação' : translateBillingCycle(loan.billingCycle)}
           </span>
@@ -202,21 +202,18 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
         )}
 
         {!isPaidOff && !isInstallmentPlan && isRenewalPayment && directOptions && (
-          <div className="mt-2 space-y-1.5 rounded-md border border-blue-500/20 bg-blue-500/[0.06] p-2.5">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[9px] font-bold text-slate-400">Você escolheu pagar agora</span>
-              <strong className="shrink-0 text-xs font-black text-white">{formatMoney(directPaymentTotal)}</strong>
+          <div className="mt-2 border-t border-slate-800/80 pt-2">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[8px] font-black uppercase tracking-wider text-blue-400">Pagamento para renovar o contrato</p>
+                <p className="text-[9px] text-slate-400">Valor referente aos encargos deste período</p>
+              </div>
+              <strong className="shrink-0 text-sm font-black text-white">{formatMoney(directPaymentTotal)}</strong>
             </div>
-            <p className="text-[8px] font-black uppercase tracking-wider text-blue-400">Pagamento para renovar o contrato</p>
-            <p className="text-[9px] leading-relaxed text-slate-400">
-              Após a confirmação, o capital de <strong className="text-slate-200">{formatMoney(Number(directOptions.remainingCapital || 0))}</strong> continuará em aberto para o próximo período.
-            </p>
             {directOptions.discountBreakdown && directOptions.discountBreakdown.total > 0.05 && (
-              <div className="border-t border-slate-800/80 pt-1.5 text-[9px] font-bold text-emerald-400">
-                <p>Desconto total: {formatMoney(directOptions.discountBreakdown.total)}</p>
-                {directOptions.discountBreakdown.fine > 0.05 && <p>Multa retirada: {formatMoney(directOptions.discountBreakdown.fine)}</p>}
-                {directOptions.discountBreakdown.dailyInterest > 0.05 && <p>Mora diária retirada: {formatMoney(directOptions.discountBreakdown.dailyInterest)}</p>}
-                {directOptions.discountBreakdown.additional > 0.05 && <p>Desconto adicional: {formatMoney(directOptions.discountBreakdown.additional)}</p>}
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-slate-800/60 pt-2 text-[9px] font-bold">
+                <span className="text-slate-500">Desconto aplicado</span>
+                <span className="shrink-0 text-emerald-400">{formatMoney(directOptions.discountBreakdown.total)}</span>
               </div>
             )}
           </div>
@@ -704,7 +701,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         </div>
       )}
 
-      <div className="w-full max-w-lg bg-slate-900/10 sm:rounded-lg flex h-[100dvh] flex-col sm:h-[92vh] sm:border border-slate-800 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] overflow-hidden relative backdrop-blur-3xl">
+      <div className="relative flex h-[100dvh] w-full min-w-0 max-w-lg flex-col overflow-hidden bg-slate-900/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] backdrop-blur-3xl sm:h-[92vh] sm:rounded-lg sm:border border-slate-800">
         <div className="bg-slate-950/80 backdrop-blur-md border-b border-slate-800/50 p-4 flex items-center justify-between shrink-0 relative z-10">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-sm shadow-xl border-2 border-slate-900 relative">
@@ -732,7 +729,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-3 relative pb-32">
+        <div className="custom-scrollbar relative min-w-0 flex-1 touch-pan-y space-y-3 overflow-x-hidden overflow-y-scroll p-3.5 pb-32 [scrollbar-gutter:stable]">
           {alertTheme && <div className="absolute top-0 right-0 w-full h-80 bg-rose-500/5 blur-[120px] pointer-events-none"></div>}
 
           <div
@@ -763,15 +760,6 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                 </p>
               </div>
               <p className="mt-1 text-[9px] font-bold text-slate-400">Total da dívida hoje</p>
-
-              {paymentSelections.length > 0 && (
-                <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-blue-500/20 bg-blue-500/[0.06] px-2.5 py-2">
-                  <span className="text-[9px] font-bold text-slate-400">Você escolheu pagar agora</span>
-                  <strong className="text-xs font-black text-white">
-                    {formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))}
-                  </strong>
-                </div>
-              )}
 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {globalSummary.lateCount > 0 ? (

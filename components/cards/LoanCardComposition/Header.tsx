@@ -327,11 +327,6 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="truncate text-[8px] font-black uppercase">{amountLabel}</span>
             </div>
           </div>
-          {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
-            <span className="mt-0.5 block truncate text-[7px] font-bold uppercase leading-none text-slate-600">
-              Total original {formatMoney(originalContractTotal, isStealthMode)}
-            </span>
-          )}
         </div>
         
         <div className="flex shrink-0 flex-col items-end justify-end">
@@ -354,6 +349,12 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Cap <b className="text-slate-300">{formatMoney(amountBreakdown.capital, isStealthMode)}</b></span>
               <span className="text-slate-700">•</span>
               <span>Juros <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>
+              {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
+                <>
+                  <span className="text-slate-700">•</span>
+                  <span>Original <b className="text-slate-400">{formatMoney(originalContractTotal, isStealthMode)}</b></span>
+                </>
+              )}
             </div>
           )}
         </div>

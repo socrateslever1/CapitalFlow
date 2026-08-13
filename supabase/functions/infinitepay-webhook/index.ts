@@ -349,7 +349,7 @@ serve(async (req) => {
       const installmentId = String(target.installment_id);
       const { data: installment } = await supabase
         .from("parcelas")
-        .select("id, loan_id, status, principal_remaining, interest_remaining, late_fee_accrued")
+        .select("id, loan_id, status, principal_remaining, interest_remaining, late_fee_accrued,payment_offer_type")
         .eq("id", installmentId)
         .maybeSingle();
       if (!installment?.id || installment.loan_id !== loanId) {
@@ -367,7 +367,10 @@ serve(async (req) => {
       const idempotencyKey = String(target.idempotency_key || charge.id);
       let rpcError: any = null;
       if (target.offer_active === true) {
-        const result = await supabase.rpc("process_installment_payment_offer", {
+        const offerRpc = String(target.offer_type || installment.payment_offer_type || "SETTLEMENT").toUpperCase() === "INTEREST_RENEWAL"
+          ? "process_interest_renewal_payment_offer"
+          : "process_installment_payment_offer";
+        const result = await supabase.rpc(offerRpc, {
           p_idempotency_key: idempotencyKey,
           p_loan_id: loanId,
           p_installment_id: installmentId,

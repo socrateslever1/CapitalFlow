@@ -20,6 +20,7 @@ import { translateBillingCycle } from '../../../utils/translationHelpers';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 import { formatBRDate } from '../../../utils/dateHelpers';
+import { getInstallmentScheduleTotal } from '../../../utils/loanStatus';
 
 interface HeaderProps {
   loan: Loan;
@@ -114,8 +115,15 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(timer);
   }, [effectiveLastBilledAt, checkIsLocked]);
   
-  const displayAmount = currentDebt ?? loan.totalToReceive ?? loan.principal;
-  const amountLabel = 'Total';
+  const scheduleTotal = React.useMemo(
+    () => getInstallmentScheduleTotal(loan.installments),
+    [loan.installments]
+  );
+  const originalContractTotal = loan.billingCycle === 'INSTALLMENT_FIXED' && scheduleTotal > ZERO_BALANCE_THRESHOLD
+    ? scheduleTotal
+    : Math.max(0, Number(loan.totalToReceive ?? loan.principal ?? 0));
+  const displayAmount = Math.max(0, Number(currentDebt ?? loan.totalToReceive ?? loan.principal ?? 0));
+  const amountLabel = 'Saldo atual';
   const clientAvatarUrl = String(loan.clientAvatarUrl || '').trim();
   const amountBreakdown = React.useMemo(() => {
     const balance = computeLoanRemainingBalance(loan);
@@ -257,7 +265,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <CalendarClock size={8} />
                   <span className="truncate text-[7px] font-black uppercase">
                     {activeOfferLabel}{' '}
-                    Condição até {formatBRDate(activePaymentOffer.paymentOfferValidUntil)}
+                    {activePaymentOffer.paymentOfferType === 'INTEREST_RENEWAL' ? 'Renovação' : 'Condição'} até {formatBRDate(activePaymentOffer.paymentOfferValidUntil)}
                   </span>
                 </div>
               )}
@@ -307,25 +315,32 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-2 pt-2 border-t border-slate-800/30">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-950/30 text-[7px] text-slate-500 font-bold uppercase rounded-sm border border-slate-800/50">
-            <Hash size={7} />
-            <span>{loan.id.substring(0, 6)}</span>
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 border-t border-slate-800/30 pt-2">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-0.5 rounded-sm border border-slate-800/50 bg-slate-950/30 px-1.5 py-0.5 text-[7px] font-bold uppercase text-slate-500">
+              <Hash size={7} />
+              <span>{loan.id.substring(0, 6)}</span>
+            </div>
+            <div className="flex min-w-0 items-center gap-1 text-slate-500">
+              <Wallet size={10} className="shrink-0 opacity-50" />
+              <span className="truncate text-[8px] font-black uppercase">{amountLabel}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1 text-slate-500">
-            <Wallet size={10} className="opacity-50" />
-            <span className="text-[8px] font-black uppercase">{amountLabel}</span>
-          </div>
+          {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
+            <span className="mt-0.5 block truncate text-[7px] font-bold uppercase leading-none text-slate-600">
+              Total original {formatMoney(originalContractTotal, isStealthMode)}
+            </span>
+          )}
         </div>
         
-        <div className="min-w-0 flex flex-wrap items-baseline justify-end gap-2">
+        <div className="flex shrink-0 flex-col items-end justify-end">
           {isOverdueByDays && (
-            <span className="text-[8px] sm:text-[9px] font-black text-rose-500/80 uppercase">
+            <span className="mb-0.5 whitespace-nowrap text-[8px] font-black uppercase leading-none text-rose-500/80 sm:text-[9px]">
               {getDueBadgeLabel(daysUntilDue)}
             </span>
           )}
-          <span className={`text-lg sm:text-xl font-black leading-none text-right transition-all ${
+          <span className={`whitespace-nowrap text-lg sm:text-xl font-black leading-none text-right transition-all ${
             (isOverdueByDays || (isLate && !hasActiveAgreement)) 
               ? 'text-rose-500 drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]' 
               : isFullyFinalized 

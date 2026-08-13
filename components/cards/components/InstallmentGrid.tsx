@@ -1,11 +1,13 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, DollarSign, XCircle } from 'lucide-react';
+import { CheckCircle2, DollarSign, WalletCards, XCircle } from 'lucide-react';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
 import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
+import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
+import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 
 type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
@@ -56,6 +58,17 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
         isDailyFree,
         isFixedTerm
     };
+    const paymentSummary = React.useMemo(() => {
+        if (loan.billingCycle !== 'INSTALLMENT_FIXED') return null;
+
+        const totalPaid = getInstallmentsPaidAmount(loan.installments);
+        if (totalPaid <= ZERO_BALANCE_THRESHOLD) return null;
+
+        return {
+            totalPaid,
+            remainingDebt: computeLoanRemainingBalance(loan).totalRemaining
+        };
+    }, [loan]);
 
     return (
         <>
@@ -90,6 +103,26 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                         />
                     );
                 })}
+                {paymentSummary && (
+                    <div className="mt-2 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-400">
+                                    <WalletCards size={14} />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-[8px] font-black uppercase tracking-[0.16em] text-emerald-500/80">Total pago</p>
+                                    <p className="text-sm font-black text-emerald-400">{formatMoney(paymentSummary.totalPaid, isStealthMode)}</p>
+                                </div>
+                            </div>
+                            <div className="shrink-0 border-l border-slate-700/70 pl-3 text-right">
+                                <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-500">Saldo devedor</p>
+                                <p className="text-xs font-black text-slate-200">{formatMoney(paymentSummary.remainingDebt, isStealthMode)}</p>
+                            </div>
+                        </div>
+                        <p className="mt-1.5 text-[8px] font-semibold text-slate-500">Valor pago já abatido do total da dívida.</p>
+                    </div>
+                )}
             </div>
 
             {selectedInst && selectedDebt && (() => {

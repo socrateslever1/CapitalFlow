@@ -411,6 +411,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
                 originalTotal: Number(options.originalTotal || options.totalToPay),
                 validUntil: String(options.offerValidUntil || ''),
                 discountApplied: Number(options.discountApplied || 0),
+                type: options.paymentOfferType,
               } : undefined}
             />
             </>
@@ -495,6 +496,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
           clientData={clientData}
           portalToken={portalToken}
           portalCode={portalCode}
+          amountToPay={selectedTotal}
           onClose={() => setShowAsaasModal(false)}
           onSuccess={() => {
             setShowAsaasModal(false);

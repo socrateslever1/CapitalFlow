@@ -115,6 +115,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
       status: normalizedInstallmentStatus,
       paidDate: safeDateOnlyString(p.paid_date),
       paymentOfferStatus: asString(p.payment_offer_status) as Loan['installments'][number]['paymentOfferStatus'],
+      paymentOfferType: asString(p.payment_offer_type, 'SETTLEMENT') as Loan['installments'][number]['paymentOfferType'],
       paymentOfferAgreedDate: safeDateOnlyString(p.payment_offer_agreed_date),
       paymentOfferValidUntil: safeDateOnlyString(p.payment_offer_valid_until),
       paymentOfferDiscountPercent: asNumber(p.payment_offer_discount_percent),

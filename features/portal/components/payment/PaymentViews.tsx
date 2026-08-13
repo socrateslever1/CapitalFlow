@@ -32,6 +32,7 @@ interface BillingViewProps {
         originalTotal: number;
         validUntil: string;
         discountApplied: number;
+        type?: 'SETTLEMENT' | 'INTEREST_RENEWAL';
     };
 }
 
@@ -64,7 +65,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
         <div className="space-y-6">
             <div className="text-center space-y-1">
                 <p className="text-slate-400 text-xs uppercase font-bold tracking-widest">
-                    {paymentOffer ? 'Condição especial' : 'Valor Total Atualizado'}
+                    {paymentOffer?.type === 'INTEREST_RENEWAL' ? 'Renovação por juros' : paymentOffer ? 'Condição especial' : 'Valor Total Atualizado'}
                 </p>
                 <div className="flex items-center justify-center gap-2">
                     <span className="text-4xl font-black text-white tracking-tight">{formatMoney(totalToPay)}</span>
@@ -77,8 +78,9 @@ export const BillingView: React.FC<BillingViewProps> = ({
                             Válida até {new Date(`${paymentOffer.validUntil.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')}
                         </div>
                         <p className="mt-1 text-[10px] text-slate-400">
-                            De <span className="line-through">{formatMoney(paymentOffer.originalTotal)}</span>
-                            {' '}por <strong className="text-white">{formatMoney(totalToPay)}</strong>
+                            {paymentOffer.type === 'INTEREST_RENEWAL'
+                                ? <>Pague <strong className="text-white">{formatMoney(totalToPay)}</strong> de juros e encargos. O capital será mantido para o próximo mês.</>
+                                : <>De <span className="line-through">{formatMoney(paymentOffer.originalTotal)}</span>{' '}por <strong className="text-white">{formatMoney(totalToPay)}</strong></>}
                         </p>
                         {paymentOffer.discountApplied > 0.05 && (
                             <p className="mt-0.5 text-[9px] font-bold text-emerald-400">

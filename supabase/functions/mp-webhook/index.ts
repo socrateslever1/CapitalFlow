@@ -210,7 +210,7 @@ serve(async (req) => {
 
     const { data: installment, error: installmentErr } = await supabase
       .from("parcelas")
-      .select("id,status,loan_id,principal_remaining,interest_remaining,late_fee_accrued")
+      .select("id,status,loan_id,principal_remaining,interest_remaining,late_fee_accrued,payment_offer_status,payment_offer_type,payment_offer_valid_until,payment_offer_amount")
       .eq("id", instId)
       .maybeSingle();
 
@@ -238,6 +238,21 @@ serve(async (req) => {
       return json({ ok: false, error: "Invalid approved amount" }, 400);
     }
 
+    const paymentDate = new Date().toISOString().split("T")[0];
+    const offerIsActive = String(installment.payment_offer_status || "").toUpperCase() === "ACTIVE"
+      && String(installment.payment_offer_valid_until || "").slice(0, 10) >= paymentDate;
+    const activeOffer = offerIsActive
+      && Math.abs(Number(installment.payment_offer_amount || 0) - approvedAmount) <= 0.05;
+    if (offerIsActive && !activeOffer) {
+      await updateCharge({ status: "PENDING", paid_at: null });
+      return json(
+        {
+          ok: false,
+          error: "Approved amount differs from the active payment condition. Manual reconciliation required.",
+        },
+        409,
+      );
+    }
     const allocation = allocatePaymentAmount(approvedAmount, {
       principal: Number(installment.principal_remaining || 0),
       interest: Number(installment.interest_remaining || 0),
@@ -265,8 +280,23 @@ serve(async (req) => {
     const methodMap: Record<string, string> = { pix: "PIX", bolbancario: "BOLETO" };
     const finalMethod = methodMap[mpMethod] || "CREDIT_CARD";
 
-    const { error: rpcError } = await supabase.rpc("process_payment_v3_selective", {
-      p_idempotency_key: charge?.id || paymentId,
+    const offerRpc = String(installment.payment_offer_type || "SETTLEMENT").toUpperCase() === "INTEREST_RENEWAL"
+      ? "process_interest_renewal_payment_offer"
+      : "process_installment_payment_offer";
+    const { error: rpcError } = activeOffer
+      ? await supabase.rpc(offerRpc, {
+          p_idempotency_key: charge?.id || payment.external_reference,
+          p_loan_id: loanId,
+          p_installment_id: instId,
+          p_profile_id: ownerProfileId,
+          p_operator_id: ownerProfileId,
+          p_amount_paid: approvedAmount,
+          p_payment_date: paymentDate,
+          p_source_id: sourceId,
+          p_caixa_livre_id: caixaLivreId,
+        })
+      : await supabase.rpc("process_payment_v3_selective", {
+      p_idempotency_key: charge?.id || payment.external_reference,
       p_loan_id: loanId,
       p_installment_id: instId,
       p_profile_id: ownerProfileId,
@@ -276,7 +306,7 @@ serve(async (req) => {
       p_late_fee_paid: allocation.lateFeePaid,
       p_late_fee_forgiven: 0,
       p_interest_forgiven: 0,
-      p_payment_date: new Date().toISOString().split("T")[0],
+      p_payment_date: paymentDate,
       p_capitalize_remaining: false,
       p_source_id: sourceId,
       p_caixa_livre_id: caixaLivreId,

@@ -26,6 +26,7 @@ export interface InstallmentDebtDetail {
     originalTotal?: number;
     offerValidUntil?: string;
     discountApplied?: number;
+    paymentOfferType?: 'SETTLEMENT' | 'INTEREST_RENEWAL';
 }
 
 export interface PaymentOptions {
@@ -44,6 +45,7 @@ export interface PaymentOptions {
     originalTotal?: number;
     offerValidUntil?: string;
     discountApplied?: number;
+    paymentOfferType?: 'SETTLEMENT' | 'INTEREST_RENEWAL';
 }
 
 const isActivePaymentOffer = (inst: any) => {
@@ -206,7 +208,8 @@ export const resolveInstallmentDebt = (loan: Loan, inst: any): InstallmentDebtDe
         hasPaymentOffer,
         originalTotal: Number(inst.paymentOfferOriginalAmount || 0) || debt.total,
         offerValidUntil: inst.paymentOfferValidUntil,
-        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0)
+        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0),
+        paymentOfferType: String(inst.paymentOfferType ?? inst.payment_offer_type ?? 'SETTLEMENT').toUpperCase() === 'INTEREST_RENEWAL' ? 'INTEREST_RENEWAL' : 'SETTLEMENT'
     };
 };
 
@@ -263,7 +266,8 @@ export const resolvePaymentOptions = (loan: Loan, inst: any): PaymentOptions => 
         hasPaymentOffer,
         originalTotal: debt.total,
         offerValidUntil: inst.paymentOfferValidUntil,
-        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0)
+        discountApplied: Number(inst.paymentOfferDiscountApplied || 0) + Number(inst.paymentOfferLateFeeForgiven || 0),
+        paymentOfferType: String(inst.paymentOfferType ?? inst.payment_offer_type ?? 'SETTLEMENT').toUpperCase() === 'INTEREST_RENEWAL' ? 'INTEREST_RENEWAL' : 'SETTLEMENT'
     };
 };
 

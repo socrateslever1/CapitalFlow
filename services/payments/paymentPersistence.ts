@@ -12,7 +12,7 @@ export async function revalidateInstallment(instId: string) {
 
   const { data, error } = await supabase
     .from('parcelas')
-    .select('id,status,principal_remaining,interest_remaining,late_fee_accrued,loan_id,paid_total,paid_principal,paid_interest,paid_late_fee,paid_date,due_date,data_vencimento,payment_offer_status,payment_offer_agreed_date,payment_offer_valid_until,payment_offer_amount,payment_offer_discount_applied,payment_offer_waive_late_fee,payment_offer_late_fee_forgiven')
+    .select('id,status,principal_remaining,interest_remaining,late_fee_accrued,loan_id,paid_total,paid_principal,paid_interest,paid_late_fee,paid_date,due_date,data_vencimento,payment_offer_status,payment_offer_type,payment_offer_agreed_date,payment_offer_valid_until,payment_offer_amount,payment_offer_discount_applied,payment_offer_waive_late_fee,payment_offer_late_fee_forgiven')
     .eq('id', safeId)
     .maybeSingle();
 

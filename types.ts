@@ -223,6 +223,7 @@ export interface Installment {
   number?: number;
   logs?: string[];
   paymentOfferStatus?: 'ACTIVE' | 'CANCELLED' | 'USED' | 'EXPIRED';
+  paymentOfferType?: 'SETTLEMENT' | 'INTEREST_RENEWAL';
   paymentOfferAgreedDate?: string;
   paymentOfferValidUntil?: string;
   paymentOfferDiscountPercent?: number;

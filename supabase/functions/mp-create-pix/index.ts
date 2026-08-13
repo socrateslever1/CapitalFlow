@@ -199,7 +199,8 @@ serve(async (req) => {
       payer_name: payer_name || null,
       payer_doc: payer_doc || null,
       qr_code: mpData?.point_of_interaction?.transaction_data?.qr_code,
-      qr_code_base64: mpData?.point_of_interaction?.transaction_data?.qr_code_base64
+      qr_code_base64: mpData?.point_of_interaction?.transaction_data?.qr_code_base64,
+      metadata: { payment_type: payment_type || "PORTAL_PAYMENT" }
     };
 
     await supabaseAdmin.from("payment_charges").insert(chargeRecord);

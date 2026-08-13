@@ -6,6 +6,7 @@ export type AsaasPaymentInput = {
   loan_id: string;
   installment_id: string;
   amount: number;
+  debt_amount?: number;
   payment_method: 'CREDIT_CARD' | 'PIX' | 'BOLETO';
   installmentCount?: number;
   credit_card?: {

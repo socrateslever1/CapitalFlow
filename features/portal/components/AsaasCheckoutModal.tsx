@@ -9,6 +9,7 @@ interface AsaasCheckoutModalProps {
   clientData: any;
   portalToken: string;
   portalCode: string;
+  amountToPay: number;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -19,6 +20,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
   clientData,
   portalToken,
   portalCode,
+  amountToPay,
   onClose,
   onSuccess
 }) => {
@@ -34,9 +36,6 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
     holderCep: '',
     installments: '1'
   });
-
-  const amountToPay = Number(installment?.principal_remaining || installment?.principalRemaining || 0) +
-                    Number(installment?.interest_remaining || installment?.interestRemaining || 0);
 
   // Calcula o valor final cobrando as taxas do Asaas (taxa fixa de R$ 0.49 + 2.99% base + 1.99% por parcela adicional)
   const calculateCardValue = (baseAmount: number, installments: number) => {
@@ -144,6 +143,7 @@ export const AsaasCheckoutModal: React.FC<AsaasCheckoutModalProps> = ({
         loan_id: loan.id,
         installment_id: installment.id,
         amount: amountWithFees,
+        debt_amount: amountToPay,
         payment_method: 'CREDIT_CARD',
         installmentCount: selectedInstallments,
         credit_card: {

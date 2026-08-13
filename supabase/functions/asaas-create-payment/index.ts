@@ -28,7 +28,14 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
-    const { loan_id, installment_id, amount, payment_method, credit_card, payer, portal_token, portal_code, installmentCount } = body;
+    const { loan_id, installment_id, amount, debt_amount, payment_method, credit_card, payer, portal_token, portal_code, installmentCount } = body;
+
+    if (!portal_token || !portal_code) throw new Error("Credenciais do portal ausentes");
+    const { data: portalClientId, error: portalErr } = await supabase.rpc("portal_resolve_client_id", {
+      p_token: String(portal_token),
+      p_shortcode: String(portal_code),
+    });
+    if (portalErr || !portalClientId) throw new Error("Credenciais do portal invalidas");
 
     // 1. Validar Acesso (via Portal Token se for do portal)
     // Para simplificar aqui, vamos buscar o profile_id e o owner_id do contrato
@@ -39,6 +46,17 @@ serve(async (req: Request) => {
       .single();
 
     if (loanErr || !loan) throw new Error("Contrato não encontrado");
+
+    if (String(loan.client_id || "") !== String(portalClientId)) {
+      throw new Error("Contrato nao pertence ao cliente do portal");
+    }
+    const { data: installment } = await supabase
+      .from("parcelas")
+      .select("id")
+      .eq("id", installment_id)
+      .eq("loan_id", loan_id)
+      .maybeSingle();
+    if (!installment?.id) throw new Error("Parcela nao pertence ao contrato");
 
     const targetProfileId = loan.profile_id || loan.owner_id;
 
@@ -142,7 +160,11 @@ serve(async (req: Request) => {
         provider_status: paymentData.status,
         checkout_url: paymentData.invoiceUrl,
         currency: "BRL",
-        external_reference: loan.id + "_" + installment_id
+        external_reference: loan.id + "_" + installment_id,
+        metadata: {
+          debt_amount: Number(debt_amount || amount),
+          payment_type: "PORTAL_PAYMENT"
+        }
     });
 
     if (insertErr) {

@@ -142,6 +142,7 @@ export function mapLoanFromDB(
       renewalCount: asNumber(inst?.renewal_count ?? inst?.renewalCount),
       number: asNumber(inst?.numero_parcela ?? inst?.number ?? inst?.numero ?? inst?.n),
       paymentOfferStatus: asString(inst?.payment_offer_status ?? inst?.paymentOfferStatus) as Installment['paymentOfferStatus'],
+      paymentOfferType: asString(inst?.payment_offer_type ?? inst?.paymentOfferType, 'SETTLEMENT') as Installment['paymentOfferType'],
       paymentOfferAgreedDate: safeDateOnlyString(inst?.payment_offer_agreed_date ?? inst?.paymentOfferAgreedDate),
       paymentOfferValidUntil: safeDateOnlyString(inst?.payment_offer_valid_until ?? inst?.paymentOfferValidUntil),
       paymentOfferDiscountPercent: asNumber(inst?.payment_offer_discount_percent ?? inst?.paymentOfferDiscountPercent),

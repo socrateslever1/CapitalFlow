@@ -88,7 +88,7 @@ export const Body: React.FC<BodyProps> = ({
                         <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                 <span className="text-[10px] font-black uppercase text-amber-300">
-                                    Condição especial ativa
+                                    {activePaymentOffer.paymentOfferType === 'INTEREST_RENEWAL' ? 'Renovação por juros ativa' : 'Condição especial ativa'}
                                 </span>
                                 <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-100/75">
                                     <CalendarClock size={11} />

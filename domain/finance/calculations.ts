@@ -53,16 +53,42 @@ const isPaymentLikeLedgerType = (type: unknown): boolean => {
   return value.includes('PAYMENT') || value === 'ESTORNO';
 };
 
+const isPaidInstallmentStatus = (status: unknown): boolean =>
+  ["PAID", "PAGO", "QUITADO", "QUITADA", "FINALIZADO"].includes(
+    String(status || "").toUpperCase().trim()
+  );
+
 export const getLoanPrincipalReconciliationDelta = (loan: Partial<Loan> | null | undefined): number => {
   if (!loan) return 0;
 
   const contractPrincipal = round(Number(loan.principal || 0));
   if (contractPrincipal <= ZERO_BALANCE_THRESHOLD) return 0;
 
-  const paidPrincipal = (loan.ledger || []).reduce((sum, entry: any) => {
+  const ledgerPaidPrincipal = (loan.ledger || []).reduce((sum, entry: any) => {
     if (!isPaymentLikeLedgerType(entry?.type)) return sum;
     return round(sum + Number(entry?.principalDelta ?? entry?.principal_delta ?? 0));
   }, 0);
+
+  const installmentPaidPrincipal = (loan.installments || []).reduce((sum, inst: any) => {
+    const persistedPrincipal = Math.max(
+      0,
+      Number(inst?.paidPrincipal ?? inst?.paid_principal ?? 0)
+    );
+    if (persistedPrincipal > ZERO_BALANCE_THRESHOLD) {
+      return round(sum + persistedPrincipal);
+    }
+
+    if (!isPaidInstallmentStatus(inst?.status)) return sum;
+    const scheduledPrincipal = Math.max(
+      0,
+      Number(inst?.scheduledPrincipal ?? inst?.scheduled_principal ?? 0)
+    );
+    return round(sum + scheduledPrincipal);
+  }, 0);
+
+  // Extrato e parcelas representam o mesmo recebimento. Usa-se a fonte mais
+  // completa, sem somar as duas e sem abater o pagamento em duplicidade.
+  const paidPrincipal = Math.max(ledgerPaidPrincipal, installmentPaidPrincipal);
 
   const openPrincipalInInstallments = (loan.installments || []).reduce((sum, inst: any) => {
     const status = String(inst?.status || '').toUpperCase();

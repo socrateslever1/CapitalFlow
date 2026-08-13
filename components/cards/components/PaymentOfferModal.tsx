@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Calendar, CalendarClock, Check, Percent, Tag, X } from 'lucide-react';
+import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, X } from 'lucide-react';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import {
@@ -26,6 +26,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
       : Number(installment.paymentOfferDiscountValue || 0) > 0 ? 'VALUE' : 'NONE';
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = React.useState<PaymentOfferInput>({
+    offerType: installment.paymentOfferType === 'INTEREST_RENEWAL' ? 'INTEREST_RENEWAL' : 'SETTLEMENT',
     agreedDate: dateKey(installment.paymentOfferAgreedDate) || today,
     validUntil: dateKey(installment.paymentOfferValidUntil) || today,
     discountMode: currentMode,
@@ -48,6 +49,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     () => calculatePaymentOfferPreview(loan, installment, form),
     [loan, installment, form]
   );
+  const canRenewInterest = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
   const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
@@ -63,6 +65,10 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     }
     if (preview.finalAmount <= 0.05) {
       setError('O valor final precisa ser maior que zero.');
+      return;
+    }
+    if (form.offerType === 'INTEREST_RENEWAL' && !canRenewInterest) {
+      setError('A renovação por juros está disponível somente para contratos mensais ou de giro.');
       return;
     }
     setIsSaving(true);
@@ -126,7 +132,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
             <CalendarClock size={17} className="text-blue-400" />
             <div>
               <h3 className="text-xs font-black uppercase text-white">Condição de pagamento</h3>
-              <p className="text-[9px] text-slate-500">Sem alterar o vencimento do contrato</p>
+              <p className="text-[9px] text-slate-500">Defina o que acontecerá após o pagamento</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-white" aria-label="Fechar">
@@ -135,6 +141,19 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
         </header>
 
         <div className="space-y-3 p-4">
+          <section>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
+                <span className="block text-[10px] font-black text-white">Quitar ou abater</span>
+                <span className="block text-[8px] text-slate-500">Reduz o saldo da parcela</span>
+              </button>
+              <button type="button" disabled={!canRenewInterest} onClick={() => { update('offerType', 'INTEREST_RENEWAL'); update('discountMode', 'NONE'); update('discount', 0); update('waiveFine', false); update('waiveDailyInterest', false); setDiscountInput(''); }} className={`min-h-14 rounded-md border px-3 text-left disabled:cursor-not-allowed disabled:opacity-40 ${form.offerType === 'INTEREST_RENEWAL' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}>
+                <span className="flex items-center gap-1 text-[10px] font-black text-white"><RefreshCcw size={11} /> Renovar com juros</span>
+                <span className="block text-[8px] text-slate-500">Mantém o capital e avança 1 mês</span>
+              </button>
+            </div>
+          </section>
           <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
             <div>
               <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
@@ -142,7 +161,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
             </div>
             <ArrowRight size={16} className="mx-3 text-blue-400" />
             <div className="text-right">
-              <p className="text-[9px] font-black uppercase text-blue-400">Valor oferecido</p>
+              <p className="text-[9px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
               <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
             </div>
             {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
@@ -152,15 +171,21 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
             )}
           </section>
 
-          <section>
+          {form.offerType === 'INTEREST_RENEWAL' && (
+            <p className="rounded-md border border-emerald-500/25 bg-emerald-500/10 p-2.5 text-[9px] font-bold leading-relaxed text-emerald-300">
+              Após a confirmação online, o capital permanecerá em aberto, o vencimento avançará um mês e os juros do novo ciclo serão gerados automaticamente.
+            </p>
+          )}
+
+          {form.offerType === 'SETTLEMENT' && <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
             <div className="grid grid-cols-2 gap-2">
               <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
               <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
             </div>
-          </section>
+          </section>}
 
-          <section>
+          {form.offerType === 'SETTLEMENT' && <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
             <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
               {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
@@ -207,7 +232,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
                 Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
               </p>
             )}
-          </section>
+          </section>}
 
           <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>

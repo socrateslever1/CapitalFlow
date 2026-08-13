@@ -161,7 +161,7 @@ serve(async (req) => {
     // 1. Localizar a cobrança no nosso banco
     const { data: charge } = await supabase
       .from("payment_charges")
-      .select("id, loan_id, installment_id")
+      .select("id, loan_id, installment_id, metadata")
       .eq("provider_payment_id", String(payment.id))
       .maybeSingle();
 
@@ -191,7 +191,7 @@ serve(async (req) => {
     // 2. Verificar se a parcela já está paga
     const { data: installment, error: instErr } = await supabase
       .from("parcelas")
-      .select("id, status, principal_remaining, interest_remaining, late_fee_accrued")
+      .select("id, status, principal_remaining, interest_remaining, late_fee_accrued,payment_offer_status,payment_offer_type,payment_offer_valid_until,payment_offer_amount")
       .eq("id", charge.installment_id)
       .maybeSingle();
 
@@ -206,7 +206,17 @@ serve(async (req) => {
 
     // 3. Alocar valores
     const approvedAmount = Number(payment.value || 0);
-    const allocation = allocatePaymentAmount(approvedAmount, {
+    const debtAmount = Number(charge.metadata?.debt_amount || approvedAmount);
+    const paymentDate = new Date().toISOString().split("T")[0];
+    const offerIsActive = String(installment.payment_offer_status || "").toUpperCase() === "ACTIVE"
+      && String(installment.payment_offer_valid_until || "").slice(0, 10) >= paymentDate;
+    const activeOffer = offerIsActive
+      && Math.abs(Number(installment.payment_offer_amount || 0) - debtAmount) <= 0.05;
+    if (offerIsActive && !activeOffer) {
+      await updateCharge({ status: "PENDING" });
+      return json({ ok: false, error: "Paid debt amount differs from active payment condition" }, 409);
+    }
+    const allocation = allocatePaymentAmount(debtAmount, {
       principal: Number(installment.principal_remaining || 0),
       interest: Number(installment.interest_remaining || 0),
       lateFee: Number(installment.late_fee_accrued || 0),
@@ -232,22 +242,37 @@ serve(async (req) => {
     }
 
     // 6. Baixar parcela via RPC
-    const { error: rpcError } = await supabase.rpc("process_payment_v3_selective", {
-      p_idempotency_key: charge.id,
-      p_loan_id: charge.loan_id,
-      p_installment_id: charge.installment_id,
-      p_profile_id: targetProfileId,
-      p_operator_id: targetProfileId,
-      p_principal_paid: allocation.principalPaid,
-      p_interest_paid: allocation.interestPaid,
-      p_late_fee_paid: allocation.lateFeePaid,
-      p_late_fee_forgiven: 0,
-      p_interest_forgiven: 0,
-      p_payment_date: new Date().toISOString().split("T")[0],
-      p_capitalize_remaining: false,
-      p_source_id: contract?.source_id,
-      p_caixa_livre_id: caixaLivreId,
-    });
+    const offerRpc = String(installment.payment_offer_type || "SETTLEMENT").toUpperCase() === "INTEREST_RENEWAL"
+      ? "process_interest_renewal_payment_offer"
+      : "process_installment_payment_offer";
+    const { error: rpcError } = activeOffer
+      ? await supabase.rpc(offerRpc, {
+          p_idempotency_key: charge.id,
+          p_loan_id: charge.loan_id,
+          p_installment_id: charge.installment_id,
+          p_profile_id: targetProfileId,
+          p_operator_id: targetProfileId,
+          p_amount_paid: debtAmount,
+          p_payment_date: paymentDate,
+          p_source_id: contract?.source_id,
+          p_caixa_livre_id: caixaLivreId,
+        })
+      : await supabase.rpc("process_payment_v3_selective", {
+          p_idempotency_key: charge.id,
+          p_loan_id: charge.loan_id,
+          p_installment_id: charge.installment_id,
+          p_profile_id: targetProfileId,
+          p_operator_id: targetProfileId,
+          p_principal_paid: allocation.principalPaid,
+          p_interest_paid: allocation.interestPaid,
+          p_late_fee_paid: allocation.lateFeePaid,
+          p_late_fee_forgiven: 0,
+          p_interest_forgiven: 0,
+          p_payment_date: paymentDate,
+          p_capitalize_remaining: false,
+          p_source_id: contract?.source_id,
+          p_caixa_livre_id: caixaLivreId,
+        });
 
     if (rpcError && !rpcError.message?.includes("já está paga") && !rpcError.message?.includes("já quitada")) {
       return json({ ok: false, error: rpcError.message }, 500);

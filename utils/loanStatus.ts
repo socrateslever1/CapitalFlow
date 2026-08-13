@@ -52,6 +52,21 @@ export const getInstallmentPaidAmount = (inst: Partial<Installment> | any): numb
     : 0;
 };
 
+export const getInstallmentsPaidAmount = (installments: Array<Partial<Installment> | any> | null | undefined): number =>
+  Math.round((installments || []).reduce(
+    (total, installment) => total + getInstallmentPaidAmount(installment),
+    0
+  ) * 100) / 100;
+
+export const getInstallmentScheduleTotal = (installments: Array<Partial<Installment> | any> | null | undefined): number =>
+  Math.round((installments || []).reduce(
+    (total, installment) => total + Math.max(
+      0,
+      Number(installment?.amount ?? installment?.valor ?? installment?.valor_parcela ?? 0)
+    ),
+    0
+  ) * 100) / 100;
+
 export const isInstallmentOpen = (inst: Partial<Installment> | any): boolean => {
   if (!inst) return false;
   const openAmount = getInstallmentOpenAmount(inst);

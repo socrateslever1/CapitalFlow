@@ -270,6 +270,12 @@ serve(async (req) => {
           });
         }
         const due = Array.isArray(dueData) ? dueData[0] : dueData;
+        const { data: offerRow } = await supabaseAdmin
+          .from("parcelas")
+          .select("payment_offer_type")
+          .eq("id", targetInstallmentId)
+          .eq("loan_id", group.loan_id)
+          .maybeSingle();
         const total = roundMoney(due?.total_due);
         if (!Number.isFinite(total) || total <= 0.05) {
           return json(req, { ok: false, error: "Uma das parcelas ja esta quitada.", code: "INSTALLMENT_PAID" });
@@ -284,6 +290,7 @@ serve(async (req) => {
           late_fee_due: roundMoney(due?.late_fee_due),
           days_late: Math.max(0, Number(due?.days_late || 0)),
           offer_active: due?.offer_active === true,
+          offer_type: String(offerRow?.payment_offer_type || "SETTLEMENT").toUpperCase(),
           gross_due: roundMoney(due?.gross_due ?? total),
           discount_applied: roundMoney(due?.discount_applied),
           late_fee_forgiven: roundMoney(due?.late_fee_forgiven),

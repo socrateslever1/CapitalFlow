@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Installment, Loan } from '../types';
 
 export interface PaymentOfferInput {
+  offerType: 'SETTLEMENT' | 'INTEREST_RENEWAL';
   agreedDate: string;
   validUntil: string;
   discountMode: 'NONE' | 'PERCENT' | 'VALUE';
@@ -21,7 +22,7 @@ export const isPaymentOfferActive = (installment: Installment | any, referenceDa
 export const paymentOffersService = {
   async save(loan: Loan, installment: Installment, input: PaymentOfferInput) {
     const discount = Number(input.discount || 0);
-    const { data, error } = await supabase.rpc('set_installment_payment_offer_v2', {
+    const { data, error } = await supabase.rpc('set_installment_payment_offer_v3', {
       p_loan_id: loan.id,
       p_installment_id: installment.id,
       p_agreed_date: input.agreedDate,
@@ -31,6 +32,7 @@ export const paymentOffersService = {
       p_waive_fine: input.waiveFine,
       p_waive_daily_interest: input.waiveDailyInterest,
       p_note: input.note?.trim() || null,
+      p_offer_type: input.offerType,
     });
 
     if (error) throw new Error(error.message || 'Falha ao salvar condição especial.');
@@ -54,7 +56,7 @@ const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100)
 export const calculatePaymentOfferPreview = (
   loan: Loan,
   installment: Installment,
-  input: Pick<PaymentOfferInput, 'discountMode' | 'discount' | 'waiveFine' | 'waiveDailyInterest'>
+  input: Pick<PaymentOfferInput, 'offerType' | 'discountMode' | 'discount' | 'waiveFine' | 'waiveDailyInterest'>
 ) => {
   const base = roundMoney(
     Math.max(0, Number(installment.principalRemaining || 0))
@@ -77,6 +79,10 @@ export const calculatePaymentOfferPreview = (
   const fineForgiven = input.waiveFine ? fine : 0;
   const dailyInterestForgiven = input.waiveDailyInterest ? dailyInterest : 0;
   const subtotal = roundMoney(base + lateCharges - fineForgiven - dailyInterestForgiven);
+  const renewalSubtotal = roundMoney(
+    Math.max(0, Number(installment.interestRemaining || 0))
+    + lateCharges - fineForgiven - dailyInterestForgiven
+  );
   const requestedDiscount = input.discountMode === 'PERCENT'
     ? subtotal * (Math.max(0, Number(input.discount || 0)) / 100)
     : input.discountMode === 'VALUE' ? Math.max(0, Number(input.discount || 0)) : 0;
@@ -89,6 +95,8 @@ export const calculatePaymentOfferPreview = (
     originalAmount: roundMoney(base + lateCharges),
     chargesForgiven: roundMoney(fineForgiven + dailyInterestForgiven),
     discountApplied,
-    finalAmount: roundMoney(Math.max(0, subtotal - discountApplied)),
+    finalAmount: input.offerType === 'INTEREST_RENEWAL'
+      ? renewalSubtotal
+      : roundMoney(Math.max(0, subtotal - discountApplied)),
   };
 };

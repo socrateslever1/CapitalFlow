@@ -146,6 +146,7 @@ export const paymentsService = {
     const offerStatus = String(instDb?.payment_offer_status || '').toUpperCase();
     const offerValidUntil = String(instDb?.payment_offer_valid_until || '').slice(0, 10);
     const offerAmount = roundMoney(Number(instDb?.payment_offer_amount || 0));
+    const offerType = String(instDb?.payment_offer_type || 'SETTLEMENT').toUpperCase();
     const hasValidPaymentOffer =
       offerStatus === 'ACTIVE'
       && offerValidUntil >= paymentDateStr
@@ -164,7 +165,10 @@ export const paymentsService = {
         offerCaixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
       }
 
-      const { data: offerResult, error: offerError } = await supabase.rpc('process_installment_payment_offer', {
+      const offerRpc = offerType === 'INTEREST_RENEWAL'
+        ? 'process_interest_renewal_payment_offer'
+        : 'process_installment_payment_offer';
+      const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, {
         p_idempotency_key: idempotencyKey,
         p_loan_id: loanId,
         p_installment_id: instId,

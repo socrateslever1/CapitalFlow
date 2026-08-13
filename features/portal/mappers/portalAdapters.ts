@@ -49,6 +49,15 @@ export const normalizeInstallmentForCalc = (inst: any): Installment => {
     lateFeeAccrued: Number(inst.late_fee_accrued ?? inst.lateFeeAccrued ?? 0),
     paidTotal: Number(inst.paid_total ?? inst.paidTotal ?? 0),
 
+    paymentOfferStatus: inst.payment_offer_status ?? inst.paymentOfferStatus,
+    paymentOfferType: inst.payment_offer_type ?? inst.paymentOfferType ?? 'SETTLEMENT',
+    paymentOfferAgreedDate: inst.payment_offer_agreed_date ?? inst.paymentOfferAgreedDate,
+    paymentOfferValidUntil: inst.payment_offer_valid_until ?? inst.paymentOfferValidUntil,
+    paymentOfferAmount: Number(inst.payment_offer_amount ?? inst.paymentOfferAmount ?? 0),
+    paymentOfferOriginalAmount: Number(inst.payment_offer_original_amount ?? inst.paymentOfferOriginalAmount ?? 0),
+    paymentOfferDiscountApplied: Number(inst.payment_offer_discount_applied ?? inst.paymentOfferDiscountApplied ?? 0),
+    paymentOfferLateFeeForgiven: Number(inst.payment_offer_late_fee_forgiven ?? inst.paymentOfferLateFeeForgiven ?? 0),
+
     status: inst.status
   } as Installment;
 };

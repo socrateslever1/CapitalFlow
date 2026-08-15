@@ -135,6 +135,7 @@ Deno.serve(async (req) => {
       const lookupProfileId = clean(value('profile_id'), 50);
       const lookupDocument = digits(value('document'));
       const lookupPhone = digits(value('phone'));
+      const reuseRegistrationLink = value('reuse_registration_link') === 'true' || body.reuse_registration_link === true;
       let { data: client } = await admin
         .from('clientes')
         .select('id,owner_id,name')
@@ -179,7 +180,7 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      if (existingContract) {
+      if (existingContract && !reuseRegistrationLink) {
         let pToken = existingContract.portal_token;
         let pCode = existingContract.portal_shortcode;
 
@@ -233,25 +234,6 @@ Deno.serve(async (req) => {
 
           existingLink = updatedLink;
         }
-      }
-
-      if (!existingLink) {
-        const publicToken = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
-        const tokenHash = await digest(publicToken);
-
-        const { data: newLink } = await admin
-          .from('client_registration_links')
-          .insert({
-            profile_id: client.owner_id,
-            client_id: client.id,
-            public_token: publicToken,
-            token_hash: tokenHash,
-            active: true
-          })
-          .select('id,public_token')
-          .single();
-
-        existingLink = newLink;
       }
 
       if (!existingLink) return reply({ error: 'Este cliente ainda nao possui link de acesso vinculado.' }, 409);
@@ -393,19 +375,12 @@ Deno.serve(async (req) => {
         }
 
         if (registrationApproved) {
-          const pToken = contract?.portal_token || link.public_token || crypto.randomUUID();
-          const pCode = contract?.portal_shortcode || link.id.slice(0, 6) || '123456';
-          const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(pToken)}&portal_code=${encodeURIComponent(pCode)}`;
+          if (contract?.portal_token && contract?.portal_shortcode) {
+            const portalUrl = `${appOrigin}/?portal=${encodeURIComponent(contract.portal_token)}&portal_code=${encodeURIComponent(contract.portal_shortcode)}`;
+            return reply({ valid: true, state: 'PORTAL', client: clientDetails, documents: publicDocuments, portalToken: contract.portal_token, portalCode: contract.portal_shortcode, portalUrl });
+          }
 
-          return reply({
-            valid: true,
-            state: 'APPROVED',
-            client: clientDetails,
-            documents: publicDocuments,
-            portalToken: pToken,
-            portalCode: pCode,
-            portalUrl
-          });
+          return reply({ valid: true, state: 'DOCUMENTS', client: clientDetails, documents: publicDocuments });
         }
         return reply({ valid: true, state: 'SUBMITTED' });
       }

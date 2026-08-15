@@ -128,39 +128,21 @@ export const clientRegistrationService = {
   },
 
   async createClientAccessLink(clientId: string, lookup?: { profileId?: string; document?: string; phone?: string }) {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
-
-    const { data: portalData, error: portalError } = await supabase.rpc('ensure_client_portal_access', {
-      p_client_id: clientId,
-    });
-
-    if (!portalError && portalData?.token && portalData?.code && portalData?.clientId) {
-      const token = String(portalData.token);
-      const code = String(portalData.code);
-      return {
-        token,
-        code,
-        url: `${origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`,
-        linkId: portalData.linkId ? String(portalData.linkId) : '',
-        clientId: String(portalData.clientId),
-        state: 'PORTAL' as const,
-      };
-    }
-
     const data = await request({
       action: 'create_client_link',
       client_id: clientId,
       profile_id: lookup?.profileId,
       document: lookup?.document,
       phone: lookup?.phone,
+      reuse_registration_link: true,
     }, true) as any;
 
-    if (!data?.url || !data?.clientId) {
-      throw new Error(portalError?.message || 'Nao foi possivel gerar o acesso do cliente.');
+    if (!data?.clientId || !data?.linkId) {
+      throw new Error('Este cliente ainda nao possui o link unico de cadastro vinculado.');
     }
 
-    const rawUrl = String(data.url);
-    const normalizedUrl = normalizeOriginUrl(rawUrl) || rawUrl;
+    const rawUrl = data.url ? String(data.url) : '';
+    const normalizedUrl = rawUrl ? (normalizeOriginUrl(rawUrl) || rawUrl) : '';
     return {
       token: String(data.token || ''),
       code: data.code ? String(data.code) : undefined,

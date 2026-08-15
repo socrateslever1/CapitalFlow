@@ -290,23 +290,19 @@ Deno.serve(async (req) => {
       }
 
       if (!clients?.length) {
-        let reply = "Olá! Como posso ajudar?\n\n1️⃣ 🤝 Quero ser Cliente (Empréstimo)\n2️⃣ 🙋 Falar com Atendente";
         if (suppliedDigits === "1") {
           await supabase.from("n8n_loan_leads").insert({ profile_id: organizationId, client_id: null, phone_hash: phoneHash, full_name: null });
           await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Novo interesse em empréstimo", mensagem: "Novo interessado solicitou contato pelo WhatsApp.", item_type: "WHATSAPP_LEAD" });
-          reply = "Ótimo! Um de nossos atendentes entrará em contato em breve para conversar sobre o empréstimo.";
         } else if (suppliedDigits === "2") {
           await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: null, phone_hash: phoneHash, reason: "Contato não identificado pediu para falar com atendente." });
           await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Atendimento humano solicitado", mensagem: "Contato não identificado pediu para falar com atendente.", item_type: "WHATSAPP_HANDOFF" });
-          reply = "Certo! Transferindo você para um atendente humano. Aguarde um instante.";
-        } else if (normalizedMessage && !/^\s*$/.test(normalizedMessage)) {
-          reply = "Desculpe, não entendi. Por favor, digite o NÚMERO da opção desejada:\n\n1️⃣ 🤝 Quero ser Cliente (Empréstimo)\n2️⃣ 🙋 Falar com Atendente";
         }
+        await supabase.from("n8n_message_events").update({ status: "IGNORED" })
+          .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
         return json({
-          handled: true,
-          reply,
+          handled: false,
           status: "not_identified",
-          audience: "public",
+          audience: "internal_only",
           operator_contact: operatorContact,
         });
       }

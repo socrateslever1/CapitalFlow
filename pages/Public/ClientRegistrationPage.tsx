@@ -141,10 +141,41 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
   // =========================================================================
   // 2. CADASTRO APROVADO (PORTAL DO CLIENTE DEFINITIVO)
   // =========================================================================
-  if (linkState.state === 'APPROVED' || linkState.state === 'PORTAL') {
-    const pToken = linkState.portalToken || token;
-    const pCode = linkState.portalCode || token.slice(0, 6);
-    return <ClientPortalView initialPortalToken={pToken} initialPortalCode={pCode} />;
+  if (linkState.state === 'PORTAL') {
+    return <ClientPortalView initialPortalToken={linkState.portalToken || ''} initialPortalCode={linkState.portalCode || ''} />;
+  }
+
+  if (linkState.state === 'APPROVED' || linkState.state === 'DOCUMENTS') {
+    return (
+      <main className="min-h-screen bg-slate-950 p-5 text-slate-100">
+        <div className="mx-auto max-w-3xl space-y-5 pt-10">
+          <section className="rounded-2xl border border-emerald-500/30 bg-slate-900 p-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Cadastro aprovado</p>
+            <h1 className="mt-2 text-2xl font-black">Parabéns, seu cadastro foi aceito.</h1>
+            <p className="mt-2 text-sm text-slate-400">Esta é a sua área definitiva de documentos. O mesmo link continuará sendo seu acesso.</p>
+          </section>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-black uppercase tracking-widest text-white">Documentos do cliente</h2>
+              <FileText size={18} className="text-indigo-300" />
+            </div>
+            {linkState.documents?.length ? (
+              <div className="mt-4 space-y-3">
+                {linkState.documents.map((document) => (
+                  <div key={document.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div><p className="text-sm font-bold text-white">{document.tipo}</p><p className="text-xs text-slate-500">Status: {document.status_assinatura}</p></div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => window.open(document.view_url, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200"><Eye size={14}/> Ler</button>
+                      <button type="button" onClick={() => window.open(document.sign_url, '_blank', 'noopener,noreferrer')} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><FileSignature size={14}/> Assinar</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="mt-4 text-sm text-slate-500">Ainda não há documentos disponíveis. Esta área será atualizada automaticamente.</p>}
+          </section>
+        </div>
+      </main>
+    );
   }
 
   // =========================================================================

@@ -2,9 +2,9 @@
 
 ## Arquitetura
 
-WAHA recebe mensagens do WhatsApp e entrega eventos ao webhook interno do n8n. O workflow normaliza e filtra a entrada, consulta a Edge Function `capitalflow-n8n-tools`, descarta duplicidades, tenta primeiro a camada local/grátis via `CAPITALFLOW_LOCAL_AI_URL` quando disponível, cai para Gemini/Groq se a camada local falhar e só então usa o bot convencional, valida a saída e envia pelo WAHA.
+WAHA recebe mensagens do WhatsApp e entrega eventos ao webhook interno do n8n. O workflow normaliza e filtra a entrada, consulta a Edge Function `capitalflow-n8n-tools`, descarta duplicidades e só responde quando o contato já existe no sistema e está identificado com segurança. Não há camada de IA nessa trilha.
 
-Uma saudação simples recebe uma resposta natural, sem menu. Empréstimo só é tratado quando a própria pessoa manifesta interesse. Informações financeiras só são respondidas após identificação segura e sempre a partir do contexto retornado pelo backend.
+Uma saudação simples não gera menu para desconhecidos. Empréstimo só é tratado quando a própria pessoa manifesta interesse e passa pela identificação do backend. Informações financeiras só são respondidas após identificação segura e sempre a partir do contexto retornado pelo backend.
 
 Todas as consultas são limitadas pelo `profile_id` associado à sessão WAHA. A sessão `default` está associada ao perfil principal CapitalFlow `62dcbb45-f02c-42ba-84a4-916af9854dea`.
 
@@ -16,7 +16,7 @@ Todas as consultas são limitadas pelo `profile_id` associado à sessão WAHA. A
 - Links de checkout são encurtados pela função privada `capitalflow-short-link`, expiram em 24 horas e aceitam somente destinos InfinitePay autorizados.
 - Discordância de valor e solicitação de empréstimo são encaminhadas ao contato do operador; o robô nunca oferece empréstimo.
 - UUIDs e demais identificadores internos são removidos do contexto e bloqueados na saída.
-- Pessoas ainda não cadastradas podem conversar e receber explicações gerais sem informar CPF.
+- Pessoas ainda não cadastradas não recebem menu automático do robô.
 - Quem deseja se tornar cliente é encaminhado ao operador, sem coleta de documentos ou promessa de aprovação pelo robô.
 - O atendimento automatizado não toma decisões de crédito, não dá parecer jurídico e bloqueia linguagem abusiva, cobrança a terceiros, promessa de aprovação e pedido antecipado para liberar empréstimo.
 
@@ -26,13 +26,11 @@ Todas as consultas são limitadas pelo `profile_id` associado à sessão WAHA. A
 - `n8nwahalocal-waha-1`: WAHA, porta 3000, volumes de sessão e mídia.
 - `n8nwahalocal-redis-1`: memória conversacional.
 - `n8nwahalocal-postgres-1`: PostgreSQL local do compose. O n8n atual usa SQLite no próprio volume.
-- Opcionalmente, um container `koboldcpp` ou outro servidor OpenAI-compatible local pode responder em `CAPITALFLOW_LOCAL_AI_URL` e virar a primeira saída de IA.
-
 O compose operacional está em `C:\Users\LeverDell\Downloads\N8N WAHA Local\docker-compose.yml`. O segredo n8n/backend está em `.env.n8n`, fora do repositório.
 
 ## Workflows
 
-- `CapitalFlow - Atendimento WhatsApp`: ativo.
+- `CapitalFlow - Atendimento WhatsApp`: fluxo determinístico de atendimento ao cliente identificado.
 - `CapitalFlow - Regua de Cobranca`: agendador ativo entre 08h e 18h; somente prepara envios no horário escolhido e quando o operador habilita a política no portal.
 
 ## Segurança
@@ -40,8 +38,8 @@ O compose operacional está em `C:\Users\LeverDell\Downloads\N8N WAHA Local\dock
 - Grupos, mensagens próprias, eventos incompatíveis e remetentes inválidos são descartados.
 - `message_id` é obrigatório e deduplicado no banco.
 - A organização vem do mapa protegido de sessões, nunca do texto do usuário.
-- Contratos, parcelas, atrasos, links existentes de pagamento e link do portal são obtidos no backend antes da resposta da IA.
-- O `Output Guard` bloqueia termos internos e substitui saídas inseguras por uma resposta neutra.
+- Contratos, parcelas, atrasos, links existentes de pagamento e link do portal são obtidos no backend antes da resposta ao cliente.
+- O backend bloqueia contatos não identificados e evita menus públicos para números fora da base.
 - O backend usa segredo de 256 bits armazenado fora do Git e hash SHA-256 no banco.
 - CPF completo, tokens e credenciais não são retornados ao modelo.
 - Tabelas da automação têm RLS habilitada e acesso removido de `anon` e `authenticated`.
@@ -69,8 +67,6 @@ O backup inicial está em `C:\Users\LeverDell\Downloads\N8N WAHA Local\backups\2
 ## Atualização
 
 Não use `latest` nem remova volumes. Exporte workflow e credenciais, fixe versões, consulte breaking changes, atualize somente o n8n e valide logs, webhook e credenciais antes de atualizar WAHA ou Redis.
-
-Se a camada local for habilitada, mantenha `CAPITALFLOW_LOCAL_AI_URL` e `CAPITALFLOW_LOCAL_AI_MODEL` no mesmo `.env` do compose para que o n8n possa chamá-la sem depender das chaves pagas. A implementação oficial deste projeto está em `automation/local-ai`: KoboldCpp + Qwen3 4B Q4_K_M, conectado à rede `n8nwahalocal_default` com o alias interno `koboldcpp`.
 
 ## Régua híbrida de cobrança
 

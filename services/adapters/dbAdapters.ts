@@ -3,6 +3,12 @@ import { Loan, LoanStatus, Agreement, AgreementStatus, PaymentMethod, LoanBillin
 import { maskPhone } from '../../utils/formatters';
 import { asArray, asNumber, asString, safeDateOnlyString, safeDateString } from '../../utils/safe';
 
+const firstPositiveNumber = (...values: any[]): number => {
+  const numbers = values.map(value => asNumber(value)).filter(value => Number.isFinite(value));
+  const positive = numbers.find(value => value > 0);
+  return positive ?? numbers[0] ?? 0;
+};
+
 /* =====================================================
    ADAPTER JURÍDICO (BANCO -> FRONTEND)
 ===================================================== */
@@ -48,7 +54,7 @@ export const agreementAdapter = (raw: any): Agreement => {
     type: (raw.tipo || 'PARCELADO_COM_JUROS') as any,
     totalDebtAtNegotiation: asNumber(raw.total_base),
     negotiatedTotal: asNumber(raw.total_negociado),
-    interestRate: asNumber(raw.juros_mensal_percent),
+    interestRate: firstPositiveNumber(raw.interest_rate, raw.juros_mensal_percent, raw.juros_aplicado, raw.interestRate),
     installmentsCount: asNumber(raw.num_parcelas) || installments.length,
     frequency: normalizedFrequency,
     startDate: safeDateOnlyString(raw.created_at),
@@ -220,9 +226,9 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     pixKey: l.pix_key,
 
     principal: asNumber(l.principal),
-    interestRate: asNumber(l.interest_rate),
-    finePercent: asNumber(l.fine_percent),
-    dailyInterestPercent: asNumber(l.daily_interest_percent),
+    interestRate: firstPositiveNumber(l.interest_rate, l.juros_mensal_percent, l.juros_aplicado, l.policies_snapshot?.interestRate, l.interestRate),
+    finePercent: firstPositiveNumber(l.fine_percent, l.multa_percent, l.policies_snapshot?.finePercent, l.finePercent),
+    dailyInterestPercent: firstPositiveNumber(l.daily_interest_percent, l.mora_diaria_percent, l.policies_snapshot?.dailyInterestPercent, l.dailyInterestPercent),
 
     fundingTotalPayable: asNumber(l.funding_total_payable),
     fundingCost: asNumber(l.funding_cost),

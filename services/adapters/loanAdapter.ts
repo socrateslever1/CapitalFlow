@@ -3,6 +3,12 @@
 import { Agreement, AgreementInstallment, Installment, Loan, LoanStatus } from '../../types';
 import { asArray, asNumber, asString, safeDateOnlyString, safeDateString } from '../../utils/safe';
 
+const firstPositiveNumber = (...values: any[]): number => {
+  const numbers = values.map(value => asNumber(value)).filter(value => Number.isFinite(value));
+  const positive = numbers.find(value => value > 0);
+  return positive ?? numbers[0] ?? 0;
+};
+
 /**
  * Normaliza o status do Contrato (Loan) para o enum do frontend.
  */
@@ -94,7 +100,7 @@ export function agreementAdapter(rawAgreement: any, rawInstallments?: any[]): Ag
     installmentsCount: asNumber(a?.num_parcelas ?? a?.installmentsCount ?? installments.length),
     frequency: normalizeAgreementFrequency(a?.periodicidade ?? a?.frequency) as any,
     startDate: safeDateString(a?.created_at ?? a?.startDate ?? new Date().toISOString()),
-    interestRate: asNumber(a?.juros_aplicado ?? a?.interestRate ?? 0),
+    interestRate: firstPositiveNumber(a?.interest_rate, a?.juros_mensal_percent, a?.juros_aplicado, a?.interestRate),
     calculationMode: asString(a?.calculation_mode ?? a?.calculationMode) as any,
     interestApplicationMode: asString(a?.interest_application_mode ?? a?.interestApplicationMode) as any,
     interestBaseMode: asString(a?.interest_base_mode ?? a?.interestBaseMode) as any,
@@ -212,9 +218,9 @@ export function mapLoanFromDB(
     customerInstallmentValue: asNumber(l?.customer_installment_value ?? l?.customerInstallmentValue),
     customerTotalPayable: asNumber(l?.customer_total_payable ?? l?.customerTotalPayable),
 
-    interestRate: asNumber(l?.interest_rate ?? l?.interestRate),
-    finePercent: asNumber(l?.fine_percent ?? l?.finePercent),
-    dailyInterestPercent: asNumber(l?.daily_interest_percent ?? l?.dailyInterestPercent),
+    interestRate: firstPositiveNumber(l?.interest_rate, l?.juros_mensal_percent, l?.juros_aplicado, l?.policies_snapshot?.interestRate, l?.policiesSnapshot?.interestRate, l?.interestRate),
+    finePercent: firstPositiveNumber(l?.fine_percent, l?.multa_percent, l?.policies_snapshot?.finePercent, l?.policiesSnapshot?.finePercent, l?.finePercent),
+    dailyInterestPercent: firstPositiveNumber(l?.daily_interest_percent, l?.mora_diaria_percent, l?.policies_snapshot?.dailyInterestPercent, l?.policiesSnapshot?.dailyInterestPercent, l?.dailyInterestPercent),
 
     policiesSnapshot: l?.policies_snapshot ?? l?.policiesSnapshot,
 

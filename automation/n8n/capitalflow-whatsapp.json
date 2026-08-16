@@ -253,9 +253,18 @@
                   "type": "string",
                   "operation": "endsWith"
                 }
+              },
+              {
+                "id": "cond-e-status",
+                "leftValue": "={{ $json.remetente }}",
+                "rightValue": "status@broadcast",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
               }
             ],
-            "combinator": "and"
+            "combinator": "or"
           },
           "options": {}
         },

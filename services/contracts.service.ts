@@ -154,6 +154,9 @@ export const contractsService = {
 
     const loanId = editingLoan ? loan.id : ensureUUID(loan.id);
     const principal = safeFloat(loan.principal);
+    const interestRate = safeFloat(loan.interestRate);
+    const finePercent = safeFloat(loan.finePercent);
+    const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
     const selectedSource = _sources.find((source) => source.id === loan.sourceId);
     const isTestWalletLoan = isTestSource(selectedSource);
 
@@ -176,9 +179,13 @@ export const contractsService = {
       pix_key: loan.pixKey,
 
       principal,
-      interest_rate: safeFloat(loan.interestRate),
-      fine_percent: safeFloat(loan.finePercent),
-      daily_interest_percent: safeFloat(loan.dailyInterestPercent),
+      interest_rate: interestRate,
+      juros_mensal_percent: interestRate,
+      juros_aplicado: interestRate,
+      fine_percent: finePercent,
+      multa_percent: finePercent,
+      daily_interest_percent: dailyInterestPercent,
+      mora_diaria_percent: dailyInterestPercent,
 
       billing_cycle: loan.billingCycle,
       amortization_type: loan.amortizationType,

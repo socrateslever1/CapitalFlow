@@ -63,6 +63,10 @@ function isAutomatedServiceMessage(value: unknown) {
     /protocolo de atendimento:\s*\d{8,}/,
     /ocorreu um erro inesperado.*tente novamente mais tarde/,
     /um erro inesperado me impediu de te ajudar/,
+    /como posso ajudar[\s\S]*ver meu contrato/,
+    /solicitacao foi enviada ao atendimento humano/,
+    /atendente ocupado.*em breve responderemos/,
+    /digite apenas o numero da opcao desejada/,
   ].some((pattern) => pattern.test(message));
 }
 
@@ -112,6 +116,30 @@ Deno.serve(async (req) => {
     if (phone.length < 10) return json({ error: "invalid_phone" }, 400);
     const phoneHash = await sha256(phone);
 
+    if (action === "operator_reply") {
+      const operatorMessage = String(body.message ?? "").trim().slice(0, 1000);
+      if (!operatorMessage || isAutomatedServiceMessage(operatorMessage)) {
+        return json({ status: "ignored_automation", handled: false });
+      }
+      const activeHandoffs = await supabase.from("n8n_handoffs").select("id")
+        .eq("profile_id", organizationId).eq("phone_hash", phoneHash)
+        .in("status", ["OPEN", "IN_PROGRESS"]);
+      if (activeHandoffs.error) throw activeHandoffs.error;
+      const handoffIds = (activeHandoffs.data ?? []).map((item) => item.id);
+      if (!handoffIds.length) return json({ status: "no_active_handoff", handled: false });
+      const closedAt = new Date().toISOString();
+      const closeResult = await supabase.from("n8n_handoffs")
+        .update({ status: "CLOSED", closed_at: closedAt })
+        .in("id", handoffIds);
+      if (closeResult.error) throw closeResult.error;
+      const cancelResult = await supabase.from("whatsapp_queue")
+        .update({ status: "ERROR", error_message: "Lembrete cancelado: atendente respondeu." })
+        .in("dedupe_key", handoffIds.map((id) => `handoff-reminder:${id}`))
+        .in("status", ["PENDING", "PROCESSING"]);
+      if (cancelResult.error) throw cancelResult.error;
+      return json({ status: "human_handoff_closed", handled: true, closed_at: closedAt });
+    }
+
     if (action === "context") {
       const messageId = String(body.message_id ?? "");
       if (!messageId) return json({ error: "missing_message_id" }, 400);
@@ -155,6 +183,8 @@ Deno.serve(async (req) => {
           .test(plainMessage) && !hasExplicitIdentity);
       const saysGoodbye = /^(encerrar|encerrar conversa|finalizar|finalizar conversa|sair)$/i
         .test(plainMessage);
+      const resumesRobot = /^(voltar ao robo|retomar robo|retomar atendimento automatico|menu automatico|encerrar atendimento humano)$/i
+        .test(plainMessage);
       const wantsIdentityChange = /\b(trocar|mudar|alterar|outro|outra|reiniciar|recomeçar|começar de novo|esquecer)\b.*\b(cliente|usuário|cadastro|cpf|conversa|atendimento|dados?)\b|\b(esse não sou eu|essa pessoa não sou eu|pessoa errada)\b/i
         .test(normalizedMessage);
       const endsConversation = /^(encerrar|encerrar conversa|finalizar conversa|sair|trocar usuário|trocar cliente|esquecer cliente|reiniciar atendimento|começar de novo)$/i
@@ -176,6 +206,43 @@ Deno.serve(async (req) => {
             .eq("profile_id", organizationId).eq("message_id", messageId);
           return json({ status: "ignored_automation" });
         }
+      }
+      const handoffCutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      const activeHandoffResult = await supabase.from("n8n_handoffs")
+        .select("id,created_at")
+        .eq("profile_id", organizationId)
+        .eq("phone_hash", phoneHash)
+        .in("status", ["OPEN", "IN_PROGRESS"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (activeHandoffResult.error) throw activeHandoffResult.error;
+      const activeHandoff = activeHandoffResult.data;
+      if (activeHandoff && activeHandoff.created_at < handoffCutoff) {
+        const { error: staleHandoffError } = await supabase.from("n8n_handoffs")
+          .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+          .eq("id", activeHandoff.id);
+        if (staleHandoffError) throw staleHandoffError;
+        await supabase.from("whatsapp_queue")
+          .update({ status: "ERROR", error_message: "Lembrete cancelado: atendimento expirado." })
+          .eq("dedupe_key", `handoff-reminder:${activeHandoff.id}`).eq("status", "PENDING");
+      } else if (activeHandoff && resumesRobot) {
+        const { error: resumeError } = await supabase.from("n8n_handoffs")
+          .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+          .eq("id", activeHandoff.id);
+        if (resumeError) throw resumeError;
+        await supabase.from("whatsapp_queue")
+          .update({ status: "ERROR", error_message: "Lembrete cancelado: cliente retomou o robô." })
+          .eq("dedupe_key", `handoff-reminder:${activeHandoff.id}`).eq("status", "PENDING");
+      } else if (activeHandoff) {
+        await supabase.from("n8n_message_events").update({ status: "IGNORED" })
+          .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
+        return json({
+          handled: false,
+          status: "human_handoff_active",
+          audience: "internal_only",
+          handoff_id: activeHandoff.id,
+        });
       }
       if (requestsIdentityReset) {
         const { error: endError } = await supabase.from("n8n_client_sessions")
@@ -393,18 +460,45 @@ Deno.serve(async (req) => {
           : portalLink;
       }
 
-      let reply = `Olá, ${client.name.split(" ")[0]}! Como posso ajudar?\n\n1️⃣ 📄 Ver Meu Contrato\n2️⃣ 💰 Pagar Parcela (Boleto/Pix)\n3️⃣ 🙋 Falar com Atendente`;
+      let reminderScheduledFor: string | null = null;
+      let reply = `👋 Olá, ${client.name.split(" ")[0]}! Como posso ajudar?\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente`;
       
       if (suppliedDigits === "1") {
-        reply = `Seu contrato atual está ${primaryContract?.status === 'ACTIVE' ? 'ativo' : 'em andamento'}.\nVocê pode ver todos os detalhes acessando o portal:\n${portalShortLink || portalLink}`;
+        reply = portalShortLink || portalLink
+          ? `📄 Seu contrato atual está ${primaryContract?.status === "ACTIVE" ? "ativo" : "em andamento"}.\n🔗 Veja todos os detalhes no portal:\n${portalShortLink || portalLink}`
+          : "📂 Sua área de documentos ainda está sendo preparada. 🔔 O atendimento foi avisado.";
       } else if (suppliedDigits === "2") {
-        reply = `Para pagar sua parcela, acesse o portal pelo link abaixo para gerar o Pix ou Boleto:\n${portalShortLink || portalLink}`;
+        reply = portalShortLink || portalLink
+          ? `💳 Para pagar sua parcela, acesse o portal para gerar o Pix ou Boleto:\n${portalShortLink || portalLink}`
+          : "✅ Ainda não existe uma parcela disponível para pagamento. 🔔 O atendimento foi avisado.";
       } else if (suppliedDigits === "3") {
-        await supabase.from("n8n_handoffs").insert({ profile_id: organizationId, client_id: client.id, phone_hash: phoneHash, reason: "Cliente selecionou falar com atendente." });
-        await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Atendimento humano solicitado", mensagem: "Cliente pediu para falar com atendente.", item_type: "WHATSAPP_HANDOFF" });
-        reply = "Certo! Transferindo você para um atendente humano. Aguarde um instante.";
+        const existingHandoff = await supabase.from("n8n_handoffs").select("id")
+          .eq("profile_id", organizationId).eq("phone_hash", phoneHash)
+          .in("status", ["OPEN", "IN_PROGRESS"]).limit(1).maybeSingle();
+        if (existingHandoff.error) throw existingHandoff.error;
+        if (!existingHandoff.data) {
+          const handoffInsert = await supabase.from("n8n_handoffs").insert({
+            profile_id: organizationId,
+            client_id: client.id,
+            phone_hash: phoneHash,
+            reason: "Cliente selecionou falar com atendente.",
+          }).select("id").single();
+          if (handoffInsert.error) throw handoffInsert.error;
+          reminderScheduledFor = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+          const reminderInsert = await supabase.from("whatsapp_queue").insert({
+            profile_id: organizationId,
+            phone,
+            message: "⏳ Atendente ocupado, em breve responderemos. 💬 Obrigado pela compreensão! 🙏",
+            status: "PENDING",
+            available_at: reminderScheduledFor,
+            dedupe_key: `handoff-reminder:${handoffInsert.data.id}`,
+          });
+          if (reminderInsert.error) throw reminderInsert.error;
+          await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Atendimento humano solicitado", mensagem: "Cliente pediu para falar com atendente.", item_type: "WHATSAPP_HANDOFF" });
+        }
+        reply = "🙋 Certo! Sua solicitação foi enviada ao atendimento humano. ⏳ Aguarde um instante.";
       } else if (normalizedMessage && !/^\s*$/.test(normalizedMessage)) {
-        reply = "Desculpe, não entendi. Por favor, digite o NÚMERO da opção desejada:\n\n1️⃣ 📄 Ver Meu Contrato\n2️⃣ 💰 Pagar Parcela (Boleto/Pix)\n3️⃣ 🙋 Falar com Atendente";
+        reply = "🤔 Desculpe, não entendi. Digite apenas o número da opção desejada:\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente";
       }
       await supabase.from("n8n_message_events").update({ status: "PROCESSED", client_id: client.id })
         .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
@@ -441,6 +535,8 @@ Deno.serve(async (req) => {
         })),
         portal_link: portalShortLink || portalLink,
         portal_original_link: portalLink,
+        robot_paused: suppliedDigits === "3",
+        reminder_scheduled_for: reminderScheduledFor,
         handled: true,
         reply,
         operator_contact: operatorContact,

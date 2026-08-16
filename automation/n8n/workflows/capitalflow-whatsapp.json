@@ -2,7 +2,7 @@
   {
     "createdAt": "2026-07-20T04:33:48.197Z",
     "updatedAt": "2026-08-08T00:22:00.000Z",
-    "id": "A32nJE98EjcJBKZk",
+    "id": "pRQtMJoibvNxjpFS",
     "name": "CapitalFlow - Atendimento WhatsApp",
     "active": false,
     "nodes": [
@@ -88,6 +88,72 @@
       {
         "parameters": {
           "conditions": {
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+            "conditions": [
+              { "id": "cond-saida-c-us", "leftValue": "={{ $json.destinatario }}", "rightValue": "@c.us", "operator": { "type": "string", "operation": "endsWith" } },
+              { "id": "cond-saida-lid", "leftValue": "={{ $json.destinatario }}", "rightValue": "@lid", "operator": { "type": "string", "operation": "endsWith" } }
+            ],
+            "combinator": "or"
+          },
+          "options": {}
+        },
+        "id": "saida-para-cliente-if-node",
+        "name": "Saída para cliente?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [900, 80]
+      },
+      {
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": { "assignments": [
+            { "id": "human-to-01", "name": "destinatario", "value": "={{ $json.destinatario }}", "type": "string" },
+            { "id": "human-msg-02", "name": "mensagem", "value": "={{ $json.mensagem }}", "type": "string" },
+            { "id": "human-org-03", "name": "organization_id", "value": "={{ $env.CAPITALFLOW_PROFILE_ID }}", "type": "string" }
+          ] },
+          "options": { "includeOtherFields": false }
+        },
+        "id": "preparar-resposta-humana-node",
+        "name": "Preparar Resposta Humana",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [1100, 80]
+      },
+      {
+        "parameters": {
+          "url": "=http://waha:3000/api/capitalflow/lids/{{ $json.destinatario.replace(/@c\\.us$|@lid$/g, '') }}",
+          "sendHeaders": true,
+          "headerParameters": { "parameters": [{ "name": "X-Api-Key", "value": "={{ $env.WAHA_API_KEY }}" }] },
+          "options": {}
+        },
+        "id": "resolver-destinatario-humano-node",
+        "name": "Resolver Destinatário Humano",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [1300, 80]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-n8n-tools",
+          "sendHeaders": true,
+          "headerParameters": { "parameters": [{ "name": "x-capitalflow-secret", "value": "={{ $env.CAPITALFLOW_N8N_SECRET }}" }] },
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "application/json",
+          "body": "={{ JSON.stringify({ action: 'operator_reply', organization_id: $('Preparar Resposta Humana').item.json.organization_id, phone: ($json.pn || $('Preparar Resposta Humana').item.json.destinatario).replace(/@c\\.us$|@lid$/g, '').replace(/\\D/g, ''), message: $('Preparar Resposta Humana').item.json.mensagem }) }}",
+          "options": {}
+        },
+        "id": "encerrar-pausa-resposta-humana-node",
+        "name": "Encerrar Pausa após Resposta Humana",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [1500, 80]
+      },
+      {
+        "parameters": {
+          "conditions": {
             "options": {
               "caseSensitive": true,
               "leftValue": "",
@@ -110,7 +176,7 @@
           "options": {}
         },
         "id": "e-evento-message-if-node",
-        "name": "É evento message?",
+        "name": "Ã‰ evento message?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -144,7 +210,7 @@
           "options": {}
         },
         "id": "mensagem-e-minha-if-node",
-        "name": "Mensagem é minha?",
+        "name": "Mensagem Ã© minha?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -177,7 +243,7 @@
           "options": {}
         },
         "id": "e-grupo-if-node",
-        "name": "É grupo?",
+        "name": "Ã‰ grupo?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -214,6 +280,12 @@
                 "name": "mensagem",
                 "value": "={{ $json.mensagem }}",
                 "type": "string"
+              },
+              {
+                "id": "prep-from-05",
+                "name": "remetente",
+                "value": "={{ $json.remetente }}",
+                "type": "string"
               }
             ]
           },
@@ -229,6 +301,104 @@
           1100,
           300
         ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "cond-remetente-lid",
+                "leftValue": "={{ $json.remetente }}",
+                "rightValue": "@lid",
+                "operator": {
+                  "type": "string",
+                  "operation": "endsWith"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "remetente-lid-if-node",
+        "name": "Remetente é LID?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [1250, 300]
+      },
+      {
+        "parameters": {
+          "url": "=http://waha:3000/api/capitalflow/lids/{{ $json.remetente.replace(/@c\\.us$|@lid$/g, '') }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "={{ $env.WAHA_API_KEY }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "resolver-lid-waha-node",
+        "name": "Resolver LID no WAHA",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [1400, 200]
+      },
+      {
+        "parameters": {
+          "mode": "manual",
+          "duplicateItem": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "resolved-tel-01",
+                "name": "telefone",
+                "value": "={{ ($json.pn || $('Preparar Consulta CapitalFlow').item.json.remetente).replace(/@c\\.us$|@lid$/g, '').replace(/\\D/g, '') }}",
+                "type": "string"
+              },
+              {
+                "id": "resolved-msgid-02",
+                "name": "message_id",
+                "value": "={{ $('Preparar Consulta CapitalFlow').item.json.message_id }}",
+                "type": "string"
+              },
+              {
+                "id": "resolved-orgid-03",
+                "name": "organization_id",
+                "value": "={{ $('Preparar Consulta CapitalFlow').item.json.organization_id }}",
+                "type": "string"
+              },
+              {
+                "id": "resolved-msg-04",
+                "name": "mensagem",
+                "value": "={{ $('Preparar Consulta CapitalFlow').item.json.mensagem }}",
+                "type": "string"
+              },
+              {
+                "id": "resolved-from-05",
+                "name": "remetente",
+                "value": "={{ $('Preparar Consulta CapitalFlow').item.json.remetente }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {
+            "includeOtherFields": false
+          }
+        },
+        "id": "aplicar-telefone-resolvido-node",
+        "name": "Aplicar Telefone Resolvido",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [1550, 200]
       },
       {
         "parameters": {
@@ -275,7 +445,7 @@
           "options": {}
         },
         "id": "esta-aguardando-opcao-if-node",
-        "name": "Está aguardando opção?",
+        "name": "EstÃ¡ aguardando opÃ§Ã£o?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -310,7 +480,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "Opção 1"
+                "outputKey": "OpÃ§Ã£o 1"
               },
               {
                 "conditions": {
@@ -334,7 +504,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "Opção 2"
+                "outputKey": "OpÃ§Ã£o 2"
               },
               {
                 "conditions": {
@@ -358,7 +528,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "Opção 3"
+                "outputKey": "OpÃ§Ã£o 3"
               },
               {
                 "conditions": {
@@ -382,7 +552,7 @@
                   "combinator": "and"
                 },
                 "renameOutput": true,
-                "outputKey": "Opção 4"
+                "outputKey": "OpÃ§Ã£o 4"
               }
             ]
           },
@@ -415,7 +585,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({\n  \"action\": \"context\",\n  \"organization_id\": $('Preparar Consulta CapitalFlow').item.json.organization_id,\n  \"phone\": $('Preparar Consulta CapitalFlow').item.json.telefone,\n  \"message_id\": $('Preparar Consulta CapitalFlow').item.json.message_id,\n  \"message\": $('Preparar Consulta CapitalFlow').item.json.mensagem,\n  \"message_type\": \"text\"\n}) }}",
+          "body": "={{ JSON.stringify({\n  \"action\": \"context\",\n  \"organization_id\": $json.organization_id,\n  \"phone\": $json.telefone,\n  \"message_id\": $json.message_id,\n  \"message\": $json.mensagem,\n  \"message_type\": \"text\"\n}) }}",
           "options": {}
         },
         "id": "consultar-cliente-capitalflow-node",
@@ -485,7 +655,7 @@
           "options": {}
         },
         "id": "possui-pendencia-if-node",
-        "name": "Possui pendência?",
+        "name": "Possui pendÃªncia?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
@@ -538,7 +708,7 @@
               {
                 "id": "menu-texto-msg",
                 "name": "menu_texto",
-                "value": "={{ \"Olá, \" + $json.client.display_name + \".\\n\\nEste é o atendimento automático do CapitalFlow para cobrança e recebimento.\\n\\n1 - Consultar valor em aberto\\n2 - Receber dados para pagamento\\n3 - Informar pagamento realizado\\n4 - Falar com atendimento\\n\\nDigite apenas o número da opção desejada.\" }}",
+                "value": "={{ $json.reply }}",
                 "type": "string"
               }
             ]
@@ -572,7 +742,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({\n  \"session\": \"capitalflow\",\n  \"chatId\": $('Edit Fields').item.json.remetente,\n  \"text\": $json.menu_texto\n}) }}",
+          "body": "={{ JSON.stringify({\n  \"session\": \"capitalflow\",\n  \"chatId\": $('Edit Fields (Set)').item.json.remetente,\n  \"text\": $json.menu_texto\n}) }}",
           "options": {}
         },
         "id": "enviar-menu-pelo-waha-node",
@@ -593,7 +763,7 @@
           "ttl": 1800
         },
         "id": "definir-estado-aguardando-opcao-node",
-        "name": "Definir Estado - Aguardando Opção",
+        "name": "Definir Estado - Aguardando OpÃ§Ã£o",
         "type": "n8n-nodes-base.redis",
         "typeVersion": 1,
         "position": [
@@ -647,18 +817,18 @@
         "main": [
           [
             {
-              "node": "É evento message?",
+              "node": "Ã‰ evento message?",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "É evento message?": {
+      "Ã‰ evento message?": {
         "main": [
           [
             {
-              "node": "Mensagem é minha?",
+              "node": "Mensagem Ã© minha?",
               "type": "main",
               "index": 0
             }
@@ -666,19 +836,33 @@
           []
         ]
       },
-      "Mensagem é minha?": {
+      "Mensagem Ã© minha?": {
         "main": [
-          [],
+          [
+            { "node": "Saída para cliente?", "type": "main", "index": 0 }
+          ],
           [
             {
-              "node": "É grupo?",
+              "node": "Ã‰ grupo?",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "É grupo?": {
+      "Saída para cliente?": {
+        "main": [[{ "node": "Preparar Resposta Humana", "type": "main", "index": 0 }], []]
+      },
+      "Preparar Resposta Humana": {
+        "main": [[{ "node": "Resolver Destinatário Humano", "type": "main", "index": 0 }]]
+      },
+      "Resolver Destinatário Humano": {
+        "main": [[{ "node": "Encerrar Pausa após Resposta Humana", "type": "main", "index": 0 }]]
+      },
+      "Encerrar Pausa após Resposta Humana": {
+        "main": [[]]
+      },
+      "Ã‰ grupo?": {
         "main": [
           [],
           [
@@ -694,7 +878,47 @@
         "main": [
           [
             {
-              "node": "Consultar Estado da Conversa",
+              "node": "Resolver LID no WAHA",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remetente é LID?": {
+        "main": [
+          [
+            {
+              "node": "Resolver LID no WAHA",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolver LID no WAHA": {
+        "main": [
+          [
+            {
+              "node": "Aplicar Telefone Resolvido",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Aplicar Telefone Resolvido": {
+        "main": [
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
               "type": "main",
               "index": 0
             }
@@ -705,14 +929,14 @@
         "main": [
           [
             {
-              "node": "Está aguardando opção?",
+              "node": "EstÃ¡ aguardando opÃ§Ã£o?",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "Está aguardando opção?": {
+      "EstÃ¡ aguardando opÃ§Ã£o?": {
         "main": [
           [
             {
@@ -732,11 +956,41 @@
       },
       "Roteador do Menu": {
         "main": [
-          [],
-          [],
-          [],
-          [],
-          []
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Consultar Cliente CapitalFlow",
+              "type": "main",
+              "index": 0
+            }
+          ]
         ]
       },
       "Consultar Cliente CapitalFlow": {
@@ -754,7 +1008,7 @@
         "main": [
           [
             {
-              "node": "Possui pendência?",
+              "node": "Possui pendÃªncia?",
               "type": "main",
               "index": 0
             }
@@ -762,7 +1016,7 @@
           []
         ]
       },
-      "Possui pendência?": {
+      "Possui pendÃªncia?": {
         "main": [
           [
             {
@@ -771,7 +1025,13 @@
               "index": 0
             }
           ],
-          []
+          [
+            {
+              "node": "Preparar Menu Financeiro",
+              "type": "main",
+              "index": 0
+            }
+          ]
         ]
       },
       "Preparar Menu Financeiro": {
@@ -787,16 +1047,10 @@
       },
       "Enviar Menu pelo WAHA": {
         "main": [
-          [
-            {
-              "node": "Definir Estado - Aguardando Opção",
-              "type": "main",
-              "index": 0
-            }
-          ]
+          []
         ]
       },
-      "Definir Estado - Aguardando Opção": {
+      "Definir Estado - Aguardando OpÃ§Ã£o": {
         "main": [
           [
             {
@@ -826,3 +1080,5 @@
     "pinData": {}
   }
 ]
+
+

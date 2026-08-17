@@ -348,18 +348,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   };
 
   const getClientContractIndicators = (client: Client) => {
-    const cDoc = String((client as any).document || (client as any).cpf || (client as any).cpf_cnpj || '').replace(/\D/g, '');
-    const cName = String(client.name || '').toLowerCase().trim();
-
     return loans
       .filter((loan) => {
         if (loan.isArchived) return false;
-        if (loan.clientId && loan.clientId === client.id) return true;
-        const lDoc = String(loan.debtorDocument || '').replace(/\D/g, '');
-        if (cDoc && lDoc && cDoc === lDoc) return true;
-        const lName = String(loan.debtorName || '').toLowerCase().trim();
-        if (cName && lName && (cName.includes(lName) || lName.includes(cName))) return true;
-        return false;
+        // Valores financeiros nunca podem ser atribuídos por nome ou documento
+        // semelhante. O vínculo contratual válido é exclusivamente client_id.
+        return Boolean(loan.clientId) && loan.clientId === client.id;
       })
       .map((loan) => ({ loan, amount: getLoanOpenAmount(loan) }))
       .filter(({ amount }) => amount > 0.5)

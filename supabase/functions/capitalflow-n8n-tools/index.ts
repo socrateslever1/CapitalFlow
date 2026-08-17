@@ -278,10 +278,10 @@ Deno.serve(async (req) => {
       let matchedBy = "PHONE";
 
       if (savedSession?.client_id && !wantsIdentityChange && !hasExplicitIdentity) {
-        const saved = await supabase.from("clientes").select("id, name")
+        const saved = await supabase.from("clientes").select("id, name, phone")
           .eq("owner_id", organizationId).eq("id", savedSession.client_id).maybeSingle();
-        if (saved.data) {
-          clients = [saved.data];
+        if (saved.data && samePhone(saved.data.phone, phone)) {
+          clients = [{ id: saved.data.id, name: saved.data.name }];
           matchedBy = "SESSION";
         }
       }
@@ -304,9 +304,11 @@ Deno.serve(async (req) => {
       }
 
       if (!clients.length && savedSession?.client_id && !hasExplicitIdentity && wantsIdentityChange) {
-        const saved = await supabase.from("clientes").select("id, name")
+        const saved = await supabase.from("clientes").select("id, name, phone")
           .eq("owner_id", organizationId).eq("id", savedSession.client_id).maybeSingle();
-        if (saved.data) clients = [saved.data];
+        if (saved.data && samePhone(saved.data.phone, phone)) {
+          clients = [{ id: saved.data.id, name: saved.data.name }];
+        }
       }
 
       if (!clients.length && !hasExplicitIdentity) {
@@ -461,14 +463,21 @@ Deno.serve(async (req) => {
       }
 
       let reminderScheduledFor: string | null = null;
-      let reply = `👋 Olá, ${client.name.split(" ")[0]}! Como posso ajudar?\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente`;
+      const hasContract = activeContracts.length > 0;
+      let reply = hasContract
+        ? `👋 Olá, ${client.name.split(" ")[0]}! Como posso ajudar?\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente`
+        : `👋 Olá, ${client.name.split(" ")[0]}! Seu cadastro foi localizado, mas não existe contrato ativo vinculado a ele.\n\n3 - 🙋 Falar com atendente`;
       
       if (suppliedDigits === "1") {
-        reply = portalShortLink || portalLink
+        reply = !hasContract
+          ? "📄 Seu cadastro não possui contrato ativo vinculado. Se precisar de ajuda, digite 3 para falar com o atendimento."
+          : portalShortLink || portalLink
           ? `📄 Seu contrato atual está ${primaryContract?.status === "ACTIVE" ? "ativo" : "em andamento"}.\n🔗 Veja todos os detalhes no portal:\n${portalShortLink || portalLink}`
           : "📂 Sua área de documentos ainda está sendo preparada. 🔔 O atendimento foi avisado.";
       } else if (suppliedDigits === "2") {
-        reply = portalShortLink || portalLink
+        reply = !hasContract
+          ? "💳 Não existe contrato ativo nem parcela vinculada ao seu cadastro. Se precisar de ajuda, digite 3 para falar com o atendimento."
+          : portalShortLink || portalLink
           ? `💳 Para pagar sua parcela, acesse o portal para gerar o Pix ou Boleto:\n${portalShortLink || portalLink}`
           : "✅ Ainda não existe uma parcela disponível para pagamento. 🔔 O atendimento foi avisado.";
       } else if (suppliedDigits === "3") {
@@ -498,7 +507,9 @@ Deno.serve(async (req) => {
         }
         reply = "🙋 Certo! Sua solicitação foi enviada ao atendimento humano. ⏳ Aguarde um instante.";
       } else if (normalizedMessage && !/^\s*$/.test(normalizedMessage)) {
-        reply = "🤔 Desculpe, não entendi. Digite apenas o número da opção desejada:\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente";
+        reply = hasContract
+          ? "🤔 Desculpe, não entendi. Digite apenas o número da opção desejada:\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente"
+          : "Seu cadastro não possui contrato ativo vinculado. Digite 3 para falar com o atendimento.";
       }
       await supabase.from("n8n_message_events").update({ status: "PROCESSED", client_id: client.id })
         .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");

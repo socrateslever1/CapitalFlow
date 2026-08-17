@@ -7,16 +7,18 @@ const workflowsDir = path.join(__dirname, "workflows");
 const readWorkflow = (name) =>
   JSON.parse(fs.readFileSync(path.join(workflowsDir, name), "utf8"))[0];
 
-test("manual collection workflow runs on demand for only the requested tenant", () => {
+test("manual collection workflow runs on demand and recovers orphaned queue items", () => {
   const workflow = readWorkflow("capitalflow-manual-collections.json");
   const serialized = JSON.stringify(workflow);
 
-  assert.doesNotMatch(serialized, /CAPITALFLOW_PROFILE_ID/);
+  assert.match(serialized, /CAPITALFLOW_PROFILE_ID/);
   assert.doesNotMatch(serialized, /claim_all/);
   assert.match(serialized, /action: 'claim'/);
   assert.doesNotMatch(serialized, /62dcbb45-f02c-42ba-84a4-916af9854dea/);
   assert.match(serialized, /lock_token/);
-  assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"), false);
+  const recovery = workflow.nodes.find((node) => node.name === "Recover Pending Queue");
+  assert.equal(recovery.type, "n8n-nodes-base.scheduleTrigger");
+  assert.equal(recovery.parameters.rule.interval[0].minutesInterval, 5);
   const trigger = workflow.nodes.find((node) => node.name === "Manual Collection Requested");
   assert.equal(trigger.type, "n8n-nodes-base.webhook");
   assert.equal(trigger.parameters.path, "capitalflow-manual-collections-trigger");

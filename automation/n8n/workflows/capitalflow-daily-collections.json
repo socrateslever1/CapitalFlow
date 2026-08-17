@@ -70,6 +70,10 @@
       {
         "parameters": {
           "url": "=http://waha:3000/api/contacts/check-exists",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [{ "name": "X-Api-Key", "value": "={{ $env.WAHA_API_KEY }}" }]
+          },
           "sendQuery": true,
           "queryParameters": {
             "parameters": [
@@ -173,6 +177,10 @@
         "parameters": {
           "method": "POST",
           "url": "http://waha:3000/api/sendText",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [{ "name": "X-Api-Key", "value": "={{ $env.WAHA_API_KEY }}" }]
+          },
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",

@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
 
     const loanId = String(body.loan_id || "");
     const { data: loan, error: loanError } = await admin.from("contratos")
-      .select("id, debtor_name, debtor_phone, portal_token, portal_shortcode")
+      .select("id, debtor_name, debtor_phone, portal_token, portal_shortcode, acordo_ativo_id")
       .eq("id", loanId).or(`profile_id.eq.${profileId},owner_id.eq.${profileId}`).eq("is_archived", false).maybeSingle();
     if (loanError || !loan) return json(req, { error: "contract_not_found" }, 404);
     const phone = digits(loan.debtor_phone);
@@ -152,15 +152,34 @@ Deno.serve(async (req) => {
       .not("status", "in", `(${paid.map((status) => `"${status}"`).join(",")})`).order("due_date").limit(20);
     if (installmentError) throw installmentError;
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Manaus" });
-    const open = (installments || []).map((item) => ({ ...item, effective_due: item.data_vencimento || item.due_date }))
+    let open: any = (installments || []).map((item) => ({ ...item, effective_due: item.data_vencimento || item.due_date, source: "CONTRACT" }))
       .sort((a, b) => String(a.effective_due).localeCompare(String(b.effective_due)))[0];
+    if (!open?.id && loan.acordo_ativo_id) {
+      const { data: agreementInstallments, error: agreementInstallmentError } = await admin.from("acordo_parcelas")
+        .select("id, due_date, data_vencimento, status, amount, valor, paid_amount, valor_pago")
+        .eq("acordo_id", loan.acordo_ativo_id).eq("profile_id", profileId)
+        .not("status", "in", `(${paid.map((status) => `"${status}"`).join(",")})`)
+        .limit(100);
+      if (agreementInstallmentError) throw agreementInstallmentError;
+      open = (agreementInstallments || [])
+        .map((item) => ({ ...item, effective_due: item.data_vencimento || item.due_date, source: "AGREEMENT" }))
+        .filter((item) => Number(item.amount ?? item.valor ?? 0) - Number(item.paid_amount ?? item.valor_pago ?? 0) > 0.05)
+        .sort((a, b) => String(a.effective_due).localeCompare(String(b.effective_due)))[0];
+    }
     if (!open?.id || !open.effective_due) return json(req, { error: "no_open_installment" }, 409);
 
-    const { data: dueData, error: dueError } = await admin.rpc("prepare_installment_for_online_payment", {
-      p_loan_id: loanId, p_installment_id: open.id, p_reference_date: today,
-    });
-    if (dueError) throw dueError;
-    const due = Array.isArray(dueData) ? dueData[0] : dueData;
+    let due: any;
+    if (open.source === "AGREEMENT") {
+      const principalDue = Math.max(0, Number(open.amount ?? open.valor ?? 0) - Number(open.paid_amount ?? open.valor_pago ?? 0));
+      const daysLate = Math.max(0, Math.floor((new Date(`${today}T12:00:00Z`).getTime() - new Date(`${open.effective_due}T12:00:00Z`).getTime()) / 86400000));
+      due = { total_due: Math.round((principalDue + principalDue * 0.01 * daysLate) * 100) / 100, days_late: daysLate };
+    } else {
+      const { data: dueData, error: dueError } = await admin.rpc("prepare_installment_for_online_payment", {
+        p_loan_id: loanId, p_installment_id: open.id, p_reference_date: today,
+      });
+      if (dueError) throw dueError;
+      due = Array.isArray(dueData) ? dueData[0] : dueData;
+    }
     const amount = Number(due?.total_due || 0);
     if (amount <= 0.05) return json(req, { error: "no_amount_due" }, 409);
     const daysLate = Number(due?.days_late || 0);
@@ -174,7 +193,8 @@ Deno.serve(async (req) => {
         : `Olá, ${firstName}. Passando para lembrar que sua parcela de ${money(amount)} vence em ${dueLabel}. Você pode consultar os detalhes e as opções de pagamento pelo portal${portalLink ? `: ${portalLink}` : "."}`);
 
     const { data: queued, error: queueError } = await admin.from("whatsapp_queue").insert({
-      profile_id: profileId, phone, message, status: "PENDING", loan_id: loanId, parcela_id: open.id,
+      profile_id: profileId, phone, message, status: "PENDING", loan_id: loanId,
+      parcela_id: open.source === "CONTRACT" ? open.id : null,
     }).select("id").single();
     if (queueError) throw queueError;
     return json(req, { ok: true, queue_id: queued.id, status: "PENDING" }, 202);

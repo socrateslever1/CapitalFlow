@@ -8,6 +8,7 @@ import { fetchWithRetry } from '../../../utils/fetchWithRetry';
 import { buildCapitalOnlyLegalTerms } from '../domain/capitalOnlyLegalTerms';
 import { buildPreContractNotice } from './preContractNotice';
 import { isValidCPForCNPJ } from '../../../utils/validators';
+import { triggerManualCollection } from '../../../services/n8nManualCollectionTrigger.service';
 
 const resolveDocumentAccessToken = (row: any): string | undefined =>
   row?.view_token || row?.public_access_token || undefined;
@@ -157,6 +158,7 @@ export const legalService = {
       .maybeSingle();
 
     if (error) throw new Error(`Falha ao enfileirar o aviso do pre-contrato: ${error.message}`);
+    await triggerManualCollection(safeProfileId);
     return { queued: !!data?.id };
   },
 

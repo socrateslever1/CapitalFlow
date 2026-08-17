@@ -23,6 +23,23 @@
       },
       {
         "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 5
+              }
+            ]
+          }
+        },
+        "id": "manual-collection-recovery-schedule",
+        "name": "Recover Pending Queue",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [-520, 160]
+      },
+      {
+        "parameters": {
           "method": "POST",
           "url": "https://hzchchbxkhryextaymkn.supabase.co/functions/v1/capitalflow-manual-collections",
           "sendHeaders": true,
@@ -37,7 +54,7 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: 'claim', profile_id: String($json.body?.profile_id || $json.body || ''), limit: 10 }) }}",
+          "body": "={{ JSON.stringify({ action: 'claim', profile_id: String($json.body?.profile_id || $json.body || $env.CAPITALFLOW_PROFILE_ID || ''), limit: 10 }) }}",
           "options": {
             "timeout": 8000
           }
@@ -88,7 +105,7 @@
       },
       {
         "parameters": {
-          "jsCode": "return ($json.messages || []).filter((item) => item.queue_id && item.chat_id && item.message).map((item) => ({ json: item }));"
+          "jsCode": "return ($json.messages || []).filter((item) => item.queue_id && item.chat_id && item.message).map((item) => ({ json: { ...item, session: (!item.session || item.session === 'default') ? 'capitalflow' : item.session } }));"
         },
         "id": "expand-manual-collections",
         "name": "Expand Pending Collections",
@@ -102,6 +119,10 @@
       {
         "parameters": {
           "url": "=http://waha:3000/api/contacts/check-exists",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [{ "name": "X-Api-Key", "value": "={{ $env.WAHA_API_KEY }}" }]
+          },
           "sendQuery": true,
           "queryParameters": {
             "parameters": [
@@ -252,6 +273,10 @@
         "parameters": {
           "method": "POST",
           "url": "http://waha:3000/api/sendText",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [{ "name": "X-Api-Key", "value": "={{ $env.WAHA_API_KEY }}" }]
+          },
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
@@ -333,6 +358,17 @@
     ],
     "connections": {
       "Manual Collection Requested": {
+        "main": [
+          [
+            {
+              "node": "Claim Pending Collections",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Recover Pending Queue": {
         "main": [
           [
             {

@@ -7,22 +7,24 @@ const workflowsDir = path.join(__dirname, "workflows");
 const readWorkflow = (name) =>
   JSON.parse(fs.readFileSync(path.join(workflowsDir, name), "utf8"))[0];
 
-test("manual collection workflow claims all configured tenants without persisting empty cycles", () => {
+test("manual collection workflow runs on demand for only the requested tenant", () => {
   const workflow = readWorkflow("capitalflow-manual-collections.json");
   const serialized = JSON.stringify(workflow);
 
   assert.doesNotMatch(serialized, /CAPITALFLOW_PROFILE_ID/);
-  assert.match(serialized, /claim_all/);
+  assert.doesNotMatch(serialized, /claim_all/);
+  assert.match(serialized, /action: 'claim'/);
   assert.doesNotMatch(serialized, /62dcbb45-f02c-42ba-84a4-916af9854dea/);
   assert.match(serialized, /lock_token/);
-  assert.equal(workflow.nodes.find((node) => node.name === "Every 60 Seconds") !== undefined, true);
-  assert.equal(workflow.settings.saveDataSuccessExecution, "none");
+  assert.equal(workflow.nodes.some((node) => node.type === "n8n-nodes-base.scheduleTrigger"), false);
+  const trigger = workflow.nodes.find((node) => node.name === "Manual Collection Requested");
+  assert.equal(trigger.type, "n8n-nodes-base.webhook");
+  assert.equal(trigger.parameters.path, "capitalflow-manual-collections-trigger");
+  assert.equal(workflow.settings.saveDataSuccessExecution, "all");
   assert.equal(workflow.settings.saveExecutionProgress, false);
 
   const claim = workflow.nodes.find((node) => node.name === "Claim Pending Collections");
-  assert.equal(claim.retryOnFail, true);
-  assert.equal(claim.maxTries, 3);
-  assert.equal(claim.waitBetweenTries, 3000);
+  assert.equal(claim.retryOnFail, undefined);
   assert.equal(claim.onError, "continueRegularOutput");
 
   const outputs = workflow.connections["Send Manual Collection"].main;

@@ -1,4 +1,5 @@
 import { getSynchronizedSession } from '../lib/supabase';
+import { triggerManualCollection } from './n8nManualCollectionTrigger.service';
 
 export const DEV_WHATSAPP_PROFILE_ID = '62dcbb45-f02c-42ba-84a4-916af9854dea';
 export type AutomaticMessageType = 'COLLECTION' | 'WELCOME' | 'REMINDER' | 'LATE' | 'PAID' | 'CUSTOM';
@@ -6,7 +7,7 @@ const MANUAL_COLLECTION_URL = 'https://hzchchbxkhryextaymkn.supabase.co/function
 
 export const manualCollectionService = {
   isEnabled(profileId?: string | null) {
-    return profileId === DEV_WHATSAPP_PROFILE_ID;
+    return Boolean(profileId);
   },
 
   async enqueue(profileId: string, loanId: string, messageType: AutomaticMessageType = 'COLLECTION', customMessage?: string) {
@@ -52,6 +53,7 @@ export const manualCollectionService = {
       throw new Error(messages[detail] || detail || `A automação recusou o envio (${response.status}).`);
     }
     if (!data?.ok) throw new Error(data?.error || 'Não foi possível enfileirar a cobrança.');
-    return data;
+    const triggered = await triggerManualCollection(profileId);
+    return { ...data, triggered };
   },
 };

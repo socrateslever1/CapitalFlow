@@ -3,6 +3,8 @@ import { Client, LegalDocumentParams, UserProfile } from '../types';
 import { addDaysUTC } from '../utils/dateHelpers';
 import { generateMutuoPreDesembolsoHTML } from '../features/legal/templates/MutuoPreDesembolsoTemplate';
 import { clientRegistrationService } from './clientRegistration.service';
+import { buildPreContractNotice } from '../features/legal/services/preContractNotice';
+import { triggerManualCollection } from './n8nManualCollectionTrigger.service';
 
 const toMoney = (value: unknown): number => {
   const number = Number(value);
@@ -188,6 +190,34 @@ export const clientPreContractService = {
     if (error || !created?.id) {
       throw new Error(error?.message || 'Não foi possível criar a versão jurídica para assinatura.');
     }
+
+    const phone = String(client.phone || '').replace(/\D/g, '');
+    if (phone.length < 10 || phone.length > 13) {
+      throw new Error('Documento criado, mas o WhatsApp do cliente nao esta cadastrado ou e invalido.');
+    }
+
+    const notice = buildPreContractNotice({
+      clientName: client.name,
+      signUrl: portalLink.url,
+      portalUrl: portalLink.url,
+    });
+
+    const { error: queueError } = await supabase
+      .from('whatsapp_queue')
+      .upsert({
+        profile_id: ownerId,
+        phone,
+        message: `[[CF_CUSTOM]] ${notice.message}`,
+        status: 'PENDING',
+        loan_id: null,
+        dedupe_key: `precontract:${created.id}:client`,
+      }, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+
+    if (queueError) {
+      throw new Error(`Documento criado, mas falhou ao enviar para o n8n: ${queueError.message}`);
+    }
+
+    await triggerManualCollection(ownerId);
 
     return {
       documentId: created.id as string,

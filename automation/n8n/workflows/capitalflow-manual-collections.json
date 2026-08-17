@@ -6,23 +6,20 @@
     "nodes": [
       {
         "parameters": {
-          "rule": {
-            "interval": [
-              {
-                "field": "seconds",
-                "secondsInterval": 60
-              }
-            ]
-          }
+          "httpMethod": "POST",
+          "path": "capitalflow-manual-collections-trigger",
+          "responseMode": "onReceived",
+          "options": {}
         },
-        "id": "manual-collection-schedule",
-        "name": "Every 60 Seconds",
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.2,
+        "id": "5b5574ef-b0bd-4f90-a116-72f1f15ac84b",
+        "name": "Manual Collection Requested",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
         "position": [
           -520,
           0
-        ]
+        ],
+        "webhookId": "92bb4a8d-68e0-4c41-a7bc-e20500f40272"
       },
       {
         "parameters": {
@@ -40,9 +37,9 @@
           "sendBody": true,
           "contentType": "raw",
           "rawContentType": "application/json",
-          "body": "={{ JSON.stringify({ action: 'claim_all', limit: 1 }) }}",
+          "body": "={{ JSON.stringify({ action: 'claim', profile_id: String($json.body?.profile_id || $json.body || ''), limit: 10 }) }}",
           "options": {
-            "timeout": 15000
+            "timeout": 8000
           }
         },
         "id": "claim-manual-collections",
@@ -53,10 +50,41 @@
           -300,
           0
         ],
-        "retryOnFail": true,
-        "maxTries": 3,
-        "waitBetweenTries": 3000,
         "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "manual-has-pending-condition",
+                "leftValue": "={{ Array.isArray($json.messages) && $json.messages.length > 0 }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "manual-has-pending-gate",
+        "name": "Has Pending Collections",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -180,
+          0
+        ]
       },
       {
         "parameters": {
@@ -304,7 +332,7 @@
       }
     ],
     "connections": {
-      "Every 60 Seconds": {
+      "Manual Collection Requested": {
         "main": [
           [
             {
@@ -319,11 +347,23 @@
         "main": [
           [
             {
-              "node": "Expand Pending Collections",
+              "node": "Has Pending Collections",
               "type": "main",
               "index": 0
             }
           ]
+        ]
+      },
+      "Has Pending Collections": {
+        "main": [
+          [
+            {
+              "node": "Expand Pending Collections",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
         ]
       },
       "Expand Pending Collections": {
@@ -450,7 +490,8 @@
     "settings": {
       "executionOrder": "v1",
       "timezone": "America/Manaus",
-      "saveDataSuccessExecution": "none",
+      "executionTimeout": 30,
+      "saveDataSuccessExecution": "all",
       "saveExecutionProgress": false
     },
     "pinData": {},

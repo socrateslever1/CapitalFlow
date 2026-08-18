@@ -215,6 +215,31 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }
 
+  const compactBadges: Array<{ key: string; label: string; node: React.ReactNode }> = [];
+  if (RiskBadge) compactBadges.push({ key: 'risk', label: riskProfile?.label || 'Risco', node: RiskBadge });
+  if (Badge) compactBadges.push({ key: 'status', label: getDueBadgeLabel(daysUntilDue), node: Badge });
+  if (activePaymentOffer) {
+    const offerLabel = `${activeOfferLabel} ${activePaymentOffer.paymentOfferType === 'INTEREST_RENEWAL' ? 'Renovação' : 'Condição'} até ${formatBRDate(activePaymentOffer.paymentOfferValidUntil)}`;
+    compactBadges.push({
+      key: 'offer',
+      label: offerLabel,
+      node: (
+        <div className="flex min-w-0 max-w-full items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-amber-400">
+          <CalendarClock size={8} className="shrink-0" />
+          <span className="truncate text-[7px] font-black uppercase">{offerLabel}</span>
+        </div>
+      ),
+    });
+  }
+  const billingCycleLabel = translateBillingCycle(loan.billingCycle);
+  compactBadges.push({
+    key: 'cycle',
+    label: billingCycleLabel,
+    node: <span className="shrink-0 rounded-sm border border-slate-700/50 bg-slate-800/50 px-1.5 py-0.5 text-[7px] font-black uppercase text-slate-500">{billingCycleLabel}</span>,
+  });
+  const primaryBadge = compactBadges[0];
+  const hiddenBadges = compactBadges.slice(1);
+
   return (
     <div className="relative flex w-full h-full flex-col justify-between gap-2">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
@@ -254,24 +279,17 @@ export const Header: React.FC<HeaderProps> = ({
               {formatShortName(debtorNameSafe)}
             </h3>
             
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 min-w-0">
-              {RiskBadge}
-              {Badge}
-              {activePaymentOffer && (
-                <div
-                  className="flex min-w-0 max-w-full items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-amber-400"
-                  title={`Valor acordado: ${formatMoney(Number(activePaymentOffer.paymentOfferAmount || 0), isStealthMode)}`}
+            <div className="mt-1 flex min-w-0 max-w-full flex-nowrap items-center gap-1.5 overflow-hidden pr-1">
+              <div className="min-w-0 overflow-hidden">{primaryBadge?.node}</div>
+              {hiddenBadges.length > 0 && (
+                <span
+                  className="shrink-0 rounded-md border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[7px] font-black text-slate-300"
+                  title={hiddenBadges.map((item) => item.label).join(' • ')}
+                  aria-label={`Mais ${hiddenBadges.length} informações: ${hiddenBadges.map((item) => item.label).join(', ')}`}
                 >
-                  <CalendarClock size={8} />
-                  <span className="truncate text-[7px] font-black uppercase">
-                    {activeOfferLabel}{' '}
-                    {activePaymentOffer.paymentOfferType === 'INTEREST_RENEWAL' ? 'Renovação' : 'Condição'} até {formatBRDate(activePaymentOffer.paymentOfferValidUntil)}
-                  </span>
-                </div>
+                  +{hiddenBadges.length}
+                </span>
               )}
-              <span className="bg-slate-800/50 px-1.5 py-0.5 text-[7px] text-slate-500 font-black uppercase rounded-sm border border-slate-700/50">
-                {translateBillingCycle(loan.billingCycle)}
-              </span>
             </div>
           </div>
         </div>

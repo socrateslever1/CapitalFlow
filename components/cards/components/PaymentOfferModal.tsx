@@ -129,8 +129,8 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
       className="fixed inset-0 z-[140] flex h-[100dvh] items-start justify-center overflow-hidden bg-slate-950/90 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:pb-3"
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="max-h-full w-full max-w-md overscroll-contain overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl [scrollbar-gutter:stable]">
-        <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+      <div className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+        <header className="shrink-0 flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <div className="flex items-center gap-2">
             <CalendarClock size={17} className="text-blue-400" />
             <div>
@@ -143,7 +143,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </button>
         </header>
 
-        <div className="space-y-3 p-4">
+        <div className="min-h-0 flex-1 space-y-3 overscroll-contain overflow-y-auto p-4 [scrollbar-gutter:stable]">
           <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
             <div className="grid grid-cols-2 gap-2">
@@ -264,16 +264,17 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
 
           {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
 
-          <div className="sticky bottom-0 z-10 -mx-4 -mb-4 flex gap-2 border-t border-slate-800 bg-slate-900/95 p-4 backdrop-blur-md">
-            {active && (
-              <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-10 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
-                Cancelar
-              </button>
-            )}
-            <button type="button" onClick={submit} disabled={isSaving} className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
-              {isSaving ? 'Enviando...' : 'Enviar para o portal'}
+        </div>
+
+        <div className="shrink-0 flex gap-2 border-t border-slate-800 bg-slate-900 p-4">
+          {active && (
+            <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-10 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
+              Cancelar
             </button>
-          </div>
+          )}
+          <button type="button" onClick={submit} disabled={isSaving} className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
+            {isSaving ? 'Enviando...' : 'Enviar para o portal'}
+          </button>
         </div>
       </div>
     </div>

@@ -57,7 +57,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
       const customerInstallment = baseForClient * (1 + margin / 100);
       const customerTotal = customerInstallment * count;
-      return { bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
+      return { count, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
   }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest]);
 
   return (
@@ -217,38 +217,53 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         {/* Inputs: Parcelas Banco & Margem Cliente */}
                         <div className="space-y-4">
                             <div className="space-y-1">
-                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Parcelas do Banco</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    value={formData.fundingInstallmentsCount || ''}
-                                    onChange={e => setFormData({...formData, fundingInstallmentsCount: cleanNumberStr(e.target.value)})}
-                                    className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                                />
+                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Quantidade de parcelas do banco</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        inputMode="numeric"
+                                        value={formData.fundingInstallmentsCount || ''}
+                                        onChange={e => {
+                                            const value = e.target.value;
+                                            if (value === '' || /^\d+$/.test(value)) {
+                                                setFormData({...formData, fundingInstallmentsCount: value});
+                                            }
+                                        }}
+                                        className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 pr-24 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
+                                    />
+                                    <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase text-slate-500">parcelas</span>
+                                </div>
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[9px] text-emerald-300/70 font-black uppercase tracking-wider ml-2">Margem Cliente (%)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={formData.customerMarginPercent || ''}
-                                    onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})}
-                                    className="w-full bg-slate-900/80 border border-emerald-500/25 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-200"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.customerMarginPercent || ''}
+                                        onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})}
+                                        className="w-full bg-slate-900/80 border border-emerald-500/25 rounded-lg px-5 py-4 pr-12 text-white font-bold outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-200"
+                                    />
+                                    <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-sm font-black text-emerald-400">%</span>
+                                </div>
                             </div>
 
                             {formData.fundingCalculationMode === 'RATE' ? (
                                 <div className="space-y-1">
                                     <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Juros Banco (% ao mês)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="Ex: 4.49"
-                                        value={formData.fundingMonthlyRate || ''}
-                                        onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})}
-                                        className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Ex: 4,49"
+                                            value={formData.fundingMonthlyRate || ''}
+                                            onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})}
+                                            className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 pr-12 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
+                                        />
+                                        <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-sm font-black text-rose-400">%</span>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-1">
@@ -322,7 +337,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                                         <div>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Banco (Custo)</p>
                                             <p className="text-[11px] font-semibold text-slate-200">
-                                                {formData.fundingInstallmentsCount || '0'}x {formatMoney(fixedInstallmentDisplay.bankInstallment)}
+                                                {fixedInstallmentDisplay.count} parcelas de {formatMoney(fixedInstallmentDisplay.bankInstallment)}
                                             </p>
                                         </div>
                                     </div>
@@ -341,7 +356,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                                         <div>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cliente (Cobrança)</p>
                                             <p className="text-[11px] font-bold text-emerald-400">
-                                                {formData.fundingInstallmentsCount || '0'}x {formatMoney(fixedInstallmentDisplay.customerInstallment)}
+                                                {fixedInstallmentDisplay.count} parcelas de {formatMoney(fixedInstallmentDisplay.customerInstallment)}
                                             </p>
                                         </div>
                                     </div>

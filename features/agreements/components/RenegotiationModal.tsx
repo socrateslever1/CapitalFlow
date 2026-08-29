@@ -232,54 +232,47 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 const mainLoanId = safeUUID(mainLoan.id);
                 if (!mainLoanId) throw new Error("Contrato principal invalido.");
 
+                const clientIds = new Set(loans.map((loan) => String(loan.clientId || '').trim()).filter(Boolean));
+                if (clientIds.size !== 1) {
+                    throw new Error("A unificacao exige contratos vinculados ao mesmo cliente.");
+                }
+
                 const firstOpenInstallment = (mainLoan.installments || []).find((inst) => {
                     const status = String(inst.status || '').toUpperCase();
                     const open = (Number(inst.principalRemaining) || 0) + (Number(inst.interestRemaining) || 0) + (Number(inst.lateFeeAccrued) || 0);
                     return !['RENEGOCIADO', 'CANCELADO'].includes(status) && open > 0.05;
                 }) || mainLoan.installments?.[0];
 
+                const mainInstallmentId = safeUUID(firstOpenInstallment?.id);
+                if (!mainInstallmentId) {
+                    throw new Error("O contrato principal nao possui parcela valida para consolidacao.");
+                }
+
                 const snapshot = buildRenegotiationDebtSnapshot(loans);
                 const totalUnified = Number(snapshot.totalDebt.toFixed(2));
-
-                await supabase.from('contratos').update({
-                    principal: totalUnified,
-                    total_to_receive: totalUnified,
-                    status: LoanStatus.ATIVO,
-                    acordo_ativo_id: null,
-                    notes: `${mainLoan.notes || ''}\n[UNIFICACAO_NORMAL] Contratos unificados sem parcelamento em ${new Date().toISOString()}.`
-                }).eq('id', mainLoanId);
-
-                if (firstOpenInstallment?.id) {
-                    await supabase.from('parcelas').update({
-                        principal_remaining: totalUnified,
-                        interest_remaining: 0,
-                        late_fee_accrued: 0,
-                        scheduled_principal: totalUnified,
-                        scheduled_interest: 0,
-                        amount: totalUnified,
-                        valor_parcela: totalUnified,
-                        status: 'PENDENTE'
-                    }).eq('id', firstOpenInstallment.id);
+                const profileId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
+                const loanIds = loans.map((loan) => safeUUID(loan.id));
+                if (!profileId || loanIds.some((id) => !id)) {
+                    throw new Error("Perfil ou contratos invalidos para unificacao.");
                 }
 
-                for (const loan of loans.slice(1)) {
-                    await supabase.from('contratos').update({
-                        status: LoanStatus.RENEGOCIADO,
-                        notes: `${loan.notes || ''}\n[LEGADO_UNIFICACAO_NORMAL:${mainLoanId.slice(0, 8)}] Contrato unificado no contrato principal.`
-                    }).eq('id', loan.id);
-
-                    await supabase.from('parcelas').update({ status: 'RENEGOCIADO' }).eq('loan_id', loan.id);
+                const componentTotal = Number((snapshot.principalDebt + snapshot.interestDebt + snapshot.lateFeeDebt).toFixed(2));
+                if (Math.abs(componentTotal - totalUnified) > 0.01) {
+                    throw new Error("Os componentes financeiros nao fecham com o total da unificacao.");
                 }
 
-                await supabase.from('transacoes').insert({
-                    id: safeUUID(crypto.randomUUID()) || crypto.randomUUID(),
-                    loan_id: mainLoanId,
-                    profile_id: safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id),
-                    date: new Date().toISOString(),
-                    type: 'NORMAL_UNIFICATION_CREATED',
-                    amount: 0,
-                    notes: `Unificacao normal de ${loans.length} contrato(s), sem parcelamento. Total consolidado: R$ ${totalUnified.toFixed(2)}.`
+                const { error: unificationError } = await supabase.rpc('normal_unify_contracts', {
+                    p_main_loan_id: mainLoanId,
+                    p_loan_ids: loanIds as string[],
+                    p_main_installment_id: mainInstallmentId,
+                    p_principal: Number(snapshot.principalDebt.toFixed(2)),
+                    p_interest: Number(snapshot.interestDebt.toFixed(2)),
+                    p_late_fee: Number(snapshot.lateFeeDebt.toFixed(2)),
+                    p_profile_id: profileId
                 });
+                if (unificationError) {
+                    throw new Error(`A unificacao foi cancelada sem alterar os contratos: ${unificationError.message}`);
+                }
 
                 onSuccess();
                 return;

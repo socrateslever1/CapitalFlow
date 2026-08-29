@@ -57,10 +57,7 @@ export async function executeLedgerAction(params: {
         await syncService.enqueueOperation({
           table: 'fontes',
           operation: 'UPDATE',
-          data: {
-            id: safeUUID(source.id),
-            balance: toNumber(source.balance) + remainingPrincipal
-          },
+          data: { id: safeUUID(source.id), balance: toNumber(source.balance) + remainingPrincipal },
           id: safeUUID(source.id)
         });
       }
@@ -80,47 +77,27 @@ export async function executeLedgerAction(params: {
 
     if (error) {
       if (isAlreadyDeletedContractError(error)) {
-        const { data: existingLoan } = await supabase
-          .from('contratos')
-          .select('id')
-          .eq('id', loanId)
-          .maybeSingle();
-
+        const { data: existingLoan } = await supabase.from('contratos').select('id').eq('id', loanId).maybeSingle();
         if (!existingLoan?.id) {
           markDeletedContract(ownerId, loanId);
           await deleteLocalLoanSnapshot(loanId);
           return 'Contrato removido do painel. Ele ja nao existia no banco.';
         }
       }
-
       throw new Error('Falha ao apagar contrato: ' + error.message);
     }
-    if (!(data as any)?.deleted) {
-      throw new Error('Contrato nao foi excluido. Recarregue a pagina e tente novamente.');
-    }
+    if (!(data as any)?.deleted) throw new Error('Contrato nao foi excluido. Recarregue a pagina e tente novamente.');
 
-    const { data: stillExists, error: verifyError } = await supabase
-      .from('contratos')
-      .select('id')
-      .eq('id', loanId)
-      .maybeSingle();
-
-    if (!verifyError && stillExists?.id) {
-      throw new Error('O banco retornou sucesso, mas o contrato ainda existe. Reaplique a migration de exclusao e tente novamente.');
-    }
+    const { data: stillExists, error: verifyError } = await supabase.from('contratos').select('id').eq('id', loanId).maybeSingle();
+    if (!verifyError && stillExists?.id) throw new Error('O banco retornou sucesso, mas o contrato ainda existe. Reaplique a migration de exclusao e tente novamente.');
 
     markDeletedContract(ownerId, loanId);
     await deleteLocalLoanSnapshot(loanId);
-
     return 'Contrato e dados associados foram excluidos.';
   }
 
   if (type === 'DELETE_CLIENT') {
-    const loanIdsResult = await supabase
-      .from('contratos')
-      .select('id')
-      .eq('owner_id', safeUUID(ownerId))
-      .eq('client_id', safeUUID(targetId));
+    const loanIdsResult = await supabase.from('contratos').select('id').eq('owner_id', safeUUID(ownerId)).eq('client_id', safeUUID(targetId));
     if (loanIdsResult.error) throw loanIdsResult.error;
     const loanIds = (loanIdsResult.data || []).map(r => r.id).filter(Boolean);
 
@@ -140,50 +117,25 @@ export async function executeLedgerAction(params: {
         supabase.from('sinalizacoes_pagamento').delete().in('loan_id', loanIds),
       ];
       await Promise.allSettled(cascadeDeletes);
-      const { error: delLoansErr } = await supabase
-        .from('contratos')
-        .delete()
-        .in('id', loanIds)
-        .eq('owner_id', safeUUID(ownerId));
+      const { error: delLoansErr } = await supabase.from('contratos').delete().in('id', loanIds).eq('owner_id', safeUUID(ownerId));
       if (delLoansErr) throw delLoansErr;
     }
 
-    const { error: delClientErr } = await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', safeUUID(targetId))
-      .eq('owner_id', safeUUID(ownerId));
+    const { error: delClientErr } = await supabase.from('clientes').delete().eq('id', safeUUID(targetId)).eq('owner_id', safeUUID(ownerId));
     if (delClientErr) throw delClientErr;
-
     return 'Cliente e todos os seus contratos foram removidos.';
   }
 
   if (type === 'ARCHIVE') {
     const { syncService } = await import('../sync.service');
-    await syncService.enqueueOperation({
-      table: 'contratos',
-      operation: 'UPDATE',
-      data: {
-        id: safeUUID(targetId),
-        is_archived: true
-      },
-      id: safeUUID(targetId)
-    });
+    await syncService.enqueueOperation({ table: 'contratos', operation: 'UPDATE', data: { id: safeUUID(targetId), is_archived: true }, id: safeUUID(targetId) });
     await logArchive(ownerId, targetId, loan?.sourceId);
     return 'Contrato Arquivado.';
   }
 
   if (type === 'RESTORE') {
     const { syncService } = await import('../sync.service');
-    await syncService.enqueueOperation({
-      table: 'contratos',
-      operation: 'UPDATE',
-      data: {
-        id: safeUUID(targetId),
-        is_archived: false
-      },
-      id: safeUUID(targetId)
-    });
+    await syncService.enqueueOperation({ table: 'contratos', operation: 'UPDATE', data: { id: safeUUID(targetId), is_archived: false }, id: safeUUID(targetId) });
     await logRestore(ownerId, targetId, loan?.sourceId);
     return 'Contrato Restaurado.';
   }
@@ -191,71 +143,35 @@ export async function executeLedgerAction(params: {
   if (type === 'ACTIVATE') {
     const loanId = safeUUID(targetId);
     const profileId = safeUUID(ownerId);
-
-    const { data: agreement } = await supabase
-      .from('acordos_inadimplencia')
-      .select('id, status')
-      .eq('loan_id', loanId)
-      .eq('profile_id', profileId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
+    const { data: agreement } = await supabase.from('acordos_inadimplencia').select('id, status').eq('loan_id', loanId).eq('profile_id', profileId).order('created_at', { ascending: false }).limit(1).maybeSingle();
     const hasAgreement = !!agreement;
     const newStatus = hasAgreement ? 'EM_ACORDO' : 'ATIVO';
-
-    const { error: loanErr } = await supabase
-      .from('contratos')
-      .update({
-        status: newStatus,
-        is_archived: false,
-        acordo_ativo_id: hasAgreement ? agreement.id : null
-      })
-      .eq('id', loanId)
-      .eq('owner_id', profileId);
-
+    const { error: loanErr } = await supabase.from('contratos').update({ status: newStatus, is_archived: false, acordo_ativo_id: hasAgreement ? agreement.id : null }).eq('id', loanId).eq('owner_id', profileId);
     if (loanErr) throw loanErr;
 
     if (hasAgreement) {
-      await supabase
-        .from('acordos_inadimplencia')
-        .update({ status: 'ATIVO' })
-        .eq('id', agreement.id);
-
-      await supabase
-        .from('acordo_parcelas')
-        .update({
-          status: 'PENDING',
-          valor_pago: 0,
-          paid_amount: 0
-        })
-        .eq('acordo_id', agreement.id)
-        .in('status', ['PAID', 'PAGO', 'QUITADO', 'FINALIZADO']);
-
-      await supabase
-        .from('parcelas')
-        .update({ status: 'RENEGOCIADO' })
-        .eq('loan_id', loanId)
-        .in('status', ['PENDENTE', 'ATRASADO', 'PENDING', 'LATE', 'PAID', 'PAGO', 'QUITADO']);
+      await supabase.from('acordos_inadimplencia').update({ status: 'ATIVO' }).eq('id', agreement.id);
+      await supabase.from('acordo_parcelas').update({ status: 'PENDING', valor_pago: 0, paid_amount: 0 }).eq('acordo_id', agreement.id).in('status', ['PAID', 'PAGO', 'QUITADO', 'FINALIZADO']);
+      await supabase.from('parcelas').update({ status: 'RENEGOCIADO' }).eq('loan_id', loanId).in('status', ['PENDENTE', 'ATRASADO', 'PENDING', 'LATE', 'PAID', 'PAGO', 'QUITADO']);
     } else {
-      await supabase
-        .from('parcelas')
-        .update({ status: 'PENDING' })
-        .eq('loan_id', loanId)
-        .in('status', ['PAID', 'PAGO', 'QUITADO']);
+      await supabase.from('parcelas').update({ status: 'PENDING' }).eq('loan_id', loanId).in('status', ['PAID', 'PAGO', 'QUITADO']);
     }
-
     return 'Contrato Reativado com sucesso.';
   }
 
   if (type === 'DELETE_SOURCE') {
-    const { error } = await supabase
-      .from('fontes')
-      .delete()
-      .eq('id', safeUUID(targetId))
-      .eq('profile_id', safeUUID(ownerId));
-    if (error) throw error;
-    return 'Fonte removida.';
+    const sourceId = safeUUID(targetId);
+    if (!sourceId) throw new Error('Fonte invalida.');
+
+    // Nunca apaga historico financeiro para conseguir remover uma carteira.
+    // O banco decide atomicamente: sem historico => DELETE; com historico => ARCHIVE.
+    const { data, error } = await supabase.rpc('delete_or_archive_fonte', { p_fonte_id: sourceId });
+    if (error) throw new Error('Falha ao remover fonte: ' + error.message);
+
+    const action = (data as any)?.action;
+    return action === 'archived'
+      ? 'Fonte arquivada. O historico financeiro foi preservado.'
+      : 'Fonte removida.';
   }
 
   return 'Acao concluida';

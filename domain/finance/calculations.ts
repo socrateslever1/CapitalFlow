@@ -220,6 +220,22 @@ export const calculateTotalDue = (loan: Loan, inst: Installment, referenceDate?:
     } as CalculationResult;
   }
 
+  const policySnapshot: any = loan.policiesSnapshot || {};
+  if (policySnapshot.normalUnificationFrozen) {
+    const rawInst: any = inst;
+    const principal = round(Number(rawInst.principalRemaining ?? rawInst.principal_remaining ?? 0));
+    const interest = round(Number(rawInst.interestRemaining ?? rawInst.interest_remaining ?? 0));
+    const lateFee = round(Number(rawInst.lateFeeAccrued ?? rawInst.late_fee_accrued ?? 0));
+    return {
+      total: round(principal + interest + lateFee),
+      principal,
+      interest,
+      lateFee,
+      finePart: 0,
+      moraPart: 0,
+    } as CalculationResult;
+  }
+
   const rawPolicy: any = loan.policiesSnapshot || {};
   const policy: LoanPolicy = {
     interestRate: Number(rawPolicy.interestRate ?? loan.interestRate ?? 0),

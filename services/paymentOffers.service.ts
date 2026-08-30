@@ -13,6 +13,19 @@ export interface PaymentOfferInput {
   note?: string;
 }
 
+export interface PaymentOfferHistoryItem {
+  id: string;
+  action: string;
+  offerType?: string | null;
+  grossAmount: number;
+  offeredAmount: number;
+  discountApplied: number;
+  lateFeeForgiven: number;
+  validUntil?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 export const isPaymentOfferActive = (installment: Installment | any, referenceDate = todayKey()) =>
@@ -49,6 +62,30 @@ export const paymentOffersService = {
 
     if (error) throw new Error(error.message || 'Falha ao cancelar condição especial.');
     return data;
+  },
+
+  async history(installmentId: string): Promise<PaymentOfferHistoryItem[]> {
+    const { data, error } = await supabase
+      .from('installment_payment_offer_history')
+      .select('id, action, offer_type, gross_amount, offered_amount, discount_applied, late_fee_forgiven, valid_until, note, created_at')
+      .eq('installment_id', installmentId)
+      .order('created_at', { ascending: false })
+      .limit(12);
+
+    if (error) throw new Error(error.message || 'Falha ao carregar historico da condicao.');
+
+    return (data || []).map((row: any) => ({
+      id: String(row.id),
+      action: String(row.action || ''),
+      offerType: row.offer_type,
+      grossAmount: Number(row.gross_amount || 0),
+      offeredAmount: Number(row.offered_amount || 0),
+      discountApplied: Number(row.discount_applied || 0),
+      lateFeeForgiven: Number(row.late_fee_forgiven || 0),
+      validUntil: row.valid_until,
+      note: row.note,
+      createdAt: row.created_at,
+    }));
   },
 };
 

@@ -93,6 +93,8 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const [firstDueDate, setFirstDueDate] = useState('');
     const [totalDebt, setTotalDebt] = useState(0);
     const [principalDebt, setPrincipalDebt] = useState(0);
+    const [interestDebt, setInterestDebt] = useState(0);
+    const [lateFeeDebt, setLateFeeDebt] = useState(0);
     const [interestApplicationMode, setInterestApplicationMode] = useState<InterestApplicationMode>('TOTAL_ONCE');
     const [interestBaseMode, setInterestBaseMode] = useState<InterestBaseMode>('TOTAL_DEBT');
 
@@ -101,12 +103,19 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const [frequency, setFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
     const mainLoan = loans[0];
     const mainLoanLabel = mainLoan ? `${mainLoan.debtorName} #${mainLoan.id.slice(0, 6).toUpperCase()}` : 'contrato principal';
+    const loansWithActiveAgreement = loans.filter((loan) => {
+        const agreementStatus = String(loan.activeAgreement?.status || '').toUpperCase();
+        return !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(agreementStatus);
+    });
+    const normalUnificationBlocked = loans.length < 2 || loansWithActiveAgreement.length > 0;
 
     useEffect(() => {
         if (!loans || loans.length === 0) return;
         const snapshot = buildRenegotiationDebtSnapshot(loans);
         setTotalDebt(Number(snapshot.totalDebt.toFixed(2)));
         setPrincipalDebt(Number(snapshot.principalDebt.toFixed(2)));
+        setInterestDebt(Number(snapshot.interestDebt.toFixed(2)));
+        setLateFeeDebt(Number(snapshot.lateFeeDebt.toFixed(2)));
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         try {
@@ -231,6 +240,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 const mainLoan = loans[0];
                 const mainLoanId = safeUUID(mainLoan.id);
                 if (!mainLoanId) throw new Error("Contrato principal invalido.");
+
+                if (normalUnificationBlocked) {
+                    throw new Error(
+                        "A unificacao normal nao aceita contratos com acordo ativo. Quebre/cancele o acordo antes, ou use o parcelamento de acordo."
+                    );
+                }
 
                 const clientIds = new Set(loans.map((loan) => String(loan.clientId || '').trim()).filter(Boolean));
                 if (clientIds.size !== 1) {
@@ -384,20 +399,36 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
             setIsSaving(false);
         }
     };
-
     const operationWarning = (() => {
+
         if (flowMode === 'NORMAL_UNIFICATION') {
-            return `Ao confirmar, ${mainLoanLabel} será o contrato principal. Os demais contratos selecionados ficarão como legado histórico, sem criar parcelamento.`;
+            return `Ao confirmar, ${mainLoanLabel} sera o contrato principal. O saldo atual vira a nova base e a cobranca normal continua.`;
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
             return loans.length > 1
-                ? 'Ao confirmar, todos os contratos selecionados ficarão marcados como Somente Capital, sem juros, multa ou cronograma fixo de acordo.'
-                : 'Ao confirmar, este contrato ficará marcado como Somente Capital, sem juros, multa ou cronograma fixo de acordo.';
+                ? 'Ao confirmar, todos os contratos selecionados ficarao em Somente Capital: apenas principal restante, sem juros/mora.'
+                : 'Ao confirmar, este contrato ficara em Somente Capital: apenas principal restante, sem juros/mora.';
         }
         return loans.length > 1
             ? `Ao confirmar, ${mainLoanLabel} será o contrato principal do acordo parcelado e os demais ficarão como legado histórico.`
             : 'Ao confirmar, este contrato será transformado em um acordo parcelado, sem criar outro contrato para o mesmo cliente.';
     })();
+
+    const flowHelp = (() => {
+        if (flowMode === 'NORMAL_UNIFICATION') {
+            if (loansWithActiveAgreement.length > 0) {
+                return 'Bloqueado: existe contrato com acordo ativo na selecao. A unificacao normal so aceita contratos sem acordo.';
+            }
+            return 'Junta os contratos no contrato principal e mantem a cobranca normal de juros/mora conforme a modalidade.';
+        }
+        if (flowMode === 'CAPITAL_ONLY_OPEN') {
+            return 'Mantem os contratos abertos, ignora juros/mora e usa somente o principal restante.';
+        }
+        return 'Cria acordo parcelado. Use quando quiser novo cronograma, entrada, desconto ou juros negociados.';
+    })();
+
+    const displayedDebtTotal = flowMode === 'CAPITAL_ONLY_OPEN' ? principalDebt : totalDebt;
+    const displayedDebtLabel = flowMode === 'CAPITAL_ONLY_OPEN' ? 'Capital a Recuperar' : 'Divida Total Calculada';
 
     return (
         <Modal onClose={onClose} title={loans.length > 1 ? `Unificar ${loans.length} Contratos` : "Acordo de Inadimplência"}>
@@ -405,17 +436,45 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 {step === 1 && (
                     <div className="space-y-4 animate-in slide-in-from-right">
                          <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center">
-                            <p className="text-[10px] uppercase font-black text-slate-500">Dívida Total Calculada</p>
-                            <p className="text-3xl font-black text-rose-500">{formatMoney(totalDebt)}</p>
+                            <p className="text-[10px] uppercase font-black text-slate-500">{displayedDebtLabel}</p>
+                            <p className="text-3xl font-black text-rose-500">{formatMoney(displayedDebtTotal)}</p>
                             {loans.length > 1 && <p className="text-[10px] text-slate-400 mt-2">Somando {loans.length} contratos selecionados</p>}
                             {loans.length > 1 && <p className="text-[10px] text-blue-300 mt-2">Contrato principal: <b>{mainLoanLabel}</b></p>}
                         </div>
 
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
+                                <p className="text-[8px] font-black uppercase text-slate-500">Principal</p>
+                                <p className="text-[11px] font-black text-white">{formatMoney(principalDebt)}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
+                                <p className="text-[8px] font-black uppercase text-slate-500">Juros</p>
+                                <p className="text-[11px] font-black text-blue-400">{formatMoney(interestDebt)}</p>
+                            </div>
+                            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
+                                <p className="text-[8px] font-black uppercase text-slate-500">Mora/Multa</p>
+                                <p className="text-[11px] font-black text-rose-400">{formatMoney(lateFeeDebt)}</p>
+                            </div>
+                        </div>
+
+                        {loansWithActiveAgreement.length > 0 && (
+                            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                                <p className="text-[9px] font-black uppercase text-amber-300">Acordo ativo detectado</p>
+                                <p className="mt-1 text-[10px] font-bold text-amber-100">
+                                    {loansWithActiveAgreement.length} contrato(s) selecionado(s) tem acordo ativo. Unificacao normal bloqueada para nao misturar acordo com saldo original.
+                                </p>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <button onClick={() => setFlowMode('INSTALLMENT_AGREEMENT')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'INSTALLMENT_AGREEMENT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Parcelar</p></button>
-                            {loans.length > 1 && <button onClick={() => setFlowMode('NORMAL_UNIFICATION')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'NORMAL_UNIFICATION' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Unificar Normal</p></button>}
+                            {loans.length > 1 && <button disabled={normalUnificationBlocked} onClick={() => !normalUnificationBlocked && setFlowMode('NORMAL_UNIFICATION')} className={`p-3 rounded-lg border text-center transition-all disabled:cursor-not-allowed disabled:opacity-40 ${flowMode === 'NORMAL_UNIFICATION' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Unificar Normal</p></button>}
                             <button onClick={() => setFlowMode('CAPITAL_ONLY_OPEN')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'CAPITAL_ONLY_OPEN' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Somente Capital</p></button>
                         </div>
+
+                        <p className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] font-bold text-slate-400">
+                            {flowHelp}
+                        </p>
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-2">
                             <button onClick={() => setCalculationMode('BY_INSTALLMENTS')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_INSTALLMENTS' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Hash size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Parcelas</p></button>
@@ -453,7 +512,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
 
-                        <button onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2"><Calculator size={16}/> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button>
+                        <button disabled={flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked} onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"><Calculator size={16}/> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button>
                     </div>
                 )}
 
@@ -463,7 +522,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
                                 <p className="text-[10px] uppercase font-bold text-slate-500">Operação Selecionada</p>
                                 <p className="text-xl font-black text-white mt-1">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificação normal sem parcelamento' : 'Somente Capital em aberto'}</p>
-                                <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serão consolidados no contrato principal, sem acordo parcelado.' : 'O contrato ficará marcado para recuperar apenas o capital, sem cronograma de parcelas.'}</p>
+                                <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serao consolidados no principal. O saldo atual vira a nova base e a cobranca normal continua.' : 'A cobranca passa a considerar apenas o principal restante, sem juros/mora.'}</p>
                             </div>
                         )}
                         {flowMode === 'INSTALLMENT_AGREEMENT' && (
@@ -537,3 +596,5 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         </Modal>
     );
 };
+
+

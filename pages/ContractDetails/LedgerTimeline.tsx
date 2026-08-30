@@ -64,6 +64,7 @@ interface LedgerTimelineProps {
     isStealthMode: boolean;
     onOpenReceipt?: (transaction: LedgerEntry, loan: Loan) => void;
     onReverseTransaction: (transaction: LedgerEntry, loan: Loan) => void;
+    onReverseNormalUnification?: (transaction: LedgerEntry, loan: Loan) => void;
 }
 
 export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
@@ -71,7 +72,8 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
     groupedLedger,
     isStealthMode,
     onOpenReceipt,
-    onReverseTransaction
+    onReverseTransaction,
+    onReverseNormalUnification
 }) => {
     const getTransactionIcon = (type: string) => {
         switch (type) {
@@ -164,6 +166,11 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                                     {entry.amount >= 0 ? '+' : ''}
                                                     {formatMoney(entry.amount, isStealthMode)}
                                                 </p>
+                                                {entry.type === 'NORMAL_UNIFICATION_CREATED' && entry.meta && (
+                                                    <p className="text-[8px] font-bold text-slate-500 uppercase">
+                                                        P {formatMoney(Number(entry.meta.principal || 0), isStealthMode)} | J {formatMoney(Number(entry.meta.interest || 0), isStealthMode)} | M {formatMoney(Number(entry.meta.late_fee || 0), isStealthMode)}
+                                                    </p>
+                                                )}
                                             </div>
 
                                             {entry.type?.includes('PAYMENT') && Number(entry.amount || 0) > 0 && onOpenReceipt && (
@@ -183,6 +190,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                             {entry.type !== 'ESTORNO' &&
                                                 entry.type !== 'SYSTEM' &&
                                                 entry.category !== 'AUDIT' &&
+                                                entry.type !== 'NORMAL_UNIFICATION_CREATED' &&
                                                 !entry.type?.includes('AGREEMENT') && (
                                                     <button
                                                         onClick={(e) => {
@@ -195,6 +203,19 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                                         <RefreshCcw size={12} />
                                                     </button>
                                                 )}
+
+                                            {entry.type === 'NORMAL_UNIFICATION_CREATED' && onReverseNormalUnification && !entry.meta?.reversed_at && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onReverseNormalUnification(entry, loan);
+                                                    }}
+                                                    className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/20"
+                                                    title="Desfazer unificacao normal"
+                                                >
+                                                    <RefreshCcw size={12} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

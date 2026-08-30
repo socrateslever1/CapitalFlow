@@ -1,16 +1,13 @@
 import { Loan, Installment, LoanPolicy } from "../../../../types";
 import { getDaysDiff } from "../../../../utils/dateHelpers";
 import { CalculationResult } from "../types";
-import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
+import { calculateMonthlyCycleLatePolicy } from "../../lateFeePolicy";
 
 const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
 export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPolicy, referenceDate?: string): CalculationResult => {
     const daysLate = Math.max(0, getDaysDiff(inst.dueDate, referenceDate));
-    
-    // Juros do ciclo atual: só inferimos quando a parcela ainda não teve
-    // juros pagos. Depois de receber juros, o próximo ciclo deve vir do saldo
-    // persistido em interest_remaining, evitando cobrança imediata repetida.
+
     const principal = Number(inst?.principalRemaining ?? loan?.principal ?? 0) || 0;
     let interest = Number(inst?.interestRemaining ?? 0) || 0;
     const paidInterest = Number((inst as any)?.paidInterest ?? (inst as any)?.paid_interest ?? 0);
@@ -21,30 +18,26 @@ export const calculateMonthly = (loan: Loan, inst: Installment, policy: LoanPoli
     if (interest <= 0.05 && paidInterest <= 0.05 && contractedInterest > 0) {
         interest = contractedInterest;
     }
-    
-    let fineFixed = 0;
-    let fineDaily = 0;
-    let currentLateFee = 0;
 
-    // Calcula encargos apenas se houver saldo devedor e atraso
-    if (daysLate > 0 && (principal + interest) > 0) {
-        // Multa fixa recorrente: 2% ao atrasar e mais 2% a cada 30 dias.
-        fineFixed = calculateRecurringMonthlyFine(principal + interest, policy.finePercent, daysLate);
-        
-        // Juros Mora Diária (%)
-        fineDaily = round((principal + interest) * (policy.dailyInterestPercent / 100) * daysLate);
-        
-        currentLateFee = round(fineFixed + fineDaily);
-    }
+    const cyclePolicy = calculateMonthlyCycleLatePolicy({
+        principal,
+        currentInterest: interest,
+        monthlyInterestPercent: loan.interestRate,
+        finePercent: policy.finePercent,
+        dailyInterestPercent: policy.dailyInterestPercent,
+        daysLate,
+    });
 
     return {
-        total: round(principal + interest + currentLateFee),
-        principal,
-        interest, // Retorna o saldo restante de juros, não o total do mês
-        lateFee: currentLateFee,
-        finePart: fineFixed,
-        moraPart: fineDaily,
-        baseForFine: round(principal + interest),
-        daysLate
-    };
+        total: cyclePolicy.total,
+        principal: cyclePolicy.principal,
+        interest: cyclePolicy.interest,
+        lateFee: cyclePolicy.lateFee,
+        finePart: cyclePolicy.finePart,
+        moraPart: cyclePolicy.moraPart,
+        baseForFine: cyclePolicy.capitalizedBase,
+        daysLate,
+        completedCycles: cyclePolicy.completedCycles,
+        residualDays: cyclePolicy.residualDays,
+    } as CalculationResult;
 };

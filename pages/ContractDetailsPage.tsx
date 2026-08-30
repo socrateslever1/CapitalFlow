@@ -22,6 +22,8 @@ import { formatBRDate } from '../utils/dateHelpers';
 import { ForgivenessMode } from '../components/modals/payment/hooks/usePaymentManagerState';
 import { AgreementView } from '../features/agreements/components/AgreementView';
 import { ScopedCollectionAutomation } from '../features/collections/components/ScopedCollectionAutomation';
+import { supabase } from '../lib/supabase';
+import { safeUUID } from '../utils/uuid';
 
 // Subcomponentes e Hooks Refatorados
 import { useContractDetailsState } from './ContractDetails/useContractDetailsState';
@@ -129,6 +131,30 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         } else {
             fileWindow?.close();
         }
+    };
+
+    const handleReverseNormalUnification = async (transaction: LedgerEntry, targetLoan: Loan) => {
+        const confirmed = window.confirm('Desfazer esta unificacao normal e restaurar os contratos/parcelas anteriores?');
+        if (!confirmed) return;
+
+        const profileId = safeUUID((activeUser as any)?.supervisor_id) || safeUUID(activeUser?.id);
+        if (!profileId) {
+            showToast('Perfil invalido para desfazer a unificacao.', 'error');
+            return;
+        }
+
+        const { error } = await supabase.rpc('reverse_normal_unification', {
+            p_operation_id: transaction.id,
+            p_profile_id: profileId
+        });
+
+        if (error) {
+            showToast(`Nao foi possivel desfazer: ${error.message}`, 'error');
+            return;
+        }
+
+        showToast(`Unificacao de ${targetLoan.debtorName} desfeita.`, 'success');
+        onRefresh?.();
     };
 
     return (
@@ -368,6 +394,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                         isStealthMode={isStealthMode}
                         onOpenReceipt={onOpenReceipt}
                         onReverseTransaction={onReverseTransaction}
+                        onReverseNormalUnification={handleReverseNormalUnification}
                     />
                 </div>
 

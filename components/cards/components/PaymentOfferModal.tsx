@@ -6,6 +6,7 @@ import {
   calculatePaymentOfferPreview,
   isPaymentOfferActive,
   paymentOffersService,
+  type PaymentOfferHistoryItem,
   type PaymentOfferInput,
 } from '../../../services/paymentOffers.service';
 
@@ -45,6 +46,8 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   });
   const [isSaving, setIsSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [history, setHistory] = React.useState<PaymentOfferHistoryItem[]>([]);
+  const [historyError, setHistoryError] = React.useState('');
   const preview = React.useMemo(
     () => calculatePaymentOfferPreview(loan, installment, form),
     [loan, installment, form]
@@ -52,6 +55,30 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   const canRenewInterest = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
   const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
+
+  React.useEffect(() => {
+    let alive = true;
+    paymentOffersService.history(installment.id)
+      .then((items) => {
+        if (alive) setHistory(items);
+      })
+      .catch((reason: any) => {
+        if (alive) setHistoryError(reason?.message || 'Nao foi possivel carregar o historico.');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [installment.id]);
+
+  const actionLabel = (action: string) => {
+    const normalized = action.toUpperCase();
+    if (normalized === 'CREATED') return 'Criada';
+    if (normalized === 'REPLACED') return 'Alterada';
+    if (normalized === 'CANCELLED') return 'Cancelada';
+    if (normalized === 'USED') return 'Usada';
+    if (normalized === 'EXPIRED') return 'Vencida';
+    return action;
+  };
 
   const submit = async () => {
     setError('');
@@ -261,10 +288,41 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
 
           {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
 
+          <section className="rounded-md border border-slate-800 bg-slate-950/70">
+            <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Historico da condicao</p>
+              {active && <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">Ativa</span>}
+            </div>
+            <div className="max-h-32 overflow-y-auto p-2">
+              {historyError ? (
+                <p className="px-1 py-2 text-[9px] font-bold text-rose-400">{historyError}</p>
+              ) : history.length === 0 ? (
+                <p className="px-1 py-2 text-[9px] font-bold text-slate-500">Nenhum historico registrado para esta parcela.</p>
+              ) : history.map((item) => (
+                <div key={item.id} className="mb-1 rounded border border-slate-800 bg-slate-900/70 px-2 py-1.5 last:mb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[8px] font-black uppercase text-slate-300">
+                      {actionLabel(item.action)} · {item.offerType === 'INTEREST_RENEWAL' ? 'Renovacao' : 'Condicao'}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500">
+                      {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[9px] font-bold text-white">
+                    {formatMoney(item.offeredAmount)}
+                    {(item.discountApplied + item.lateFeeForgiven) > 0.05 && (
+                      <span className="text-emerald-400"> · abatido {formatMoney(item.discountApplied + item.lateFeeForgiven)}</span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
           <div className="flex gap-2">
             {active && (
               <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-10 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
-                Cancelar
+                Cancelar condicao
               </button>
             )}
             <button type="button" onClick={submit} disabled={isSaving} className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">

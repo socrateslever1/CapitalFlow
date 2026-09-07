@@ -1,149 +1,82 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Loan, LoanBillingModality, Client, CapitalSource, UserProfile, LoanDocument } from '../../../types';
-import { maskPhone, maskDocument, normalizeBrazilianPhone } from '../../../utils/formatters';
-import { generateUUID } from '../../../utils/generators';
+import { useEffect, useRef, useState } from 'react';
+import { Loan, Client, CapitalSource, UserProfile, LoanDocument } from '../../../types';
 import { supabase } from '../../../lib/supabase';
-import { validateLoanForm } from '../domain/loanForm.validators';
-import { mapFormToLoan, LoanFormState } from '../domain/loanForm.mapper';
-import { calculateAutoDueDate } from '../domain/loanForm.preview';
-import { getInitialFormState } from './loanForm.defaults';
-import { safeIsoDateOnly, safeSourceId, safeFileFirst } from '../utils/formHelpers';
-import { parseDateOnlyUTC, toISODateOnlyUTC, addDaysUTC, addMonthsUTC } from '../../../utils/dateHelpers';
-import { isTestSource } from '../../../utils/testSource';
+import { generateUUID } from '../../../utils/generators';
+import { maskDocument, maskPhone } from '../../../utils/formatters';
+import { normalizeBrazilianPhone } from '../../../utils/phone';
+import { safeFileFirst } from '../../../utils/file';
 import { toStorageReference } from '../../../utils/storageUrl';
+import { isTestSource } from '../../../utils/source';
+import { validateLoanForm } from '../domain/loanForm.validation';
+import { mapFormToLoan } from '../domain/loanForm.mapper';
+import { addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 
-
-const getInstallmentNumber = (inst: any, fallback: number) => {
-  const parsed = Number(inst?.number ?? inst?.numero_parcela ?? inst?.installmentNumber);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
-const getFirstInstallmentDueDate = (loan: Loan): string => {
-  const installments = [...(loan.installments || [])];
-  if (!installments.length) return '';
-
-  const sorted = loan.billingCycle === 'INSTALLMENT_FIXED'
-    ? installments.sort((a, b) => getInstallmentNumber(a, 0) - getInstallmentNumber(b, 0))
-    : installments.sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
-
-  return safeIsoDateOnly(sorted[0]?.dueDate);
-};
-
-const getSuggestedFirstDueDate = (
-  startDate: string,
-  billingCycle: LoanBillingModality,
-  fixedDuration: string,
-  skipWeekends: boolean
-): string => {
-  const start = parseDateOnlyUTC(startDate);
-  if (billingCycle === 'DAILY_FREE') return toISODateOnlyUTC(addDaysUTC(start, 1, false));
-  if (billingCycle === 'DAILY_FIXED_TERM') {
-    const days = Math.max(1, Math.floor(Number(fixedDuration) || 1));
-    return toISODateOnlyUTC(addDaysUTC(start, days, skipWeekends));
-  }
-  return toISODateOnlyUTC(addMonthsUTC(start, 1));
-};
 interface UseLoanFormProps {
+  onAdd: (loan: Loan) => void;
+  onCancel: () => void;
   initialData?: Loan | null;
   clients: Client[];
   sources: CapitalSource[];
   userProfile?: UserProfile | null;
-  onAdd: (loan: Loan) => void;
-  onCancel: () => void;
 }
 
-export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd, onCancel }: UseLoanFormProps) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile }: UseLoanFormProps) => {
+  const [formData, setFormData] = useState<any>({});
   const [fixedDuration, setFixedDuration] = useState('30');
   const [skipWeekends, setSkipWeekends] = useState(false);
-
-  const [formData, setFormData] = useState<LoanFormState>(() => getInitialFormState(safeSourceId(sources)));
-
-  // NOVO: Estado para controlar o vencimento da 1ª parcela de forma manual/automática
-  const [manualFirstDueDate, setManualFirstDueDate] = useState<string>('');
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [documentPhotos, setDocumentPhotos] = useState<string[]>([]);
   const [customDocuments, setCustomDocuments] = useState<LoanDocument[]>([]);
-  const [showCamera, setShowCamera] = useState<{ active: boolean, type: 'guarantee' | 'document' }>({ active: false, type: 'guarantee' });
-
+  const [showCamera, setShowCamera] = useState<{ active: boolean; type: 'guarantee' | 'document' }>({ active: false, type: 'guarantee' });
+  const [manualFirstDueDate, setManualFirstDueDate] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const initializedFormKeyRef = useRef<string | null>(null);
 
-  // Sugere vencimento subsequente real: mensal/parcelado = mês seguinte, diário = dia/prazo seguinte.
   useEffect(() => {
-    if (!initialData) {
-        setManualFirstDueDate(getSuggestedFirstDueDate(
-          formData.startDate,
-          formData.billingCycle,
-          fixedDuration,
-          skipWeekends
-        ));
-    }
-  }, [formData.startDate, formData.billingCycle, fixedDuration, skipWeekends, initialData]);
-
-  const isDailyModality = formData.billingCycle === 'DAILY_FREE' || formData.billingCycle === 'DAILY_FIXED_TERM';
-
-  // Initialization with Guards
-  useEffect(() => {
-    const formKey = initialData?.id ? `EDIT:${initialData.id}` : 'NEW';
-    if (initializedFormKeyRef.current === formKey) return;
-    initializedFormKeyRef.current = formKey;
-
     if (initialData) {
       setFormData({
         clientId: initialData.clientId || '',
         debtorName: initialData.debtorName || '',
-        debtorPhone: maskPhone(initialData.debtorPhone || ''),
-        debtorDocument: maskDocument(initialData.debtorDocument || ''),
+        debtorPhone: initialData.debtorPhone || '',
+        debtorDocument: initialData.debtorDocument || '',
         debtorAddress: initialData.debtorAddress || '',
-        sourceId: initialData.sourceId || safeSourceId(sources),
-        preferredPaymentMethod: initialData.preferredPaymentMethod || 'PIX',
-        pixKey: initialData.pixKey || '',
-        principal: String(initialData.principal || ''),
-        interestRate: String(initialData.interestRate || ''),
-        finePercent: String(initialData.finePercent || 2),
-        dailyInterestPercent: String(initialData.dailyInterestPercent || 1),
+        sourceId: initialData.sourceId || '',
+        principal: String(initialData.principal ?? ''),
+        interestRate: String(initialData.interestRate ?? ''),
+        finePercent: String(initialData.finePercent ?? ''),
+        dailyInterestPercent: String(initialData.dailyInterestPercent ?? ''),
+        startDate: String(initialData.startDate || '').slice(0, 10),
         billingCycle: initialData.billingCycle || 'MONTHLY',
-        notes: initialData.notes || '',
-        guaranteeDescription: initialData.guaranteeDescription || '',
-        startDate: safeIsoDateOnly(initialData.startDate),
-        fundingTotalPayable: initialData.fundingTotalPayable != null ? String(initialData.fundingTotalPayable) : '',
-        fundingProvider: initialData.fundingProvider || '',
-        fundingFeePercent: initialData.fundingFeePercent != null ? String(initialData.fundingFeePercent) : '',
-        fundingCalculationMode: initialData.fundingCalculationMode || (initialData.fundingTotalPayable ? 'TOTAL' : 'RATE'),
-        fundingInstallmentsCount: initialData.fundingInstallmentsCount != null ? String(initialData.fundingInstallmentsCount) : String(initialData.installments?.length || 1),
-        fundingMonthlyRate: initialData.fundingMonthlyRate != null ? String(initialData.fundingMonthlyRate) : '',
-        customerMarginPercent: initialData.customerMarginPercent != null ? String(initialData.customerMarginPercent) : '30'
+        fundingTotalPayable: String((initialData as any).fundingTotalPayable ?? ''),
+        fundingInstallmentsCount: String((initialData as any).fundingInstallmentsCount ?? ''),
+        fundingMonthlyRate: String((initialData as any).fundingMonthlyRate ?? ''),
+        customerMarginPercent: String((initialData as any).customerMarginPercent ?? ''),
+        fundingCalculationMode: (initialData as any).fundingCalculationMode || 'TOTAL',
+        fundingOperatorAbsorbsInterest: (initialData as any).fundingOperatorAbsorbsInterest === true,
+        fundingFeePercent: String((initialData as any).fundingFeePercent ?? ''),
+        fundingProvider: String((initialData as any).fundingProvider ?? ''),
       });
-
-      // Se estiver editando, carrega o vencimento real da primeira parcela operacional.
-      setManualFirstDueDate(getFirstInstallmentDueDate(initialData) || getSuggestedFirstDueDate(
-        safeIsoDateOnly(initialData.startDate),
-        initialData.billingCycle || 'MONTHLY',
-        String(initialData.installments?.length || 30),
-        !!initialData.skipWeekends
-      ));
-
-      setFixedDuration('30');
-      setSkipWeekends(initialData.skipWeekends || false);
-      setAttachments(initialData.attachments || []);
-      setDocumentPhotos(initialData.documentPhotos || []);
-      setCustomDocuments(initialData.customDocuments || []);
+      setSkipWeekends(!!initialData.skipWeekends);
+      setAttachments(Array.isArray((initialData as any).attachments) ? (initialData as any).attachments : []);
+      setCustomDocuments(Array.isArray((initialData as any).documents) ? (initialData as any).documents : []);
+      const firstDue = initialData.installments?.[0]?.dueDate;
+      setManualFirstDueDate(firstDue ? String(firstDue).slice(0, 10) : String(initialData.startDate || '').slice(0, 10));
     } else {
-        setFormData(prev => ({
-            ...prev,
-            sourceId: prev.sourceId || safeSourceId(sources),
-            pixKey: userProfile?.pixKey || '',
-            interestRate: userProfile?.defaultInterestRate ? String(userProfile.defaultInterestRate) : '30',
-            finePercent: userProfile?.defaultFinePercent ? String(userProfile.defaultFinePercent) : '2',
-            dailyInterestPercent: userProfile?.defaultDailyInterestPercent ? String(userProfile.defaultDailyInterestPercent) : '1',
-        }));
+      const today = new Date().toISOString().slice(0, 10);
+      setFormData({
+        clientId: '', debtorName: '', debtorPhone: '', debtorDocument: '', debtorAddress: '',
+        sourceId: sources[0]?.id || '', principal: '', interestRate: '', finePercent: '2', dailyInterestPercent: '1',
+        startDate: today, billingCycle: 'MONTHLY', fundingTotalPayable: '', fundingInstallmentsCount: '10',
+        fundingMonthlyRate: '', customerMarginPercent: '30', fundingCalculationMode: 'TOTAL', fundingOperatorAbsorbsInterest: false,
+        fundingFeePercent: '', fundingProvider: ''
+      });
+      setManualFirstDueDate(today);
     }
-  }, [initialData, userProfile, sources]);
+  }, [initialData, sources]);
+
+  const isDailyModality = ['DAILY_FREE', 'DAILY_FIXED_TERM'].includes(formData.billingCycle);
 
   useEffect(() => {
       return () => {
@@ -222,7 +155,7 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
           let number = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
 
           const normalizedPhone = normalizeBrazilianPhone(number);
-          setFormData((prev) => ({ ...prev, debtorName: name || prev.debtorName, debtorPhone: normalizedPhone }));
+          setFormData((prev: any) => ({ ...prev, debtorName: name || prev.debtorName, debtorPhone: normalizedPhone }));
         }
       } catch (ex) {}
     } else { alert("Importação de contatos disponível apenas em dispositivos Android via Chrome."); }
@@ -291,8 +224,18 @@ export const useLoanForm = ({ initialData, clients, sources, userProfile, onAdd,
         );
         loanPayload.skipWeekends = skipWeekends;
 
-        // Aplica o vencimento escolhido respeitando a periodicidade da modalidade.
-        if (loanPayload.installments?.length && manualFirstDueDate) {
+        const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
+
+        if (hasActiveAgreement && initialData) {
+            // O editor geral nunca deve recriar a dívida original enquanto há um acordo ativo.
+            // O cronograma vigente pertence ao acordo e é editado pelo módulo de renegociação.
+            loanPayload.principal = initialData.principal;
+            loanPayload.billingCycle = initialData.billingCycle;
+            loanPayload.startDate = initialData.startDate;
+            loanPayload.totalToReceive = initialData.totalToReceive;
+            loanPayload.installments = [];
+        } else if (loanPayload.installments?.length && manualFirstDueDate) {
+            // Aplica o vencimento escolhido respeitando a periodicidade da modalidade.
             if (formData.billingCycle === 'INSTALLMENT_FIXED') {
                 loanPayload.installments = loanPayload.installments.map((inst, index) => ({
                     ...inst,

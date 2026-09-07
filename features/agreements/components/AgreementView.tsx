@@ -37,7 +37,13 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
         setScheduleFrequency,
         firstOpenDueDate,
         setFirstOpenDueDate,
+        scheduleInstallmentValue,
+        setScheduleInstallmentValue,
         openInstallments,
+        paidTotal,
+        outstandingBalance,
+        projectedInstallments,
+        projectedLastInstallment,
         handleBreak,
         handleActivate,
         handleScheduleUpdate
@@ -169,9 +175,20 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
 
             {isEditingSchedule && (
                 <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-3 space-y-3 mb-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Já pago</span>
+                            <p className="mt-1 text-[12px] font-black text-emerald-400">{formatMoney(paidTotal, isStealthMode)}</p>
+                        </div>
+                        <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2.5">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-blue-400">Saldo restante</span>
+                            <p className="mt-1 text-[12px] font-black text-white">{formatMoney(outstandingBalance, isStealthMode)}</p>
+                        </div>
+                    </div>
+                    <p className="text-[8px] leading-relaxed text-slate-500">O recálculo parte somente do saldo aberto. Parcelas quitadas e histórico de recebimentos permanecem intactos.</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <label className="flex flex-col gap-1">
-                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Frequencia</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Frequência</span>
                             <select
                                 value={scheduleFrequency}
                                 onChange={(e) => setScheduleFrequency(e.target.value as any)}
@@ -191,7 +208,29 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                 className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none"
                             />
                         </label>
+                        <label className="flex flex-col gap-1 sm:col-span-2">
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Novo valor da parcela</span>
+                            <input
+                                inputMode="decimal"
+                                value={scheduleInstallmentValue}
+                                onChange={(e) => setScheduleInstallmentValue(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[12px] font-black text-white outline-none"
+                                placeholder="0,00"
+                            />
+                        </label>
                     </div>
+                    {projectedInstallments > 0 && (
+                        <div className="grid grid-cols-2 gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-2.5">
+                            <div>
+                                <p className="text-[8px] font-black uppercase text-indigo-400">Parcelas restantes</p>
+                                <p className="text-[12px] font-black text-white">{projectedInstallments}</p>
+                            </div>
+                            <div>
+                                <p className="text-[8px] font-black uppercase text-indigo-400">Última parcela</p>
+                                <p className="text-[12px] font-black text-white">{formatMoney(projectedLastInstallment, isStealthMode)}</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="flex justify-end gap-2">
                         <button
                             onClick={() => setIsEditingSchedule(false)}
@@ -201,7 +240,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                         </button>
                         <button
                             onClick={handleScheduleUpdate}
-                            disabled={isProcessing || !firstOpenDueDate}
+                            disabled={isProcessing || !firstOpenDueDate || !(Number(String(scheduleInstallmentValue).replace(',', '.')) > 0) || outstandingBalance <= 0}
                             className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-[9px] font-black uppercase px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
                         >
                             <Save size={12}/> Salvar
@@ -286,7 +325,6 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                 );}) }
             </div>
 
-            {/* MODAL DE CONFIRMAÇÃO INTERNO */}
             {confirmAction && (confirmAction === 'PAY' || confirmAction === 'REVERSE') && selectedInst && (() => {
                 const modalContent = (
                 <div
@@ -347,7 +385,6 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                         </button>
                                     </div>
 
-                                    {/* Checkbox para perdão de juros se houver atraso */}
                                     {lf > 0 && (
                                         <label className="flex items-center gap-2 p-2.5 bg-slate-950/60 rounded-lg border border-slate-800 cursor-pointer select-none animate-in fade-in slide-in-from-top-1 duration-200">
                                             <input
@@ -368,7 +405,6 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                         </label>
                                     )}
 
-                                    {/* Detalhe do Valor a Receber */}
                                     {!showCustomAmount ? (
                                         <div className="p-3 bg-slate-950/60 rounded-lg border border-slate-800/80 text-center animate-in fade-in duration-200">
                                             <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Valor a Receber</p>
@@ -430,9 +466,6 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                 );
                 return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
             })()}
-
-
-            {/* Legal Modal Removed */}
         </div>
     );
 };

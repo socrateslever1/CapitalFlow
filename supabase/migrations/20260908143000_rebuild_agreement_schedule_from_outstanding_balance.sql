@@ -58,6 +58,16 @@ begin
     raise exception 'Apenas acordo ativo pode ter cronograma recalculado';
   end if;
 
+  if exists (
+    select 1
+    from public.acordo_parcelas ap
+    where ap.acordo_id = p_agreement_id
+      and coalesce(ap.paid_amount, ap.valor_pago, 0) > 0.05
+      and coalesce(ap.paid_amount, ap.valor_pago, 0) + 0.05 < coalesce(ap.amount, ap.valor, 0)
+  ) then
+    raise exception 'Existe parcela parcialmente paga. Regularize ou estorne essa parcela antes de recalcular o cronograma.';
+  end if;
+
   select
     coalesce(sum(least(greatest(coalesce(ap.paid_amount, ap.valor_pago, 0),0), greatest(coalesce(ap.amount, ap.valor, 0),0))),0),
     coalesce(sum(greatest(coalesce(ap.amount, ap.valor, 0) - coalesce(ap.paid_amount, ap.valor_pago, 0),0)),0),
@@ -126,10 +136,10 @@ begin
 
   insert into public.transacoes (
     id, loan_id, profile_id, date, type, amount,
-    principal_delta, interest_delta, late_fee_delta, category, notes, meta
+    principal_delta, interest_delta, late_fee_delta, notes, meta
   ) values (
     gen_random_uuid(), v_loan_id, v_profile_id, now(), 'AGREEMENT_SCHEDULE_REBUILT', 0,
-    0, 0, 0, 'INFO',
+    0, 0, 0,
     format('Cronograma do acordo recalculado sobre saldo aberto de R$ %s. Novo valor de parcela: R$ %s. Parcelas futuras: %s.',
       to_char(v_outstanding,'FM999999990D00'), to_char(round(p_installment_value::numeric,2),'FM999999990D00'), v_count_new),
     jsonb_build_object(

@@ -7,6 +7,9 @@ interface UseAgreementViewProps {
     onUpdate: () => void;
 }
 
+const getPaidAmount = (inst: any) => Number(inst?.paidAmount ?? inst?.paid_amount ?? inst?.valor_pago ?? 0) || 0;
+const getAmount = (inst: any) => Number(inst?.amount ?? inst?.valor ?? 0) || 0;
+
 export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [confirmAction, setConfirmAction] = useState<'BREAK' | 'ACTIVATE' | 'PAY' | 'REVERSE' | null>(null);
@@ -17,17 +20,52 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
     const [isEditingSchedule, setIsEditingSchedule] = useState(false);
     const [scheduleFrequency, setScheduleFrequency] = useState<'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'>('MONTHLY');
     const [firstOpenDueDate, setFirstOpenDueDate] = useState('');
+    const [scheduleInstallmentValue, setScheduleInstallmentValue] = useState('');
+
+    const paidInstallments = useMemo(() => {
+        return (agreement.installments || [])
+            .filter(inst => {
+                const paidAmount = getPaidAmount(inst);
+                const amount = getAmount(inst);
+                const status = String(inst?.status || '').toUpperCase();
+                return ['PAID', 'PAGO', 'QUITADO', 'QUITADA'].includes(status) || paidAmount + 0.05 >= amount;
+            })
+            .sort((a, b) => (a?.number || 0) - (b?.number || 0));
+    }, [agreement.installments]);
 
     const openInstallments = useMemo(() => {
         return (agreement.installments || [])
             .filter(inst => {
-                const paidAmount = Number((inst as any)?.paidAmount ?? (inst as any)?.paid_amount ?? 0) || 0;
-                const amount = Number(inst?.amount || 0) || 0;
+                const paidAmount = getPaidAmount(inst);
+                const amount = getAmount(inst);
                 const status = String(inst?.status || '').toUpperCase();
                 return !['PAID', 'PAGO', 'QUITADO', 'QUITADA'].includes(status) && paidAmount + 0.05 < amount;
             })
             .sort((a, b) => (a?.number || 0) - (b?.number || 0));
     }, [agreement.installments]);
+
+    const paidTotal = useMemo(() => {
+        return (agreement.installments || []).reduce((sum, inst: any) => sum + Math.min(getAmount(inst), getPaidAmount(inst)), 0);
+    }, [agreement.installments]);
+
+    const outstandingBalance = useMemo(() => {
+        return (agreement.installments || []).reduce((sum, inst: any) => {
+            return sum + Math.max(0, getAmount(inst) - getPaidAmount(inst));
+        }, 0);
+    }, [agreement.installments]);
+
+    const projectedInstallments = useMemo(() => {
+        const installmentValue = Number(String(scheduleInstallmentValue).replace(',', '.')) || 0;
+        if (installmentValue <= 0 || outstandingBalance <= 0) return 0;
+        return Math.ceil((outstandingBalance - 0.000001) / installmentValue);
+    }, [scheduleInstallmentValue, outstandingBalance]);
+
+    const projectedLastInstallment = useMemo(() => {
+        const installmentValue = Number(String(scheduleInstallmentValue).replace(',', '.')) || 0;
+        if (installmentValue <= 0 || projectedInstallments <= 0) return 0;
+        const previous = installmentValue * Math.max(0, projectedInstallments - 1);
+        return Math.max(0, Number((outstandingBalance - previous).toFixed(2)));
+    }, [scheduleInstallmentValue, projectedInstallments, outstandingBalance]);
 
     useEffect(() => {
         const rawFrequency = String((agreement as any)?.frequency || '').toUpperCase();
@@ -37,6 +75,8 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
             'MONTHLY';
         setScheduleFrequency(normalizedFrequency);
         setFirstOpenDueDate(openInstallments[0]?.dueDate ? String(openInstallments[0].dueDate).slice(0, 10) : '');
+        const currentValue = openInstallments[0] ? Math.max(0, getAmount(openInstallments[0]) - getPaidAmount(openInstallments[0])) : 0;
+        setScheduleInstallmentValue(currentValue > 0 ? String(currentValue) : '');
     }, [agreement?.id, agreement?.frequency, agreement?.installments?.length, openInstallments]);
 
     const handleBreak = useCallback(async () => {
@@ -67,9 +107,11 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
 
     const handleScheduleUpdate = useCallback(async () => {
         if (!firstOpenDueDate) return;
+        const installmentValue = Number(String(scheduleInstallmentValue).replace(',', '.')) || 0;
+        if (installmentValue <= 0) return;
         setIsProcessing(true);
         try {
-            await agreementService.updateAgreementSchedule(agreement.id, scheduleFrequency, firstOpenDueDate);
+            await agreementService.updateAgreementSchedule(agreement.id, scheduleFrequency, firstOpenDueDate, installmentValue);
             setIsEditingSchedule(false);
             onUpdate();
         } catch (e) {
@@ -77,7 +119,7 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
         } finally {
             setIsProcessing(false);
         }
-    }, [agreement.id, scheduleFrequency, firstOpenDueDate, onUpdate]);
+    }, [agreement.id, scheduleFrequency, firstOpenDueDate, scheduleInstallmentValue, onUpdate]);
 
     return {
         isProcessing,
@@ -97,7 +139,14 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
         setScheduleFrequency,
         firstOpenDueDate,
         setFirstOpenDueDate,
+        scheduleInstallmentValue,
+        setScheduleInstallmentValue,
+        paidInstallments,
         openInstallments,
+        paidTotal,
+        outstandingBalance,
+        projectedInstallments,
+        projectedLastInstallment,
         handleBreak,
         handleActivate,
         handleScheduleUpdate,

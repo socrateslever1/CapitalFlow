@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Agreement, AgreementInstallment } from "../../../types";
 import { agreementService } from "../services/agreementService";
+import { agreementScheduleService } from "../services/agreementScheduleService";
 
 interface UseAgreementViewProps {
     agreement: Agreement;
@@ -111,7 +112,7 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
         if (installmentValue <= 0) return;
         setIsProcessing(true);
         try {
-            await agreementService.updateAgreementSchedule(agreement.id, scheduleFrequency, firstOpenDueDate, installmentValue);
+            await agreementScheduleService.updateSchedule(agreement.id, scheduleFrequency, firstOpenDueDate, installmentValue);
             setIsEditingSchedule(false);
             onUpdate();
         } catch (e) {

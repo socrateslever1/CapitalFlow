@@ -14,10 +14,11 @@ interface LoanFormFinancialSectionProps {
   setManualFirstDueDate: (v: string) => void;
   skipWeekends?: boolean;
   setSkipWeekends?: (v: boolean) => void;
+  isEditing?: boolean;
 }
 
 export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> = ({
-  sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, skipWeekends, setSkipWeekends
+  sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, skipWeekends, setSkipWeekends, isEditing
 }) => {
   const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
   const strongInputClass = `${inputClass} font-bold`;
@@ -125,8 +126,9 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
-            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Principal</label>
-            <input required type="number" step="0.01" value={formData.principal || ''} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Principal original' : 'Principal'}</label>
+            <input required type="number" step="0.01" value={formData.principal || ''} readOnly={!!isEditing} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className={`w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all ${isEditing ? 'bg-slate-900/80 border-slate-800 text-slate-400 cursor-not-allowed' : 'bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10'}`} />
+            {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Valor histórico protegido. O saldo e as parcelas futuras são ajustados no editor do acordo.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{formData.billingCycle === 'MONTHLY' ? 'Juros (%) Mensal' : 'Taxa (%) Mensal'}</label>
@@ -217,230 +219,175 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         {/* Inputs: Parcelas Banco & Margem Cliente */}
                         <div className="space-y-4">
                             <div className="space-y-1">
-                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Quantidade de parcelas do banco</label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        step="1"
-                                        inputMode="numeric"
-                                        value={formData.fundingInstallmentsCount || ''}
-                                        onChange={e => {
-                                            const value = e.target.value;
-                                            if (value === '' || /^\d+$/.test(value)) {
-                                                setFormData({...formData, fundingInstallmentsCount: value});
-                                            }
-                                        }}
-                                        className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 pr-24 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                                    />
-                                    <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase text-slate-500">parcelas</span>
-                                </div>
+                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-widest ml-1">Parcelas (Banco)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={formData.fundingInstallmentsCount || ''}
+                                    onChange={e => setFormData({...formData, fundingInstallmentsCount: e.target.value})}
+                                    className={strongInputClass}
+                                    placeholder="Ex: 10"
+                                />
                             </div>
+
+                            {formData.fundingCalculationMode === 'RATE' ? (
+                                <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+                                    <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-widest ml-1">Taxa Mensal do Banco (%)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.fundingMonthlyRate || ''}
+                                            onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})}
+                                            className={`${strongInputClass} pr-12`}
+                                            placeholder="0,00"
+                                        />
+                                        <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-black">%</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+                                    <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-widest ml-1">Valor Total a Pagar ao Banco</label>
+                                    <div className="relative">
+                                        <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-black">R$</span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={formData.fundingTotalPayable || ''}
+                                            onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})}
+                                            className={`${strongInputClass} pl-12`}
+                                            placeholder="0,00"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="h-px bg-slate-800/60 my-1"></div>
+
                             <div className="space-y-1">
-                                <label className="text-[9px] text-emerald-300/70 font-black uppercase tracking-wider ml-2">Margem Cliente (%)</label>
+                                <label className="text-[9px] text-purple-300/70 font-black uppercase tracking-widest ml-1">Margem Sobre a Parcela (%)</label>
                                 <div className="relative">
                                     <input
                                         type="number"
                                         step="0.01"
                                         value={formData.customerMarginPercent || ''}
                                         onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})}
-                                        className="w-full bg-slate-900/80 border border-emerald-500/25 rounded-lg px-5 py-4 pr-12 text-white font-bold outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all duration-200"
+                                        className={`${strongInputClass} pr-12 border-purple-500/20 focus:border-purple-500/50 focus:ring-purple-500/10`}
+                                        placeholder="30"
                                     />
-                                    <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-sm font-black text-emerald-400">%</span>
+                                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-purple-400/60 text-xs font-black">%</span>
                                 </div>
+                                <p className="text-[8px] text-slate-500 mt-1.5 ml-1 leading-relaxed">
+                                    A parcela do cliente será a parcela do banco + esta margem percentual.
+                                </p>
                             </div>
 
-                            {formData.fundingCalculationMode === 'RATE' ? (
-                                <div className="space-y-1">
-                                    <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Juros Banco (% ao mês)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="Ex: 4,49"
-                                            value={formData.fundingMonthlyRate || ''}
-                                            onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})}
-                                            className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 pr-12 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                                        />
-                                        <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-sm font-black text-rose-400">%</span>
+                            {/* Toggle Absorção de Juros */}
+                            <div className="bg-slate-900/40 border border-slate-800/60 rounded-lg p-4 flex items-center justify-between gap-4 mt-2">
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg transition-colors ${formData.fundingOperatorAbsorbsInterest ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-500'}`}>
+                                        <AlertTriangle size={16}/>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-200">Absorver Juros do Banco</p>
+                                        <p className="text-[8px] text-slate-500 leading-tight mt-0.5">Margem calculada sobre o principal, não sobre o custo bancário.</p>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="space-y-1">
-                                    <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Total a Pagar na Fatura</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="Ex: 1200.00"
-                                        value={formData.fundingTotalPayable || ''}
-                                        onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})}
-                                        className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                                    />
-                                </div>
-                            )}
-
-                            {/* Toggle Operator Absorbs Interest */}
-                            <div className="pt-1">
-                                <label className="flex items-center gap-3 cursor-pointer group bg-slate-900/50 p-3 rounded-lg border border-slate-800/50 hover:border-rose-500/30 transition-all">
-                                    <div className="relative">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only"
-                                            checked={formData.fundingOperatorAbsorbsInterest || false}
-                                            onChange={(e) => setFormData({...formData, fundingOperatorAbsorbsInterest: e.target.checked})}
-                                        />
-                                        <div className={`w-9 h-5 rounded-full transition-colors ${formData.fundingOperatorAbsorbsInterest ? 'bg-rose-500' : 'bg-slate-700'}`}>
-                                            <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${formData.fundingOperatorAbsorbsInterest ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider group-hover:text-rose-400 transition-colors">
-                                            Operador assume juros banco?
-                                        </span>
-                                        <span className="text-[9px] text-slate-500 font-medium">
-                                            O cliente pagará apenas o Principal + Margem.
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
-
-                            {/* Custo Calculado Display */}
-                            <div className="space-y-1">
-                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Custo do Crédito (Banco)</label>
-                                <div className="w-full bg-slate-900/40 border border-rose-500/15 rounded-lg px-5 py-4 text-rose-400 font-extrabold flex items-center justify-between h-[54px] sm:h-[58px]">
-                                    <span className="text-sm font-black tracking-wide">{formatMoney(fundingCostDisplay.cost)}</span>
-                                    {fundingCostDisplay.cost > 0 && (
-                                        <span className="text-[8px] bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-wider text-rose-400">
-                                            Custo
-                                        </span>
-                                    )}
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({...formData, fundingOperatorAbsorbsInterest: !formData.fundingOperatorAbsorbsInterest})}
+                                    className={`w-10 h-5 rounded-full transition-all relative shrink-0 ${formData.fundingOperatorAbsorbsInterest ? 'bg-amber-500' : 'bg-slate-700'}`}
+                                >
+                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${formData.fundingOperatorAbsorbsInterest ? 'left-6' : 'left-1'}`}></div>
+                                </button>
                             </div>
                         </div>
 
-                        {/* Resumo da Operação */}
-                        <div className="bg-slate-950/80 border border-slate-900 rounded-lg p-4.5 space-y-4 shadow-inner">
-                            <div className="flex items-center justify-between border-b border-slate-900 pb-2.5">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumo da Operação</span>
-                                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
-                                    {formData.customerMarginPercent || '0'}% Margem
+                        {/* Resumo Financeiro */}
+                        <div className="bg-slate-900/60 border border-slate-800/80 rounded-lg p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-slate-500">
+                                    <ArrowDownRight size={13} className="text-rose-500"/>
+                                    <span className="text-[9px] font-black uppercase">Parcela Banco</span>
+                                </div>
+                                <span className="text-sm font-black text-slate-200">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-slate-500">
+                                    <ArrowUpRight size={13} className="text-purple-500"/>
+                                    <span className="text-[9px] font-black uppercase">Parcela Cliente</span>
+                                </div>
+                                <span className="text-sm font-black text-purple-400">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</span>
+                            </div>
+                            <div className="h-px bg-slate-800/80"></div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[9px] text-slate-500 font-black uppercase">Lucro Total Est.</span>
+                                <span className={`text-sm font-black ${fixedInstallmentDisplay.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {formatMoney(fixedInstallmentDisplay.profit)}
                                 </span>
-                            </div>
-
-                            <div className="space-y-3.5">
-                                {/* Linha Banco */}
-                                <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400">
-                                            <ArrowDownRight size={14} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Banco (Custo)</p>
-                                            <p className="text-[11px] font-semibold text-slate-200">
-                                                {fixedInstallmentDisplay.count} parcelas de {formatMoney(fixedInstallmentDisplay.bankInstallment)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Total Banco</p>
-                                        <p className="text-xs font-bold text-slate-200">{formatMoney(fixedInstallmentDisplay.bankTotal)}</p>
-                                    </div>
-                                </div>
-
-                                {/* Linha Cliente */}
-                                <div className="flex items-center justify-between text-xs">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                                            <ArrowUpRight size={14} />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cliente (Cobrança)</p>
-                                            <p className="text-[11px] font-bold text-emerald-400">
-                                                {fixedInstallmentDisplay.count} parcelas de {formatMoney(fixedInstallmentDisplay.customerInstallment)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Total Recebível</p>
-                                        <p className="text-xs font-extrabold text-emerald-400">{formatMoney(fixedInstallmentDisplay.customerTotal)}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Lucro Bruto Pill/Row */}
-                            <div className="bg-gradient-to-r from-emerald-950/20 via-emerald-900/10 to-transparent border border-emerald-500/20 rounded-lg p-3 flex items-center justify-between mt-2 transition-all">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Lucro Bruto Estimado</span>
-                                </div>
-                                <span className="text-sm font-black text-emerald-400">{formatMoney(fixedInstallmentDisplay.profit)}</span>
                             </div>
                         </div>
                     </div>
                 ) : (
-                    /* Layout para Fonte Misto padrão (sem Parcela Fixa) */
-                    <div className="space-y-4">
-                        <div className="space-y-4">
-                            <div className="space-y-1">
-                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Total a Pagar na Fatura</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="Ex: 1200.00"
-                                    value={formData.fundingTotalPayable || ''}
-                                    onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})}
-                                    className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
+                    /* Layout Normal (Apenas fonte MISTA) */
+                    <div className="space-y-5">
+                        <div className="space-y-1.5">
+                            <label className="text-[9px] text-slate-500 font-black uppercase tracking-widest ml-1">Total a Pagar na Fatura</label>
+                            <div className="relative group/input">
+                                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600 font-bold text-sm group-focus-within/input:text-rose-500 transition-colors">R$</span>
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={formData.fundingTotalPayable || ''} 
+                                    onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} 
+                                    className={`${strongInputClass} pl-12 focus:border-rose-500/50 focus:ring-rose-500/10`} 
+                                    placeholder="Ex: 5500.00" 
                                 />
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Custo Calculado</label>
-                                <div className="w-full bg-slate-900/40 border border-rose-500/10 rounded-lg px-5 py-4 text-rose-400 font-extrabold flex items-center justify-between h-[54px] sm:h-[58px]">
-                                    <span className="text-sm font-black tracking-wide">{formatMoney(fundingCostDisplay.cost)}</span>
-                                    {fundingCostDisplay.cost > 0 && (
-                                        <span className="text-[8px] bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-wider text-rose-400">
-                                            Custo
-                                        </span>
-                                    )}
-                                </div>
+                        </div>
+
+                        {formData.fundingTotalPayable && (
+                            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                {fundingCostDisplay.isValid ? (
+                                    <div className="flex items-center justify-between bg-slate-900/80 p-4 rounded-lg border border-slate-800/60">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 bg-rose-500/10 rounded-lg text-rose-500"><ArrowDownRight size={14}/></div>
+                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">Custo Financeiro</span>
+                                        </div>
+                                        <span className="text-sm font-black text-rose-400">+ {formatMoney(fundingCostDisplay.cost)}</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-amber-500 bg-amber-500/5 p-3 rounded-lg border border-amber-500/20">
+                                        <AlertTriangle size={14} />
+                                        <span className="text-[9px] font-bold">O total deve ser maior ou igual ao principal.</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <label className="text-[8px] text-slate-600 font-black uppercase tracking-widest ml-1">Taxa Estimada (%)</label>
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={formData.fundingFeePercent || ''} 
+                                    onChange={e => setFormData({...formData, fundingFeePercent: cleanNumberStr(e.target.value)})} 
+                                    className="w-full bg-slate-900/40 border border-slate-800/60 rounded-lg px-4 py-3 text-slate-300 text-xs outline-none focus:border-rose-500/30 transition-colors" 
+                                    placeholder="0,00" 
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[8px] text-slate-600 font-black uppercase tracking-widest ml-1">Instituição / Cartão</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.fundingProvider || ''} 
+                                    onChange={e => setFormData({...formData, fundingProvider: e.target.value})} 
+                                    className="w-full bg-slate-900/40 border border-slate-800/60 rounded-lg px-4 py-3 text-slate-300 text-xs outline-none focus:border-rose-500/30 transition-colors" 
+                                    placeholder="Ex: Nubank" 
+                                />
                             </div>
                         </div>
-                    </div>
-                )}
-
-                {/* Campos extras para Maquininha (Misto/Card) */}
-                {isCardSource && (
-                    <div className="space-y-4 pt-4 border-t border-slate-900">
-                        <div className="space-y-1">
-                            <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Operadora / Maquininha</label>
-                            <input
-                                type="text"
-                                placeholder="Ex: InfinitePay"
-                                value={formData.fundingProvider || ''}
-                                onChange={e => setFormData({...formData, fundingProvider: e.target.value})}
-                                className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[9px] text-rose-300/70 font-black uppercase tracking-wider ml-2">Taxa (%)</label>
-                            <input
-                                type="number"
-                                step="0.01"
-                                placeholder="Ex: 12.5"
-                                value={formData.fundingFeePercent || ''}
-                                onChange={e => setFormData({...formData, fundingFeePercent: cleanNumberStr(e.target.value)})}
-                                className="w-full bg-slate-900/80 border border-rose-500/25 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/10 transition-all duration-200"
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* Alerta de erro */}
-                {formData.fundingTotalPayable && parseFloat(formData.fundingTotalPayable) < parseFloat(formData.principal) && (
-                    <div className="flex items-start gap-2 bg-rose-500/10 border border-rose-500/20 p-3.5 rounded-lg animate-in fade-in">
-                        <AlertTriangle size={16} className="text-rose-500 shrink-0 mt-0.5"/>
-                        <p className="text-[10px] text-rose-300 leading-tight">
-                            <b>Erro:</b> O total a pagar na fatura não pode ser menor que o valor entregue ao cliente (Principal).
-                        </p>
                     </div>
                 )}
             </div>

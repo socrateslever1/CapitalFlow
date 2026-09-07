@@ -26,7 +26,6 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
     isSubmitting, isUploading,
     attachments, customDocuments,
     showCamera, videoRef, fileInputRef,
-    // Fix: Replaced autoDueDate with manualFirstDueDate and added setManualFirstDueDate to match useLoanForm return type
     manualFirstDueDate, setManualFirstDueDate, isDailyModality,
     startCamera, takePhoto, stopCamera,
     handleClientSelect, handlePickContact,
@@ -61,14 +60,13 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                     <div>
                         <p className="text-[10px] font-black uppercase text-blue-500/70 tracking-widest">Auditoria do Registro</p>
                         <p className="text-xs text-slate-300 font-bold">Iniciado em: {formatBRDate(props.initialData.createdAt || props.initialData.startDate)}</p>
+                        <p className="text-[9px] text-slate-500 font-bold mt-1">Principal original e parcelas já liquidadas são preservados. Alterações de saldo/parcelas remanescentes devem ser feitas no editor do acordo.</p>
                     </div>
                 </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
-                {/* COLUNA 1: CLIENTE */}
                 <div className="space-y-6">
                     <LoanFormClientSection
                         clients={props.clients}
@@ -79,7 +77,6 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                     />
                 </div>
 
-                {/* COLUNA 2: FINANCEIRO */}
                 <div className="space-y-6">
                     <LoanFormFinancialSection
                         sources={props.sources}
@@ -92,10 +89,10 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                         setManualFirstDueDate={setManualFirstDueDate}
                         skipWeekends={skipWeekends}
                         setSkipWeekends={setSkipWeekends}
+                        isEditing={!!props.initialData}
                     />
                 </div>
 
-                {/* COLUNA 3: GARANTIAS & DOCUMENTOS */}
                 <div className="space-y-6">
                     <LoanFormDocumentsSection
                         formData={formData}
@@ -113,10 +110,7 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
               </div>
 
               <div className="pt-4 border-t border-slate-800/50">
-                  <LoanFormActions
-                    isSubmitting={isSubmitting}
-                    isEditing={!!props.initialData}
-                  />
+                  <LoanFormActions isSubmitting={isSubmitting} isEditing={!!props.initialData} />
               </div>
             </form>
         </div>

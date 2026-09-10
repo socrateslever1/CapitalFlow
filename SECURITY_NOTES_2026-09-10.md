@@ -7,13 +7,13 @@ This pass intentionally preserves the current login/session behavior. Supabase A
 - Removed anonymous/authenticated execution from legacy ID-only portal RPC overloads that returned client, contract, installment or signal data without the current token + shortcode credential pair.
 - Removed anonymous execution from agreement schedule editing and source deletion/archive RPCs; authenticated access remains.
 - Removed anonymous/authenticated execution from the legacy payment-intent RPC that accepted arbitrary client/loan/profile IDs.
+- Hardened `admin_set_profile_password`: it now requires a real authenticated caller mapped to an access-level-1 profile and is no longer executable anonymously.
 - Current portal RPC overloads using token + shortcode remain untouched.
 
 ## Next audit priorities
 
-- Review SECURITY DEFINER financial/admin RPCs one by one for ownership checks before changing grants.
-- Review admin password-reset RPC authorization.
+- Review remaining SECURITY DEFINER financial RPCs one by one for ownership checks before changing grants.
 - Review portal token/shortcode rate limiting and brute-force resistance.
 - Review service-worker caching so authenticated or sensitive responses are never cached.
 
-No access model, login persistence, current portal credentials, or financial business logic was changed in this pass.
+No session timeout, forced logout, current portal credential format, or financial business logic was changed in this pass.

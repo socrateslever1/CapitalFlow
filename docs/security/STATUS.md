@@ -1,0 +1,1 @@
+Package status: completed and verified against production Supabase before merge. Session persistence behavior unchanged.

@@ -1,0 +1,1 @@
+This package does not add inactivity timeout, forced logout, or maximum session lifetime.

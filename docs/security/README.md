@@ -1,0 +1,1 @@
+Security hardening changes are developed on a branch, verified against Supabase, and merged to main only once per completed package to avoid repeated production deploys.

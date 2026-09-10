@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Loan, Client, CapitalSource, UserProfile, LoanDocument } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { generateUUID } from '../../../utils/generators';
-import { maskDocument, maskPhone } from '../../../utils/formatters';
-import { normalizeBrazilianPhone } from '../../../utils/phone';
-import { safeFileFirst } from '../../../utils/file';
+import { maskDocument, maskPhone, normalizeBrazilianPhone } from '../../../utils/formatters';
+import { safeFileFirst } from '../utils/formHelpers';
 import { toStorageReference } from '../../../utils/storageUrl';
-import { isTestSource } from '../../../utils/source';
-import { validateLoanForm } from '../domain/loanForm.validation';
+import { isTestSource } from '../../../utils/testSource';
+import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
 import { addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 
@@ -152,8 +151,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         if (contacts.length) {
           const contact = contacts[0];
           const name = contact.name && contact.name.length > 0 ? contact.name[0] : '';
-          let number = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
-
+          const number = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
           const normalizedPhone = normalizeBrazilianPhone(number);
           setFormData((prev: any) => ({ ...prev, debtorName: name || prev.debtorName, debtorPhone: normalizedPhone }));
         }
@@ -227,15 +225,12 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
 
         if (hasActiveAgreement && initialData) {
-            // O editor geral nunca deve recriar a dívida original enquanto há um acordo ativo.
-            // O cronograma vigente pertence ao acordo e é editado pelo módulo de renegociação.
             loanPayload.principal = initialData.principal;
             loanPayload.billingCycle = initialData.billingCycle;
             loanPayload.startDate = initialData.startDate;
             loanPayload.totalToReceive = initialData.totalToReceive;
             loanPayload.installments = [];
         } else if (loanPayload.installments?.length && manualFirstDueDate) {
-            // Aplica o vencimento escolhido respeitando a periodicidade da modalidade.
             if (formData.billingCycle === 'INSTALLMENT_FIXED') {
                 loanPayload.installments = loanPayload.installments.map((inst, index) => ({
                     ...inst,

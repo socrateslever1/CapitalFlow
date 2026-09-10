@@ -4,8 +4,8 @@
   "description": "Sistema Inteligente de Gestão de Capital e Crédito Privado",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "background_color": "#020617",
+  "theme_color": "#0B3B6F",
   "orientation": "portrait-primary",
   "icons": [
     {

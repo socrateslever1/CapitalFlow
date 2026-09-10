@@ -30,8 +30,8 @@ export const notificationService = {
 
         const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
           body,
-          icon: '/favicon.ico',
-          badge: '/favicon.ico',
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
           tag: 'capitalflow-critical',
           renotify: false,
           requireInteraction: true,

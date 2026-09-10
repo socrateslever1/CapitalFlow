@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CapitalFlow carregando">
+<style>
+.c{fill:none;stroke:#F8FAFC;stroke-width:66;stroke-linecap:round;stroke-dasharray:760;stroke-dashoffset:760;animation:draw 1.05s cubic-bezier(.2,.75,.2,1) forwards}
+.f{fill:#22A06B;opacity:0;transform:translateX(-18px);animation:enter .45s .55s ease-out forwards}
+.n1,.n2{opacity:0;transform:translateX(-48px);animation:note .5s ease-out forwards}.n1{animation-delay:.32s}.n2{animation-delay:.46s}
+@keyframes draw{to{stroke-dashoffset:120}}@keyframes enter{to{opacity:1;transform:translateX(0)}}@keyframes note{to{opacity:1;transform:translateX(0)}}
+@media (prefers-reduced-motion:reduce){.c{animation:none;stroke-dashoffset:120}.f,.n1,.n2{animation:none;opacity:1;transform:none}}
+</style>
+<path class="c" d="M337 121A171 171 0 1 0 319 396"/>
+<path class="f" d="M250 191h176l-43 55H316v49h84l-40 52h-44v95h-66V191Z"/>
+<path class="n1" d="M150 281c36-19 72-26 108-17v42c-36-8-72-2-108 19v-44Z" fill="#22A06B"/>
+<path class="n2" d="M137 322c39-21 78-28 117-18v42c-39-9-78-1-117 21v-45Z" fill="#86EFAC"/>
+</svg>

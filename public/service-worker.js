@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v11-brand-refresh';
+const CACHE_NAME = 'capitalflow-v12-launch-surface';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/brand/capitalflow-mark-dark.svg', '/brand/capitalflow-loader.svg'];
 
 const isCacheableAsset = (href) => {

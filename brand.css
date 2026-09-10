@@ -1,0 +1,59 @@
+:root {
+  --cf-capital: #0B3B6F;
+  --cf-flow: #22A06B;
+  --cf-flow-soft: #86EFAC;
+}
+
+/* CapitalFlow core mark: keep the application chrome consistent with the PWA icon. */
+#logo-wrapper {
+  position: relative;
+  overflow: hidden;
+  background: var(--cf-capital) !important;
+  box-shadow: none !important;
+}
+
+#logo-wrapper > svg {
+  display: none !important;
+}
+
+#logo-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  background: url('/brand/capitalflow-mark-dark.svg') center / contain no-repeat;
+}
+
+#logo-wrapper > img {
+  position: relative;
+  z-index: 1;
+}
+
+#app-title span {
+  color: var(--cf-flow) !important;
+}
+
+/* Login brand fallback. Replaces only the old generic blue TrendingUp badge. */
+.relative.z-10.text-center.mb-8 > .inline-flex.w-16.h-16.bg-blue-600.mb-4 {
+  position: relative;
+  overflow: hidden;
+  background: var(--cf-capital) !important;
+  box-shadow: none !important;
+}
+
+.relative.z-10.text-center.mb-8 > .inline-flex.w-16.h-16.bg-blue-600.mb-4 > svg {
+  display: none !important;
+}
+
+.relative.z-10.text-center.mb-8 > .inline-flex.w-16.h-16.bg-blue-600.mb-4::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  background: url('/brand/capitalflow-mark-dark.svg') center / contain no-repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #logo-wrapper,
+  #logo-wrapper * {
+    transition: none !important;
+  }
+}

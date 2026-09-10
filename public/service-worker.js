@@ -1,5 +1,5 @@
-const CACHE_NAME = 'capitalflow-v10-registration-flow';
-const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'capitalflow-v11-brand-refresh';
+const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/brand/capitalflow-mark-dark.svg', '/brand/capitalflow-loader.svg'];
 
 const isCacheableAsset = (href) => {
   try {
@@ -8,6 +8,7 @@ const isCacheableAsset = (href) => {
     return (
       url.pathname.startsWith('/assets/') ||
       url.pathname.startsWith('/images/') ||
+      url.pathname.startsWith('/brand/') ||
       /\.(?:js|css|png|jpg|jpeg|webp|svg|ico|woff2?)$/i.test(url.pathname)
     );
   } catch {
@@ -43,9 +44,7 @@ const cacheAppShell = async () => {
 };
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    cacheAppShell().then(() => self.skipWaiting())
-  );
+  event.waitUntil(cacheAppShell().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
@@ -120,8 +119,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'CapitalFlow';
   const options = {
     body: data.body || 'Você tem uma nova atualização no sistema.',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     silent: true,
     vibrate: [],
     tag: data.tag || data.notification_id || undefined,

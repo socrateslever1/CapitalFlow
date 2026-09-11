@@ -33,6 +33,7 @@ export const paymentsService = {
     manualDate?: Date | null;
     realDate?: Date | null;
     capitalizeRemaining?: boolean;
+    renewWithPending?: boolean;
     paymentType?: string;
     avAmount?: string;
   }) {
@@ -46,97 +47,48 @@ export const paymentsService = {
       realDate,
       manualDate,
       capitalizeRemaining = false,
+      renewWithPending = false,
       paymentType: legacyPaymentType,
       avAmount: legacyAvAmount,
     } = params;
 
-    if (!activeUser?.id) {
-      throw new Error('Usuário não autenticado. Refaça o login.');
-    }
+    if (!activeUser?.id) throw new Error('Usuário não autenticado. Refaça o login.');
+    if (activeUser.id === 'DEMO') return { amountToPay: amountPaid || 0, paymentType: 'CUSTOM' };
 
-    if (activeUser.id === 'DEMO') {
-      return { amountToPay: amountPaid || 0, paymentType: 'CUSTOM' };
-    }
-
-    const ownerId =
-      safeUUID((loan as any).profile_id) ||
-      safeUUID((activeUser as any).supervisor_id) ||
-      safeUUID(activeUser.id);
-
+    const ownerId = safeUUID((loan as any).profile_id) || safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
     if (!ownerId) throw new Error('Perfil inválido. Refaça o login.');
 
     const loanId = safeUUID((loan as any).id);
     const instId = safeUUID((inst as any).id);
-
     if (!loanId) throw new Error('Contrato inválido (loan.id).');
     if (!instId) throw new Error('Parcela inválida (inst.id).');
 
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
     const instDb = isOffline ? null : await revalidateInstallment(instId);
-    const remainingDb =
-      Number(instDb?.principal_remaining || 0) +
-      Number(instDb?.interest_remaining || 0) +
-      Number(instDb?.late_fee_accrued || 0);
-
+    const remainingDb = Number(instDb?.principal_remaining || 0) + Number(instDb?.interest_remaining || 0) + Number(instDb?.late_fee_accrued || 0);
     const idempotencyKey = generateUUID();
 
     if (legacyPaymentType === 'LEND_MORE') {
       const lendAmount = parseMoney(legacyAvAmount || '0');
       if (lendAmount <= 0) throw new Error('Valor do aporte inválido.');
-
       const sourceId = safeUUID((loan as any).sourceId);
       if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
-
       if (isOffline) {
         const { db } = await import('./offline/adminOfflineStore');
         const { syncService } = await import('./sync.service');
-        await syncService.enqueueOperation({
-          table: '__rpc',
-          operation: 'RPC',
-          id: idempotencyKey,
-          data: {
-            fn: 'process_lend_more_atomic',
-            args: {
-              p_idempotency_key: idempotencyKey,
-              p_loan_id: loanId,
-              p_installment_id: instId,
-              p_profile_id: ownerId,
-              p_operator_id: safeUUID(activeUser.id),
-              p_source_id: sourceId,
-              p_amount: lendAmount,
-              p_notes: `Novo Aporte (+ R$ ${lendAmount.toFixed(2)})`,
-            }
-          },
-          conflictTable: 'parcelas',
-          conflictId: instId,
-          baseUpdatedAt: (inst as any).updated_at || (inst as any).updatedAt || null,
-        });
+        await syncService.enqueueOperation({ table: '__rpc', operation: 'RPC', id: idempotencyKey, data: { fn: 'process_lend_more_atomic', args: { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_source_id: sourceId, p_amount: lendAmount, p_notes: `Novo Aporte (+ R$ ${lendAmount.toFixed(2)})` } }, conflictTable: 'parcelas', conflictId: instId, baseUpdatedAt: (inst as any).updated_at || (inst as any).updatedAt || null });
         const source = await db.fontes.get(sourceId);
-        if (source) {
-          await db.fontes.update(sourceId, { balance: roundMoney((Number((source as any).balance) || 0) - lendAmount) });
-        }
+        if (source) await db.fontes.update(sourceId, { balance: roundMoney((Number((source as any).balance) || 0) - lendAmount) });
         return { amountToPay: lendAmount, paymentType: 'OFFLINE_PENDING' };
       }
-      const { error } = await supabase.rpc('process_lend_more_atomic', {
-        p_idempotency_key: idempotencyKey,
-        p_loan_id: loanId,
-        p_installment_id: instId,
-        p_profile_id: ownerId,
-        p_operator_id: safeUUID(activeUser.id),
-        p_source_id: sourceId,
-        p_amount: lendAmount,
-        p_notes: `Novo Aporte (+ R$ ${lendAmount.toFixed(2)})`,
-      });
-
+      const { error } = await supabase.rpc('process_lend_more_atomic', { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_source_id: sourceId, p_amount: lendAmount, p_notes: `Novo Aporte (+ R$ ${lendAmount.toFixed(2)})` });
       if (error) throw new Error(error.message);
       return { amountToPay: lendAmount, paymentType: 'LEND_MORE' };
     }
 
     const effectiveForgivenessMode = isCapitalOnlyRecoveryLoan(loan) ? 'CAPITAL_ONLY' : forgivenessMode;
     const amountToPay = Number(amountPaid || 0);
-    if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
-      throw new Error('O valor do pagamento deve ser maior que zero.');
-    }
+    if (!Number.isFinite(amountToPay) || amountToPay <= 0) throw new Error('O valor do pagamento deve ser maior que zero.');
 
     const principalReconciliationDelta = getLoanPrincipalReconciliationDelta(loan);
     const interestReconciliationDelta = getLoanInterestReconciliationDelta(loan);
@@ -147,75 +99,25 @@ export const paymentsService = {
     const offerValidUntil = String(instDb?.payment_offer_valid_until || '').slice(0, 10);
     const offerAmount = roundMoney(Number(instDb?.payment_offer_amount || 0));
     const offerType = String(instDb?.payment_offer_type || 'SETTLEMENT').toUpperCase();
-    const hasValidPaymentOffer =
-      offerStatus === 'ACTIVE'
-      && offerValidUntil >= paymentDateStr
-      && offerAmount > ZERO_BALANCE_THRESHOLD;
+    const hasValidPaymentOffer = offerStatus === 'ACTIVE' && offerValidUntil >= paymentDateStr && offerAmount > ZERO_BALANCE_THRESHOLD;
 
     if (hasValidPaymentOffer && Math.abs(amountToPay - offerAmount) <= ZERO_BALANCE_THRESHOLD) {
-      if (isOffline) {
-        throw new Error('O recebimento de uma condição especial exige internet para registrar os descontos com segurança.');
-      }
-
+      if (isOffline) throw new Error('O recebimento de uma condição especial exige internet para registrar os descontos com segurança.');
       const sourceId = safeUUID((loan as any).sourceId);
       if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
-
       let offerCaixaLivreId = resolveCaixaLivreIdFromMemory(sources);
-      if (!offerCaixaLivreId) {
-        offerCaixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
-      }
-
-      const offerRpc = offerType === 'INTEREST_RENEWAL'
-        ? 'process_interest_renewal_payment_offer'
-        : 'process_installment_payment_offer';
-      const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, {
-        p_idempotency_key: idempotencyKey,
-        p_loan_id: loanId,
-        p_installment_id: instId,
-        p_profile_id: ownerId,
-        p_operator_id: safeUUID(activeUser.id),
-        p_amount_paid: amountToPay,
-        p_payment_date: paymentDateStr,
-        p_source_id: sourceId,
-        p_caixa_livre_id: safeUUID(offerCaixaLivreId),
-      });
-
-      if (offerError) {
-        throw new Error('Falha ao aplicar a condição especial: ' + offerError.message);
-      }
-
-      return {
-        amountToPay,
-        paymentType: 'SPECIAL_OFFER',
-        amortization: offerResult,
-      };
+      if (!offerCaixaLivreId) offerCaixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
+      const offerRpc = offerType === 'INTEREST_RENEWAL' ? 'process_interest_renewal_payment_offer' : 'process_installment_payment_offer';
+      const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_amount_paid: amountToPay, p_payment_date: paymentDateStr, p_source_id: sourceId, p_caixa_livre_id: safeUUID(offerCaixaLivreId) });
+      if (offerError) throw new Error('Falha ao aplicar a condição especial: ' + offerError.message);
+      return { amountToPay, paymentType: 'SPECIAL_OFFER', amortization: offerResult };
     }
 
-    if (hasValidPaymentOffer) {
-      throw new Error(
-        `Esta parcela possui uma condição especial ativa de R$ ${offerAmount.toFixed(2).replace('.', ',')}. `
-        + 'Receba esse valor ou cancele/atualize a condição antes de registrar outro pagamento.'
-      );
-    }
+    if (hasValidPaymentOffer) throw new Error(`Esta parcela possui uma condição especial ativa de R$ ${offerAmount.toFixed(2).replace('.', ',')}. Receba esse valor ou cancele/atualize a condição antes de registrar outro pagamento.`);
 
-    if (
-      !isOffline &&
-      dbIsActuallySettled &&
-      principalReconciliationDelta <= ZERO_BALANCE_THRESHOLD &&
-      interestReconciliationDelta <= ZERO_BALANCE_THRESHOLD
-    ) {
+    if (!isOffline && dbIsActuallySettled && principalReconciliationDelta <= ZERO_BALANCE_THRESHOLD && interestReconciliationDelta <= ZERO_BALANCE_THRESHOLD) {
       await reconcileZeroBalanceInstallment(loanId, instId, paymentDateStr);
-      return {
-        amountToPay: 0,
-        paymentType: 'ALREADY_PAID_SYNCED',
-        amortization: {
-          paidPrincipal: 0,
-          paidInterest: 0,
-          paidLateFee: 0,
-          forgivenLateFee: 0,
-          avGenerated: 0,
-        },
-      };
+      return { amountToPay: 0, paymentType: 'ALREADY_PAID_SYNCED', amortization: { paidPrincipal: 0, paidInterest: 0, paidLateFee: 0, forgivenLateFee: 0, avGenerated: 0 } };
     }
 
     const installmentSnapshot = {
@@ -228,292 +130,124 @@ export const paymentsService = {
       lateFeeAccrued: Number(instDb?.late_fee_accrued ?? (inst as any)?.lateFeeAccrued ?? 0),
       status: String(instDb?.status ?? (inst as any)?.status ?? 'PENDING'),
     } as Installment;
-    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
-    const shouldSettleWithForgivenCharges =
-      effectiveForgivenessMode === 'TOTAL_CHARGES' &&
-      currentPrincipalOpen > ZERO_BALANCE_THRESHOLD &&
-      amountToPay >= currentPrincipalOpen - ZERO_BALANCE_THRESHOLD;
 
-    const amortization = loanEngine.calculateInstallmentAmortization(
-      amountToPay,
-      loan,
-      installmentSnapshot,
-      effectiveForgivenessMode
-    ) as unknown as {
-      paidPrincipal: number;
-      paidInterest: number;
-      paidLateFee: number;
-      forgivenLateFee: number;
-      avGenerated: number;
-    };
+    const currentPrincipalOpen = Number(installmentSnapshot.principalRemaining || 0);
+    const shouldSettleWithForgivenCharges = effectiveForgivenessMode === 'TOTAL_CHARGES' && currentPrincipalOpen > ZERO_BALANCE_THRESHOLD && amountToPay >= currentPrincipalOpen - ZERO_BALANCE_THRESHOLD;
+    const amortization = loanEngine.calculateInstallmentAmortization(amountToPay, loan, installmentSnapshot, effectiveForgivenessMode) as unknown as { paidPrincipal: number; paidInterest: number; paidLateFee: number; forgivenLateFee: number; avGenerated: number };
 
     let principalPaid = Number(amortization.paidPrincipal || 0);
     let interestPaid = Number(amortization.paidInterest || 0);
     let lateFeePaid = Number(amortization.paidLateFee || 0);
     const forgivenLateFee = Number(amortization.forgivenLateFee || 0);
     let forgivenInterest = 0;
-
-    // ✅ TRATAMENTO DE EXCESSO: Se houver sobra (AV), amortiza no principal automaticamente
     let avExtra = Number(amortization.avGenerated || 0);
-
     let totalPaid = principalPaid + interestPaid + lateFeePaid;
-
     const renewalBuckets = resolveRenewalBuckets(loan, installmentSnapshot);
 
     if (shouldSettleWithForgivenCharges) {
-      principalPaid = Math.min(amountToPay, currentPrincipalOpen);
-      interestPaid = 0;
-      lateFeePaid = 0;
-      totalPaid = principalPaid;
-      avExtra = roundMoney(Math.max(0, amountToPay - currentPrincipalOpen));
+      principalPaid = Math.min(amountToPay, currentPrincipalOpen); interestPaid = 0; lateFeePaid = 0; totalPaid = principalPaid; avExtra = roundMoney(Math.max(0, amountToPay - currentPrincipalOpen));
     }
 
-    // ✅ FIX DEFINITIVO: Sempre prioriza a alocação nos encargos esperados (Juros -> Mora/Multa -> Principal)
     if (!shouldSettleWithForgivenCharges && effectiveForgivenessMode === 'NONE' && principalPaid > 0 && renewalBuckets.total > ZERO_BALANCE_THRESHOLD) {
       let remaining = amountToPay;
-
-      interestPaid = Math.min(remaining, renewalBuckets.interest);
-      remaining = roundMoney(remaining - interestPaid);
-
-      lateFeePaid = Math.min(remaining, renewalBuckets.lateFee);
-      remaining = roundMoney(remaining - lateFeePaid);
-
-      principalPaid = remaining;
-      totalPaid = amountToPay;
+      interestPaid = Math.min(remaining, renewalBuckets.interest); remaining = roundMoney(remaining - interestPaid);
+      lateFeePaid = Math.min(remaining, renewalBuckets.lateFee); remaining = roundMoney(remaining - lateFeePaid);
+      principalPaid = remaining; totalPaid = amountToPay;
     }
 
     if (principalPaid > currentPrincipalOpen + ZERO_BALANCE_THRESHOLD) {
-      avExtra = roundMoney(avExtra + principalPaid - currentPrincipalOpen);
-      principalPaid = currentPrincipalOpen;
-      totalPaid = roundMoney(principalPaid + interestPaid + lateFeePaid);
+      avExtra = roundMoney(avExtra + principalPaid - currentPrincipalOpen); principalPaid = currentPrincipalOpen; totalPaid = roundMoney(principalPaid + interestPaid + lateFeePaid);
     }
 
-    // ✅ DEFENSIVE FALLBACK: Se o motor de amortização falhou (retornou 0) mas há valor sendo pago
     if (totalPaid <= 0 && amountToPay > 0) {
-      console.warn('[Payments] Amortização retornou ZERO. Ativando alocação defensiva...', { amountToPay, loanId: loan.id });
-
       const interestRate = (Number((loan as any).interestRate) || 0) / 100;
       const headPrincipal = Number(loan.principal) || 0;
       const estimatedInterest = Math.round(headPrincipal * interestRate * 100) / 100;
-
-      if (estimatedInterest > 0) {
-        interestPaid = Math.min(amountToPay, estimatedInterest);
-        principalPaid = Math.max(0, amountToPay - interestPaid);
-      } else {
-        principalPaid = amountToPay;
-      }
+      if (estimatedInterest > 0) { interestPaid = Math.min(amountToPay, estimatedInterest); principalPaid = Math.max(0, amountToPay - interestPaid); }
+      else principalPaid = amountToPay;
       totalPaid = principalPaid + interestPaid + lateFeePaid;
     }
 
-    if (!Number.isFinite(totalPaid) || totalPaid <= 0) {
-      throw new Error(`[V3] Falha ao calcular amortização (Pago: ${totalPaid}, Esperado: ${amountToPay}). Verifique o saldo do contrato.`);
-    }
+    if (!Number.isFinite(totalPaid) || totalPaid <= 0) throw new Error(`[V3] Falha ao calcular amortização (Pago: ${totalPaid}, Esperado: ${amountToPay}). Verifique o saldo do contrato.`);
 
     const sourceId = safeUUID((loan as any).sourceId);
     if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
 
-    const isInterestRenewal =
-      renewalBuckets.total > ZERO_BALANCE_THRESHOLD &&
-      amountToPay >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD &&
-      interestPaid + lateFeePaid >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD &&
-      Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
+    const isInterestRenewal = renewalBuckets.total > ZERO_BALANCE_THRESHOLD && amountToPay >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD && interestPaid + lateFeePaid >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD && Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
-    if (
-      shouldSettleWithForgivenCharges ||
-      effectiveForgivenessMode === 'CAPITAL_ONLY' ||
-      effectiveForgivenessMode === 'TOTAL_CHARGES' ||
-      effectiveForgivenessMode === 'INTEREST_ONLY'
-    ) {
+    if (shouldSettleWithForgivenCharges || effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || effectiveForgivenessMode === 'INTEREST_ONLY') {
       forgivenInterest = Math.max(0, Number(installmentSnapshot.interestRemaining || 0) - interestPaid);
     }
 
-    // Busca carteira de lucro, mas não bloqueia se não encontrar (o banco usará interest_balance como fallback)
     let caixaLivreId = resolveCaixaLivreIdFromMemory(sources);
     if (!caixaLivreId) {
-       try {
-          caixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
-       } catch (e) {
-          console.warn('Erro ao buscar Caixa Livre no DB:', e);
-       }
+      try { caixaLivreId = await resolveCaixaLivreIdFromDB(ownerId); } catch (e) { console.warn('Erro ao buscar Caixa Livre no DB:', e); }
     }
 
-    const paymentRpcArgs = {
-      p_idempotency_key: idempotencyKey,
-      p_loan_id: loanId,
-      p_installment_id: instId,
-      p_profile_id: ownerId,
-      p_operator_id: safeUUID(activeUser.id),
-      p_principal_paid: principalPaid,
-      p_interest_paid: interestPaid,
-      p_late_fee_paid: lateFeePaid,
-      p_late_fee_forgiven: forgivenLateFee,
-      p_interest_forgiven: forgivenInterest,
-      p_payment_date: paymentDateStr,
-      p_capitalize_remaining: !!capitalizeRemaining,
-      p_source_id: sourceId,
-      p_caixa_livre_id: safeUUID(caixaLivreId),
-    };
+    const paymentRpcArgs = { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_principal_paid: principalPaid, p_interest_paid: interestPaid, p_late_fee_paid: lateFeePaid, p_late_fee_forgiven: forgivenLateFee, p_interest_forgiven: forgivenInterest, p_payment_date: paymentDateStr, p_capitalize_remaining: !!capitalizeRemaining, p_source_id: sourceId, p_caixa_livre_id: safeUUID(caixaLivreId) };
 
-    if (isOffline && (effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges)) {
-      throw new Error('Recebimento com perdao de juros/encargos exige internet para zerar os encargos com seguranca no banco.');
-    }
+    if (isOffline && (effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges || renewWithPending)) throw new Error('Esta operação exige internet para manter a integridade financeira.');
 
     if (isOffline) {
-      if (avExtra > ZERO_BALANCE_THRESHOLD) {
-        throw new Error('Pagamento offline com valor excedente ainda exige internet para abater parcelas futuras com seguranca.');
-      }
-
-      await persistOfflinePaymentSnapshot({
-        loanId,
-        instId,
-        ownerId,
-        sourceId,
-        caixaLivreId: safeUUID(caixaLivreId),
-        idempotencyKey,
-        amountToPay,
-        principalPaid,
-        interestPaid,
-        lateFeePaid,
-        forgivenLateFee,
-        forgivenInterest,
-        paymentDateStr,
-        installmentSnapshot,
-        rpcArgs: paymentRpcArgs,
-      });
-
+      if (avExtra > ZERO_BALANCE_THRESHOLD) throw new Error('Pagamento offline com valor excedente ainda exige internet para abater parcelas futuras com segurança.');
+      await persistOfflinePaymentSnapshot({ loanId, instId, ownerId, sourceId, caixaLivreId: safeUUID(caixaLivreId), idempotencyKey, amountToPay, principalPaid, interestPaid, lateFeePaid, forgivenLateFee, forgivenInterest, paymentDateStr, installmentSnapshot, rpcArgs: paymentRpcArgs });
       return { amountToPay, paymentType: 'OFFLINE_PENDING', amortization };
     }
 
     const paidTotalBefore = Number(instDb?.paid_total || 0);
     let directFallbackApplied = false;
-
-    try {
-      await callProcessPaymentRpcWithCompatibility(paymentRpcArgs);
-    } catch (error: any) {
+    try { await callProcessPaymentRpcWithCompatibility(paymentRpcArgs); }
+    catch (error: any) {
       const message = String(error?.message || '');
       const canUseDirectFallback = canUseDirectPaymentFallback(message, Number(remainingDb || 0));
-
-      if (!canUseDirectFallback) {
-        throw new Error('Falha na persistência: ' + (error?.message || 'erro desconhecido'));
-      }
-
-      await applyPaymentDirectFallback({
-        loanId,
-        instId,
-        ownerId,
-        sourceId,
-        caixaLivreId: safeUUID(caixaLivreId),
-        idempotencyKey,
-        principalPaid,
-        interestPaid,
-        lateFeePaid,
-        forgivenLateFee,
-        forgivenInterest,
-        paymentDateStr,
-      });
+      if (!canUseDirectFallback) throw new Error('Falha na persistência: ' + (error?.message || 'erro desconhecido'));
+      await applyPaymentDirectFallback({ loanId, instId, ownerId, sourceId, caixaLivreId: safeUUID(caixaLivreId), idempotencyKey, principalPaid, interestPaid, lateFeePaid, forgivenLateFee, forgivenInterest, paymentDateStr });
       directFallbackApplied = true;
     }
 
     let instAfterRpc = await revalidateInstallment(instId);
     let balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
     const paidTotalAfterRpc = Number(instAfterRpc?.paid_total || 0);
-    const installmentOpenAfterRpc = roundMoney(
-      Number(instAfterRpc?.principal_remaining || 0) +
-      Number(instAfterRpc?.interest_remaining || 0) +
-      Number(instAfterRpc?.late_fee_accrued || 0)
-    );
+    const installmentOpenAfterRpc = roundMoney(Number(instAfterRpc?.principal_remaining || 0) + Number(instAfterRpc?.interest_remaining || 0) + Number(instAfterRpc?.late_fee_accrued || 0));
 
-    if (
-      !directFallbackApplied &&
-      paidTotalAfterRpc <= paidTotalBefore + ZERO_BALANCE_THRESHOLD &&
-      installmentOpenAfterRpc >= Number(remainingDb || 0) - ZERO_BALANCE_THRESHOLD &&
-      amountToPay > ZERO_BALANCE_THRESHOLD
-    ) {
-      await applyPaymentDirectFallback({
-        loanId,
-        instId,
-        ownerId,
-        sourceId,
-        caixaLivreId: safeUUID(caixaLivreId),
-        idempotencyKey,
-        principalPaid,
-        interestPaid,
-        lateFeePaid,
-        forgivenLateFee,
-        forgivenInterest,
-        paymentDateStr,
-      });
+    if (!directFallbackApplied && paidTotalAfterRpc <= paidTotalBefore + ZERO_BALANCE_THRESHOLD && installmentOpenAfterRpc >= Number(remainingDb || 0) - ZERO_BALANCE_THRESHOLD && amountToPay > ZERO_BALANCE_THRESHOLD) {
+      await applyPaymentDirectFallback({ loanId, instId, ownerId, sourceId, caixaLivreId: safeUUID(caixaLivreId), idempotencyKey, principalPaid, interestPaid, lateFeePaid, forgivenLateFee, forgivenInterest, paymentDateStr });
       instAfterRpc = await revalidateInstallment(instId);
       balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
     }
 
-    if (avExtra > ZERO_BALANCE_THRESHOLD) {
-      await applyPrincipalOverpaymentToLastInstallments({
-        loanId,
-        profileId: ownerId,
-        sourceId,
-        amount: avExtra,
-        excludeInstallmentId: instId,
-        idempotencyKey
-      });
-    }
-
+    if (avExtra > ZERO_BALANCE_THRESHOLD) await applyPrincipalOverpaymentToLastInstallments({ loanId, profileId: ownerId, sourceId, amount: avExtra, excludeInstallmentId: instId, idempotencyKey });
     balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
 
-    try {
-      await supabase.from('payment_transactions').insert({
-        installment_id: instId,
-        contract_id: loanId,
-        amount: amountToPay,
-        payment_method: 'OTHER',
-        paid_at: new Date().toISOString(),
-        operator_profile_id: activeUser.id,
-        status: 'PAID',
-        idempotency_key: idempotencyKey,
-      });
-    } catch (auditErr) {
-      console.error('Erro ao gravar auditoria de pagamento:', auditErr);
-    }
+    try { await supabase.from('payment_transactions').insert({ installment_id: instId, contract_id: loanId, amount: amountToPay, payment_method: 'OTHER', paid_at: new Date().toISOString(), operator_profile_id: activeUser.id, status: 'PAID', idempotency_key: idempotencyKey }); } catch (auditErr) { console.error('Erro ao gravar auditoria de pagamento:', auditErr); }
 
     if (effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges) {
-      const { error: forgiveInterestError } = await supabase
-        .from('parcelas')
-        .update({
-          interest_remaining: 0,
-          late_fee_accrued: 0,
-        })
-        .eq('id', instId);
-
-      if (forgiveInterestError) {
-        throw new Error('Falha ao zerar encargos do recebimento sem juros: ' + forgiveInterestError.message);
-      }
-
+      const { error: forgiveInterestError } = await supabase.from('parcelas').update({ interest_remaining: 0, late_fee_accrued: 0 }).eq('id', instId);
+      if (forgiveInterestError) throw new Error('Falha ao zerar encargos do recebimento sem juros: ' + forgiveInterestError.message);
       balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
     }
 
-    const renewalDate = manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null);
+    const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
+    const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
+    const nextCycleInterest = roundMoney(Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100));
+    const partialRenewalRequested = !!renewWithPending && isMonthlyOrGiro && hasPrincipalRemaining && remainingInterestAfter(balanceAfterRpc) > ZERO_BALANCE_THRESHOLD;
+    const renewalDate = partialRenewalRequested ? (manualDate || addDaysUTC(paymentDate, 30)) : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null));
 
     if (renewalDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
       const nextDueDate = renewalDate.toISOString().split('T')[0];
-      const updatePayload: any = {
-        data_vencimento: nextDueDate,
-        due_date: nextDueDate,
-      };
+      const updatePayload: any = { data_vencimento: nextDueDate, due_date: nextDueDate };
+      const currentDueDate = parseDateOnlyUTC(inst.dueDate);
+      const diffDays = (renewalDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
 
-      // ✅ FIX: Se a data está avançando e o contrato é Mensal/Giro (Modo de Renovação),
-      // precisamos repor os juros do próximo mês se o capital ainda existe.
-      const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
-      const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
-      const nextCycleInterest = roundMoney(
-        Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100)
-      );
-
-      if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && isInterestRenewal) {
-        // Se a data avançou pelo menos 15 dias, consideramos um novo ciclo
-        const currentDueDate = parseDateOnlyUTC(inst.dueDate);
-        const diffDays = (renewalDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
-
-        if (diffDays >= 15) {
+      if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && diffDays >= 15) {
+        if (partialRenewalRequested) {
+          const pendingOld = roundMoney(Number(balanceAfterRpc.interestRemaining || 0) + Number(balanceAfterRpc.lateFeeRemaining || 0));
+          updatePayload.interest_remaining = roundMoney(pendingOld + nextCycleInterest);
+          updatePayload.scheduled_interest = nextCycleInterest;
+          updatePayload.late_fee_accrued = 0;
+          updatePayload.status = 'PARTIAL';
+          updatePayload.paid_date = null;
+        } else if (isInterestRenewal) {
           updatePayload.interest_remaining = nextCycleInterest;
           updatePayload.scheduled_interest = nextCycleInterest;
           updatePayload.late_fee_accrued = 0;
@@ -522,48 +256,29 @@ export const paymentsService = {
         }
       }
 
-      const { error: dateError } = await supabase
-        .from('parcelas')
-        .update(updatePayload)
-        .eq('id', instId);
-
-      if (dateError) {
-        console.error('Erro ao atualizar data de vencimento:', dateError);
-      }
-
-      const { error: contractDueDateError } = await supabase
-        .from('contratos')
-        .update({ next_due_date: nextDueDate })
-        .eq('id', loanId);
-
-      if (contractDueDateError) {
-        console.error('Erro ao atualizar próximo vencimento do contrato:', contractDueDateError);
-      }
+      const { error: dateError } = await supabase.from('parcelas').update(updatePayload).eq('id', instId);
+      if (dateError) throw new Error('Erro ao atualizar data de vencimento: ' + dateError.message);
+      const { error: contractDueDateError } = await supabase.from('contratos').update({ next_due_date: nextDueDate }).eq('id', loanId);
+      if (contractDueDateError) throw new Error('Erro ao atualizar próximo vencimento do contrato: ' + contractDueDateError.message);
     }
 
     let finalType = 'CUSTOM';
     const finalBalance = await revalidateLoanOpenBalance(loanId);
     const remainingAfterPayment = Number(finalBalance.totalRemaining || 0);
-
     if ((effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || shouldSettleWithForgivenCharges) && remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) {
-      await supabase
-        .from('parcelas')
-        .update({
-          status: 'PAID',
-          paid_date: paymentDateStr,
-        })
-        .eq('id', instId);
-
-      await supabase
-        .from('contratos')
-        .update({ status: 'PAID' })
-        .eq('id', loanId);
+      await supabase.from('parcelas').update({ status: 'PAID', paid_date: paymentDateStr }).eq('id', instId);
+      await supabase.from('contratos').update({ status: 'PAID' }).eq('id', loanId);
     }
 
     if (remainingAfterPayment <= ZERO_BALANCE_THRESHOLD) finalType = 'FULL';
+    else if (partialRenewalRequested) finalType = 'PARTIAL_INTEREST';
     else if (principalPaid > 0) finalType = 'RENEW_AV';
     else finalType = 'RENEW_INTEREST';
 
     return { amountToPay, paymentType: finalType, amortization };
   },
 };
+
+function remainingInterestAfter(balance: any): number {
+  return roundMoney(Number(balance?.interestRemaining || 0) + Number(balance?.lateFeeRemaining || 0));
+}

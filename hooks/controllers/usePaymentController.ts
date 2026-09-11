@@ -18,6 +18,8 @@ const parseMoney = (v: string) => {
   return parseFloat(clean) || 0;
 };
 
+type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDING';
+
 export const usePaymentController = (
   activeUser: UserProfile | null,
   ui: UIController,
@@ -38,7 +40,7 @@ export const usePaymentController = (
     manualDate?: Date | null,
     customAmount?: number,
     realDate?: Date | null,
-    interestHandling?: 'CAPITALIZE' | 'KEEP_PENDING',
+    interestHandling?: InterestHandling,
     paymentTypeOverride?: string,
     avAmountOverride?: string,
     contextOverride?: { loan: Loan, inst: any, calculations: any }
@@ -91,6 +93,7 @@ export const usePaymentController = (
         manualDate,
         realDate,
         capitalizeRemaining: interestHandling === 'CAPITALIZE',
+        renewWithPending: interestHandling === 'RENEW_KEEP_PENDING',
         paymentType: effectivePaymentType,
         avAmount: avAmountOverride,
       });

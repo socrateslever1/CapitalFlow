@@ -137,7 +137,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           </div>}
         </div>
 
-        {!isInstallmentFixed && <LoanTotalPreview formData={formData} />}
+        {!isInstallmentFixed && <LoanTotalPreview formData={formData} setFormData={setFormData} />}
 
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-1">
@@ -204,40 +204,19 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                             <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'RATE'})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${formData.fundingCalculationMode === 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Taxa mensal</button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Parcelas Banco</label>
-                                <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData({...formData, fundingInstallmentsCount: cleanNumberStr(e.target.value)})} className={strongInputClass} />
-                            </div>
-                            {formData.fundingCalculationMode === 'RATE' ? (
-                                <div className="space-y-1">
-                                    <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa Banco (% a.m.)</label>
-                                    <input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass} />
-                                </div>
-                            ) : (
-                                <div className="space-y-1">
-                                    <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total Banco</label>
-                                    <input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass} />
-                                </div>
-                            )}
+                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Parcelas Banco</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData({...formData, fundingInstallmentsCount: e.target.value})} className={strongInputClass}/></div>
+                            {formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa Banco (% a.m.)</label><input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total Banco</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>}
                         </div>
-                        <div className="space-y-1">
-                            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Margem Cliente (%)</label>
-                            <input type="number" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} className={strongInputClass} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><span className="text-slate-500 block text-[9px] uppercase font-black">Parcela cliente</span><strong className="text-white">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</strong></div>
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><span className="text-slate-500 block text-[9px] uppercase font-black">Total cliente</span><strong className="text-white">{formatMoney(fixedInstallmentDisplay.customerTotal)}</strong></div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Parcela banco</p><p className="font-black text-white mt-1">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</p></div>
+                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Parcela cliente</p><p className="font-black text-emerald-400 mt-1">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p></div>
+                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Lucro previsto</p><p className="font-black text-purple-400 mt-1">{formatMoney(fixedInstallmentDisplay.profit)}</p></div>
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        <div className="space-y-1">
-                            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total a pagar ao banco</label>
-                            <input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass} />
-                        </div>
-                        {fundingCostDisplay.isValid && fundingCostDisplay.cost > 0 && (
-                            <div className="text-[10px] font-bold text-rose-300 bg-rose-500/5 border border-rose-500/10 rounded-lg p-3">Custo financeiro: {formatMoney(fundingCostDisplay.cost)}</div>
-                        )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total a pagar à fonte</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
+                      <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-4"><p className="text-[9px] uppercase font-black text-slate-500">Custo da captação</p><p className={`mt-1 font-black ${fundingCostDisplay.isValid ? 'text-rose-400' : 'text-slate-400'}`}>{formatMoney(fundingCostDisplay.cost)}</p></div>
                     </div>
                 )}
             </div>

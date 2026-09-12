@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-finance-architecture:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,9 +21,43 @@ jobs:
       - run: npm ci --progress=false
       - run: npm run test:quality
 
-  load-smoke:
+  postgres-transactional:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --progress=false
+      - name: Install isolated integration-test dependencies
+        run: npm install --no-save --package-lock=false @testcontainers/postgresql@12.1.0 pg@8.23.0
+      - name: Run PostgreSQL concurrency/idempotency/rollback tests
+        env:
+          TEST_POSTGRES_IMAGE: postgres:17.6-alpine
+        run: npm run test:integration
+
+  e2e-playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --progress=false
+      - name: Install pinned Playwright test runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.63.0
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Run browser E2E
+        run: npm run test:e2e
+
+  load-smoke-and-stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,3 +80,7 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:4173
         run: npm run test:load
+      - name: Run local stress test
+        env:
+          BASE_URL: http://127.0.0.1:4173
+        run: npm run test:load:stress

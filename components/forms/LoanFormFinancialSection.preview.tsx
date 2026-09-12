@@ -3,6 +3,7 @@ import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 
 export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: any) => void }> = ({ formData, setFormData }) => {
   const [mode, setMode] = useState<'RATE' | 'VALUE'>('RATE');
+  const [valueInput, setValueInput] = useState('');
 
   const preview = useMemo(() => {
     const principal = Number(formData.principal || 0);
@@ -19,10 +20,16 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
   const interestValue = preview.interest;
 
   const setInterestByValue = (raw: string) => {
+    setValueInput(raw);
     const normalized = cleanNumberStr(raw);
     const value = Number(normalized || 0);
     const nextRate = principal > 0 ? (value / principal) * 100 : 0;
     setFormData({ ...formData, interestRate: Number.isFinite(nextRate) ? String(Number(nextRate.toFixed(6))) : '0' });
+  };
+
+  const switchMode = (nextMode: 'RATE' | 'VALUE') => {
+    if (nextMode === 'VALUE') setValueInput(interestValue > 0 ? interestValue.toFixed(2) : '');
+    setMode(nextMode);
   };
 
   return (
@@ -36,20 +43,8 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
       </div>
 
       <div className="flex bg-slate-950/70 p-1 rounded-lg border border-slate-800/80">
-        <button
-          type="button"
-          onClick={() => setMode('RATE')}
-          className={`flex-1 py-2 rounded-md text-[9px] font-black uppercase transition-all ${mode === 'RATE' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}
-        >
-          Juros em %
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('VALUE')}
-          className={`flex-1 py-2 rounded-md text-[9px] font-black uppercase transition-all ${mode === 'VALUE' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}
-        >
-          Juros em R$
-        </button>
+        <button type="button" onClick={() => switchMode('RATE')} className={`flex-1 py-2 rounded-md text-[9px] font-black uppercase transition-all ${mode === 'RATE' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>Juros em %</button>
+        <button type="button" onClick={() => switchMode('VALUE')} className={`flex-1 py-2 rounded-md text-[9px] font-black uppercase transition-all ${mode === 'VALUE' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>Juros em R$</button>
       </div>
 
       {mode === 'VALUE' && (
@@ -59,11 +54,11 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
             <div className="mt-1 flex items-center gap-2 h-12 rounded-lg bg-slate-950/70 border border-slate-800/80 px-4">
               <span className="text-slate-500 font-black">R$</span>
               <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={Number(interestValue.toFixed(2)) || ''}
-                onChange={(e) => setInterestByValue(e.target.value)}
+                type="text"
+                inputMode="decimal"
+                value={valueInput}
+                placeholder="0,00"
+                onChange={(e) => setInterestByValue(e.target.value.replace(/[^0-9.,]/g, ''))}
                 className="w-full bg-transparent outline-none text-white font-black"
               />
             </div>

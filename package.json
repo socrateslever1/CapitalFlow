@@ -11,7 +11,12 @@
     "build": "tsc -b && vite build",
     "build:skip-check": "vite build",
     "lint": "tsc -b",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:financial": "tsx tests/financial/financial-invariants.ts",
+    "test:architecture": "node tests/architecture/architecture-check.mjs",
+    "test:quality": "npm run build && npm run test:financial && npm run test:architecture",
+    "test:db": "supabase test db",
+    "test:load": "k6 run tests/load/app-smoke.js"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",

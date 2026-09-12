@@ -9,7 +9,7 @@ import { useState, useMemo } from 'react';
 import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
 import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta } from '../../domain/finance/calculations';
-import { usePaymentManagerState, ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
+import { usePaymentManagerState, ForgivenessMode, InterestHandling } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
 
@@ -21,7 +21,7 @@ interface UseContractDetailsStateProps {
         manualDate?: Date | null,
         amountPaid?: number,
         realDate?: Date | null,
-        interestHandling?: 'CAPITALIZE' | 'KEEP_PENDING',
+        interestHandling?: InterestHandling,
         contextOverride?: { loan: Loan; inst: Installment; calculations: any }
     ) => Promise<void>;
 }
@@ -32,7 +32,6 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const [avAmount, setAvAmount] = useState('');
     const [paymentType, setPaymentType] = useState<any>('RENEW_AV');
 
-    // Cálculos para o hook usePaymentManagerState
     const data = useMemo(() => {
         if (!loan) return null;
         const bal = loanEngine.computeRemainingBalance(loan);
@@ -65,14 +64,11 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         if (!loan) return null;
         const today = todayDateOnlyUTC();
         const installments = loan.installments || [];
-
         const lateInstallments = installments.filter(inst => {
             const due = parseDateOnlyUTC(inst.dueDate);
             return isInstallmentOpen(inst) && due.getTime() < today.getTime();
         }).sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
-
         if (lateInstallments.length === 0) return null;
-
         return {
             totalMonths: lateInstallments.length,
             items: lateInstallments.map(inst => ({
@@ -105,7 +101,6 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         if (!loan || !loan.ledger) return {};
         const groups: Record<string, LedgerEntry[]> = {};
         const sorted = [...loan.ledger].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
         sorted.forEach(entry => {
             const date = new Date(entry.date);
             const dateKey = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
@@ -132,16 +127,7 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         if (val <= 0) return;
         const nextDueDate = manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
-        // O controller já entende RENEW_KEEP_PENDING. Este cast mantém compatibilidade
-        // com a assinatura legada da página sem alterar o valor enviado em runtime.
-        onPayment(
-            forgivenessMode,
-            nextDueDate,
-            val,
-            realPaymentDate,
-            interestHandling as 'CAPITALIZE' | 'KEEP_PENDING',
-            data || undefined
-        );
+        onPayment(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling, data || undefined);
     };
 
     const status = loan ? loanEngine.computeLoanStatus(loan) : 'ACTIVE';

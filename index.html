@@ -48,6 +48,11 @@
             padding-bottom: env(safe-area-inset-bottom);
         }
 
+        /* O modal de condição precisa ficar acima da navegação móvel (z-index 300). */
+        .fixed.inset-0.z-\[140\] {
+            z-index: 500 !important;
+        }
+
         /* Simulador: densidade mobile semelhante ao mockup, sem afetar as demais telas. */
         @media (max-width: 679px) {
             .animate-in.fade-in.pb-28.font-sans.duration-300 {

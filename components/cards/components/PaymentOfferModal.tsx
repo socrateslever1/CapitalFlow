@@ -57,6 +57,20 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     setForm((current) => ({ ...current, [key]: value }));
 
   React.useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
+  React.useEffect(() => {
     let alive = true;
     paymentOffersService.history(installment.id)
       .then((items) => {
@@ -152,8 +166,11 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   );
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-stretch justify-center bg-slate-950/90 p-0 sm:items-center sm:p-3 backdrop-blur-sm" onClick={(event) => event.stopPropagation()}>
-      <div className="flex h-[100dvh] w-full max-w-md flex-col overflow-hidden border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-lg sm:border">
+    <div
+      className="fixed inset-0 z-[500] flex items-stretch justify-center overflow-hidden bg-slate-950/90 p-0 backdrop-blur-sm sm:items-center sm:p-3"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="flex h-[100dvh] min-h-0 w-full max-w-md flex-col overflow-hidden border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-lg sm:border">
         <header className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3">
           <div className="flex items-center gap-2">
             <CalendarClock size={17} className="text-blue-400" />
@@ -167,8 +184,11 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [touch-action:pan-y]">
-          <div className="space-y-3 p-4 pb-6">
+        <div
+          className="min-h-0 flex-1 overflow-y-scroll overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
+          data-testid="payment-offer-scroll-area"
+        >
+          <div className="space-y-3 p-4 pb-28">
             <section>
               <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
               <div className="grid grid-cols-2 gap-2">
@@ -322,7 +342,10 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-slate-800 bg-slate-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <div
+          className="relative z-10 shrink-0 border-t border-slate-800 bg-slate-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur"
+          data-testid="payment-offer-footer"
+        >
           <div className="flex gap-2">
             {active && (
               <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">

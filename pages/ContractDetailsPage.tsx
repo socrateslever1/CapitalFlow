@@ -221,7 +221,13 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                         <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4"><h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><FileText size={16}/> Arquivos do Portal</h3><div className="grid gap-2">{[...clientPortalFiles, ...clientVisibleFiles].map((file: any) => <button key={file.id} onClick={() => void openPortalFile(file.file_url)} className="w-full flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-left hover:border-emerald-500/40 transition-colors"><span className="text-[10px] font-bold text-white truncate">{file.file_name || 'Documento'}</span><Download size={12} className="shrink-0 text-slate-500" /></button>)}</div></div>
                     )}
 
-                    <ScopedCollectionAutomation loan={loan} profileId={safeUUID((loan as any).profile_id) || safeUUID(activeUser?.id)} />
+                    <ScopedCollectionAutomation
+                        profileId={safeUUID((loan as any).profile_id) || safeUUID(activeUser?.id) || ''}
+                        scope="LOAN"
+                        scopeId={String(loan.id)}
+                        label={loan.debtorName || 'contrato'}
+                        showToast={showToast}
+                    />
 
                     <LedgerTimeline loan={loan} groupedLedger={groupedLedger} isStealthMode={isStealthMode} onOpenReceipt={onOpenReceipt} onReverseTransaction={onReverseTransaction} onReverseNormalUnification={handleReverseNormalUnification} />
                 </div>

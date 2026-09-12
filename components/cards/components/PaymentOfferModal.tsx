@@ -152,9 +152,9 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   );
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/90 p-3 backdrop-blur-sm" onClick={(event) => event.stopPropagation()}>
-      <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+    <div className="fixed inset-0 z-[140] flex items-stretch justify-center bg-slate-950/90 p-0 sm:items-center sm:p-3 backdrop-blur-sm" onClick={(event) => event.stopPropagation()}>
+      <div className="flex h-[100dvh] w-full max-w-md flex-col overflow-hidden border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-lg sm:border">
+        <header className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3">
           <div className="flex items-center gap-2">
             <CalendarClock size={17} className="text-blue-400" />
             <div>
@@ -167,71 +167,72 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </button>
         </header>
 
-        <div className="space-y-3 p-4">
-          <section>
-            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
-                <span className="block text-[10px] font-black text-white">Quitar ou abater</span>
-                <span className="block text-[8px] text-slate-500">Reduz o saldo da parcela</span>
-              </button>
-              <button type="button" disabled={!canRenewInterest} onClick={() => { update('offerType', 'INTEREST_RENEWAL'); update('discountMode', 'NONE'); update('discount', 0); setDiscountInput(''); }} className={`min-h-14 rounded-md border px-3 text-left disabled:cursor-not-allowed disabled:opacity-40 ${form.offerType === 'INTEREST_RENEWAL' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}>
-                <span className="flex items-center gap-1 text-[10px] font-black text-white"><RefreshCcw size={11} /> Renovar com juros</span>
-                <span className="block text-[8px] text-slate-500">Mantém o capital e avança 1 mês</span>
-              </button>
-            </div>
-          </section>
-          <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
-            <div>
-              <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
-              <p className="mt-1 text-sm font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
-            </div>
-            <ArrowRight size={16} className="mx-3 text-blue-400" />
-            <div className="text-right">
-              <p className="text-[9px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
-              <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
-            </div>
-            {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
-              <p className="col-span-3 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
-                Economia total: {formatMoney(preview.chargesForgiven + preview.discountApplied)}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [touch-action:pan-y]">
+          <div className="space-y-3 p-4 pb-6">
+            <section>
+              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
+                  <span className="block text-[10px] font-black text-white">Quitar ou abater</span>
+                  <span className="block text-[8px] text-slate-500">Reduz o saldo da parcela</span>
+                </button>
+                <button type="button" disabled={!canRenewInterest} onClick={() => { update('offerType', 'INTEREST_RENEWAL'); update('discountMode', 'NONE'); update('discount', 0); setDiscountInput(''); }} className={`min-h-14 rounded-md border px-3 text-left disabled:cursor-not-allowed disabled:opacity-40 ${form.offerType === 'INTEREST_RENEWAL' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}>
+                  <span className="flex items-center gap-1 text-[10px] font-black text-white"><RefreshCcw size={11} /> Renovar com juros</span>
+                  <span className="block text-[8px] text-slate-500">Mantém o capital e avança 1 mês</span>
+                </button>
+              </div>
+            </section>
+            <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
+              <div>
+                <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
+                <p className="mt-1 text-sm font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
+              </div>
+              <ArrowRight size={16} className="mx-3 text-blue-400" />
+              <div className="text-right">
+                <p className="text-[9px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
+                <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
+              </div>
+              {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
+                <p className="col-span-3 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
+                  Economia total: {formatMoney(preview.chargesForgiven + preview.discountApplied)}
+                </p>
+              )}
+            </section>
+
+            {form.offerType === 'INTEREST_RENEWAL' && (
+              <p className="rounded-md border border-emerald-500/25 bg-emerald-500/10 p-2.5 text-[9px] font-bold leading-relaxed text-emerald-300">
+                Após a confirmação online, o capital permanecerá em aberto, o vencimento avançará um mês e os juros do novo ciclo serão gerados automaticamente.
               </p>
             )}
-          </section>
 
-          {form.offerType === 'INTEREST_RENEWAL' && (
-            <p className="rounded-md border border-emerald-500/25 bg-emerald-500/10 p-2.5 text-[9px] font-bold leading-relaxed text-emerald-300">
-              Após a confirmação online, o capital permanecerá em aberto, o vencimento avançará um mês e os juros do novo ciclo serão gerados automaticamente.
-            </p>
-          )}
+            {(form.offerType === 'SETTLEMENT' || preview.fine > 0.05 || preview.dailyInterest > 0.05) && <section>
+              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
+              <div className="grid grid-cols-2 gap-2">
+                <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
+                <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
+              </div>
+            </section>}
 
-          {(form.offerType === 'SETTLEMENT' || preview.fine > 0.05 || preview.dailyInterest > 0.05) && <section>
-            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
-            <div className="grid grid-cols-2 gap-2">
-              <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
-              <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
-            </div>
-          </section>}
-
-          {form.offerType === 'SETTLEMENT' && <section>
-            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
-            <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
-              {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    update('discountMode', mode);
-                    if (mode === 'NONE') {
-                      setDiscountInput('');
-                      update('discount', 0);
-                    }
-                  }}
-                  className={`min-h-9 rounded px-1 text-[8px] font-black uppercase transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {form.offerType === 'SETTLEMENT' && <section>
+              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
+              <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
+                {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      update('discountMode', mode);
+                      if (mode === 'NONE') {
+                        setDiscountInput('');
+                        update('discount', 0);
+                      }
+                    }}
+                    className={`min-h-9 rounded px-1 text-[8px] font-black uppercase transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               {form.discountMode !== 'NONE' && (
                 <label className="mt-2 flex h-11 w-full items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-3 focus-within:border-blue-500">
                   {form.discountMode === 'PERCENT' ? <Percent size={12} className="text-blue-400" /> : <Tag size={12} className="text-blue-400" />}
@@ -254,78 +255,81 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
                   </span>
                 </label>
               )}
-            {preview.discountApplied > 0.05 && (
-              <p className="mt-1.5 text-[9px] font-bold text-emerald-400">
-                Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
-              </p>
-            )}
-          </section>}
+              {preview.discountApplied > 0.05 && (
+                <p className="mt-1.5 text-[9px] font-bold text-emerald-400">
+                  Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
+                </p>
+              )}
+            </section>}
 
-          <section>
-            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label>
-              <span className="mb-1 block text-[9px] font-bold text-slate-400">Data combinada</span>
-              <span className="relative block">
-                <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
-                <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
-              </span>
-            </label>
-            <label>
-              <span className="mb-1 block text-[9px] font-bold text-slate-400">Válida até</span>
-              <span className="relative block">
-                <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
-                <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
-              </span>
-            </label>
-          </div>
-          </section>
+            <section>
+              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label>
+                  <span className="mb-1 block text-[9px] font-bold text-slate-400">Data combinada</span>
+                  <span className="relative block">
+                    <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
+                    <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
+                  </span>
+                </label>
+                <label>
+                  <span className="mb-1 block text-[9px] font-bold text-slate-400">Válida até</span>
+                  <span className="relative block">
+                    <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
+                    <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
+                  </span>
+                </label>
+              </div>
+            </section>
 
-          <details className="rounded-md border border-slate-800 bg-slate-950">
-            <summary className="cursor-pointer px-3 py-2 text-[9px] font-black uppercase text-slate-500">Adicionar observação</summary>
-            <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={500} rows={2} className="w-full resize-none border-t border-slate-800 bg-transparent p-3 text-xs text-white outline-none" />
-          </details>
+            <details className="rounded-md border border-slate-800 bg-slate-950">
+              <summary className="cursor-pointer px-3 py-2 text-[9px] font-black uppercase text-slate-500">Adicionar observação</summary>
+              <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={500} rows={2} className="w-full resize-none border-t border-slate-800 bg-transparent p-3 text-xs text-white outline-none" />
+            </details>
 
-          {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
+            {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
 
-          <section className="rounded-md border border-slate-800 bg-slate-950/70">
-            <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-              <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Historico da condicao</p>
-              {active && <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">Ativa</span>}
-            </div>
-            <div className="max-h-32 overflow-y-auto p-2">
-              {historyError ? (
-                <p className="px-1 py-2 text-[9px] font-bold text-rose-400">{historyError}</p>
-              ) : history.length === 0 ? (
-                <p className="px-1 py-2 text-[9px] font-bold text-slate-500">Nenhum historico registrado para esta parcela.</p>
-              ) : history.map((item) => (
-                <div key={item.id} className="mb-1 rounded border border-slate-800 bg-slate-900/70 px-2 py-1.5 last:mb-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[8px] font-black uppercase text-slate-300">
-                      {actionLabel(item.action)} · {item.offerType === 'INTEREST_RENEWAL' ? 'Renovacao' : 'Condicao'}
-                    </span>
-                    <span className="text-[8px] font-bold text-slate-500">
-                      {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                    </span>
+            <section className="rounded-md border border-slate-800 bg-slate-950/70">
+              <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Historico da condicao</p>
+                {active && <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">Ativa</span>}
+              </div>
+              <div className="max-h-32 overflow-y-auto p-2">
+                {historyError ? (
+                  <p className="px-1 py-2 text-[9px] font-bold text-rose-400">{historyError}</p>
+                ) : history.length === 0 ? (
+                  <p className="px-1 py-2 text-[9px] font-bold text-slate-500">Nenhum historico registrado para esta parcela.</p>
+                ) : history.map((item) => (
+                  <div key={item.id} className="mb-1 rounded border border-slate-800 bg-slate-900/70 px-2 py-1.5 last:mb-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[8px] font-black uppercase text-slate-300">
+                        {actionLabel(item.action)} · {item.offerType === 'INTEREST_RENEWAL' ? 'Renovacao' : 'Condicao'}
+                      </span>
+                      <span className="text-[8px] font-bold text-slate-500">
+                        {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[9px] font-bold text-white">
+                      {formatMoney(item.offeredAmount)}
+                      {(item.discountApplied + item.lateFeeForgiven) > 0.05 && (
+                        <span className="text-emerald-400"> · abatido {formatMoney(item.discountApplied + item.lateFeeForgiven)}</span>
+                      )}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-[9px] font-bold text-white">
-                    {formatMoney(item.offeredAmount)}
-                    {(item.discountApplied + item.lateFeeForgiven) > 0.05 && (
-                      <span className="text-emerald-400"> · abatido {formatMoney(item.discountApplied + item.lateFeeForgiven)}</span>
-                    )}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
 
+        <div className="shrink-0 border-t border-slate-800 bg-slate-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
           <div className="flex gap-2">
             {active && (
-              <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-10 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
+              <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
                 Cancelar condicao
               </button>
             )}
-            <button type="button" onClick={submit} disabled={isSaving} className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
+            <button type="button" onClick={submit} disabled={isSaving} className="h-11 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
               {isSaving ? 'Enviando...' : 'Enviar para o portal'}
             </button>
           </div>

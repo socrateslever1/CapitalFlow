@@ -132,7 +132,16 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         if (val <= 0) return;
         const nextDueDate = manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
-        onPayment(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling, data || undefined);
+        // O controller já entende RENEW_KEEP_PENDING. Este cast mantém compatibilidade
+        // com a assinatura legada da página sem alterar o valor enviado em runtime.
+        onPayment(
+            forgivenessMode,
+            nextDueDate,
+            val,
+            realPaymentDate,
+            interestHandling as 'CAPITALIZE' | 'KEEP_PENDING',
+            data || undefined
+        );
     };
 
     const status = loan ? loanEngine.computeLoanStatus(loan) : 'ACTIVE';

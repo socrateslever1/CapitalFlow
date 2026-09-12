@@ -10,7 +10,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Banknote, TrendingUp, ShieldCheck, CheckCircle2, Loader2 } from 'lucide-react';
 import { Loan } from '../../types';
 import { formatMoney } from '../../utils/formatters';
-import { ForgivenessMode } from '../../components/modals/payment/hooks/usePaymentManagerState';
+import { ForgivenessMode, InterestHandling } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { FlexibleDailyScreen } from '../../components/modals/payment/FlexibleDailyScreen';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
@@ -25,8 +25,8 @@ interface PaymentRegistrationFormProps {
     setRealPaymentDateStr: (val: string) => void;
     forgivenessMode: ForgivenessMode;
     setForgivenessMode: (mode: ForgivenessMode) => void;
-    interestHandling: 'CAPITALIZE' | 'KEEP_PENDING';
-    setInterestHandling: (handling: 'CAPITALIZE' | 'KEEP_PENDING') => void;
+    interestHandling: InterestHandling;
+    setInterestHandling: (handling: InterestHandling) => void;
     debtBreakdown: any;
     subMode: 'DAYS' | 'AMORTIZE';
     setSubMode: (mode: 'DAYS' | 'AMORTIZE') => void;
@@ -177,7 +177,6 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     </button>
                 </div>
 
-                {/* PREVIEW DINÂMICO */}
                 {safeParse(avAmount) > 0 && (
                     <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-lg space-y-4 animate-in zoom-in-95 duration-300 mb-8">
                         <div className="flex items-start gap-4">
@@ -185,15 +184,12 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                 <TrendingUp size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">
-                                    Impacto do Recebimento
-                                </p>
+                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Impacto do Recebimento</p>
                                 <p className="text-sm text-slate-200 font-bold leading-relaxed">
                                     {(() => {
                                         const val = safeParse(avAmount);
                                         const totalDue = debtBreakdown.total;
                                         const interestDue = totalInterestDue;
-
                                         if (isCapitalOnlyRecovery) {
                                             if (val >= debtBreakdown.principal - 0.05) return 'Quitação sem juros: recebe apenas o capital e encerra os encargos.';
                                             return `Recebimento sem juros: abate ${formatMoney(val, isStealthMode)} diretamente do capital.`;
@@ -201,11 +197,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                         if (val >= totalDue - 0.05) return 'Quitação total: O contrato será encerrado e arquivado.';
                                         if (val >= interestDue - 0.05) {
                                             const amort = val - interestDue;
-                                            if (amort > 0.05)
-                                                return `Encargos + Amortização: Quita os juros e abate ${formatMoney(
-                                                    amort,
-                                                    isStealthMode
-                                                )} do capital principal.`;
+                                            if (amort > 0.05) return `Encargos + Amortização: Quita os juros e abate ${formatMoney(amort, isStealthMode)} do capital principal.`;
                                             return 'Renovação: Quita os juros/multas do período e mantém o capital principal.';
                                         }
                                         return `Recebimento Parcial: Abate ${formatMoney(val, isStealthMode)} apenas dos juros/encargos acumulados.`;
@@ -219,111 +211,39 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                 <div className="bg-transparent p-0 mb-8 space-y-4">
                     <div className="flex items-center gap-2">
                         <ShieldCheck size={14} className="text-rose-500" />
-                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
-                            Gestão de Perdão
-                        </label>
+                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Gestão de Perdão</label>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <button
-                            onClick={toggleFineForgiveness}
-                            className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
-                                forgivesFine && forgivenessMode !== 'TOTAL_CHARGES'
-                                    ? 'bg-rose-600 border-rose-500 text-white'
-                                    : 'bg-slate-900 border-slate-800 text-slate-500'
-                            }`}
-                        >
-                            Perdoar Multa
-                        </button>
-                        <button
-                            onClick={toggleMoraForgiveness}
-                            className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
-                                forgivesMora && forgivenessMode !== 'TOTAL_CHARGES'
-                                    ? 'bg-orange-600 border-orange-500 text-white'
-                                    : 'bg-slate-900 border-slate-800 text-slate-500'
-                            }`}
-                        >
-                            Perdoar Mora
-                        </button>
-                        <button
-                            onClick={() => setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES')}
-                            className={`col-span-2 p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${
-                                forgivenessMode === 'TOTAL_CHARGES'
-                                    ? 'bg-emerald-600 border-emerald-500 text-white'
-                                    : 'bg-slate-900 border-slate-800 text-slate-500'
-                            }`}
-                        >
-                            Perdoar 100% dos Encargos
-                        </button>
+                        <button onClick={toggleFineForgiveness} className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivesFine && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar Multa</button>
+                        <button onClick={toggleMoraForgiveness} className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivesMora && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar Mora</button>
+                        <button onClick={() => setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES')} className={`col-span-2 p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivenessMode === 'TOTAL_CHARGES' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar 100% dos Encargos</button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
-                            Data Recebimento
-                        </label>
-                        <input
-                            type="date"
-                            value={realPaymentDateStr}
-                            onChange={(e) => setRealPaymentDateStr(e.target.value)}
-                            className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
-                        />
+                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Data Recebimento</label>
+                        <input type="date" value={realPaymentDateStr} onChange={(e) => setRealPaymentDateStr(e.target.value)} className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer" />
                     </div>
                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
-                            Próximo Vencimento
-                        </label>
-                        <input
-                            type="date"
-                            value={manualDateStr || ''}
-                            onChange={(e) => setManualDateStr(e.target.value)}
-                            className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer"
-                        />
+                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Próximo Vencimento</label>
+                        <input type="date" value={manualDateStr || ''} onChange={(e) => setManualDateStr(e.target.value)} className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer" />
                     </div>
                 </div>
 
                 {showInterestDecision && (
                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-8 space-y-3">
-                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
-                            Saldo de Juros Restante
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={() => setInterestHandling('KEEP_PENDING')}
-                                className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${
-                                    interestHandling === 'KEEP_PENDING'
-                                        ? 'bg-blue-600 border-blue-500 text-white'
-                                        : 'bg-slate-900 border-slate-800 text-slate-500'
-                                }`}
-                            >
-                                Manter Pendente
-                            </button>
-                            <button
-                                onClick={() => setInterestHandling('CAPITALIZE')}
-                                className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${
-                                    interestHandling === 'CAPITALIZE'
-                                        ? 'bg-rose-600 border-rose-500 text-white'
-                                        : 'bg-slate-900 border-slate-800 text-slate-500'
-                                }`}
-                            >
-                                Capitalizar
-                            </button>
+                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Saldo de Juros Restante</label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <button onClick={() => setInterestHandling('KEEP_PENDING')} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Não renovar</button>
+                            <button onClick={() => setInterestHandling('RENEW_KEEP_PENDING')} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'RENEW_KEEP_PENDING' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Renovar e manter pendente</button>
+                            <button onClick={() => setInterestHandling('CAPITALIZE')} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'CAPITALIZE' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Capitalizar</button>
                         </div>
                     </div>
                 )}
 
-                <button
-                    onClick={handleConfirm}
-                    disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0}
-                    className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-sm shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {isProcessing ? (
-                        <Loader2 className="animate-spin" size={20} />
-                    ) : (
-                        <>
-                            <CheckCircle2 size={20} /> Confirmar Recebimento
-                        </>
-                    )}
+                <button onClick={handleConfirm} disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-sm shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isProcessing ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle2 size={20} /> Confirmar Recebimento</>}
                 </button>
             </div>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag } from 'lucide-react';
+import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, XCircle } from 'lucide-react';
 import { SystemBackButton } from '../../ui/SystemBackButton';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
@@ -166,7 +166,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`flex min-h-14 items-center gap-3 rounded-md border px-3 text-left transition-colors ${
+      className={`flex min-h-14 items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
         checked ? 'border-emerald-500/60 bg-emerald-500/10' : 'border-slate-700 bg-slate-950 hover:border-slate-600'
       }`}
     >
@@ -177,7 +177,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
       </span>
       <span className="min-w-0">
         <span className="block text-[10px] font-black text-white">{title}</span>
-        <span className={`block truncate text-[9px] font-bold ${checked ? 'text-emerald-400' : 'text-slate-400'}`}>
+        <span className={`block text-[9px] font-bold ${checked ? 'text-emerald-400' : 'text-slate-400'}`}>
           {checked ? 'Será retirado' : 'Manter cobrança'} · {formatMoney(amount)}
         </span>
       </span>
@@ -185,20 +185,22 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   );
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="payment-offer-title" className="fixed inset-x-0 top-0 z-[2000] flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-900" onClick={(event) => event.stopPropagation()}>
-      <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
-        <header className="flex shrink-0 items-center gap-3 border-b border-slate-800 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+    <div role="dialog" aria-modal="true" aria-labelledby="payment-offer-title" className="fixed inset-0 z-[2000] flex h-dvh items-center justify-center bg-slate-950/80 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm" onClick={(event) => event.stopPropagation()}>
+      <div className="flex max-h-[80dvh] min-h-0 w-full max-w-[320px] flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-2xl [@media(max-height:480px)]:overflow-y-auto">
+        <header className="flex shrink-0 flex-col items-start gap-3 px-5 pt-5 pb-3">
           <SystemBackButton appleOnly local onClick={onClose} disabled={isSaving} />
-          <div className="flex min-w-0 items-center gap-2">
-            <CalendarClock size={17} className="text-blue-400" />
+          <div className="w-full space-y-3 text-center">
+            <div className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-blue-500/20 text-blue-500">
+              <CalendarClock size={22} />
+            </div>
             <div>
-              <h1 ref={titleRef} tabIndex={-1} id="payment-offer-title" className="text-xs font-black uppercase text-white">Condição de pagamento</h1>
-              <p className="text-[9px] text-slate-500">Defina o que acontecerá após o pagamento</p>
+              <h1 ref={titleRef} tabIndex={-1} id="payment-offer-title" className="text-xs font-black uppercase tracking-tight text-white outline-none">Condição de pagamento</h1>
+              <p className="mt-1 text-[10px] text-slate-400">Defina o que acontecerá após o pagamento</p>
             </div>
           </div>
         </header>
 
-        <div role="region" aria-label="Dados da condição de pagamento" tabIndex={0} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+        <div role="region" aria-label="Dados da condição de pagamento" tabIndex={0} className="min-h-0 flex-auto space-y-3 overflow-y-auto overscroll-contain px-5 py-3 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] [@media(max-height:480px)]:flex-none [@media(max-height:480px)]:overflow-visible">
           <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
             <div className="grid grid-cols-2 gap-2">
@@ -351,14 +353,17 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </section>
 
         </div>
-          <footer className="flex shrink-0 flex-wrap gap-2 border-t border-slate-800 bg-slate-900 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <footer className="flex shrink-0 flex-col gap-2 bg-slate-900 px-5 pt-3 pb-5">
             {active && (
               <button type="button" onClick={cancelOffer} disabled={isSaving} className="min-h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
-                Cancelar condicao
+                Cancelar condição ativa
               </button>
             )}
-            <button type="button" onClick={submit} disabled={isSaving} className="min-h-11 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
+            <button type="button" onClick={submit} disabled={isSaving} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-[10px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
               {isSaving ? 'Enviando...' : 'Enviar para o portal'}
+            </button>
+            <button type="button" onClick={onClose} disabled={isSaving} className="flex min-h-11 w-full items-center justify-center gap-1 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50">
+              <XCircle size={12} /> Cancelar
             </button>
           </footer>
       </div>

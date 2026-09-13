@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag } from 'lucide-react';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import {
@@ -18,7 +18,6 @@ interface PaymentOfferModalProps {
 }
 
 const dateKey = (value?: string) => value ? String(value).slice(0, 10) : '';
-const PAYMENT_OFFER_HISTORY_KEY = 'payment-offer';
 
 export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, installment, onClose, onSaved }) => {
   const active = isPaymentOfferActive(installment);
@@ -49,18 +48,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   const [error, setError] = React.useState('');
   const [history, setHistory] = React.useState<PaymentOfferHistoryItem[]>([]);
   const [historyError, setHistoryError] = React.useState('');
-  const onCloseRef = React.useRef(onClose);
-  const preview = React.useMemo(
-    () => calculatePaymentOfferPreview(loan, installment, form),
-    [loan, installment, form]
-  );
-  const canRenewInterest = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
-  const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
-    setForm((current) => ({ ...current, [key]: value }));
-
-  React.useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
+  const backButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -76,34 +64,29 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     };
   }, []);
 
-  // Cria uma entrada real no histórico enquanto o modal estiver aberto.
-  // O listener em capture roda antes do guard global do Android/PWA, então
-  // o botão físico "voltar" fecha este modal em vez de pedir para sair do app.
   React.useEffect(() => {
-    if (window.history.state?.capitalflowModal !== PAYMENT_OFFER_HISTORY_KEY) {
-      window.history.pushState(
-        { ...(window.history.state || {}), capitalflowModal: PAYMENT_OFFER_HISTORY_KEY },
-        '',
-        window.location.href
-      );
-    }
-
-    const handlePopState = (event: PopStateEvent) => {
-      event.stopImmediatePropagation();
-      onCloseRef.current();
+    const previousFocus = document.activeElement;
+    backButtonRef.current?.focus();
+    return () => {
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
     };
-
-    window.addEventListener('popstate', handlePopState, true);
-    return () => window.removeEventListener('popstate', handlePopState, true);
   }, []);
 
-  const closeModal = React.useCallback(() => {
-    if (window.history.state?.capitalflowModal === PAYMENT_OFFER_HISTORY_KEY) {
-      window.history.back();
-      return;
-    }
-    onCloseRef.current();
-  }, []);
+  React.useEffect(() => {
+    const handleBack = (event: Event) => {
+      event.preventDefault();
+      if (!isSaving) onClose();
+    };
+    window.addEventListener('capitalflow:back', handleBack);
+    return () => window.removeEventListener('capitalflow:back', handleBack);
+  }, [onClose, isSaving]);
+  const preview = React.useMemo(
+    () => calculatePaymentOfferPreview(loan, installment, form),
+    [loan, installment, form]
+  );
+  const canRenewInterest = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
+  const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
+    setForm((current) => ({ ...current, [key]: value }));
 
   React.useEffect(() => {
     let alive = true;
@@ -151,7 +134,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     try {
       await paymentOffersService.save(loan, installment, form);
       await onSaved();
-      closeModal();
+      onClose();
     } catch (reason: any) {
       setError(reason?.message || 'Falha ao enviar condição.');
     } finally {
@@ -165,7 +148,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     try {
       await paymentOffersService.cancel(loan, installment, 'Cancelada pelo operador');
       await onSaved();
-      closeModal();
+      onClose();
     } catch (reason: any) {
       setError(reason?.message || 'Falha ao cancelar condição.');
     } finally {
@@ -201,109 +184,86 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   );
 
   return (
-    <div
-      className="fixed inset-0 z-[500] flex items-stretch justify-center overflow-hidden bg-slate-950/90 p-0 backdrop-blur-sm sm:items-center sm:p-3"
-      onClick={(event) => event.stopPropagation()}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="payment-offer-title"
-      data-capitalflow-modal="payment-offer"
-    >
-      <div className="flex h-[100dvh] min-h-0 w-full max-w-md flex-col overflow-hidden border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-lg sm:border">
-        <header className="relative z-20 flex shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-4 sm:pt-3">
-          <button
-            type="button"
-            onClick={closeModal}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white"
-            aria-label="Voltar"
-            data-testid="payment-offer-back"
-          >
-            <ArrowLeft size={18} />
+    <div role="dialog" aria-modal="true" aria-labelledby="payment-offer-title" className="fixed inset-x-0 top-0 z-[2000] flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-900" onClick={(event) => event.stopPropagation()}>
+      <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+        <header className="flex shrink-0 items-center gap-3 border-b border-slate-800 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <button ref={backButtonRef} type="button" onClick={onClose} disabled={isSaving} className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 text-xs font-bold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50" aria-label="Voltar">
+            <ArrowLeft size={18} /> Voltar
           </button>
-          <div className="min-w-0 flex-1">
-            <h2 id="payment-offer-title" className="truncate text-sm font-black uppercase tracking-tight text-white">Condição de pagamento</h2>
-            <p className="truncate text-[9px] font-bold text-slate-500">Defina a condição e volte para o contrato quando terminar</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <CalendarClock size={17} className="text-blue-400" />
+            <div>
+              <h1 id="payment-offer-title" className="text-xs font-black uppercase text-white">Condição de pagamento</h1>
+              <p className="text-[9px] text-slate-500">Defina o que acontecerá após o pagamento</p>
+            </div>
           </div>
-          <CalendarClock size={18} className="shrink-0 text-blue-400" />
-          <button
-            type="button"
-            onClick={closeModal}
-            className="hidden h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-white sm:grid"
-            aria-label="Fechar"
-          >
-            <X size={17} />
-          </button>
         </header>
 
-        <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
-          data-testid="payment-offer-scroll-area"
-        >
-          <div className="space-y-3 p-4 pb-28">
-            <section>
-              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
-                  <span className="block text-[10px] font-black text-white">Quitar ou abater</span>
-                  <span className="block text-[8px] text-slate-500">Reduz o saldo da parcela</span>
-                </button>
-                <button type="button" disabled={!canRenewInterest} onClick={() => { update('offerType', 'INTEREST_RENEWAL'); update('discountMode', 'NONE'); update('discount', 0); setDiscountInput(''); }} className={`min-h-14 rounded-md border px-3 text-left disabled:cursor-not-allowed disabled:opacity-40 ${form.offerType === 'INTEREST_RENEWAL' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}>
-                  <span className="flex items-center gap-1 text-[10px] font-black text-white"><RefreshCcw size={11} /> Renovar com juros</span>
-                  <span className="block text-[8px] text-slate-500">Mantém o capital e avança 1 mês</span>
-                </button>
-              </div>
-            </section>
-            <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
-              <div>
-                <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
-                <p className="mt-1 text-sm font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
-              </div>
-              <ArrowRight size={16} className="mx-3 text-blue-400" />
-              <div className="text-right">
-                <p className="text-[9px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
-                <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
-              </div>
-              {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
-                <p className="col-span-3 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
-                  Economia total: {formatMoney(preview.chargesForgiven + preview.discountApplied)}
-                </p>
-              )}
-            </section>
-
-            {form.offerType === 'INTEREST_RENEWAL' && (
-              <p className="rounded-md border border-emerald-500/25 bg-emerald-500/10 p-2.5 text-[9px] font-bold leading-relaxed text-emerald-300">
-                Após a confirmação online, o capital permanecerá em aberto, o vencimento avançará um mês e os juros do novo ciclo serão gerados automaticamente.
+        <div role="region" aria-label="Dados da condição de pagamento" tabIndex={0} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch]">
+          <section>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
+                <span className="block text-[10px] font-black text-white">Quitar ou abater</span>
+                <span className="block text-[8px] text-slate-500">Reduz o saldo da parcela</span>
+              </button>
+              <button type="button" disabled={!canRenewInterest} onClick={() => { update('offerType', 'INTEREST_RENEWAL'); update('discountMode', 'NONE'); update('discount', 0); setDiscountInput(''); }} className={`min-h-14 rounded-md border px-3 text-left disabled:cursor-not-allowed disabled:opacity-40 ${form.offerType === 'INTEREST_RENEWAL' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}>
+                <span className="flex items-center gap-1 text-[10px] font-black text-white"><RefreshCcw size={11} /> Renovar com juros</span>
+                <span className="block text-[8px] text-slate-500">Mantém o capital e avança 1 mês</span>
+              </button>
+            </div>
+          </section>
+          <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
+            <div>
+              <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
+              <p className="mt-1 text-sm font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
+            </div>
+            <ArrowRight size={16} className="mx-3 text-blue-400" />
+            <div className="text-right">
+              <p className="text-[9px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
+              <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
+            </div>
+            {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
+              <p className="col-span-3 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
+                Economia total: {formatMoney(preview.chargesForgiven + preview.discountApplied)}
               </p>
             )}
+          </section>
 
-            {(form.offerType === 'SETTLEMENT' || preview.fine > 0.05 || preview.dailyInterest > 0.05) && <section>
-              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
-              <div className="grid grid-cols-2 gap-2">
-                <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
-                <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
-              </div>
-            </section>}
+          {form.offerType === 'INTEREST_RENEWAL' && (
+            <p className="rounded-md border border-emerald-500/25 bg-emerald-500/10 p-2.5 text-[9px] font-bold leading-relaxed text-emerald-300">
+              Após a confirmação online, o capital permanecerá em aberto, o vencimento avançará um mês e os juros do novo ciclo serão gerados automaticamente.
+            </p>
+          )}
 
-            {form.offerType === 'SETTLEMENT' && <section>
-              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
-              <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
-                {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => {
-                      update('discountMode', mode);
-                      if (mode === 'NONE') {
-                        setDiscountInput('');
-                        update('discount', 0);
-                      }
-                    }}
-                    className={`min-h-9 rounded px-1 text-[8px] font-black uppercase transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+          {(form.offerType === 'SETTLEMENT' || preview.fine > 0.05 || preview.dailyInterest > 0.05) && <section>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
+            <div className="grid grid-cols-2 gap-2">
+              <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
+              <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
+            </div>
+          </section>}
+
+          {form.offerType === 'SETTLEMENT' && <section>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
+            <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
+              {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    update('discountMode', mode);
+                    if (mode === 'NONE') {
+                      setDiscountInput('');
+                      update('discount', 0);
+                    }
+                  }}
+                  className={`min-h-9 rounded px-1 text-[8px] font-black uppercase transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
               {form.discountMode !== 'NONE' && (
                 <label className="mt-2 flex h-11 w-full items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-3 focus-within:border-blue-500">
                   {form.discountMode === 'PERCENT' ? <Percent size={12} className="text-blue-400" /> : <Tag size={12} className="text-blue-400" />}
@@ -326,88 +286,82 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
                   </span>
                 </label>
               )}
-              {preview.discountApplied > 0.05 && (
-                <p className="mt-1.5 text-[9px] font-bold text-emerald-400">
-                  Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
-                </p>
-              )}
-            </section>}
+            {preview.discountApplied > 0.05 && (
+              <p className="mt-1.5 text-[9px] font-bold text-emerald-400">
+                Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}
+              </p>
+            )}
+          </section>}
 
-            <section>
-              <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <label>
-                  <span className="mb-1 block text-[9px] font-bold text-slate-400">Data combinada</span>
-                  <span className="relative block">
-                    <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
-                    <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
-                  </span>
-                </label>
-                <label>
-                  <span className="mb-1 block text-[9px] font-bold text-slate-400">Válida até</span>
-                  <span className="relative block">
-                    <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
-                    <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
-                  </span>
-                </label>
-              </div>
-            </section>
-
-            <details className="rounded-md border border-slate-800 bg-slate-950">
-              <summary className="cursor-pointer px-3 py-2 text-[9px] font-black uppercase text-slate-500">Adicionar observação</summary>
-              <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={500} rows={2} className="w-full resize-none border-t border-slate-800 bg-transparent p-3 text-xs text-white outline-none" />
-            </details>
-
-            {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
-
-            <section className="rounded-md border border-slate-800 bg-slate-950/70">
-              <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-                <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Historico da condicao</p>
-                {active && <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">Ativa</span>}
-              </div>
-              <div className="max-h-32 overflow-y-auto p-2">
-                {historyError ? (
-                  <p className="px-1 py-2 text-[9px] font-bold text-rose-400">{historyError}</p>
-                ) : history.length === 0 ? (
-                  <p className="px-1 py-2 text-[9px] font-bold text-slate-500">Nenhum historico registrado para esta parcela.</p>
-                ) : history.map((item) => (
-                  <div key={item.id} className="mb-1 rounded border border-slate-800 bg-slate-900/70 px-2 py-1.5 last:mb-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[8px] font-black uppercase text-slate-300">
-                        {actionLabel(item.action)} · {item.offerType === 'INTEREST_RENEWAL' ? 'Renovacao' : 'Condicao'}
-                      </span>
-                      <span className="text-[8px] font-bold text-slate-500">
-                        {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[9px] font-bold text-white">
-                      {formatMoney(item.offeredAmount)}
-                      {(item.discountApplied + item.lateFeeForgiven) > 0.05 && (
-                        <span className="text-emerald-400"> · abatido {formatMoney(item.discountApplied + item.lateFeeForgiven)}</span>
-                      )}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
+          <section>
+            <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">3. Período da condição</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label>
+              <span className="mb-1 block text-[9px] font-bold text-slate-400">Data combinada</span>
+              <span className="relative block">
+                <input type="date" value={form.agreedDate} onChange={(event) => update('agreedDate', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
+                <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
+              </span>
+            </label>
+            <label>
+              <span className="mb-1 block text-[9px] font-bold text-slate-400">Válida até</span>
+              <span className="relative block">
+                <input type="date" value={form.validUntil} onChange={(event) => update('validUntil', event.target.value)} className="h-11 w-full rounded-md border border-slate-700 bg-slate-950 px-3 pr-10 text-xs font-bold text-white outline-none [color-scheme:dark] focus:border-blue-500 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0" />
+                <Calendar size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-blue-400" />
+              </span>
+            </label>
           </div>
-        </div>
+          </section>
 
-        <div
-          className="relative z-10 shrink-0 border-t border-slate-800 bg-slate-900/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur"
-          data-testid="payment-offer-footer"
-        >
-          <div className="flex gap-2">
+          <details className="rounded-md border border-slate-800 bg-slate-950">
+            <summary className="cursor-pointer px-3 py-2 text-[9px] font-black uppercase text-slate-500">Adicionar observação</summary>
+            <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={500} rows={2} className="w-full resize-none border-t border-slate-800 bg-transparent p-3 text-xs text-white outline-none" />
+          </details>
+
+          {error && <p className="rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-[10px] font-bold text-rose-400">{error}</p>}
+
+          <section className="rounded-md border border-slate-800 bg-slate-950/70">
+            <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Historico da condicao</p>
+              {active && <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">Ativa</span>}
+            </div>
+            <div className="max-h-32 overflow-y-auto p-2">
+              {historyError ? (
+                <p className="px-1 py-2 text-[9px] font-bold text-rose-400">{historyError}</p>
+              ) : history.length === 0 ? (
+                <p className="px-1 py-2 text-[9px] font-bold text-slate-500">Nenhum historico registrado para esta parcela.</p>
+              ) : history.map((item) => (
+                <div key={item.id} className="mb-1 rounded border border-slate-800 bg-slate-900/70 px-2 py-1.5 last:mb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[8px] font-black uppercase text-slate-300">
+                      {actionLabel(item.action)} · {item.offerType === 'INTEREST_RENEWAL' ? 'Renovacao' : 'Condicao'}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500">
+                      {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[9px] font-bold text-white">
+                    {formatMoney(item.offeredAmount)}
+                    {(item.discountApplied + item.lateFeeForgiven) > 0.05 && (
+                      <span className="text-emerald-400"> · abatido {formatMoney(item.discountApplied + item.lateFeeForgiven)}</span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+        </div>
+          <footer className="flex shrink-0 flex-wrap gap-2 border-t border-slate-800 bg-slate-900 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {active && (
-              <button type="button" onClick={cancelOffer} disabled={isSaving} className="h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
+              <button type="button" onClick={cancelOffer} disabled={isSaving} className="min-h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
                 Cancelar condicao
               </button>
             )}
-            <button type="button" onClick={submit} disabled={isSaving} className="h-11 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
+            <button type="button" onClick={submit} disabled={isSaving} className="min-h-11 flex-1 rounded-md bg-blue-600 px-4 text-[9px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
               {isSaving ? 'Enviando...' : 'Enviar para o portal'}
             </button>
-          </div>
-        </div>
+          </footer>
       </div>
     </div>
   );

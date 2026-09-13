@@ -57,6 +57,14 @@ export const useExitGuard = (
     }
 
     const handlePopState = (e: PopStateEvent) => {
+      // Páginas locais têm prioridade sobre o modal/página que as abriu.
+      const backRequest = new Event('capitalflow:back', { cancelable: true });
+      if (!window.dispatchEvent(backRequest)) {
+        lastBackPress.current = 0;
+        window.history.pushState({ anchor: true }, '', window.location.href);
+        return;
+      }
+
       // 1. Prioridade: Fechar Modais Abertos
       if (ui?.activeModal) {
         ui.closeModal();

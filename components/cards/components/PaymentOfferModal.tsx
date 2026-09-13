@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, X } from 'lucide-react';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import {
@@ -18,6 +18,7 @@ interface PaymentOfferModalProps {
 }
 
 const dateKey = (value?: string) => value ? String(value).slice(0, 10) : '';
+const PAYMENT_OFFER_HISTORY_KEY = 'payment-offer';
 
 export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, installment, onClose, onSaved }) => {
   const active = isPaymentOfferActive(installment);
@@ -48,6 +49,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   const [error, setError] = React.useState('');
   const [history, setHistory] = React.useState<PaymentOfferHistoryItem[]>([]);
   const [historyError, setHistoryError] = React.useState('');
+  const onCloseRef = React.useRef(onClose);
   const preview = React.useMemo(
     () => calculatePaymentOfferPreview(loan, installment, form),
     [loan, installment, form]
@@ -55,6 +57,10 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   const canRenewInterest = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
   const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
+
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   React.useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -68,6 +74,35 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
       document.body.style.overscrollBehavior = previousBodyOverscroll;
       document.documentElement.style.overflow = previousHtmlOverflow;
     };
+  }, []);
+
+  // Cria uma entrada real no histórico enquanto o modal estiver aberto.
+  // O listener em capture roda antes do guard global do Android/PWA, então
+  // o botão físico "voltar" fecha este modal em vez de pedir para sair do app.
+  React.useEffect(() => {
+    if (window.history.state?.capitalflowModal !== PAYMENT_OFFER_HISTORY_KEY) {
+      window.history.pushState(
+        { ...(window.history.state || {}), capitalflowModal: PAYMENT_OFFER_HISTORY_KEY },
+        '',
+        window.location.href
+      );
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      event.stopImmediatePropagation();
+      onCloseRef.current();
+    };
+
+    window.addEventListener('popstate', handlePopState, true);
+    return () => window.removeEventListener('popstate', handlePopState, true);
+  }, []);
+
+  const closeModal = React.useCallback(() => {
+    if (window.history.state?.capitalflowModal === PAYMENT_OFFER_HISTORY_KEY) {
+      window.history.back();
+      return;
+    }
+    onCloseRef.current();
   }, []);
 
   React.useEffect(() => {
@@ -116,7 +151,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     try {
       await paymentOffersService.save(loan, installment, form);
       await onSaved();
-      onClose();
+      closeModal();
     } catch (reason: any) {
       setError(reason?.message || 'Falha ao enviar condição.');
     } finally {
@@ -130,7 +165,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     try {
       await paymentOffersService.cancel(loan, installment, 'Cancelada pelo operador');
       await onSaved();
-      onClose();
+      closeModal();
     } catch (reason: any) {
       setError(reason?.message || 'Falha ao cancelar condição.');
     } finally {
@@ -169,23 +204,39 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     <div
       className="fixed inset-0 z-[500] flex items-stretch justify-center overflow-hidden bg-slate-950/90 p-0 backdrop-blur-sm sm:items-center sm:p-3"
       onClick={(event) => event.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="payment-offer-title"
+      data-capitalflow-modal="payment-offer"
     >
       <div className="flex h-[100dvh] min-h-0 w-full max-w-md flex-col overflow-hidden border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-lg sm:border">
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <CalendarClock size={17} className="text-blue-400" />
-            <div>
-              <h3 className="text-xs font-black uppercase text-white">Condição de pagamento</h3>
-              <p className="text-[9px] text-slate-500">Defina o que acontecerá após o pagamento</p>
-            </div>
+        <header className="relative z-20 flex shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-4 sm:pt-3">
+          <button
+            type="button"
+            onClick={closeModal}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white"
+            aria-label="Voltar"
+            data-testid="payment-offer-back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h2 id="payment-offer-title" className="truncate text-sm font-black uppercase tracking-tight text-white">Condição de pagamento</h2>
+            <p className="truncate text-[9px] font-bold text-slate-500">Defina a condição e volte para o contrato quando terminar</p>
           </div>
-          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-white" aria-label="Fechar">
+          <CalendarClock size={18} className="shrink-0 text-blue-400" />
+          <button
+            type="button"
+            onClick={closeModal}
+            className="hidden h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-800 hover:text-white sm:grid"
+            aria-label="Fechar"
+          >
             <X size={17} />
           </button>
         </header>
 
         <div
-          className="min-h-0 flex-1 overflow-y-scroll overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
           data-testid="payment-offer-scroll-area"
         >
           <div className="space-y-3 p-4 pb-28">

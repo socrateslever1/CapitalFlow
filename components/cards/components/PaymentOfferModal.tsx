@@ -48,7 +48,12 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   const [error, setError] = React.useState('');
   const [history, setHistory] = React.useState<PaymentOfferHistoryItem[]>([]);
   const [historyError, setHistoryError] = React.useState('');
-  const backButtonRef = React.useRef<HTMLButtonElement>(null);
+  const titleRef = React.useRef<HTMLHeadingElement>(null);
+  // iPadOS pode usar a identificação de Mac mesmo sem ter navegação de desktop.
+  const showBackButton = typeof navigator !== 'undefined' && (
+    /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
 
   React.useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -66,7 +71,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
 
   React.useEffect(() => {
     const previousFocus = document.activeElement;
-    backButtonRef.current?.focus();
+    titleRef.current?.focus();
     return () => {
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
     };
@@ -187,13 +192,15 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     <div role="dialog" aria-modal="true" aria-labelledby="payment-offer-title" className="fixed inset-x-0 top-0 z-[2000] flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-900" onClick={(event) => event.stopPropagation()}>
       <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
         <header className="flex shrink-0 items-center gap-3 border-b border-slate-800 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <button ref={backButtonRef} type="button" onClick={onClose} disabled={isSaving} className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 text-xs font-bold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50" aria-label="Voltar">
-            <ArrowLeft size={18} /> Voltar
-          </button>
+          {showBackButton && (
+            <button type="button" onClick={onClose} disabled={isSaving} className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 text-xs font-bold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50" aria-label="Voltar">
+              <ArrowLeft size={18} /> Voltar
+            </button>
+          )}
           <div className="flex min-w-0 items-center gap-2">
             <CalendarClock size={17} className="text-blue-400" />
             <div>
-              <h1 id="payment-offer-title" className="text-xs font-black uppercase text-white">Condição de pagamento</h1>
+              <h1 ref={titleRef} tabIndex={-1} id="payment-offer-title" className="text-xs font-black uppercase text-white">Condição de pagamento</h1>
               <p className="text-[9px] text-slate-500">Defina o que acontecerá após o pagamento</p>
             </div>
           </div>

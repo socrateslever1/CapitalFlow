@@ -44,5 +44,12 @@ export const useNavigationStack = (
 
   const isInHub = HUB_TABS.includes(activeTab);
 
-  return { goBack, isInHub };
+  const goBackPage = useCallback(() => {
+    if (activeTab === 'DASHBOARD') return;
+    const previous = stack.length > 1 ? stack.slice(0, -1) : ['DASHBOARD' as AppTab];
+    setStack(previous);
+    setActiveTab(previous[previous.length - 1]);
+  }, [activeTab, stack, setActiveTab]);
+
+  return { goBack, goBackPage, isInHub };
 };

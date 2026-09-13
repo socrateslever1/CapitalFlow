@@ -15,6 +15,7 @@ import { useControllers } from './hooks/useControllers';
 import { useAppNotifications } from './hooks/useAppNotifications';
 import { useExitGuard } from './hooks/useExitGuard';
 import { useNavigationStack } from './hooks/useNavigationStack';
+import { isAppleMobile } from './utils/appleMobile';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -140,7 +141,8 @@ export const App: React.FC = () => {
   }, [setActiveTab, routerNavigate]);
 
   const openNavHub = useCallback(() => ui.setShowNavHub(true), [ui.setShowNavHub]);
-  const { goBack, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
+  const { goBack: goBackLegacy, goBackPage, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
+  const goBack = isAppleMobile() ? goBackPage : goBackLegacy;
 
   // ✅ Prevenção de loop: evita que a página de contrato seja reaberta após fechar manual
   const processedPathRef = useRef('');

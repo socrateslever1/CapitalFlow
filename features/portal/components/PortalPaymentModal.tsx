@@ -1,6 +1,8 @@
 // src/features/portal/components/PortalPaymentModal.tsx
 
 import React, { useState, useMemo } from 'react';
+import { SystemBackButton } from '../../../components/ui/SystemBackButton';
+import { isAppleMobile } from '../../../utils/appleMobile';
 import { X, Wallet, CheckCircle2, QrCode, Copy, ChevronDown } from 'lucide-react';
 import { Loan, Installment } from '../../../types';
 import { portalService } from '../../../services/portal.service';
@@ -311,12 +313,13 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
     <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       {!showAsaasModal ? (
         <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg p-6 shadow-2xl relative animate-in zoom-in-95 my-auto">
-          <button
+          <SystemBackButton appleOnly local onClick={onClose} />
+          {!isAppleMobile() && <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
           >
             <X size={20} />
-          </button>
+          </button>}
 
           <h2 className="text-xl font-black text-white uppercase text-center mb-6 flex items-center justify-center gap-2">
             {step === 'SUCCESS' ? (

@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { SystemBackButton } from '../../components/ui/SystemBackButton';
+import { isAppleMobile } from '../../utils/appleMobile';
 import { ShieldCheck, X, MessageCircle, Palette, ChevronLeft } from 'lucide-react';
 import { supportChatService } from '../../services/supportChat.service';
 import { ChatSidebar } from './components/ChatSidebar';
@@ -135,15 +137,15 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
     <div className="fixed inset-0 z-[var(--z-support)] w-full h-full bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans pointer-events-auto">
 
       {/* HEADER COMPACTO PADRÃO */}
-      <div className="h-14 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 shrink-0 z-[var(--z-header)]">
+      <div className="min-h-14 pt-safe border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 shrink-0 z-[var(--z-header)]">
         <div className="flex items-center gap-3">
-          <button
+          {isAppleMobile() ? <SystemBackButton local onClick={() => selectedChat ? setSelectedChat(null) : onClose()} /> : <button
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center bg-slate-900 border border-slate-800 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-all active:scale-95"
             title="Voltar"
           >
             <ChevronLeft size={20} />
-          </button>
+          </button>}
 
           <div>
             <h1 className="text-sm font-bold text-white leading-none">Atendimento</h1>
@@ -155,9 +157,9 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
           <button onClick={() => setChatTheme(prev => prev === 'dark' ? 'blue' : 'dark')} className="w-10 h-10 flex items-center justify-center bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 rounded-full transition-all" title="Alternar Tema">
             <Palette size={18}/>
           </button>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-900 text-slate-400 hover:text-white hover:bg-rose-950/30 hover:border-rose-900 border border-slate-800 rounded-full transition-all">
+          {!isAppleMobile() && <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-slate-900 text-slate-400 hover:text-white hover:bg-rose-950/30 hover:border-rose-900 border border-slate-800 rounded-full transition-all">
             <X size={18}/>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -184,7 +186,7 @@ export default function OperatorSupportChat({ activeUser, onClose }: { activeUse
                 context={supportContext!}
                 role="OPERATOR"
                 userId={activeUser.id}
-                onClose={() => setSelectedChat(null)}
+                onClose={isAppleMobile() ? undefined : () => setSelectedChat(null)}
                 showDeleteHistory={true}
                 onDeleteHistory={handleDeleteHistory}
                 chatTheme={chatTheme}

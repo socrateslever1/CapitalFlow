@@ -1,4 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
+import { SystemBackButton } from '../../../components/ui/SystemBackButton';
+import { isAppleMobile } from '../../../utils/appleMobile';
 import { FileText, Printer, ShieldCheck, RefreshCw } from 'lucide-react';
 import { portalService } from '../../../services/portal.service';
 import { mapLoanFromDB } from '../../../services/adapters/loanAdapter';
@@ -269,6 +271,12 @@ export const PortalReceiptViewer: React.FC = () => {
 
   return (
     <div className="receipt-container">
+      {isAppleMobile() && <div className="print-actions mb-3 w-full max-w-[580px]">
+        <SystemBackButton appleOnly local onClick={() => {
+          const params = new URLSearchParams({ portal: token, portal_code: code });
+          window.location.assign(`/?${params.toString()}`);
+        }} />
+      </div>}
       <style dangerouslySetInnerHTML={{ __html: receiptCss }} />
       <div className="receipt-paper">
         <header className="receipt-header">

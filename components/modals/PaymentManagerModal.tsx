@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { SystemBackButton } from '../ui/SystemBackButton';
+import { isAppleMobile } from '../../utils/appleMobile';
 import { Loader2, MessageSquare, DollarSign, Calendar, CalendarClock, AlertCircle, Banknote, CheckCircle2, TrendingUp, AlertTriangle, Clock, X, Receipt, ShieldCheck } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { parseDateOnlyUTC } from '../../utils/dateHelpers';
@@ -114,10 +116,11 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             <div className="bg-slate-950 border border-slate-800 w-full max-w-4xl sm:rounded-xl shadow-[0_0_60px_-15px_rgba(0,0,0,0.7)] animate-in zoom-in-95 slide-in-from-bottom-4 flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-hidden">
                 <div className="h-16 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 sm:px-6 shrink-0">
                     <div className="flex items-center gap-3">
+                        <SystemBackButton appleOnly local onClick={onClose} disabled={isProcessing} />
                         <div className="w-9 h-9 bg-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-900/50"><DollarSign size={18}/></div>
                         <div><h1 className="text-sm font-black text-white uppercase tracking-wider leading-none">Recebimento</h1><p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">{loan.debtorName}</p></div>
                     </div>
-                    <button onClick={onClose} className="p-2.5 bg-slate-900 text-slate-400 hover:text-white hover:bg-rose-950/30 hover:border-rose-900 border border-slate-800 rounded-full transition-all"><X size={18}/></button>
+                    {!isAppleMobile() && <button onClick={onClose} className="p-2.5 bg-slate-900 text-slate-400 hover:text-white hover:bg-rose-950/30 hover:border-rose-900 border border-slate-800 rounded-full transition-all"><X size={18}/></button>}
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar overscroll-contain">

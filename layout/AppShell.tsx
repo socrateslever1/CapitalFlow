@@ -3,6 +3,9 @@ import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, Megaphone, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
 import { HeaderBar } from './HeaderBar';
+import { PageBackProvider } from '../contexts/PageBackContext';
+import { ApplePageBackBar } from './ApplePageBackBar';
+import { isAppleMobile } from '../utils/appleMobile';
 import { BottomNav } from './BottomNav';
 import { UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
@@ -167,7 +170,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   }, [activeTab, title, location.pathname, location.search]);
 
   return (
-    <div className="h-screen w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden relative">
+    <PageBackProvider>
+    <div className={`${isAppleMobile() ? 'h-dvh' : 'h-screen'} w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden relative`}>
       <HeaderBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -186,6 +190,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         addNotification={addNotification}
       />
 
+      <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
       <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden pb-28 md:pb-12">
         <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8">
           {children}
@@ -238,5 +243,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         />
       )}
     </div>
+    </PageBackProvider>
   );
 };

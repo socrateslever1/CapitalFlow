@@ -1,6 +1,8 @@
 
 // src/components/modals/NewAporteModal.tsx
 import React, { useMemo, useState } from 'react';
+import { SystemBackButton } from '../ui/SystemBackButton';
+import { isAppleMobile } from '../../utils/appleMobile';
 import { X, PlusCircle, ChevronDown } from 'lucide-react';
 import { Loan, UserProfile, CapitalSource, Installment } from '../../types';
 import { contractsService } from '../../services/contracts.service';
@@ -110,7 +112,8 @@ export const NewAporteModal: React.FC<Props> = ({
       <div className="absolute inset-0 bg-black/60" onClick={loading ? undefined : onClose} />
 
       <div className="relative w-[92vw] max-w-xl max-h-[90vh] flex flex-col rounded-lg border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
+        <div className="flex items-center justify-between gap-3 p-5 border-b border-slate-800 shrink-0">
+          <SystemBackButton appleOnly local onClick={onClose} disabled={loading} />
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-400">Contrato</p>
             <p className="text-white font-black text-lg flex items-center gap-2">
@@ -121,13 +124,13 @@ export const NewAporteModal: React.FC<Props> = ({
             </p>
           </div>
 
-          <button
+          {!isAppleMobile() && <button
             className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 self-start"
             onClick={loading ? undefined : onClose}
             aria-label="Fechar"
           >
             <X size={16} className="text-slate-300" />
-          </button>
+          </button>}
         </div>
 
         <div className="p-5 overflow-y-auto custom-scrollbar space-y-4">

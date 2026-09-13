@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { SystemBackButton } from '../ui/SystemBackButton';
+import { isAppleMobile } from '../../utils/appleMobile';
 import { ChatAdapter, ChatRole } from './chatAdapter';
 import { useUnifiedChat } from './useUnifiedChat';
 import { ChatMessages } from '../../features/support/components/ChatMessages';
@@ -77,7 +79,7 @@ export function UnifiedChat<TContext>({
       }`}>
         <div className="flex items-center gap-4 min-w-0">
           {onClose && (
-            <button
+            isAppleMobile() ? <SystemBackButton local onClick={onClose} /> : <button
               onClick={onClose}
               className="p-2.5 -ml-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-all active:scale-90"
             >

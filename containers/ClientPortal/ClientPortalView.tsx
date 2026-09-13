@@ -1,5 +1,7 @@
 import { formatBRDate } from '../../utils/dateHelpers';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { SystemBackButton } from '../../components/ui/SystemBackButton';
+import { isAppleMobile } from '../../utils/appleMobile';
 import {
   ShieldCheck,
   RefreshCw,
@@ -944,6 +946,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
           <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-2xl shadow-[0_0_50px_rgba(79,70,229,0.15)] relative w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/80 backdrop-blur-md relative overflow-hidden">
+              <SystemBackButton appleOnly local onClick={() => setIsLegalOpen(false)} />
               <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
               <div className="flex items-center gap-3.5 relative z-10">
                 <div className="w-11 h-11 bg-gradient-to-br from-indigo-500/20 to-violet-500/10 rounded-xl border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
@@ -954,12 +957,12 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                   <p className="text-[9px] text-indigo-300/80 font-extrabold uppercase tracking-[0.2em] mt-1">Sua Regularidade & Documentos</p>
                 </div>
               </div>
-              <button
+              {!isAppleMobile() && <button
                 onClick={() => setIsLegalOpen(false)}
                 className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:border-slate-700 transition-all shadow-inner active:scale-95"
               >
                 <X size={18} />
-              </button>
+              </button>}
             </div>
 
             {/* Content Body */}
@@ -1070,6 +1073,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         <div className="fixed inset-0 bg-slate-950/98 flex items-center justify-center z-[250] p-4 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="bg-slate-900 border border-blue-500/20 rounded-lg shadow-2xl relative w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
             <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
+                <SystemBackButton appleOnly local onClick={() => setIsFilesOpen(false)} />
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400">
                         <FolderOpen size={24} />
@@ -1079,12 +1083,12 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Download e Conferência</p>
                     </div>
                 </div>
-                <button
+                {!isAppleMobile() && <button
                   onClick={() => setIsFilesOpen(false)}
                   className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg text-slate-500 hover:text-white transition-all shadow-inner"
                 >
                   <X size={20} />
-                </button>
+                </button>}
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">

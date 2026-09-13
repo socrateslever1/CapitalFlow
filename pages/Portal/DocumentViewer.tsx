@@ -1,5 +1,6 @@
 // pages/Portal/DocumentViewer.tsx
 import React, { useEffect, useState } from 'react';
+import { SystemBackButton } from '../../components/ui/SystemBackButton';
 import { legalDocumentService } from '../../services/legalDocument.service';
 import { DocumentRenderer } from '../../components/DocumentRenderer';
 import {
@@ -142,9 +143,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-slate-400">
-            <ArrowLeft />
-          </button>
+          <SystemBackButton local onClick={onBack} />
           <div>
             <h2 className="text-white font-bold text-sm uppercase">
               {document?.tipo}

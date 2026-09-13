@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { SystemBackButton } from '../components/ui/SystemBackButton';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import {
     TrendingUp, AlertTriangle, MessageSquare, ShieldCheck,
@@ -153,9 +154,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
     return (
         <div className="flex flex-col gap-3 animate-in fade-in duration-500 pb-24 md:pb-6">
             <div className="flex items-center">
-                <button onClick={onBack} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-[10px] font-black uppercase transition-all shadow-md hover:shadow-lg active:scale-95">
-                    <ArrowLeft size={14} /> Fechar
-                </button>
+                <SystemBackButton onClick={onBack} label="Fechar" />
             </div>
 
             <div className="bg-slate-950/90 backdrop-blur-md py-3 -mx-4 px-4 border-b border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-3">

@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { ShieldCheck, FileSignature, Loader2, AlertTriangle, CheckCircle2, Lock, Info, Scale, Gavel, Download, Eraser, Type, Upload, Image, Printer } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
+import { SystemBackButton } from '../../components/ui/SystemBackButton';
+import { isAppleMobile } from '../../utils/appleMobile';
 import { legalPublicService } from '../../features/legal/services/legalPublic.service';
 import { generateConfissaoDividaHTML } from '../../features/legal/templates/ConfissaoDividaTemplate';
 import { fetchWithRetry } from '../../utils/fetchWithRetry';
@@ -478,6 +480,9 @@ export const PublicSignaturePage = () => {
             {/* DOCUMENT VIEW */}
             <div className="flex-1 bg-slate-950 p-2 lg:p-10 overflow-y-auto flex justify-center">
                 <div className="w-full max-w-4xl relative group">
+                    {isAppleMobile() && <div className="relative z-10 mb-3 print:hidden">
+                        <SystemBackButton appleOnly local onClick={handleExit} disabled={status === 'SIGNING'} />
+                    </div>}
                     <div className="absolute -inset-1 bg-gradient-to-b from-indigo-500/20 to-transparent rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                     <div className="relative bg-white shadow-[0_20px_70px_rgba(0,0,0,0.5)] min-h-[1122px] rounded-sm overflow-hidden border border-white/10">
                         {status === 'SIGNING' && (

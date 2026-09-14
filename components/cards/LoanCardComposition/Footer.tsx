@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Upload, FileEdit, Handshake, Archive, RotateCcw, Trash2, ShieldAlert } from 'lucide-react';
 import { Loan } from '../../../types';
@@ -25,6 +24,19 @@ export const Footer: React.FC<FooterProps> = ({
 }) => {
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
 
+    const handleCapitalOnlyToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+
+        if (isCapitalOnlyRecovery) {
+            const confirmed = window.confirm(
+                'Remover a condição SOMENTE CAPITAL?\n\nA cobrança normal de juros e encargos voltará a ser permitida. O histórico de pagamentos não será apagado.'
+            );
+            if (!confirmed) return;
+        }
+
+        onToggleCapitalOnly?.(loan);
+    };
+
     return (
         <div className="pt-4 border-t border-slate-800/50">
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-3">
@@ -34,7 +46,7 @@ export const Footer: React.FC<FooterProps> = ({
                     onClick={(e) => { e.stopPropagation(); onActivate(loan); }}
                     className="col-span-2 sm:col-span-1 px-4 py-3 bg-emerald-950/30 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-gradient-to-br hover:from-emerald-600 hover:to-emerald-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
                   >
-                    <RotateCcw size={14} /> 
+                    <RotateCcw size={14} />
                     <span className="text-[9px] font-black uppercase tracking-tight">Ativar Contrato</span>
                   </button>
                 )}
@@ -45,7 +57,7 @@ export const Footer: React.FC<FooterProps> = ({
                     onClick={(e) => { e.stopPropagation(); onNewAporte(loan); }}
                     className="col-span-1 px-4 py-3 bg-blue-950/30 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-gradient-to-br hover:from-blue-600 hover:to-blue-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
                   >
-                    <Upload size={14} /> 
+                    <Upload size={14} />
                     <span className="text-[9px] font-black uppercase tracking-tight">Novo Aporte</span>
                   </button>
                 )}
@@ -56,25 +68,26 @@ export const Footer: React.FC<FooterProps> = ({
                     onClick={onEdit}
                     className="col-span-1 px-4 py-3 bg-slate-800 text-slate-400 rounded-lg hover:bg-slate-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
                   >
-                    <FileEdit size={14} /> 
+                    <FileEdit size={14} />
                     <span className="text-[9px] font-black uppercase tracking-tight">Editar</span>
                   </button>
                 )}
-                
+
                 {/* Botão RENEGOCIAR (Apenas se atrasado) */}
                 {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && isLate && (
-                   <button 
-                    onClick={(e) => { e.stopPropagation(); onRenegotiate(loan); }} 
+                   <button
+                    onClick={(e) => { e.stopPropagation(); onRenegotiate(loan); }}
                     className="col-span-2 sm:col-span-1 px-4 py-3 bg-indigo-950/30 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-gradient-to-br hover:from-indigo-600 hover:to-indigo-700 hover:text-white transition-all flex flex-col sm:flex-row items-center justify-center gap-2"
                    >
-                      <Handshake size={14}/> 
+                      <Handshake size={14}/>
                       <span className="text-[9px] font-black uppercase tracking-tight">Renegociar</span>
                    </button>
                 )}
                 {!loan.isArchived && !isFullyFinalized && !hasActiveAgreement && onToggleCapitalOnly && (
                    <button
-                    onClick={(e) => { e.stopPropagation(); onToggleCapitalOnly(loan); }}
+                    onClick={handleCapitalOnlyToggle}
                     className={`col-span-2 sm:col-span-1 px-4 py-3 rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-2 ${isCapitalOnlyRecovery ? 'bg-rose-600 text-white border border-rose-500' : 'bg-rose-950/30 text-rose-400 border border-rose-500/20 hover:bg-rose-600 hover:text-white'}`}
+                    title={isCapitalOnlyRecovery ? 'Condição protegida: exige confirmação para remover' : 'Recuperar somente o capital'}
                    >
                       <ShieldAlert size={14}/>
                       <span className="text-[9px] font-black uppercase tracking-tight">{isCapitalOnlyRecovery ? 'Somente Capital' : 'Marcar Só Capital'}</span>
@@ -86,17 +99,17 @@ export const Footer: React.FC<FooterProps> = ({
             <div className="flex justify-end gap-2 border-t border-slate-800/30 pt-3">
                 {!loan.isArchived ? (
                     <button onClick={(e) => { e.stopPropagation(); onArchive(); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-amber-950/20 rounded-lg transition-all flex items-center gap-2" title="Arquivar">
-                        <Archive size={14}/> 
+                        <Archive size={14}/>
                         <span className="section-title">Arquivar</span>
                     </button>
                 ) : (
                     <button onClick={(e) => { e.stopPropagation(); onRestore(); }} className="p-2 text-slate-500 hover:text-emerald-500 hover:bg-emerald-950/20 rounded-lg transition-all flex items-center gap-2" title="Restaurar">
-                        <RotateCcw size={14}/> 
+                        <RotateCcw size={14}/>
                         <span className="section-title">Restaurar</span>
                     </button>
                 )}
                 <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-950/20 rounded-lg transition-all flex items-center gap-2" title="Excluir">
-                    <Trash2 size={14}/> 
+                    <Trash2 size={14}/>
                     <span className="section-title">Excluir</span>
                 </button>
             </div>

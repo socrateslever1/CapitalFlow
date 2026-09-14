@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
-import { todayDateOnlyUTC, parseDateOnlyUTC, addDaysUTC } from '../utils/dateHelpers';
+import { todayDateOnlyUTC, parseDateOnlyUTC, addMonthsUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { safeUUID } from '../utils/uuid';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
@@ -231,7 +231,7 @@ export const paymentsService = {
     const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
     const nextCycleInterest = roundMoney(Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100));
     const partialRenewalRequested = !!renewWithPending && isMonthlyOrGiro && hasPrincipalRemaining && remainingInterestAfter(balanceAfterRpc) > ZERO_BALANCE_THRESHOLD;
-    const renewalDate = partialRenewalRequested ? (manualDate || addDaysUTC(paymentDate, 30)) : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null));
+    const renewalDate = partialRenewalRequested ? (manualDate || addMonthsUTC(paymentDate, 1)) : (manualDate || (isInterestRenewal ? addMonthsUTC(paymentDate, 1) : null));
 
     if (renewalDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
       const nextDueDate = renewalDate.toISOString().split('T')[0];

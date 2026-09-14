@@ -18,6 +18,7 @@ const toneLabels: Record<CollectionTone, string> = {
 const cadenceLabels: Record<CollectionCadence, string> = {
   MANUAL: 'Manual após o primeiro atraso', DAILY: 'Todos os dias', WEEKLY: 'Uma vez por semana',
 };
+const collectionHours = Array.from({ length: 24 }, (_, index) => index);
 
 export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) => {
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -56,8 +57,7 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
   };
   const addHour = () => {
     if (sendHours.length >= 3) return;
-    const nextAvailable = Array.from({ length: 11 }, (_, index) => index + 8)
-      .find((hour) => !sendHours.includes(hour));
+    const nextAvailable = collectionHours.find((hour) => !sendHours.includes(hour));
     if (nextAvailable !== undefined) patch({ send_hours: [...sendHours, nextAvailable].sort((a, b) => a - b) });
   };
   const removeHour = (index: number) => {
@@ -91,7 +91,7 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400"><Clock3 size={14} /> Horários de envio</p>
-            <p className="mt-1 text-[9px] text-slate-600">Defina até três cobranças por dia.</p>
+            <p className="mt-1 text-[9px] text-slate-600">Defina até três cobranças por dia, em qualquer horário.</p>
           </div>
           <button type="button" onClick={addHour} disabled={sendHours.length >= 3} className="flex items-center gap-1 rounded-md border border-emerald-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-emerald-400 disabled:border-slate-800 disabled:text-slate-700">
             <Plus size={12} /> Adicionar
@@ -101,7 +101,7 @@ export const CollectionAutomation: React.FC<Props> = ({ profileId, showToast }) 
           {sendHours.map((hour, index) => (
             <label key={`${hour}-${index}`} className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950 px-3">
               <select value={hour} onChange={(event) => updateHour(index, Number(event.target.value))} className="h-11 min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none">
-                {Array.from({ length: 11 }, (_, hourIndex) => hourIndex + 8).map((optionHour) => (
+                {collectionHours.map((optionHour) => (
                   <option key={optionHour} value={optionHour}>{String(optionHour).padStart(2, '0')}:00</option>
                 ))}
               </select>

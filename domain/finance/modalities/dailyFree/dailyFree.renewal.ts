@@ -24,18 +24,16 @@ export const renewDailyFree = (
   const dailyRate = (Number(loan.interestRate) / 100) / 30;
   const dailyCost = round(principalBase * dailyRate);
 
-  // ✅ FIX DEFINITIVO:
-  // DAILY_FREE usa como "pago até atual" a data do CONTRATO (startDate),
-  // porque o seu sistema sincroniza start_date = due_date.
-  // Se por algum motivo faltar, cai no dueDate da parcela.
+  // DAILY_FREE usa como "pago até atual" a data do contrato porque o fluxo
+  // sincroniza start_date e due_date. Na ausência, usa o vencimento da parcela.
   const currentPaidUntil = parseDateOnlyUTC(
     loan.billingCycle === "DAILY_FREE"
       ? (loan.startDate || inst.dueDate)
       : inst.dueDate
   );
 
-  // No modo Diária Livre, dias corridos
-  const skipWeekends = false;
+  // A preferência do contrato deve continuar válida também nas renovações.
+  const skipWeekends = !!loan.skipWeekends;
 
   // Normaliza alocação
   const interestPaid = round(Number(allocation?.paidInterest) || 0);
@@ -63,7 +61,6 @@ export const renewDailyFree = (
     if (dailyCost > 0) {
       const daysToExtend = Math.floor(interestPaid / dailyCost);
       if (daysToExtend > 0) {
-        // ✅ FIX: soma em cima do "pago até atual" correto (contrato em DAILY_FREE)
         newDueDate = addDaysUTC(currentPaidUntil, daysToExtend, skipWeekends);
       }
     }
@@ -77,7 +74,7 @@ export const renewDailyFree = (
   const newDateISO = toISODateOnlyUTC(newDueDate);
 
   return {
-    // Mantém o padrão atual do seu sistema: start_date e due_date ficam sincronizados
+    // Mantém o padrão atual do sistema: start_date e due_date ficam sincronizados
     newStartDateISO: newDateISO,
     newDueDateISO: newDateISO,
     newPrincipalRemaining: round(newPrincipalRemaining),

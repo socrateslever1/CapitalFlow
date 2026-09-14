@@ -28,6 +28,8 @@ const cadenceOptions = [
   ['WEEKLY', 'Uma vez por semana'],
 ] as const;
 
+const collectionHours = Array.from({ length: 24 }, (_, index) => index);
+
 export const ScopedCollectionAutomation: React.FC<Props> = ({
   profileId, scope, scopeId, label, showToast, compact = false,
 }) => {
@@ -97,8 +99,7 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
   };
   const addHour = () => {
     if (effectiveHours.length >= 3) return;
-    const nextAvailable = Array.from({ length: 11 }, (_, index) => index + 8)
-      .find((hour) => !effectiveHours.includes(hour));
+    const nextAvailable = collectionHours.find((hour) => !effectiveHours.includes(hour));
     if (nextAvailable !== undefined) {
       patch({ send_hours: [...effectiveHours, nextAvailable].sort((a, b) => a - b) });
     }
@@ -181,7 +182,7 @@ export const ScopedCollectionAutomation: React.FC<Props> = ({
                 {effectiveHours.map((hour, index) => (
                   <label key={`${hour}-${index}`} className="flex items-center gap-1 rounded-md border border-slate-800 bg-slate-900 px-2">
                     <select value={hour} onChange={(event) => updateHour(index, Number(event.target.value))} className="h-9 min-w-0 flex-1 bg-transparent text-[10px] font-bold text-white outline-none">
-                      {Array.from({ length: 11 }, (_, hourIndex) => hourIndex + 8).map((optionHour) => (
+                      {collectionHours.map((optionHour) => (
                         <option key={optionHour} value={optionHour}>{String(optionHour).padStart(2, '0')}:00</option>
                       ))}
                     </select>

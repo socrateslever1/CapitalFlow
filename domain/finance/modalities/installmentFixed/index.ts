@@ -1,8 +1,7 @@
 import { LoanStatus, Installment } from "../../../../types";
-import { addMonthsUTC, parseDateOnlyUTC, toISODateOnlyUTC } from "../../../../utils/dateHelpers";
+import { addMonthsUTC, getDaysDiff, parseDateOnlyUTC, toISODateOnlyUTC } from "../../../../utils/dateHelpers";
 import { generateUUID } from "../../../../utils/generators";
-import { calculateMonthly } from "../monthly/monthly.calculations";
-import { renewMonthly } from "../monthly/monthly.renewal";
+import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
 import { ModalityStrategy } from "../types";
 
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -14,11 +13,59 @@ function pmt(principal: number, monthlyRatePercent: number, installmentsCount: n
     return principal * (i / (1 - Math.pow(1 + i, -n)));
 }
 
+const calculateInstallmentFixed: ModalityStrategy['calculate'] = (_loan, inst, policy, referenceDate) => {
+    const principal = round(Math.max(0, Number(inst.principalRemaining) || 0));
+    const interest = round(Math.max(0, Number(inst.interestRemaining) || 0));
+    const daysLate = Math.max(0, getDaysDiff(inst.dueDate, referenceDate));
+    const baseForFine = round(principal + interest);
+
+    const finePart = daysLate > 0
+        ? calculateRecurringMonthlyFine(baseForFine, policy.finePercent, daysLate)
+        : 0;
+    const moraPart = daysLate > 0
+        ? round(baseForFine * (Number(policy.dailyInterestPercent || 0) / 100) * daysLate)
+        : 0;
+    const lateFee = round(finePart + moraPart);
+
+    return {
+        total: round(principal + interest + lateFee),
+        principal,
+        interest,
+        lateFee,
+        finePart,
+        moraPart,
+        baseForFine,
+        daysLate,
+    };
+};
+
+const renewInstallmentFixed: ModalityStrategy['renew'] = (loan, inst, _amountPaid, allocation) => {
+    const currentPrincipal = Math.max(0, Number(inst.principalRemaining) || 0);
+    const currentInterest = Math.max(0, Number(inst.interestRemaining) || 0);
+    const principalPaid = Math.max(0, Number(allocation?.paidPrincipal) || 0);
+    const interestPaid = Math.max(0, Number(allocation?.paidInterest) || 0);
+
+    const newPrincipalRemaining = Math.max(0, round(currentPrincipal - principalPaid));
+    const newInterestRemaining = Math.max(0, round(currentInterest - interestPaid));
+
+    return {
+        newStartDateISO: loan.startDate,
+        newDueDateISO: inst.dueDate,
+        newPrincipalRemaining,
+        newInterestRemaining,
+        newScheduledPrincipal: Number(inst.scheduledPrincipal) || 0,
+        newScheduledInterest: Number(inst.scheduledInterest) || 0,
+        newAmount: round(newPrincipalRemaining + newInterestRemaining),
+    };
+};
+
 export const installmentFixedStrategy: ModalityStrategy = {
     key: 'INSTALLMENT_FIXED',
 
-    calculate: calculateMonthly,
-    renew: renewMonthly,
+    // Parcelado Fixo tem saldo e juros próprios por parcela. Nunca usa o motor Mensal,
+    // porque isso recalcularia a margem do cliente pela taxa geral do contrato.
+    calculate: calculateInstallmentFixed,
+    renew: renewInstallmentFixed,
 
     generateInstallments: (params) => {
         const principal = Math.max(0, Number(params.principal) || 0);

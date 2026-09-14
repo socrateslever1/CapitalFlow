@@ -156,7 +156,15 @@ export async function applyPaymentDirectFallback(params: {
   const instDb = await revalidateInstallment(params.instId);
   if (!instDb) throw new Error('Parcela nao encontrada para fallback de recebimento.');
 
-  const nextPrincipal = Math.max(0, roundMoney(Number(instDb.principal_remaining || 0) - params.principalPaid));
+  // Defesa adicional contra chamadas antigas/stale: principal nunca pode ser
+  // creditado acima do saldo de principal ainda aberto nesta parcela.
+  const openPrincipal = Math.max(0, Number(instDb.principal_remaining || 0));
+  const effectivePrincipalPaid = Math.min(
+    openPrincipal,
+    Math.max(0, roundMoney(params.principalPaid))
+  );
+
+  const nextPrincipal = Math.max(0, roundMoney(openPrincipal - effectivePrincipalPaid));
   const nextInterest = Math.max(0, roundMoney(Number(instDb.interest_remaining || 0) - params.interestPaid - params.forgivenInterest));
   const nextLateFee = Math.max(0, roundMoney(Number(instDb.late_fee_accrued || 0) - params.lateFeePaid - params.forgivenLateFee));
   const nextOpen = roundMoney(nextPrincipal + nextInterest + nextLateFee);
@@ -167,10 +175,10 @@ export async function applyPaymentDirectFallback(params: {
       principal_remaining: nextPrincipal,
       interest_remaining: nextInterest,
       late_fee_accrued: nextLateFee,
-      paid_principal: roundMoney(Number(instDb.paid_principal || 0) + params.principalPaid),
+      paid_principal: roundMoney(Number(instDb.paid_principal || 0) + effectivePrincipalPaid),
       paid_interest: roundMoney(Number(instDb.paid_interest || 0) + params.interestPaid),
       paid_late_fee: roundMoney(Number(instDb.paid_late_fee || 0) + params.lateFeePaid),
-      paid_total: roundMoney(Number(instDb.paid_total || 0) + params.principalPaid + params.interestPaid + params.lateFeePaid),
+      paid_total: roundMoney(Number(instDb.paid_total || 0) + effectivePrincipalPaid + params.interestPaid + params.lateFeePaid),
       paid_date: params.paymentDateStr,
       status: nextOpen <= ZERO_BALANCE_THRESHOLD ? 'PAID' : 'PARTIAL',
     })
@@ -179,7 +187,7 @@ export async function applyPaymentDirectFallback(params: {
 
   if (updateError) throw new Error('Falha no fallback direto do recebimento: ' + updateError.message);
 
-  await adjustSourceBalanceSafe(params.sourceId, params.principalPaid);
+  await adjustSourceBalanceSafe(params.sourceId, effectivePrincipalPaid);
   const profit = roundMoney(params.interestPaid + params.lateFeePaid);
   if (params.caixaLivreId) {
     await adjustSourceBalanceSafe(params.caixaLivreId, profit);
@@ -218,7 +226,7 @@ export async function applyPrincipalOverpaymentToLastInstallments(params: {
 
   const { data, error } = await supabase
     .from('parcelas')
-    .select('id,numero_parcela,principal_remaining,interest_remaining,late_fee_accrued,paid_total,status')
+    .select('id,numero_parcela,principal_remaining,interest_remaining,late_fee_accrued,paid_total,paid_principal,status')
     .eq('loan_id', params.loanId)
     .neq('id', params.excludeInstallmentId)
     .not('status', 'in', '("RENEGOCIADO","CANCELADO")')
@@ -238,11 +246,13 @@ export async function applyPrincipalOverpaymentToLastInstallments(params: {
     const nextPrincipal = roundMoney(openPrincipal - applied);
     const nextOpenTotal = roundMoney(nextPrincipal + openInterest + openLateFee);
     const nextPaid = roundMoney(Number(row.paid_total || 0) + applied);
+    const nextPaidPrincipal = roundMoney(Number((row as any).paid_principal || 0) + applied);
 
     const { error: updateError } = await supabase
       .from('parcelas')
       .update({
         principal_remaining: nextPrincipal,
+        paid_principal: nextPaidPrincipal,
         paid_total: nextPaid,
         status: nextOpenTotal <= ZERO_BALANCE_THRESHOLD ? 'PAID' : 'PARTIAL',
       })
@@ -300,12 +310,18 @@ export async function persistOfflinePaymentSnapshot(params: {
   const nextLateFee = roundMoney(Number(params.installmentSnapshot.lateFeeAccrued || 0) - params.lateFeePaid - params.forgivenLateFee);
   const nextOpen = Math.max(0, nextPrincipal) + Math.max(0, nextInterest) + Math.max(0, nextLateFee);
   const previousPaid = Number((params.installmentSnapshot as any).paidTotal ?? (params.installmentSnapshot as any).paid_total ?? 0) || 0;
+  const previousPaidPrincipal = Number((params.installmentSnapshot as any).paidPrincipal ?? (params.installmentSnapshot as any).paid_principal ?? 0) || 0;
+  const previousPaidInterest = Number((params.installmentSnapshot as any).paidInterest ?? (params.installmentSnapshot as any).paid_interest ?? 0) || 0;
+  const previousPaidLateFee = Number((params.installmentSnapshot as any).paidLateFee ?? (params.installmentSnapshot as any).paid_late_fee ?? 0) || 0;
   const nextPaidTotal = roundMoney(previousPaid + params.principalPaid + params.interestPaid + params.lateFeePaid);
 
   await db.parcelas.update(params.instId, {
     principal_remaining: Math.max(0, nextPrincipal),
     interest_remaining: Math.max(0, nextInterest),
     late_fee_accrued: Math.max(0, nextLateFee),
+    paid_principal: roundMoney(previousPaidPrincipal + params.principalPaid),
+    paid_interest: roundMoney(previousPaidInterest + params.interestPaid),
+    paid_late_fee: roundMoney(previousPaidLateFee + params.lateFeePaid),
     paid_total: nextPaidTotal,
     paid_date: params.paymentDateStr,
     status: nextOpen <= ZERO_BALANCE_THRESHOLD ? 'PAID' : 'PARTIAL',

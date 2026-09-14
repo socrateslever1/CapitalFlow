@@ -1,7 +1,7 @@
+import { Modal } from '../../components/ui/Modal';
 import { formatBRDate } from '../../utils/dateHelpers';
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { SystemBackButton } from '../../components/ui/SystemBackButton';
-import { isAppleMobile } from '../../utils/appleMobile';
+import { requestDialogBack } from '../../utils/dialogNavigation';
 import {
   ShieldCheck,
   RefreshCw,
@@ -477,6 +477,10 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
 
   useEffect(() => {
     const handlePopState = () => {
+      if (requestDialogBack()) {
+        restorePortalGuard();
+        return;
+      }
       if (isLegalOpen) {
         setIsLegalOpen(false);
         restorePortalGuard();
@@ -942,31 +946,8 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
       )}
 
       {isLegalOpen && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center z-[250] p-4 animate-in fade-in duration-300">
-          <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-2xl shadow-[0_0_50px_rgba(79,70,229,0.15)] relative w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/80 backdrop-blur-md relative overflow-hidden">
-              <SystemBackButton appleOnly local onClick={() => setIsLegalOpen(false)} />
-              <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-              <div className="flex items-center gap-3.5 relative z-10">
-                <div className="w-11 h-11 bg-gradient-to-br from-indigo-500/20 to-violet-500/10 rounded-xl border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
-                  <Gavel size={22} className="drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                </div>
-                <div>
-                  <h2 className="text-white font-black uppercase text-sm tracking-wide leading-none">Central Jurídica</h2>
-                  <p className="text-[9px] text-indigo-300/80 font-extrabold uppercase tracking-[0.2em] mt-1">Sua Regularidade & Documentos</p>
-                </div>
-              </div>
-              {!isAppleMobile() && <button
-                onClick={() => setIsLegalOpen(false)}
-                className="p-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-slate-400 hover:text-white hover:border-slate-700 transition-all shadow-inner active:scale-95"
-              >
-                <X size={18} />
-              </button>}
-            </div>
-
-            {/* Content Body */}
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-5">
+        <Modal onClose={() => setIsLegalOpen(false)} title="Central Jurídica" subtitle="Sua Regularidade & Documentos" icon={<Gavel size={22} />} size="lg" cancelLabel="Fechar">
+          <div className="space-y-5">
               <div className="bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-violet-950/40 p-5 rounded-xl border border-indigo-500/20 text-center relative overflow-hidden group shadow-lg">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
                 <div className="w-10 h-10 mx-auto mb-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 relative z-10">
@@ -1013,7 +994,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                         <button
                           key={doc.id}
                           onClick={() => openPublicLegalDocument(doc)}
-                          className="w-full p-4 bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800/80 hover:border-indigo-500/40 rounded-xl flex items-center justify-between group transition-all duration-300 shadow-md text-left"
+                            className="w-full p-4 bg-slate-950/60 hover:bg-slate-800/80 border border-slate-800/80 hover:border-indigo-500/40 rounded-xl flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between group transition-all duration-300 shadow-md text-left"
                         >
                           <div className="flex items-center gap-3.5 min-w-0">
                             <div className={`p-3 rounded-xl shadow-md transition-all shrink-0 ${
@@ -1028,7 +1009,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                               <FileText size={18} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-black text-white uppercase tracking-tight truncate">
+                              <p className="text-xs font-black text-white uppercase tracking-tight break-words">
                                 {translateDocumentType(doc.tipo || doc.type || 'CONFISSAO')}
                               </p>
                               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">
@@ -1037,7 +1018,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                             </div>
                           </div>
 
-                          <div className="shrink-0 ml-3">
+                          <div className="shrink-0 self-end sm:self-auto">
                             {isSigned ? (
                               <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded-full">
                                 <CheckCircle2 size={12} />
@@ -1064,34 +1045,13 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                   )}
                 </div>
               )}
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {isFilesOpen && (
-        <div className="fixed inset-0 bg-slate-950/98 flex items-center justify-center z-[250] p-4 backdrop-blur-xl animate-in fade-in duration-500">
-          <div className="bg-slate-900 border border-blue-500/20 rounded-lg shadow-2xl relative w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="p-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/50">
-                <SystemBackButton appleOnly local onClick={() => setIsFilesOpen(false)} />
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-400">
-                        <FolderOpen size={24} />
-                    </div>
-                    <div>
-                        <h2 className="text-white font-black uppercase text-base tracking-tight leading-none">Arquivos Recebidos</h2>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Download e Conferência</p>
-                    </div>
-                </div>
-                {!isAppleMobile() && <button
-                  onClick={() => setIsFilesOpen(false)}
-                  className="p-3 bg-slate-950/50 border border-slate-800 rounded-lg text-slate-500 hover:text-white transition-all shadow-inner"
-                >
-                  <X size={20} />
-                </button>}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-6">
+        <Modal onClose={() => setIsFilesOpen(false)} title="Arquivos Recebidos" subtitle="Download e Conferência" icon={<FolderOpen size={22} />} size="lg" cancelLabel="Fechar">
+          <div className="space-y-6">
                 <div className="space-y-4">
                   {allOperatorFiles.length === 0 ? (
                     <div className="py-20 text-center">
@@ -1110,7 +1070,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                             <FileText size={20} />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-black text-white uppercase tracking-tight truncate">{file.file_name || 'Documento'}</p>
+                            <p className="text-xs font-black text-white uppercase tracking-tight break-words">{file.file_name || 'Documento'}</p>
                             <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
                               Contrato #{file.contractId.substring(0, 6).toUpperCase()} • {new Date(file.created_at || Date.now()).toLocaleDateString('pt-BR')}
                             </p>
@@ -1125,9 +1085,8 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                     ))
                   )}
                 </div>
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
     </div>

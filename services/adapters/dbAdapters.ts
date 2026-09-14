@@ -155,6 +155,10 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     sourceId: t.source_id,
     installmentId: t.installment_id,
     agreementId: t.agreement_id,
+    idempotencyKey: t.idempotency_key || null,
+    reversedOfTransactionId: t.reversed_of_transaction_id || null,
+    createdAt: t.created_at ? safeDateString(t.created_at) : undefined,
+    operatorId: t.operator_id || null,
     notes: asString(t.notes),
     category: asString(t.category) as any,
     meta: t.meta || null

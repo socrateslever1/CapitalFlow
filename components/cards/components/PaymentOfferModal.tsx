@@ -1,6 +1,6 @@
 import React from 'react';
-import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, XCircle } from 'lucide-react';
-import { SystemBackButton } from '../../ui/SystemBackButton';
+import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag } from 'lucide-react';
+import { Modal, modalPrimaryActionClass } from '../../ui/Modal';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import {
@@ -49,38 +49,6 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   const [error, setError] = React.useState('');
   const [history, setHistory] = React.useState<PaymentOfferHistoryItem[]>([]);
   const [historyError, setHistoryError] = React.useState('');
-  const titleRef = React.useRef<HTMLHeadingElement>(null);
-
-  React.useEffect(() => {
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousBodyOverscroll = document.body.style.overscrollBehavior;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
-    document.documentElement.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.body.style.overscrollBehavior = previousBodyOverscroll;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    const previousFocus = document.activeElement;
-    titleRef.current?.focus();
-    return () => {
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
-    };
-  }, []);
-
-  React.useEffect(() => {
-    const handleBack = (event: Event) => {
-      event.preventDefault();
-      if (!isSaving) onClose();
-    };
-    window.addEventListener('capitalflow:back', handleBack);
-    return () => window.removeEventListener('capitalflow:back', handleBack);
-  }, [onClose, isSaving]);
   const preview = React.useMemo(
     () => calculatePaymentOfferPreview(loan, installment, form),
     [loan, installment, form]
@@ -185,22 +153,12 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   );
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="payment-offer-title" className="fixed inset-0 z-[2000] flex h-dvh items-center justify-center bg-slate-950/80 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm" onClick={(event) => event.stopPropagation()}>
-      <div className="flex max-h-[80dvh] min-h-0 w-full max-w-[320px] flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-2xl [@media(max-height:480px)]:overflow-y-auto">
-        <header className="flex shrink-0 flex-col items-start gap-3 px-5 pt-5 pb-3">
-          <SystemBackButton appleOnly local onClick={onClose} disabled={isSaving} />
-          <div className="w-full space-y-3 text-center">
-            <div className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-blue-500/20 text-blue-500">
-              <CalendarClock size={22} />
-            </div>
-            <div>
-              <h1 ref={titleRef} tabIndex={-1} id="payment-offer-title" className="text-xs font-black uppercase tracking-tight text-white outline-none">Condição de pagamento</h1>
-              <p className="mt-1 text-[10px] text-slate-400">Defina o que acontecerá após o pagamento</p>
-            </div>
-          </div>
-        </header>
-
-        <div role="region" aria-label="Dados da condição de pagamento" tabIndex={0} className="min-h-0 flex-auto space-y-3 overflow-y-auto overscroll-contain px-5 py-3 [scrollbar-gutter:stable] [-webkit-overflow-scrolling:touch] [@media(max-height:480px)]:flex-none [@media(max-height:480px)]:overflow-visible">
+    <Modal onClose={onClose} title="Condição de pagamento" subtitle="Defina o que acontecerá após o pagamento" icon={<CalendarClock size={22} />} size="sm" busy={isSaving}
+      footer={<>
+        {active && <button type="button" onClick={cancelOffer} disabled={isSaving} className="min-h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">Cancelar condição ativa</button>}
+        <button type="button" onClick={submit} disabled={isSaving} className={modalPrimaryActionClass}>{isSaving ? 'Enviando...' : 'Enviar para o portal'}</button>
+      </>}>
+      <div className="space-y-3">
           <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
             <div className="grid grid-cols-2 gap-2">
@@ -353,20 +311,6 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </section>
 
         </div>
-          <footer className="flex shrink-0 flex-col gap-2 bg-slate-900 px-5 pt-3 pb-5">
-            {active && (
-              <button type="button" onClick={cancelOffer} disabled={isSaving} className="min-h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">
-                Cancelar condição ativa
-              </button>
-            )}
-            <button type="button" onClick={submit} disabled={isSaving} className="min-h-11 w-full rounded-lg bg-blue-600 px-4 text-[10px] font-black uppercase text-white hover:bg-blue-500 disabled:opacity-50">
-              {isSaving ? 'Enviando...' : 'Enviar para o portal'}
-            </button>
-            <button type="button" onClick={onClose} disabled={isSaving} className="flex min-h-11 w-full items-center justify-center gap-1 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50">
-              <XCircle size={12} /> Cancelar
-            </button>
-          </footer>
-      </div>
-    </div>
+    </Modal>
   );
 };

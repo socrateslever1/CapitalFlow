@@ -17,6 +17,7 @@ import { getInstallmentOpenAmount, isInstallmentOpen } from '../utils/loanStatus
 import { filterOperationalSources, isTestSource } from '../utils/testSource';
 import { supabase } from '../lib/supabase';
 import { safeUUID } from '../utils/uuid';
+import { getPaymentGroupKey, groupPaymentReceipts } from '../utils/paymentGroups';
 
 interface FinancialStatementPageProps {
   profileId: string;
@@ -98,12 +99,10 @@ const getMovementDirection = (entry: LedgerEntry): 'IN' | 'OUT' => {
   return Number(entry.amount || 0) < 0 ? 'OUT' : 'IN';
 };
 
-const getPaymentGroupKey = (movement: Pick<Movement, 'idempotencyKey'>) =>
-  String(movement.idempotencyKey || '').replace(/(_lucro|_profit)$/i, '');
-
 const formatDateTime = (value?: string) => {
-  const date = parseDate(value || '');
-  if (date.getTime() <= 0) return 'data não registrada';
+  if (!value) return 'data não registrada';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'data não registrada';
   return date.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -344,15 +343,26 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
     [receivables]
   );
 
+  const groupedMovements = useMemo(() => {
+    // Group before searching: matching one destination must retain the entire
+    // payment, including its other accounting destination and total.
+    return groupPaymentReceipts(periodMovements).map((movement) => ({
+      ...movement,
+      sourceName: movement.receiptParts
+        ? [...new Set(movement.receiptParts.map(part => part.sourceName))].join(' + ')
+        : movement.sourceName,
+    }));
+  }, [periodMovements]);
+
   const filteredMovements = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return periodMovements.filter((movement) => {
+    return groupedMovements.filter((movement) => {
       if (view !== 'ALL' && view !== 'RECEIVABLE' && movement.direction !== view) return false;
       if (!normalizedSearch) return true;
       return [movement.debtorName, movement.notes, movement.category, movement.sourceName]
         .some((value) => String(value || '').toLowerCase().includes(normalizedSearch));
     });
-  }, [periodMovements, search, view]);
+  }, [groupedMovements, search, view]);
 
   const caixaLivre = operationalSources.find((source) =>
     /caixa livre|lucro|dispon[ií]vel/i.test(source.name || '')
@@ -502,7 +512,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
             Hoje
           </button>
           <span className="ml-auto text-[9px] font-bold uppercase text-slate-600 md:text-[10px]">
-            {periodMovements.length} movimentações
+            {groupedMovements.length} {groupedMovements.length === 1 ? 'movimentação' : 'movimentações'}
           </span>
         </div>
       </section>
@@ -593,22 +603,33 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
                   movement.direction === 'IN' &&
                   Number(movement.amount || 0) > 0 &&
                   Boolean(groupKey) &&
-                  ['PAGAMENTO', 'LUCRO'].includes(String(movement.category || '').toUpperCase()) &&
+                  ['PAGAMENTO', 'LUCRO', 'RECEBIMENTO'].includes(String(movement.category || '').toUpperCase()) &&
                   !movement.reversedOfTransactionId &&
                   !reversedPaymentGroups.has(groupKey);
                 const isReversing = Boolean(groupKey && reversingGroupKey === groupKey);
 
                 return (
-                <div key={movement.id} role={movement.loanId ? 'button' : undefined} tabIndex={movement.loanId ? 0 : undefined} onClick={() => movement.loanId && onOpenLoan(movement.loanId)} onKeyDown={(event) => { if (movement.loanId && (event.key === 'Enter' || event.key === ' ')) onOpenLoan(movement.loanId); }} className={`grid min-h-[92px] w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left ${movement.loanId ? 'cursor-pointer hover:bg-slate-900' : ''}`}>
+                <div key={movement.id} data-payment-group={movement.receiptParts ? groupKey : undefined} role={movement.loanId ? 'button' : undefined} tabIndex={movement.loanId ? 0 : undefined} onClick={() => movement.loanId && onOpenLoan(movement.loanId)} onKeyDown={(event) => { if (event.target === event.currentTarget && movement.loanId && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onOpenLoan(movement.loanId); } }} className={`grid min-h-[92px] w-full grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left ${movement.loanId ? 'cursor-pointer hover:bg-slate-900' : ''}`}>
                   <div className="min-w-0">
-                    <div className="truncate text-xs font-black uppercase text-white">{movement.debtorName}</div>
-                    <div className="mt-1 truncate text-[10px] text-slate-400">{movement.notes || movement.category || movement.type}</div>
+                    <div className="break-words text-xs font-black uppercase text-white">{movement.debtorName}</div>
+                    <div className="mt-1 text-[10px] text-slate-400">{movement.receiptParts ? 'Recebimento' : movement.notes || movement.category || movement.type}</div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[9px] uppercase text-slate-600">
                       <span>{parseDate(movement.date).toLocaleDateString('pt-BR')}</span>
-                      <span>Destino: {movement.sourceName}</span>
-                      <span>Criado: {formatDateTime(movement.createdAt || movement.date)}</span>
-                      <span>Operador: {movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'não registrado'}</span>
+                      {!movement.receiptParts && <span>Destino: {movement.sourceName}</span>}
+                      {!movement.receiptParts && <span>Criado: {formatDateTime(movement.createdAt)}</span>}
+                      {!movement.receiptParts && <span>Operador: {movement.operatorId === profileId ? 'VOCÊ' : movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'não registrado'}</span>}
                     </div>
+                    {movement.receiptParts && <div className="mt-2 space-y-2 rounded-md border border-slate-800 bg-slate-950/50 p-2">
+                      {movement.receiptParts.map(part => <div key={part.id} className="text-[10px] leading-4">
+                        <div className="text-slate-300">
+                          {Number(part.principalDelta) > 0 && <span>Capital {formatMoney(part.principalDelta, isStealthMode)} · </span>}
+                          {Number(part.interestDelta) > 0 && <span>Juros {formatMoney(part.interestDelta, isStealthMode)} · </span>}
+                          {Number(part.lateFeeDelta) > 0 && <span>Mora/multa {formatMoney(part.lateFeeDelta, isStealthMode)} · </span>}
+                          <span className="break-words">Destino: {part.sourceName}</span>
+                        </div>
+                        <div className="text-[9px] text-slate-500">Criado: {formatDateTime(part.createdAt)} · Operador: {part.operatorId === profileId ? 'VOCÊ' : part.operatorId ? part.operatorId.slice(0, 8).toUpperCase() : 'não registrado'}</div>
+                      </div>)}
+                    </div>}
                     {groupKey && (
                       <div className="mt-1 text-[9px] uppercase text-slate-700">
                         Grupo: {groupKey.slice(0, 12).toUpperCase()}
@@ -657,7 +678,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
             <div className="text-[10px] font-bold uppercase text-slate-500">Caixa Livre atual (lucro)</div>
             <div className="mt-2 text-xl font-black text-emerald-400">{formatMoney(caixaLivre?.balance || 0, isStealthMode)}</div>
             <p className="mt-2 text-[10px] leading-4 text-slate-500">
-              Recebe juros, mora e multa. Capital retornado volta para a fonte do contrato e aparece separado no extrato.
+              Recebe juros, mora e multa. O capital volta para a fonte do contrato; as duas partes aparecem detalhadas em um único recebimento.
             </p>
           </div>
 

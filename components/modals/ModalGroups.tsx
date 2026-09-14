@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useModal } from '../../contexts/ModalContext';
-import { Modal } from '../ui/Modal';
+import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { PaymentManagerModal } from './PaymentManagerModal';
 import { CalculatorModal } from './CalculatorModal';
 import { FlowModal } from './FlowModal';
@@ -25,7 +25,14 @@ export const ClientModals = () => {
     const clientNumber = editingClient?.client_number || ui.clientDraftNumber;
 
     return (
-       <Modal onClose={closeModal} title={editingClient ? 'Editar Cadastro' : 'Novo Cadastro'}>
+       <Modal onClose={closeModal} title={editingClient ? 'Editar Cadastro' : 'Novo Cadastro'} busy={ui.isSaving} size="lg" icon={<User size={22} />} footer={<button
+                onClick={clientCtrl.handleSaveClient}
+                disabled={ui.isSaving}
+                className={modalPrimaryActionClass}
+               >
+                   {ui.isSaving ? <Loader2 className="animate-spin" size={16}/> : <ShieldCheck size={16}/>}
+                   {ui.isSaving ? 'Processando...' : 'Finalizar Cadastro'}
+               </button>}>
            <div className="space-y-6 pb-4">
                {/* Header Section: Avatar + Credentials */}
                <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-950/40 p-5 rounded-lg border border-slate-800/50">
@@ -106,27 +113,30 @@ export const ClientModals = () => {
                    <textarea placeholder="Notas sobre o perfil..." className="w-full bg-slate-950/50 p-4 rounded-lg border border-slate-800/80 text-white outline-none h-24 text-sm resize-none focus:border-blue-500/50 focus:bg-slate-900 transition-all placeholder:text-slate-700" value={clientForm.notes || ''} onChange={e => ui.setClientForm({...clientForm, notes: e.target.value})} />
                </div>
 
-               <button
-                onClick={clientCtrl.handleSaveClient}
-                disabled={ui.isSaving}
-                className="w-full py-4.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-black rounded-lg uppercase shadow-xl shadow-blue-500/20 flex items-center justify-center gap-3 text-xs tracking-widest disabled:opacity-50 transition-all active:scale-[0.98]"
-               >
-                   {ui.isSaving ? <Loader2 className="animate-spin" size={16}/> : <ShieldCheck size={16}/>}
-                   {ui.isSaving ? 'Processando...' : 'Finalizar Cadastro'}
-               </button>
+
            </div>
        </Modal>
     );
 };
 
 export const FinanceModals = () => {
-    const { activeModal, closeModal, ui, sourceCtrl, paymentCtrl, activeUser, sources } = useModal();
+    const { activeModal, closeModal, ui, sourceCtrl, paymentCtrl, activeUser, sources, showToast } = useModal();
     const staffMembers = ui.staffMembers || [];
+    const [financeBusy, setFinanceBusy] = React.useState(false);
+    const financeLock = React.useRef(false);
+    const runFinanceAction = async (action: () => Promise<void>) => {
+        if (financeLock.current) return;
+        financeLock.current = true;
+        setFinanceBusy(true);
+        try { await action(); }
+        catch { showToast('Não foi possível concluir a operação. Confira o saldo antes de tentar novamente.', 'error'); }
+        finally { financeLock.current = false; setFinanceBusy(false); }
+    };
 
     return (
         <>
             {activeModal?.type === 'SOURCE_FORM' && (
-                <Modal onClose={closeModal} title="Configuração de Fundo">
+                <Modal onClose={closeModal} title="Configuração de Fundo" busy={ui.isSaving} footer={<button onClick={sourceCtrl.handleSaveSource} disabled={ui.isSaving} className={modalPrimaryActionClass}>{ui.isSaving ? 'Sincronizando...' : 'Salvar Fonte'}</button>}>
                     <div className="space-y-5">
                         <div>
                             <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">Identificação</label>
@@ -172,16 +182,16 @@ export const FinanceModals = () => {
                             </div>
                         )}
 
-                        <button onClick={sourceCtrl.handleSaveSource} disabled={ui.isSaving} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-lg uppercase shadow-xl transition-all">{ui.isSaving ? 'Sincronizando...' : 'Salvar Fonte'}</button>
+
                     </div>
                 </Modal>
             )}
 
             {activeModal?.type === 'ADD_FUNDS' && (
-                <Modal onClose={closeModal} title={`Aporte: ${activeModal.payload.name}`}>
+                <Modal onClose={closeModal} title={`Aporte: ${activeModal.payload.name}`} busy={financeBusy} footer={<button onClick={() => runFinanceAction(sourceCtrl.handleAddFunds)} disabled={financeBusy} className={modalPrimaryActionClass}>Confirmar Aporte</button>}>
                     <div className="space-y-4">
                         <input type="text" inputMode="decimal" placeholder="Valor (R$)" className="w-full bg-slate-950 p-4 rounded-full text-white text-xl font-bold outline-none border border-slate-800" value={ui.addFundsValue || ''} onChange={e => ui.setAddFundsValue(e.target.value.replace(/[^0-9.,]/g, ''))} autoFocus />
-                        <button onClick={sourceCtrl.handleAddFunds} className="w-full py-4 bg-emerald-600 text-white font-bold rounded-full uppercase">Confirmar Aporte</button>
+
                     </div>
                 </Modal>
             )}
@@ -191,7 +201,12 @@ export const FinanceModals = () => {
             )}
 
             {activeModal?.type === 'WITHDRAW' && (
-                <Modal onClose={closeModal} title="Resgatar Lucros">
+                <Modal onClose={closeModal} title="Resgatar Lucros" busy={financeBusy} footer={<button
+                            onClick={() => runFinanceAction(sourceCtrl.handleWithdrawProfit)} disabled={financeBusy}
+                            className={modalPrimaryActionClass}
+                        >
+                            Confirmar Resgate
+                        </button>}>
                     <div className="space-y-6 pb-2">
                         <div className="bg-slate-950/50 p-6 rounded-lg border border-slate-800/50 text-center shadow-inner relative overflow-hidden group">
                             <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -228,12 +243,7 @@ export const FinanceModals = () => {
                             </div>
                         </div>
 
-                        <button
-                            onClick={sourceCtrl.handleWithdrawProfit}
-                            className="w-full py-4.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black rounded-lg uppercase shadow-xl shadow-emerald-500/20 transition-all active:scale-[0.98] tracking-widest text-xs"
-                        >
-                            Confirmar Resgate
-                        </button>
+
                     </div>
                 </Modal>
             )}

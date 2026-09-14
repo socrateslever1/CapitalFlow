@@ -1,8 +1,7 @@
 // src/features/portal/components/PortalPaymentModal.tsx
 
 import React, { useState, useMemo } from 'react';
-import { SystemBackButton } from '../../../components/ui/SystemBackButton';
-import { isAppleMobile } from '../../../utils/appleMobile';
+import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { X, Wallet, CheckCircle2, QrCode, Copy, ChevronDown } from 'lucide-react';
 import { Loan, Installment } from '../../../types';
 import { portalService } from '../../../services/portal.service';
@@ -233,6 +232,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
 
       if (data && data.qrCode) {
         setPixData({ qrCode: data.qrCode, qrCodeBase64: data.qrCodeBase64, providerPaymentId: data.providerPaymentId });
+        setIsProcessingOnline(false);
         setStep('PIX_AUTO');
       } else {
          throw new Error('QR Code não retornado');
@@ -310,26 +310,20 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <>
       {!showAsaasModal ? (
-        <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-lg p-6 shadow-2xl relative animate-in zoom-in-95 my-auto">
-          <SystemBackButton appleOnly local onClick={onClose} />
-          {!isAppleMobile() && <button
-            onClick={onClose}
-            className="absolute top-4 right-4 p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
-          >
-            <X size={20} />
-          </button>}
-
-          <h2 className="text-xl font-black text-white uppercase text-center mb-6 flex items-center justify-center gap-2">
-            {step === 'SUCCESS' ? (
-              <CheckCircle2 className="text-emerald-500" />
-            ) : (
-              <Wallet className="text-emerald-500" />
-            )}
-            {step === 'SUCCESS' ? 'Operador Notificado!' : 'Realizar Pagamento'}
-          </h2>
-
+        <Modal onClose={onClose} size="md" onBack={step === 'PIX_AUTO' ? () => setStep('BILLING') : onClose}
+          title={step === 'SUCCESS' ? 'Operador Notificado!' : 'Realizar Pagamento'}
+          icon={step === 'SUCCESS' ? <CheckCircle2 size={22} /> : <Wallet size={22} />}
+          busy={isProcessing || isProcessingOnline || isProcessingInfinitePay}
+          cancelLabel={step === 'SUCCESS' ? 'Fechar janela' : 'Cancelar'}
+          footer={step === 'BILLING' && !shouldBlock ? <>
+            <button type="button" onClick={handleInfinitePay} disabled={isProcessing || isProcessingOnline || isProcessingInfinitePay} className={modalPrimaryActionClass}>{isProcessingInfinitePay ? 'Gerando cobrança...' : 'Pagar com InfinitePay'}</button>
+            {!multipleSelected && uploadStatus !== 'UPLOADED' && <button type="button" onClick={handleNotifyPayment} disabled={isProcessing || isProcessingOnline || isProcessingInfinitePay} className={modalSecondaryActionClass}>{receiptFile ? 'Enviar comprovante' : 'Informar pagamento sem comprovante'}</button>}
+          </> : step === 'PIX_AUTO' ? <>
+            <button type="button" onClick={onClose} className={modalPrimaryActionClass}><CheckCircle2 size={16} /> Já paguei</button>
+            <button type="button" onClick={() => setStep('BILLING')} className={modalSecondaryActionClass}>Outras formas de pagamento</button>
+          </> : undefined}>
           {step === 'BILLING' && (
             <>
             <section className="mb-4 rounded-md border border-slate-700 bg-slate-950/70 p-3">
@@ -386,6 +380,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
               {multipleSelected && <p className="mt-2 text-[8px] text-slate-500">Pagamento conjunto disponível pela InfinitePay.</p>}
             </section>
             <BillingView
+              actionsInFooter
               totalToPay={selectedTotal}
               interestOnlyWithFees={options.renewToPay}
               dueDateISO={options.dueDateISO}
@@ -473,27 +468,13 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
                 </div>
               </div>
 
-              {/* Ações */}
-              <div className="w-full pt-4 border-t border-slate-800 flex gap-2">
-                <button
-                  onClick={() => setStep('BILLING')}
-                  className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase rounded-lg transition-colors"
-                >
-                  Voltar
-                </button>
-                <button
-                  onClick={onClose}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase rounded-lg transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <CheckCircle2 size={12} /> Já paguei
-                </button>
-              </div>
+
             </div>
           )}
 
           {step === 'NOTIFYING' && <NotifyingView message={uploadMessage || undefined} />}
-          {step === 'SUCCESS' && <SuccessView onClose={onClose} />}
-        </div>
+          {step === 'SUCCESS' && <SuccessView onClose={onClose} hideClose />}
+        </Modal>
       ) : (
         <AsaasCheckoutModal
           loan={loan}
@@ -509,7 +490,7 @@ export const PortalPaymentModal: React.FC<PortalPaymentModalProps> = ({
           }}
         />
       )}
-    </div>
+    </>
   );
 };
 

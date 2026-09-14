@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { requestDialogBack } from '../utils/dialogNavigation';
 import { supabase } from '../lib/supabase';
 
 export const useExitGuard = (
@@ -57,6 +58,11 @@ export const useExitGuard = (
     }
 
     const handlePopState = (e: PopStateEvent) => {
+      if (requestDialogBack()) {
+        lastBackPress.current = 0;
+        window.history.pushState({ anchor: true }, '', window.location.href);
+        return;
+      }
       // Páginas locais têm prioridade sobre o modal/página que as abriu.
       const backRequest = new Event('capitalflow:back', { cancelable: true });
       if (!window.dispatchEvent(backRequest)) {

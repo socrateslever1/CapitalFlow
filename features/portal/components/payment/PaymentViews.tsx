@@ -6,6 +6,7 @@ import { getPortalDueLabel } from '../../mappers/portalDebtRules';
 
 // VIEW: BILLING (Tela Principal)
 interface BillingViewProps {
+    actionsInFooter?: boolean;
     totalToPay: number;
     interestOnlyWithFees: number;
     // Removed raw isLate/daysLate to use dueDateISO for precise calculation
@@ -44,7 +45,7 @@ interface BillingViewProps {
 }
 
 export const BillingView: React.FC<BillingViewProps> = ({
-    totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onInfinitePay, onAsaas, isProcessingAsaas = false, isProcessingInfinitePay = false, receiptFile, onFileChange, paymentOffer
+    actionsInFooter = false, totalToPay, interestOnlyWithFees, dueDateISO, daysLateRaw, pixKey, onCopyPix, onNotify, error, isInstallmentPaid = false, isProcessing = false, isProcessingOnline = false, uploadStatus = 'IDLE', uploadMessage, onMercadoPago, onMercadoPagoCard, onInfinitePay, onAsaas, isProcessingAsaas = false, isProcessingInfinitePay = false, receiptFile, onFileChange, paymentOffer
 }) => {
     // Usa o helper centralizado para determinar a mensagem
     const { label, variant, detail } = getPortalDueLabel(daysLateRaw, dueDateISO);
@@ -208,7 +209,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                                {uploadStatus !== 'UPLOADED' && onNotify && (
+                                {!actionsInFooter && uploadStatus !== 'UPLOADED' && onNotify && (
                                     <button
                                         onClick={onNotify}
                                         disabled={uploadStatus === 'UPLOADING' || isProcessing}
@@ -232,7 +233,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                         <div className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-4 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-2">
                             <CheckCircle2 size={16} /> Comprovante enviado ao operador
                         </div>
-                    ) : receiptFile ? null : onNotify ? (
+                    ) : receiptFile || actionsInFooter ? null : onNotify ? (
                         <button
                             onClick={onNotify}
                             disabled={isProcessing}
@@ -251,7 +252,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
             {/* Pagamento Online via InfinitePay */}
             {!isInstallmentPaid && (
                 <div className="space-y-3 pt-2">
-                    {onInfinitePay && (
+                    {!actionsInFooter && onInfinitePay && (
                         <button
                             onClick={onInfinitePay}
                             disabled={isProcessingInfinitePay || isProcessing}
@@ -307,7 +308,7 @@ export const NotifyingView = ({ message = 'Enviando notificação ao gestor' }: 
 );
 
 // VIEW: SUCCESS
-export const SuccessView = ({ onClose }: { onClose: () => void }) => (
+export const SuccessView = ({ onClose, hideClose = false }: { onClose: () => void; hideClose?: boolean }) => (
     <div className="py-8 flex flex-col items-center justify-center text-center space-y-6 animate-in zoom-in duration-300">
         <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500 shadow-xl shadow-emerald-500/10">
             <CheckCircle2 size={48} />
@@ -318,8 +319,8 @@ export const SuccessView = ({ onClose }: { onClose: () => void }) => (
                 O gestor foi notificado do seu pagamento. Aguarde a confirmação da baixa no sistema.
             </p>
         </div>
-        <button onClick={onClose} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase rounded-lg transition-colors">
+        {!hideClose && <button onClick={onClose} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase rounded-lg transition-colors">
             Fechar Janela
-        </button>
+        </button>}
     </div>
 );

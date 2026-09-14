@@ -1,3 +1,4 @@
+import { groupPaymentReceipts, getPaymentGroupKey } from '../../../utils/paymentGroups';
 import { formatBRDate } from '../../../utils/dateHelpers';
 import React from 'react';
 import { FileText, Settings, HandCoins, CheckCircle2, Undo2 } from 'lucide-react';
@@ -7,56 +8,6 @@ import { formatMoney } from '../../../utils/formatters';
 import { translateTransactionType } from '../../../utils/translationHelpers';
 
 
-const mergeSplitReceipts = (ledger: LedgerEntry[]): LedgerEntry[] => {
-  const items = [...(ledger || [])];
-  const consumed = new Set<string>();
-
-  return items.reduce<LedgerEntry[]>((acc, entry) => {
-    if (consumed.has(entry.id)) return acc;
-
-    const notes = String(entry.notes || '').toLowerCase();
-    const isPrincipalReceipt =
-      String(entry.type || '').includes('PAYMENT') &&
-      Number(entry.amount || 0) > 0 &&
-      Number(entry.principalDelta || 0) > 0 &&
-      notes.includes('retorno de capital');
-
-    if (!isPrincipalReceipt) {
-      acc.push(entry);
-      return acc;
-    }
-
-    const sameDay = String(entry.date || '').slice(0, 10);
-    const profit = items.find((candidate) => {
-      if (candidate.id === entry.id || consumed.has(candidate.id)) return false;
-      const candidateNotes = String(candidate.notes || '').toLowerCase();
-      return (
-        String(candidate.type || '').includes('PAYMENT') &&
-        String(candidate.date || '').slice(0, 10) === sameDay &&
-        Number(candidate.amount || 0) > 0 &&
-        Number(candidate.principalDelta || 0) === 0 &&
-        (Number(candidate.interestDelta || 0) > 0 || Number(candidate.lateFeeDelta || 0) > 0) &&
-        (candidate.category === 'LUCRO' || candidateNotes.includes('lucro recebido'))
-      );
-    });
-
-    if (!profit) {
-      acc.push(entry);
-      return acc;
-    }
-
-    consumed.add(profit.id);
-    acc.push({
-      ...entry,
-      amount: Number(entry.amount || 0) + Number(profit.amount || 0),
-      interestDelta: Number(entry.interestDelta || 0) + Number(profit.interestDelta || 0),
-      lateFeeDelta: Number(entry.lateFeeDelta || 0) + Number(profit.lateFeeDelta || 0),
-      notes: 'Recebimento registrado (capital + lucro).',
-      category: 'RECEBIMENTO',
-    });
-    return acc;
-  }, []);
-};
 interface LedgerListProps {
   ledger: LedgerEntry[];
   loan: Loan;
@@ -71,14 +22,15 @@ const LedgerItem: React.FC<{
   onReverse: (t: LedgerEntry, l: Loan) => void;
   onOpenReceipt?: (t: LedgerEntry, l: Loan) => void;
   isStealth: boolean;
-}> = ({ t, loan, onReverse, onOpenReceipt, isStealth }) => {
+  reversed?: boolean;
+}> = ({ t, loan, onReverse, onOpenReceipt, isStealth, reversed }) => {
   // Auditoria / edição manual
   const isAudit = t.category === 'AUDIT' || t.notes?.startsWith('{') || t.type === 'ESTORNO' || t.category === 'SISTEMA';
   const auditLines = isAudit ? humanizeAuditLog(t.notes || '') : null;
 
   // ✅ Reversível: pagamentos, empréstimos e novo aporte
   const isReversible =
-    !isAudit &&
+    !isAudit && !reversed &&
     (String(t.type || '').includes('PAYMENT') ||
       t.type === 'LEND_MORE' ||
       t.type === 'NOVO_APORTE');
@@ -121,8 +73,9 @@ const LedgerItem: React.FC<{
           <div className="min-w-0">
             <p className="text-white font-bold truncate">{titleText}</p>
             <p className="text-[9px] text-slate-500 truncate">
-              {formatBRDate(t.date)} às{' '}
-              {new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {formatBRDate(t.date)}
+              {!/^\d{4}-\d{2}-\d{2}(?:[T ]00:00:00(?:\.0+)?(?:Z|\+00(?::00)?)?)?$/.test(t.date) && ` às ${new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+              {reversed && ' · Estornado'}
             </p>
           </div>
         </div>
@@ -163,6 +116,12 @@ const LedgerItem: React.FC<{
         </div>
       </div>
 
+      {canReceipt && <p className="mt-2 text-[10px] text-slate-400">
+        Capital {formatMoney(Number(t.principalDelta || 0), isStealth)}
+        {' · '}Juros {formatMoney(Number(t.interestDelta || 0), isStealth)}
+        {' · '}Mora/multa {formatMoney(Number(t.lateFeeDelta || 0), isStealth)}
+      </p>}
+
       {auditLines && (
         <div className="mt-2 ml-7 pl-2 border-l border-slate-800 space-y-1">
           {auditLines.map((line, idx) => (
@@ -177,13 +136,15 @@ const LedgerItem: React.FC<{
 };
 
 export const LedgerList: React.FC<LedgerListProps> = ({ ledger = [], loan, onReverseTransaction, onOpenReceipt, isStealthMode }) => {
+  const reversedGroups = new Set(ledger.filter(entry => entry.category === 'ESTORNO').map(entry => String(entry.meta?.reversal_of_idempotency_key || '')).filter(Boolean));
   return (
     <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
       {ledger && ledger.length > 0 ? (
-        mergeSplitReceipts(ledger).map((t) => (
+        groupPaymentReceipts(ledger).map((t) => (
           <LedgerItem
             key={t.id}
             t={t}
+            reversed={reversedGroups.has(getPaymentGroupKey(t))}
             loan={loan}
             onReverse={onReverseTransaction}
             onOpenReceipt={onOpenReceipt}

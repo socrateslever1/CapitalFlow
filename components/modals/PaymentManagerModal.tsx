@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { SystemBackButton } from '../ui/SystemBackButton';
-import { isAppleMobile } from '../../utils/appleMobile';
-import { Loader2, MessageSquare, DollarSign, Calendar, CalendarClock, AlertCircle, Banknote, CheckCircle2, TrendingUp, AlertTriangle, Clock, X, Receipt, ShieldCheck } from 'lucide-react';
+import { Modal, modalPrimaryActionClass } from '../ui/Modal';
+import { Loader2, MessageSquare, DollarSign, Calendar, CalendarClock, AlertCircle, Banknote, CheckCircle2, TrendingUp, AlertTriangle, Clock, Receipt, ShieldCheck } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { parseDateOnlyUTC } from '../../utils/dateHelpers';
 import { FlexibleDailyScreen } from './payment/FlexibleDailyScreen';
@@ -112,24 +111,19 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-[var(--z-modal)] bg-slate-950/80 backdrop-blur-md flex items-stretch sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
-            <div className="bg-slate-950 border border-slate-800 w-full max-w-4xl sm:rounded-xl shadow-[0_0_60px_-15px_rgba(0,0,0,0.7)] animate-in zoom-in-95 slide-in-from-bottom-4 flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-hidden">
-                <div className="h-16 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 sm:px-6 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <SystemBackButton appleOnly local onClick={onClose} disabled={isProcessing} />
-                        <div className="w-9 h-9 bg-emerald-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-900/50"><DollarSign size={18}/></div>
-                        <div><h1 className="text-sm font-black text-white uppercase tracking-wider leading-none">Recebimento</h1><p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">{loan.debtorName}</p></div>
-                    </div>
-                    {!isAppleMobile() && <button onClick={onClose} className="p-2.5 bg-slate-900 text-slate-400 hover:text-white hover:bg-rose-950/30 hover:border-rose-900 border border-slate-800 rounded-full transition-all"><X size={18}/></button>}
-                </div>
-
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar overscroll-contain">
+        <Modal onClose={onClose} title="Recebimento" subtitle={loan.debtorName} icon={<DollarSign size={22} />} size="xl" busy={isProcessing}
+          footer={<div className="flex gap-2">
+            <button type="button" aria-label="Abrir mensagem" onClick={() => onOpenMessage(loan)} disabled={isProcessing} className="min-h-11 shrink-0 rounded-lg border border-slate-700 px-3 text-slate-400"><MessageSquare size={18} /></button>
+            <button type="button" onClick={handleConfirmWrapper} disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} className={modalPrimaryActionClass}>
+              {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <><CheckCircle2 size={18} /> Confirmar Recebimento</>}
+            </button>
+          </div>}>
                     <div className="flex flex-col md:flex-row min-h-full">
-                        <div className="w-full md:w-[380px] lg:w-[420px] bg-slate-900/50 border-b md:border-b-0 md:border-r border-slate-800 p-4 sm:p-6 shrink-0">
+                        <div className="w-full md:w-[40%] bg-slate-900/50 border-b md:border-b-0 md:border-r border-slate-800 p-4 sm:p-6 shrink-0">
                             <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 text-center relative overflow-hidden shadow-2xl mb-6">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500"></div>
                                 <p className="text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Total a Receber</p>
-                                <p className="text-4xl font-black text-white mb-2 tracking-tight">{formatMoney(debtBreakdown.total)}</p>
+                                <p className="text-2xl sm:text-4xl break-words font-black text-white mb-2 tracking-tight">{formatMoney(debtBreakdown.total)}</p>
                                 {forgivenessMode !== 'NONE' && <div className="inline-flex items-center gap-2 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20"><span className="text-[10px] text-rose-400 font-bold line-through decoration-rose-500/50">Original: R$ {calculations.total.toFixed(2)}</span></div>}
                             </div>
 
@@ -184,15 +178,6 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div className="sticky bottom-0 p-3 sm:p-5 border-t border-slate-800 flex gap-3 bg-slate-950/95 backdrop-blur-xl shrink-0 z-30 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                    <button onClick={() => { onOpenMessage(loan); }} disabled={isProcessing} className="p-4 bg-slate-900 border border-slate-800 rounded-full text-slate-400 hover:text-emerald-500 transition-all shrink-0"><MessageSquare size={18}/></button>
-                    <button onClick={handleConfirmWrapper} disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} className="flex-1 py-4 text-white rounded-full font-black uppercase text-sm shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed bg-emerald-600 hover:bg-emerald-500">
-                        {isProcessing ? <Loader2 className="animate-spin" size={18}/> : <><CheckCircle2 size={18}/> Confirmar Recebimento</>}
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 };

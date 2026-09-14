@@ -4,12 +4,8 @@ import { Loan, UserProfile, LedgerEntry } from '../../types';
 import { getOwnerId, normalizeTransaction, isPaymentTx, isLendMoreTx, isAporteTx, clampNonNegative, toNumber } from './ledgerHelpers';
 import { isUUID, safeUUID } from '../../utils/uuid';
 import { generateUUID } from '../../utils/generators';
+import { getPaymentGroupKey } from '../../utils/paymentGroups';
 
-const getPaymentGroupKey = (tx: any): string | null => {
-  const raw = String(tx?.idempotencyKey ?? tx?.idempotency_key ?? '').trim();
-  if (!raw) return null;
-  return raw.replace(/(_lucro|_profit|-OVERPAY)$/i, '');
-};
 
 /**
  * Reversao financeira.

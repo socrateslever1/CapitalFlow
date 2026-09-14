@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Calculator, DollarSign, Calendar, Percent, RefreshCcw, TrendingUp, Clock, Play, Divide, X, Minus, Plus, Equal, ChevronLeft } from 'lucide-react';
+import { Calculator, DollarSign, Calendar, Percent, RefreshCcw, TrendingUp, Clock, Play, Divide, X, Minus, Plus, Equal } from 'lucide-react';
+
+import { Modal } from '../ui/Modal';
 
 type CalcMode = 'MONTHLY' | 'DAILY' | 'BASIC';
 
@@ -132,27 +134,7 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col animate-in fade-in duration-300 font-sans h-[100dvh]">
-            {/* Header */}
-            <div className="h-16 border-b border-slate-800 bg-slate-900 flex items-center justify-between px-4 shrink-0 z-20">
-                <div className="flex items-center gap-3">
-                    <button onClick={onClose} className="p-2 -ml-2 text-slate-400 hover:text-white transition-colors">
-                        <ChevronLeft size={24} />
-                    </button>
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-900/20">
-                        <Calculator size={20} />
-                    </div>
-                    <div>
-                        <h1 className="text-sm font-black text-white uppercase tracking-wider leading-none">Ferramentas</h1>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-widest">
-                            Simulador e Calculadora
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-6 custom-scrollbar">
+        <Modal onClose={onClose} title="Ferramentas" subtitle="Simulador e Calculadora" icon={<Calculator size={22} />} size="lg" cancelLabel="Fechar">
                 <div className="max-w-3xl mx-auto space-y-6">
 
                     {/* Seletor de Modalidade */}
@@ -289,7 +271,6 @@ export const CalculatorModal = ({ onClose }: { onClose: () => void }) => {
                     </>
                 )}
                 </div>
-            </div>
-        </div>
+        </Modal>
     );
 };

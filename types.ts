@@ -267,6 +267,10 @@ export interface LedgerEntry {
   category?: string;
   meta?: any;
   receiptCode?: string;
+  idempotencyKey?: string | null;
+  reversedOfTransactionId?: string | null;
+  createdAt?: string;
+  operatorId?: string | null;
 }
 
 export interface PortalFile {

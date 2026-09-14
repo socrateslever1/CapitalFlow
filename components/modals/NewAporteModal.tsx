@@ -1,9 +1,8 @@
 
 // src/components/modals/NewAporteModal.tsx
 import React, { useMemo, useState } from 'react';
-import { SystemBackButton } from '../ui/SystemBackButton';
-import { isAppleMobile } from '../../utils/appleMobile';
-import { X, PlusCircle, ChevronDown } from 'lucide-react';
+import { Modal, modalPrimaryActionClass } from '../ui/Modal';
+import { PlusCircle, ChevronDown } from 'lucide-react';
 import { Loan, UserProfile, CapitalSource, Installment } from '../../types';
 import { contractsService } from '../../services/contracts.service';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
@@ -108,32 +107,10 @@ export const NewAporteModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={loading ? undefined : onClose} />
-
-      <div className="relative w-[92vw] max-w-xl max-h-[90vh] flex flex-col rounded-lg border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between gap-3 p-5 border-b border-slate-800 shrink-0">
-          <SystemBackButton appleOnly local onClick={onClose} disabled={loading} />
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Contrato</p>
-            <p className="text-white font-black text-lg flex items-center gap-2">
-              <PlusCircle size={18} /> Novo Aporte (Renovação)
-            </p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Isso aumenta a dívida do contrato e aplica na parcela pendente (sem recalcular parcelas).
-            </p>
-          </div>
-
-          {!isAppleMobile() && <button
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 self-start"
-            onClick={loading ? undefined : onClose}
-            aria-label="Fechar"
-          >
-            <X size={16} className="text-slate-300" />
-          </button>}
-        </div>
-
-        <div className="p-5 overflow-y-auto custom-scrollbar space-y-4">
+    <Modal onClose={onClose} title="Novo Aporte (Renovação)" icon={<PlusCircle size={22} />} size="md"
+      subtitle="Isso aumenta a dívida do contrato e aplica na parcela pendente (sem recalcular parcelas)." busy={loading}
+      footer={<button type="button" onClick={handleConfirm} disabled={loading} className={modalPrimaryActionClass}>{loading ? 'Aplicando...' : 'Confirmar Aporte'}</button>}>
+      <div className="space-y-4">
           {/* Valor */}
           <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Valor do Aporte</p>
@@ -214,23 +191,6 @@ export const NewAporteModal: React.FC<Props> = ({
           ) : null}
         </div>
 
-        <div className="p-5 border-t border-slate-800 flex gap-2 shrink-0 bg-slate-950">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 py-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={loading}
-            className="flex-1 py-3 rounded-lg bg-blue-600 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition-all disabled:opacity-60"
-          >
-            {loading ? 'Aplicando...' : 'Confirmar Aporte'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

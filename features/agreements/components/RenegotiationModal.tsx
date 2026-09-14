@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loan, LoanStatus } from "../../../types";
-import { Modal } from "../../../components/ui/Modal";
+import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from "../../../components/ui/Modal";
 import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent, TrendingUp } from "lucide-react";
 import { simulateAgreement, CalculationMode, InterestApplicationMode, InterestBaseMode } from "../logic/calculations";
 import { formatMoney } from "../../../utils/formatters";
@@ -196,7 +196,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     for (const inst of (loan.installments || [])) {
                         const instId = safeUUID(inst.id);
                         if (!instId) continue;
-                        
+
                         const principalRemaining = Number(inst.principalRemaining ?? (inst as any).principal_remaining ?? 0);
                         const nextStatus = principalRemaining > 0.05 ? 'PENDENTE' : (inst.status || 'PAID');
 
@@ -431,7 +431,11 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const displayedDebtLabel = flowMode === 'CAPITAL_ONLY_OPEN' ? 'Capital a Recuperar' : 'Divida Total Calculada';
 
     return (
-        <Modal onClose={onClose} title={loans.length > 1 ? `Unificar ${loans.length} Contratos` : "Acordo de Inadimplência"}>
+        <Modal onClose={onClose} title={loans.length > 1 ? `Unificar ${loans.length} Contratos` : "Acordo de Inadimplência"} size="lg" busy={isSaving} onBack={step === 2 ? () => setStep(1) : onClose}
+          footer={step === 1 ? <button type="button" disabled={flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked} onClick={handleSimulate} className={modalPrimaryActionClass}><Calculator size={16} /> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button> : <>
+            <button type="button" onClick={handleConfirm} disabled={isSaving} className={modalPrimaryActionClass}>{isSaving ? 'Processando...' : <><CheckCircle2 size={16} /> Confirmar</>}</button>
+            <button type="button" onClick={() => setStep(1)} disabled={isSaving} className={modalSecondaryActionClass}>Revisar condições</button>
+          </>}>
             <div className="space-y-6">
                 {step === 1 && (
                     <div className="space-y-4 animate-in slide-in-from-right">
@@ -512,7 +516,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
                         {flowMode === 'INSTALLMENT_AGREEMENT' && <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
 
-                        <button disabled={flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked} onClick={handleSimulate} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"><Calculator size={16}/> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button>
+
                     </div>
                 )}
 
@@ -569,7 +573,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 </div>
                             </div>
 
-                            <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-2">
+                            <div className="space-y-2">
                                 {simulation.installments.map((inst: any) => (
                                     <div key={inst.number} className="flex justify-between items-center bg-slate-900 p-2 rounded-lg text-xs">
                                         <span className="text-slate-400 font-bold">{inst.number}ª</span>
@@ -586,10 +590,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                             <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {operationWarning}</p>
                         </div>
 
-                        <div className="flex gap-3">
-                            <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-800 text-white rounded-lg font-bold uppercase text-xs">Voltar</button>
-                            <button onClick={handleConfirm} disabled={isSaving} className="flex-[2] py-4 bg-emerald-600 text-white rounded-lg font-black uppercase text-xs shadow-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2">{isSaving ? 'Processando...' : <><CheckCircle2 size={16}/> Confirmar</>}</button>
-                        </div>
+
                     </div>
                 )}
             </div>

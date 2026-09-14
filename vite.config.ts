@@ -58,16 +58,6 @@ function sourceConsistencyFixesPlugin(): Plugin {
         return transformed;
       }
 
-      if (id.endsWith('/pages/FinancialStatementPage.tsx')) {
-        const anchor = `  const caixaLivre = operationalSources.find((source) =>\n    /caixa livre|lucro|dispon[ií]vel/i.test(source.name || '')\n  );`;
-        const grouped = `  const displayMovements = useMemo<Movement[]>(() => {\n    const groupedByPayment = new Map<string, Movement>();\n    const standalone: Movement[] = [];\n\n    filteredMovements.forEach((movement) => {\n      const category = String(movement.category || '').toUpperCase();\n      const key = getPaymentGroupKey(movement);\n      const isPaymentPart = movement.direction === 'IN' && Boolean(key) && ['PAGAMENTO', 'LUCRO'].includes(category) && !movement.reversedOfTransactionId;\n\n      if (!isPaymentPart) {\n        standalone.push(movement);\n        return;\n      }\n\n      const existing = groupedByPayment.get(key);\n      if (!existing) {\n        groupedByPayment.set(key, {\n          ...movement,\n          id: 'payment-group-' + key,\n          notes: 'Recebimento consolidado',\n          sourceName: movement.sourceName,\n        });\n        return;\n      }\n\n      const sources = new Set([existing.sourceName, movement.sourceName].filter(Boolean));\n      groupedByPayment.set(key, {\n        ...existing,\n        amount: Number(existing.amount || 0) + Number(movement.amount || 0),\n        principalDelta: Number(existing.principalDelta || 0) + Number(movement.principalDelta || 0),\n        interestDelta: Number(existing.interestDelta || 0) + Number(movement.interestDelta || 0),\n        lateFeeDelta: Number(existing.lateFeeDelta || 0) + Number(movement.lateFeeDelta || 0),\n        operatorId: existing.operatorId || movement.operatorId,\n        sourceName: Array.from(sources).join(' + '),\n      });\n    });\n\n    return [...groupedByPayment.values(), ...standalone]\n      .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());\n  }, [filteredMovements]);\n\n${anchor}`;
-
-        return source
-          .replace(anchor, grouped)
-          .replace('filteredMovements.length > 0 ? (', 'displayMovements.length > 0 ? (')
-          .replace('filteredMovements.map((movement) => {', 'displayMovements.map((movement) => {')
-          .replace("movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'não registrado'", "movement.operatorId === profileId ? 'VOCÊ' : movement.operatorId ? movement.operatorId.slice(0, 8).toUpperCase() : 'NÃO REGISTRADO'");
-      }
 
       return null;
     },

@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { SystemBackButton } from './ui/SystemBackButton';
-import { isAppleMobile } from '../utils/appleMobile';
+import { Modal } from './ui/Modal';
 import { Loan, Client, CapitalSource, UserProfile } from '../types';
 import { X, Camera, History } from 'lucide-react';
 import { formatBRDate } from '../utils/dateHelpers';
@@ -21,6 +20,7 @@ interface LoanFormProps {
 }
 
 export const LoanForm: React.FC<LoanFormProps> = (props) => {
+  const formId = React.useId();
   const {
     formData, setFormData,
     fixedDuration, setFixedDuration,
@@ -36,27 +36,11 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
   } = useLoanForm(props);
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center z-[2000] p-4 animate-in fade-in duration-300">
-      <div className="bg-slate-900/90 border border-slate-800/50 rounded-lg w-full max-w-5xl p-5 sm:p-10 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 relative flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90dvh] overflow-hidden backdrop-blur-md">
-        <div className="flex justify-between items-center gap-3 mb-8 flex-shrink-0">
-            <SystemBackButton appleOnly local disabled={isSubmitting || isUploading} onClick={() => { if (showCamera.active) stopCamera(); props.onCancel(); }} />
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <div className="w-12 h-12 bg-blue-600/10 rounded-lg flex items-center justify-center text-blue-500 border border-blue-500/20 shrink-0">
-                    <History size={24} />
-                </div>
-                <div className="min-w-0">
-                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase leading-none">
-                      {props.initialData ? 'Ajustar Contrato' : 'Novo Contrato'}
-                    </h2>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Configuração de Empréstimo</p>
-                </div>
-            </div>
-            {!isAppleMobile() && <button onClick={() => { if(showCamera.active) stopCamera(); props.onCancel(); }} className="p-2 sm:p-3 bg-slate-800/50 text-slate-500 hover:text-white rounded-lg transition-all hover:bg-slate-800 border border-slate-800/50 shrink-0">
-              <X size={20}/>
-            </button>}
-        </div>
-
-        <div className="overflow-y-auto custom-scrollbar pr-0 sm:pr-2 flex-1 min-h-0">
+    <>
+      <Modal onClose={() => { if (showCamera.active) stopCamera(); props.onCancel(); }}
+        title={props.initialData ? 'Ajustar Contrato' : 'Novo Contrato'} subtitle="Configuração de Empréstimo"
+        icon={<History size={22} />} size="xl" busy={isSubmitting || isUploading}
+        footer={<LoanFormActions formId={formId} isSubmitting={isSubmitting || isUploading} isEditing={!!props.initialData} />}>
             {props.initialData && (
                 <div className="mb-8 bg-blue-600/5 p-4 rounded-lg border border-blue-500/10 flex items-center gap-4">
                     <div className="p-2.5 bg-blue-600/10 rounded-lg text-blue-400"><History size={18}/></div>
@@ -68,7 +52,7 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-10">
+            <form id={formId} onSubmit={handleSubmit} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <div className="space-y-6">
                     <LoanFormClientSection
@@ -112,22 +96,18 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-800/50">
-                  <LoanFormActions isSubmitting={isSubmitting} isEditing={!!props.initialData} />
-              </div>
             </form>
-        </div>
-      </div>
+      </Modal>
       {showCamera.active && (
-        <div className="fixed inset-0 z-[110] bg-slate-950 flex flex-col items-center justify-center p-6">
+        <Modal onClose={stopCamera} title="Modo captura" icon={<Camera size={22} />} size="lg">
           <div className="mb-6 text-white text-[10px] font-black uppercase tracking-[0.3em] bg-blue-600 px-6 py-2 rounded-lg">MODO CAPTURA</div>
           <video ref={videoRef} autoPlay playsInline className="w-full max-w-2xl h-auto border-4 border-slate-900 rounded-lg shadow-2xl shadow-blue-900/20" />
           <div className="mt-8 sm:mt-12 flex gap-10">
             <button onClick={stopCamera} className="p-6 bg-slate-800 rounded-lg text-slate-400 hover:text-white hover:bg-rose-600 transition-all shadow-xl"><X size={28}/></button>
             <button onClick={takePhoto} className="p-10 bg-white rounded-lg text-black shadow-2xl shadow-white/10 active:scale-90 transition-transform"><Camera size={36}/></button>
           </div>
-        </div>
+        </Modal>
       )}
-    </div>
+    </>
   );
 };

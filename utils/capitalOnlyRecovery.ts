@@ -3,6 +3,8 @@ import { Loan } from '../types';
 export const CAPITAL_ONLY_RECOVERY_MARKER = '[CAPITAL_ONLY_RECOVERY]';
 
 export function isCapitalOnlyRecoveryLoan(loan: Partial<Loan> | null | undefined): boolean {
+  const explicitState = (loan as any)?.capitalOnlyRecovery ?? (loan as any)?.capital_only_recovery;
+  if (typeof explicitState === 'boolean') return explicitState;
   return String(loan?.notes || '').includes(CAPITAL_ONLY_RECOVERY_MARKER);
 }
 

@@ -9,6 +9,8 @@ import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 
+type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
+
 type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
 };
@@ -40,6 +42,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [showCustomAmount, setShowCustomAmount] = React.useState(false);
     const [quickMode, setQuickMode] = React.useState<'TOTAL' | 'CUSTOM' | 'CHARGES_ONLY'>('TOTAL');
     const [forgiveLateFee, setForgiveLateFee] = React.useState(false);
+    const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('KEEP_PENDING');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
 
     const {
@@ -96,6 +99,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 setShowCustomAmount(false);
                                 setQuickMode('TOTAL');
                                 setForgiveLateFee(false);
+                                setPartialBalanceAction('KEEP_PENDING');
                             }}
                             onReverseInstallment={onReverseInstallmentPayment}
                             onPaymentOffer={(_targetLoan, targetInst) => setOfferInstallment(targetInst)}
@@ -146,16 +150,65 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
                 const hasActiveOffer = activeOfferAmount > 0.05;
                 const forgivenessMode = forgiveLateFee ? 'FINE_AND_MORA' : 'NONE';
+                const isPartialPayment = !hasActiveOffer
+                    && displayedAmount > 0.05
+                    && displayedAmount < totalAmount - ZERO_BALANCE_THRESHOLD;
+                const canRenewWithPending = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
+                const isOnline = typeof navigator === 'undefined' || navigator.onLine;
+                const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
+
+                const partialChoices: Array<{
+                    value: PartialBalanceAction;
+                    title: string;
+                    detail: string;
+                    activeClass: string;
+                    disabled?: boolean;
+                }> = [
+                    {
+                        value: 'KEEP_PENDING',
+                        title: 'Deixar pendente',
+                        detail: 'Mantém o saldo e o vencimento para quitação depois.',
+                        activeClass: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
+                    },
+                    {
+                        value: 'CAPITALIZE',
+                        title: 'Capitalizar saldo',
+                        detail: 'Juros/encargos restantes viram capital em aberto.',
+                        activeClass: 'bg-violet-600/20 text-violet-300 border-violet-500/50'
+                    },
+                    {
+                        value: 'RENEW_KEEP_PENDING',
+                        title: 'Renovar mesmo parcial',
+                        detail: 'Avança o ciclo e carrega o saldo pendente para o próximo vencimento.',
+                        activeClass: 'bg-amber-600/20 text-amber-300 border-amber-500/50',
+                        disabled: !canRenewWithPending
+                    },
+                    {
+                        value: 'SETTLE',
+                        title: 'Quitar por acordo',
+                        detail: 'Aceita este valor e registra o restante como desconto de quitação.',
+                        activeClass: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/50',
+                        disabled: !isOnline
+                    }
+                ];
+
+                const resetSelection = () => {
+                    setSelectedInst(null);
+                    setSelectedDebt(null);
+                    setQuickMode('TOTAL');
+                    setForgiveLateFee(false);
+                    setPartialBalanceAction('KEEP_PENDING');
+                };
 
                 const modalContent = (
                 <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg w-full max-w-[320px] shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar">
+                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg w-full max-w-[360px] shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar">
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto bg-blue-500/20 text-blue-500">
                             <DollarSign size={22}/>
                         </div>
                         <div className="text-center">
                             <h5 className="text-white font-black uppercase text-xs tracking-tight">Confirmar Recebimento?</h5>
-                            <p className="text-slate-400 text-[10px] mt-1">Informe se recebeu o total da parcela ou outro valor.</p>
+                            <p className="text-slate-400 text-[10px] mt-1">Informe quanto recebeu e defina o destino do saldo restante.</p>
                         </div>
                         <div className="space-y-2">
                             {hasActiveOffer ? (
@@ -169,6 +222,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         setQuickMode('TOTAL');
                                         setShowCustomAmount(false);
                                         setReceiptAmount(String(totalAmount.toFixed(2)));
+                                        setPartialBalanceAction('KEEP_PENDING');
                                     }}
                                     className={`py-2 rounded-lg text-[10px] font-black uppercase border flex items-center justify-center gap-1.5 ${quickMode === 'TOTAL' && !showCustomAmount ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
@@ -178,6 +232,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     onClick={() => {
                                         setQuickMode('CUSTOM');
                                         setShowCustomAmount(true);
+                                        setPartialBalanceAction('KEEP_PENDING');
                                     }}
                                     className={`py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CUSTOM' || showCustomAmount ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
@@ -190,6 +245,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         setQuickMode('CHARGES_ONLY');
                                         setShowCustomAmount(false);
                                         setReceiptAmount(String(chargesAmount.toFixed(2)));
+                                        setPartialBalanceAction('KEEP_PENDING');
                                     }}
                                     className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CHARGES_ONLY' ? 'bg-orange-600/20 text-orange-400 border-orange-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
@@ -209,9 +265,10 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <input
                                     type="number"
                                     step="0.01"
+                                    min="0.01"
                                     value={receiptAmount}
                                     onChange={e => setReceiptAmount(e.target.value)}
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white font-bold outline-none"
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white font-bold outline-none focus:border-blue-500"
                                     autoFocus
                                 />
                             )}
@@ -226,30 +283,68 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 </p>
                                 <p className="text-base font-black text-emerald-400">{formatMoney(displayedAmount, isStealthMode)}</p>
                             </div>
+
+                            {isPartialPayment && (
+                                <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.05] p-3 space-y-2">
+                                    <div>
+                                        <p className="text-[9px] font-black uppercase tracking-wide text-amber-300">Recebimento parcial</p>
+                                        <p className="mt-0.5 text-[9px] leading-4 text-slate-400">
+                                            Restam {formatMoney(remainingAfterInput, isStealthMode)}. Escolha exatamente o que o sistema deve fazer com esse saldo.
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-1.5">
+                                        {partialChoices.map((choice) => (
+                                            <button
+                                                key={choice.value}
+                                                type="button"
+                                                disabled={choice.disabled}
+                                                onClick={() => setPartialBalanceAction(choice.value)}
+                                                className={`rounded-lg border p-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-35 ${partialBalanceAction === choice.value ? choice.activeClass : 'border-slate-700 bg-slate-950 text-slate-300'}`}
+                                            >
+                                                <span className="block text-[9px] font-black uppercase">{choice.title}</span>
+                                                <span className="mt-0.5 block text-[8px] leading-3.5 opacity-75">{choice.detail}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {partialBalanceAction === 'SETTLE' && (
+                                        <p className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2 text-[8px] font-bold leading-3.5 text-emerald-200">
+                                            Quitação por acordo exige internet e registra o saldo dispensado como desconto auditável. Se houver outras parcelas abertas, elas não serão apagadas automaticamente.
+                                        </p>
+                                    )}
+                                    {partialBalanceAction === 'RENEW_KEEP_PENDING' && !canRenewWithPending && (
+                                        <p className="text-[8px] font-bold text-amber-300">Renovação parcial está disponível apenas para contratos mensais ou de giro.</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div className="flex flex-col gap-2">
                             <button
+                                disabled={displayedAmount <= 0.05}
                                 onClick={() => {
                                     const amount = quickMode === 'CUSTOM'
                                         ? (Number(receiptAmount) || displayedAmount)
                                         : displayedAmount;
-                                    onInstallmentPayment?.(loan, selectedInst, selectedDebt, amount, { forgivenessMode });
-                                    setSelectedInst(null);
-                                    setSelectedDebt(null);
-                                    setQuickMode('TOTAL');
-                                    setForgiveLateFee(false);
+                                    if (amount <= 0.05) return;
+                                    const effectivePartialAction = isPartialPayment ? partialBalanceAction : undefined;
+                                    if (effectivePartialAction === 'SETTLE') {
+                                        const confirmed = window.confirm(
+                                            `Quitar por acordo com ${formatMoney(amount, isStealthMode)}?\n\nO saldo restante desta obrigação será registrado como desconto de quitação.`
+                                        );
+                                        if (!confirmed) return;
+                                    }
+                                    const paymentOptions = {
+                                        forgivenessMode,
+                                        partialBalanceAction: effectivePartialAction
+                                    } as QuickPaymentOptions & { partialBalanceAction?: PartialBalanceAction };
+                                    onInstallmentPayment?.(loan, selectedInst, selectedDebt, amount, paymentOptions);
+                                    resetSelection();
                                 }}
-                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase bg-blue-600 hover:bg-blue-500 text-white transition-all"
+                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
                             >
                                 Confirmar
                             </button>
                             <button
-                                onClick={() => {
-                                    setSelectedInst(null);
-                                    setSelectedDebt(null);
-                                    setQuickMode('TOTAL');
-                                    setForgiveLateFee(false);
-                                }}
+                                onClick={resetSelection}
                                 className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all flex items-center justify-center gap-1"
                             >
                                 <XCircle size={12}/> Cancelar

@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { DashboardPage } from '../pages/DashboardPage';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, Installment } from '../types';
@@ -7,6 +6,7 @@ import { buildDashboardStats } from '../domain/dashboard/stats';
 import { agreementService } from '../features/agreements/services/agreementService';
 import { contractsService } from '../services/contracts.service';
 import { paymentsService } from '../services/payments.service';
+import { paymentOffersService } from '../services/paymentOffers.service';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
 import { calculateTotalDue } from '../domain/finance/calculations';
 import { manualCollectionService } from '../services/manualCollection.service';
@@ -33,6 +33,13 @@ interface DashboardContainerProps {
   onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;
   isLoadingData?: boolean;
 }
+
+type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
+
+type InstallmentPaymentOptions = {
+  forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
+  partialBalanceAction?: PartialBalanceAction;
+};
 
 export const DashboardContainer: React.FC<DashboardContainerProps> = ({
   loans, sources, activeUser, staffMembers, mobileDashboardTab, setMobileDashboardTab,
@@ -81,13 +88,92 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
       }
   };
 
+  const createInstantSettlementOffer = async (
+    loan: Loan,
+    inst: Installment,
+    calculations: any,
+    acceptedAmount: number
+  ) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Quitação por acordo exige internet para registrar o desconto com segurança.');
+    }
+
+    const principal = Math.max(0, Number(calculations?.principal ?? inst.principalRemaining ?? 0) || 0);
+    const interest = Math.max(0, Number(calculations?.interest ?? inst.interestRemaining ?? 0) || 0);
+    const base = principal + interest;
+    const gross = Math.max(base, Number(calculations?.total ?? inst.amount ?? 0) || 0);
+    const amount = Number(acceptedAmount || 0);
+
+    if (!Number.isFinite(amount) || amount <= 0.05) {
+      throw new Error('Informe um valor válido para a quitação por acordo.');
+    }
+    if (amount >= gross - 0.05) return false;
+
+    // A condição especial já sabe registrar desconto de principal/juros e perdão
+    // de multa/mora. Escolhemos a combinação que chega ao valor aceito sem inventar
+    // baixa financeira fora das RPCs auditadas.
+    const lateFee = Math.max(0, Number(calculations?.lateFee ?? inst.lateFeeAccrued ?? gross - base) || 0);
+    const fine = Math.max(0, Number(calculations?.finePart ?? 0) || 0);
+    const dailyMora = Math.max(0, Number(calculations?.moraPart ?? Math.max(0, lateFee - fine)) || 0);
+    const candidates = [
+      { waiveFine: false, waiveDailyInterest: false, waived: 0 },
+      { waiveFine: true, waiveDailyInterest: false, waived: fine },
+      { waiveFine: false, waiveDailyInterest: true, waived: dailyMora },
+      { waiveFine: true, waiveDailyInterest: true, waived: Math.max(lateFee, fine + dailyMora) },
+    ]
+      .map((candidate) => ({
+        ...candidate,
+        discount: gross - candidate.waived - amount,
+      }))
+      .filter((candidate) => candidate.discount >= -0.05 && candidate.discount <= base + 0.05)
+      .sort((a, b) => a.waived - b.waived);
+
+    const settlement = candidates[0] || {
+      waiveFine: true,
+      waiveDailyInterest: true,
+      waived: lateFee,
+      discount: base - amount,
+    };
+    const discount = Math.max(0, Math.min(base, settlement.discount));
+    const today = new Date().toISOString().slice(0, 10);
+
+    const offerResult = await paymentOffersService.save(loan, inst, {
+      offerType: 'SETTLEMENT',
+      agreedDate: today,
+      validUntil: today,
+      discountMode: discount > 0.005 ? 'VALUE' : 'NONE',
+      discount,
+      waiveFine: settlement.waiveFine,
+      waiveDailyInterest: settlement.waiveDailyInterest,
+      note: `Quitação imediata por valor aceito no recebimento: R$ ${amount.toFixed(2)}`,
+    });
+
+    const offeredAmount = Number(
+      (offerResult as any)?.offered_amount
+      ?? (offerResult as any)?.offeredAmount
+      ?? 0
+    );
+
+    if (!Number.isFinite(offeredAmount) || Math.abs(offeredAmount - amount) > 0.05) {
+      try {
+        await paymentOffersService.cancel(loan, inst, 'Condição automática cancelada: valor final divergente do valor aceito.');
+      } catch (cancelError) {
+        console.error('[Payment] Falha ao cancelar condição automática divergente:', cancelError);
+      }
+      throw new Error(
+        `O saldo foi atualizado e a quitação resultaria em R$ ${offeredAmount.toFixed(2).replace('.', ',')}. Atualize a tela e confirme novamente.`
+      );
+    }
+
+    return true;
+  };
 
   const handleInstallmentPayment = async (
       loan: Loan,
       inst: Installment,
       debt?: any,
       amount?: number,
-      options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }
+      options?: InstallmentPaymentOptions
   ) => {
       if (!activeUser) return;
       const calculations = debt || calculateTotalDue(loan, inst);
@@ -100,7 +186,14 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           return;
       }
 
+      const partialAction = options?.partialBalanceAction || 'KEEP_PENDING';
+      let instantSettlementCreated = false;
+
       try {
+          if (partialAction === 'SETTLE') {
+              instantSettlementCreated = await createInstantSettlementOffer(loan, inst, calculations, amountToReceive);
+          }
+
           const result = await paymentsService.processPayment({
               loan,
               inst,
@@ -110,6 +203,8 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               sources,
               forgivenessMode: options?.forgivenessMode || 'NONE',
               realDate: new Date(),
+              capitalizeRemaining: partialAction === 'CAPITALIZE',
+              renewWithPending: partialAction === 'RENEW_KEEP_PENDING',
               paymentType: 'FULL'
           });
 
@@ -119,7 +214,11 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               return;
           }
 
-          showToast('Recebimento registrado com sucesso!', 'success');
+          if (partialAction === 'SETTLE') showToast('Quitação por acordo registrada com sucesso!', 'success');
+          else if (partialAction === 'CAPITALIZE') showToast('Recebimento registrado e saldo restante capitalizado!', 'success');
+          else if (partialAction === 'RENEW_KEEP_PENDING') showToast('Recebimento registrado e ciclo renovado com saldo pendente!', 'success');
+          else showToast('Recebimento registrado com sucesso!', 'success');
+
           ui.setShowReceipt({
               loan,
               inst,
@@ -129,6 +228,13 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           ui.openModal('RECEIPT');
           onRefresh();
       } catch (e: any) {
+          if (instantSettlementCreated) {
+              try {
+                  await paymentOffersService.cancel(loan, inst, 'Condição automática cancelada após falha no recebimento.');
+              } catch (cancelError) {
+                  console.error('[Payment] Falha ao cancelar condição automática após erro:', cancelError);
+              }
+          }
           showToast('Erro ao registrar recebimento: ' + (e?.message || 'desconhecido'), 'error');
       }
   };

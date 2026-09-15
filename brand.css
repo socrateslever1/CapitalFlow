@@ -51,9 +51,205 @@
   background: url('/brand/capitalflow-mark-dark.svg') center / contain no-repeat;
 }
 
+/*
+ * Launch signature: CapitalFlow starts as the full wordmark, contracts to CF,
+ * then hands off to the same animated CF mark already used by the application.
+ * The final state remains visible for loading screens that last longer than the intro.
+ */
+.cf-launch-sequence {
+  position: relative;
+  display: grid;
+  width: min(92vw, 380px);
+  height: 158px;
+  place-items: center;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.cf-launch-word {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: clamp(2.6rem, 12vw, 4rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.065em;
+  color: #f8fafc;
+  text-rendering: geometricPrecision;
+  filter: drop-shadow(0 12px 26px rgba(2, 6, 23, 0.36));
+}
+
+.cf-launch-word > span {
+  display: inline-block;
+}
+
+.cf-launch-f,
+.cf-launch-low {
+  color: var(--cf-flow);
+}
+
+.cf-launch-collapse {
+  overflow: hidden;
+  opacity: 1;
+  filter: blur(0);
+  will-change: max-width, opacity, filter, transform;
+  animation: cf-launch-collapse 780ms 420ms cubic-bezier(.2, .76, .18, 1) forwards;
+}
+
+.cf-launch-apital {
+  max-width: 5em;
+  transform-origin: left center;
+}
+
+.cf-launch-low {
+  max-width: 2.8em;
+  transform-origin: right center;
+}
+
+.cf-launch-anchor {
+  will-change: opacity, transform, filter;
+  animation: cf-launch-text-to-mark 520ms 1160ms cubic-bezier(.2, .76, .18, 1) forwards;
+}
+
+.cf-launch-mark {
+  position: absolute;
+  z-index: 3;
+  width: 136px;
+  height: 136px;
+  opacity: 0;
+  transform: scale(.58);
+  filter: drop-shadow(0 18px 34px rgba(11, 59, 111, 0.32));
+  will-change: opacity, transform;
+  animation: cf-launch-mark-arrive 580ms 1190ms cubic-bezier(.18, .86, .24, 1) forwards;
+}
+
+.cf-launch-mark-c {
+  fill: none;
+  stroke: #f8fafc;
+  stroke-width: 66;
+  stroke-linecap: round;
+  stroke-dasharray: 760;
+  stroke-dashoffset: 760;
+  animation: cf-launch-mark-draw 720ms 1260ms cubic-bezier(.2, .75, .2, 1) forwards;
+}
+
+.cf-launch-mark-f {
+  fill: var(--cf-flow);
+  opacity: 0;
+  transform: translateX(-18px);
+  transform-origin: center;
+  animation: cf-launch-mark-enter 380ms 1450ms ease-out forwards;
+}
+
+.cf-launch-note {
+  opacity: 0;
+  transform: translateX(-42px);
+  transform-origin: center;
+  animation: cf-launch-note-enter 420ms ease-out forwards;
+}
+
+.cf-launch-note-1 {
+  fill: var(--cf-flow);
+  animation-delay: 1540ms;
+}
+
+.cf-launch-note-2 {
+  fill: var(--cf-flow-soft);
+  animation-delay: 1640ms;
+}
+
+@keyframes cf-launch-collapse {
+  to {
+    max-width: 0;
+    opacity: 0;
+    transform: scaleX(.18);
+    filter: blur(7px);
+  }
+}
+
+@keyframes cf-launch-text-to-mark {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(.62);
+    filter: blur(5px);
+  }
+}
+
+@keyframes cf-launch-mark-arrive {
+  from {
+    opacity: 0;
+    transform: scale(.58);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes cf-launch-mark-draw {
+  to {
+    stroke-dashoffset: 120;
+  }
+}
+
+@keyframes cf-launch-mark-enter {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes cf-launch-note-enter {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #logo-wrapper,
   #logo-wrapper * {
     transition: none !important;
+  }
+
+  .cf-launch-word {
+    opacity: 0;
+  }
+
+  .cf-launch-collapse,
+  .cf-launch-anchor,
+  .cf-launch-mark,
+  .cf-launch-mark-c,
+  .cf-launch-mark-f,
+  .cf-launch-note {
+    animation: none !important;
+  }
+
+  .cf-launch-mark {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .cf-launch-mark-c {
+    stroke-dashoffset: 120;
+  }
+
+  .cf-launch-mark-f,
+  .cf-launch-note {
+    opacity: 1;
+    transform: none;
   }
 }

@@ -44,23 +44,17 @@ export const LoadingScreen: React.FC = () => {
           <span className="sr-only">CapitalFlow</span>
 
           <div className="cf-launch-word" aria-hidden="true">
-            <span className="cf-launch-anchor cf-launch-c">C</span>
-            <span className="cf-launch-collapse cf-launch-apital">apital</span>
-            <span className="cf-launch-anchor cf-launch-f">F</span>
-            <span className="cf-launch-collapse cf-launch-low">low</span>
+            <span>Capital</span>
+            <span className="cf-launch-word-flow">Flow</span>
           </div>
 
-          <svg
-            className="cf-launch-mark"
-            viewBox="0 0 512 512"
+          <img
+            src="/brand/capitalflow-mark-dark.svg"
+            alt=""
             aria-hidden="true"
-            focusable="false"
-          >
-            <path className="cf-launch-mark-c" d="M337 121A171 171 0 1 0 319 396" />
-            <path className="cf-launch-mark-f" d="M250 191h176l-43 55H316v49h84l-40 52h-44v95h-66V191Z" />
-            <path className="cf-launch-note cf-launch-note-1" d="M150 281c36-19 72-26 108-17v42c-36-8-72-2-108 19v-44Z" />
-            <path className="cf-launch-note cf-launch-note-2" d="M137 322c39-21 78-28 117-18v42c-39-9-78-1-117 21v-45Z" />
-          </svg>
+            className="cf-launch-mark"
+            draggable={false}
+          />
         </div>
 
         <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">

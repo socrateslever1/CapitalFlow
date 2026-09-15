@@ -43,18 +43,26 @@ export const LoadingScreen: React.FC = () => {
         <div className="cf-launch-sequence" role="img" aria-label="CapitalFlow">
           <span className="sr-only">CapitalFlow</span>
 
-          <div className="cf-launch-word" aria-hidden="true">
-            <span>Capital</span>
-            <span className="cf-launch-word-flow">Flow</span>
-          </div>
+          <div className="cf-launch-stage" aria-hidden="true">
+            <div className="cf-launch-ambient" />
 
-          <img
-            src="/brand/capitalflow-mark-dark.svg"
-            alt=""
-            aria-hidden="true"
-            className="cf-launch-mark"
-            draggable={false}
-          />
+            <div className="cf-launch-wordmark">
+              <span>Capital</span><span className="cf-launch-word-flow">Flow</span>
+            </div>
+
+            <div className="cf-launch-flow-line" />
+
+            <div className="cf-launch-logo-shell">
+              <span className="cf-launch-logo-halo" />
+              <img
+                src="/brand/capitalflow-mark-dark.svg"
+                alt=""
+                className="cf-launch-logo"
+                draggable={false}
+              />
+              <span className="cf-launch-logo-shine" />
+            </div>
+          </div>
         </div>
 
         <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">

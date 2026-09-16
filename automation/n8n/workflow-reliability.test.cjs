@@ -48,19 +48,23 @@ test("custom collection messages bypass AI and remove the internal marker", () =
   assert.equal(workflow.connections["Prepare Custom Message"].main[0][0].node, "Guard Financial Facts");
 });
 
-test("operator routing uses the phone resolved from the current WhatsApp item", () => {
-  const workflow = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "capitalflow-whatsapp.json"), "utf8"),
-  )[0];
-  const adminCommand = workflow.nodes.find((node) => node.name === "Admin Command");
+test("operator module is isolated, protected and fail-closed", () => {
+  const workflow = readWorkflow("capitalflow-operator-system.json");
+  const trigger = workflow.nodes.find((node) => node.name === "Operator Workflow Input");
+  const secureCommand = workflow.nodes.find((node) => node.name === "Secure Operator Command");
+  const routeGuard = workflow.nodes.find((node) => node.name === "Operator Route Guard");
 
-  assert.ok(adminCommand);
-  assert.equal(adminCommand.type, "n8n-nodes-base.executeWorkflow");
-  assert.equal(adminCommand.parameters.workflowId, "capitalflowOperatorSystem");
-  assert.equal(adminCommand.parameters.options.waitForSubWorkflow, true);
-  assert.equal(workflow.nodes.some((node) => node.name === "Admin Conversation"), false);
-  assert.equal(workflow.nodes.some((node) => node.name === "Admin Conversation Guard"), false);
-  assert.equal(workflow.connections["Admin Gate"].main[0][0].node, "Admin Reply");
+  assert.match(workflow.name, /Operador/);
+  assert.equal(workflow.active, false);
+  assert.equal(trigger.type, "n8n-nodes-base.executeWorkflowTrigger");
+  assert.equal(secureCommand.type, "n8n-nodes-base.httpRequest");
+  assert.match(secureCommand.parameters.url, /capitalflow-admin-whatsapp/);
+  assert.match(JSON.stringify(secureCommand.parameters.headerParameters), /CAPITALFLOW_N8N_SECRET/);
+  assert.match(secureCommand.parameters.body, /JSON\.stringify\(\$json\.body \|\| \$json\)/);
+  assert.match(routeGuard.parameters.jsCode, /result\.admin === true && result\.handled === true/);
+  assert.match(routeGuard.parameters.jsCode, /result\.audience === 'public'/);
+  assert.match(routeGuard.parameters.jsCode, /routing_error: true/);
+  assert.match(routeGuard.parameters.jsCode, /Nenhuma ação foi executada/);
 });
 
 test("operator identity accepts legitimate Brazilian WhatsApp phone variants", () => {
@@ -86,25 +90,17 @@ test("administrative WhatsApp accepts a bare CPF as a client lookup", () => {
   assert.match(source, /openClientOperationalPanel\(adminDb, profileId, admin, found\.client, "status"\)/);
 });
 
-test("operator traffic is isolated in a dedicated workflow before client handling", () => {
-  const operatorWorkflow = readWorkflow("capitalflow-operator-system.json");
-  const attendanceWorkflow = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "capitalflow-whatsapp.json"), "utf8"),
-  )[0];
-  const router = attendanceWorkflow.nodes.find((node) => node.name === "Admin Command");
-  const secureCommand = operatorWorkflow.nodes.find((node) => node.name === "Secure Operator Command");
-  const routeGuard = operatorWorkflow.nodes.find((node) => node.name === "Operator Route Guard");
-  const trigger = operatorWorkflow.nodes.find((node) => node.name === "Operator Workflow Input");
+test("operator subworkflow cannot fall through silently into public handling", () => {
+  const workflow = readWorkflow("capitalflow-operator-system.json");
+  const routeGuard = workflow.nodes.find((node) => node.name === "Operator Route Guard");
+  const js = routeGuard.parameters.jsCode;
 
-  assert.match(operatorWorkflow.name, /Operador/);
-  assert.equal(operatorWorkflow.active, false);
-  assert.equal(router.type, "n8n-nodes-base.executeWorkflow");
-  assert.equal(router.parameters.workflowId, operatorWorkflow.id);
-  assert.equal(trigger.type, "n8n-nodes-base.executeWorkflowTrigger");
-  assert.doesNotMatch(JSON.stringify(router.parameters), /CAPITALFLOW_N8N_SECRET/);
-  assert.match(secureCommand.parameters.url, /capitalflow-admin-whatsapp/);
-  assert.match(routeGuard.parameters.jsCode, /result\.admin === true && result\.handled === true/);
-  assert.match(routeGuard.parameters.jsCode, /result\.audience === 'public'/);
+  assert.match(js, /isOperator/);
+  assert.match(js, /isPublic/);
+  assert.match(js, /handled: true, admin: true, routing_error: true/);
+  assert.doesNotThrow(() => new Function(js));
+  assert.equal(workflow.connections["Operator Workflow Input"].main[0][0].node, "Secure Operator Command");
+  assert.equal(workflow.connections["Secure Operator Command"].main[0][0].node, "Operator Route Guard");
 });
 
 test("administrative contract labels are rendered in Portuguese", () => {
@@ -202,23 +198,28 @@ test("InfinitePay queues one receipt for the client and one payment alert for th
   assert.equal(workflow.connections["Is Custom Message"].main[0][0].node, "Prepare Custom Message");
 });
 
-test("customer support uses interactive menus and link buttons with text fallback", () => {
+test("customer support sends only backend-authored financial text after identification", () => {
   const workflow = readWorkflow("capitalflow-whatsapp.json");
-  const prepare = workflow.nodes.find((node) => node.name === "Prepare WhatsApp Message");
-  const sender = workflow.nodes.find((node) => node.name === "Send WhatsApp Reply");
-  const fallback = workflow.nodes.find((node) => node.name === "Fallback WhatsApp Text");
+  const context = workflow.nodes.find((node) => node.name === "Consultar Cliente CapitalFlow");
+  const identified = workflow.nodes.find((node) => node.name === "Cliente identificado?");
+  const prepare = workflow.nodes.find((node) => node.name === "Preparar Menu Financeiro");
+  const sender = workflow.nodes.find((node) => node.name === "Enviar Menu pelo WAHA");
+  const menuText = prepare.parameters.assignments.assignments.find((item) => item.name === "menu_texto");
 
-  assert.ok(prepare);
-  assert.match(prepare.parameters.jsCode, /api\/sendList/);
-  assert.match(prepare.parameters.jsCode, /api\/sendButtons/);
-  assert.match(prepare.parameters.jsCode, /consultar_divida/);
-  assert.match(prepare.parameters.jsCode, /solicitar_emprestimo/);
-  assert.match(prepare.parameters.jsCode, /falar_atendente/);
-  assert.match(prepare.parameters.jsCode, /Falar com operador/);
-  assert.match(prepare.parameters.jsCode, /Abrir portal/);
-  assert.equal(sender.parameters.url, "={{ $json.endpoint }}");
-  assert.equal(sender.onError, "continueErrorOutput");
-  assert.equal(fallback.parameters.url, "http://waha:3000/api/sendText");
-  assert.equal(workflow.connections["Output Guard"].main[0][0].node, "Prepare WhatsApp Message");
-  assert.equal(workflow.connections["Send WhatsApp Reply"].main[1][0].node, "Fallback WhatsApp Text");
+  assert.ok(context);
+  assert.match(context.parameters.url, /capitalflow-n8n-tools/);
+  assert.match(context.parameters.body, /action/);
+  assert.match(context.parameters.body, /context/);
+  assert.equal(identified.type, "n8n-nodes-base.if");
+  assert.equal(workflow.connections["Consultar Cliente CapitalFlow"].main[0][0].node, "Cliente identificado?");
+  assert.equal(workflow.connections["Cliente identificado?"].main[1].length, 0);
+  assert.equal(menuText.value, "={{ $json.reply }}");
+  assert.equal(sender.parameters.url, "http://waha:3000/api/sendText");
+  assert.match(sender.parameters.body, /\$json\.menu_texto/);
+});
+
+test("canonical and compatibility WhatsApp workflow exports stay byte-identical", () => {
+  const canonical = fs.readFileSync(path.join(workflowsDir, "capitalflow-whatsapp.json"), "utf8");
+  const compatibility = fs.readFileSync(path.join(__dirname, "capitalflow-whatsapp.json"), "utf8");
+  assert.equal(compatibility, canonical);
 });

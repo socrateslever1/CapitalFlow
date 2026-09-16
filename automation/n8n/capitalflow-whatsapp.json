@@ -88,25 +88,10 @@
       {
         "parameters": {
           "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
+            "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
             "conditions": [
-              {
-                "id": "cond-saida-c-us",
-                "leftValue": "={{ $json.destinatario }}",
-                "rightValue": "@c.us",
-                "operator": { "type": "string", "operation": "endsWith" }
-              },
-              {
-                "id": "cond-saida-lid",
-                "leftValue": "={{ $json.destinatario }}",
-                "rightValue": "@lid",
-                "operator": { "type": "string", "operation": "endsWith" }
-              }
+              { "id": "cond-saida-c-us", "leftValue": "={{ $json.destinatario }}", "rightValue": "@c.us", "operator": { "type": "string", "operation": "endsWith" } },
+              { "id": "cond-saida-lid", "leftValue": "={{ $json.destinatario }}", "rightValue": "@lid", "operator": { "type": "string", "operation": "endsWith" } }
             ],
             "combinator": "or"
           },
@@ -122,13 +107,11 @@
         "parameters": {
           "mode": "manual",
           "duplicateItem": false,
-          "assignments": {
-            "assignments": [
-              { "id": "human-to-01", "name": "destinatario", "value": "={{ $json.destinatario }}", "type": "string" },
-              { "id": "human-msg-02", "name": "mensagem", "value": "={{ $json.mensagem }}", "type": "string" },
-              { "id": "human-org-03", "name": "organization_id", "value": "={{ $env.CAPITALFLOW_PROFILE_ID }}", "type": "string" }
-            ]
-          },
+          "assignments": { "assignments": [
+            { "id": "human-to-01", "name": "destinatario", "value": "={{ $json.destinatario }}", "type": "string" },
+            { "id": "human-msg-02", "name": "mensagem", "value": "={{ $json.mensagem }}", "type": "string" },
+            { "id": "human-org-03", "name": "organization_id", "value": "={{ $env.CAPITALFLOW_PROFILE_ID }}", "type": "string" }
+          ] },
           "options": { "includeOtherFields": false }
         },
         "id": "preparar-resposta-humana-node",
@@ -356,10 +339,7 @@
         "name": "Remetente é LID?",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
-        "position": [
-          1250,
-          300
-        ]
+        "position": [1250, 300]
       },
       {
         "parameters": {
@@ -379,10 +359,7 @@
         "name": "Resolver LID no WAHA",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
-        "position": [
-          1400,
-          200
-        ]
+        "position": [1400, 200]
       },
       {
         "parameters": {
@@ -430,10 +407,7 @@
         "name": "Aplicar Telefone Resolvido",
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
-        "position": [
-          1550,
-          200
-        ]
+        "position": [1550, 200]
       },
       {
         "parameters": {

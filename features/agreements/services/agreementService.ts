@@ -56,19 +56,17 @@ function clearStoredRequestKey(storageKey: string | null) {
   }
 }
 
-function isMissingRpc(error: any, functionName: string): boolean {
-  const code = String(error?.code || "").toUpperCase();
-  const message = String(error?.message || error?.details || "").toLowerCase();
-  return code === "PGRST202"
-    || (message.includes("could not find") && message.includes(functionName.toLowerCase()))
-    || (message.includes("schema cache") && message.includes(functionName.toLowerCase()));
+function rpcErrorMessage(operation: string, error: any): string {
+  const code = String(error?.code || "").trim();
+  const detail = String(error?.message || error?.details || "erro desconhecido").trim();
+  return `${operation} bloqueada pelo backend financeiro${code ? ` (${code})` : ""}: ${detail}`;
 }
 
 async function processPaymentAtomic(
   agreement: any,
   installment: any,
   amount: number,
-  sourceId: string,
+  _sourceId: string,
   activeUser: any,
   forgiveLateFee = false,
 ): Promise<void> {
@@ -99,22 +97,9 @@ async function processPaymentAtomic(
     });
 
     if (error) {
-      // Backward-compatible deployment window: the frontend can be deployed before
-      // the database migration without interrupting collections. Once the RPC is
-      // present, every payment uses the atomic path below and this branch disappears.
-      if (isMissingRpc(error, "process_agreement_payment_atomic")) {
-        await legacyAgreementService.processPayment(
-          agreement,
-          installment,
-          paymentAmount,
-          sourceId,
-          activeUser,
-          forgiveLateFee,
-        );
-        clearStoredRequestKey(storageKey);
-        return;
-      }
-      throw new Error(`Falha ao processar pagamento do acordo: ${error.message}`);
+      // Fail closed: never fall back to the legacy multi-step mutation path.
+      // Keep the request key in sessionStorage so a retry remains idempotent.
+      throw new Error(rpcErrorMessage("Pagamento de acordo", error));
     }
 
     clearStoredRequestKey(storageKey);
@@ -148,10 +133,7 @@ async function reversePaymentAtomic(
   });
 
   if (error) {
-    if (isMissingRpc(error, "reverse_agreement_payment_atomic")) {
-      return legacyAgreementService.reversePayment(agreement, installment, activeUser, reason);
-    }
-    throw new Error(`Falha ao estornar pagamento do acordo: ${error.message}`);
+    throw new Error(rpcErrorMessage("Estorno de acordo", error));
   }
 }
 
@@ -164,20 +146,16 @@ async function breakAgreementAtomic(agreementIdValue: string): Promise<void> {
   });
 
   if (error) {
-    if (isMissingRpc(error, "break_agreement_atomic")) {
-      return legacyAgreementService.breakAgreement(agreementId);
-    }
-    throw new Error(`Falha ao quebrar acordo: ${error.message}`);
+    throw new Error(rpcErrorMessage("Quebra de acordo", error));
   }
 }
 
 /**
  * Public agreement service.
  *
- * The legacy implementation remains available for all non-payment operations while
- * payment, reversal and agreement-break operations are routed through transactional
- * database RPCs. Keeping the old module separate lets us deploy the hardening in one
- * atomic Git tree change without duplicating the large agreement implementation.
+ * The legacy module remains only for non-payment agreement operations. All financial
+ * mutations fail closed through transactional database RPCs; there is no client-side
+ * fallback capable of partially mutating installments, balances or the ledger.
  */
 export const agreementService = {
   ...legacyAgreementService,

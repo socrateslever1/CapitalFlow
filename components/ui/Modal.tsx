@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PanelsTopLeft, XCircle } from 'lucide-react';
+import { XCircle } from 'lucide-react';
 import { SystemBackButton } from './SystemBackButton';
 import { registerDialogBack } from '../../utils/dialogNavigation';
 
@@ -93,7 +93,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
         <header className="flex shrink-0 flex-col items-start gap-3 px-5 pt-5 pb-3">
           <SystemBackButton appleOnly local onClick={back} disabled={busy} />
           <div className="w-full space-y-3 text-center">
-            <div className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-blue-500/20 text-blue-500" aria-hidden="true">{icon || <PanelsTopLeft size={22} />}</div>
+            {icon && <div className="mx-auto grid h-10 w-10 place-items-center rounded-lg bg-blue-500/20 text-blue-500" aria-hidden="true">{icon}</div>}
             <div>
               <h2 ref={titleRef} id={titleId} tabIndex={-1} className="break-words text-xs font-black uppercase tracking-tight text-white outline-none">{title}</h2>
               {subtitle && <p className="mt-1 text-[10px] text-slate-400">{subtitle}</p>}

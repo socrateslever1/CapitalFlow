@@ -201,11 +201,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 };
 
                 const modalContent = (
-                <div className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={(e) => e.stopPropagation()}>
-                    <div className="bg-slate-900 border border-slate-800 p-5 rounded-lg w-full max-w-[360px] shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto bg-blue-500/20 text-blue-500">
-                            <DollarSign size={22}/>
-                        </div>
+                <div className="fixed inset-0 z-[2000] flex h-dvh items-start justify-center overflow-y-auto overscroll-contain bg-slate-950/90 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm animate-in fade-in duration-200 [-webkit-overflow-scrolling:touch]" onClick={(e) => e.stopPropagation()}>
+                    <div className="my-auto w-full max-w-[360px] space-y-4 rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-2xl">
                         <div className="text-center">
                             <h5 className="text-white font-black uppercase text-xs tracking-tight">Confirmar Recebimento?</h5>
                             <p className="text-slate-400 text-[10px] mt-1">Informe quanto recebeu e defina o destino do saldo restante.</p>

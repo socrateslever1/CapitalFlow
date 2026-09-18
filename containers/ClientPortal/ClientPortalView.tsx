@@ -73,7 +73,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
   }, [loan]);
 
   const nextInst = installmentsToShow.find((i: any) => !isPortalInstallmentPaid(i));
-  const isInstallmentPlan = loan.billingCycle === 'INSTALLMENT_FIXED';
+  const hasActiveAgreement = Boolean(loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO'));\n  const isInstallmentPlan = loan.billingCycle === 'INSTALLMENT_FIXED' || hasActiveAgreement;
   const openInstallments = useMemo(
     () => installmentsToShow.filter((item: any) => !isPortalInstallmentPaid(item)),
     [installmentsToShow]
@@ -588,7 +588,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
         loan,
         installmentIds,
         amount,
-        mode: loan.billingCycle === 'INSTALLMENT_FIXED' ? 'INSTALLMENT' : 'NORMAL',
+        mode: (loan.billingCycle === 'INSTALLMENT_FIXED' || Boolean(loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO'))) ? 'INSTALLMENT' : 'NORMAL',
       }];
     });
   }, [clientContracts]);

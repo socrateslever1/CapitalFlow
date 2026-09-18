@@ -73,7 +73,8 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
   }, [loan]);
 
   const nextInst = installmentsToShow.find((i: any) => !isPortalInstallmentPaid(i));
-  const hasActiveAgreement = Boolean(loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO'));\n  const isInstallmentPlan = loan.billingCycle === 'INSTALLMENT_FIXED' || hasActiveAgreement;
+  const hasActiveAgreement = Boolean(loan.activeAgreement && (loan.activeAgreement.status === 'ACTIVE' || loan.activeAgreement.status === 'ATIVO'));
+  const isInstallmentPlan = loan.billingCycle === 'INSTALLMENT_FIXED' || hasActiveAgreement;
   const openInstallments = useMemo(
     () => installmentsToShow.filter((item: any) => !isPortalInstallmentPaid(item)),
     [installmentsToShow]

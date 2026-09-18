@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
-import { todayDateOnlyUTC, parseDateOnlyUTC, addMonthsUTC } from '../utils/dateHelpers';
+import { todayDateOnlyUTC, parseDateOnlyUTC, addDaysUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { safeUUID } from '../utils/uuid';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
@@ -227,24 +227,29 @@ export const paymentsService = {
       balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
     }
 
-    const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes((loan as any).billingCycle || '');
+    const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String((loan as any).billingCycle || '').toUpperCase());
     const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
     const nextCycleInterest = roundMoney(Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100));
-    const partialRenewalRequested = !!renewWithPending && isMonthlyOrGiro && hasPrincipalRemaining && remainingInterestAfter(balanceAfterRpc) > ZERO_BALANCE_THRESHOLD;
-    const renewalDate = partialRenewalRequested ? (manualDate || addMonthsUTC(paymentDate, 1)) : (manualDate || (isInterestRenewal ? addMonthsUTC(paymentDate, 1) : null));
+    const chargesStillPending = remainingInterestAfter(balanceAfterRpc) > ZERO_BALANCE_THRESHOLD;
+    const partialRenewalRequested = !!renewWithPending && isMonthlyOrGiro && hasPrincipalRemaining && chargesStillPending;
+    const currentDueDate = parseDateOnlyUTC(instDb?.due_date || instDb?.data_vencimento || inst.dueDate);
+    // Regra MENSAL/GIRO:
+    // - pagamento parcial de juros/encargos: avança 30 dias a partir do vencimento anterior;
+    // - regularização integral de juros + multa/mora: reinicia 30 dias a partir do pagamento;
+    // - nunca soma um novo juro cheio ao saldo parcial já existente.
+    const renewalDate = partialRenewalRequested
+      ? (manualDate || addDaysUTC(currentDueDate, 30))
+      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null));
 
     if (renewalDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
       const nextDueDate = renewalDate.toISOString().split('T')[0];
       const updatePayload: any = { data_vencimento: nextDueDate, due_date: nextDueDate };
-      const currentDueDate = parseDateOnlyUTC(inst.dueDate);
       const diffDays = (renewalDate.getTime() - currentDueDate.getTime()) / (1000 * 3600 * 24);
 
       if (!['CAPITAL_ONLY', 'TOTAL_CHARGES'].includes(effectiveForgivenessMode) && isMonthlyOrGiro && hasPrincipalRemaining && diffDays >= 15) {
         if (partialRenewalRequested) {
-          const pendingOld = roundMoney(Number(balanceAfterRpc.interestRemaining || 0) + Number(balanceAfterRpc.lateFeeRemaining || 0));
-          updatePayload.interest_remaining = roundMoney(pendingOld + nextCycleInterest);
-          updatePayload.scheduled_interest = nextCycleInterest;
-          updatePayload.late_fee_accrued = 0;
+          updatePayload.interest_remaining = roundMoney(Number(balanceAfterRpc.interestRemaining || 0));
+          updatePayload.late_fee_accrued = roundMoney(Number(balanceAfterRpc.lateFeeRemaining || 0));
           updatePayload.status = 'PARTIAL';
           updatePayload.paid_date = null;
         } else if (isInterestRenewal) {

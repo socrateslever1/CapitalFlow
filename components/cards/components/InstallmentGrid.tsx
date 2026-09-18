@@ -156,6 +156,16 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const canRenewWithPending = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
                 const isOnline = typeof navigator === 'undefined' || navigator.onLine;
                 const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
+                const cycle = String(loan.billingCycle || '').toUpperCase();
+                const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
+                    ? { name: 'Mensal', rule: 'Juros vencidos pagos: +30 dias desde o vencimento anterior. Só juros + multa/mora integralmente pagos reiniciam +30 dias da data do pagamento. Saldo não vira capital sem sua escolha.' }
+                    : cycle === 'INSTALLMENT_FIXED'
+                        ? { name: 'Parcelado', rule: 'Cada parcela mantém capital e juros contratados. Pagamento abate a parcela; não cria novo ciclo mensal nem capitaliza encargos automaticamente.' }
+                        : cycle === 'DAILY_FREE' || cycle === 'DAILY_FIXED'
+                            ? { name: 'Diária Livre', rule: 'Juros são proporcionais aos dias em aberto. Recebimento abate os componentes devidos sem transformar juros em capital automaticamente.' }
+                            : cycle === 'DAILY_FIXED_TERM'
+                                ? { name: 'Prazo Fixo', rule: 'Parcela e vencimento seguem o prazo contratado. O recebimento não recalcula a obrigação como Mensal.' }
+                                : { name: 'Legada', rule: 'Modalidade antiga mantida por compatibilidade. O recebimento preserva os componentes existentes e não capitaliza saldo sem ordem explícita.' };
 
                 const partialChoices: Array<{
                     value: PartialBalanceAction;
@@ -179,7 +189,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     {
                         value: 'RENEW_KEEP_PENDING',
                         title: 'Renovar mesmo parcial',
-                        detail: 'Avança o ciclo e carrega o saldo pendente para o próximo vencimento.',
+                        detail: 'Avança 30 dias desde o vencimento anterior e mantém o saldo pendente sem gerar outro juro cheio.',
                         activeClass: 'bg-amber-600/20 text-amber-300 border-amber-500/50',
                         disabled: !canRenewWithPending
                     },
@@ -208,6 +218,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             <p className="text-slate-400 text-[10px] mt-1">Informe quanto recebeu e defina o destino do saldo restante.</p>
                         </div>
                         <div className="space-y-2">
+                            <div className="rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Regra da modalidade</span>
+                                    <span className="text-[9px] font-black uppercase text-blue-300">{modalityRule.name}</span>
+                                </div>
+                                <p className="mt-1 text-[8px] leading-3.5 text-slate-400">{modalityRule.rule}</p>
+                            </div>
                             {hasActiveOffer ? (
                                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center">
                                     <p className="text-[9px] font-black uppercase text-emerald-400">Condição especial ativa</p>

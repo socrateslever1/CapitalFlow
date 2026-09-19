@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Cópias locais: não versionar bases, credenciais e exports de produção.
+/backups/

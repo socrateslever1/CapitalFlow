@@ -8,6 +8,8 @@ import {
 import { calculateMonthlyInstallments } from '../../features/loans/modalities/monthly/monthly.calculations';
 import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
+import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
+import { buildInstallmentReceiptModel } from '../../components/cards/components/InstallmentReceiptModel';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -140,6 +142,48 @@ run('vencimento manual prevalece em contrato novo e não altera capital ou juros
   assert.equal(loan.installments[0].dueDate, '2026-10-14');
   assertMoney(loan.installments[0].principalRemaining, 1000, 'principal preservado');
   assertMoney(loan.installments[0].interestRemaining, 300, 'juros preservados');
+});
+
+run('renovação parcial avança pela data contratual sem somar juros novos', () => {
+  const loan = { billingCycle: 'MONTHLY', interestRate: 30, principal: 1000 } as any;
+  const inst = { dueDate: '2026-08-20' } as any;
+  const balance = { principalRemaining: 1000, interestRemaining: 300, lateFeeRemaining: 40, totalRemaining: 1340 };
+  const result = planPaymentRenewal({
+    loan, inst, instDb: { data_vencimento: '2026-08-20' },
+    balanceAfterRpc: balance, renewWithPending: true, isInterestRenewal: false,
+    paymentDate: new Date('2026-09-19T00:00:00Z')
+  });
+  assert.equal(result.partialRenewalRequested, true);
+  assert.equal(result.renewalDate?.toISOString().slice(0, 10), '2026-09-19');
+  assertMoney(result.nextCycleInterest, 300, 'juros planejados sem duplicação');
+  assertMoney(balance.interestRemaining, 300, 'juros em aberto preservados');
+});
+
+run('regularização integral reinicia pela data do pagamento; data manual prevalece', () => {
+  const base = {
+    loan: { billingCycle: 'MONTHLY', interestRate: 30 } as any,
+    inst: { dueDate: '2026-08-20' } as any,
+    instDb: { due_date: '2026-08-20' },
+    balanceAfterRpc: { principalRemaining: 1000, interestRemaining: 0, lateFeeRemaining: 0, totalRemaining: 1000 },
+    renewWithPending: false, isInterestRenewal: true,
+    paymentDate: new Date('2026-09-19T00:00:00Z')
+  };
+  assert.equal(planPaymentRenewal(base).renewalDate?.toISOString().slice(0, 10), '2026-10-19');
+  assert.equal(planPaymentRenewal({ ...base, manualDate: new Date('2026-10-05T00:00:00Z') })
+    .renewalDate?.toISOString().slice(0, 10), '2026-10-05');
+});
+
+run('prévia da janela desconta atraso dispensado sem alterar capital ou juro', () => {
+  const preview = buildInstallmentReceiptModel({
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-09-18', principalRemaining: 1000, interestRemaining: 300, lateFeeAccrued: 40 } as any,
+    selectedDebt: { principal: 1000, interest: 300, lateFee: 40, total: 1340 },
+    lateFeeForgiven: 20, quickMode: 'CHARGES_ONLY', receiptAmount: ''
+  });
+  assertMoney(preview.principal, 1000, 'principal intocado');
+  assertMoney(preview.interest, 300, 'juros intocados');
+  assertMoney(preview.effectiveLateFee, 20, 'encargo remanescente');
+  assertMoney(preview.displayedAmount, 320, 'valor de juros e atraso');
 });
 
 console.log('Suite financeira concluída com sucesso.');

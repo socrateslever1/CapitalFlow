@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta, ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
-import { todayDateOnlyUTC, parseDateOnlyUTC, addDaysUTC } from '../utils/dateHelpers';
+import { todayDateOnlyUTC } from '../utils/dateHelpers';
+import { planPaymentRenewal } from './payments/paymentRenewalPlan';
 import { generateUUID } from '../utils/generators';
 import { safeUUID } from '../utils/uuid';
 import { isCapitalOnlyRecoveryLoan } from '../utils/capitalOnlyRecovery';
@@ -236,19 +237,8 @@ export const paymentsService = {
       balanceAfterRpc = await revalidateLoanOpenBalance(loanId);
     }
 
-    const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String((loan as any).billingCycle || '').toUpperCase());
-    const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
-    const nextCycleInterest = roundMoney(Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100));
-    const chargesStillPending = remainingInterestAfter(balanceAfterRpc) > ZERO_BALANCE_THRESHOLD;
-    const partialRenewalRequested = !!renewWithPending && isMonthlyOrGiro && hasPrincipalRemaining && chargesStillPending;
-    const currentDueDate = parseDateOnlyUTC(instDb?.due_date || instDb?.data_vencimento || inst.dueDate);
-    // Regra MENSAL/GIRO:
-    // - pagamento parcial de juros/encargos: avança 30 dias a partir do vencimento anterior;
-    // - regularização integral de juros + multa/mora: reinicia 30 dias a partir do pagamento;
-    // - nunca soma um novo juro cheio ao saldo parcial já existente.
-    const renewalDate = partialRenewalRequested
-      ? (manualDate || addDaysUTC(currentDueDate, 30))
-      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null));
+    const { isMonthlyOrGiro, hasPrincipalRemaining, nextCycleInterest, partialRenewalRequested, currentDueDate, renewalDate } =
+      planPaymentRenewal({ loan, inst, instDb, balanceAfterRpc, renewWithPending, isInterestRenewal, manualDate, paymentDate });
 
     if (renewalDate && balanceAfterRpc.totalRemaining > ZERO_BALANCE_THRESHOLD) {
       const nextDueDate = renewalDate.toISOString().split('T')[0];
@@ -293,6 +283,3 @@ export const paymentsService = {
   },
 };
 
-function remainingInterestAfter(balance: any): number {
-  return roundMoney(Number(balance?.interestRemaining || 0) + Number(balance?.lateFeeRemaining || 0));
-}

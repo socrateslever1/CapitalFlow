@@ -30,6 +30,7 @@ export const paymentsService = {
     activeUser: UserProfile;
     sources: CapitalSource[];
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
+    lateFeeForgiven?: number;
     manualDate?: Date | null;
     realDate?: Date | null;
     capitalizeRemaining?: boolean;
@@ -44,6 +45,7 @@ export const paymentsService = {
       activeUser,
       sources,
       forgivenessMode = 'NONE',
+      lateFeeForgiven: requestedLateFeeForgiven = 0,
       realDate,
       manualDate,
       capitalizeRemaining = false,
@@ -138,7 +140,10 @@ export const paymentsService = {
     let principalPaid = Number(amortization.paidPrincipal || 0);
     let interestPaid = Number(amortization.paidInterest || 0);
     let lateFeePaid = Number(amortization.paidLateFee || 0);
-    const forgivenLateFee = Number(amortization.forgivenLateFee || 0);
+    let forgivenLateFee = Number(amortization.forgivenLateFee || 0);
+    const lateFeeOpen = Math.max(0, Number(installmentSnapshot.lateFeeAccrued || params.calculations?.lateFee || 0));
+    const explicitLateFeeForgiveness = Math.min(lateFeeOpen, Math.max(0, Number(requestedLateFeeForgiven || 0)));
+    forgivenLateFee = Math.max(forgivenLateFee, explicitLateFeeForgiveness);
     let forgivenInterest = 0;
     let avExtra = Number(amortization.avGenerated || 0);
     let totalPaid = principalPaid + interestPaid + lateFeePaid;
@@ -173,7 +178,11 @@ export const paymentsService = {
     const sourceId = safeUUID((loan as any).sourceId);
     if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
 
-    const isInterestRenewal = renewalBuckets.total > ZERO_BALANCE_THRESHOLD && amountToPay >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD && interestPaid + lateFeePaid >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD && Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
+    const settledRenewalCharges = roundMoney(interestPaid + lateFeePaid + forgivenLateFee);
+    const isInterestRenewal = renewalBuckets.total > ZERO_BALANCE_THRESHOLD
+      && amountToPay + forgivenLateFee >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD
+      && settledRenewalCharges >= renewalBuckets.total - ZERO_BALANCE_THRESHOLD
+      && Number(installmentSnapshot.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
 
     if (shouldSettleWithForgivenCharges || effectiveForgivenessMode === 'CAPITAL_ONLY' || effectiveForgivenessMode === 'TOTAL_CHARGES' || effectiveForgivenessMode === 'INTEREST_ONLY') {
       forgivenInterest = Math.max(0, Number(installmentSnapshot.interestRemaining || 0) - interestPaid);

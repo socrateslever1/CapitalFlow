@@ -38,6 +38,7 @@ type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING'
 
 type InstallmentPaymentOptions = {
   forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
+  lateFeeForgiven?: number;
   partialBalanceAction?: PartialBalanceAction;
 };
 
@@ -202,6 +203,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               activeUser,
               sources,
               forgivenessMode: options?.forgivenessMode || 'NONE',
+              lateFeeForgiven: options?.lateFeeForgiven,
               realDate: new Date(),
               capitalizeRemaining: partialAction === 'CAPITALIZE',
               renewWithPending: partialAction === 'RENEW_KEEP_PENDING',

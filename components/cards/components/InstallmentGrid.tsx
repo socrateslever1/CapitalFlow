@@ -8,11 +8,14 @@ import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
+import { getDaysDiff } from '../../../utils/dateHelpers';
 
 type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
 
 type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
+    lateFeeForgiven?: number;
+    partialBalanceAction?: PartialBalanceAction;
 };
 
 interface InstallmentGridProps {
@@ -40,8 +43,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [selectedDebt, setSelectedDebt] = React.useState<any>(null);
     const [receiptAmount, setReceiptAmount] = React.useState('');
     const [showCustomAmount, setShowCustomAmount] = React.useState(false);
-    const [quickMode, setQuickMode] = React.useState<'TOTAL' | 'CUSTOM' | 'CHARGES_ONLY'>('TOTAL');
-    const [forgiveLateFee, setForgiveLateFee] = React.useState(false);
+    const [quickMode, setQuickMode] = React.useState<'TOTAL' | 'CUSTOM' | 'INTEREST_ONLY' | 'CHARGES_ONLY'>('TOTAL');
+    const [lateFeeForgiven, setLateFeeForgiven] = React.useState(0);
     const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('KEEP_PENDING');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
 
@@ -98,7 +101,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 setReceiptAmount(String(Number(offerIsActive ? offerAmount : targetDebt?.total || targetInst.amount || 0).toFixed(2)));
                                 setShowCustomAmount(false);
                                 setQuickMode('TOTAL');
-                                setForgiveLateFee(false);
+                                setLateFeeForgiven(0);
                                 setPartialBalanceAction('KEEP_PENDING');
                             }}
                             onReverseInstallment={onReverseInstallmentPayment}
@@ -133,29 +136,50 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const principal = Math.max(0, Number(selectedDebt?.principal ?? selectedInst.principalRemaining ?? 0) || 0);
                 const interest = Math.max(0, Number(selectedDebt?.interest ?? selectedInst.interestRemaining ?? 0) || 0);
                 const lateFee = Math.max(0, Number(selectedDebt?.lateFee ?? selectedInst.lateFeeAccrued ?? 0) || 0);
-                const effectiveLateFee = forgiveLateFee ? 0 : lateFee;
+                const appliedLateFeeForgiveness = Math.min(lateFee, Math.max(0, lateFeeForgiven));
+                const effectiveLateFee = Math.max(0, lateFee - appliedLateFeeForgiveness);
                 const activeOfferAmount = String(selectedInst.paymentOfferStatus || '') === 'ACTIVE'
                     && String(selectedInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
                     ? Number(selectedInst.paymentOfferAmount || 0)
                     : 0;
                 const totalAmount = activeOfferAmount > 0.05
                     ? activeOfferAmount
-                    : Math.max(0, Number(selectedDebt?.total || 0) - (forgiveLateFee ? lateFee : 0));
+                    : Math.max(0, Number(selectedDebt?.total || 0) - appliedLateFeeForgiveness);
                 const chargesAmount = Math.max(0, interest + effectiveLateFee);
                 const displayedAmount = quickMode === 'CUSTOM'
                     ? (Number(receiptAmount) || 0)
-                    : quickMode === 'CHARGES_ONLY'
-                        ? chargesAmount
-                        : totalAmount;
+                    : quickMode === 'INTEREST_ONLY'
+                        ? interest
+                        : quickMode === 'CHARGES_ONLY'
+                            ? chargesAmount
+                            : totalAmount;
+                const canReceiveInterestOnly = interest > 0.05 && principal > 0.05;
                 const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
                 const hasActiveOffer = activeOfferAmount > 0.05;
-                const forgivenessMode = forgiveLateFee ? 'FINE_AND_MORA' : 'NONE';
+                const forgivenessMode = 'NONE';
                 const isPartialPayment = !hasActiveOffer
                     && displayedAmount > 0.05
                     && displayedAmount < totalAmount - ZERO_BALANCE_THRESHOLD;
                 const canRenewWithPending = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
                 const isOnline = typeof navigator === 'undefined' || navigator.onLine;
                 const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
+                const dueDate = String((selectedInst as any).dueDate ?? (selectedInst as any).due_date ?? (selectedInst as any).data_vencimento ?? '');
+                const daysLate = dueDate ? Math.max(0, getDaysDiff(dueDate)) : 0;
+                const overduePeriods = daysLate > 0 ? Math.ceil(daysLate / 30) : 0;
+                const policy: any = (loan as any).policiesSnapshot || {};
+                const finePercent = Number(policy.finePercent ?? (loan as any).finePercent ?? 0) || 0;
+                const dailyInterestPercent = Number(policy.dailyInterestPercent ?? (loan as any).dailyInterestPercent ?? 0) || 0;
+                const lateFeeBase = Math.max(0, principal + interest);
+                const periodForgiveness = (periods: number) => {
+                    const waivedDays = Math.min(daysLate, periods * 30);
+                    const value = (lateFeeBase * (finePercent / 100) * periods)
+                        + (lateFeeBase * (dailyInterestPercent / 100) * waivedDays);
+                    return Math.min(lateFee, Math.max(0, Math.round((value + Number.EPSILON) * 100) / 100));
+                };
+                const partialWaiverOptions = Array.from({ length: Math.max(0, overduePeriods - 1) }, (_, index) => {
+                    const periods = index + 1;
+                    return { periods, amount: periodForgiveness(periods) };
+                }).filter(option => option.amount > ZERO_BALANCE_THRESHOLD && option.amount < lateFee - ZERO_BALANCE_THRESHOLD);
                 const cycle = String(loan.billingCycle || '').toUpperCase();
                 const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
                     ? { name: 'Mensal', rule: 'Juros vencidos pagos: +30 dias desde o vencimento anterior. Só juros + multa/mora integralmente pagos reiniciam +30 dias da data do pagamento. Saldo não vira capital sem sua escolha.' }
@@ -206,7 +230,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setSelectedInst(null);
                     setSelectedDebt(null);
                     setQuickMode('TOTAL');
-                    setForgiveLateFee(false);
+                    setLateFeeForgiven(0);
                     setPartialBalanceAction('KEEP_PENDING');
                 };
 
@@ -235,6 +259,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     onClick={() => {
                                         setQuickMode('TOTAL');
                                         setShowCustomAmount(false);
+                                        setLateFeeForgiven(0);
                                         setReceiptAmount(String(totalAmount.toFixed(2)));
                                         setPartialBalanceAction('KEEP_PENDING');
                                     }}
@@ -246,6 +271,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     onClick={() => {
                                         setQuickMode('CUSTOM');
                                         setShowCustomAmount(true);
+                                        setLateFeeForgiven(0);
                                         setPartialBalanceAction('KEEP_PENDING');
                                     }}
                                     className={`py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CUSTOM' || showCustomAmount ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
@@ -253,6 +279,19 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     Outro valor
                                 </button>
                             </div>}
+                            {!hasActiveOffer && canReceiveInterestOnly && (
+                                <button
+                                    onClick={() => {
+                                        setQuickMode('INTEREST_ONLY');
+                                        setShowCustomAmount(false);
+                                        setReceiptAmount(String(interest.toFixed(2)));
+                                        setPartialBalanceAction(canRenewWithPending && daysLate > 0 ? 'RENEW_KEEP_PENDING' : 'KEEP_PENDING');
+                                    }}
+                                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'INTEREST_ONLY' ? 'bg-blue-600/20 text-blue-300 border-blue-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
+                                >
+                                    Somente juros
+                                </button>
+                            )}
                             {!hasActiveOffer && canReceiveChargesOnly && (
                                 <button
                                     onClick={() => {
@@ -263,17 +302,40 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     }}
                                     className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CHARGES_ONLY' ? 'bg-orange-600/20 text-orange-400 border-orange-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
-                                    Somente juros/encargos
+                                    Juros + atraso
                                 </button>
                             )}
                             {!hasActiveOffer && lateFee > 0.05 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setForgiveLateFee(prev => !prev)}
-                                    className={`w-full py-2 rounded-lg text-[9px] font-black uppercase border transition-all ${forgiveLateFee ? 'bg-rose-600/20 text-rose-300 border-rose-500/40' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
-                                >
-                                    {forgiveLateFee ? 'Atraso perdoado' : `Perdoar atraso (${formatMoney(lateFee, isStealthMode)})`}
-                                </button>
+                                <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.04] p-2.5 space-y-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[8px] font-black uppercase tracking-wide text-rose-300">Dispensa de atraso</span>
+                                        <span className="text-[8px] font-bold text-slate-500">{daysLate} dias · {overduePeriods} período{overduePeriods === 1 ? '' : 's'}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLateFeeForgiven(0)}
+                                        className={`w-full rounded-md border px-2.5 py-2 text-left text-[8px] font-black uppercase ${appliedLateFeeForgiveness <= ZERO_BALANCE_THRESHOLD ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-950 text-slate-400'}`}
+                                    >
+                                        Cobrar atraso completo
+                                    </button>
+                                    {partialWaiverOptions.map(option => (
+                                        <button
+                                            key={option.periods}
+                                            type="button"
+                                            onClick={() => setLateFeeForgiven(option.amount)}
+                                            className={`w-full rounded-md border px-2.5 py-2 text-left text-[8px] font-black uppercase ${Math.abs(appliedLateFeeForgiveness - option.amount) <= ZERO_BALANCE_THRESHOLD ? 'border-amber-500/40 bg-amber-500/10 text-amber-300' : 'border-slate-700 bg-slate-950 text-slate-400'}`}
+                                        >
+                                            Dispensar {option.periods} período{option.periods === 1 ? '' : 's'} ({formatMoney(option.amount, isStealthMode)})
+                                        </button>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setLateFeeForgiven(lateFee)}
+                                        className={`w-full rounded-md border px-2.5 py-2 text-left text-[8px] font-black uppercase ${Math.abs(appliedLateFeeForgiveness - lateFee) <= ZERO_BALANCE_THRESHOLD ? 'border-rose-500/40 bg-rose-500/10 text-rose-300' : 'border-slate-700 bg-slate-950 text-slate-400'}`}
+                                    >
+                                        Dispensar todo atraso ({formatMoney(lateFee, isStealthMode)})
+                                    </button>
+                                </div>
                             )}
                             {!hasActiveOffer && showCustomAmount && (
                                 <input
@@ -289,7 +351,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             <div className="grid grid-cols-3 gap-1 text-center">
                                 <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-slate-500">Cap. {formatMoney(principal, isStealthMode)}</span>
                                 <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-blue-400">Jur. {formatMoney(interest, isStealthMode)}</span>
-                                <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-rose-400">Atr. {formatMoney(lateFee, isStealthMode)}</span>
+                                <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-rose-400">Atr. {formatMoney(effectiveLateFee, isStealthMode)}</span>
                             </div>
                             <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-center">
                                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
@@ -346,10 +408,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         );
                                         if (!confirmed) return;
                                     }
-                                    const paymentOptions = {
+                                    const paymentOptions: QuickPaymentOptions = {
                                         forgivenessMode,
+                                        lateFeeForgiven: appliedLateFeeForgiveness,
                                         partialBalanceAction: effectivePartialAction
-                                    } as QuickPaymentOptions & { partialBalanceAction?: PartialBalanceAction };
+                                    };
                                     onInstallmentPayment?.(loan, selectedInst, selectedDebt, amount, paymentOptions);
                                     resetSelection();
                                 }}

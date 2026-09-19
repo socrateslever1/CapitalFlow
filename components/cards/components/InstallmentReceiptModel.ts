@@ -43,7 +43,7 @@ export function buildInstallmentReceiptModel(params: {
                 const canReceiveInterestOnly = interest > 0.05 && principal > 0.05;
                 const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
                 const hasActiveOffer = activeOfferAmount > 0.05;
-                const forgivenessMode = 'NONE';
+                const forgivenessMode = 'NONE' as const;
                 const isPartialPayment = !hasActiveOffer
                     && displayedAmount > 0.05
                     && displayedAmount < totalAmount - ZERO_BALANCE_THRESHOLD;

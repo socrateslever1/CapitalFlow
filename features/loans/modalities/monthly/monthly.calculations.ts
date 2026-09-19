@@ -1,5 +1,5 @@
 import { LoanStatus, Installment } from '../../../../types';
-import { addMonthsUTC, parseDateOnlyUTC, toISODateOnlyUTC } from '../../../../utils/dateHelpers';
+import { addDaysUTC, parseDateOnlyUTC, toISODateOnlyUTC } from '../../../../utils/dateHelpers';
 import { generateUUID } from '../../../../utils/generators';
 
 export const calculateMonthlyInstallments = (
@@ -14,8 +14,8 @@ export const calculateMonthlyInstallments = (
   const scheduledInterest = principal * (rate / 100);
   const totalToReceive = principal + scheduledInterest;
 
-  // ✅ Vencimento mensal real: +1 mês de calendário (não +30 dias)
-  const dueDate = addMonthsUTC(baseDate, 1);
+  // Vencimento padrão de 30 dias exatos; ajuste manual prevalece.
+  const dueDate = addDaysUTC(baseDate, 30);
 
   const installment: Installment = {
     id: existingId || generateUUID(),

@@ -1,3 +1,4 @@
+import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import React, { useMemo } from 'react';
 import { Wallet, CalendarX, Clock, CreditCard, AlertTriangle, CalendarDays, ChevronDown, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
@@ -146,7 +147,11 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                   required
                   type="date"
                   value={formData.startDate || ''}
-                  onChange={e => setFormData((current: any) => ({ ...current, startDate: e.target.value }))}
+                  onChange={e => {
+                      const startDate = e.target.value;
+                      setFormData((current: any) => ({ ...current, startDate }));
+                      if (startDate) setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(startDate, 30)));
+                  }}
                   className={dateInputClass}
               />
           </div>
@@ -159,6 +164,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                   onChange={e => setManualFirstDueDate(e.target.value)}
                   className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
               />
+              <p className="ml-2 text-[10px] text-slate-500">Sugerido: 30 dias após o empréstimo. Você pode alterar livremente o vencimento.</p>
           </div>
         </div>
 

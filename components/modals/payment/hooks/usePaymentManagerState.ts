@@ -28,7 +28,9 @@ export type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDI
 
 export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAmount, setAvAmount }: UsePaymentManagerProps) => {
     const [customAmount, setCustomAmount] = useState('');
-    const [manualDateStr, setManualDateStr] = useState('');
+    const [manualDateStr, setSuggestedManualDateStr] = useState('');
+    const [manualDateEdited, setManualDateEdited] = useState(false);
+    const setManualDateStr = (value: string) => { setManualDateEdited(Boolean(value)); setSuggestedManualDateStr(value); };
     const [realPaymentDateStr, setRealPaymentDateStr] = useState(toISODateOnlyUTC(new Date()));
     const [subMode, setSubMode] = useState<'DAYS' | 'AMORTIZE'>('DAYS');
     const [forgivenessMode, setForgivenessMode] = useState<ForgivenessMode>('NONE');
@@ -117,6 +119,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         if (!data) return;
         setForgivenessMode('NONE');
         setInterestHandling('KEEP_PENDING');
+        setManualDateEdited(false);
         setRealPaymentDateStr(toISODateOnlyUTC(new Date()));
         if (resolvedBillingCycle === 'DAILY_FREE') {
             setPaymentType('CUSTOM'); setSubMode('DAYS');
@@ -142,14 +145,17 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         if (data && data.inst?.dueDate && realPaymentDateStr) {
             const baseDate = parseDateOnlyUTC(realPaymentDateStr);
             const isDaily = resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM';
-            const nextDate = isDaily ? addDaysUTC(baseDate, 1) : addMonthsUTC(baseDate, 1);
-            setManualDateStr(toISODateOnlyUTC(nextDate));
+            const nextDate = isDaily ? addDaysUTC(baseDate, 1)
+                : interestHandling === 'RENEW_KEEP_PENDING'
+                    ? addDaysUTC(data.inst.dueDate, 30)
+                    : addDaysUTC(baseDate, 30);
+            if (!manualDateEdited) setSuggestedManualDateStr(toISODateOnlyUTC(nextDate));
         }
-    }, [data?.loan?.id, data?.inst?.id, resolvedBillingCycle, realPaymentDateStr]);
+    }, [data?.loan?.id, data?.inst?.id, data?.inst?.dueDate, resolvedBillingCycle, realPaymentDateStr, interestHandling, manualDateEdited]);
 
     return {
         customAmount, setCustomAmount,
-        manualDateStr, setManualDateStr,
+        manualDateStr, setManualDateStr, manualDateEdited,
         realPaymentDateStr, setRealPaymentDateStr,
         subMode, setSubMode,
         fixedTermData,

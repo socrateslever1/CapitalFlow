@@ -655,8 +655,8 @@ export const App: React.FC = () => {
                       }
                       goBack();
                     }}
-                    onPayment={async (forgive, date, amount, realDate, interest, contextOverride) => {
-                      await paymentCtrl.handlePayment(forgive, date, amount, realDate, interest, undefined, undefined, contextOverride);
+                    onPayment={async (forgive, date, amount, realDate, interest, contextOverride, lateFeeForgiven) => {
+                      await paymentCtrl.handlePayment(forgive, date, amount, realDate, interest, undefined, undefined, contextOverride, lateFeeForgiven);
                     }}
                     isProcessing={ui.isProcessingPayment}
                     onOpenMessage={(l) => {

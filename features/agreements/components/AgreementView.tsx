@@ -1,9 +1,9 @@
 import { formatBRDate } from '../../../utils/dateHelpers';
 import React from 'react';
-import { createPortal } from 'react-dom';
+import { Modal } from '../../../components/ui/Modal';
 import { Agreement, AgreementInstallment, Loan } from "../../../types";
 import { formatMoney } from "../../../utils/formatters";
-import { Calendar, CheckCircle2, AlertTriangle, XCircle, DollarSign, History, Scale, ArrowLeft, RefreshCcw, Pencil, Save } from "lucide-react";
+import { Calendar, CheckCircle2, AlertTriangle, XCircle, History, Scale, ArrowLeft, Pencil, Save } from "lucide-react";
 import { calculateAgreementInstallmentLateFee } from "../../../domain/finance/calculations";
 import { useAgreementView } from "../hooks/useAgreementView";
 
@@ -327,19 +327,10 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
 
             {confirmAction && (confirmAction === 'PAY' || confirmAction === 'REVERSE') && selectedInst && (() => {
                 const modalContent = (
-                <div
-                    className="fixed inset-0 z-[120] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg w-full max-w-[280px] shadow-2xl space-y-4 max-h-[calc(100dvh-2rem)] overflow-y-auto custom-scrollbar">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center mx-auto ${confirmAction === 'PAY' ? 'bg-blue-500/20 text-blue-500' : 'bg-rose-500/20 text-rose-500'}`}>
-                            {confirmAction === 'PAY' ? <DollarSign size={24}/> : <RefreshCcw size={24}/>}
-                        </div>
-
+                <Modal onClose={() => { setConfirmAction(null); setSelectedInst(null); setPaymentAmount(''); setShowCustomAmount(false); setForgiveLateFee(false); }}
+                       title={confirmAction === 'PAY' ? 'Confirmar recebimento?' : 'Confirmar estorno?'} size="sm">
+                    <div className="space-y-4">
                         <div className="text-center">
-                            <h5 className="text-white font-black uppercase text-xs tracking-tight">
-                                {confirmAction === 'PAY' ? 'Confirmar Recebimento?' : 'Confirmar Estorno?'}
-                            </h5>
                             <p className="text-slate-400 text-[10px] mt-1">
                                 {confirmAction === 'PAY'
                                     ? `Informe se recebeu o total da parcela ${selectedInst.number} ou outro valor.`
@@ -448,23 +439,12 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                             >
                                 {confirmAction === 'PAY' ? 'Confirmar Recebimento' : 'Confirmar Estorno'}
                             </button>
-                            <button
-                                onClick={() => {
-                                    setConfirmAction(null);
-                                    setSelectedInst(null);
-                                    setPaymentAmount('');
-                                    setShowCustomAmount(false);
-                                    setForgiveLateFee(false);
-                                }}
-                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all flex items-center justify-center gap-1"
-                            >
-                                <XCircle size={12}/> Cancelar
-                            </button>
+
                         </div>
                     </div>
-                </div>
+                </Modal>
                 );
-                return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+                return modalContent;
             })()}
         </div>
     );

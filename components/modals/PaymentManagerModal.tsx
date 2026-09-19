@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
+import { LateFeeWaiverOptions } from './payment/LateFeeWaiverOptions';
 import { Loader2, MessageSquare, DollarSign, Calendar, CalendarClock, AlertCircle, Banknote, CheckCircle2, TrendingUp, AlertTriangle, Clock, Receipt, ShieldCheck } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { parseDateOnlyUTC } from '../../utils/dateHelpers';
@@ -23,7 +24,11 @@ interface PaymentManagerModalProps {
         manualDate?: Date | null,
         amountPaid?: number,
         realDate?: Date | null,
-        interestHandling?: InterestHandling
+        interestHandling?: InterestHandling,
+        paymentTypeOverride?: string,
+        avAmountOverride?: string,
+        contextOverride?: { loan: Loan; inst: Installment; calculations: any },
+        lateFeeForgiven?: number
     ) => void;
     onOpenMessage: (loan: Loan) => void;
 }
@@ -32,7 +37,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     data, onClose, isProcessing, paymentType, setPaymentType, avAmount, setAvAmount, onConfirm, onOpenMessage
 }) => {
     const {
-        manualDateStr, setManualDateStr,
+        manualDateStr, setManualDateStr, manualDateEdited,
         realPaymentDateStr, setRealPaymentDateStr,
         subMode, setSubMode,
         forgivenessMode, setForgivenessMode,
@@ -42,13 +47,18 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     } = usePaymentManagerState({ data, paymentType, setPaymentType, avAmount, setAvAmount });
 
     const [autoFillMode, setAutoFillMode] = useState<'NONE' | 'TOTAL' | 'INTEREST'>('TOTAL');
+    const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
     const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
     const totalInterestDue = debtBreakdown.interest + debtBreakdown.fine + debtBreakdown.dailyMora;
+    const payableTotal = Math.max(0, debtBreakdown.total - lateFeeForgiven);
+    const payableInterestDue = Math.max(0, totalInterestDue - lateFeeForgiven);
+
+    useEffect(() => { setLateFeeForgiven(0); }, [data?.loan?.id, data?.inst?.id]);
 
     useEffect(() => {
-        if (autoFillMode === 'TOTAL') setAvAmount(debtBreakdown.total > 0 ? debtBreakdown.total.toFixed(2) : '');
-        else if (autoFillMode === 'INTEREST') setAvAmount(totalInterestDue.toFixed(2));
-    }, [autoFillMode, debtBreakdown.total, totalInterestDue, setAvAmount]);
+        if (autoFillMode === 'TOTAL') setAvAmount(payableTotal > 0 ? payableTotal.toFixed(2) : '');
+        else if (autoFillMode === 'INTEREST') setAvAmount(payableInterestDue.toFixed(2));
+    }, [autoFillMode, payableTotal, payableInterestDue, setAvAmount]);
 
     if (!data) return null;
 
@@ -64,15 +74,15 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     };
 
     const amountEntering = safeParse(avAmount);
-    const remainingInterest = Math.max(0, totalInterestDue - amountEntering);
+    const remainingInterest = Math.max(0, payableInterestDue - amountEntering);
     const showInterestDecision = remainingInterest > 0.05;
 
     const handleConfirmWrapper = () => {
         const val = safeParse(avAmount);
         if (val <= 0) return;
-        const nextDueDate = manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
+        const nextDueDate = manualDateEdited && manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
-        onConfirm(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling);
+        onConfirm(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling, undefined, undefined, undefined, lateFeeForgiven);
     };
 
     const toggleInterestAutoFill = () => {
@@ -81,13 +91,13 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             const nextMode = previous?.mode ?? 'TOTAL';
             setAutoFillMode(nextMode);
             if (nextMode === 'NONE') setAvAmount(previous?.amount ?? '');
-            else setAvAmount(debtBreakdown.total > 0 ? debtBreakdown.total.toFixed(2) : '');
+            else setAvAmount(payableTotal > 0 ? payableTotal.toFixed(2) : '');
             previousAutoFillRef.current = null;
             return;
         }
         previousAutoFillRef.current = { mode: autoFillMode, amount: avAmount || '' };
         setAutoFillMode('INTEREST');
-        setAvAmount(totalInterestDue.toFixed(2));
+        setAvAmount(payableInterestDue.toFixed(2));
     };
 
     const hasOriginalFine = (Number(calculations.lateFee) || 0) > 0 || debtBreakdown.fine > 0 || debtBreakdown.dailyMora > 0;
@@ -97,6 +107,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const forgivesInterest = forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
 
     const toggleFineForgiveness = () => {
+        setLateFeeForgiven(0);
         if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('NONE');
         else if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('FINE_AND_MORA');
         else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('MORA_ONLY');
@@ -104,6 +115,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     };
 
     const toggleMoraForgiveness = () => {
+        setLateFeeForgiven(0);
         if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
         else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('FINE_AND_MORA');
         else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
@@ -123,7 +135,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                             <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 text-center relative overflow-hidden shadow-2xl mb-6">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500"></div>
                                 <p className="text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Total a Receber</p>
-                                <p className="text-2xl sm:text-4xl break-words font-black text-white mb-2 tracking-tight">{formatMoney(debtBreakdown.total)}</p>
+                                <p className="text-2xl sm:text-4xl break-words font-black text-white mb-2 tracking-tight">{formatMoney(payableTotal)}</p>
                                 {forgivenessMode !== 'NONE' && <div className="inline-flex items-center gap-2 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20"><span className="text-[10px] text-rose-400 font-bold line-through decoration-rose-500/50">Original: R$ {calculations.total.toFixed(2)}</span></div>}
                             </div>
 
@@ -137,7 +149,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 </div>
                             </div>
 
-                            {hasChargesToForgive && paymentType !== 'FULL' && <div className="mt-6 space-y-3"><h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><ShieldCheck size={14}/> Gestão de Perdão</h3><div className="grid grid-cols-2 gap-2"><button onClick={toggleFineForgiveness} className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivesFine && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-rose-500 text-white border-rose-600' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>Perdoar Multa</button><button onClick={toggleMoraForgiveness} className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivesMora && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>Perdoar Mora</button><button onClick={() => setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES')} className={`col-span-2 px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'TOTAL_CHARGES' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>Perdoar 100% dos Encargos</button></div></div>}
+                            <LateFeeWaiverOptions loan={loan} installment={data.inst} lateFee={debtBreakdown.fine + debtBreakdown.dailyMora} referenceDate={realPaymentDateStr} value={lateFeeForgiven} onChange={(amount) => { setForgivenessMode('NONE'); setLateFeeForgiven(amount); }} />
+
+                            {hasChargesToForgive && paymentType !== 'FULL' && <div className="mt-6 space-y-3"><h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><ShieldCheck size={14}/> Gestão de Perdão</h3><div className="grid grid-cols-2 gap-2"><button onClick={toggleFineForgiveness} className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivesFine && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-rose-500 text-white border-rose-600' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>Perdoar Multa</button><button onClick={toggleMoraForgiveness} className={`px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivesMora && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-orange-500 text-white border-orange-600' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>Perdoar Mora</button><button onClick={() => { setLateFeeForgiven(0); setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES'); }} className={`col-span-2 px-3 py-2 rounded-full text-[9px] font-bold uppercase border transition-all ${forgivenessMode === 'TOTAL_CHARGES' ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-slate-900 text-slate-400 border-slate-800'}`}>Perdoar 100% dos Encargos</button></div></div>}
                         </div>
 
                         <div className="flex-1 bg-slate-950 min-w-0">
@@ -146,7 +160,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     {(resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') ? (
-                                        <FlexibleDailyScreen amount={avAmount} setAmount={setAvAmount} manualDateStr={manualDateStr} setManualDateStr={setManualDateStr} debt={debtBreakdown} loan={loan} subMode={subMode} setSetSubMode={setSubMode} paymentType={paymentType} setPaymentType={setPaymentType} onConfirmFull={() => setAvAmount(debtBreakdown.total.toFixed(2))}/>
+                                        <FlexibleDailyScreen amount={avAmount} setAmount={setAvAmount} manualDateStr={manualDateStr} setManualDateStr={setManualDateStr} debt={debtBreakdown} loan={loan} subMode={subMode} setSetSubMode={setSubMode} paymentType={paymentType} setPaymentType={setPaymentType} onConfirmFull={() => setAvAmount(payableTotal.toFixed(2))}/>
                                     ) : (
                                         <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 sm:p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
                                             <div className="relative z-10">
@@ -154,7 +168,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                 <div className="flex items-baseline gap-3 mb-6"><span className="text-3xl sm:text-4xl font-black text-blue-500">R$</span><input type="text" inputMode="decimal" value={avAmount || ''} onChange={e => { setAvAmount(e.target.value.replace(/[^0-9.,]/g, '')); setAutoFillMode('NONE'); previousAutoFillRef.current = null; }} className="w-full bg-transparent text-5xl sm:text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter min-w-0" placeholder="0,00" autoFocus/></div>
                                                 <button onClick={toggleInterestAutoFill} className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${autoFillMode === 'INTEREST' ? 'bg-orange-600 border-orange-500 text-white' : 'border-orange-900/50 bg-orange-900/20 text-orange-400'}`}>Somente Juros/Encargos</button>
 
-                                                {safeParse(avAmount) > 0 && <div className="mt-6 bg-slate-950/50 border border-slate-800/50 p-5 rounded-lg space-y-4"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Impacto do Recebimento</p><p className="text-sm text-slate-200 font-bold leading-relaxed">{(() => { const val = safeParse(avAmount); const totalDue = debtBreakdown.total; const interestDue = totalInterestDue; if (isCapitalOnlyRecovery) return val >= debtBreakdown.principal - 0.05 ? 'Quitação sem juros.' : `Abate ${formatMoney(val)} diretamente do capital.`; if (val >= totalDue - 0.05) return 'Quitação total: o contrato será encerrado.'; if (val >= interestDue - 0.05) { const amort = val - interestDue; return amort > 0.05 ? `Quita os encargos e abate ${formatMoney(amort)} do capital.` : 'Quita os encargos do período.'; } return `Pagamento parcial: ainda restam ${formatMoney(Math.max(0, interestDue - val))} em juros/encargos.`; })()}</p></div>}
+                                                {safeParse(avAmount) > 0 && <div className="mt-6 bg-slate-950/50 border border-slate-800/50 p-5 rounded-lg space-y-4"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Impacto do Recebimento</p><p className="text-sm text-slate-200 font-bold leading-relaxed">{(() => { const val = safeParse(avAmount); const totalDue = payableTotal; const interestDue = payableInterestDue; if (isCapitalOnlyRecovery) return val >= debtBreakdown.principal - 0.05 ? 'Quitação sem juros.' : `Abate ${formatMoney(val)} diretamente do capital.`; if (val >= totalDue - 0.05) return 'Quitação total: o contrato será encerrado.'; if (val >= interestDue - 0.05) { const amort = val - interestDue; return amort > 0.05 ? `Quita os encargos e abate ${formatMoney(amort)} do capital.` : 'Quita os encargos do período.'; } return `Pagamento parcial: ainda restam ${formatMoney(Math.max(0, interestDue - val))} em juros/encargos.`; })()}</p></div>}
                                             </div>
                                         </div>
                                     )}

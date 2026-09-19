@@ -8,7 +8,7 @@ import { toStorageReference } from '../../../utils/storageUrl';
 import { isTestSource } from '../../../utils/testSource';
 import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
-import { addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
+import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 
 interface UseLoanFormProps {
   onAdd: (loan: Loan) => void;
@@ -60,10 +60,11 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
       setSkipWeekends(!!initialData.skipWeekends);
       setAttachments(Array.isArray((initialData as any).attachments) ? (initialData as any).attachments : []);
       setCustomDocuments(Array.isArray((initialData as any).documents) ? (initialData as any).documents : []);
-      const firstDue = initialData.installments?.[0]?.dueDate;
-      setManualFirstDueDate(firstDue ? String(firstDue).slice(0, 10) : String(initialData.startDate || '').slice(0, 10));
+      const firstDue = [...(initialData.installments || [])].sort((a, b) => Number(a.number || 0) - Number(b.number || 0))[0]?.dueDate;
+      const loanDate = String(initialData.startDate || '').slice(0, 10);
+      setManualFirstDueDate(firstDue ? String(firstDue).slice(0, 10) : toISODateOnlyUTC(addDaysUTC(loanDate, 30)));
     } else {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = toISODateOnlyUTC(new Date());
       setFormData({
         clientId: '', debtorName: '', debtorPhone: '', debtorDocument: '', debtorAddress: '',
         sourceId: sources[0]?.id || '', principal: '', interestRate: '', finePercent: '2', dailyInterestPercent: '1',
@@ -71,7 +72,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         fundingMonthlyRate: '', customerMarginPercent: '30', fundingCalculationMode: 'TOTAL', fundingOperatorAbsorbsInterest: false,
         fundingFeePercent: '', fundingProvider: ''
       });
-      setManualFirstDueDate(today);
+      setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(today, 30)));
     }
   }, [initialData, sources]);
 

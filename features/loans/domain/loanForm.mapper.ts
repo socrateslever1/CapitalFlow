@@ -1,3 +1,4 @@
+import { addDaysUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 import { Loan, LoanBillingModality, PaymentMethod, LoanDocument, Installment, LoanStatus } from '../../../types';
 import { generateUUID } from '../../../utils/generators';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
@@ -172,19 +173,15 @@ export const mapFormToLoan = (
 
   const shouldPreserveDueDates = !startDateChanged && !firstDueDateChanged;
 
-  // Se a primeira data de vencimento manual foi informada e mudou/recalculou, aplicamos ela e propagamos o deslocamento nas parcelas geradas
+  // Vencimento informado vale na criação e na edição. Propaga o deslocamento
+  // para as demais parcelas sem reescrever pagamento histórico.
   let adjustedGeneratedInstallments = generatedInstallments;
-  if (adjustedGeneratedInstallments[0] && manualFirstDueDate && firstDueDateChanged && initialData?.installments?.[0]) {
-    const originalFirst = new Date(initialData.installments[0].dueDate).getTime();
-    const newFirst = new Date(manualFirstDueDate).getTime();
-    const diffMs = newFirst - originalFirst;
-
-    adjustedGeneratedInstallments = generatedInstallments.map((g, idx) => {
-      if (idx === 0) return { ...g, dueDate: manualFirstDueDate };
-      const currentDueDateMs = new Date(g.dueDate).getTime();
-      const adjustedDate = new Date(currentDueDateMs + diffMs);
-      return { ...g, dueDate: adjustedDate.toISOString().split('T')[0] };
-    });
+  if (generatedInstallments[0] && manualFirstDueDate && (!initialData || firstDueDateChanged || startDateChanged)) {
+    const shiftDays = Math.round((Date.parse(manualFirstDueDate) - Date.parse(generatedInstallments[0].dueDate)) / 86400000);
+    adjustedGeneratedInstallments = generatedInstallments.map((installment, index) => ({
+      ...installment,
+      dueDate: index === 0 ? manualFirstDueDate : toISODateOnlyUTC(addDaysUTC(installment.dueDate, shiftDays))
+    }));
   }
 
   // ✅ TRAVA DE DADOS ANTERIORES: Mapeia IDs e opcionalmente preserva dueDates

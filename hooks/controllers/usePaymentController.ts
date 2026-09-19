@@ -43,7 +43,8 @@ export const usePaymentController = (
     interestHandling?: InterestHandling,
     paymentTypeOverride?: string,
     avAmountOverride?: string,
-    contextOverride?: { loan: Loan, inst: any, calculations: any }
+    contextOverride?: { loan: Loan, inst: any, calculations: any },
+    lateFeeForgiven?: number
   ) => {
     const maybeContext = paymentTypeOverride as any;
     const inferredContext =
@@ -90,6 +91,7 @@ export const usePaymentController = (
         activeUser,
         sources,
         forgivenessMode,
+        lateFeeForgiven,
         manualDate,
         realDate,
         capitalizeRemaining: interestHandling === 'CAPITALIZE',

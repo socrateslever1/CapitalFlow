@@ -1,6 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, DollarSign, WalletCards, XCircle } from 'lucide-react';
+import { CheckCircle2, WalletCards } from 'lucide-react';
+import { Modal } from '../../ui/Modal';
+import { LateFeeWaiverOptions } from '../../modals/payment/LateFeeWaiverOptions';
+import { toISODateOnlyUTC } from '../../../utils/dateHelpers';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
@@ -165,21 +168,6 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
                 const dueDate = String((selectedInst as any).dueDate ?? (selectedInst as any).due_date ?? (selectedInst as any).data_vencimento ?? '');
                 const daysLate = dueDate ? Math.max(0, getDaysDiff(dueDate)) : 0;
-                const overduePeriods = daysLate > 0 ? Math.ceil(daysLate / 30) : 0;
-                const policy: any = (loan as any).policiesSnapshot || {};
-                const finePercent = Number(policy.finePercent ?? (loan as any).finePercent ?? 0) || 0;
-                const dailyInterestPercent = Number(policy.dailyInterestPercent ?? (loan as any).dailyInterestPercent ?? 0) || 0;
-                const lateFeeBase = Math.max(0, principal + interest);
-                const periodForgiveness = (periods: number) => {
-                    const waivedDays = Math.min(daysLate, periods * 30);
-                    const value = (lateFeeBase * (finePercent / 100) * periods)
-                        + (lateFeeBase * (dailyInterestPercent / 100) * waivedDays);
-                    return Math.min(lateFee, Math.max(0, Math.round((value + Number.EPSILON) * 100) / 100));
-                };
-                const partialWaiverOptions = Array.from({ length: Math.max(0, overduePeriods - 1) }, (_, index) => {
-                    const periods = index + 1;
-                    return { periods, amount: periodForgiveness(periods) };
-                }).filter(option => option.amount > ZERO_BALANCE_THRESHOLD && option.amount < lateFee - ZERO_BALANCE_THRESHOLD);
                 const cycle = String(loan.billingCycle || '').toUpperCase();
                 const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
                     ? { name: 'Mensal', rule: 'Juros vencidos pagos: +30 dias desde o vencimento anterior. Só juros + multa/mora integralmente pagos reiniciam +30 dias da data do pagamento. Saldo não vira capital sem sua escolha.' }
@@ -235,12 +223,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 };
 
                 const modalContent = (
-                <div className="fixed inset-0 z-[2000] flex h-dvh items-start justify-center overflow-y-auto overscroll-contain bg-slate-950/90 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm animate-in fade-in duration-200 [-webkit-overflow-scrolling:touch]" onClick={(e) => e.stopPropagation()}>
-                    <div className="my-auto w-full max-w-[360px] space-y-4 rounded-lg border border-slate-800 bg-slate-900 p-5 shadow-2xl">
-                        <div className="text-center">
-                            <h5 className="text-white font-black uppercase text-xs tracking-tight">Confirmar Recebimento?</h5>
-                            <p className="text-slate-400 text-[10px] mt-1">Informe quanto recebeu e defina o destino do saldo restante.</p>
-                        </div>
+                <Modal onClose={resetSelection} title="Confirmar recebimento?" subtitle="Informe o valor e o destino do saldo" size="sm">
+                    <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
@@ -305,37 +289,16 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     Juros + atraso
                                 </button>
                             )}
-                            {!hasActiveOffer && lateFee > 0.05 && (
-                                <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.04] p-2.5 space-y-1.5">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <span className="text-[8px] font-black uppercase tracking-wide text-rose-300">Dispensa de atraso</span>
-                                        <span className="text-[8px] font-bold text-slate-500">{daysLate} dias · {overduePeriods} período{overduePeriods === 1 ? '' : 's'}</span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => setLateFeeForgiven(0)}
-                                        className={`w-full rounded-md border px-2.5 py-2 text-left text-[8px] font-black uppercase ${appliedLateFeeForgiveness <= ZERO_BALANCE_THRESHOLD ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-950 text-slate-400'}`}
-                                    >
-                                        Cobrar atraso completo
-                                    </button>
-                                    {partialWaiverOptions.map(option => (
-                                        <button
-                                            key={option.periods}
-                                            type="button"
-                                            onClick={() => setLateFeeForgiven(option.amount)}
-                                            className={`w-full rounded-md border px-2.5 py-2 text-left text-[8px] font-black uppercase ${Math.abs(appliedLateFeeForgiveness - option.amount) <= ZERO_BALANCE_THRESHOLD ? 'border-amber-500/40 bg-amber-500/10 text-amber-300' : 'border-slate-700 bg-slate-950 text-slate-400'}`}
-                                        >
-                                            Dispensar {option.periods} período{option.periods === 1 ? '' : 's'} ({formatMoney(option.amount, isStealthMode)})
-                                        </button>
-                                    ))}
-                                    <button
-                                        type="button"
-                                        onClick={() => setLateFeeForgiven(lateFee)}
-                                        className={`w-full rounded-md border px-2.5 py-2 text-left text-[8px] font-black uppercase ${Math.abs(appliedLateFeeForgiveness - lateFee) <= ZERO_BALANCE_THRESHOLD ? 'border-rose-500/40 bg-rose-500/10 text-rose-300' : 'border-slate-700 bg-slate-950 text-slate-400'}`}
-                                    >
-                                        Dispensar todo atraso ({formatMoney(lateFee, isStealthMode)})
-                                    </button>
-                                </div>
+                            {!hasActiveOffer && (
+                                <LateFeeWaiverOptions
+                                    loan={loan}
+                                    installment={selectedInst}
+                                    lateFee={lateFee}
+                                    referenceDate={toISODateOnlyUTC(new Date())}
+                                    value={appliedLateFeeForgiveness}
+                                    onChange={setLateFeeForgiven}
+                                    isStealthMode={isStealthMode}
+                                />
                             )}
                             {!hasActiveOffer && showCustomAmount && (
                                 <input
@@ -420,17 +383,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             >
                                 Confirmar
                             </button>
-                            <button
-                                onClick={resetSelection}
-                                className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase text-slate-500 hover:text-white transition-all flex items-center justify-center gap-1"
-                            >
-                                <XCircle size={12}/> Cancelar
-                            </button>
+
                         </div>
                     </div>
-                </div>
+                </Modal>
                 );
-                return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
+                return modalContent;
             })()}
 
             {offerInstallment && typeof document !== 'undefined' && createPortal(

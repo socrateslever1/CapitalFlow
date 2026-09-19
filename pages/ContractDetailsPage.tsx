@@ -45,7 +45,8 @@ interface ContractDetailsPageProps {
         amountPaid?: number,
         realDate?: Date | null,
         interestHandling?: InterestHandling,
-        contextOverride?: { loan: Loan; inst: any; calculations: any }
+        contextOverride?: { loan: Loan; inst: any; calculations: any },
+        lateFeeForgiven?: number
     ) => Promise<void>;
     isProcessing: boolean;
     onOpenMessage: (loan: Loan) => void;
@@ -75,6 +76,9 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         loan,
         avAmount,
         setAvAmount,
+        lateFeeForgiven,
+        setLateFeeForgiven,
+        data,
         paymentType,
         setPaymentType,
         delayDetails,
@@ -234,6 +238,9 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                 <div className="space-y-6">
                     <PaymentRegistrationForm
                         loan={loan}
+                        installment={data?.inst || loan.installments[0]}
+                        lateFeeForgiven={lateFeeForgiven}
+                        setLateFeeForgiven={setLateFeeForgiven}
                         resolvedBillingCycle={resolvedBillingCycle}
                         avAmount={avAmount}
                         setAvAmount={setAvAmount}

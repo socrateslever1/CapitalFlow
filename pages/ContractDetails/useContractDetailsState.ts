@@ -5,7 +5,7 @@
  * de detalhes do contrato e registro de pagamentos.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
 import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta } from '../../domain/finance/calculations';
@@ -22,7 +22,8 @@ interface UseContractDetailsStateProps {
         amountPaid?: number,
         realDate?: Date | null,
         interestHandling?: InterestHandling,
-        contextOverride?: { loan: Loan; inst: Installment; calculations: any }
+        contextOverride?: { loan: Loan; inst: Installment; calculations: any },
+        lateFeeForgiven?: number
     ) => Promise<void>;
 }
 
@@ -30,6 +31,8 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const loan = useMemo(() => loans.find(l => l.id === loanId), [loans, loanId]);
 
     const [avAmount, setAvAmount] = useState('');
+    const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
+    useEffect(() => { setLateFeeForgiven(0); }, [loanId]);
     const [paymentType, setPaymentType] = useState<any>('RENEW_AV');
 
     const data = useMemo(() => {
@@ -82,7 +85,7 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     }, [loan]);
 
     const {
-        manualDateStr, setManualDateStr,
+        manualDateStr, setManualDateStr, manualDateEdited,
         realPaymentDateStr, setRealPaymentDateStr,
         forgivenessMode, setForgivenessMode,
         interestHandling, setInterestHandling,
@@ -125,9 +128,9 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const handleConfirm = () => {
         const val = safeParse(avAmount);
         if (val <= 0) return;
-        const nextDueDate = manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
+        const nextDueDate = manualDateEdited && manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
-        onPayment(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling, data || undefined);
+        onPayment(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling, data || undefined, lateFeeForgiven);
     };
 
     const status = loan ? loanEngine.computeLoanStatus(loan) : 'ACTIVE';
@@ -148,6 +151,8 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         loan,
         avAmount,
         setAvAmount,
+        lateFeeForgiven,
+        setLateFeeForgiven,
         paymentType,
         setPaymentType,
         data,

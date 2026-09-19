@@ -5,6 +5,10 @@ import {
   ZERO_BALANCE_THRESHOLD,
 } from '../../domain/finance/calculations';
 
+import { calculateMonthlyInstallments } from '../../features/loans/modalities/monthly/monthly.calculations';
+import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
+import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
+
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
   assert.equal(money(actual), money(expected), `${message}: esperado ${money(expected)}, obtido ${money(actual)}`);
@@ -116,6 +120,26 @@ run('parcela aberta com saldo positivo não é quitada', () => {
     interestRemaining: 0,
     lateFeeAccrued: 0,
   }), false);
+});
+
+run('vencimento mensal padrão usa 30 dias corridos, inclusive na virada do mês', () => {
+  assert.equal(toISODateOnlyUTC(addDaysUTC('2026-09-18', 30)), '2026-10-18');
+  assert.equal(toISODateOnlyUTC(addDaysUTC('2026-01-31', 30)), '2026-03-02');
+  const result = calculateMonthlyInstallments(1000, 30, '2026-09-18');
+  assert.equal(result.installments[0].dueDate, '2026-10-18');
+});
+
+run('vencimento manual prevalece em contrato novo e não altera capital ou juros', () => {
+  const loan = mapFormToLoan({
+    clientId: '', debtorName: 'Teste', debtorPhone: '', debtorDocument: '',
+    debtorAddress: '', sourceId: '', principal: '1000', interestRate: '30',
+    finePercent: '2', dailyInterestPercent: '1', billingCycle: 'MONTHLY',
+    notes: '', guaranteeDescription: '', startDate: '2026-09-18',
+    preferredPaymentMethod: 'PIX',
+  } as any, '30', null, [], [], [], '00000000-0000-4000-8000-000000000001', '2026-10-14');
+  assert.equal(loan.installments[0].dueDate, '2026-10-14');
+  assertMoney(loan.installments[0].principalRemaining, 1000, 'principal preservado');
+  assertMoney(loan.installments[0].interestRemaining, 300, 'juros preservados');
 });
 
 console.log('Suite financeira concluída com sucesso.');

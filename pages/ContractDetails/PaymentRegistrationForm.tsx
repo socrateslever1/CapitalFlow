@@ -8,7 +8,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Banknote, TrendingUp, ShieldCheck, CheckCircle2, Loader2 } from 'lucide-react';
-import { Loan } from '../../types';
+import { Loan, Installment } from '../../types';
+import { LateFeeWaiverOptions } from '../../components/modals/payment/LateFeeWaiverOptions';
 import { formatMoney } from '../../utils/formatters';
 import { ForgivenessMode, InterestHandling } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { FlexibleDailyScreen } from '../../components/modals/payment/FlexibleDailyScreen';
@@ -16,6 +17,9 @@ import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 
 interface PaymentRegistrationFormProps {
     loan: Loan;
+    installment: Installment;
+    lateFeeForgiven: number;
+    setLateFeeForgiven: (amount: number) => void;
     resolvedBillingCycle: string;
     avAmount: string;
     setAvAmount: (val: string) => void;
@@ -42,6 +46,9 @@ interface PaymentRegistrationFormProps {
 
 export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({
     loan,
+    installment,
+    lateFeeForgiven,
+    setLateFeeForgiven,
     resolvedBillingCycle,
     avAmount,
     setAvAmount,
@@ -71,15 +78,16 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
 
     useEffect(() => {
         if (autoFillMode === 'TOTAL') {
-            setAvAmount(debtBreakdown.total > 0 ? debtBreakdown.total.toFixed(2) : '');
+            setAvAmount(debtBreakdown.total - lateFeeForgiven > 0 ? (debtBreakdown.total - lateFeeForgiven).toFixed(2) : '');
         } else if (autoFillMode === 'INTEREST') {
-            setAvAmount(totalInterestDue.toFixed(2));
+            setAvAmount(Math.max(0, totalInterestDue - lateFeeForgiven).toFixed(2));
         }
-    }, [debtBreakdown.total, totalInterestDue, autoFillMode, setAvAmount]);
+    }, [debtBreakdown.total, totalInterestDue, lateFeeForgiven, autoFillMode, setAvAmount]);
     const forgivesFine = forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
     const forgivesMora = forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH' || forgivenessMode === 'TOTAL_CHARGES' || isCapitalOnlyRecovery;
 
     const toggleFineForgiveness = () => {
+        setLateFeeForgiven(0);
         if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('NONE');
         else if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('FINE_AND_MORA');
         else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('MORA_ONLY');
@@ -87,6 +95,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     };
 
     const toggleMoraForgiveness = () => {
+        setLateFeeForgiven(0);
         if (forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'INTEREST_ONLY') setForgivenessMode('NONE');
         else if (forgivenessMode === 'FINE_ONLY') setForgivenessMode('FINE_AND_MORA');
         else if (forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'BOTH') setForgivenessMode('FINE_ONLY');
@@ -101,7 +110,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
             if (nextMode === 'NONE') {
                 setAvAmount(previous?.amount ?? '');
             } else {
-                setAvAmount(debtBreakdown.total > 0 ? debtBreakdown.total.toFixed(2) : '');
+                setAvAmount(debtBreakdown.total - lateFeeForgiven > 0 ? (debtBreakdown.total - lateFeeForgiven).toFixed(2) : '');
             }
             previousAutoFillRef.current = null;
             return;
@@ -109,7 +118,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
 
         previousAutoFillRef.current = { mode: autoFillMode, amount: avAmount || '' };
         setAutoFillMode('INTEREST');
-        setAvAmount(totalInterestDue.toFixed(2));
+        setAvAmount(Math.max(0, totalInterestDue - lateFeeForgiven).toFixed(2));
     };
 
     if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') {
@@ -159,7 +168,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                             setAutoFillMode('NONE');
                             previousAutoFillRef.current = null;
                         }}
-                        className="w-full bg-transparent text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter"
+                        className="w-full min-w-0 bg-transparent text-3xl sm:text-5xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter"
                         placeholder="0,00"
                     />
                 </div>
@@ -188,8 +197,8 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                 <p className="text-sm text-slate-200 font-bold leading-relaxed">
                                     {(() => {
                                         const val = safeParse(avAmount);
-                                        const totalDue = debtBreakdown.total;
-                                        const interestDue = totalInterestDue;
+                                        const totalDue = Math.max(0, debtBreakdown.total - lateFeeForgiven);
+                                        const interestDue = Math.max(0, totalInterestDue - lateFeeForgiven);
                                         if (isCapitalOnlyRecovery) {
                                             if (val >= debtBreakdown.principal - 0.05) return 'Quitação sem juros: recebe apenas o capital e encerra os encargos.';
                                             return `Recebimento sem juros: abate ${formatMoney(val, isStealthMode)} diretamente do capital.`;
@@ -208,6 +217,8 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     </div>
                 )}
 
+                <LateFeeWaiverOptions loan={loan} installment={installment} lateFee={debtBreakdown.fine + debtBreakdown.dailyMora} referenceDate={realPaymentDateStr} value={lateFeeForgiven} onChange={(amount) => { setForgivenessMode('NONE'); setLateFeeForgiven(amount); }} isStealthMode={isStealthMode} />
+
                 <div className="bg-transparent p-0 mb-8 space-y-4">
                     <div className="flex items-center gap-2">
                         <ShieldCheck size={14} className="text-rose-500" />
@@ -216,7 +227,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     <div className="grid grid-cols-2 gap-2">
                         <button onClick={toggleFineForgiveness} className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivesFine && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar Multa</button>
                         <button onClick={toggleMoraForgiveness} className={`p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivesMora && forgivenessMode !== 'TOTAL_CHARGES' ? 'bg-orange-600 border-orange-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar Mora</button>
-                        <button onClick={() => setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES')} className={`col-span-2 p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivenessMode === 'TOTAL_CHARGES' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar 100% dos Encargos</button>
+                        <button onClick={() => { setLateFeeForgiven(0); setForgivenessMode(forgivenessMode === 'TOTAL_CHARGES' ? 'NONE' : 'TOTAL_CHARGES'); }} className={`col-span-2 p-3 rounded-lg border text-[9px] font-black uppercase transition-all ${forgivenessMode === 'TOTAL_CHARGES' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>Perdoar 100% dos Encargos</button>
                     </div>
                 </div>
 

@@ -154,7 +154,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             {hasActiveOffer ? (
                                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center">
                                     <p className="text-[9px] font-black uppercase text-emerald-400">Condição especial ativa</p>
-                                    <p className="mt-0.5 text-[9px] text-slate-400">O recebimento deve usar exatamente o valor acordado.</p>
+                                    <p className="mt-0.5 text-[9px] text-slate-400">O valor fica reservado até a data combinada. É possível receber parte sem desfazer a condição; o restante continua disponível.</p>
                                 </div>
                             ) : <div className="grid grid-cols-2 gap-2">
                                 <button
@@ -181,6 +181,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     Outro valor
                                 </button>
                             </div>}
+                            {hasActiveOffer && String(selectedInst.paymentOfferType || '').toUpperCase() !== 'INTEREST_RENEWAL' && (
+                                <button type="button"
+                                    onClick={() => { setQuickMode('CUSTOM'); setShowCustomAmount(true); setReceiptAmount(''); }}
+                                    className="w-full rounded-lg border border-blue-500/40 bg-blue-500/10 py-2 text-[10px] font-black uppercase text-blue-300">
+                                    Receber parte da condição
+                                </button>
+                            )}
                             {!hasActiveOffer && canReceiveInterestOnly && (
                                 <button
                                     onClick={() => {
@@ -218,7 +225,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     isStealthMode={isStealthMode}
                                 />
                             )}
-                            {!hasActiveOffer && showCustomAmount && (
+                            {showCustomAmount && (
                                 <input
                                     type="number"
                                     step="0.01"
@@ -241,7 +248,10 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <p className="text-base font-black text-emerald-400">{formatMoney(displayedAmount, isStealthMode)}</p>
                             </div>
 
-                            {isPartialPayment && (
+                            {hasActiveOffer && isPartialPayment && (
+                                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-[10px] font-bold text-emerald-300">O saldo da condição continuará reservado até a data combinada, sem renovação de juros nem nova negociação.</p>
+                            )}
+                            {isPartialPayment && !hasActiveOffer && (
                                 <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.05] p-3 space-y-2">
                                     <div>
                                         <p className="text-[9px] font-black uppercase tracking-wide text-amber-300">Recebimento parcial</p>
@@ -276,13 +286,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                         </div>
                         <div className="flex flex-col gap-2">
                             <button
-                                disabled={displayedAmount <= 0.05}
+                                disabled={displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)}
                                 onClick={() => {
                                     const amount = quickMode === 'CUSTOM'
-                                        ? (Number(receiptAmount) || displayedAmount)
+                                        ? Number(receiptAmount)
                                         : displayedAmount;
-                                    if (amount <= 0.05) return;
-                                    const effectivePartialAction = isPartialPayment ? partialBalanceAction : undefined;
+                                    if (!Number.isFinite(amount) || amount <= 0.05 || (hasActiveOffer && amount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)) return;
+                                    const effectivePartialAction = isPartialPayment && !hasActiveOffer ? partialBalanceAction : undefined;
                                     if (effectivePartialAction === 'SETTLE') {
                                         const confirmed = window.confirm(
                                             `Quitar por acordo com ${formatMoney(amount, isStealthMode)}?\n\nO saldo restante desta obrigação será registrado como desconto de quitação.`

@@ -102,21 +102,27 @@ export const paymentsService = {
     const offerValidUntil = String(instDb?.payment_offer_valid_until || '').slice(0, 10);
     const offerAmount = roundMoney(Number(instDb?.payment_offer_amount || 0));
     const offerType = String(instDb?.payment_offer_type || 'SETTLEMENT').toUpperCase();
-    const hasValidPaymentOffer = offerStatus === 'ACTIVE' && offerValidUntil >= paymentDateStr && offerAmount > ZERO_BALANCE_THRESHOLD;
+    const hasValidPaymentOffer = offerStatus === 'ACTIVE'
+      && offerValidUntil >= todayDateOnlyUTC().toISOString().slice(0, 10)
+      && offerValidUntil >= paymentDateStr
+      && offerAmount > ZERO_BALANCE_THRESHOLD;
 
-    if (hasValidPaymentOffer && Math.abs(amountToPay - offerAmount) <= ZERO_BALANCE_THRESHOLD) {
+    if (hasValidPaymentOffer && amountToPay > ZERO_BALANCE_THRESHOLD && amountToPay <= offerAmount + ZERO_BALANCE_THRESHOLD) {
       if (isOffline) throw new Error('O recebimento de uma condição especial exige internet para registrar os descontos com segurança.');
       const sourceId = safeUUID((loan as any).sourceId);
       if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
       let offerCaixaLivreId = resolveCaixaLivreIdFromMemory(sources);
       if (!offerCaixaLivreId) offerCaixaLivreId = await resolveCaixaLivreIdFromDB(ownerId);
-      const offerRpc = offerType === 'INTEREST_RENEWAL' ? 'process_interest_renewal_payment_offer' : 'process_installment_payment_offer';
+      const isPartialOfferPayment = amountToPay < offerAmount - ZERO_BALANCE_THRESHOLD;
+      if (isPartialOfferPayment && offerType !== 'SETTLEMENT') throw new Error('Renovação por juros exige o valor completo da condição.');
+      const offerRpc = isPartialOfferPayment ? 'process_installment_payment_offer_partial'
+        : offerType === 'INTEREST_RENEWAL' ? 'process_interest_renewal_payment_offer' : 'process_installment_payment_offer';
       const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_amount_paid: amountToPay, p_payment_date: paymentDateStr, p_source_id: sourceId, p_caixa_livre_id: safeUUID(offerCaixaLivreId) });
       if (offerError) throw new Error('Falha ao aplicar a condição especial: ' + offerError.message);
-      return { amountToPay, paymentType: 'SPECIAL_OFFER', amortization: offerResult };
+      return { amountToPay, paymentType: isPartialOfferPayment ? 'SPECIAL_OFFER_PARTIAL' : 'SPECIAL_OFFER', amortization: offerResult };
     }
 
-    if (hasValidPaymentOffer) throw new Error(`Esta parcela possui uma condição especial ativa de R$ ${offerAmount.toFixed(2).replace('.', ',')}. Receba esse valor ou cancele/atualize a condição antes de registrar outro pagamento.`);
+    if (hasValidPaymentOffer) throw new Error(`A condição especial tem saldo de R$ ${offerAmount.toFixed(2).replace('.', ',')}. Informe valor positivo até esse saldo ou altere a condição explicitamente.`);
 
     if (!isOffline && dbIsActuallySettled && principalReconciliationDelta <= ZERO_BALANCE_THRESHOLD && interestReconciliationDelta <= ZERO_BALANCE_THRESHOLD) {
       await reconcileZeroBalanceInstallment(loanId, instId, paymentDateStr);

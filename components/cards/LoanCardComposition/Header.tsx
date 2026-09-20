@@ -122,8 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
   const originalContractTotal = loan.billingCycle === 'INSTALLMENT_FIXED' && scheduleTotal > ZERO_BALANCE_THRESHOLD
     ? scheduleTotal
     : Math.max(0, Number(loan.totalToReceive ?? loan.principal ?? 0));
-  const displayAmount = Math.max(0, Number(currentDebt ?? loan.totalToReceive ?? loan.principal ?? 0));
-  const amountLabel = 'Saldo atual';
+
   const clientAvatarUrl = String(loan.clientAvatarUrl || '').trim();
   const amountBreakdown = React.useMemo(() => {
     const balance = computeLoanRemainingBalance(loan);
@@ -135,6 +134,14 @@ export const Header: React.FC<HeaderProps> = ({
   const activePaymentOffer = (loan.installments || []).find((installment) =>
     isPaymentOfferActive(installment)
   );
+  // Uma condição de pagamento vigente substitui o valor cobrado na parcela,
+  // sem alterar a decomposição contábil de capital e juros.
+  const displayAmount = activePaymentOffer && loan.installments.length === 1
+    ? Math.max(0, Number(activePaymentOffer.paymentOfferAmount || 0))
+    : Math.max(0, Number(currentDebt ?? loan.totalToReceive ?? loan.principal ?? 0));
+  const amountLabel = activePaymentOffer && loan.installments.length === 1
+    ? 'Saldo da condição'
+    : 'Saldo atual';
   const activeOfferLabel = activePaymentOffer
     ? Number(activePaymentOffer.paymentOfferDiscountPercent || 0) > 0
       ? `Desconto ${Number(activePaymentOffer.paymentOfferDiscountPercent).toLocaleString('pt-BR')}% |`

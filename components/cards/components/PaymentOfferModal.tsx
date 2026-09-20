@@ -77,6 +77,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     if (normalized === 'REPLACED') return 'Alterada';
     if (normalized === 'CANCELLED') return 'Cancelada';
     if (normalized === 'USED') return 'Usada';
+    if (normalized === 'PARTIAL') return 'Recebimento parcial';
     if (normalized === 'EXPIRED') return 'Vencida';
     return action;
   };

@@ -186,4 +186,20 @@ run('prévia da janela desconta atraso dispensado sem alterar capital ou juro', 
   assertMoney(preview.displayedAmount, 320, 'valor de juros e atraso');
 });
 
+run('condição especial mantém o saldo de um recebimento parcial sem acionar renovação', () => {
+  const preview = buildInstallmentReceiptModel({
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: {
+      dueDate: '2026-09-27', principalRemaining: 300, interestRemaining: 90,
+      paymentOfferStatus: 'ACTIVE', paymentOfferAmount: 250,
+      paymentOfferValidUntil: '2099-09-27', paymentOfferType: 'SETTLEMENT',
+    } as any,
+    selectedDebt: { principal: 300, interest: 90, lateFee: 0, total: 390 },
+    lateFeeForgiven: 0, quickMode: 'CUSTOM', receiptAmount: '125',
+  });
+  assert.equal(preview.hasActiveOffer, true);
+  assertMoney(preview.totalAmount, 250, 'saldo protegido da condição');
+  assertMoney(preview.displayedAmount, 125, 'parcial escolhido');
+  assert.equal(preview.isPartialPayment, true);
+});
 console.log('Suite financeira concluída com sucesso.');

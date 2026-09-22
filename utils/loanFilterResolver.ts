@@ -44,9 +44,7 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
   const hasActiveAgreement =
     !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
 
-  if (loan.status === LoanStatus.RENEGOCIADO || loan.status === LoanStatus.EM_ACORDO || hasActiveAgreement) {
-    return 'RENEGOCIADO';
-  }
+  // Acordos ativos devem ser classificados pelo vencimento antes de RENEGOCIADO.
 
   // Verificacoes de quitacao.
   const hasPaidStatus = [LoanStatus.QUITADO, LoanStatus.PAGO, LoanStatus.PAID].includes(loan.status);
@@ -74,6 +72,10 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     if (maxDelay > 0) {
       return maxDelay >= 30 ? 'CRITICO' : 'ATRASADO';
     }
+    return 'RENEGOCIADO';
+  }
+
+  if (loan.status === LoanStatus.RENEGOCIADO || loan.status === LoanStatus.EM_ACORDO || hasActiveAgreement) {
     return 'RENEGOCIADO';
   }
 

@@ -259,7 +259,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
         if (missingInfo.missing.includes('nome') && loggedClient.name) patch.nome = loggedClient.name;
 
         if (Object.keys(patch).length > 0) {
-          await portalService.updateDocumentSnapshotFields(docId, patch);
+          await portalService.updateDocumentSnapshotFields(initialToken, initialCode, docId, patch);
         } else {
           alert('Existem informacoes faltantes no seu cadastro para assinar este documento. Por favor, entre em contato com o suporte.');
           setIsSigning(false);

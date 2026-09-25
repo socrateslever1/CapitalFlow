@@ -252,12 +252,17 @@ export const portalService = {
   /**
    * Atualiza campos faltantes no snapshot do documento
    */
-  async updateDocumentSnapshotFields(docId: string, patch: any) {
+  async updateDocumentSnapshotFields(token: string, code: string, docId: string, patch: any) {
     const safeDocId = safeUUID(docId);
     if (!safeDocId) throw new Error('ID do documento invalido.');
 
     const { data, error } = await supabasePortal
-      .rpc('rpc_doc_patch_snapshot', { p_documento_id: safeDocId, p_patch: patch });
+      .rpc('portal_patch_document_snapshot', {
+        p_token: token,
+        p_shortcode: code,
+        p_documento_id: safeDocId,
+        p_patch: patch,
+      });
 
     if (error) throw error;
     return data;

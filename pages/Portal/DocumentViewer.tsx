@@ -70,7 +70,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     try {
       setSigning(true);
 
-      await legalDocumentService.updateFields(docId, missingValues);
+      await legalDocumentService.updateFields(token, code, docId, missingValues);
 
       await loadDocument();
 
@@ -280,7 +280,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                   if (!notes || !notes.trim()) return;
                   try {
                     setSigning(true);
-                    await legalDocumentService.requestAdjustment(docId, notes, signerName);
+                    await legalDocumentService.requestAdjustment(token, code, docId, notes, signerName);
                     alert('Solicitação de ajustes enviada com sucesso ao responsável!');
                     onSigned();
                   } catch (e: any) {
@@ -301,7 +301,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                   if (!reason || !reason.trim()) return;
                   try {
                     setSigning(true);
-                    await legalDocumentService.rejectDoc(docId, reason, signerName);
+                    await legalDocumentService.rejectDoc(token, code, docId, reason, signerName);
                     alert('Contrato recusado. O responsável foi notificado.');
                     onSigned();
                   } catch (e: any) {

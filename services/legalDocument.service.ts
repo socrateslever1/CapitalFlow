@@ -77,10 +77,12 @@ export const legalDocumentService = {
   /**
    * Atualiza campos faltantes via RPC segura
    */
-  async updateFields(docId: string, fields: Record<string, any>) {
+  async updateFields(token: string, code: string, docId: string, fields: Record<string, any>) {
     const { data, error } = await supabasePortal.rpc(
-      'rpc_doc_patch_snapshot',
+      'portal_patch_document_snapshot',
       {
+        p_token: token,
+        p_shortcode: code,
         p_documento_id: docId,
         p_patch: fields,
       }
@@ -136,8 +138,10 @@ export const legalDocumentService = {
   /**
    * Solicitar ajustes no documento (Portal)
    */
-  async requestAdjustment(docId: string, notes: string, signerName?: string) {
-    const { data, error } = await supabasePortal.rpc('rpc_doc_patch_snapshot', {
+  async requestAdjustment(token: string, code: string, docId: string, notes: string, signerName?: string) {
+    const { data, error } = await supabasePortal.rpc('portal_patch_document_snapshot', {
+      p_token: token,
+      p_shortcode: code,
       p_documento_id: docId,
       p_patch: {
         status_assinatura: 'AJUSTE_SOLICITADO',
@@ -146,18 +150,7 @@ export const legalDocumentService = {
       },
     });
 
-    if (error) {
-      console.warn('RPC patch error, trying direct update fallback:', error.message);
-      const { error: directErr } = await supabasePortal
-        .from('documentos_juridicos')
-        .update({
-          status_assinatura: 'AJUSTE_SOLICITADO',
-          observacoes: `[AJUSTE SOLICITADO por ${signerName || 'Cliente'}] ${notes}`,
-        })
-        .eq('id', docId);
-
-      if (directErr) throw new Error(directErr.message || 'Falha ao solicitar ajustes.');
-    }
+    if (error) throw new Error(error.message || 'Falha ao solicitar ajustes.');
 
     return Array.isArray(data) ? data[0] : data ?? { ok: true };
   },
@@ -165,8 +158,10 @@ export const legalDocumentService = {
   /**
    * Recusar documento (Portal)
    */
-  async rejectDoc(docId: string, reason: string, signerName?: string) {
-    const { data, error } = await supabasePortal.rpc('rpc_doc_patch_snapshot', {
+  async rejectDoc(token: string, code: string, docId: string, reason: string, signerName?: string) {
+    const { data, error } = await supabasePortal.rpc('portal_patch_document_snapshot', {
+      p_token: token,
+      p_shortcode: code,
       p_documento_id: docId,
       p_patch: {
         status_assinatura: 'RECUSADO',
@@ -175,18 +170,7 @@ export const legalDocumentService = {
       },
     });
 
-    if (error) {
-      console.warn('RPC patch error, trying direct update fallback:', error.message);
-      const { error: directErr } = await supabasePortal
-        .from('documentos_juridicos')
-        .update({
-          status_assinatura: 'RECUSADO',
-          observacoes: `[RECUSADO por ${signerName || 'Cliente'}] Motivo: ${reason}`,
-        })
-        .eq('id', docId);
-
-      if (directErr) throw new Error(directErr.message || 'Falha ao recusar documento.');
-    }
+    if (error) throw new Error(error.message || 'Falha ao recusar documento.');
 
     return Array.isArray(data) ? data[0] : data ?? { ok: true };
   },

@@ -73,6 +73,13 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
     });
   }, [legalDocs]);
 
+  const currentLegalDocs = useMemo(
+    () => legalDocs.filter((doc) => !['CANCELADO', 'SUPERSEDED', 'SUBSTITUIDO'].includes(
+      String(doc.status || doc.status_assinatura || '').toUpperCase(),
+    )),
+    [legalDocs],
+  );
+
   const handleDeleteDocument = async (docId: string) => {
     if (!window.confirm('Tem certeza que deseja EXCLUIR este documento do sistema? Esta ação é irreversível.')) return;
     try {
@@ -400,7 +407,7 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                             : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                 >
-                    <Scroll size={15} /> Documentos & Pré-Contratos Emitidos ({legalDocs.length})
+                    <Scroll size={15} /> Documentos Jurídicos Emitidos ({currentLegalDocs.length})
                 </button>
 
                 <button
@@ -478,17 +485,17 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 </div>
             )}
 
-            {/* ABA: DOCUMENTOS JURÍDICOS & PRÉ-CONTRATOS EMITIDOS */}
+            {/* ABA: DOCUMENTOS JURÍDICOS EMITIDOS */}
             {activeTab === 'DOCS' && (
                 <div>
-                    {legalDocs.length === 0 ? (
+                    {currentLegalDocs.length === 0 ? (
                         <div className="text-center py-16 bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-800">
                             <Scroll size={32} className="mx-auto text-slate-500 mb-2" />
                             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum documento jurídico emitido até o momento</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {legalDocs.map((doc) => {
+                            {currentLegalDocs.map((doc) => {
                                 const st = String(doc.status_assinatura || doc.status || '').toUpperCase();
                                 const isSigned = st === 'ASSINADO';
                                 const isAdj = st === 'AJUSTE_SOLICITADO' || st === 'AJUSTE';

@@ -1,10 +1,12 @@
 // components/AppGate.tsx
-import React, { useEffect, useState } from 'react';
-import { ClientPortalView } from '../containers/ClientPortal/ClientPortalView';
-import { PublicSignaturePage } from '../pages/Public/PublicSignaturePage';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { AuthScreen } from '../features/auth/AuthScreen';
 import { Lock, Loader2 } from 'lucide-react';
 import { AlertTriangle } from 'lucide-react';
+import { LoadingScreen } from './ui/LoadingScreen';
+
+const ClientPortalView = lazy(() => import('../containers/ClientPortal/ClientPortalView').then(({ ClientPortalView }) => ({ default: ClientPortalView })));
+const PublicSignaturePage = lazy(() => import('../pages/Public/PublicSignaturePage').then(({ PublicSignaturePage }) => ({ default: PublicSignaturePage })));
 
 interface AppGateProps {
   portalToken?: string | null;
@@ -96,11 +98,19 @@ export const AppGate: React.FC<AppGateProps> = ({
   // Rotas públicas
   // =========================
   if (portalToken) {
-    return <ClientPortalView initialPortalToken={portalToken} initialPortalCode={portalCode || ''} />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <ClientPortalView initialPortalToken={portalToken} initialPortalCode={portalCode || ''} />
+      </Suspense>
+    );
   }
 
   if (legalSignToken) {
-    return <PublicSignaturePage />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PublicSignaturePage />
+      </Suspense>
+    );
   }
 
   // 0. Erro crítico de carregamento

@@ -30,27 +30,23 @@ import { ModalHost } from './components/modals/ModalHost';
 import { filesService } from './services/files.service';
 import { contractsService } from './services/contracts.service';
 
-// Lazy loading components for optimization
-import { DashboardContainer } from './containers/DashboardContainer';
-import { ClientsContainer } from './containers/ClientsContainer';
-import { SourcesContainer } from './containers/SourcesContainer';
-import ProfileContainer from '@/containers/ProfileContainer';
-import { LegalContainer } from './containers/LegalContainer';
-
-import OperatorSupportChat from './features/support/OperatorSupportChat';
-import { SimulatorPanel } from './features/simulator/SimulatorPanel';
-import { FlowModal } from './components/modals/FlowModal';
-
-import { InvitePage } from './pages/InvitePage';
-import { SetupPasswordPage } from './pages/SetupPasswordPage';
-import { ReportsPage } from './features/reports/pages/ReportsPage';
-import { SettingsPage } from './pages/SettingsPage';
-import { ContractDetailsPage } from './pages/ContractDetailsPage';
-import { FinancialStatementPage } from './pages/FinancialStatementPage';
-
-import { PublicSignaturePage } from './pages/Public/PublicSignaturePage';
-import { ClientRegistrationPage } from './pages/Public/ClientRegistrationPage';
-import { PortalReceiptViewer } from './features/portal/components/PortalReceiptViewer';
+const DashboardContainer = lazy(() => import('./containers/DashboardContainer').then(({ DashboardContainer }) => ({ default: DashboardContainer })));
+const ClientsContainer = lazy(() => import('./containers/ClientsContainer').then(({ ClientsContainer }) => ({ default: ClientsContainer })));
+const SourcesContainer = lazy(() => import('./containers/SourcesContainer').then(({ SourcesContainer }) => ({ default: SourcesContainer })));
+const ProfileContainer = lazy(() => import('./containers/ProfileContainer'));
+const LegalContainer = lazy(() => import('./containers/LegalContainer').then(({ LegalContainer }) => ({ default: LegalContainer })));
+const OperatorSupportChat = lazy(() => import('./features/support/OperatorSupportChat'));
+const SimulatorPanel = lazy(() => import('./features/simulator/SimulatorPanel').then(({ SimulatorPanel }) => ({ default: SimulatorPanel })));
+const FlowModal = lazy(() => import('./components/modals/FlowModal').then(({ FlowModal }) => ({ default: FlowModal })));
+const InvitePage = lazy(() => import('./pages/InvitePage').then(({ InvitePage }) => ({ default: InvitePage })));
+const SetupPasswordPage = lazy(() => import('./pages/SetupPasswordPage').then(({ SetupPasswordPage }) => ({ default: SetupPasswordPage })));
+const ReportsPage = lazy(() => import('./features/reports/pages/ReportsPage').then(({ ReportsPage }) => ({ default: ReportsPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage })));
+const ContractDetailsPage = lazy(() => import('./pages/ContractDetailsPage').then(({ ContractDetailsPage }) => ({ default: ContractDetailsPage })));
+const FinancialStatementPage = lazy(() => import('./pages/FinancialStatementPage').then(({ FinancialStatementPage }) => ({ default: FinancialStatementPage })));
+const PublicSignaturePage = lazy(() => import('./pages/Public/PublicSignaturePage').then(({ PublicSignaturePage }) => ({ default: PublicSignaturePage })));
+const ClientRegistrationPage = lazy(() => import('./pages/Public/ClientRegistrationPage').then(({ ClientRegistrationPage }) => ({ default: ClientRegistrationPage })));
+const PortalReceiptViewer = lazy(() => import('./features/portal/components/PortalReceiptViewer').then(({ PortalReceiptViewer }) => ({ default: PortalReceiptViewer })));
 
 export const App: React.FC = () => {
   const [operatorUploadStatus, setOperatorUploadStatus] = useState<{
@@ -319,7 +315,11 @@ export const App: React.FC = () => {
   }
 
   // ✅ Agora SIM pode retornar rotas públicas (depois dos hooks)
-  if (clientRegistrationToken) return <ClientRegistrationPage token={clientRegistrationToken} />;
+  if (clientRegistrationToken) return (
+    <Suspense fallback={<LoadingScreen />}>
+      <ClientRegistrationPage token={clientRegistrationToken} />
+    </Suspense>
+  );
   if (legalSignToken) return (
     <Suspense fallback={<LoadingScreen />}>
       <PublicSignaturePage />
@@ -331,7 +331,11 @@ export const App: React.FC = () => {
   }
 
   if (hasPortalAccessParams && isPortalReceipt) {
-    return <PortalReceiptViewer />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <PortalReceiptViewer />
+      </Suspense>
+    );
   }
 
   if (isInitializing && !isPublicView && !isInvitePath) {

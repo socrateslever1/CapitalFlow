@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+*.patch
+*.tsbuildinfo
+/scratch/
+/supabase.temp-*
 
 # Editor directories and files
 .vscode/*

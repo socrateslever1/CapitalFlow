@@ -25,9 +25,10 @@ export function planPaymentRenewal(params: {
     // - pagamento parcial de juros/encargos: avança 30 dias a partir do vencimento anterior;
     // - regularização integral de juros + multa/mora: reinicia 30 dias a partir do pagamento;
     // - nunca soma um novo juro cheio ao saldo parcial já existente.
+    const paymentDateOnly = paymentDate.toISOString().slice(0, 10);
     const renewalDate = partialRenewalRequested
       ? (manualDate || addDaysUTC(currentDueDate, 30))
-      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDate, 30) : null));
+      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDateOnly, 30) : null));
 
 
     return { isMonthlyOrGiro, hasPrincipalRemaining, nextCycleInterest, partialRenewalRequested, currentDueDate, renewalDate };

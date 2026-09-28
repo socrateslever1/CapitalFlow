@@ -16,6 +16,16 @@ const walk = (dir) => {
 const relative = (file) => path.relative(root, file).replaceAll('\\', '/');
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 
+for (const artifact of [
+  'fix.patch',
+  'supabase.temp-cli-latest',
+  'features/portal/ClientPortalView.tsx',
+]) {
+  if (fs.existsSync(path.join(root, artifact))) {
+    failures.push(`artefato obsoleto versionado: ${artifact}`);
+  }
+}
+
 for (const file of walk(path.join(root, 'domain'))) {
   const text = fs.readFileSync(file, 'utf8');
   const imports = [...text.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
@@ -98,6 +108,11 @@ if (readme.includes('Run and deploy your AI Studio app')) {
 }
 if (!readme.includes('backend financeiro é a fonte de verdade')) {
   failures.push('README.md -> filosofia financeira autoritativa não documentada');
+}
+
+const viteConfig = read('vite.config.ts');
+if (/transform\s*\(\s*source\s*,\s*id\s*\)/.test(viteConfig)) {
+  failures.push('vite.config.ts -> mutação textual de código-fonte durante o build');
 }
 
 const requiredProductionMigrations = [

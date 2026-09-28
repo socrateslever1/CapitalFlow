@@ -24,10 +24,6 @@
     "Backup",
     "CapitalFlowBackup",
     "main/backup",
-    "scratch",
-    "check_owner.ts",
-    "check_table_columns.ts",
-    "check_connectivity.ts",
-    "check-db.ts"
+    "scratch"
   ]
 }

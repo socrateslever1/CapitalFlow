@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { getOrCreatePortalLink } from '../utils/portalLink';
 import { copyToClipboard } from '../utils/clipboard';
 import { Tooltip } from '../components/ui/Tooltip';
+import { ClientLegalDocumentsPanel } from '../features/legal/components/ClientLegalDocumentsPanel';
 
 interface ClientsPageProps {
   profileId: string;
@@ -590,7 +591,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
             <div className="w-full max-w-md rounded-lg border border-indigo-500/30 bg-slate-900 p-5 shadow-2xl">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Pré-contrato digital</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Minuta jurídica pré-desembolso</p>
                   <h2 className="mt-1 text-base font-black uppercase text-white">{formatShortName(preContractClient.name)}</h2>
                   <p className="mt-1 text-xs text-slate-500">O documento será enviado para o link público do cliente antes de lançar o contrato.</p>
                 </div>
@@ -692,7 +693,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 <div className="space-y-3">
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200 leading-relaxed">
                     <p className="font-bold text-emerald-300 uppercase">Documento Jurídico Criado com Sucesso!</p>
-                    <p className="mt-1 text-[11px] text-emerald-100/90">A Confissão de Dívida foi enviada para a área de documentos do cliente no mesmo link único do cadastro. Nenhum novo link de cadastro foi criado.</p>
+                    <p className="mt-1 text-[11px] text-emerald-100/90">O instrumento jurídico foi gerado pela mesma Central Jurídica e está disponível no Portal do Cliente.</p>
                   </div>
                   {!preContractResult.portalUrl && (
                     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] leading-relaxed text-amber-100">
@@ -728,6 +729,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 <button type="button" onClick={() => setSelectedClient(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Fechar ficha"><X size={18}/></button>
               </header>
               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <ClientLegalDocumentsPanel clientId={selectedClient.id} onNotify={showToast} />
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3"><p className="text-[9px] font-black uppercase text-slate-500">CPF</p><p className="mt-1 text-sm font-semibold text-slate-100">{maskDocument(selectedClient.document, isStealthMode) || 'Não informado'}</p></div>
                   <div className="rounded-md border border-slate-800 bg-slate-950/60 p-3"><p className="text-[9px] font-black uppercase text-slate-500">WhatsApp</p><p className="mt-1 text-sm font-semibold text-slate-100">{maskPhone(selectedClient.phone, isStealthMode) || 'Não informado'}</p></div>

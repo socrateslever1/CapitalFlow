@@ -23,7 +23,7 @@ import { Loan, UserProfile, CapitalSource, LegalDocumentRecord } from '../types'
 import { legalService } from '../features/legal/services/legalService';
 import { formatMoney } from '../utils/formatters';
 import { toast } from 'sonner';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 interface LegalContractPageProps {
   loanId?: string | null;

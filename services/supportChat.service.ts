@@ -2,6 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { isDev } from '../utils/isDev';
 import { isUUID, safeUUID } from '../utils/uuid';
+import { generateUUID } from '../utils/generators';
 
 export type SupportMessageType = 'text' | 'image' | 'audio' | 'file' | 'location';
 
@@ -62,38 +63,6 @@ async function getAuthUid(supabaseClient: any = supabase): Promise<string | null
   const { data, error } = await supabaseClient.auth.getUser();
   if (error) return null;
   return data?.user?.id || null;
-}
-
-// (mantido) helpers caso você use depois
-async function uploadToStorage(params: { loanId: string; file: File }) {
-  const { loanId, file } = params;
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const safeName = (file.name || 'upload').replace(/[^\w.\-]+/g, '_');
-  const ext = safeName.includes('.') ? safeName.split('.').pop() : extFromMime(file.type);
-  const fileName = `${crypto.randomUUID()}.${ext}`;
-  const path = `loans/${loanId}/${yyyy}-${mm}-${dd}/${fileName}`;
-  const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-    contentType: file.type || 'application/octet-stream',
-  });
-  if (upErr) {
-    console.error('[Storage Error]', upErr);
-    if (upErr.message.includes('row-level security policy')) {
-      throw new Error(`Este canal não permite envio de arquivos no momento. Utilize o suporte via WhatsApp.`);
-    }
-    throw new Error(`Storage upload falhou: ${upErr.message}`);
-  }
-  return { path };
-}
-
-async function signPath(path: string) {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
-  if (error) throw new Error(`SignedUrl falhou: ${error.message}`);
-  return data.signedUrl;
 }
 
 export const supportChatService = {
@@ -192,7 +161,7 @@ export const supportChatService = {
       const safeName = (file.name || 'upload').replace(/[^\w.\-]+/g, '_');
       const ext = safeName.includes('.') ? safeName.split('.').pop() : extFromMime(file.type);
 
-      const fileName = `${crypto.randomUUID()}.${ext}`;
+      const fileName = `${generateUUID()}.${ext}`;
       const path = `loans/${loanId}/${yyyy}-${mm}-${dd}/${fileName}`;
 
       const { error: upErr } = await supabaseClient.storage.from(BUCKET).upload(path, file, {

@@ -7,6 +7,7 @@ import { legalDocumentService } from '../services/legalDocument.service';
 import { LoanCard } from '../components/cards/LoanCard';
 import { StatCard } from '../components/StatCard';
 import { formatMoney } from '../utils/formatters';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // Importação das vistas
 import { ConfissaoDividaView } from '../features/legal/components/ConfissaoDividaView';
@@ -205,28 +206,20 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-900/20">
-                        <Scale size={20} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-semibold text-white uppercase tracking-wider leading-none">Jurídico</h1>
-                        <p className="text-sm text-slate-500 font-medium uppercase mt-1 tracking-widest">Gestão de Acordos e Recuperação</p>
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center gap-2 w-full md:w-auto">
+        <PageHeader
+          icon={<Scale size={22} />}
+          iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+          title="Jurídico"
+          subtitle="Gestão de acordos e recuperação"
+          actions={<div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                     onClick={() => setSubView('PROFILE')}
                     className="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase border border-slate-700"
                 >
                     <User size={15}/> Perfil Jurídico
                 </button>
-            </div>
-        </div>
+            </div>}
+        />
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

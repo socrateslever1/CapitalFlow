@@ -6,7 +6,7 @@ import { NavHubController } from './layout/NavHubController';
 import { AppGate } from './components/AppGate';
 import { useAuth } from './features/auth/useAuth';
 import { useToast } from './hooks/useToast';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAppState } from './hooks/useAppState';
 import { useUiState } from './hooks/useUiState';
 import { usePortalRouting } from './hooks/usePortalRouting';
@@ -444,6 +444,7 @@ export const App: React.FC = () => {
             addNotification={addNotification}
             onNavigate={navigate}
             activeModal={ui.activeModal}
+            onCloseSupport={ui.closeModal}
           >
             {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
             <div
@@ -474,7 +475,7 @@ export const App: React.FC = () => {
               />
             </div>
 
-            <AnimatePresence>
+            <>
               {activeTab === 'CLIENTS' && (
                 <motion.div
                   key="clients-view"
@@ -783,7 +784,7 @@ export const App: React.FC = () => {
                   />
                 </motion.div>
               )}
-            </AnimatePresence>
+            </>
 
             <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={hubOrder} />
           </AppShell>

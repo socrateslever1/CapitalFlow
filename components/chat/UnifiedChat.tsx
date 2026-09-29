@@ -72,12 +72,12 @@ export function UnifiedChat<TContext>({
   return (
     <div className={`flex-1 flex flex-col relative min-h-0 overflow-hidden ${chatTheme === 'blue' ? 'bg-slate-900/50' : 'bg-slate-900'}`}>
       {/* Header Interno do Chat */}
-      <div className={`h-20 border-b flex items-center justify-between px-6 shrink-0 relative z-20 backdrop-blur-md ${
+      <div className={`min-h-16 sm:min-h-20 border-b flex items-center justify-between gap-2 px-3 py-2 sm:px-6 shrink-0 relative z-20 backdrop-blur-md ${
         chatTheme === 'blue'
           ? 'bg-slate-900/60 border-blue-500/20'
           : 'bg-slate-950/40 border-slate-800/50'
       }`}>
-        <div className="flex items-center gap-4 min-w-0">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
           {onClose && (
             isAppleMobile() ? <SystemBackButton local onClick={onClose} /> : <button
               onClick={onClose}
@@ -87,7 +87,7 @@ export function UnifiedChat<TContext>({
             </button>
           )}
           <div className="relative group">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black shrink-0 shadow-xl shadow-blue-500/20 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black shrink-0 shadow-xl shadow-blue-500/20 group-hover:scale-105 transition-transform">
               {initials}
             </div>
             {features.hasPresence && (
@@ -105,11 +105,11 @@ export function UnifiedChat<TContext>({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
             {showDeleteHistory && onDeleteHistory && (
                 <button
                     onClick={onDeleteHistory}
-                    className="p-3 rounded-lg text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all active:scale-95"
+                    className="p-2.5 sm:p-3 rounded-lg text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all active:scale-95"
                     title="Apagar Histórico"
                 >
                     <Trash2 size={18}/>
@@ -119,13 +119,13 @@ export function UnifiedChat<TContext>({
             {features.canClose && (
                 <button
                     onClick={toggleTicket}
-                    className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase shadow-xl border transition-all flex items-center gap-2 active:scale-95 ${
+                    className={`p-2.5 sm:px-4 sm:py-2 rounded-lg text-[9px] font-black uppercase shadow-xl border transition-all flex items-center gap-2 active:scale-95 ${
                       ticketStatus === 'OPEN'
                         ? 'bg-amber-500 text-black border-amber-400 hover:bg-amber-400'
                         : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
                     }`}
                 >
-                    {ticketStatus === 'OPEN' ? <><Lock size={12}/> Encerrar</> : <><Unlock size={12}/> Reabrir</>}
+                    {ticketStatus === 'OPEN' ? <><Lock size={12}/><span className="hidden sm:inline">Encerrar</span></> : <><Unlock size={12}/><span className="hidden sm:inline">Reabrir</span></>}
                 </button>
             )}
         </div>
@@ -145,7 +145,7 @@ export function UnifiedChat<TContext>({
       </div>
 
       {/* Input */}
-      <div className="p-4 sm:p-6 bg-transparent relative z-40">
+      <div className="bg-transparent relative z-40">
           <ChatInput
             onSend={async (text, type, file, meta) => {
                 console.log('[UnifiedChat] Attempting to send message:', { type, textLength: text.length });
@@ -155,6 +155,7 @@ export function UnifiedChat<TContext>({
                 } catch (e: any) {
                   console.error('[UnifiedChat] Send message failed:', e);
                   showToast(e.message || 'Erro ao enviar mensagem', 'error');
+                  throw e;
                 }
             }}
             isUploading={isUploading}

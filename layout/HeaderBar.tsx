@@ -443,7 +443,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   );
 
   return (
-    <header id="app-header" className="sticky top-0 z-[1000] bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pt-safe">
+    <header id="app-header" className="sticky top-0 z-[1000] shrink-0 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pt-safe">
       <div id="header-container" className="max-w-[1920px] mx-auto px-2 sm:px-6 min-h-[4rem] sm:min-h-[5rem] py-2 sm:py-3 flex flex-wrap items-center justify-between gap-y-2 sm:gap-y-3">
         <div id="header-main-row" className="flex flex-wrap items-center justify-between w-full gap-2 sm:gap-6">
           <div id="header-left-section" className="flex items-center gap-3 sm:gap-6 order-1">

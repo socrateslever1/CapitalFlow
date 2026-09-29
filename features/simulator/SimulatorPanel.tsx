@@ -19,6 +19,7 @@ import { formatMoney } from '../../utils/formatters';
 import { modalityRegistry } from '../../domain/finance/modalities/registry';
 import { mapFormToLoan } from '../loans/domain/loanForm.mapper';
 import { LoanBillingModality } from '../../types';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 interface SimulatorPanelProps {
   onClose: () => void;
@@ -237,19 +238,13 @@ export const SimulatorPanel: React.FC<SimulatorPanelProps> = ({
 
   return (
     <div className="animate-in fade-in pb-28 font-sans duration-300">
-      <header className="mb-7 flex items-center gap-4 border-b border-slate-800/70 pb-6">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-blue-500/30 bg-blue-600 text-white shadow-[0_0_28px_rgba(37,99,235,0.35)]">
-          <Calculator size={25} />
-        </div>
-        <div>
-          <h1 className="text-xl font-black uppercase tracking-[0.04em] text-white sm:text-2xl">
-            Simulador <span className="text-blue-500">Financeiro</span>
-          </h1>
-          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Cálculos e projeções</p>
-        </div>
-      </header>
+      <PageHeader
+        icon={<Calculator size={22} />}
+        title={<>Simulador <span className="text-blue-500">Financeiro</span></>}
+        subtitle="Cálculos e projeções"
+      />
 
-      <div className="grid gap-0 overflow-hidden border-y border-slate-800/70 bg-[#020817]/40 min-[680px]:grid-cols-[1fr_1.05fr]">
+      <div className="grid gap-0 overflow-hidden border-b border-slate-800/70 bg-[#020817]/40 min-[680px]:grid-cols-[1fr_1.05fr]">
         <section className="border-b border-slate-800/70 px-3 py-6 min-[680px]:border-b-0 min-[680px]:border-r min-[680px]:px-5">
           <h2 className="mb-5 text-xs font-black uppercase tracking-[0.08em] text-blue-500">1. Parâmetros do empréstimo</h2>
 

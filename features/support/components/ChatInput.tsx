@@ -21,11 +21,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
 
   const handleSendText = async () => {
     if (!text.trim()) return;
-    await onSend(text, 'text');
-    setText('');
+    try {
+      await onSend(text, 'text');
+      setText('');
+    } catch {}
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -33,10 +35,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
     const type = isImage ? 'image' : 'file';
     const caption = isImage ? '📷 Imagem' : `📎 Arquivo: ${file.name}`;
 
-    onSend(caption, type, file);
-
-    if (fileInputRef.current) fileInputRef.current.value = '';
     setShowAttachMenu(false);
+    try {
+      await onSend(caption, type, file);
+    } catch {} finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleAttachSelect = (type: 'location' | 'image' | 'file') => {
@@ -74,7 +78,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
   const handleStopRecording = async () => {
     const result = await stopRecording();
     if (result) {
-      await onSend('🎤 Mensagem de voz', 'audio', result.audioFile, { duration_ms: result.duration });
+      try {
+        await onSend('🎤 Mensagem de voz', 'audio', result.audioFile, { duration_ms: result.duration });
+      } catch {}
     }
   };
 
@@ -86,14 +92,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
   };
 
   return (
-    <div className={`px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] relative z-30 shrink-0 backdrop-blur-3xl border-t ${
+    <div className={`relative z-30 shrink-0 border-t px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-4 sm:pb-6 backdrop-blur-3xl ${
       chatTheme === 'blue'
         ? 'bg-slate-900/60 border-blue-500/20 shadow-[0_-20px_50px_rgba(30,41,59,0.5)]'
         : 'bg-slate-950/40 border-slate-800/50 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]'
     }`}>
       {showAttachMenu && <AttachMenu onSelect={handleAttachSelect} fileInputRef={fileInputRef} />}
 
-      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} aria-label="Selecionar anexo" />
+
+      {isUploading && (
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-blue-300" role="status">
+          <Loader2 size={14} className="animate-spin" />
+          Enviando mensagem...
+        </div>
+      )}
 
       {isRecording ? (
         <div className="flex items-center gap-4 bg-slate-900/90 backdrop-blur-md p-4 rounded-lg animate-in fade-in slide-in-from-bottom-4 border border-rose-500/20 shadow-2xl shadow-rose-950/30">
@@ -119,10 +132,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
           </button>
         </div>
       ) : (
-        <div className="flex gap-4 items-end">
+        <div className="flex items-end gap-2 sm:gap-4">
           <button
             onClick={() => setShowAttachMenu(!showAttachMenu)}
-            className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all shadow-lg active:scale-90 border ${
+            disabled={isUploading}
+            aria-label={showAttachMenu ? 'Fechar anexos' : 'Adicionar anexo'}
+            className={`w-12 h-12 shrink-0 rounded-lg flex items-center justify-center transition-all shadow-lg active:scale-90 border disabled:cursor-not-allowed disabled:opacity-50 ${
                 showAttachMenu
                 ? 'bg-blue-600 border-blue-400 text-white shadow-blue-500/20'
                 : 'bg-slate-900/50 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
@@ -131,7 +146,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
             {showAttachMenu ? <X size={20} /> : <Paperclip size={20} />}
           </button>
 
-          <div className="flex-1 bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-lg flex items-center focus-within:border-blue-500/40 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-300 shadow-inner group">
+          <div className="min-w-0 flex-1 bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-lg flex items-center focus-within:border-blue-500/40 focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-300 shadow-inner group">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -141,7 +156,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
                   handleSendText();
                 }
               }}
-              className="w-full bg-transparent px-5 py-4 text-white text-[13px] font-medium outline-none resize-none max-h-32 custom-scrollbar placeholder:text-slate-600"
+              className="w-full bg-transparent px-3.5 sm:px-5 py-4 text-white text-[13px] font-medium outline-none resize-none max-h-32 custom-scrollbar placeholder:text-slate-600"
               placeholder={placeholder || 'Sua mensagem aqui...'}
               rows={1}
               style={{ minHeight: '52px' }}
@@ -153,7 +168,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
             <button
               onClick={handleSendText}
               disabled={isUploading}
-              className="w-12 h-12 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/40 active:scale-90 disabled:opacity-50 flex items-center justify-center border border-blue-400/30"
+              aria-label="Enviar mensagem"
+              className="w-12 h-12 shrink-0 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/40 active:scale-90 disabled:opacity-50 flex items-center justify-center border border-blue-400/30"
             >
               {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className="ml-0.5" />}
             </button>
@@ -164,7 +180,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isUploading, place
                 startRecording();
               }}
               disabled={isUploading || isLocating}
-              className="w-12 h-12 bg-slate-900/50 text-slate-400 hover:text-white border border-slate-800 rounded-lg transition-all active:scale-90 hover:bg-slate-800 shadow-lg flex items-center justify-center"
+              aria-label="Gravar mensagem de voz"
+              className="w-12 h-12 shrink-0 bg-slate-900/50 text-slate-400 hover:text-white border border-slate-800 rounded-lg transition-all active:scale-90 hover:bg-slate-800 shadow-lg flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLocating ? <Loader2 size={20} className="animate-spin text-blue-500" /> : <Mic size={20} />}
             </button>

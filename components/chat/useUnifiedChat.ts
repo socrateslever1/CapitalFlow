@@ -127,6 +127,8 @@ export const useUnifiedChat = <TContext>({
         role,
         userId
       });
+      const refreshedMessages = await adapter.listMessages(context);
+      setMessages(refreshedMessages);
       scrollToBottom('smooth', true);
     } catch (error) {
       console.error('[UnifiedChat] Error sending message:', error);

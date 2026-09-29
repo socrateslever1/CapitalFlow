@@ -37,10 +37,11 @@ interface AppShellProps {
   onNavigate?: (path: string) => void;
   addNotification?: (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => void;
   activeModal?: any;
+  onCloseSupport?: () => void;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport
 }) => {
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
@@ -48,6 +49,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
   const totalUnread = unreadSupport;
+  const isSupportOpen = activeModal?.type === 'SUPPORT_CHAT';
 
   useEffect(() => {
     if (!activeUser || activeUser.id === 'DEMO') return;
@@ -171,7 +173,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   return (
     <PageBackProvider>
-    <div className={`${isAppleMobile() ? 'h-dvh' : 'h-screen'} w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden relative`}>
+    <div className={`${isSupportOpen ? 'fixed inset-0 h-dvh' : 'relative h-screen h-dvh'} w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden`}>
       <HeaderBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -230,10 +232,12 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
       )}
 
-      {(!activeModal || activeModal.type !== 'SUPPORT_CHAT') && (
-        <BottomNav
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
+      <BottomNav
+          activeTab={isSupportOpen ? 'SUPPORT' : activeTab}
+          setActiveTab={(tab) => {
+            if (isSupportOpen) onCloseSupport?.();
+            setActiveTab(tab);
+          }}
           onOpenNav={onOpenNav}
           onNewLoan={onNewLoan}
           navOrder={navOrder}
@@ -241,7 +245,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           isStaff={!!activeUser?.supervisor_id}
           onGoBack={isInHub ? onGoBack : undefined}
         />
-      )}
     </div>
     </PageBackProvider>
   );

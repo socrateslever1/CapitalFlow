@@ -18,6 +18,7 @@ import { filterOperationalSources, isTestSource } from '../utils/testSource';
 import { supabase } from '../lib/supabase';
 import { safeUUID } from '../utils/uuid';
 import { getPaymentGroupKey, groupPaymentReceipts } from '../utils/paymentGroups';
+import { PageHeader } from '../components/ui/PageHeader';
 
 interface FinancialStatementPageProps {
   profileId: string;
@@ -411,25 +412,16 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1500px] space-y-2.5 px-4 pb-28 pt-3 md:space-y-4 md:px-6 md:pb-8">
-      <header className="flex items-center justify-between gap-3 border-b border-slate-800/70 pb-3 md:pb-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-blue-500/30 bg-blue-600 text-white md:h-12 md:w-12">
-            <Wallet size={18} className="md:h-6 md:w-6" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-black uppercase text-white md:text-2xl">
-              Extrato <span className="text-blue-500">financeiro</span>
-            </h1>
-            <p className="mt-0.5 text-[8px] font-bold uppercase text-slate-500 md:mt-1 md:text-xs">
-              Visão geral do negócio
-            </p>
-          </div>
-        </div>
-        <button type="button" onClick={handleRefresh} disabled={isLoading} className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-blue-700 bg-blue-600/10 text-blue-400 disabled:opacity-50 md:h-10 md:w-10" aria-label="Atualizar extrato">
+    <main className="mx-auto w-full max-w-[1500px] space-y-2.5 pb-28 md:space-y-4 md:pb-8">
+      <PageHeader
+        actionsInline
+        icon={<Wallet size={22} />}
+        title={<>Extrato <span className="text-blue-500">Financeiro</span></>}
+        subtitle="Visão geral do negócio"
+        actions={<div className="flex justify-end"><button type="button" onClick={handleRefresh} disabled={isLoading} className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-blue-700 bg-blue-600/10 text-blue-400 disabled:opacity-50" aria-label="Atualizar extrato">
           <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-        </button>
-      </header>
+        </button></div>}
+      />
 
       <div className="flex w-full items-center gap-1.5 md:ml-auto md:max-w-md md:gap-2">
           <button type="button" onClick={() => movePeriod(-1)} className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-slate-700 bg-slate-900 text-slate-300 md:h-10 md:w-10" aria-label="Período anterior">

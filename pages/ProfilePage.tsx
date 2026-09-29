@@ -27,6 +27,7 @@ import {
 import type { AppTab, Loan, UserProfile, Client, CapitalSource } from '../types';
 import { maskDocument, maskPhone } from '../utils/formatters';
 import { SYSTEM_VERSION } from '../src/constants/version';
+import { PageHeader } from '../components/ui/PageHeader';
 
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';
@@ -141,20 +142,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   return (
     <div className="space-y-8 pb-20 max-w-[1600px] mx-auto animate-in fade-in">
-      {/* HEADER PADRONIZADO */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-900/20">
-              <User size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-white uppercase tracking-wider leading-none">Meu <span className="text-blue-500">Perfil</span></h1>
-              <p className="text-sm text-slate-500 font-medium uppercase mt-1 tracking-widest">Configurações e Preferências</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={<User size={22} />}
+        iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+        title={<>Meu <span className="text-blue-500">Perfil</span></>}
+        subtitle="Configurações e preferências"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       {/* SIDEBAR */}

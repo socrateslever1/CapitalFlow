@@ -85,6 +85,26 @@
   overflow: hidden;
 }
 
+@utility page-header-title {
+  font-size: 1.25rem !important;
+  line-height: 1.25 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.04em !important;
+}
+
+@utility page-header-subtitle {
+  margin-top: 0.25rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+}
+
+@utility page-header-icon {
+  width: 3rem !important;
+  height: 3rem !important;
+}
+
 @utility table-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(80px, auto) minmax(80px, auto);

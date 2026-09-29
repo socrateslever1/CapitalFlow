@@ -17,6 +17,7 @@ import {
 import { Loan, CapitalSource, UserProfile } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { filterOperationalSources, isTestSource } from '../../../utils/testSource';
+import { PageHeader } from '../../../components/ui/PageHeader';
 
 interface ReportsPageProps {
   loans: Loan[];
@@ -76,29 +77,20 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header com Resumo Executivo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-3">
-            <div className="p-2 bg-indigo-600/20 rounded-full">
-              <PieChart className="text-indigo-500" size={24}/>
-            </div>
-            Inteligência de <span className="text-indigo-500">Negócios</span>
-          </h1>
-          <p className="text-slate-500 text-xs font-medium uppercase tracking-widest mt-1">
-            Análise de performance, risco e rentabilidade da carteira
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-lg">
+      <PageHeader
+        icon={<PieChart size={22} />}
+        iconClassName="border-indigo-500/30 bg-indigo-600/20 text-indigo-400 shadow-indigo-950/30"
+        title={<>Inteligência de <span className="text-indigo-500">Negócios</span></>}
+        subtitle="Análise de performance, risco e rentabilidade da carteira"
+        actions={<div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2 rounded-lg">
           <div className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] font-black text-slate-400 uppercase tracking-widest">
             Filtro: Ativos
           </div>
           <div className="px-3 py-1 bg-indigo-500/10 rounded-lg text-[10px] font-black text-indigo-500 uppercase tracking-widest border border-indigo-500/20">
             Escopo: Geral
           </div>
-        </div>
-      </div>
+        </div>}
+      />
 
       {/* Grid de KPIs Principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

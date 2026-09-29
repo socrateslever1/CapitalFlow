@@ -115,6 +115,59 @@ if (/transform\s*\(\s*source\s*,\s*id\s*\)/.test(viteConfig)) {
   failures.push('vite.config.ts -> mutação textual de código-fonte durante o build');
 }
 
+const appRoot = read('App.tsx');
+if (appRoot.includes('AnimatePresence')) {
+  failures.push('App.tsx -> transição de páginas não pode manter a tela anterior montada');
+}
+
+for (const page of [
+  ['features', 'simulator', 'SimulatorPanel.tsx'],
+  ['pages', 'ClientsPage.tsx'],
+  ['pages', 'FinancialStatementPage.tsx'],
+  ['pages', 'SourcesPage.tsx'],
+  ['pages', 'LegalPage.tsx'],
+  ['pages', 'ProfilePage.tsx'],
+  ['features', 'reports', 'pages', 'ReportsPage.tsx'],
+]) {
+  if (!read(...page).includes('PageHeader')) {
+    failures.push(`${page.join('/')} -> cabeçalho principal fora do padrão compartilhado`);
+  }
+}
+
+const shellLayout = read('layout', 'AppShell.tsx');
+const headerBar = read('layout', 'HeaderBar.tsx');
+const supportChat = read('features', 'support', 'OperatorSupportChat.tsx');
+const supportChatService = read('services', 'supportChat.service.ts');
+const supportChatMessages = read('features', 'support', 'components', 'ChatMessages.tsx');
+const appHtml = read('index.html');
+const appStyles = read('index.css');
+if (appHtml.includes('> header h1') || appHtml.includes('> header p')) {
+  failures.push('index.html -> override local não pode alterar tipografia do cabeçalho compartilhado');
+}
+for (const utility of ['page-header-title', 'page-header-subtitle', 'page-header-icon']) {
+  if (!appStyles.includes(`@utility ${utility}`)) {
+    failures.push(`index.css -> utilitário obrigatório de cabeçalho ausente: ${utility}`);
+  }
+}
+if (shellLayout.includes("activeModal.type !== 'SUPPORT_CHAT'")) {
+  failures.push('AppShell.tsx -> chat não pode ocultar a navegação inferior');
+}
+if (!shellLayout.includes("isSupportOpen ? 'fixed inset-0 h-dvh'")) {
+  failures.push('AppShell.tsx -> chat deve travar o shell no viewport dinâmico');
+}
+if (!headerBar.includes('sticky top-0 z-[1000] shrink-0')) {
+  failures.push('HeaderBar.tsx -> cabeçalho global não pode encolher durante o chat');
+}
+if (!supportChat.includes('bottom-[calc(4.75rem+env(safe-area-inset-bottom))]')) {
+  failures.push('OperatorSupportChat.tsx -> chat não reserva espaço para a navegação inferior');
+}
+if (supportChatService.includes('crypto.randomUUID()') || !supportChatService.includes('generateUUID()')) {
+  failures.push('supportChat.service.ts -> anexos devem usar UUID compatível com navegadores sem randomUUID');
+}
+if ((supportChatMessages.match(/useModal\(\)/g) || []).length !== 1) {
+  failures.push('ChatMessages.tsx -> contexto de modal deve ser obtido uma única vez no topo do componente');
+}
+
 const requiredProductionMigrations = [
   '20260916013905_harden_agreement_payments_and_ledger_links.sql',
   '20260916013932_restore_all_installments_on_agreement_break.sql',
@@ -270,3 +323,6 @@ console.log('✓ aportes e novos empréstimos usam RPC idempotente com estorno p
 console.log('✓ Skills não acessam banco, SQL ou credenciais diretamente');
 console.log('✓ gateway de Skills usa somente RPCs READ_ONLY autorizadas');
 console.log('✓ Skills financeiras permanecem bloqueadas e exigem confirmação');
+console.log('✓ navegação desmonta a página anterior imediatamente');
+console.log('✓ cabeçalhos principais usam o padrão compartilhado');
+console.log('✓ chat preserva a navegação inferior no celular');

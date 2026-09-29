@@ -53,6 +53,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   chatTheme = 'dark'
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { loanCtrl } = useModal();
 
   // Auto-scroll inteligente
   useEffect(() => {
@@ -68,28 +69,18 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   }, [messages, scrollRef]);
 
   const handleDelete = (id: string) => {
-    // Tenta usar o controlador de confirmação se disponível via hook
-    try {
-        const { loanCtrl } = useModal();
-        if (loanCtrl && loanCtrl.openConfirmation) {
-            loanCtrl.openConfirmation({
-                type: 'DELETE_CHAT_MESSAGE',
-                target: id,
-                title: 'Apagar Mensagem?',
-                message: 'Esta mensagem será removida permanentemente para todos.',
-                onConfirm: async () => {
-                    onDeleteMessage?.(id);
-                }
-            });
-            return;
+    if (loanCtrl?.openConfirmation) {
+      loanCtrl.openConfirmation({
+        type: 'DELETE_CHAT_MESSAGE',
+        target: id,
+        title: 'Apagar Mensagem?',
+        message: 'Esta mensagem será removida permanentemente para todos.',
+        onConfirm: async () => {
+          await onDeleteMessage?.(id);
         }
-    } catch (e) {
-        // Fallback caso useModal falhe (fora do contexto)
-        console.warn('ModalContext not available in ChatMessages');
+      });
+      return;
     }
-
-    // Se falhar o modal (ex: fora do provider), fazemos delete direto ou aviso
-    // O ideal agora é que o ModalProvider envolva o Chat
     onDeleteMessage?.(id);
   };
 
@@ -104,7 +95,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
               <img
                 src={m.file_url}
                 alt="Anexo"
-                className="rounded-lg max-w-full max-h-64 object-cover border border-white/5 cursor-pointer hover:opacity-95 transition-opacity"
+                className="max-h-[45vh] max-w-full rounded-lg border border-white/5 object-contain transition-opacity hover:opacity-95 cursor-pointer"
                 onClick={() => window.open(m.file_url || '', '_blank')}
               />
             ) : (
@@ -205,7 +196,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
   };
 
   return (
-    <div className="flex-1 p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-2 min-h-0" ref={scrollRef}>
+    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 min-h-0 p-3 sm:p-6" ref={scrollRef}>
       {messages.map((m, index) => {
         const isMe = m.sender_type === senderType;
         const prevM = messages[index - 1];
@@ -231,7 +222,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
             <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-4'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}>
               <div
-                className={`max-w-[85%] px-3.5 py-2.5 shadow-xl transition-all hover:scale-[1.01] ${
+                className={`max-w-[88%] sm:max-w-[85%] px-3.5 py-2.5 shadow-xl transition-all hover:scale-[1.01] ${
                   isMe
                     ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-lg rounded-tr-sm'
                     : `${chatTheme === 'blue' ? 'bg-slate-800/80 border border-slate-700/50' : 'bg-slate-800/90 border border-slate-700/30'} text-slate-100 rounded-lg rounded-tl-sm backdrop-blur-sm`

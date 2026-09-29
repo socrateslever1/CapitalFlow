@@ -7,6 +7,7 @@ import { SourceCard } from '../components/cards/SourceCard';
 import { filesService } from '../services/files.service';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
+import { PageHeader } from '../components/ui/PageHeader';
 
 interface SourcesPageProps {
   sources: CapitalSource[];
@@ -142,26 +143,18 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-emerald-900/20">
-              <Wallet size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-white uppercase tracking-wider leading-none">Fontes de <span className="text-blue-500">Capital</span></h1>
-              <p className="text-sm text-slate-500 font-medium uppercase mt-1 tracking-widest">Gestão de Fundos e Liquidez</p>
-            </div>
-          </div>
-        </div>
-
-        <button
+      <PageHeader
+        icon={<Wallet size={22} />}
+        iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-emerald-950/30"
+        title={<>Fontes de <span className="text-blue-500">Capital</span></>}
+        subtitle="Gestão de fundos e liquidez"
+        actions={<button
           onClick={() => ui.openModal('SOURCE_FORM')}
           className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 shrink-0"
         >
           <Plus size={16} /> Nova Fonte
-        </button>
-      </div>
+        </button>}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {sources.map(source => (

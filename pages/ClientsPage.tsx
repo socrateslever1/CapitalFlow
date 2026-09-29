@@ -1,7 +1,6 @@
 import React from 'react';
 import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
-import { startDictation } from '../utils/speech';
 import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
@@ -14,6 +13,7 @@ import { getOrCreatePortalLink } from '../utils/portalLink';
 import { copyToClipboard } from '../utils/clipboard';
 import { Tooltip } from '../components/ui/Tooltip';
 import { ClientLegalDocumentsPanel } from '../features/legal/components/ClientLegalDocumentsPanel';
+import { PageHeader } from '../components/ui/PageHeader';
 
 interface ClientsPageProps {
   profileId: string;
@@ -383,20 +383,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   return (
     <div className="space-y-6 animate-in fade-in">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-900/20">
-                        <Users size={20} />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-semibold text-white uppercase tracking-wider leading-none">Carteira de <span className="text-blue-500">Clientes</span></h1>
-                        <p className="text-sm text-slate-500 font-medium uppercase mt-1 tracking-widest">Gestão de Base Ativa</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex gap-2 w-full md:w-auto">
+        <PageHeader
+          icon={<Users size={22} />}
+          iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
+          title={<>Carteira de <span className="text-blue-500">Clientes</span></>}
+          subtitle="Gestão de base ativa"
+          actions={<div className="flex gap-2 w-full sm:w-auto">
                 <button type="button" onClick={createRegistrationLink} disabled={creatingLink} className="px-4 py-2 bg-slate-800 border border-slate-700 text-blue-300 rounded-lg text-[10px] font-black uppercase hover:border-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50" title="Criar link público de inscrição">
                     <Link2 size={16}/> Novo Link de Inscrição
                 </button>
@@ -419,16 +411,22 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         </button>
                     </>
                 )}
-            </div>
-        </div>
+            </div>}
+        />
 
         {registrationLink && <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-2"><input readOnly value={registrationLink} onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 bg-transparent px-2 text-xs text-blue-100 outline-none"/><button type="button" className="p-2 text-blue-300" title="Copiar link" onClick={() => void copyRegistrationLink(registrationLink)}><Copy size={16}/></button></div>}
 
-        <div className="bg-slate-900 border border-slate-800 p-2 rounded-lg flex items-center gap-2">
-            <Search className="text-slate-500 ml-2 shrink-0" size={18}/>
-            <input type="text" placeholder="Buscar cliente..." className="bg-transparent w-full p-2 text-white outline-none text-sm" value={clientSearchTerm} onChange={e => setClientSearchTerm(e.target.value)} />
-            <button onClick={() => startDictation(setClientSearchTerm, (msg) => showToast(msg, 'error'))} className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 hover:text-white hover:border-slate-600 transition-colors text-xs font-black uppercase shrink-0" title="Buscar por voz" type="button">🎙</button>
-        </div>
+        <label className="flex h-12 items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 transition-colors focus-within:border-blue-500/60 focus-within:bg-slate-900/90">
+            <Search className="shrink-0 text-slate-500" size={18}/>
+            <input
+              type="search"
+              aria-label="Buscar cliente"
+              placeholder="Buscar cliente..."
+              className="h-full min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+              value={clientSearchTerm}
+              onChange={(event) => setClientSearchTerm(event.target.value)}
+            />
+        </label>
 
         {/* GRID COMPACTA E MODERNA DE CARDS DE CLIENTES */}
         <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

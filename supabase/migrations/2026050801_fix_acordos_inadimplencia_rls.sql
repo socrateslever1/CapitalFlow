@@ -3,7 +3,6 @@
 
 ALTER TABLE public.acordos_inadimplencia ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.acordo_parcelas ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Gerenciar acordos pelo perfil autenticado" ON public.acordos_inadimplencia;
 CREATE POLICY "Gerenciar acordos pelo perfil autenticado"
 ON public.acordos_inadimplencia
@@ -29,7 +28,6 @@ WITH CHECK (
        OR p.usuario_email = auth.jwt() ->> 'email'
   )
 );
-
 DROP POLICY IF EXISTS "Gerenciar parcelas de acordo pelo perfil autenticado" ON public.acordo_parcelas;
 CREATE POLICY "Gerenciar parcelas de acordo pelo perfil autenticado"
 ON public.acordo_parcelas

@@ -5,7 +5,6 @@
 -- ======================================================
 
 SET search_path = public;
-
 -- 1. Normaliza parcelas que ja estao semanticamente quitadas.
 UPDATE parcelas
 SET
@@ -21,7 +20,6 @@ WHERE
     + COALESCE(interest_remaining, 0)
     + COALESCE(late_fee_accrued, 0)
   ) <= 0.05;
-
 -- 2. Reconciliacao por auditoria de pagamento confirmada.
 -- Se existe pagamento confirmado em payment_transactions suficiente para cobrir o valor da parcela,
 -- a parcela nao pode continuar aparecendo como vencida no portal.
@@ -48,7 +46,6 @@ FROM confirmed_installment_payments cip
 WHERE p.id = cip.installment_id
   AND p.loan_id = cip.contract_id
   AND cip.paid_amount >= GREATEST(COALESCE(p.amount, 0), COALESCE(p.valor_parcela, 0)) - 0.05;
-
 -- 3. Reconciliacao defensiva por payment_intents aprovadas, se a base tiver as colunas opcionais.
 DO $$
 BEGIN
@@ -93,7 +90,6 @@ BEGIN
     $sql$;
   END IF;
 END $$;
-
 -- 4. Atualiza contratos que nao possuem nenhuma parcela aberta real.
 UPDATE contratos c
 SET status = 'PAID'
@@ -114,5 +110,4 @@ WHERE COALESCE(c.is_archived, false) = false
         + COALESCE(p.late_fee_accrued, 0)
       ) > 0.05
   );
-
 NOTIFY pgrst, 'reload schema';

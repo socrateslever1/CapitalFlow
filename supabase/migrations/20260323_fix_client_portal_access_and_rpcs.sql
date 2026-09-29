@@ -1,5 +1,4 @@
 SET search_path = public;
-
 DROP FUNCTION IF EXISTS validate_portal_access(text, text);
 DROP FUNCTION IF EXISTS portal_mark_viewed(text, text);
 DROP FUNCTION IF EXISTS portal_get_client(text, text);
@@ -13,7 +12,6 @@ DROP FUNCTION IF EXISTS portal_sign_document(text, text, uuid, text, text, text,
 DROP FUNCTION IF EXISTS portal_registrar_intencao(text, text, text, text);
 DROP FUNCTION IF EXISTS rpc_doc_missing_fields(uuid);
 DROP FUNCTION IF EXISTS rpc_doc_patch_snapshot(uuid, jsonb);
-
 CREATE OR REPLACE FUNCTION validate_portal_access(p_token text, p_shortcode text)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -40,7 +38,6 @@ BEGIN
   );
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_mark_viewed(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -54,7 +51,6 @@ BEGIN
   RETURN jsonb_build_object('ok', false);
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_get_client(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -85,7 +81,6 @@ BEGIN
   RETURN v_client;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_list_contracts(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -196,7 +191,6 @@ BEGIN
   RETURN v_contracts;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_get_full_loan(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -290,7 +284,6 @@ BEGIN
   RETURN v_payload;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_get_parcels(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -333,7 +326,6 @@ BEGIN
   RETURN v_payload;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_get_signals(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -376,7 +368,6 @@ BEGIN
   RETURN v_payload;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_list_docs(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -420,7 +411,6 @@ BEGIN
   RETURN v_payload;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_get_doc(p_token text, p_shortcode text, p_doc_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -463,7 +453,6 @@ BEGIN
   RETURN v_payload;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_sign_document(
   p_token text,
   p_shortcode text,
@@ -485,7 +474,6 @@ DECLARE
   v_client_id uuid;
   v_loan_id uuid;
   v_role_column text;
-  v_role text;
 BEGIN
   IF p_token ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
     v_token_uuid := p_token::uuid;
@@ -532,25 +520,11 @@ BEGIN
   END
   INTO v_role_column;
 
-  -- Normalização de papéis
-  v_role := upper(trim(coalesce(p_papel, '')));
-  IF v_role IN ('DEVEDOR', 'DEBTOR') THEN
-    v_role := 'DEBTOR';
-  ELSIF v_role IN ('CREDOR', 'CREDITOR') THEN
-    v_role := 'CREDITOR';
-  ELSIF v_role IN ('AVALISTA', 'GUARANTOR') THEN
-    v_role := 'AVALISTA';
-  ELSIF v_role LIKE 'TESTEMUNHA_%' THEN
-    v_role := REPLACE(v_role, 'TESTEMUNHA_', 'WITNESS_');
-  ELSIF v_role = 'TESTEMUNHA' OR v_role = 'WITNESS' THEN
-    v_role := 'WITNESS_1';
-  END IF;
-
   IF EXISTS (
     SELECT 1
     FROM assinaturas_documento s
     WHERE s.document_id = p_documento_id
-      AND upper(COALESCE(to_jsonb(s) ->> v_role_column, '')) = v_role
+      AND upper(COALESCE(to_jsonb(s) ->> v_role_column, '')) = upper(COALESCE(p_papel, ''))
   ) THEN
     RETURN jsonb_build_object('success', false, 'message', 'Este papel já assinou o documento');
   END IF;
@@ -562,7 +536,7 @@ BEGIN
   )
   USING
     p_documento_id,
-    v_role,
+    p_papel,
     p_nome,
     p_cpf,
     COALESCE(p_ip, '0.0.0.0'),
@@ -571,7 +545,7 @@ BEGIN
     p_phone,
     p_hash_assinado;
 
-  IF v_role = 'DEBTOR' THEN
+  IF upper(COALESCE(p_papel, '')) IN ('DEVEDOR', 'DEBTOR') THEN
     UPDATE documentos_juridicos
     SET status_assinatura = 'ASSINADO'
     WHERE id = p_documento_id;
@@ -580,7 +554,6 @@ BEGIN
   RETURN jsonb_build_object('success', true);
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION portal_registrar_intencao(
   p_token text,
   p_shortcode text,
@@ -638,7 +611,6 @@ BEGIN
   RETURN jsonb_build_object('success', true);
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION rpc_doc_missing_fields(p_documento_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -648,7 +620,6 @@ BEGIN
   RETURN jsonb_build_object('missing', '[]'::jsonb, 'can_sign', true);
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION rpc_doc_patch_snapshot(p_documento_id uuid, p_patch jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -662,7 +633,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$;
-
 GRANT EXECUTE ON FUNCTION validate_portal_access(text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION portal_mark_viewed(text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION portal_get_client(text, text) TO anon, authenticated;
@@ -676,5 +646,4 @@ GRANT EXECUTE ON FUNCTION portal_sign_document(text, text, uuid, text, text, tex
 GRANT EXECUTE ON FUNCTION portal_registrar_intencao(text, text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION rpc_doc_missing_fields(uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION rpc_doc_patch_snapshot(uuid, jsonb) TO anon, authenticated;
-
 NOTIFY pgrst, 'reload schema';

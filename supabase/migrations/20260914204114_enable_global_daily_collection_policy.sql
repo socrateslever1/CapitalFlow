@@ -8,3 +8,4 @@ SET enabled = true,
     updated_at = now()
 WHERE loan_id IS NULL
   AND client_id IS NULL;
+;

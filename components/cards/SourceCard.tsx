@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/formatters';
 import { Modal } from '../ui/Modal';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 import { resolveAuthenticatedStorageUrl } from '../../utils/storageUrl';
+import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 
 interface SourceCardProps {
     source: CapitalSource;
@@ -71,7 +72,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
         return () => { cancelled = true; };
     }, [source.name, source.logo_url]);
 
-    const activeLoans = useMemo(() => loans.filter(l => l.sourceId === source.id && !l.isArchived), [loans, source.id]);
+    const activeLoans = useMemo(() => getActiveSourceLoans(loans, source.id), [loans, source.id]);
     const activeContractsCount = activeLoans.length;
     const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : source.type === 'MISTO' ? CreditCard : Wallet;
     const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : source.type === 'MISTO' ? 'text-rose-500' : 'text-purple-500';
@@ -87,7 +88,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     <DefaultIcon size={32} />
                 </div>
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-start gap-3 mb-3">
                         <button
                             onClick={handleUpdateLogo}
                             className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-slate-950 border border-slate-800 shrink-0 hover:border-slate-600 transition-all"
@@ -106,14 +107,27 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                             )}
                         </button>
 
-                        <div className="flex gap-1">
+                        <div className="min-w-0 flex-1 pt-0.5">
+                            <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
+                            <div className="flex items-center gap-1.5 mt-1 min-w-0">
+                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">
+                                    {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : 'Outro'}
+                                </p>
+                                <span className="w-0.5 h-0.5 bg-slate-700 rounded-full shrink-0"></span>
+                                <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline whitespace-nowrap">
+                                    <FileText size={8}/>{activeContractsCount} {activeContractsCount === 1 ? 'Contrato' : 'Contratos'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-1 shrink-0">
                             <button onClick={(e) => { e.stopPropagation(); setShowDetails(true); }} className="p-1 bg-slate-800 rounded-md text-slate-400 hover:text-blue-400 transition-colors" title="Ver Detalhes"><Info size={12}/></button>
                             <button onClick={(e) => { e.stopPropagation(); onEdit(source); }} className="p-1 bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors" title="Editar Saldo Manualmente"><Edit2 size={12}/></button>
                             <button onClick={(e) => { e.stopPropagation(); onDelete(source.id); }} className="p-1 bg-slate-800 hover:bg-rose-600/20 hover:text-rose-500 text-slate-500 rounded-md transition-all" title="Excluir Fonte"><Trash2 size={12}/></button>
                         </div>
                     </div>
 
-                    <div className="mb-2">
+                    <div className="hidden">
                         <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
@@ -136,9 +150,20 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
             </div>
 
             {showDetails && (
-                <Modal onClose={() => setShowDetails(false)} title={`Detalhes: ${source.name}`}>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
+                <Modal
+                    onClose={() => setShowDetails(false)}
+                    title={source.name}
+                    subtitle="Saldo e contratos vinculados à carteira"
+                    icon={<DefaultIcon size={18} />}
+                    compact
+                    footer={(
+                        <button onClick={() => { setShowDetails(false); handleUpdateLogo(); }} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white shadow-lg shadow-blue-950/30 transition-all hover:bg-blue-500 sm:flex-1">
+                            <ImageIcon size={15}/> Editar carteira
+                        </button>
+                    )}
+                >
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-gradient-to-r from-slate-950 to-slate-900 p-3 rounded-xl border border-slate-800">
                             <div>
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">Saldo Atual</p>
                                 <p className={`text-xl font-black ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
@@ -166,11 +191,6 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                             </div>
                         </div>
 
-                        <div className="pt-2 border-t border-slate-800">
-                            <button onClick={() => { setShowDetails(false); handleUpdateLogo(); }} className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all">
-                                <ImageIcon size={14}/> Alterar Imagem da Carteira
-                            </button>
-                        </div>
                     </div>
                 </Modal>
             )}

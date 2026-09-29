@@ -9,14 +9,12 @@ BEGIN
         ALTER TABLE documentos_juridicos ADD COLUMN snapshot_rendered_html TEXT;
     END IF;
 END $$;
-
 -- 2. Drop existing functions to avoid return type mismatch
 DROP FUNCTION IF EXISTS get_documento_juridico_by_view_token(text);
 DROP FUNCTION IF EXISTS get_documento_juridico_by_id(uuid);
 DROP FUNCTION IF EXISTS portal_list_docs(text);
 DROP FUNCTION IF EXISTS portal_list_docs(text, text);
 DROP FUNCTION IF EXISTS portal_get_doc(text, text, uuid);
-
 -- 3. Function: get_documento_juridico_by_view_token
 CREATE OR REPLACE FUNCTION get_documento_juridico_by_view_token(p_view_token TEXT)
 RETURNS TABLE (
@@ -45,7 +43,6 @@ BEGIN
     WHERE d.view_token = p_view_token;
 END;
 $$;
-
 -- 4. Function: get_documento_juridico_by_id
 CREATE OR REPLACE FUNCTION get_documento_juridico_by_id(p_document_id UUID)
 RETURNS TABLE (
@@ -74,7 +71,6 @@ BEGIN
     WHERE d.id = p_document_id;
 END;
 $$;
-
 -- 5. Function: portal_list_docs
 CREATE OR REPLACE FUNCTION portal_list_docs(p_token TEXT, p_shortcode TEXT)
 RETURNS TABLE (
@@ -96,7 +92,6 @@ BEGIN
     WHERE c.portal_token = p_token;
 END;
 $$;
-
 -- 6. Function: portal_get_doc
 CREATE OR REPLACE FUNCTION portal_get_doc(p_token TEXT, p_shortcode TEXT, p_doc_id UUID)
 RETURNS TABLE (
@@ -122,7 +117,6 @@ BEGIN
     WHERE c.portal_token = p_token AND d.id = p_doc_id;
 END;
 $$;
-
 -- 7. Permissions
 GRANT EXECUTE ON FUNCTION get_documento_juridico_by_view_token(text) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION get_documento_juridico_by_id(uuid) TO anon, authenticated, service_role;

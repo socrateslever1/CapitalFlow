@@ -1,4 +1,4 @@
--- Permite renovar pagando os juros e escolhendo separadamente se a multa
+-- Permite renovar pagando os juros e escolhendo, separadamente, se a multa
 -- e/ou a mora diaria serao perdoadas. O principal permanece em aberto.
 
 CREATE OR REPLACE FUNCTION public.set_installment_payment_offer_v3(
@@ -375,3 +375,5 @@ GRANT EXECUTE ON FUNCTION public.process_interest_renewal_payment_offer(
 ) TO authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';
+
+;

@@ -4,6 +4,7 @@ import { CapitalSource, UserProfile, SourceUIController } from '../../types';
 import { parseCurrency } from '../../utils/formatters';
 import { isUUID, safeUUID } from '../../utils/uuid';
 import { resolveProfitBalance } from '../../utils/profitBalance';
+import { normalizeWalletImageReference } from '../../utils/imageUrl';
 
 export const useSourceController = (
   activeUser: UserProfile | null,
@@ -96,13 +97,16 @@ export const useSourceController = (
 
       // STAFF criando: fonte pertence ao DONO, mas pode restringir pelo operador_permitido_id
       const operadorPermitido = isStaff ? activeUser.id : (ui.sourceForm.operador_permitido_id || null);
+      const rawLogo = String(ui.sourceForm.logo_url || '').trim();
+      const logoUrl = rawLogo ? normalizeWalletImageReference(rawLogo) : null;
+      if (rawLogo && !logoUrl) throw new Error('Use um link HTTPS válido para a imagem da carteira.');
       const payload = {
         id,
         profile_id: ownerId,
         name: ui.sourceForm.name,
         type: ui.sourceForm.type,
         balance: initialBalance,
-        logo_url: ui.sourceForm.logo_url || null,
+        logo_url: logoUrl,
         operador_permitido_id: operadorPermitido,
       };
 
@@ -196,10 +200,16 @@ export const useSourceController = (
     if (!activeUser || !ui.editingSource) return;
 
     const newBalance = parseCurrency(ui.editingSource.balance);
+    const rawLogo = String(ui.editingSource.logo_url || '').trim();
+    const logoUrl = rawLogo ? normalizeWalletImageReference(rawLogo) : null;
+    if (rawLogo && !logoUrl) {
+      showToast('Use um link HTTPS válido para a imagem da carteira.', 'error');
+      return;
+    }
 
     if (activeUser.id === 'DEMO') {
-      setSources(sources.map((s) => (s.id === ui.editingSource?.id ? { ...s, balance: newBalance } : s)));
-      showToast('Saldo atualizado (Demo)', 'success');
+      setSources(sources.map((s) => (s.id === ui.editingSource?.id ? { ...s, balance: newBalance, logo_url: logoUrl || undefined } : s)));
+      showToast('Carteira atualizada (Demo)', 'success');
       ui.setEditingSource(null);
       return;
     }
@@ -216,17 +226,17 @@ export const useSourceController = (
         await syncService.enqueueOperation({
           table: 'fontes',
           operation: 'UPDATE',
-          data: { id: ui.editingSource.id, balance: newBalance, logo_url: ui.editingSource.logo_url },
+          data: { id: ui.editingSource.id, balance: newBalance, logo_url: logoUrl },
           id: ui.editingSource.id,
         });
-        setSources(sources.map((s) => (s.id === ui.editingSource?.id ? { ...s, balance: newBalance, logo_url: ui.editingSource?.logo_url } : s)));
+        setSources(sources.map((s) => (s.id === ui.editingSource?.id ? { ...s, balance: newBalance, logo_url: logoUrl || undefined } : s)));
         showToast('Saldo atualizado offline. Sera sincronizado ao reconectar.', 'success');
         ui.setEditingSource(null);
         return;
       }
       const { error } = await supabase.from('fontes').update({
         balance: newBalance,
-        logo_url: ui.editingSource.logo_url
+        logo_url: logoUrl
       }).eq('id', ui.editingSource.id);
       if (error) throw error;
 

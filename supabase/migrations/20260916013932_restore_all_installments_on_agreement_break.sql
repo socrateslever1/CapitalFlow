@@ -79,9 +79,6 @@ BEGIN
     );
   END IF;
 
-  -- The installment state is authoritative here. Audit rows may include historical
-  -- duplicates and agreement late fees; neither may be allowed to reduce principal
-  -- a second time when an agreement is broken.
   SELECT COALESCE(sum(greatest(COALESCE(paid_amount, 0), COALESCE(valor_pago, 0), 0)), 0)
   INTO v_total_paid
   FROM public.acordo_parcelas
@@ -243,4 +240,4 @@ $$;
 
 REVOKE ALL ON FUNCTION public.break_agreement_atomic(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.break_agreement_atomic(uuid) TO authenticated, service_role;
-NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';;

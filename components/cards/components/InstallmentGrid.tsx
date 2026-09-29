@@ -12,6 +12,7 @@ import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { buildInstallmentReceiptModel, type PartialBalanceAction, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
+import { previewFinancialOperation, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -287,22 +288,45 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                         <div className="flex flex-col gap-2">
                             <button
                                 disabled={displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)}
-                                onClick={() => {
+                                onClick={async () => {
                                     const amount = quickMode === 'CUSTOM'
                                         ? Number(receiptAmount)
                                         : displayedAmount;
                                     if (!Number.isFinite(amount) || amount <= 0.05 || (hasActiveOffer && amount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)) return;
                                     const effectivePartialAction = isPartialPayment && !hasActiveOffer ? partialBalanceAction : undefined;
-                                    if (effectivePartialAction === 'SETTLE') {
-                                        const confirmed = window.confirm(
-                                            `Quitar por acordo com ${formatMoney(amount, isStealthMode)}?\n\nO saldo restante desta obrigação será registrado como desconto de quitação.`
-                                        );
-                                        if (!confirmed) return;
+                                    const preferredMethod = String(loan.preferredPaymentMethod || 'OTHER').toUpperCase();
+                                    const paymentMethod = (['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO'].includes(preferredMethod)
+                                        ? preferredMethod
+                                        : 'OTHER') as FinancialPaymentMethod;
+                                    let expectedPreview;
+                                    if (!hasActiveOffer) {
+                                        try {
+                                            const preview = await previewFinancialOperation({
+                                                loanId: String(loan.id),
+                                                installmentId: String(selectedInst.id),
+                                                operationType: effectivePartialAction || 'KEEP_PENDING',
+                                                amountReceived: amount,
+                                                paymentMethod,
+                                                paymentDate: toISODateOnlyUTC(new Date()),
+                                                forgivenessMode,
+                                                requestedLateFeeForgiven: appliedLateFeeForgiveness,
+                                            });
+                                            expectedPreview = preview;
+                                            const confirmed = window.confirm(
+                                                `Prévia confirmada pelo backend\n\nRecebido: ${formatMoney(preview.amount_received, isStealthMode)}\nCapital: ${formatMoney(preview.principal_paid, isStealthMode)}\nJuros/encargos: ${formatMoney(preview.interest_paid + preview.late_fee_paid, isStealthMode)}\nSaldo final: ${formatMoney(Number((preview.after as any)?.total || 0), isStealthMode)}\n\nExecutar esta operação?`
+                                            );
+                                            if (!confirmed) return;
+                                        } catch (error: any) {
+                                            window.alert(error?.message || 'A prévia financeira foi bloqueada pelo backend.');
+                                            return;
+                                        }
                                     }
                                     const paymentOptions: QuickPaymentOptions = {
                                         forgivenessMode,
                                         lateFeeForgiven: appliedLateFeeForgiveness,
-                                        partialBalanceAction: effectivePartialAction
+                                        partialBalanceAction: effectivePartialAction,
+                                        paymentMethod,
+                                        expectedPreview,
                                     };
                                     onInstallmentPayment?.(loan, selectedInst, selectedDebt, amount, paymentOptions);
                                     resetSelection();

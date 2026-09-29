@@ -25,7 +25,7 @@ let openDialogs = 0;
 let previousOverflow = '';
 let previousOverscroll = '';
 
-export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar' }) => {
+export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar' }) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -90,19 +90,23 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
       style={viewport ? { height: viewport.height, top: viewport.top } : undefined} onClick={event => event.stopPropagation()}>
       <div ref={panelRef} data-dialog-panel data-compact-height={viewport ? viewport.height <= 480 : undefined}
         className={`group flex max-h-[min(80dvh,100%)] min-h-0 w-full flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-900 shadow-2xl data-[compact-height=true]:overflow-y-auto ${widths[size]}`}>
-        <header className="flex shrink-0 flex-col items-start gap-2 px-5 pt-4 pb-2">
+        <header className="relative flex shrink-0 flex-col items-start gap-2 overflow-hidden border-b border-slate-800/80 bg-gradient-to-r from-blue-950/50 via-slate-900 to-emerald-950/30 px-5 py-4">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
           <SystemBackButton appleOnly local onClick={back} disabled={busy} />
-          <div className="w-full text-center">
-            <h2 ref={titleRef} id={titleId} tabIndex={-1} className="break-words text-sm font-black uppercase tracking-tight text-white outline-none">{title}</h2>
-            {subtitle && <p className="mt-1 text-[10px] text-slate-400">{subtitle}</p>}
+          <div className="flex w-full items-center justify-center gap-3 text-center">
+            {icon && <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 text-blue-300 shadow-lg shadow-blue-950/30">{icon}</div>}
+            <div className={icon ? 'text-left' : 'text-center'}>
+              <h2 ref={titleRef} id={titleId} tabIndex={-1} className="break-words bg-gradient-to-r from-blue-300 via-white to-emerald-300 bg-clip-text text-sm font-black uppercase tracking-wide text-transparent outline-none">{title}</h2>
+              {subtitle && <p className="mt-1 text-[10px] font-medium text-slate-400">{subtitle}</p>}
+            </div>
           </div>
         </header>
         <div role="region" aria-label={`Conteúdo: ${title}`} tabIndex={0} data-dialog-body className="min-h-0 min-w-0 flex-auto overflow-y-auto overscroll-contain px-5 py-3 [-webkit-overflow-scrolling:touch] group-data-[compact-height=true]:flex-none group-data-[compact-height=true]:overflow-visible">
           <fieldset disabled={busy} className="min-w-0 border-0 p-0 m-0">{children}</fieldset>
         </div>
-        <footer className="flex shrink-0 flex-col gap-2 px-5 pt-3 pb-5">
+        <footer className={`flex shrink-0 flex-col gap-2 border-t border-slate-800/70 bg-slate-950/20 px-5 py-4 ${footer ? 'sm:flex-row-reverse' : ''}`}>
           {footer}
-          <button type="button" onClick={close} disabled={busy} className="flex min-h-11 w-full items-center justify-center gap-1 rounded-lg text-[10px] font-black uppercase text-slate-400 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50"><XCircle size={12} /> {cancelLabel}</button>
+          <button type="button" onClick={close} disabled={busy} className={`flex min-h-11 items-center justify-center gap-1 rounded-lg border border-transparent px-4 text-[10px] font-black uppercase text-slate-400 hover:border-slate-700 hover:bg-slate-800/60 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'w-full sm:flex-1' : 'w-full sm:w-auto sm:self-center sm:px-8'}`}><XCircle size={12} /> {cancelLabel}</button>
         </footer>
       </div>
     </div>

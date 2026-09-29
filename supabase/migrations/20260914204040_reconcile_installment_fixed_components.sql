@@ -54,4 +54,4 @@ WHERE p.id = r.id
     END
   );
 
-NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';;

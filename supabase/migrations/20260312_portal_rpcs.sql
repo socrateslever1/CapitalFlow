@@ -2,7 +2,6 @@
 -- Tabelas: contratos, clientes, parcelas, transacoes, payment_intents, documentos_juridicos, assinaturas_documento
 
 SET search_path = public;
-
 -- 1. validate_portal_access
 CREATE OR REPLACE FUNCTION validate_portal_access(p_token text, p_shortcode text)
 RETURNS boolean
@@ -18,7 +17,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 2. portal_get_client
 CREATE OR REPLACE FUNCTION portal_get_client(p_token text, p_shortcode text)
 RETURNS jsonb
@@ -39,7 +37,6 @@ BEGIN
   RETURN v_client;
 END;
 $$;
-
 -- 3. portal_list_contracts
 CREATE OR REPLACE FUNCTION portal_list_contracts(p_token text, p_shortcode text)
 RETURNS jsonb
@@ -72,7 +69,6 @@ BEGIN
   RETURN COALESCE(v_contracts, '[]'::jsonb);
 END;
 $$;
-
 -- 4. portal_get_full_loan
 CREATE OR REPLACE FUNCTION portal_get_full_loan(p_token text, p_shortcode text)
 RETURNS jsonb
@@ -107,7 +103,6 @@ BEGIN
   );
 END;
 $$;
-
 -- 5. portal_get_parcels
 CREATE OR REPLACE FUNCTION portal_get_parcels(p_token text, p_shortcode text)
 RETURNS jsonb
@@ -135,7 +130,6 @@ BEGIN
   RETURN COALESCE(v_parcels, '[]'::jsonb);
 END;
 $$;
-
 -- 6. portal_get_signals
 CREATE OR REPLACE FUNCTION portal_get_signals(p_token text, p_shortcode text)
 RETURNS jsonb
@@ -163,7 +157,6 @@ BEGIN
   RETURN COALESCE(v_signals, '[]'::jsonb);
 END;
 $$;
-
 -- 7. portal_list_docs
 CREATE OR REPLACE FUNCTION portal_list_docs(p_token text, p_shortcode text)
 RETURNS jsonb
@@ -191,7 +184,6 @@ BEGIN
   RETURN COALESCE(v_docs, '[]'::jsonb);
 END;
 $$;
-
 -- 8. portal_get_doc
 CREATE OR REPLACE FUNCTION portal_get_doc(p_token text, p_shortcode text, p_doc_id uuid)
 RETURNS jsonb
@@ -219,7 +211,6 @@ BEGIN
   RETURN v_doc;
 END;
 $$;
-
 -- 9. portal_sign_document
 CREATE OR REPLACE FUNCTION portal_sign_document(
     p_token text,
@@ -294,7 +285,6 @@ BEGIN
     RETURN jsonb_build_object('success', true);
 END;
 $$;
-
 -- 10. portal_registrar_intencao
 CREATE OR REPLACE FUNCTION portal_registrar_intencao(
     p_token text,
@@ -342,7 +332,6 @@ BEGIN
     RETURN jsonb_build_object('success', true);
 END;
 $$;
-
 -- 11. rpc_doc_missing_fields
 CREATE OR REPLACE FUNCTION rpc_doc_missing_fields(p_documento_id uuid)
 RETURNS jsonb
@@ -353,7 +342,6 @@ BEGIN
   RETURN jsonb_build_object('missing', '[]'::jsonb, 'can_sign', true);
 END;
 $$;
-
 -- 11. rpc_doc_patch_snapshot
 CREATE OR REPLACE FUNCTION rpc_doc_patch_snapshot(p_documento_id uuid, p_patch jsonb)
 RETURNS jsonb
@@ -368,7 +356,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$;
-
 -- GRANTS
 GRANT EXECUTE ON FUNCTION validate_portal_access(text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION portal_get_client(text, text) TO anon, authenticated;

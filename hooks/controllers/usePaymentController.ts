@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { paymentsService } from '../../services/payments.service';
 import { UserProfile, Loan, CapitalSource, UIController } from '../../types';
+import type { FinancialOperationResult, FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -44,7 +45,9 @@ export const usePaymentController = (
     paymentTypeOverride?: string,
     avAmountOverride?: string,
     contextOverride?: { loan: Loan, inst: any, calculations: any },
-    lateFeeForgiven?: number
+    lateFeeForgiven?: number,
+    paymentMethod?: FinancialPaymentMethod,
+    expectedPreview?: FinancialOperationResult
   ) => {
     const maybeContext = paymentTypeOverride as any;
     const inferredContext =
@@ -98,6 +101,9 @@ export const usePaymentController = (
         renewWithPending: interestHandling === 'RENEW_KEEP_PENDING',
         paymentType: effectivePaymentType,
         avAmount: avAmountOverride,
+        partialAction: interestHandling,
+        paymentMethod,
+        expectedPreview,
       });
 
       showToast('Pagamento realizado com sucesso!', 'success');

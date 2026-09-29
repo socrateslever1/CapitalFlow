@@ -1,17 +1,18 @@
 import React, { useEffect, useState, useRef } from "react";
 import PixDepositModal from "../components/modals/PixDepositModal";
 import { CapitalSource, Loan } from "../types";
-import { Plus, Wallet, Upload, Image as ImageIcon } from 'lucide-react';
-import { Modal } from '../components/ui/Modal';
+import { Plus, Wallet, Upload, Image as ImageIcon, Link2 } from 'lucide-react';
+import { Modal, modalPrimaryActionClass } from '../components/ui/Modal';
 import { SourceCard } from '../components/cards/SourceCard';
 import { filesService } from '../services/files.service';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
+import { normalizeWalletImageReference } from '../utils/imageUrl';
 
 interface SourcesPageProps {
   sources: CapitalSource[];
   loans: Loan[];
   openConfirmation: (config: any) => void;
-  handleUpdateSourceBalance: () => void;
+  handleUpdateSourceBalance: () => void | Promise<void>;
   isStealthMode?: boolean;
   ui: any;
   onOpenPixDeposit: (source: CapitalSource) => void;
@@ -32,10 +33,15 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const [logoLoading, setLogoLoading] = useState(false);
+  const [logoUrlInput, setLogoUrlInput] = useState('');
+  const [logoUrlError, setLogoUrlError] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const rawLogo = ui.editingSource?.logo_url as string | undefined;
+    setLogoUrlInput(rawLogo?.startsWith('http') ? rawLogo : '');
+    setLogoUrlError('');
 
     if (!rawLogo) {
       setLogoPreviewUrl(null);
@@ -108,7 +114,30 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
 
   const removeLogo = () => {
     setLogoPreviewUrl(null);
+    setLogoUrlInput('');
+    setLogoUrlError('');
     ui.setEditingSource({ ...ui.editingSource, logo_url: '' });
+  };
+
+  const applyLogoUrl = () => {
+    const normalized = normalizeWalletImageReference(logoUrlInput);
+    if (!normalized) {
+      setLogoUrlError('Informe um link HTTPS válido para uma imagem pública.');
+      return;
+    }
+    setLogoUrlError('');
+    setLogoPreviewUrl(normalized);
+    ui.setEditingSource({ ...ui.editingSource, logo_url: normalized });
+  };
+
+  const saveSourceEdit = async () => {
+    if (isSavingEdit) return;
+    setIsSavingEdit(true);
+    try {
+      await handleUpdateSourceBalance();
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   return (
@@ -151,30 +180,46 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       {ui.editingSource && (
         <Modal
           onClose={() => ui.setEditingSource(null)}
-          title={`Ajuste Manual: ${ui.editingSource.name}`}
+          title="Editar carteira"
+          subtitle={ui.editingSource.name}
+          icon={<Wallet size={18} />}
+          compact
+          busy={isSavingEdit || logoLoading}
+          footer={(
+            <button
+              onClick={saveSourceEdit}
+              disabled={isSavingEdit || logoLoading}
+              className={`${modalPrimaryActionClass} sm:flex-1`}
+            >
+              {isSavingEdit ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+          )}
         >
-          <div className="space-y-4">
-            <div className="bg-amber-900/20 border border-amber-500/30 p-4 rounded-lg">
+          <div className="space-y-3">
+            <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg">
               <p className="text-[10px] text-amber-200 uppercase font-bold text-center">
                 Atenção: Use apenas para correção de inventário. Para entradas/saídas, use as funções do sistema.
               </p>
             </div>
 
-            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Novo Saldo Atual</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={ui.editingSource.balance === 0 ? '' : ui.editingSource.balance}
-              onChange={e => ui.setEditingSource({
-                ...ui.editingSource,
-                balance: e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
-              })}
-              className="w-full bg-slate-950 p-4 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
-            />
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Novo Saldo Atual</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={ui.editingSource.balance === 0 ? '' : ui.editingSource.balance}
+                onChange={e => ui.setEditingSource({
+                  ...ui.editingSource,
+                  balance: e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
+                })}
+                className="w-full bg-slate-950 p-3.5 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
+              />
+            </div>
 
-            <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Imagem da Carteira (Logo)</label>
-            <div className="flex items-center gap-4">
+            <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-3">
+              <label className="text-[10px] uppercase font-bold text-slate-400">Imagem da carteira</label>
+              <div className="flex items-center gap-3">
               {logoPreviewUrl ? (
                 <div className="relative w-16 h-16 rounded-full overflow-hidden border border-slate-700 group bg-slate-950 shrink-0">
                   <img
@@ -197,7 +242,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                 </div>
               )}
 
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -209,21 +254,33 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   type="button"
                   disabled={logoLoading}
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-xs font-bold uppercase rounded-lg border border-slate-700 flex items-center gap-2 transition-colors"
+                  className="min-h-10 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-xs font-bold uppercase rounded-lg border border-slate-700 flex items-center gap-2 transition-colors"
                 >
                   <Upload size={14} />
                   {logoLoading ? 'Carregando...' : 'Carregar Imagem'}
                 </button>
                 <p className="text-[10px] text-slate-500 mt-1">JPG, PNG, GIF ou WEBP (máx. 2 MB)</p>
               </div>
-            </div>
+              </div>
 
-            <button
-              onClick={handleUpdateSourceBalance}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg uppercase transition-all shadow-lg mt-4"
-            >
-              Salvar Correção
-            </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="relative flex-1">
+                  <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="url"
+                    value={logoUrlInput}
+                    onChange={(event) => { setLogoUrlInput(event.target.value); setLogoUrlError(''); }}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); applyLogoUrl(); } }}
+                    placeholder="https://site.com/imagem.png"
+                    className="min-h-10 w-full rounded-lg border border-slate-800 bg-slate-950 py-2 pl-9 pr-3 text-xs text-white outline-none transition-colors focus:border-blue-500"
+                  />
+                </div>
+                <button type="button" onClick={applyLogoUrl} className="min-h-10 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 text-[10px] font-black uppercase text-blue-300 transition-colors hover:bg-blue-500/20">
+                  Usar link
+                </button>
+              </div>
+              {logoUrlError && <p role="alert" className="text-[10px] font-medium text-rose-400">{logoUrlError}</p>}
+            </div>
           </div>
         </Modal>
       )}

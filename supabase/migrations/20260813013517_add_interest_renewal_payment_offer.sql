@@ -358,3 +358,5 @@ GRANT EXECUTE ON FUNCTION public.process_interest_renewal_payment_offer(
 ) TO authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';
+
+;

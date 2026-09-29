@@ -1,6 +1,3 @@
--- Applied to CapitalFlow production on 2026-09-25.
--- Harden portal document snapshot edits without changing contracts, installments,
--- agreements, balances or financial conditions.
 
 CREATE OR REPLACE FUNCTION public.portal_patch_document_snapshot(
   p_token text,
@@ -84,3 +81,4 @@ COMMENT ON FUNCTION public.rpc_doc_patch_snapshot(uuid, jsonb) IS
   'Authenticated-only legacy/admin patch. Runs as invoker so documentos_juridicos RLS is enforced.';
 
 NOTIFY pgrst, 'reload schema';
+;

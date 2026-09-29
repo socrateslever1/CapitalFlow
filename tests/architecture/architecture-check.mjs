@@ -126,6 +126,132 @@ for (const migration of requiredProductionMigrations) {
   }
 }
 
+const paymentService = read('services', 'payments.service.ts');
+const paymentPersistence = read('services', 'payments', 'paymentPersistence.ts');
+const paymentEngineV4 = read('services', 'payments', 'paymentEngineV4.ts');
+const ledgerReverse = read('services', 'ledger', 'ledgerReverse.ts');
+const paymentEngineMigration = read('supabase', 'migrations', '20260929042054_payment_engine_v4.sql');
+const capitalAdvanceMigration = read('supabase', 'migrations', '20260929042059_harden_capital_advances.sql');
+const contractsService = read('services', 'contracts.service.ts');
+const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_ai_skills_read_models.sql');
+
+for (const forbidden of [
+  'applyPaymentDirectFallback',
+  'canUseDirectPaymentFallback',
+  "from('parcelas').update",
+  "from('fontes').update",
+  "from('payment_transactions').insert",
+]) {
+  if (`${paymentService}\n${paymentPersistence}`.includes(forbidden)) {
+    failures.push(`pagamentos manuais -> fallback ou escrita direta proibida: ${forbidden}`);
+  }
+}
+
+for (const required of ['process_financial_operation_v4', 'preview_financial_operation_v4', 'reverse_financial_operation_v4']) {
+  if (!`${paymentEngineV4}\n${ledgerReverse}`.includes(required)) {
+    failures.push(`Payment Engine V4 -> integração obrigatória ausente: ${required}`);
+  }
+}
+
+if (/\.from\(['"](?:parcelas|contratos|fontes|perfis|transacoes|payment_transactions)['"]\)/.test(paymentEngineV4)) {
+  failures.push('paymentEngineV4.ts -> acesso direto a tabela financeira proibido');
+}
+
+for (const required of [
+  'pg_advisory_xact_lock',
+  'for update',
+  'financial_operations',
+  'private.financial_actor_can_access',
+  'process_financial_operation_v4',
+  'preview_financial_operation_v4',
+  'reverse_financial_operation_v4',
+  'payment_transactions',
+  'p_expected_preview',
+  'v_preview is distinct from p_expected_preview',
+  "revoke execute on function public.process_payment_v3_selective",
+]) {
+  if (!paymentEngineMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`migration Payment Engine V4 -> garantia obrigatória ausente: ${required}`);
+  }
+}
+
+if (!/v_preview\s*:=\s*public\.preview_financial_operation_v4/i.test(paymentEngineMigration)) {
+  failures.push('Payment Engine V4 -> execução não reutiliza a prévia autoritativa');
+}
+
+for (const forbidden of ['adminOfflineStore', "table: 'parcelas'", "table: 'fontes'", "table: 'transacoes'"]) {
+  if (ledgerReverse.includes(forbidden)) {
+    failures.push(`ledgerReverse.ts -> estorno financeiro cliente/offline proibido: ${forbidden}`);
+  }
+}
+
+for (const required of [
+  'process_lend_more_atomic',
+  'reverse_capital_advance_v4',
+  'pg_advisory_xact_lock',
+  'private.financial_actor_can_access',
+  'idempotency_key',
+  'for update',
+  'reversed_of_transaction_id',
+  'estado financeiro divergiu do snapshot',
+]) {
+  if (!capitalAdvanceMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`aporte V4 -> garantia obrigatória ausente: ${required}`);
+  }
+}
+
+if (contractsService.includes("rpc('apply_new_aporte_atomic'")) {
+  failures.push('contracts.service.ts -> RPC legada de aporte não idempotente');
+}
+if (!contractsService.includes("rpc('process_lend_more_atomic'")) {
+  failures.push('contracts.service.ts -> RPC V4 de aporte ausente');
+}
+if (!ledgerReverse.includes('reverse_capital_advance_v4')) {
+  failures.push('ledgerReverse.ts -> estorno atômico de aporte ausente');
+}
+
+const skillFiles = walk(path.join(root, 'ai', 'skills'));
+for (const file of skillFiles) {
+  const filePath = relative(file);
+  if (filePath === 'ai/skills/backend/supabaseSkillGateway.ts') continue;
+  const text = fs.readFileSync(file, 'utf8');
+  for (const forbidden of ['lib/supabase', '.from(', '.rpc(', 'service_role', 'execute sql']) {
+    if (text.toLowerCase().includes(forbidden.toLowerCase())) {
+      failures.push(`${filePath} -> acesso de infraestrutura proibido na Skill: ${forbidden}`);
+    }
+  }
+}
+
+const skillGateway = read('ai', 'skills', 'backend', 'supabaseSkillGateway.ts');
+if (skillGateway.includes('.from(')) {
+  failures.push('supabaseSkillGateway.ts -> acesso direto a tabela proibido');
+}
+for (const rpc of [
+  'skill_find_clients_v1',
+  'skill_list_contracts_v1',
+  'skill_get_debt_position_v1',
+  'skill_list_installments_v1',
+  'skill_list_due_v1',
+  'skill_get_agreement_v1',
+]) {
+  if (!skillGateway.includes(rpc) || !skillReadModelMigration.includes(rpc)) {
+    failures.push(`Skills READ_ONLY -> RPC autorizada ausente: ${rpc}`);
+  }
+}
+
+const financialSkills = read('ai', 'skills', 'financial', 'skills.ts');
+for (const required of ['enabled: false', "risk: 'FINANCIAL_WRITE'", 'requiresConfirmation: true']) {
+  if (!financialSkills.includes(required)) {
+    failures.push(`Skills financeiras -> bloqueio obrigatório ausente: ${required}`);
+  }
+}
+if (/\b(update|insert|delete)\s+public\./i.test(skillReadModelMigration)) {
+  failures.push('migration de Skills READ_ONLY -> mutação financeira detectada');
+}
+if (!skillReadModelMigration.includes('private.financial_actor_can_access')) {
+  failures.push('migration de Skills READ_ONLY -> autorização de tenant ausente');
+}
+
 if (failures.length > 0) {
   console.error('Falhas arquiteturais encontradas:');
   for (const failure of failures) console.error(` - ${failure}`);
@@ -138,3 +264,9 @@ console.log('✓ mutações financeiras de acordo falham fechadas via RPC atômi
 console.log('✓ serviço legado de acordos não é importado fora da fachada autorizada');
 console.log('✓ régua versionada e documentação permanecem alinhadas em 24h');
 console.log('✓ migrations críticas de produção estão versionadas');
+console.log('✓ Payment Engine V4 usa somente RPCs autorizadas e falha fechado');
+console.log('✓ prévia, execução, idempotência, locks e estorno V4 possuem gates arquiteturais');
+console.log('✓ aportes e novos empréstimos usam RPC idempotente com estorno por snapshot');
+console.log('✓ Skills não acessam banco, SQL ou credenciais diretamente');
+console.log('✓ gateway de Skills usa somente RPCs READ_ONLY autorizadas');
+console.log('✓ Skills financeiras permanecem bloqueadas e exigem confirmação');

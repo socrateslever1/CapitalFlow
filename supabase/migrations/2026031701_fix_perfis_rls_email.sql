@@ -6,7 +6,6 @@ CREATE POLICY "Usuários podem ver perfil via email"
 ON public.perfis FOR SELECT
 TO authenticated
 USING (email = auth.jwt() ->> 'email' OR usuario_email = auth.jwt() ->> 'email');
-
 DROP POLICY IF EXISTS "Usuários podem atualizar perfil via email" ON public.perfis;
 CREATE POLICY "Usuários podem atualizar perfil via email"
 ON public.perfis FOR UPDATE

@@ -321,4 +321,4 @@ $$;
 REVOKE ALL ON FUNCTION private.financial_integrity_report() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION private.financial_integrity_report() TO service_role;
 
-NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';;

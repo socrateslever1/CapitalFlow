@@ -30,7 +30,6 @@ CREATE INDEX IF NOT EXISTS idx_acordo_pagamentos_active_parcela
   ON public.acordo_pagamentos (parcela_id, paid_at DESC)
   WHERE reversed_at IS NULL;
 
--- A transaction that already identifies an installment can safely inherit its loan.
 UPDATE public.transacoes t
 SET loan_id = p.loan_id
 FROM public.parcelas p
@@ -38,9 +37,6 @@ WHERE t.loan_id IS NULL
   AND t.installment_id = p.id
   AND p.loan_id IS NOT NULL;
 
--- Legacy AMORTIZACAO_SELETIVA rows with no component deltas are summary/audit rows.
--- Keep the original amount untouched, but make the semantic explicit so reports can
--- distinguish them from component-bearing ledger movements.
 UPDATE public.transacoes
 SET meta = COALESCE(meta, '{}'::jsonb) || jsonb_build_object(
   'summary_only', true,
@@ -54,9 +50,6 @@ WHERE upper(COALESCE(category, '')) = 'AMORTIZACAO_SELETIVA'
   AND abs(COALESCE(late_fee_delta, 0)) <= 0.005
   AND COALESCE((meta ->> 'summary_only')::boolean, false) = false;
 
--- Automatically connect provider-originated payment ledger rows with the charge that
--- produced their idempotency key. This works for direct charge IDs and for per-target
--- keys stored in provider_payload.installments.
 CREATE OR REPLACE FUNCTION public.link_transaction_payment_charge()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -106,8 +99,6 @@ ON public.transacoes
 FOR EACH ROW
 EXECUTE FUNCTION public.link_transaction_payment_charge();
 
--- Deterministic historical backfill for provider charge links. No amount, balance or
--- payment component is modified here.
 UPDATE public.transacoes t
 SET payment_charge_id = (
   SELECT pc.id
@@ -199,7 +190,6 @@ BEGIN
     RAISE EXCEPTION 'Valor do pagamento deve ser maior que zero.';
   END IF;
 
-  -- Serialize retries with the same request key before reading any financial state.
   PERFORM pg_advisory_xact_lock(hashtextextended(p_idempotency_key, 0));
 
   SELECT COALESCE(payment_group_id, id), reversed_at
@@ -236,7 +226,7 @@ BEGIN
   END IF;
 
   IF auth.uid() IS NULL THEN
-    v_actor_allowed := true; -- service_role / trusted server execution
+    v_actor_allowed := true;
   ELSE
     SELECT EXISTS (
       SELECT 1
@@ -341,9 +331,6 @@ BEGIN
     'late_fee', v_late_paid
   ));
 
-  -- Apply a genuine excess to the nearest open installments first. The old client
-  -- walked installments in descending order, which could pay the last installment
-  -- before the next one and made retries much harder to reconcile.
   IF v_remaining > 0.005 THEN
     FOR v_future IN
       SELECT
@@ -972,4 +959,4 @@ GRANT EXECUTE ON FUNCTION public.process_agreement_payment_atomic(text, uuid, uu
 GRANT EXECUTE ON FUNCTION public.reverse_agreement_payment_atomic(uuid, uuid, uuid, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.break_agreement_atomic(uuid) TO authenticated, service_role;
 
-NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';;

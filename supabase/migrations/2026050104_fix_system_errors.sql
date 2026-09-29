@@ -1,14 +1,11 @@
-
 -- ======================================================
 -- MIGRATION: FIX SYSTEM ERRORS (2026-05-01)
 -- ======================================================
 
 SET search_path = public;
-
 -- 1. CORREÇÃO TABELA CONTRATOS (ERRO 1)
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS last_billed_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE contratos ADD COLUMN IF NOT EXISTS billing_count INTEGER DEFAULT 0;
-
 -- 2. CORREÇÃO TABELA PAYMENT_INTENTS (ERRO 3 / SCREENSHOT)
 DO $$ 
 BEGIN
@@ -26,7 +23,6 @@ BEGIN
         ALTER TABLE payment_intents ADD COLUMN method TEXT;
     END IF;
 END $$;
-
 -- 3. ATUALIZAÇÃO DA RPC portal_registrar_intencao (RESILIÊNCIA)
 CREATE OR REPLACE FUNCTION portal_registrar_intencao(
   p_token text,
@@ -90,7 +86,6 @@ BEGIN
   RETURN jsonb_build_object('success', true);
 END;
 $$;
-
 -- 4. ATUALIZAÇÃO DA RPC apply_new_aporte_atomic (ERRO 2)
 -- Esta RPC é crítica e costuma falhar se o owner_id não bater.
 -- Vamos garantir que ela aceite owner_id como parâmetro de validação.
@@ -163,8 +158,6 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 GRANT EXECUTE ON FUNCTION portal_registrar_intencao(text, text, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION apply_new_aporte_atomic(uuid, uuid, numeric, uuid, uuid, text, uuid) TO authenticated;
-
 NOTIFY pgrst, 'reload schema';

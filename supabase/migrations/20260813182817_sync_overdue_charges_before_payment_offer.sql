@@ -1,4 +1,4 @@
--- Atualiza multa e mora pela data corrente antes de criar a condicao.
+-- Atualiza multa e mora pela data corrente antes de criar qualquer condicao.
 -- Evita enviar apenas os juros quando a parcela esta vencida e os encargos
 -- ainda nao foram materializados em parcelas.late_fee_accrued.
 
@@ -219,3 +219,5 @@ GRANT EXECUTE ON FUNCTION public.set_installment_payment_offer_v3(
 ) TO authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';
+
+;

@@ -1,6 +1,7 @@
 import type { Loan, Installment } from '../../../types';
 import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { getDaysDiff } from '../../../utils/dateHelpers';
+import type { FinancialOperationResult, FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 
 export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
 export type QuickMode = 'TOTAL' | 'CUSTOM' | 'INTEREST_ONLY' | 'CHARGES_ONLY';
@@ -8,6 +9,8 @@ export type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
     lateFeeForgiven?: number;
     partialBalanceAction?: PartialBalanceAction;
+    paymentMethod?: FinancialPaymentMethod;
+    expectedPreview?: FinancialOperationResult;
 };
 
 /** Preparação pura da janela rápida: não movimenta caixa nem altera parcelas. */
@@ -71,8 +74,8 @@ export function buildInstallmentReceiptModel(params: {
                 }> = [
                     {
                         value: 'KEEP_PENDING',
-                        title: 'Deixar pendente',
-                        detail: 'Mantém o saldo e o vencimento para quitação depois.',
+                        title: 'Manter vencimento atual',
+                        detail: 'Mantém exatamente o saldo e a data atuais. Nenhum novo ciclo é criado.',
                         activeClass: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
                     },
                     {
@@ -83,8 +86,8 @@ export function buildInstallmentReceiptModel(params: {
                     },
                     {
                         value: 'RENEW_KEEP_PENDING',
-                        title: 'Renovar mesmo parcial',
-                        detail: 'Avança 30 dias desde o vencimento anterior e mantém o saldo pendente sem gerar outro juro cheio.',
+                        title: 'Avançar ciclo +30 dias',
+                        detail: 'Somente por escolha explícita: avança 30 dias desde o vencimento anterior e mantém o saldo pendente.',
                         activeClass: 'bg-amber-600/20 text-amber-300 border-amber-500/50',
                         disabled: !canRenewWithPending
                     },

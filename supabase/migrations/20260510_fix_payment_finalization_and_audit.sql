@@ -1,4 +1,3 @@
-
 -- Migração: 20260510_fix_payment_finalization_and_audit.sql
 -- Descrição: Melhora a lógica de finalização de contratos e garante que o lucro seja contabilizado mesmo sem fonte de Caixa Livre.
 

@@ -655,4 +655,4 @@ BEGIN
 END;
 $$;
 
-NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';;

@@ -10,6 +10,7 @@ import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel } from '../../components/cards/components/InstallmentReceiptModel';
+import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -201,5 +202,31 @@ run('condição especial mantém o saldo de um recebimento parcial sem acionar r
   assertMoney(preview.totalAmount, 250, 'saldo protegido da condição');
   assertMoney(preview.displayedAmount, 125, 'parcial escolhido');
   assert.equal(preview.isPartialPayment, true);
+});
+
+run('carteira conta somente contratos com obrigação ativa', () => {
+  const sourceId = 'source-a';
+  const loans = [
+    {
+      id: 'paid-by-status', sourceId, status: 'PAID', billingCycle: 'MONTHLY', installments: [],
+    },
+    {
+      id: 'paid-by-balance', sourceId, status: 'ACTIVE', billingCycle: 'MONTHLY', installments: [
+        { status: 'PAID', principalRemaining: 0, interestRemaining: 0, lateFeeAccrued: 0 },
+      ],
+    },
+    {
+      id: 'active', sourceId, status: 'ACTIVE', billingCycle: 'MONTHLY', installments: [
+        { status: 'PENDING', principalRemaining: 100, interestRemaining: 20, lateFeeAccrued: 0, dueDate: '2099-01-01' },
+      ],
+    },
+    {
+      id: 'other-source', sourceId: 'source-b', status: 'ACTIVE', billingCycle: 'MONTHLY', installments: [
+        { status: 'PENDING', principalRemaining: 100, interestRemaining: 20, lateFeeAccrued: 0, dueDate: '2099-01-01' },
+      ],
+    },
+  ] as any;
+
+  assert.deepEqual(getActiveSourceLoans(loans, sourceId).map((loan) => loan.id), ['active']);
 });
 console.log('Suite financeira concluída com sucesso.');

@@ -32,14 +32,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- 2. Criação do Trigger
 DROP TRIGGER IF EXISTS trg_campaign_auto_reply ON public.campaign_messages;
-
 CREATE TRIGGER trg_campaign_auto_reply
 AFTER INSERT ON public.campaign_messages
 FOR EACH ROW
 EXECUTE FUNCTION public.trigger_campaign_auto_reply();
-
 -- Permissões (Garantia)
 GRANT EXECUTE ON FUNCTION public.trigger_campaign_auto_reply() TO anon, authenticated, service_role;

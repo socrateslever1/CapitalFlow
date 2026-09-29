@@ -4,12 +4,10 @@ DROP FUNCTION IF EXISTS process_payment_v3_selective(text, uuid, uuid, uuid, uui
 DROP FUNCTION IF EXISTS process_payment_v3_selective(uuid, uuid, uuid, uuid, uuid, numeric, numeric, numeric, timestamp with time zone, boolean, uuid, uuid);
 DROP FUNCTION IF EXISTS process_payment_v3_selective(uuid, uuid, uuid, uuid, uuid, numeric, numeric, numeric, date, boolean, uuid, uuid);
 DROP FUNCTION IF EXISTS process_payment_v3_selective(text, uuid, uuid, uuid, uuid, numeric, numeric, numeric, date, boolean, uuid, uuid);
-
 -- Versões com 13 parâmetros (conflitantes) - Tentando várias ordens prováveis
 DROP FUNCTION IF EXISTS process_payment_v3_selective(uuid, uuid, uuid, uuid, uuid, numeric, numeric, numeric, numeric, date, boolean, uuid, uuid);
 DROP FUNCTION IF EXISTS process_payment_v3_selective(text, uuid, uuid, uuid, uuid, numeric, numeric, numeric, numeric, date, boolean, uuid, uuid);
 DROP FUNCTION IF EXISTS process_payment_v3_selective(uuid, uuid, uuid, uuid, uuid, uuid, date, numeric, numeric, numeric, numeric, boolean, text);
-
 -- 2. Recriar a versão definitiva com 13 parâmetros (p_idempotency_key UUID)
 CREATE OR REPLACE FUNCTION process_payment_v3_selective(
   p_idempotency_key UUID,

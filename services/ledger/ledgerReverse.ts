@@ -1,10 +1,10 @@
 // services/ledger/ledgerReverse.ts
 import { supabase } from '../../lib/supabase';
 import { Loan, UserProfile, LedgerEntry } from '../../types';
-import { getOwnerId, normalizeTransaction, isPaymentTx, isLendMoreTx, isAporteTx, clampNonNegative, toNumber } from './ledgerHelpers';
+import { getOwnerId, normalizeTransaction, isPaymentTx, isLendMoreTx, isAporteTx } from './ledgerHelpers';
 import { isUUID, safeUUID } from '../../utils/uuid';
-import { generateUUID } from '../../utils/generators';
 import { getPaymentGroupKey } from '../../utils/paymentGroups';
+import { clearStableFinancialRequestKey, getStableFinancialRequestKey, reverseFinancialOperation } from '../payments/paymentEngineV4';
 
 
 /**
@@ -45,6 +45,11 @@ export async function reverseTransaction(
       throw new Error('Este recebimento antigo não possui chave de evento e não pode ser estornado com segurança por esta tela. Use o extrato financeiro.');
     }
 
+    const v4Result = await reverseFinancialOperation(groupKey, 'Estorno manual pelo contrato');
+    if (v4Result) {
+      return 'Recebimento V4 estornado por completo e vinculado à operação original.';
+    }
+
     const { data, error } = await supabase.rpc('reverse_payment_group', {
       p_profile_id: safeUUID(ownerId),
       p_idempotency_key: groupKey,
@@ -58,152 +63,46 @@ export async function reverseTransaction(
     return 'Recebimento estornado por completo. Capital, lucro e parcela foram revertidos juntos.';
   }
 
-  const { syncService } = await import('../sync.service');
-  const { db } = await import('../offline/adminOfflineStore');
-
-  // Pagamento de acordo ainda segue fluxo proprio ate existir RPC de grupo especifica.
   if (isAgreementPayment) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Estorno de acordo exige internet para manter a operação atômica.');
+    }
     const agreementInstallmentId = tx.installmentId || tx.meta?.agreement_installment_id;
+    const agreementId = tx.meta?.agreement_id;
     if (!agreementInstallmentId || !isUUID(agreementInstallmentId)) {
       throw new Error('Parcela do acordo não identificada para estorno.');
     }
-
-    await syncService.enqueueOperation({
-      table: 'acordo_parcelas',
-      operation: 'UPDATE',
-      data: {
-        id: agreementInstallmentId,
-        status: 'PENDENTE',
-        valor_pago: 0,
-        paid_amount: 0,
-        data_pagamento: null,
-        paid_at: null,
-      },
-      id: agreementInstallmentId,
+    if (!agreementId || !isUUID(agreementId)) throw new Error('Acordo não identificado para estorno.');
+    const { data, error } = await supabase.rpc('reverse_agreement_payment_atomic', {
+      p_agreement_id: agreementId,
+      p_installment_id: agreementInstallmentId,
+      p_operator_id: safeUUID(activeUser.id),
+      p_reason: 'Estorno manual pelo extrato',
     });
-
-    const agreementId = tx.meta?.agreement_id;
-    if (agreementId && isUUID(agreementId)) {
-      await syncService.enqueueOperation({
-        table: 'acordos_inadimplencia',
-        operation: 'UPDATE',
-        data: { id: agreementId, status: 'ATIVO' },
-        id: agreementId,
-      });
-      await syncService.enqueueOperation({
-        table: 'contratos',
-        operation: 'UPDATE',
-        data: { id: loan.id, status: 'EM_ACORDO', acordo_ativo_id: agreementId },
-        id: loan.id,
-      });
-    }
-
-    const txId = generateUUID();
-    await syncService.enqueueOperation({
-      table: 'transacoes',
-      operation: 'INSERT',
-      data: {
-        id: txId,
-        loan_id: safeUUID(loan.id),
-        profile_id: safeUUID(ownerId),
-        source_id: safeUUID(tx.sourceId),
-        installment_id: null,
-        date: new Date().toISOString(),
-        type: 'AGREEMENT_PAYMENT_REVERSED',
-        amount: -toNumber(tx.amount),
-        principal_delta: -toNumber(tx.principalDelta),
-        interest_delta: -toNumber(tx.interestDelta),
-        late_fee_delta: -toNumber(tx.lateFeeDelta),
-        category: 'ESTORNO',
-        payment_type: 'ACORDO',
-        meta: {
-          agreement_id: agreementId,
-          agreement_installment_id: agreementInstallmentId,
-          origem: 'acordo_pagamentos',
-          reversal: true,
-        },
-        notes: `Estorno aplicado. Ref=${tx.id}`,
-      },
-      id: txId,
-    });
-
+    if (error) throw new Error(error.message || 'Falha ao estornar pagamento de acordo.');
+    if (!(data as any)?.success && !(data as any)?.ok) throw new Error('O banco não confirmou o estorno do acordo.');
     return 'Pagamento de acordo estornado.';
   }
 
-  // Fluxos de saida de capital: LEND_MORE / NOVO_APORTE.
-  if (tx.sourceId && isUUID(tx.sourceId)) {
-    const delta = toNumber(tx.amount);
-    const prevSource = await db.fontes.get(tx.sourceId).catch(() => null);
-    if (prevSource) {
-      await db.fontes.update(tx.sourceId, { balance: Number(prevSource.balance || 0) + delta });
+  if (isLendMore || isAporte) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Estorno de aporte exige internet para manter a operação atômica.');
     }
-    await syncService.enqueueOperation({
-      table: '__rpc',
-      operation: 'RPC',
-      data: { fn: 'adjust_source_balance', args: { p_source_id: tx.sourceId, p_delta: delta } },
-      id: generateUUID(),
+    const originalKey = getPaymentGroupKey(rawTx);
+    if (!isUUID(originalKey)) {
+      throw new Error('Aporte legado sem chave auditável. Reconciliação manual obrigatória.');
+    }
+    const reversalRequest = getStableFinancialRequestKey(`capital-advance-reversal:${originalKey}:Estorno manual pelo extrato`);
+    const { data, error } = await supabase.rpc('reverse_capital_advance_v4', {
+      p_original_idempotency_key: originalKey,
+      p_reversal_idempotency_key: reversalRequest.idempotencyKey,
+      p_reason: 'Estorno manual pelo extrato',
     });
+    if (error) throw new Error(error.message || 'Falha ao estornar aporte.');
+    if (!(data as any)?.success) throw new Error('O banco não confirmou o estorno do aporte.');
+    clearStableFinancialRequestKey(reversalRequest.storageKey);
+    return 'Aporte estornado por completo e vinculado à operação original.';
   }
 
-  if (isAporte && tx.installmentId && isUUID(tx.installmentId)) {
-    const dbInst: any = await db.parcelas.get(tx.installmentId).catch(() => null);
-    if (!dbInst) throw new Error('Parcela não encontrada para estorno do aporte.');
-
-    const deltaPrincipal = toNumber(tx.principalDelta || tx.amount);
-    const deltaAmount = toNumber(tx.amount);
-    const nextPrincipalRemaining = clampNonNegative(toNumber(dbInst.principal_remaining ?? dbInst.principalRemaining) - deltaPrincipal);
-    const nextScheduledPrincipal = clampNonNegative(toNumber(dbInst.scheduled_principal ?? dbInst.scheduledPrincipal) - deltaPrincipal);
-    const nextValorParcela = clampNonNegative(toNumber(dbInst.valor_parcela ?? dbInst.amount) - deltaAmount);
-
-    await syncService.enqueueOperation({
-      table: 'parcelas',
-      operation: 'UPDATE',
-      data: {
-        id: tx.installmentId,
-        principal_remaining: nextPrincipalRemaining,
-        scheduled_principal: nextScheduledPrincipal,
-        valor_parcela: nextValorParcela,
-        status: 'PENDING',
-      },
-      id: tx.installmentId,
-    });
-
-    await syncService.enqueueOperation({
-      table: '__rpc',
-      operation: 'RPC',
-      data: { fn: 'adjust_loan_principal', args: { p_loan_id: loan.id, p_delta: -deltaAmount } },
-      id: generateUUID(),
-    });
-  } else if (isLendMore) {
-    await syncService.enqueueOperation({
-      table: '__rpc',
-      operation: 'RPC',
-      data: { fn: 'adjust_loan_principal', args: { p_loan_id: loan.id, p_delta: -toNumber(tx.amount) } },
-      id: generateUUID(),
-    });
-  }
-
-  const txId = generateUUID();
-  await syncService.enqueueOperation({
-    table: 'transacoes',
-    operation: 'INSERT',
-    data: {
-      id: txId,
-      loan_id: safeUUID(loan.id),
-      profile_id: safeUUID(ownerId),
-      source_id: safeUUID(tx.sourceId),
-      installment_id: safeUUID(tx.installmentId),
-      date: new Date().toISOString(),
-      type: 'ESTORNO',
-      amount: -toNumber(tx.amount),
-      principal_delta: -toNumber(tx.amount),
-      interest_delta: 0,
-      late_fee_delta: 0,
-      category: 'ESTORNO',
-      notes: `Estorno aplicado. Ref=${tx.id}`,
-    },
-    id: txId,
-  });
-
-  return 'Estorno realizado com sucesso.';
+  throw new Error('Estorno de aporte ou novo empréstimo está bloqueado até existir uma RPC atômica e auditável específica.');
 }

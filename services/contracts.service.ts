@@ -9,6 +9,7 @@ import {
   removeCapitalOnlyRecoveryMarker,
 } from '../utils/capitalOnlyRecovery';
 import { isTestSource } from '../utils/testSource';
+import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 
 /* =========================
    Helpers de Sanitização
@@ -429,15 +430,13 @@ export const contractsService = {
     const safeAmount = safeFloat(amount);
     if (safeAmount <= 0) throw new Error('Valor inválido.');
 
-    // ✅ aqui é isso mesmo: p_profile_id = ownerId
-    console.log('[DEBUG] addAporte params:', {
-      loanId: safeUUID(loanId),
-      ownerId: safeUUID(ownerId),
-      amount: safeAmount,
-      sourceId: safeUUID(sourceId),
-      installmentId: safeUUID(installmentId)
-    });
-    const { error } = await supabase.rpc('apply_new_aporte_atomic', {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('Novo aporte exige internet para garantir atomicidade e auditoria.');
+    }
+
+    const stableRequest = getStableFinancialRequestKey(`capital-advance:${loanId}:${installmentId || 'auto'}:${sourceId || 'contract'}:${safeAmount.toFixed(2)}:NOVO_APORTE`);
+    const { error } = await supabase.rpc('process_lend_more_atomic', {
+      p_idempotency_key: stableRequest.idempotencyKey,
       p_loan_id: safeUUID(loanId),
       p_profile_id: safeUUID(ownerId),
       p_amount: safeAmount,
@@ -445,12 +444,13 @@ export const contractsService = {
       p_installment_id: safeUUID(installmentId),
       p_notes: notes || null,
       p_operator_id: safeUUID(activeUser.id),
+      p_operation_type: 'NOVO_APORTE',
     });
 
     if (error) {
-       console.error('[DEBUG] RPC Error:', error, { loanId, ownerId });
-       throw new Error(`Erro ao aplicar aporte: ${error.message} (Loan ID: ${loanId}, Owner ID: ${ownerId})`);
+       throw new Error(`Erro ao aplicar aporte: ${error.message}`);
     }
+    clearStableFinancialRequestKey(stableRequest.storageKey);
     return true;
   },
 

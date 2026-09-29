@@ -8,6 +8,7 @@ import { FlexibleDailyScreen } from './payment/FlexibleDailyScreen';
 import { usePaymentManagerState, ForgivenessMode } from './payment/hooks/usePaymentManagerState';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 import { formatMoney } from '../../utils/formatters';
+import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
 
 type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDING';
 
@@ -28,7 +29,9 @@ interface PaymentManagerModalProps {
         paymentTypeOverride?: string,
         avAmountOverride?: string,
         contextOverride?: { loan: Loan; inst: Installment; calculations: any },
-        lateFeeForgiven?: number
+        lateFeeForgiven?: number,
+        paymentMethod?: FinancialPaymentMethod,
+        expectedPreview?: FinancialOperationResult
     ) => void;
     onOpenMessage: (loan: Loan) => void;
 }
@@ -48,12 +51,25 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     const [autoFillMode, setAutoFillMode] = useState<'NONE' | 'TOTAL' | 'INTEREST'>('TOTAL');
     const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
+    const [paymentMethod, setPaymentMethod] = useState<FinancialPaymentMethod>('OTHER');
+    const [backendPreview, setBackendPreview] = useState<FinancialOperationResult | null>(null);
+    const [previewError, setPreviewError] = useState('');
+    const [isPreviewing, setIsPreviewing] = useState(false);
     const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
     const totalInterestDue = debtBreakdown.interest + debtBreakdown.fine + debtBreakdown.dailyMora;
     const payableTotal = Math.max(0, debtBreakdown.total - lateFeeForgiven);
     const payableInterestDue = Math.max(0, totalInterestDue - lateFeeForgiven);
 
     useEffect(() => { setLateFeeForgiven(0); }, [data?.loan?.id, data?.inst?.id]);
+    useEffect(() => {
+        const preferred = String(data?.loan?.preferredPaymentMethod || 'OTHER').toUpperCase();
+        const supported = ['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO', 'OTHER'];
+        setPaymentMethod((supported.includes(preferred) ? preferred : 'OTHER') as FinancialPaymentMethod);
+    }, [data?.loan?.id, data?.loan?.preferredPaymentMethod]);
+    useEffect(() => {
+        setBackendPreview(null);
+        setPreviewError('');
+    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, interestHandling, lateFeeForgiven, paymentMethod]);
 
     useEffect(() => {
         if (autoFillMode === 'TOTAL') setAvAmount(payableTotal > 0 ? payableTotal.toFixed(2) : '');
@@ -77,12 +93,38 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const remainingInterest = Math.max(0, payableInterestDue - amountEntering);
     const showInterestDecision = remainingInterest > 0.05;
 
-    const handleConfirmWrapper = () => {
+    const handleConfirmWrapper = async () => {
         const val = safeParse(avAmount);
         if (val <= 0) return;
         const nextDueDate = manualDateEdited && manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
-        onConfirm(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling, undefined, undefined, undefined, lateFeeForgiven);
+        if (!backendPreview) {
+            setIsPreviewing(true);
+            setPreviewError('');
+            try {
+                const preview = await previewFinancialOperation({
+                    loanId: String(loan.id),
+                    installmentId: String(data.inst.id),
+                    operationType: interestHandling,
+                    amountReceived: val,
+                    paymentMethod,
+                    paymentDate: realPaymentDate.toISOString().slice(0, 10),
+                    competenceDate: realPaymentDate.toISOString().slice(0, 10),
+                    forgivenessMode,
+                    requestedLateFeeForgiven: lateFeeForgiven,
+                    manualDueDate: interestHandling === 'RENEW_KEEP_PENDING' && nextDueDate
+                        ? nextDueDate.toISOString().slice(0, 10)
+                        : null,
+                });
+                setBackendPreview(preview);
+            } catch (error: any) {
+                setPreviewError(error?.message || 'Não foi possível validar a prévia no backend.');
+            } finally {
+                setIsPreviewing(false);
+            }
+            return;
+        }
+        onConfirm(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview);
     };
 
     const toggleInterestAutoFill = () => {
@@ -126,8 +168,8 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
         <Modal onClose={onClose} title="Recebimento" subtitle={loan.debtorName} icon={<DollarSign size={22} />} size="xl" busy={isProcessing}
           footer={<div className="flex gap-2">
             <button type="button" aria-label="Abrir mensagem" onClick={() => onOpenMessage(loan)} disabled={isProcessing} className="min-h-11 shrink-0 rounded-lg border border-slate-700 px-3 text-slate-400"><MessageSquare size={18} /></button>
-            <button type="button" onClick={handleConfirmWrapper} disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} className={modalPrimaryActionClass}>
-              {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <><CheckCircle2 size={18} /> Confirmar Recebimento</>}
+            <button type="button" onClick={handleConfirmWrapper} disabled={isProcessing || isPreviewing || !avAmount || safeParse(avAmount) <= 0} className={modalPrimaryActionClass}>
+              {isProcessing || isPreviewing ? <Loader2 className="animate-spin" size={18} /> : <><CheckCircle2 size={18} /> {backendPreview ? 'Executar Recebimento' : 'Validar Prévia'}</>}
             </button>
           </div>}>
                     <div className="flex flex-col md:flex-row min-h-full">
@@ -158,6 +200,16 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                             <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8 w-full pb-8">
                                 <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800 flex items-center justify-between group focus-within:border-blue-500 transition-colors"><div><label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Data do Recebimento (Auditoria)</label><input type="date" value={realPaymentDateStr} onChange={e => setRealPaymentDateStr(e.target.value)} onClick={(e) => { try { (e.target as any).showPicker(); } catch(e){} }} className="bg-transparent text-white font-bold text-sm outline-none w-full cursor-pointer [color-scheme:dark]"/></div><Calendar size={20} className="text-slate-500 group-focus-within:text-blue-500 transition-colors"/></div>
 
+                                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 block mb-2">Meio de pagamento</label>
+                                    <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as FinancialPaymentMethod)} className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm font-bold text-white outline-none focus:border-blue-500">
+                                        <option value="PIX">PIX</option><option value="CASH">Dinheiro</option><option value="BANK_TRANSFER">Transferência</option><option value="CREDIT_CARD">Cartão</option><option value="BOLETO">Boleto</option><option value="OTHER">Outro</option>
+                                    </select>
+                                </div>
+
+                                {previewError && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{previewError}</p>}
+                                {backendPreview && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-slate-200"><p className="font-black uppercase text-emerald-300">Prévia confirmada pelo backend</p><p className="mt-2">Recebido: {formatMoney(backendPreview.amount_received)} · Capital: {formatMoney(backendPreview.principal_paid)} · Juros: {formatMoney(backendPreview.interest_paid)} · Atraso: {formatMoney(backendPreview.late_fee_paid)}</p><p className="mt-1">Saldo depois: {formatMoney(Number((backendPreview.after as any)?.total || 0))}</p></div>}
+
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     {(resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') ? (
                                         <FlexibleDailyScreen amount={avAmount} setAmount={setAvAmount} manualDateStr={manualDateStr} setManualDateStr={setManualDateStr} debt={debtBreakdown} loan={loan} subMode={subMode} setSetSubMode={setSubMode} paymentType={paymentType} setPaymentType={setPaymentType} onConfirmFull={() => setAvAmount(payableTotal.toFixed(2))}/>
@@ -181,8 +233,8 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                 <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> O que fazer com o saldo restante?</label>
                                                 <p className="text-[11px] text-slate-400">Restam {formatMoney(remainingInterest)} de juros/encargos após este recebimento.</p>
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                    <button onClick={() => setInterestHandling('KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Não renovar<br/><span className="normal-case font-bold opacity-70">mantém vencimento e saldo</span></button>
-                                                    <button onClick={() => setInterestHandling('RENEW_KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'RENEW_KEEP_PENDING' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Renovar<br/><span className="normal-case font-bold opacity-70">mantém o restante pendente</span></button>
+                                                    <button onClick={() => setInterestHandling('KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Manter vencimento atual<br/><span className="normal-case font-bold opacity-70">não cria novo ciclo</span></button>
+                                                    <button onClick={() => setInterestHandling('RENEW_KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'RENEW_KEEP_PENDING' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Avançar ciclo +30 dias<br/><span className="normal-case font-bold opacity-70">somente por escolha explícita</span></button>
                                                     <button onClick={() => setInterestHandling('CAPITALIZE' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'CAPITALIZE' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Capitalizar<br/><span className="normal-case font-bold opacity-70">leva o restante ao principal</span></button>
                                                 </div>
                                             </div>

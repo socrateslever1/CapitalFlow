@@ -131,7 +131,6 @@ BEGIN
   );
 END;
 $$;
-
 DROP FUNCTION IF EXISTS public.apply_new_aporte_atomic(
   uuid,
   uuid,
@@ -141,7 +140,6 @@ DROP FUNCTION IF EXISTS public.apply_new_aporte_atomic(
   uuid,
   text
 );
-
 GRANT EXECUTE ON FUNCTION public.apply_new_aporte_atomic(
   uuid,
   uuid,
@@ -151,5 +149,4 @@ GRANT EXECUTE ON FUNCTION public.apply_new_aporte_atomic(
   text,
   uuid
 ) TO authenticated;
-
 NOTIFY pgrst, 'reload schema';

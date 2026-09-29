@@ -1,8 +1,3 @@
--- Restaura a apresentação parcelada de acordos ativos no Portal do Cliente.
--- O contrato mantém sua modalidade original no banco; somente o payload do portal
--- usa INSTALLMENT_FIXED enquanto houver acordo ativo, preservando o valor original
--- em original_billing_cycle para rastreabilidade.
-
 CREATE OR REPLACE FUNCTION public.portal_get_full_loan(p_token text, p_shortcode text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -71,4 +66,4 @@ end;
 $function$;
 
 REVOKE EXECUTE ON FUNCTION public.portal_get_full_loan(text, text) FROM PUBLIC, authenticated;
-GRANT EXECUTE ON FUNCTION public.portal_get_full_loan(text, text) TO anon, service_role;
+GRANT EXECUTE ON FUNCTION public.portal_get_full_loan(text, text) TO anon, service_role;;

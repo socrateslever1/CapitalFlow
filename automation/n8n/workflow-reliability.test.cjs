@@ -181,7 +181,7 @@ test("InfinitePay queues one receipt for the client and one payment alert for th
     "utf8",
   );
   const migration = fs.readFileSync(
-    path.join(__dirname, "..", "..", "supabase", "migrations", "20260805002000_add_whatsapp_queue_dedupe_key.sql"),
+    path.join(__dirname, "..", "..", "supabase", "migrations", "20260805042656_add_whatsapp_queue_dedupe_key.sql"),
     "utf8",
   );
 

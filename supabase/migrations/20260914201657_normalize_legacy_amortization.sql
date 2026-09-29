@@ -1,7 +1,3 @@
--- Normaliza modalidades de amortização legadas para o modelo atual do Mensal/Giro.
--- Contratos MONTHLY antigos com FULL/PRICE/SAC já são operacionalizados pelo motor JUROS;
--- esta migration elimina a divergência de rótulo e impede que ela volte a ser gravada.
-
 CREATE OR REPLACE FUNCTION public.normalize_supported_amortization_type()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -39,4 +35,4 @@ SET
 WHERE upper(COALESCE(billing_cycle, 'MONTHLY')) = 'MONTHLY'
   AND upper(COALESCE(amortization_type, 'JUROS')) IN ('FULL', 'PRICE', 'SAC');
 
-NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';;

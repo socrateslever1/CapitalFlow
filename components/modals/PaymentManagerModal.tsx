@@ -92,6 +92,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const amountEntering = safeParse(avAmount);
     const remainingInterest = Math.max(0, payableInterestDue - amountEntering);
     const showInterestDecision = remainingInterest > 0.05;
+    const effectiveForgivenessMode: ForgivenessMode = lateFeeForgiven > 0.05 && forgivenessMode === 'NONE'
+        ? 'FINE_AND_MORA'
+        : forgivenessMode;
 
     const handleConfirmWrapper = async () => {
         const val = safeParse(avAmount);
@@ -110,7 +113,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                     paymentMethod,
                     paymentDate: realPaymentDate.toISOString().slice(0, 10),
                     competenceDate: realPaymentDate.toISOString().slice(0, 10),
-                    forgivenessMode,
+                    forgivenessMode: effectiveForgivenessMode,
                     requestedLateFeeForgiven: lateFeeForgiven,
                     manualDueDate: interestHandling === 'RENEW_KEEP_PENDING' && nextDueDate
                         ? nextDueDate.toISOString().slice(0, 10)
@@ -124,7 +127,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             }
             return;
         }
-        onConfirm(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview);
+        onConfirm(effectiveForgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview);
     };
 
     const toggleInterestAutoFill = () => {
@@ -208,7 +211,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                 </div>
 
                                 {previewError && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{previewError}</p>}
-                                {backendPreview && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-slate-200"><p className="font-black uppercase text-emerald-300">Confira o resultado</p><p className="mt-2">Valor recebido: {formatMoney(backendPreview.amount_received)} · Capital abatido: {formatMoney(backendPreview.principal_paid)} · Encargos recebidos: {formatMoney(backendPreview.interest_paid + backendPreview.late_fee_paid)}</p><p className="mt-1">Saldo restante: {formatMoney(Number((backendPreview.after as any)?.total || 0))}</p></div>}
+                                {backendPreview && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-slate-200"><p className="font-black uppercase text-emerald-300">Confira o resultado</p><p className="mt-2">Valor recebido: {formatMoney(backendPreview.amount_received)} · Capital abatido: {formatMoney(backendPreview.principal_paid)} · Encargos recebidos: {formatMoney(backendPreview.interest_paid + backendPreview.late_fee_paid)}</p>{(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven) > 0.05 && <p className="mt-1 font-bold text-rose-200">Desconto aplicado: {formatMoney(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven)}</p>}<p className="mt-1">Saldo restante: {formatMoney(Number((backendPreview.after as any)?.total || 0))}</p></div>}
 
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     {(resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') ? (
@@ -233,7 +236,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                 <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> O que fazer com o saldo restante?</label>
                                                 <p className="text-[11px] text-slate-400">Restam {formatMoney(remainingInterest)} de juros/encargos após este recebimento.</p>
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                    <button onClick={() => setInterestHandling('KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Continuar nesta parcela<br/><span className="normal-case font-bold opacity-70">mantém o saldo na data atual</span></button>
+                                                    <button onClick={() => setInterestHandling('KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Padrão · manter nesta parcela<br/><span className="normal-case font-bold opacity-70">abate o recebido e mantém saldo e vencimento atuais</span></button>
                                                     <button onClick={() => setInterestHandling('RENEW_KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'RENEW_KEEP_PENDING' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Criar novo vencimento<br/><span className="normal-case font-bold opacity-70">leva o restante para o próximo ciclo</span></button>
                                                     <button onClick={() => setInterestHandling('CAPITALIZE' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'CAPITALIZE' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Incorporar encargos<br/><span className="normal-case font-bold opacity-70">soma juros e atraso ao capital</span></button>
                                                 </div>

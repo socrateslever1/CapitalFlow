@@ -192,6 +192,7 @@ const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_a
 const sourceController = read('hooks', 'controllers', 'useSourceController.ts');
 const profitWithdrawalMigration = read('supabase', 'migrations', '20260929224507_harden_profit_withdrawals_v2.sql');
 const paymentOperatorProfileMigration = read('supabase', 'migrations', '20260930224846_align_payment_transaction_operator_profile.sql');
+const paymentForgivenessMigration = read('supabase', 'migrations', '20261001165439_fix_payment_forgiveness_order.sql');
 const readTools = read('ai', 'tools', 'read', 'tools.ts');
 const financialTools = read('ai', 'tools', 'financial', 'tools.ts');
 const toolRegistry = read('ai', 'tools', 'core', 'registry.ts');
@@ -243,6 +244,14 @@ for (const required of [
 }
 if (/update\s+public\.payment_transactions/i.test(paymentOperatorProfileMigration)) {
   failures.push('migration de operador do recebimento -> histórico financeiro não pode ser reescrito automaticamente');
+}
+const forgivenessBeforeAllocation = paymentForgivenessMigration.indexOf("v_late_fee_forgiven := least(");
+const paymentAllocation = paymentForgivenessMigration.indexOf("v_interest_paid := least(");
+if (forgivenessBeforeAllocation < 0 || paymentAllocation < 0 || forgivenessBeforeAllocation > paymentAllocation) {
+  failures.push('migration de descontos -> dispensa deve ser aplicada antes da distribuição do recebimento');
+}
+if (!paymentForgivenessMigration.includes("greatest(v_late_fee_before - v_late_fee_forgiven, 0)")) {
+  failures.push('migration de descontos -> valor dispensado não pode ser contabilizado como atraso recebido');
 }
 
 for (const required of [

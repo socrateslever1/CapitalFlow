@@ -333,6 +333,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     <p className="text-[8px] font-bold uppercase text-slate-500">Encargos recebidos</p>
                                                     <p className="mt-1 text-xs font-black text-amber-300">{formatMoney(reviewPreview.interest_paid + reviewPreview.late_fee_paid, isStealthMode)}</p>
                                                 </div>
+                                                {(reviewPreview.principal_forgiven + reviewPreview.interest_forgiven + reviewPreview.late_fee_forgiven) > ZERO_BALANCE_THRESHOLD && (
+                                                    <div className="col-span-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5">
+                                                        <p className="text-[8px] font-bold uppercase text-rose-300">Desconto aplicado</p>
+                                                        <p className="mt-1 text-xs font-black text-rose-200">{formatMoney(reviewPreview.principal_forgiven + reviewPreview.interest_forgiven + reviewPreview.late_fee_forgiven, isStealthMode)}</p>
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </div>

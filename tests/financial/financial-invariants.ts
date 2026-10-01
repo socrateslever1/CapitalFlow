@@ -185,6 +185,7 @@ run('prévia da janela desconta atraso dispensado sem alterar capital ou juro', 
   assertMoney(preview.interest, 300, 'juros intocados');
   assertMoney(preview.effectiveLateFee, 20, 'encargo remanescente');
   assertMoney(preview.displayedAmount, 320, 'valor de juros e atraso');
+  assert.equal(preview.forgivenessMode, 'FINE_AND_MORA', 'dispensa selecionada deve ser enviada ao motor financeiro');
 });
 
 run('condição especial mantém o saldo de um recebimento parcial sem acionar renovação', () => {
@@ -215,7 +216,7 @@ run('janela de recebimento explica as quatro decisões de saldo em linguagem cla
   });
 
   assert.deepEqual(preview.partialChoices.map((choice) => choice.title), [
-    'Continuar nesta parcela',
+    'Padrão · manter nesta parcela',
     'Incorporar encargos ao saldo',
     'Criar novo vencimento',
     'Encerrar com desconto',

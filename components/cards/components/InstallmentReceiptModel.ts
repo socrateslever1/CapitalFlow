@@ -52,7 +52,9 @@ export function buildInstallmentReceiptModel(params: {
                 const canReceiveInterestOnly = interest > 0.05 && principal > 0.05;
                 const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
                 const hasActiveOffer = activeOfferAmount > 0.05;
-                const forgivenessMode = 'NONE' as const;
+                const forgivenessMode = appliedLateFeeForgiveness > ZERO_BALANCE_THRESHOLD
+                    ? 'FINE_AND_MORA' as const
+                    : 'NONE' as const;
                 const isPartialPayment = displayedAmount > 0.05
                     && displayedAmount < totalAmount - ZERO_BALANCE_THRESHOLD;
                 const canRenewWithPending = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
@@ -78,7 +80,7 @@ export function buildInstallmentReceiptModel(params: {
                 }> = [
                     {
                         value: 'KEEP_PENDING',
-                        title: 'Continuar nesta parcela',
+                        title: 'Padrão · manter nesta parcela',
                         detail: 'Abate o valor recebido e deixa o restante na mesma data. Se já estiver vencida, o atraso continua.',
                         activeClass: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
                     },

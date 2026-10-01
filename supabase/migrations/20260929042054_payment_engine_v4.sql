@@ -274,31 +274,23 @@ begin
     raise exception 'Pagamento excedente exige decisao explicita; recebido %, saldo %.', v_amount, v_total_before;
   end if;
 
-  v_remaining := v_amount;
-
-  if v_forgiveness = 'CAPITAL_ONLY' then
-    v_principal_paid := least(v_remaining, v_principal_before);
-    v_remaining := round(v_remaining - v_principal_paid, 2);
+  if v_forgiveness in ('CAPITAL_ONLY', 'TOTAL_CHARGES') then
     v_interest_forgiven := v_interest_before;
     v_late_fee_forgiven := v_late_fee_before;
-  else
-    v_interest_paid := least(v_remaining, v_interest_before);
-    v_remaining := round(v_remaining - v_interest_paid, 2);
-    v_late_fee_paid := least(v_remaining, v_late_fee_before);
-    v_remaining := round(v_remaining - v_late_fee_paid, 2);
-    v_principal_paid := least(v_remaining, v_principal_before);
-    v_remaining := round(v_remaining - v_principal_paid, 2);
-
-    if v_forgiveness = 'TOTAL_CHARGES' then
-      v_interest_forgiven := greatest(v_interest_before - v_interest_paid, 0);
-      v_late_fee_forgiven := greatest(v_late_fee_before - v_late_fee_paid, 0);
-    elsif v_forgiveness in ('FINE_ONLY', 'MORA_ONLY', 'FINE_AND_MORA', 'INTEREST_ONLY', 'BOTH') then
-      v_late_fee_forgiven := least(
-        greatest(round(coalesce(p_requested_late_fee_forgiven, 0)::numeric, 2), 0),
-        greatest(v_late_fee_before - v_late_fee_paid, 0)
-      );
-    end if;
+  elsif v_forgiveness in ('FINE_ONLY', 'MORA_ONLY', 'FINE_AND_MORA', 'INTEREST_ONLY', 'BOTH') then
+    v_late_fee_forgiven := least(
+      greatest(round(coalesce(p_requested_late_fee_forgiven, 0)::numeric, 2), 0),
+      v_late_fee_before
+    );
   end if;
+
+  v_remaining := v_amount;
+  v_interest_paid := least(v_remaining, greatest(v_interest_before - v_interest_forgiven, 0));
+  v_remaining := round(v_remaining - v_interest_paid, 2);
+  v_late_fee_paid := least(v_remaining, greatest(v_late_fee_before - v_late_fee_forgiven, 0));
+  v_remaining := round(v_remaining - v_late_fee_paid, 2);
+  v_principal_paid := least(v_remaining, v_principal_before);
+  v_remaining := round(v_remaining - v_principal_paid, 2);
 
   if v_remaining > 0.05 then
     raise exception 'Valor recebido nao pode ser distribuido com seguranca. Excedente: %.', v_remaining;

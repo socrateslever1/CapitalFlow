@@ -6,6 +6,7 @@ interface PageHeaderProps {
   subtitle: string;
   actions?: React.ReactNode;
   actionsInline?: boolean;
+  stackActionsUntilLg?: boolean;
   className?: string;
   iconClassName?: string;
 }
@@ -16,10 +17,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   actions,
   actionsInline = false,
+  stackActionsUntilLg = false,
   className = '',
   iconClassName = 'border-blue-500/30 bg-blue-600 text-white shadow-blue-950/30',
 }) => (
-  <header className={`grid w-full items-center gap-x-3 gap-y-4 border-b border-slate-800/70 pb-4 ${actionsInline ? 'grid-cols-[3rem_minmax(0,1fr)_auto]' : 'grid-cols-[3rem_minmax(0,1fr)] sm:grid-cols-[3rem_minmax(0,1fr)_auto]'} ${className}`}>
+  <header className={`grid w-full items-center gap-x-3 gap-y-4 border-b border-slate-800/70 pb-4 ${stackActionsUntilLg ? 'grid-cols-[3rem_minmax(0,1fr)] lg:grid-cols-[3rem_minmax(0,1fr)_auto]' : actionsInline ? 'grid-cols-[3rem_minmax(0,1fr)_auto]' : 'grid-cols-[3rem_minmax(0,1fr)] sm:grid-cols-[3rem_minmax(0,1fr)_auto]'} ${className}`}>
     <div className={`page-header-icon flex items-center justify-center rounded-full border shadow-lg ${iconClassName}`}>
       {icon}
     </div>
@@ -31,6 +33,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {subtitle}
       </p>
     </div>
-    {actions && <div className={actionsInline ? 'w-auto' : 'col-span-2 w-full sm:col-span-1 sm:w-auto'}>{actions}</div>}
+    {actions && <div className={stackActionsUntilLg ? 'col-span-2 w-full lg:col-span-1 lg:w-auto' : actionsInline ? 'w-auto' : 'col-span-2 w-full sm:col-span-1 sm:w-auto'}>{actions}</div>}
   </header>
 );

@@ -61,10 +61,11 @@ Condições especiais, pagamentos de acordos e novos aportes continuam usando su
 - Pagamento legado: `reverse_payment_group`.
 - Acordo: `reverse_agreement_payment_atomic`.
 - Aporte e novo empréstimo V4: `process_lend_more_atomic` e `reverse_capital_advance_v4`; registros legados sem chave continuam bloqueados.
+- Resgate de lucro: `withdraw_profit_atomic_v2`, sem fallback de escrita direta e com ledger na mesma transação.
 
-## Skills financeiras
+## Skills e Tools financeiras
 
-Não há diretório `ai/skills` neste checkout. Skills de escrita financeira permanecem **BLOCKED** até as migrations V4 serem aplicadas em ambiente controlado, os testes de banco passarem e a reconciliação de carteiras ser validada. Nenhuma Skill deve receber `service_role`, executar SQL, escolher perfil ou calcular valores.
+As Skills e Tools de escrita financeira existem apenas como contratos desabilitados. As migrations V4 estão aplicadas no projeto remoto principal, mas não existe staging isolado nem execução real da matriz financeira. Portanto, escrita por IA/MCP permanece **BLOCKED**. Nenhuma Skill ou Tool recebe `service_role`, executa SQL, escolhe perfil ou calcula valores.
 
 ## Implantação segura
 
@@ -78,7 +79,7 @@ Registros legados possivelmente duplicados ou acordos antigos sem auditoria não
 
 ## Riscos existentes não alterados
 
-- Produção ainda expõe `process_payment_v3_selective` a `authenticated`; a migration V4 revoga esse acesso, mas ainda não foi aplicada.
-- O advisor do Supabase aponta funções `SECURITY DEFINER` executáveis por `anon`; endpoints públicos do portal precisam ser classificados individualmente antes de qualquer revogação.
-- Há tabelas com RLS sem policy, políticas permissivas duplicadas e índices duplicados. Alguns casos podem ser intencionais para acesso exclusivo por RPC/service role; exigem auditoria separada.
+- `STAGING_NOT_VERIFIED`: não existe branch Supabase isolada para a matriz financeira real.
+- O advisor do Supabase ainda aponta funções `SECURITY DEFINER` executáveis por `anon`; endpoints públicos do portal precisam ser classificados individualmente antes de revogação.
+- Há tabelas com RLS sem policy e políticas permissivas duplicadas. Alguns casos podem ser intencionais para acesso exclusivo por RPC/service role; exigem auditoria separada.
 - O build mantém avisos preexistentes de chunks grandes e imports simultaneamente estáticos/dinâmicos.

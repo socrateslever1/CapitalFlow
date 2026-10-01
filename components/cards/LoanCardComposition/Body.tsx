@@ -6,6 +6,7 @@ import { Loan, UserProfile, Installment, Agreement, AgreementInstallment } from 
 import { formatMoney } from '../../../utils/formatters';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
+import type { InstallmentPaymentHandler } from '../components/InstallmentReceiptModel';
 
 interface BodyProps {
     loan: Loan;
@@ -14,7 +15,7 @@ interface BodyProps {
     onRefresh: () => void;
     onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
     onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
-    onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }) => void;
+    onInstallmentPayment?: InstallmentPaymentHandler;
     onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
     orderedInstallments: Installment[];
     fixedTermStats: any;

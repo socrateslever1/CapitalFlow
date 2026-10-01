@@ -1,27 +1,16 @@
-import type { CapitalFlowSkillGateway } from './gateway';
-import { SkillBackendError } from './gateway';
 import type { SkillContext } from './types';
 import type { SkillResult } from './result';
 import { skillFailure, skillSuccess } from './result';
+import type { ToolRegistry } from '../../tools/core/registry';
+import { createToolContext } from '../../tools/core/context';
 
-export function backendFailure(error: unknown): SkillResult<never> {
-  if (error instanceof SkillBackendError && error.code === 'NOT_AUTHORIZED') {
-    return skillFailure('NOT_AUTHORIZED', 'Acesso negado pelo backend.');
-  }
-  return skillFailure('BACKEND_ERROR', 'O backend autorizado não respondeu com segurança.');
-}
-
-export async function resolveUniqueContractId(
-  gateway: CapitalFlowSkillGateway,
-  input: { contractId?: string; clientId?: string },
+export async function executeToolAsSkill<TOutput>(
+  registry: ToolRegistry,
+  toolId: string,
+  input: unknown,
   context: SkillContext,
-): Promise<SkillResult<string>> {
-  try {
-    const contracts = await gateway.listContracts(input, context);
-    if (contracts.length === 0) return skillFailure('NOT_FOUND', 'Contrato não encontrado.');
-    if (contracts.length > 1) return skillFailure('AMBIGUOUS', 'Há mais de um contrato possível. Informe o contrato desejado.');
-    return skillSuccess(contracts[0].id);
-  } catch (error) {
-    return backendFailure(error);
-  }
+): Promise<SkillResult<TOutput>> {
+  const result = await registry.execute<TOutput>(toolId, input, createToolContext(context));
+  if (!('error' in result)) return skillSuccess(result.data, result.metadata);
+  return skillFailure(result.error === 'TOOL_DISABLED' ? 'SKILL_DISABLED' : result.error, result.message);
 }

@@ -382,31 +382,33 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in">
+    <div className="space-y-4 animate-in fade-in">
         <PageHeader
+          className="pb-3"
+          stackActionsUntilLg
           icon={<Users size={22} />}
           iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
           title={<>Carteira de <span className="text-blue-500">Clientes</span></>}
           subtitle="Gestão de base ativa"
-          actions={<div className="flex gap-2 w-full sm:w-auto">
+          actions={<div className="flex flex-wrap gap-2 w-full lg:w-auto">
                 <button type="button" onClick={createRegistrationLink} disabled={creatingLink} className="px-4 py-2 bg-slate-800 border border-slate-700 text-blue-300 rounded-lg text-[10px] font-black uppercase hover:border-blue-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50" title="Criar link público de inscrição">
                     <Link2 size={16}/> Novo Link de Inscrição
                 </button>
                 {isBulkDeleteMode ? (
-                    <div className="flex gap-2 w-full md:w-auto animate-in fade-in slide-in-from-right">
-                        <button onClick={executeBulkDelete} disabled={selectedClientsToDelete.length === 0} className="flex-1 md:flex-none px-4 py-2 bg-rose-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-rose-500 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                    <div className="flex gap-2 w-full lg:w-auto animate-in fade-in slide-in-from-right">
+                        <button onClick={executeBulkDelete} disabled={selectedClientsToDelete.length === 0} className="flex-1 lg:flex-none px-4 py-2 bg-rose-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-rose-500 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
                             <Trash2 size={16}/> Confirmar ({selectedClientsToDelete.length})
                         </button>
-                        <button onClick={toggleBulkDeleteMode} className="flex-1 md:flex-none px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
+                        <button onClick={toggleBulkDeleteMode} className="flex-1 lg:flex-none px-4 py-2 bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
                             <XCircle size={16}/> Cancelar
                         </button>
                     </div>
                 ) : (
                     <>
-                        <button onClick={toggleBulkDeleteMode} className="flex-1 md:flex-none px-4 py-2 bg-slate-800 border border-slate-700 text-rose-400 rounded-lg text-[10px] font-black uppercase hover:bg-rose-900/20 hover:border-rose-500 transition-all flex items-center justify-center gap-2">
+                        <button onClick={toggleBulkDeleteMode} className="flex-1 lg:flex-none px-4 py-2 bg-slate-800 border border-slate-700 text-rose-400 rounded-lg text-[10px] font-black uppercase hover:bg-rose-900/20 hover:border-rose-500 transition-all flex items-center justify-center gap-2">
                             <Trash2 size={16}/> Excluir Vários
                         </button>
-                        <button onClick={() => openClientModal()} className="flex-1 md:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
+                        <button onClick={() => openClientModal()} className="flex-1 lg:flex-none px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
                             <Plus size={16}/> Novo Cliente
                         </button>
                     </>
@@ -416,7 +418,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
         {registrationLink && <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-2"><input readOnly value={registrationLink} onFocus={(event) => event.currentTarget.select()} className="min-w-0 flex-1 bg-transparent px-2 text-xs text-blue-100 outline-none"/><button type="button" className="p-2 text-blue-300" title="Copiar link" onClick={() => void copyRegistrationLink(registrationLink)}><Copy size={16}/></button></div>}
 
-        <label className="flex h-12 items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 transition-colors focus-within:border-blue-500/60 focus-within:bg-slate-900/90">
+        <label className="flex h-10 w-full items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 transition-colors focus-within:border-blue-500/60 focus-within:bg-slate-900/90 md:max-w-xl">
             <Search className="shrink-0 text-slate-500" size={18}/>
             <input
               type="search"

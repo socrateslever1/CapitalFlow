@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { createConsultarDividaSkill } from './skill';
-import { createFakeGateway, CONTRACT_A, skillContext } from '../../../tests/skills/fakeGateway';
+import { createFakeToolRegistry, CONTRACT_A, skillContext } from '../../../tests/skills/fakeGateway';
 
 export async function testConsultarDivida() {
   let backendCalled = false;
-  const skill = createConsultarDividaSkill(createFakeGateway({
+  const skill = createConsultarDividaSkill(createFakeToolRegistry({
     listContracts: async () => [{ id: CONTRACT_A }],
     getDebtPosition: async () => {
       backendCalled = true;
@@ -16,7 +16,7 @@ export async function testConsultarDivida() {
   assert.equal(backendCalled, true);
   if (result.ok) assert.equal(result.data.totalDue, 125);
 
-  const unavailable = createConsultarDividaSkill(createFakeGateway({
+  const unavailable = createConsultarDividaSkill(createFakeToolRegistry({
     listContracts: async () => [{ id: CONTRACT_A }],
     getDebtPosition: async () => { throw new Error('offline'); },
   }));

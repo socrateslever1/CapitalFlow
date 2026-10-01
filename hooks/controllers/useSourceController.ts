@@ -5,6 +5,8 @@ import { parseCurrency } from '../../utils/formatters';
 import { isUUID, safeUUID } from '../../utils/uuid';
 import { resolveProfitBalance } from '../../utils/profitBalance';
 import { normalizeWalletImageReference } from '../../utils/imageUrl';
+import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from '../../services/payments/paymentEngineV4';
+import { generateUUID } from '../../utils/generators';
 
 export const useSourceController = (
   activeUser: UserProfile | null,
@@ -16,50 +18,6 @@ export const useSourceController = (
   showToast: (msg: string, type?: 'success' | 'error') => void
 ) => {
   const getOwnerId = (u: UserProfile) => safeUUID(u.supervisor_id) || safeUUID(u.id);
-  const isMissingRpcError = (error: any, fnName: string) => {
-    const message = String(error?.message || '').toLowerCase();
-    const details = String(error?.details || '').toLowerCase();
-    const hint = String(error?.hint || '').toLowerCase();
-    const fn = fnName.toLowerCase();
-
-    return (
-      error?.code === 'PGRST202' ||
-      message.includes(fn) ||
-      details.includes(fn) ||
-      hint.includes(fn)
-    );
-  };
-
-  const withdrawProfitCaixaLivreLegacy = async (
-    amount: number,
-    caixaLivreSource: CapitalSource,
-    targetSourceId: string | null
-  ) => {
-    const currentSourceBalance = Number(caixaLivreSource.balance) || 0;
-
-    const { error: withdrawError } = await supabase
-      .from('fontes')
-      .update({ balance: currentSourceBalance - amount })
-      .eq('id', caixaLivreSource.id);
-
-    if (withdrawError) throw withdrawError;
-
-    if (!targetSourceId) return;
-
-    const targetSource = sources.find((s) => s.id === targetSourceId);
-    if (!targetSource) {
-      throw new Error('Fonte de destino não encontrada para concluir o resgate.');
-    }
-
-    const currentTargetBalance = Number(targetSource.balance) || 0;
-    const { error: depositError } = await supabase
-      .from('fontes')
-      .update({ balance: currentTargetBalance + amount })
-      .eq('id', targetSourceId);
-
-    if (depositError) throw depositError;
-  };
-
   const handleSaveSource = async () => {
     if (!activeUser) return;
 
@@ -325,40 +283,20 @@ export const useSourceController = (
           await db.fontes.update(targetSourceId, { balance: (Number(target?.balance) || 0) + amount });
         }
 
+        const offlineIdempotencyKey = generateUUID();
         await syncService.enqueueOperation({
           table: '__rpc',
           operation: 'RPC',
-          id: crypto.randomUUID(),
-          data: useSourceWithdrawal && caixaLivreSource
-            ? {
-                fn: 'withdraw_profit_caixa_livre',
-                args: {
-                  p_amount: amount,
-                  p_profile_id: safeUUID(ownerId),
-                  p_source_id: safeUUID(caixaLivreSource.id),
-                  p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
-                }
-              }
-            : {
-                fn: 'profit_withdrawal_atomic',
-                args: {
-                  p_amount: amount,
-                  p_profile_id: safeUUID(ownerId),
-                  p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
-                }
-              }
-        });
-
-        await syncService.enqueueOperation({
-          table: 'transacoes_caixa',
-          operation: 'INSERT',
-          id: crypto.randomUUID(),
+          id: offlineIdempotencyKey,
           data: {
-            profile_id: ownerId,
-            tipo: 'WITHDRAWAL',
-            valor: amount,
-            descricao: `Resgate de Lucro${targetSourceId ? ' para fonte interna' : ' externo'}`,
-            data: new Date().toISOString()
+            fn: 'withdraw_profit_atomic_v2',
+            args: {
+              p_idempotency_key: offlineIdempotencyKey,
+              p_amount: amount,
+              p_profile_id: safeUUID(ownerId),
+              p_source_id: useSourceWithdrawal && caixaLivreSource ? safeUUID(caixaLivreSource.id) : null,
+              p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
+            },
           }
         });
 
@@ -367,39 +305,19 @@ export const useSourceController = (
         return;
       }
 
-      if (useSourceWithdrawal && caixaLivreSource) {
-        const { error } = await supabase.rpc('withdraw_profit_caixa_livre', {
-          p_amount: amount,
-          p_profile_id: safeUUID(ownerId),
-          p_source_id: safeUUID(caixaLivreSource.id),
-          p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
-        });
-        if (error) {
-          if (isMissingRpcError(error, 'withdraw_profit_caixa_livre')) {
-            await withdrawProfitCaixaLivreLegacy(amount, caixaLivreSource, targetSourceId);
-          } else {
-            throw error;
-          }
-        }
-      } else {
-        // Fluxo antigo ou fallback: lucro está em perfis.interest_balance
-        const { error } = await supabase.rpc('profit_withdrawal_atomic', {
-          p_amount: amount,
-          p_profile_id: safeUUID(ownerId),
-          p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
-        });
-        if (error) throw error;
-      }
-
-      // 🔥 REGISTRO DE SEGURANÇA: Garante que o resgate apareça no histórico de caixa
-      // para que o recálculo de balanço não "esqueça" esse saque no futuro.
-      await supabase.from('transacoes_caixa').insert([{
-        profile_id: ownerId,
-        tipo: 'WITHDRAWAL',
-        valor: amount,
-        descricao: `Resgate de Lucro${targetSourceId ? ' para fonte interna' : ' externo'}`,
-        data: new Date().toISOString()
-      }]);
+      const request = getStableFinancialRequestKey([
+        'profit-withdrawal-v2', ownerId, caixaLivreSource?.id || 'profile',
+        targetSourceId || 'external', amount.toFixed(2),
+      ].join(':'));
+      const { error } = await supabase.rpc('withdraw_profit_atomic_v2', {
+        p_idempotency_key: request.idempotencyKey,
+        p_amount: amount,
+        p_profile_id: safeUUID(ownerId),
+        p_source_id: useSourceWithdrawal && caixaLivreSource ? safeUUID(caixaLivreSource.id) : null,
+        p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
+      });
+      if (error) throw error;
+      clearStableFinancialRequestKey(request.storageKey);
 
       showToast('Resgate processado com sucesso!', 'success');
 

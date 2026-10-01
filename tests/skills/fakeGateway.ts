@@ -7,6 +7,7 @@ import type {
   SkillDueItem,
   SkillInstallment,
 } from '../../ai/skills/core/gateway';
+import { createCapitalFlowToolRegistry } from '../../ai/tools/registry';
 
 export function createFakeGateway(overrides: Partial<CapitalFlowSkillGateway> = {}): CapitalFlowSkillGateway {
   return {
@@ -19,6 +20,9 @@ export function createFakeGateway(overrides: Partial<CapitalFlowSkillGateway> = 
     ...overrides,
   };
 }
+
+export const createFakeToolRegistry = (overrides: Partial<CapitalFlowSkillGateway> = {}) =>
+  createCapitalFlowToolRegistry(createFakeGateway(overrides));
 
 export const PROFILE_A = '11111111-1111-4111-8111-111111111111';
 export const PROFILE_B = '22222222-2222-4222-8222-222222222222';

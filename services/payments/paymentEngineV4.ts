@@ -60,6 +60,30 @@ function normalizeMoney(value: unknown) {
   return Math.round((parsed + Number.EPSILON) * 100) / 100;
 }
 
+function financialOperationError(error: unknown, action: 'PREVIEW' | 'EXECUTE') {
+  const message = String((error as any)?.message || error || '');
+
+  if (/payment_transactions_operator_profile_id_fkey|operator_profile_id/i.test(message)) {
+    return 'Não foi possível identificar o responsável pelo recebimento. Atualize a página e tente novamente.';
+  }
+  if (/permission|permiss[aã]o|access denied|acesso negado|jwt|auth/i.test(message)) {
+    return 'Sua sessão não tem permissão para concluir este recebimento. Entre novamente ou procure o administrador.';
+  }
+  if (/posição financeira mudou|posicao financeira mudou|expected_preview|prévia|previa/i.test(message)) {
+    return 'Os valores desta parcela mudaram durante a confirmação. Revise os dados atualizados antes de continuar.';
+  }
+  if (/failed to fetch|network|fetch|connection|conex[aã]o/i.test(message)) {
+    return 'Não foi possível conectar ao sistema. Verifique sua internet e tente novamente.';
+  }
+  if (/fonte de capital|caixa livre/i.test(message)) {
+    return 'A carteira vinculada a este contrato precisa ser revisada antes de registrar o recebimento.';
+  }
+
+  return action === 'PREVIEW'
+    ? 'Não foi possível preparar a revisão deste recebimento. Atualize a parcela e tente novamente.'
+    : 'Não foi possível registrar o recebimento. Nenhum valor foi alterado; tente novamente.';
+}
+
 function requestSignature(input: FinancialOperationInput) {
   return [
     input.loanId,
@@ -125,12 +149,15 @@ export async function previewFinancialOperation(
   input: FinancialOperationInput,
 ): Promise<FinancialOperationResult> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    throw new Error('A prévia financeira autoritativa exige conexão com o backend.');
+    throw new Error('Conecte-se à internet para revisar os valores deste recebimento.');
   }
 
   const { data, error } = await supabase.rpc('preview_financial_operation_v4', rpcArgs(input));
-  if (error) throw new Error(`Prévia financeira bloqueada pelo backend: ${error.message}`);
-  if (!(data as any)?.success) throw new Error('O backend não confirmou a prévia financeira.');
+  if (error) {
+    console.error('[PaymentEngineV4] Falha ao preparar recebimento:', error);
+    throw new Error(financialOperationError(error, 'PREVIEW'));
+  }
+  if (!(data as any)?.success) throw new Error('Não foi possível preparar a revisão deste recebimento.');
   return data as FinancialOperationResult;
 }
 
@@ -138,10 +165,10 @@ export async function executeFinancialOperation(
   input: FinancialOperationInput,
 ): Promise<FinancialOperationResult> {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    throw new Error('Operações financeiras V4 exigem conexão para garantir atomicidade.');
+    throw new Error('Conecte-se à internet para registrar este recebimento com segurança.');
   }
   if (!input.expectedPreview) {
-    throw new Error('Confirmação baseada na prévia autoritativa é obrigatória.');
+    throw new Error('Revise os valores antes de concluir o recebimento.');
   }
 
   const signature = requestSignature(input);
@@ -158,8 +185,11 @@ export async function executeFinancialOperation(
       p_expected_preview: input.expectedPreview,
     });
 
-    if (error) throw new Error(`Operação financeira bloqueada pelo backend: ${error.message}`);
-    if (!(data as any)?.success) throw new Error('O backend não confirmou a operação financeira.');
+    if (error) {
+      console.error('[PaymentEngineV4] Falha ao registrar recebimento:', error);
+      throw new Error(financialOperationError(error, 'EXECUTE'));
+    }
+    if (!(data as any)?.success) throw new Error('Não foi possível registrar o recebimento. Nenhum valor foi alterado.');
     clearStableFinancialRequestKey(storageKey);
     return data as FinancialOperationResult;
   })();
@@ -179,7 +209,7 @@ export async function reverseFinancialOperation(
   const originalKey = safeUUID(originalIdempotencyKey);
   if (!originalKey) return null;
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    throw new Error('Estorno financeiro exige conexão com o backend.');
+    throw new Error('Conecte-se à internet para realizar o estorno com segurança.');
   }
 
   const reversalRequest = getStableFinancialRequestKey(`financial-reversal:${originalKey}:${String(reason || '').trim()}`);
@@ -190,8 +220,11 @@ export async function reverseFinancialOperation(
   });
 
   if (error && /nao encontrada|não encontrada/i.test(error.message || '')) return null;
-  if (error) throw new Error(`Estorno bloqueado pelo backend: ${error.message}`);
-  if (!(data as any)?.success) throw new Error('O backend não confirmou o estorno financeiro.');
+  if (error) {
+    console.error('[PaymentEngineV4] Falha ao estornar recebimento:', error);
+    throw new Error(financialOperationError(error, 'EXECUTE'));
+  }
+  if (!(data as any)?.success) throw new Error('Não foi possível concluir o estorno. Nenhum valor foi alterado.');
   clearStableFinancialRequestKey(reversalRequest.storageKey);
   return data;
 }

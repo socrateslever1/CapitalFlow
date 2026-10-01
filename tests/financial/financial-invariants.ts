@@ -204,6 +204,41 @@ run('condição especial mantém o saldo de um recebimento parcial sem acionar r
   assert.equal(preview.isPartialPayment, true);
 });
 
+run('janela de recebimento explica as quatro decisões de saldo em linguagem clara', () => {
+  const preview = buildInstallmentReceiptModel({
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-09-01', principalRemaining: 400, interestRemaining: 120, lateFeeAccrued: 0 } as any,
+    selectedDebt: { principal: 400, interest: 120, lateFee: 0, total: 520 },
+    lateFeeForgiven: 0,
+    quickMode: 'CUSTOM',
+    receiptAmount: '220',
+  });
+
+  assert.deepEqual(preview.partialChoices.map((choice) => choice.title), [
+    'Continuar nesta parcela',
+    'Incorporar encargos ao saldo',
+    'Criar novo vencimento',
+    'Encerrar com desconto',
+  ]);
+  assert.ok(preview.partialChoices.every((choice) => choice.detail.length >= 60));
+  assert.ok(!/backend|keep_pending|capitalize|settle/i.test(`${preview.modalityRule.rule} ${preview.partialChoices.map((choice) => choice.detail).join(' ')}`));
+});
+
+run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () => {
+  const base = {
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-09-01', principalRemaining: 400, interestRemaining: 120, lateFeeAccrued: 30 } as any,
+    selectedDebt: { principal: 400, interest: 120, lateFee: 30, total: 550 },
+    lateFeeForgiven: 0,
+    receiptAmount: '',
+  };
+
+  assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'TOTAL' }).displayedAmount, 550, 'quitação recebe todo o saldo');
+  assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'CUSTOM', receiptAmount: '175' }).displayedAmount, 175, 'outro valor respeita o informado');
+  assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'INTEREST_ONLY' }).displayedAmount, 120, 'somente juros não inclui capital nem atraso');
+  assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'CHARGES_ONLY' }).displayedAmount, 150, 'juros e atraso não incluem capital');
+});
+
 run('carteira conta somente contratos com obrigação ativa', () => {
   const sourceId = 'source-a';
   const loans = [

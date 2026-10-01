@@ -182,7 +182,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
               }}
               onInstallmentPayment={(loanArg, inst, debt, amount, options) => {
                 keepCardOpen();
-                onInstallmentPayment?.(loanArg, inst, debt, amount, options);
+                return onInstallmentPayment?.(loanArg, inst, debt, amount, options);
               }}
               onReverseInstallmentPayment={(loanArg, inst) => {
                 keepCardOpen();

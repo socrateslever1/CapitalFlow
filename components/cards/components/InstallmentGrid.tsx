@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, WalletCards } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, WalletCards } from 'lucide-react';
 import { Modal } from '../../ui/Modal';
 import { LateFeeWaiverOptions } from '../../modals/payment/LateFeeWaiverOptions';
 import { toISODateOnlyUTC } from '../../../utils/dateHelpers';
@@ -12,7 +12,7 @@ import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { buildInstallmentReceiptModel, type PartialBalanceAction, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
-import { previewFinancialOperation, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
+import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -27,7 +27,7 @@ interface InstallmentGridProps {
     isDailyFree: boolean;
     isFixedTerm: boolean;
     onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number) => void;
-    onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: QuickPaymentOptions) => void;
+    onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: QuickPaymentOptions) => boolean | void | Promise<boolean | void>;
     onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
     isStealthMode?: boolean;
     onNavigate?: () => void;
@@ -43,12 +43,23 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [lateFeeForgiven, setLateFeeForgiven] = React.useState(0);
     const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('KEEP_PENDING');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
+    const [reviewPreview, setReviewPreview] = React.useState<FinancialOperationResult | null>(null);
+    const [isReviewReady, setIsReviewReady] = React.useState(false);
+    const [isPreparingReview, setIsPreparingReview] = React.useState(false);
+    const [isSubmittingReceipt, setIsSubmittingReceipt] = React.useState(false);
+    const [receiptError, setReceiptError] = React.useState<string | null>(null);
 
     const {
         loan, orderedInstallments, fixedTermStats, isPaid, isZeroBalance, isFullyFinalized,
         showProgress, strategy, isDailyFree, isFixedTerm, isStealthMode, onNavigate,
         onInstallmentPayment, onReverseInstallmentPayment, onRefresh
     } = props;
+
+    React.useEffect(() => {
+        setReviewPreview(null);
+        setIsReviewReady(false);
+        setReceiptError(null);
+    }, [selectedInst?.id, receiptAmount, quickMode, lateFeeForgiven, partialBalanceAction]);
 
     const context = {
         fixedTermStats,
@@ -99,6 +110,9 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 setQuickMode('TOTAL');
                                 setLateFeeForgiven(0);
                                 setPartialBalanceAction('KEEP_PENDING');
+                                setReviewPreview(null);
+                                setIsReviewReady(false);
+                                setReceiptError(null);
                             }}
                             onReverseInstallment={onReverseInstallmentPayment}
                             onPaymentOffer={(_targetLoan, targetInst) => setOfferInstallment(targetInst)}
@@ -130,7 +144,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
             {selectedInst && selectedDebt && (() => {
                 const {
-                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, daysLate, modalityRule, partialChoices
+                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices
                 } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount });
 
                 const resetSelection = () => {
@@ -139,15 +153,18 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setQuickMode('TOTAL');
                     setLateFeeForgiven(0);
                     setPartialBalanceAction('KEEP_PENDING');
+                    setReviewPreview(null);
+                    setIsReviewReady(false);
+                    setReceiptError(null);
                 };
 
                 const modalContent = (
-                <Modal onClose={resetSelection} title="Confirmar recebimento?" subtitle="Informe o valor e o destino do saldo" size="sm">
+                <Modal onClose={resetSelection} title="Registrar recebimento" subtitle="Escolha o valor recebido e confira o resultado antes de concluir" size="sm">
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Regra da modalidade</span>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Como este contrato funciona</span>
                                     <span className="text-[9px] font-black uppercase text-blue-300">{modalityRule.name}</span>
                                 </div>
                                 <p className="mt-1 text-[8px] leading-3.5 text-slate-400">{modalityRule.rule}</p>
@@ -168,7 +185,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     }}
                                     className={`py-2 rounded-lg text-[10px] font-black uppercase border flex items-center justify-center gap-1.5 ${quickMode === 'TOTAL' && !showCustomAmount ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
-                                    <CheckCircle2 size={12}/> Tudo
+                                    <CheckCircle2 size={12}/>
+                                    <span>
+                                        <span className="block">Quitar esta parcela</span>
+                                        <span className="mt-0.5 block text-[8px] normal-case opacity-70">Recebe todo o saldo e encerra a parcela</span>
+                                    </span>
                                 </button>
                                 <button
                                     onClick={() => {
@@ -179,7 +200,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     }}
                                     className={`py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CUSTOM' || showCustomAmount ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
-                                    Outro valor
+                                    <span className="block">Receber outro valor</span>
+                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">Você informa quanto entrou</span>
                                 </button>
                             </div>}
                             {hasActiveOffer && String(selectedInst.paymentOfferType || '').toUpperCase() !== 'INTEREST_RENEWAL' && (
@@ -195,11 +217,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         setQuickMode('INTEREST_ONLY');
                                         setShowCustomAmount(false);
                                         setReceiptAmount(String(interest.toFixed(2)));
-                                        setPartialBalanceAction(canRenewWithPending && daysLate > 0 ? 'RENEW_KEEP_PENDING' : 'KEEP_PENDING');
+                                        setPartialBalanceAction('KEEP_PENDING');
                                     }}
                                     className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'INTEREST_ONLY' ? 'bg-blue-600/20 text-blue-300 border-blue-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
-                                    Somente juros
+                                    <span className="block">Receber somente juros</span>
+                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">Não abate capital nem muda o vencimento</span>
                                 </button>
                             )}
                             {!hasActiveOffer && canReceiveChargesOnly && (
@@ -212,7 +235,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     }}
                                     className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CHARGES_ONLY' ? 'bg-orange-600/20 text-orange-400 border-orange-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
                                 >
-                                    Juros + atraso
+                                    <span className="block">Receber juros e atraso</span>
+                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">Quita juros, multa e mora; não abate capital</span>
                                 </button>
                             )}
                             {!hasActiveOffer && (
@@ -284,10 +308,65 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     )}
                                 </div>
                             )}
+                            {isReviewReady && (
+                                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3.5">
+                                    <div className="flex items-center gap-2 text-emerald-300">
+                                        <CheckCircle2 size={16} />
+                                        <p className="text-[10px] font-black uppercase tracking-wide">Confira antes de registrar</p>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <div className="rounded-lg bg-slate-950/70 p-2.5">
+                                            <p className="text-[8px] font-bold uppercase text-slate-500">Valor recebido</p>
+                                            <p className="mt-1 text-sm font-black text-emerald-400">{formatMoney(reviewPreview?.amount_received ?? displayedAmount, isStealthMode)}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-slate-950/70 p-2.5">
+                                            <p className="text-[8px] font-bold uppercase text-slate-500">Saldo depois</p>
+                                            <p className="mt-1 text-sm font-black text-white">{reviewPreview ? formatMoney(Number((reviewPreview.after as any)?.total || 0), isStealthMode) : 'Conforme a condição'}</p>
+                                        </div>
+                                        {reviewPreview && (
+                                            <>
+                                                <div className="rounded-lg bg-slate-950/70 p-2.5">
+                                                    <p className="text-[8px] font-bold uppercase text-slate-500">Capital abatido</p>
+                                                    <p className="mt-1 text-xs font-black text-blue-300">{formatMoney(reviewPreview.principal_paid, isStealthMode)}</p>
+                                                </div>
+                                                <div className="rounded-lg bg-slate-950/70 p-2.5">
+                                                    <p className="text-[8px] font-bold uppercase text-slate-500">Encargos recebidos</p>
+                                                    <p className="mt-1 text-xs font-black text-amber-300">{formatMoney(reviewPreview.interest_paid + reviewPreview.late_fee_paid, isStealthMode)}</p>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                    {isPartialPayment && !hasActiveOffer && (
+                                        <p className="mt-3 text-[9px] leading-4 text-slate-300">
+                                            <span className="font-black text-white">Saldo restante:</span>{' '}
+                                            {partialChoices.find(choice => choice.value === partialBalanceAction)?.title}.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                            {receiptError && (
+                                <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-[10px] font-bold leading-4 text-rose-200" role="alert">
+                                    {receiptError}
+                                </p>
+                            )}
                         </div>
                         <div className="flex flex-col gap-2">
+                            {isReviewReady && (
+                                <button
+                                    type="button"
+                                    disabled={isSubmittingReceipt}
+                                    onClick={() => {
+                                        setIsReviewReady(false);
+                                        setReviewPreview(null);
+                                        setReceiptError(null);
+                                    }}
+                                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 py-2.5 text-[10px] font-black uppercase text-slate-300 transition-all hover:bg-slate-800 disabled:opacity-50"
+                                >
+                                    <ArrowLeft size={13} /> Voltar e ajustar
+                                </button>
+                            )}
                             <button
-                                disabled={displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)}
+                                disabled={isPreparingReview || isSubmittingReceipt || displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)}
                                 onClick={async () => {
                                     const amount = quickMode === 'CUSTOM'
                                         ? Number(receiptAmount)
@@ -298,42 +377,51 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     const paymentMethod = (['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO'].includes(preferredMethod)
                                         ? preferredMethod
                                         : 'OTHER') as FinancialPaymentMethod;
-                                    let expectedPreview;
-                                    if (!hasActiveOffer) {
+                                    setReceiptError(null);
+                                    if (!isReviewReady) {
+                                        setIsPreparingReview(true);
                                         try {
-                                            const preview = await previewFinancialOperation({
-                                                loanId: String(loan.id),
-                                                installmentId: String(selectedInst.id),
-                                                operationType: effectivePartialAction || 'KEEP_PENDING',
-                                                amountReceived: amount,
-                                                paymentMethod,
-                                                paymentDate: toISODateOnlyUTC(new Date()),
-                                                forgivenessMode,
-                                                requestedLateFeeForgiven: appliedLateFeeForgiveness,
-                                            });
-                                            expectedPreview = preview;
-                                            const confirmed = window.confirm(
-                                                `Prévia confirmada pelo backend\n\nRecebido: ${formatMoney(preview.amount_received, isStealthMode)}\nCapital: ${formatMoney(preview.principal_paid, isStealthMode)}\nJuros/encargos: ${formatMoney(preview.interest_paid + preview.late_fee_paid, isStealthMode)}\nSaldo final: ${formatMoney(Number((preview.after as any)?.total || 0), isStealthMode)}\n\nExecutar esta operação?`
-                                            );
-                                            if (!confirmed) return;
+                                            if (!hasActiveOffer) {
+                                                const preview = await previewFinancialOperation({
+                                                    loanId: String(loan.id),
+                                                    installmentId: String(selectedInst.id),
+                                                    operationType: effectivePartialAction || 'KEEP_PENDING',
+                                                    amountReceived: amount,
+                                                    paymentMethod,
+                                                    paymentDate: toISODateOnlyUTC(new Date()),
+                                                    forgivenessMode,
+                                                    requestedLateFeeForgiven: appliedLateFeeForgiveness,
+                                                });
+                                                setReviewPreview(preview);
+                                            }
+                                            setIsReviewReady(true);
                                         } catch (error: any) {
-                                            window.alert(error?.message || 'A prévia financeira foi bloqueada pelo backend.');
-                                            return;
+                                            setReceiptError(error?.message || 'Não foi possível revisar este recebimento. Tente novamente.');
+                                        } finally {
+                                            setIsPreparingReview(false);
                                         }
+                                        return;
                                     }
                                     const paymentOptions: QuickPaymentOptions = {
                                         forgivenessMode,
                                         lateFeeForgiven: appliedLateFeeForgiveness,
                                         partialBalanceAction: effectivePartialAction,
                                         paymentMethod,
-                                        expectedPreview,
+                                        expectedPreview: reviewPreview || undefined,
                                     };
-                                    onInstallmentPayment?.(loan, selectedInst, selectedDebt, amount, paymentOptions);
-                                    resetSelection();
+                                    setIsSubmittingReceipt(true);
+                                    try {
+                                        const succeeded = await onInstallmentPayment?.(loan, selectedInst, selectedDebt, amount, paymentOptions);
+                                        if (succeeded !== false) resetSelection();
+                                    } finally {
+                                        setIsSubmittingReceipt(false);
+                                    }
                                 }}
                                 className="w-full py-2.5 rounded-lg text-[10px] font-black uppercase bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:cursor-not-allowed disabled:opacity-40"
                             >
-                                Confirmar
+                                {isPreparingReview || isSubmittingReceipt ? (
+                                    <span className="flex items-center justify-center gap-2"><Loader2 size={14} className="animate-spin" /> {isPreparingReview ? 'Preparando revisão' : 'Registrando'}</span>
+                                ) : isReviewReady ? 'Registrar recebimento' : 'Revisar recebimento'}
                             </button>
 
                         </div>

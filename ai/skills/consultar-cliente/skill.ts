@@ -1,13 +1,12 @@
 import type { CapitalFlowSkill } from '../core/skill';
-import type { CapitalFlowSkillGateway, ClientLookupKind, SkillClient } from '../core/gateway';
-import { backendFailure } from '../core/helpers';
-import { hasPermission } from '../core/permissions';
-import { skillFailure, skillSuccess } from '../core/result';
+import type { ClientLookupKind, SkillClient } from '../core/gateway';
+import { executeToolAsSkill } from '../core/helpers';
 import { cleanText } from '../core/validation';
+import type { ToolRegistry } from '../../tools/core/registry';
 import type { ConsultarClienteInput } from './schema';
 import { validateConsultarCliente } from './schema';
 
-export function createConsultarClienteSkill(gateway: CapitalFlowSkillGateway): CapitalFlowSkill<ConsultarClienteInput, SkillClient> {
+export function createConsultarClienteSkill(tools: ToolRegistry): CapitalFlowSkill<ConsultarClienteInput, SkillClient> {
   return {
     id: 'consultar_cliente',
     name: 'Consultar cliente',
@@ -27,21 +26,7 @@ export function createConsultarClienteSkill(gateway: CapitalFlowSkillGateway): C
         ['DOCUMENT', cleanText(input.documento)],
       ];
       const [kind, query] = entries.find(([, value]) => Boolean(value))!;
-      if (kind === 'DOCUMENT' && !hasPermission(context, 'CLIENT_DOCUMENT_READ')) {
-        return skillFailure('NOT_AUTHORIZED', 'Consulta por documento exige permissão específica.');
-      }
-      try {
-        const clients = await gateway.findClients({
-          kind,
-          query,
-          includeDocument: kind === 'DOCUMENT' && hasPermission(context, 'CLIENT_DOCUMENT_READ'),
-        }, context);
-        if (clients.length === 0) return skillFailure('NOT_FOUND', 'Cliente não encontrado.');
-        if (clients.length > 1) return skillFailure('AMBIGUOUS', 'Mais de um cliente corresponde à consulta.');
-        return skillSuccess(clients[0]);
-      } catch (error) {
-        return backendFailure(error);
-      }
+      return executeToolAsSkill(tools, 'client.get', { kind, query }, context);
     },
   };
 }

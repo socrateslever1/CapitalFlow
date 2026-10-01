@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { createConsultarParcelasSkill } from './skill';
-import { createFakeGateway, CONTRACT_A, skillContext } from '../../../tests/skills/fakeGateway';
+import { createFakeToolRegistry, CONTRACT_A, skillContext } from '../../../tests/skills/fakeGateway';
 
 export async function testConsultarParcelas() {
-  const skill = createConsultarParcelasSkill(createFakeGateway({
+  const skill = createConsultarParcelasSkill(createFakeToolRegistry({
     listContracts: async () => [{ id: CONTRACT_A }],
     listInstallments: async () => [{ id: 'inst-1', number: 1, status: 'PENDING', principal: 100, interest: 20, lateFee: 0, total: 120, paidTotal: 0 }],
   }));

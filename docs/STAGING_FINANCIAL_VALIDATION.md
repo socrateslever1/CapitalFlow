@@ -4,15 +4,19 @@
 
 **BLOQUEADA — não existe ambiente de staging identificado.**
 
-Em 28/09/2026, a conexão Supabase retornou somente o projeto `CapitalFlow` (`hzchchbxkhryextaymkn`) e nenhuma branch de desenvolvimento. Esse projeto não foi utilizado como substituto de staging.
+Em 29/09/2026, a conexão Supabase retornou somente o projeto principal `CapitalFlow` (`hzchchbxkhryextaymkn`) e nenhuma branch de desenvolvimento. O projeto principal não foi utilizado como substituto de staging.
 
 ## Migrations
 
-Nenhuma migration desta etapa foi aplicada remotamente:
+As migrations desta etapa estão registradas no projeto remoto principal:
 
 - `20260929042054_payment_engine_v4.sql`
 - `20260929042059_harden_capital_advances.sql`
 - `20260929042103_ai_skills_read_models.sql`
+- `20260929042436_cleanup_database_surface.sql`
+- `20260929224507_harden_profit_withdrawals_v2.sql`
+
+Isso comprova implantação no projeto principal, não valida staging nem a matriz financeira.
 
 ## Cenários financeiros
 

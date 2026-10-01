@@ -1,5 +1,6 @@
 import React from 'react';
 import { Loan, CapitalSource, UserProfile, Installment, Agreement, AgreementInstallment, LedgerEntry } from '../../../types';
+import type { InstallmentPaymentHandler } from '../components/InstallmentReceiptModel';
 
 export interface LoanCardProps {
   loan: Loan;
@@ -28,7 +29,7 @@ export interface LoanCardProps {
   onActivate: (loan: Loan) => void;
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReverseAgreementPayment?: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
-  onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }) => void;
+  onInstallmentPayment?: InstallmentPaymentHandler;
   onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
   onRefresh: () => void;
   onMarkAsBilled?: (loan: Loan) => void | Promise<void>;

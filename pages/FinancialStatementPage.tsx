@@ -412,9 +412,10 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
   };
 
   return (
-    <main className="mx-auto w-full max-w-[1500px] space-y-2.5 pb-28 md:space-y-4 md:pb-8">
+    <main className="mx-auto w-full max-w-[1500px] space-y-2.5 pb-28 md:space-y-2.5 md:pb-8">
       <PageHeader
         actionsInline
+        className="pb-3"
         icon={<Wallet size={22} />}
         title={<>Extrato <span className="text-blue-500">Financeiro</span></>}
         subtitle="Visão geral do negócio"
@@ -423,7 +424,8 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
         </button></div>}
       />
 
-      <div className="flex w-full items-center gap-1.5 md:ml-auto md:max-w-md md:gap-2">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="flex w-full items-center gap-1.5 md:max-w-[28rem] md:gap-2 lg:order-2 lg:ml-0 lg:w-[28rem] lg:max-w-none">
           <button type="button" onClick={() => movePeriod(-1)} className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-slate-700 bg-slate-900 text-slate-300 md:h-10 md:w-10" aria-label="Período anterior">
             <ArrowLeft size={17} />
           </button>
@@ -439,7 +441,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
           </button>
       </div>
 
-      <section className="flex flex-col gap-1.5 border-y border-slate-800/70 bg-[#020817]/40 py-2 md:gap-3 md:px-2 md:py-2.5 lg:flex-row lg:items-center">
+      <section className="flex min-w-0 flex-1 flex-col gap-1.5 border-y border-slate-800/70 bg-[#020817]/40 py-2 md:gap-3 md:rounded-lg md:border md:border-slate-800/80 md:bg-slate-900/35 md:px-3 md:py-2.5 lg:order-1 lg:flex-row lg:items-center">
         <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-900/80 p-0.5 md:p-1">
           {([
             ['DAY', 'Dia'],
@@ -508,6 +510,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
           </span>
         </div>
       </section>
+      </div>
 
       <section className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3">

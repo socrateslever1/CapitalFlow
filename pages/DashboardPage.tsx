@@ -12,6 +12,7 @@ import { AIBalanceInsight } from '../features/dashboard/AIBalanceInsight';
 import { formatMoney } from '../utils/formatters';
 import { groupLoansByClient } from '../domain/dashboard/loanGrouping';
 import { NativeDonutChart, NativeTrendChart } from '../components/dashboard/NativeDashboardCharts';
+import type { InstallmentPaymentHandler } from '../components/cards/components/InstallmentReceiptModel';
 
 const getDashboardColumnCount = () => {
   if (typeof window === 'undefined') return 1;
@@ -127,7 +128,7 @@ interface DashboardPageProps {
   onMarkAsBilled: (loan: Loan) => void | Promise<void>;
   onAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => void;
   onReverseAgreementPayment: (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => void;
-  onInstallmentPayment?: (loan: Loan, inst: Installment, debt: any, amount?: number, options?: { forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH' }) => void;
+  onInstallmentPayment?: InstallmentPaymentHandler;
   onReverseInstallmentPayment?: (loan: Loan, inst: Installment) => void;
   onNavigate: (path: string) => void;
   onOpenClient?: (clientId: string | null | undefined, clientName: string) => void;

@@ -182,11 +182,21 @@ for (const migration of requiredProductionMigrations) {
 const paymentService = read('services', 'payments.service.ts');
 const paymentPersistence = read('services', 'payments', 'paymentPersistence.ts');
 const paymentEngineV4 = read('services', 'payments', 'paymentEngineV4.ts');
+const installmentGrid = read('components', 'cards', 'components', 'InstallmentGrid.tsx');
+const paymentManagerModal = read('components', 'modals', 'PaymentManagerModal.tsx');
 const ledgerReverse = read('services', 'ledger', 'ledgerReverse.ts');
 const paymentEngineMigration = read('supabase', 'migrations', '20260929042054_payment_engine_v4.sql');
 const capitalAdvanceMigration = read('supabase', 'migrations', '20260929042059_harden_capital_advances.sql');
 const contractsService = read('services', 'contracts.service.ts');
 const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_ai_skills_read_models.sql');
+const sourceController = read('hooks', 'controllers', 'useSourceController.ts');
+const profitWithdrawalMigration = read('supabase', 'migrations', '20260929224507_harden_profit_withdrawals_v2.sql');
+const paymentOperatorProfileMigration = read('supabase', 'migrations', '20260930224846_align_payment_transaction_operator_profile.sql');
+const readTools = read('ai', 'tools', 'read', 'tools.ts');
+const financialTools = read('ai', 'tools', 'financial', 'tools.ts');
+const toolRegistry = read('ai', 'tools', 'core', 'registry.ts');
+const mcpAdapter = read('ai', 'mcp', 'adapter.ts');
+const mcpServer = read('ai', 'mcp', 'server.ts');
 
 for (const forbidden of [
   'applyPaymentDirectFallback',
@@ -208,6 +218,31 @@ for (const required of ['process_financial_operation_v4', 'preview_financial_ope
 
 if (/\.from\(['"](?:parcelas|contratos|fontes|perfis|transacoes|payment_transactions)['"]\)/.test(paymentEngineV4)) {
   failures.push('paymentEngineV4.ts -> acesso direto a tabela financeira proibido');
+}
+if (/window\.(?:confirm|alert)\s*\(/.test(installmentGrid)) {
+  failures.push('InstallmentGrid.tsx -> recebimento deve usar confirmação visual interna, não alerta nativo');
+}
+if (/confirmada pelo backend|bloquead[ao] pelo backend/i.test(`${installmentGrid}\n${paymentManagerModal}`)) {
+  failures.push('janelas de recebimento -> textos visíveis não podem expor terminologia interna');
+}
+if (/setQuickMode\('INTEREST_ONLY'\)[\s\S]{0,300}setPartialBalanceAction\([^)]*RENEW_KEEP_PENDING/.test(installmentGrid)) {
+  failures.push('InstallmentGrid.tsx -> receber somente juros não pode renovar vencimento automaticamente');
+}
+for (const label of ['Quitar esta parcela', 'Receber outro valor', 'Receber somente juros', 'Receber juros e atraso']) {
+  if (!installmentGrid.includes(label)) failures.push(`InstallmentGrid.tsx -> ação de recebimento sem descrição clara: ${label}`);
+}
+for (const required of [
+  'drop constraint if exists payment_transactions_operator_profile_id_fkey',
+  'references public.perfis(id)',
+  'on delete set null',
+  'not valid',
+]) {
+  if (!paymentOperatorProfileMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`migration de operador do recebimento -> garantia ausente: ${required}`);
+  }
+}
+if (/update\s+public\.payment_transactions/i.test(paymentOperatorProfileMigration)) {
+  failures.push('migration de operador do recebimento -> histórico financeiro não pode ser reescrito automaticamente');
 }
 
 for (const required of [
@@ -263,6 +298,18 @@ if (!ledgerReverse.includes('reverse_capital_advance_v4')) {
   failures.push('ledgerReverse.ts -> estorno atômico de aporte ausente');
 }
 
+for (const forbidden of ['withdrawProfitCaixaLivreLegacy', "from('transacoes_caixa')", "fn: 'withdraw_profit_caixa_livre'", "fn: 'profit_withdrawal_atomic'"]) {
+  if (sourceController.includes(forbidden)) failures.push(`resgate de lucro -> fallback não atômico proibido: ${forbidden}`);
+}
+if (!sourceController.includes("rpc('withdraw_profit_atomic_v2'")) {
+  failures.push('resgate de lucro -> RPC V2 atômica ausente');
+}
+for (const required of ['private.financial_actor_can_access', 'pg_advisory_xact_lock', 'for update', 'idempotency_key', 'insert into public.transacoes']) {
+  if (!profitWithdrawalMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`resgate de lucro V2 -> garantia obrigatória ausente: ${required}`);
+  }
+}
+
 const skillFiles = walk(path.join(root, 'ai', 'skills'));
 for (const file of skillFiles) {
   const filePath = relative(file);
@@ -305,6 +352,64 @@ if (!skillReadModelMigration.includes('private.financial_actor_can_access')) {
   failures.push('migration de Skills READ_ONLY -> autorização de tenant ausente');
 }
 
+for (const file of walk(path.join(root, 'ai', 'tools'))) {
+  const filePath = relative(file);
+  const text = fs.readFileSync(file, 'utf8');
+  for (const forbidden of ['lib/supabase', '.from(', '.rpc(', 'service_role', 'execute sql']) {
+    if (text.toLowerCase().includes(forbidden.toLowerCase())) {
+      failures.push(`${filePath} -> acesso de infraestrutura proibido na Tool: ${forbidden}`);
+    }
+  }
+}
+
+for (const toolId of [
+  'client.search', 'client.get', 'debt.get', 'installments.list',
+  'contract.get', 'due_dates.list', 'agreement.get',
+]) {
+  if (!readTools.includes(`id: '${toolId}'`)) {
+    failures.push(`Tools READ_ONLY -> Tool obrigatória ausente: ${toolId}`);
+  }
+}
+
+for (const guard of ['TOOL_DISABLED', 'CONFIRMATION_REQUIRED', 'authorizeToolContext', 'inputSchema.safeParse']) {
+  if (!toolRegistry.includes(guard)) failures.push(`ToolRegistry -> gate obrigatório ausente: ${guard}`);
+}
+
+for (const skillPath of [
+  ['consultar-cliente', 'skill.ts'], ['consultar-divida', 'skill.ts'],
+  ['consultar-parcelas', 'skill.ts'], ['consultar-contrato', 'skill.ts'],
+  ['consultar-vencimentos', 'skill.ts'], ['consultar-acordo', 'skill.ts'],
+]) {
+  const text = read('ai', 'skills', ...skillPath);
+  if (!text.includes('executeToolAsSkill')) {
+    failures.push(`ai/skills/${skillPath.join('/')} -> Skill deve executar via ToolRegistry`);
+  }
+}
+
+for (const required of [
+  'payment.preview', 'payment.execute', 'payment.reverse', 'payment.capitalize',
+  'payment.renew', 'payment.settle', 'loan.lend_more',
+  'enabled: false', 'requiresConfirmation: true', 'STAGING_NOT_VERIFIED',
+]) {
+  if (!financialTools.includes(required)) failures.push(`Tools financeiras -> contrato/bloqueio ausente: ${required}`);
+}
+
+for (const mcpName of [
+  'search_client', 'get_client', 'get_debt', 'list_installments',
+  'get_contract', 'list_due_dates', 'get_agreement',
+]) {
+  if (!mcpAdapter.includes(mcpName)) failures.push(`MCP READ_ONLY -> Tool ausente: ${mcpName}`);
+}
+for (const forbidden of ['execute_payment:', 'reverse_payment:', 'lend_more:']) {
+  if (mcpAdapter.includes(forbidden)) failures.push(`MCP V1 -> Tool financeira exposta: ${forbidden}`);
+}
+for (const required of ['resolveAuthenticatedContext', 'structuredContent', "tool.risk !== 'READ_ONLY'"]) {
+  if (!mcpServer.includes(required)) failures.push(`MCP Server -> proteção obrigatória ausente: ${required}`);
+}
+for (const doc of ['AI_TOOLS.md', 'MCP.md']) {
+  if (!fs.existsSync(path.join(root, 'docs', doc))) failures.push(`documentação ausente: docs/${doc}`);
+}
+
 if (failures.length > 0) {
   console.error('Falhas arquiteturais encontradas:');
   for (const failure of failures) console.error(` - ${failure}`);
@@ -320,9 +425,13 @@ console.log('✓ migrations críticas de produção estão versionadas');
 console.log('✓ Payment Engine V4 usa somente RPCs autorizadas e falha fechado');
 console.log('✓ prévia, execução, idempotência, locks e estorno V4 possuem gates arquiteturais');
 console.log('✓ aportes e novos empréstimos usam RPC idempotente com estorno por snapshot');
+console.log('✓ resgates de lucro usam uma única RPC atômica, idempotente e auditada');
 console.log('✓ Skills não acessam banco, SQL ou credenciais diretamente');
 console.log('✓ gateway de Skills usa somente RPCs READ_ONLY autorizadas');
 console.log('✓ Skills financeiras permanecem bloqueadas e exigem confirmação');
+console.log('✓ Skills READ_ONLY executam por uma única camada operacional de Tools');
+console.log('✓ ToolRegistry valida schema, permissão, risco, confirmação e bloqueio');
+console.log('✓ MCP V1 expõe somente Tools READ_ONLY com contexto autenticado injetado');
 console.log('✓ navegação desmonta a página anterior imediatamente');
 console.log('✓ cabeçalhos principais usam o padrão compartilhado');
 console.log('✓ chat preserva a navegação inferior no celular');

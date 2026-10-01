@@ -133,7 +133,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           if (result.paymentType === 'ALREADY_PAID_SYNCED') {
               showToast('Parcela ja estava quitada. Status sincronizado na tela.', 'success');
               onRefresh();
-              return;
+              return true;
           }
 
           if (partialAction === 'SETTLE') showToast('Quitação por acordo registrada com sucesso!', 'success');
@@ -149,8 +149,10 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           });
           ui.openModal('RECEIPT');
           onRefresh();
+          return true;
       } catch (e: any) {
-          showToast('Erro ao registrar recebimento: ' + (e?.message || 'desconhecido'), 'error');
+          showToast(e?.message || 'Não foi possível registrar o recebimento. Tente novamente.', 'error');
+          return false;
       }
   };
   const handleReverseInstallmentPayment = (loan: Loan, inst: Installment) => {

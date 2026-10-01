@@ -14,14 +14,17 @@
     "preview": "vite preview",
     "test:financial": "tsx tests/financial/financial-invariants.ts",
     "test:skills": "tsx tests/skills/skills.test.ts",
+    "test:tools": "tsx tests/tools/tools.test.ts",
+    "test:mcp": "tsx tests/mcp/mcp.test.ts",
     "test:architecture": "node tests/architecture/architecture-check.mjs",
     "test:automation": "node --test automation/n8n/*.test.cjs",
-    "test:quality": "npm run build && npm run test:financial && npm run test:skills && npm run test:architecture && npm run test:automation",
+    "test:quality": "npm run build && npm run test:financial && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:architecture && npm run test:automation",
     "test:db": "npx supabase test db",
     "test:load": "k6 run tests/load/app-smoke.js"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
+    "@modelcontextprotocol/server": "^2.2.0",
     "@supabase/supabase-js": "2.110.7",
     "@tinymce/tinymce-react": "^6.3.0",
     "@types/express": "^5.0.6",
@@ -43,7 +46,8 @@
     "react-signature-canvas": "^1.1.0-alpha.2",
     "recharts": "^3.6.0",
     "sonner": "^2.0.7",
-    "tinymce": "^8.3.2"
+    "tinymce": "^8.3.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

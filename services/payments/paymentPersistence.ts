@@ -12,6 +12,6 @@ export async function revalidateInstallment(instId: string) {
     .maybeSingle();
 
   if (error) throw new Error('Falha ao revalidar parcela no banco: ' + error.message);
-  if (!data) throw new Error('Parcela não encontrada no backend financeiro.');
+  if (!data) throw new Error('Parcela não encontrada. Atualize a página e tente novamente.');
   return data as any;
 }

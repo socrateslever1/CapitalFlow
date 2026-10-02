@@ -21,7 +21,7 @@
     "test:automation": "node --test automation/n8n/*.test.cjs",
   "test:ui-copy": "node tests/architecture/ui-copy-check.mjs",
   "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:architecture && npm run test:ui-copy && npm run test:automation",
-    "test:db": "npx supabase test db",
+    "test:db": "node tests/db/run-local-db-tests.mjs",
     "test:load": "k6 run tests/load/app-smoke.js"
   },
   "dependencies": {

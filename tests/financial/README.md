@@ -23,7 +23,7 @@ npm run test:quality
 npm run test:load
 ```
 
-Os testes SQL ficam em `supabase/tests/database/financial_integrity.test.sql` e devem rodar em Supabase local ou em ambiente isolado com `supabase test db`. Nunca usar a base de produção para testes destrutivos, concorrência ou carga.
+Os testes SQL ficam em `supabase/tests/financial_engine_local.test.sql` e rodam somente com `supabase test db --local`. `npm run test:db` executa antes o harness local de idempotência, concorrência e rollback, bloqueia URLs remotas e aborta claramente quando Docker não está disponível. Nunca usar a base de produção para testes destrutivos, concorrência ou carga.
 
 ## Próxima camada
 

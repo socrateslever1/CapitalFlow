@@ -32,7 +32,7 @@ export const useSourceController = (
 
     if (activeUser.id === 'DEMO') {
       const newSource: CapitalSource = {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         name: ui.sourceForm.name,
         type: ui.sourceForm.type,
         balance: initialBalance,
@@ -47,7 +47,7 @@ export const useSourceController = (
     ui.setIsSaving(true);
 
     try {
-      const id = crypto.randomUUID();
+      const id = generateUUID();
       const ownerId = getOwnerId(activeUser);
       if (!ownerId) throw new Error('OwnerId inválido. Refaça login.');
 
@@ -132,7 +132,7 @@ export const useSourceController = (
       await syncService.enqueueOperation({
         table: '__rpc',
         operation: 'RPC',
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         data: { fn: 'adjust_source_balance', args: { p_source_id: sourceId, p_delta: amount } }
       });
       showToast('Aporte registrado offline. Sera sincronizado ao reconectar.', 'success');

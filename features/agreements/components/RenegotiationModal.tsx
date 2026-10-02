@@ -11,6 +11,7 @@ import { safeUUID } from "../../../utils/uuid";
 import { supabase } from "../../../lib/supabase";
 import { addCapitalOnlyRecoveryMarker } from "../../../utils/capitalOnlyRecovery";
 import { computeLoanRemainingBalance } from "../../../domain/finance/calculations";
+import { generateUUID } from "../../../utils/generators";
 
 interface RenegotiationModalProps {
     loans: Loan[];
@@ -215,7 +216,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     }
 
                     // 4. Registrar transação no extrato
-                    const txId = crypto.randomUUID();
+                    const txId = generateUUID();
                     await syncService.enqueueOperation({
                         table: 'transacoes',
                         operation: 'INSERT',

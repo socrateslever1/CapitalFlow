@@ -266,7 +266,7 @@ export const contractsService = {
     } else {
       await runContractMutationWithSchemaFallback({
         ...loanPayload,
-        portal_token: loan.portalToken || crypto.randomUUID(),
+        portal_token: loan.portalToken || generateUUID(),
         portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
         created_at: new Date().toISOString(),
       }, (payload) => supabase.from('contratos').insert(payload));
@@ -431,7 +431,7 @@ export const contractsService = {
     if (safeAmount <= 0) throw new Error('Valor inválido.');
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      throw new Error('Novo aporte exige internet para garantir atomicidade e auditoria.');
+      throw new Error('Conecte-se à internet para registrar este aporte com segurança.');
     }
 
     const stableRequest = getStableFinancialRequestKey(`capital-advance:${loanId}:${installmentId || 'auto'}:${sourceId || 'contract'}:${safeAmount.toFixed(2)}:NOVO_APORTE`);

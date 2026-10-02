@@ -74,7 +74,7 @@ export const paymentsService = {
       if (lendAmount <= 0) throw new Error('Valor do aporte inválido.');
       const sourceId = safeUUID((loan as any).sourceId);
       if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
-      if (isOffline) throw new Error('Novo aporte exige internet para garantir atomicidade e auditoria.');
+      if (isOffline) throw new Error('Conecte-se à internet para registrar este aporte com segurança.');
       const stableRequest = getStableFinancialRequestKey(`capital-advance:${loanId}:${instId}:${sourceId}:${lendAmount.toFixed(2)}:LEND_MORE`);
       const { error } = await supabase.rpc('process_lend_more_atomic', { p_idempotency_key: stableRequest.idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_source_id: sourceId, p_amount: lendAmount, p_notes: `Novo empréstimo (+ R$ ${lendAmount.toFixed(2)})`, p_operation_type: 'LEND_MORE' });
       if (error) throw new Error(error.message);
@@ -98,7 +98,7 @@ export const paymentsService = {
       && offerAmount > ZERO_BALANCE_THRESHOLD;
 
     if (hasValidPaymentOffer && amountToPay > ZERO_BALANCE_THRESHOLD && amountToPay <= offerAmount + ZERO_BALANCE_THRESHOLD) {
-      if (isOffline) throw new Error('O recebimento de uma condição especial exige internet para registrar os descontos com segurança.');
+      if (isOffline) throw new Error('Conecte-se à internet para registrar esta condição com segurança.');
       const sourceId = safeUUID((loan as any).sourceId);
       if (!sourceId) throw new Error('Fonte do contrato inválida (sourceId).');
       let offerCaixaLivreId = resolveCaixaLivreIdFromMemory(sources);
@@ -122,7 +122,7 @@ export const paymentsService = {
     if (!caixaLivreId) {
       try { caixaLivreId = await resolveCaixaLivreIdFromDB(ownerId); } catch (e) { console.warn('Erro ao buscar Caixa Livre no DB:', e); }
     }
-    if (isOffline) throw new Error('Recebimentos exigem internet para garantir atomicidade e auditoria.');
+    if (isOffline) throw new Error('Conecte-se à internet para registrar este recebimento com segurança.');
 
     const operationType: FinancialOperationType = params.partialAction
       || (capitalizeRemaining ? 'CAPITALIZE' : renewWithPending ? 'RENEW_KEEP_PENDING' : 'KEEP_PENDING');

@@ -304,17 +304,27 @@ export const useAuth = () => {
       if (localSession && hasSupabaseUser && mountedRef.current) {
         try {
           const parsed = JSON.parse(localSession);
-          if (parsed?.profileId && parsed.profileId !== 'undefined' && parsed.profileId !== 'null') {
-            if (isDev) console.log('[AUTH_BOOT] Restaurando sessão local:', parsed.profileId);
-            setActiveProfileId(parsed.profileId);
-            trackAccess(parsed.profileId);
+          const cachedProfileId = parsed?.profileId;
+          const { data: sessionProfile, error: sessionProfileError } = await supabase
+            .from('perfis')
+            .select('id')
+            .eq('user_id', session!.user.id)
+            .maybeSingle();
+
+          if (sessionProfileError) throw sessionProfileError;
+
+          if (cachedProfileId && cachedProfileId === sessionProfile?.id) {
+            if (isDev) console.log('[AUTH_BOOT] Restaurando sessão local validada:', cachedProfileId);
+            setActiveProfileId(cachedProfileId);
+            trackAccess(cachedProfileId);
           } else {
-            if (isDev) console.log('[AUTH_BOOT] Sessão local inválida, removendo');
+            if (isDev) console.log('[AUTH_BOOT] Sessão local divergente, removendo e resolvendo perfil');
             localStorage.removeItem('cm_session');
             await resolveAndSetProfile(session!.user);
           }
         } catch {
           localStorage.removeItem('cm_session');
+          await resolveAndSetProfile(session!.user);
         }
       } else if (hasSupabaseUser && mountedRef.current) {
         if (isDev) console.log('[AUTH_BOOT] Usuário autenticado sem sessão local, resolvendo perfil...');

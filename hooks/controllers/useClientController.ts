@@ -9,7 +9,7 @@ import {
   normalizeBrazilianPhone,
 } from '../../utils/formatters';
 import { isValidCPForCNPJ } from '../../utils/validators';
-import { generateUniqueAccessCode, generateUniqueClientNumber } from '../../utils/generators';
+import { generateUniqueAccessCode, generateUniqueClientNumber, generateUUID } from '../../utils/generators';
 import { clientAvatarService } from '../../services/clientAvatar.service';
 
 export const useClientController = (
@@ -132,7 +132,7 @@ export const useClientController = (
         }
       }
 
-      const id = ui.editingClient ? ui.editingClient.id : crypto.randomUUID();
+      const id = ui.editingClient ? ui.editingClient.id : generateUUID();
       const accessCode = ui.editingClient?.access_code || ui.clientDraftAccessCode;
       const clientNum = ui.editingClient?.client_number || ui.clientDraftNumber;
 

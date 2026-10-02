@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { generateUUID } from './generators';
 
 /**
  * Gera (ou reutiliza) link único do portal para um contrato
@@ -23,7 +24,7 @@ export async function getOrCreatePortalLink(loanId: string): Promise<string> {
   if (!token || !shortcode) {
     const updates: any = {};
     
-    if (!token) updates.portal_token = crypto.randomUUID();
+    if (!token) updates.portal_token = generateUUID();
     if (!shortcode) {
         // Gera código numérico de 6 dígitos
         updates.portal_shortcode = Math.floor(100000 + Math.random() * 900000).toString();

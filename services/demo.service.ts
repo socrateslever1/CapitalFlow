@@ -2,7 +2,7 @@
 import React from 'react';
 import { Loan, CapitalSource, Client, Installment, LoanStatus, UserProfile, LedgerEntry, PaymentType } from '../types';
 import { addDaysUTC, parseDateOnlyUTC, toISODateOnlyUTC, getDaysDiff, todayDateOnlyUTC } from '../utils/dateHelpers';
-import { generateUniqueAccessCode, generateUniqueClientNumber } from '../utils/generators';
+import { generateUniqueAccessCode, generateUniqueClientNumber, generateUUID } from '../utils/generators';
 
 // Tipos para as funções de atualização de estado do React
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
@@ -57,7 +57,7 @@ export const demoService = {
         const dueDate = toISODateOnlyUTC(addDaysUTC(startBase, 30));
 
         finalInstallments = [{
-            id: editingLoan?.installments[0]?.id || crypto.randomUUID(),
+            id: editingLoan?.installments[0]?.id || generateUUID(),
             dueDate: dueDate,
             amount: principal + oneMonthInterest,
             scheduledPrincipal: principal,
@@ -79,7 +79,7 @@ export const demoService = {
 
     const newLoan: Loan = {
         ...loan,
-        id: loan.id || crypto.randomUUID(),
+        id: loan.id || generateUUID(),
         installments: finalInstallments,
         ledger: editingLoan?.ledger || [],
         paymentSignals: [],
@@ -156,7 +156,7 @@ export const demoService = {
                  
                  // Adiciona Log Fake no Ledger
                  const newLedgerEntry: LedgerEntry = {
-                     id: crypto.randomUUID(),
+                     id: generateUUID(),
                      date: new Date().toISOString(),
                      type: paymentType === 'FULL' ? 'PAYMENT_FULL' : 'PAYMENT_INTEREST_ONLY',
                      amount: amountToPay,
@@ -189,7 +189,7 @@ export const demoService = {
       activeUser: UserProfile,
       showToast: (msg: string) => void
   ) => {
-      const id = editingClient?.id || crypto.randomUUID();
+      const id = editingClient?.id || generateUUID();
       const newClient = { 
           id, 
           profile_id: activeUser.id, 

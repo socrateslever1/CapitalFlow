@@ -5,6 +5,7 @@ import { mapLoanFromDB } from './adapters/dbAdapters';
 import { maskPhone, maskDocument } from '../utils/formatters';
 import { asNumber } from '../utils/safe';
 import { filterDeletedLoans, readDeletedContractIds } from './deletedContracts.service';
+import { generateUUID } from '../utils/generators';
 
 const AUTH_ERROR_PATTERNS = ['jwt expired','invalid jwt','token is expired','auth session missing','refresh token','session not found','failed verification'];
 export const isAuthSyncError = (error: any) => {
@@ -105,7 +106,7 @@ export const syncService = {
   async enqueueOperation(params:{table:string;operation:'INSERT'|'UPDATE'|'DELETE'|'RPC';data:any;id:string;baseUpdatedAt?:string|null;conflictTable?:string;conflictId?:string;}){
     const {table,operation,data,id}=params; const tableInstance=(db as any)[table]; let baseUpdatedAt=params.baseUpdatedAt||data?.updated_at||data?.base_updated_at||null;
     if(tableInstance){if(!baseUpdatedAt){try{const previous=await tableInstance.get(id);baseUpdatedAt=previous?.updated_at||previous?.updatedAt||null;}catch{}} if(operation==='DELETE')await tableInstance.delete(id); else if(operation==='UPDATE')await tableInstance.update(id,data); else await tableInstance.put(data);}
-    const queueItem={id:crypto.randomUUID(),table,operation,data,targetId:id,baseUpdatedAt,conflictTable:params.conflictTable||null,conflictId:params.conflictId||null,status:'PENDING',attempts:0,maxAttempts:7,nextRetryAt:new Date().toISOString(),timestamp:new Date().toISOString()}; await db.write_queue.put(queueItem); this.processQueue().catch(err=>console.warn('[SYNC] Queue processing failed:',err)); return true;
+    const queueItem={id:generateUUID(),table,operation,data,targetId:id,baseUpdatedAt,conflictTable:params.conflictTable||null,conflictId:params.conflictId||null,status:'PENDING',attempts:0,maxAttempts:7,nextRetryAt:new Date().toISOString(),timestamp:new Date().toISOString()}; await db.write_queue.put(queueItem); this.processQueue().catch(err=>console.warn('[SYNC] Queue processing failed:',err)); return true;
   },
   async processQueue(){
     if(typeof navigator!=='undefined'&&!navigator.onLine)return; const session=await ensureFreshAuth().catch(err=>{console.warn('[SYNC] Sessao indisponivel para processar fila:',err?.message||err);return null;}); if(!session)return;

@@ -164,6 +164,15 @@ if (!supportChat.includes('bottom-[calc(4.75rem+env(safe-area-inset-bottom))]'))
 if (supportChatService.includes('crypto.randomUUID()') || !supportChatService.includes('generateUUID()')) {
   failures.push('supportChat.service.ts -> anexos devem usar UUID compatível com navegadores sem randomUUID');
 }
+for (const directory of ['components', 'features', 'hooks', 'pages', 'services', 'utils']) {
+  for (const file of walk(path.join(root, directory))) {
+    if (relative(file) === 'utils/generators.ts') continue;
+    const source = fs.readFileSync(file, 'utf8');
+    if (source.includes('crypto.randomUUID(')) {
+      failures.push(`${relative(file)} -> use generateUUID() para compatibilidade com navegadores antigos`);
+    }
+  }
+}
 if ((supportChatMessages.match(/useModal\(\)/g) || []).length !== 1) {
   failures.push('ChatMessages.tsx -> contexto de modal deve ser obtido uma única vez no topo do componente');
 }

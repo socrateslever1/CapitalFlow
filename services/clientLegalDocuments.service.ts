@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { generateUUID } from '../utils/generators';
 import { createLegalSnapshot, generateSHA256 } from '../utils/crypto';
 import { generateMutuoPreDesembolsoHTML } from '../features/legal/templates/MutuoPreDesembolsoTemplate';
 
@@ -113,7 +114,7 @@ export const clientLegalDocumentsService = {
     const ownerId = await resolveOwner(clientId);
     const now = new Date().toISOString();
     const hash = await sha256File(file);
-    const path = `${ownerId}/${clientId}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
+    const path = `${ownerId}/${clientId}/${generateUUID()}-${safeFileName(file.name)}`;
 
     const upload = await supabase.storage.from(SIGNED_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
     if (upload.error) throw upload.error;

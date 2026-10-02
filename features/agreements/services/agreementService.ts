@@ -57,9 +57,21 @@ function clearStoredRequestKey(storageKey: string | null) {
 }
 
 function rpcErrorMessage(operation: string, error: any): string {
-  const code = String(error?.code || "").trim();
-  const detail = String(error?.message || error?.details || "erro desconhecido").trim();
-  return `${operation} bloqueada pelo backend financeiro${code ? ` (${code})` : ""}: ${detail}`;
+  const detail = String(error?.message || error?.details || "").toLowerCase();
+  if (/failed to fetch|network|connection|conex[aã]o/.test(detail)) {
+    return "Não foi possível conectar ao sistema. Verifique sua internet e tente novamente.";
+  }
+  if (/permission|permiss[aã]o|access denied|acesso negado|jwt|auth/.test(detail)) {
+    return "Sua sessão não tem permissão para concluir esta ação. Entre novamente ou procure o administrador.";
+  }
+  if (/saldo|parcela|acordo|valor|mudou|inval/.test(detail)) {
+    return "Os dados do acordo mudaram. Confira as informações e tente novamente.";
+  }
+  return operation === "Estorno de acordo"
+    ? "Não foi possível concluir o estorno. Nenhum valor foi alterado."
+    : operation === "Quebra de acordo"
+      ? "Não foi possível encerrar o acordo. Nenhum valor foi alterado."
+      : "Não foi possível registrar o pagamento do acordo. Nenhum valor foi alterado.";
 }
 
 async function processPaymentAtomic(
@@ -97,8 +109,6 @@ async function processPaymentAtomic(
     });
 
     if (error) {
-      // Fail closed: never fall back to the legacy multi-step mutation path.
-      // Keep the request key in sessionStorage so a retry remains idempotent.
       throw new Error(rpcErrorMessage("Pagamento de acordo", error));
     }
 

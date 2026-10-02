@@ -89,7 +89,7 @@ export async function executeLedgerAction(params: {
     if (!(data as any)?.deleted) throw new Error('Contrato nao foi excluido. Recarregue a pagina e tente novamente.');
 
     const { data: stillExists, error: verifyError } = await supabase.from('contratos').select('id').eq('id', loanId).maybeSingle();
-    if (!verifyError && stillExists?.id) throw new Error('O banco retornou sucesso, mas o contrato ainda existe. Reaplique a migration de exclusao e tente novamente.');
+    if (!verifyError && stillExists?.id) throw new Error('Não foi possível excluir o contrato agora. Nenhum dado foi alterado. Tente novamente.');
 
     markDeletedContract(ownerId, loanId);
     await deleteLocalLoanSnapshot(loanId);

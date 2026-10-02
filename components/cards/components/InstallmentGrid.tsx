@@ -11,7 +11,7 @@ import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
-import { buildInstallmentReceiptModel, type PartialBalanceAction, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, inferReceiptMode, type PartialBalanceAction, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 
 interface InstallmentGridProps {
@@ -40,6 +40,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [receiptAmount, setReceiptAmount] = React.useState('');
     const [showCustomAmount, setShowCustomAmount] = React.useState(false);
     const [quickMode, setQuickMode] = React.useState<QuickMode>('TOTAL');
+    const [manualReceiptMode, setManualReceiptMode] = React.useState(false);
     const [lateFeeForgiven, setLateFeeForgiven] = React.useState(0);
     const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('KEEP_PENDING');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
@@ -108,6 +109,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 setReceiptAmount(String(Number(offerIsActive ? offerAmount : targetDebt?.total || targetInst.amount || 0).toFixed(2)));
                                 setShowCustomAmount(false);
                                 setQuickMode('TOTAL');
+                                setManualReceiptMode(false);
                                 setLateFeeForgiven(0);
                                 setPartialBalanceAction('KEEP_PENDING');
                                 setReviewPreview(null);
@@ -144,13 +146,14 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
             {selectedInst && selectedDebt && (() => {
                 const {
-                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices
-                } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount });
+                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect
+                } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount });
 
                 const resetSelection = () => {
                     setSelectedInst(null);
                     setSelectedDebt(null);
                     setQuickMode('TOTAL');
+                    setManualReceiptMode(false);
                     setLateFeeForgiven(0);
                     setPartialBalanceAction('KEEP_PENDING');
                     setReviewPreview(null);
@@ -164,7 +167,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                         <div className="space-y-2">
                             <div className="rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Como este contrato funciona</span>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Forma de cobrança</span>
                                     <span className="text-[9px] font-black uppercase text-blue-300">{modalityRule.name}</span>
                                 </div>
                                 <p className="mt-1 text-[8px] leading-3.5 text-slate-400">{modalityRule.rule}</p>
@@ -178,6 +181,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <button
                                     onClick={() => {
                                         setQuickMode('TOTAL');
+                                        setManualReceiptMode(true);
                                         setShowCustomAmount(false);
                                         setLateFeeForgiven(0);
                                         setReceiptAmount(String(totalAmount.toFixed(2)));
@@ -194,8 +198,10 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <button
                                     onClick={() => {
                                         setQuickMode('CUSTOM');
+                                        setManualReceiptMode(false);
                                         setShowCustomAmount(true);
                                         setLateFeeForgiven(0);
+                                        setReceiptAmount('');
                                         setPartialBalanceAction('KEEP_PENDING');
                                     }}
                                     className={`py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CUSTOM' || showCustomAmount ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
@@ -215,6 +221,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <button
                                     onClick={() => {
                                         setQuickMode('INTEREST_ONLY');
+                                        setManualReceiptMode(true);
                                         setShowCustomAmount(false);
                                         setReceiptAmount(String(interest.toFixed(2)));
                                         setPartialBalanceAction('KEEP_PENDING');
@@ -229,6 +236,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <button
                                     onClick={() => {
                                         setQuickMode('CHARGES_ONLY');
+                                        setManualReceiptMode(true);
                                         setShowCustomAmount(false);
                                         setReceiptAmount(String(chargesAmount.toFixed(2)));
                                         setPartialBalanceAction('KEEP_PENDING');
@@ -256,7 +264,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     step="0.01"
                                     min="0.01"
                                     value={receiptAmount}
-                                    onChange={e => setReceiptAmount(e.target.value)}
+                                    onChange={e => {
+                                        const nextAmount = e.target.value;
+                                        setReceiptAmount(nextAmount);
+                                        if (!manualReceiptMode) {
+                                            setQuickMode(inferReceiptMode(Number(nextAmount) || 0, totalAmount, interest));
+                                        }
+                                    }}
                                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white font-bold outline-none focus:border-blue-500"
                                     autoFocus
                                 />
@@ -271,6 +285,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     {activeOfferAmount > 0.05 ? 'Valor da condição especial' : 'Valor a receber'}
                                 </p>
                                 <p className="text-base font-black text-emerald-400">{formatMoney(displayedAmount, isStealthMode)}</p>
+                                <p className="mt-1 text-[9px] leading-4 text-slate-400">{receiptEffect}</p>
                             </div>
 
                             {hasActiveOffer && isPartialPayment && (

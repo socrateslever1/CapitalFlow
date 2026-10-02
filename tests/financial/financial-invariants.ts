@@ -9,7 +9,7 @@ import { calculateMonthlyInstallments } from '../../features/loans/modalities/mo
 import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
-import { buildInstallmentReceiptModel } from '../../components/cards/components/InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -216,13 +216,20 @@ run('janela de recebimento explica as quatro decisões de saldo em linguagem cla
   });
 
   assert.deepEqual(preview.partialChoices.map((choice) => choice.title), [
-    'Padrão · manter nesta parcela',
+    'Manter saldo nesta parcela',
     'Incorporar encargos ao saldo',
     'Criar novo vencimento',
     'Encerrar com desconto',
   ]);
   assert.ok(preview.partialChoices.every((choice) => choice.detail.length >= 60));
   assert.ok(!/backend|keep_pending|capitalize|settle/i.test(`${preview.modalityRule.rule} ${preview.partialChoices.map((choice) => choice.detail).join(' ')}`));
+});
+
+run('modo de recebimento acompanha o valor informado sem bloquear a troca manual', () => {
+  assert.equal(inferReceiptMode(520, 520, 120), 'TOTAL');
+  assert.equal(inferReceiptMode(120, 520, 120), 'INTEREST_ONLY');
+  assert.equal(inferReceiptMode(80, 520, 120), 'CUSTOM');
+  assert.equal(inferReceiptMode(220, 520, 120), 'CUSTOM');
 });
 
 run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () => {

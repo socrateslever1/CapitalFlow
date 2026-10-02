@@ -1,5 +1,6 @@
 import type { Loan, Installment } from '../../../types';
 import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
+import { formatMoney } from '../../../utils/formatters';
 import type { FinancialOperationResult, FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 
 export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
@@ -19,6 +20,12 @@ export type InstallmentPaymentHandler = (
     options?: QuickPaymentOptions
 ) => boolean | void | Promise<boolean | void>;
 
+export function inferReceiptMode(amount: number, totalAmount: number, interest: number): QuickMode {
+    if (amount >= totalAmount - ZERO_BALANCE_THRESHOLD) return 'TOTAL';
+    if (Math.abs(amount - interest) <= ZERO_BALANCE_THRESHOLD && interest > ZERO_BALANCE_THRESHOLD) return 'INTEREST_ONLY';
+    return 'CUSTOM';
+}
+
 /** Preparação pura da janela rápida: não movimenta caixa nem altera parcelas. */
 export function buildInstallmentReceiptModel(params: {
     loan: Loan;
@@ -27,8 +34,9 @@ export function buildInstallmentReceiptModel(params: {
     lateFeeForgiven: number;
     quickMode: QuickMode;
     receiptAmount: string;
+    showCustomAmount?: boolean;
 }) {
-    const { loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount } = params;
+    const { loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount = false } = params;
                 const principal = Math.max(0, Number(selectedDebt?.principal ?? selectedInst.principalRemaining ?? 0) || 0);
                 const interest = Math.max(0, Number(selectedDebt?.interest ?? selectedInst.interestRemaining ?? 0) || 0);
                 const lateFee = Math.max(0, Number(selectedDebt?.lateFee ?? selectedInst.lateFeeAccrued ?? 0) || 0);
@@ -42,7 +50,9 @@ export function buildInstallmentReceiptModel(params: {
                     ? activeOfferAmount
                     : Math.max(0, Number(selectedDebt?.total || 0) - appliedLateFeeForgiveness);
                 const chargesAmount = Math.max(0, interest + effectiveLateFee);
-                const displayedAmount = quickMode === 'CUSTOM'
+                const displayedAmount = showCustomAmount
+                    ? (Number(receiptAmount) || 0)
+                    : quickMode === 'CUSTOM'
                     ? (Number(receiptAmount) || 0)
                     : quickMode === 'INTEREST_ONLY'
                         ? interest
@@ -80,7 +90,7 @@ export function buildInstallmentReceiptModel(params: {
                 }> = [
                     {
                         value: 'KEEP_PENDING',
-                        title: 'Padrão · manter nesta parcela',
+                        title: 'Manter saldo nesta parcela',
                         detail: 'Abate o valor recebido e deixa o restante na mesma data. Se já estiver vencida, o atraso continua.',
                         activeClass: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
                     },
@@ -107,5 +117,15 @@ export function buildInstallmentReceiptModel(params: {
                 ];
 
 
-    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices };
+    const receiptEffect = displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD
+        ? 'Este valor encerra a parcela.'
+        : displayedAmount <= ZERO_BALANCE_THRESHOLD
+            ? 'Informe um valor para ver como ele será aplicado.'
+            : displayedAmount < interest - ZERO_BALANCE_THRESHOLD
+                ? `Este valor abate parte dos juros. Ainda faltam ${formatMoney(interest - displayedAmount)} em juros.`
+                : displayedAmount <= interest + ZERO_BALANCE_THRESHOLD
+                    ? 'Este valor cobre os juros. O capital continua aberto.'
+                    : `Este valor cobre os encargos e abate ${formatMoney(Math.min(principal, displayedAmount - interest))} do capital.`;
+
+    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect };
 }

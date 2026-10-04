@@ -312,6 +312,7 @@ export interface Loan {
   fundingAllocations?: Array<{ sourceId: string; amount: number; percentage?: number }>;
   preferredPaymentMethod: PaymentMethod;
   principal: number;
+  originalPrincipal?: number;
   interestRate: number;
   finePercent: number;
   dailyInterestPercent: number;

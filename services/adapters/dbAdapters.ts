@@ -230,6 +230,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     pixKey: l.pix_key,
 
     principal: asNumber(l.principal),
+    originalPrincipal: asNumber(l.original_principal ?? l.originalPrincipal) || undefined,
     interestRate: firstPositiveNumber(l.interest_rate, l.juros_mensal_percent, l.juros_aplicado, l.policies_snapshot?.interestRate, l.interestRate),
     finePercent: firstPositiveNumber(l.fine_percent, l.multa_percent, l.policies_snapshot?.finePercent, l.finePercent),
     dailyInterestPercent: firstPositiveNumber(l.daily_interest_percent, l.mora_diaria_percent, l.policies_snapshot?.dailyInterestPercent, l.dailyInterestPercent),

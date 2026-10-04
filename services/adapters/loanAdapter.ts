@@ -204,6 +204,7 @@ export function mapLoanFromDB(
     amortizationType: asString(l?.amortization_type ?? l?.amortizationType, 'JUROS') as any,
 
     principal: asNumber(l?.principal),
+    originalPrincipal: asNumber(l?.original_principal ?? l?.originalPrincipal) || undefined,
 
     // ✅ SAÍDA EM camelCase (igual types.ts)
     fundingTotalPayable: fundingTotalPayable || undefined,

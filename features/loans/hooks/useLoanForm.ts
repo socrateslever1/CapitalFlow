@@ -225,14 +225,21 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         );
         loanPayload.skipWeekends = skipWeekends;
 
+        const requestedPrincipal = Number(formData.principal.replace(',', '.')) || 0;
+        const originalPrincipal = Number(initialData?.principal || 0);
+        const principalIncrease = !!initialData && requestedPrincipal > originalPrincipal + 0.005;
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
 
-        if (hasActiveAgreement && initialData) {
+        if (hasActiveAgreement && initialData && requestedPrincipal >= originalPrincipal - 0.005) {
             loanPayload.principal = initialData.principal;
             loanPayload.billingCycle = initialData.billingCycle;
             loanPayload.startDate = initialData.startDate;
             loanPayload.totalToReceive = initialData.totalToReceive;
             loanPayload.installments = [];
+        } else if (principalIncrease && initialData) {
+            loanPayload.principal = initialData.principal;
+            loanPayload.totalToReceive = initialData.totalToReceive;
+            loanPayload.installments = initialData.installments;
         } else if (loanPayload.installments?.length && manualFirstDueDate) {
             if (formData.billingCycle === 'INSTALLMENT_FIXED') {
                 loanPayload.installments = loanPayload.installments.map((inst, index) => ({

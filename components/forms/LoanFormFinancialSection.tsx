@@ -135,8 +135,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Principal original' : 'Principal'}</label>
-            <input required type="number" step="0.01" value={formData.principal || ''} readOnly={!!isEditing} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className={`w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all ${isEditing ? 'bg-slate-900/80 border-slate-800 text-slate-400 cursor-not-allowed' : 'bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10'}`} />
-            {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Valor histórico protegido. O saldo e as parcelas futuras são ajustados no editor do acordo.</p>}
+            <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
+            {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">A diferença acima do valor original será registrada como novo aporte na parcela atual, mantendo o vencimento.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{formData.billingCycle === 'MONTHLY' ? 'Juros (%) Mensal' : 'Taxa (%) Mensal'}</label>

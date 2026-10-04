@@ -155,7 +155,14 @@ export const contractsService = {
     }
 
     const loanId = editingLoan ? loan.id : ensureUUID(loan.id);
-    const principal = safeFloat(loan.principal);
+    const requestedPrincipal = safeFloat(loan.principal);
+    const originalPrincipal = editingLoan
+      ? safeFloat(editingLoan.originalPrincipal || editingLoan.principal)
+      : requestedPrincipal;
+    const additionalCapital = editingLoan && requestedPrincipal > originalPrincipal + 0.005
+      ? safeFloat(requestedPrincipal - originalPrincipal)
+      : 0;
+    const principal = additionalCapital > 0 ? originalPrincipal : requestedPrincipal;
     const interestRate = safeFloat(loan.interestRate);
     const finePercent = safeFloat(loan.finePercent);
     const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
@@ -188,6 +195,7 @@ export const contractsService = {
       pix_key: loan.pixKey,
 
       principal,
+      original_principal: editingLoan ? originalPrincipal : principal,
       interest_rate: interestRate,
       juros_mensal_percent: interestRate,
       juros_aplicado: interestRate,
@@ -270,6 +278,33 @@ export const contractsService = {
 
         const { error: upsertErr } = await supabase.from('parcelas').upsert(instPayload, { onConflict: 'id' });
         if (upsertErr) throw upsertErr;
+      }
+
+      if (additionalCapital > 0) {
+        const targetInstallment = (editingLoan?.installments || []).find((inst: any) => {
+          const status = String(inst.status || '').toUpperCase();
+          const balance = Number(inst.principalRemaining ?? inst.principal_remaining ?? 0)
+            + Number(inst.interestRemaining ?? inst.interest_remaining ?? 0)
+            + Number(inst.lateFeeAccrued ?? inst.late_fee_accrued ?? 0);
+          return !['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'CANCELADO', 'RENEGOCIADO'].includes(status) && balance > 0.005;
+        }) || editingLoan?.installments?.[0];
+        const aporteSourceId = safeUUID(loan.sourceId || editingLoan?.sourceId);
+        const aporteInstallmentId = safeUUID(targetInstallment?.id);
+        if (!aporteSourceId || !aporteInstallmentId) throw new Error('Não foi possível identificar a fonte ou a parcela do aporte.');
+        const stableRequest = getStableFinancialRequestKey(`capital-advance:${loanId}:${aporteInstallmentId}:${aporteSourceId}:${additionalCapital.toFixed(2)}:EDIT_CONTRACT`);
+        const { error: aporteError } = await supabase.rpc('process_lend_more_atomic', {
+          p_idempotency_key: stableRequest.idempotencyKey,
+          p_loan_id: safeUUID(loanId),
+          p_profile_id: safeUUID(ownerId),
+          p_amount: additionalCapital,
+          p_source_id: aporteSourceId,
+          p_installment_id: aporteInstallmentId,
+          p_notes: 'Novo aporte incluído no ajuste do contrato',
+          p_operator_id: safeUUID(activeUser.id),
+          p_operation_type: 'NOVO_APORTE',
+        });
+        if (aporteError) throw new Error(`Erro ao registrar o novo aporte: ${aporteError.message}`);
+        clearStableFinancialRequestKey(stableRequest.storageKey);
       }
     } else if (multiSourceAllocations.length > 1) {
       const instPayload = (loan.installments || []).map((inst, index) => ({

@@ -328,9 +328,8 @@ begin
   loop
     if v_source.profile_id is distinct from p_profile_id then raise exception 'Fonte de outro perfil não permitida.'; end if;
     if v_source.amount <= 0 then raise exception 'O valor de cada fonte deve ser maior que zero.'; end if;
-    if p_debit_sources and coalesce(v_source.balance, 0) < v_source.amount then
-      raise exception 'Saldo insuficiente em uma das fontes.';
-    end if;
+    -- Fontes operacionais podem ficar negativas: a saída é registrada e o
+    -- saldo negativo evidencia a necessidade de cobertura posterior.
   end loop;
 
   insert into public.contratos

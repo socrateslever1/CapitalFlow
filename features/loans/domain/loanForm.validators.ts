@@ -68,9 +68,6 @@ export const validateLoanForm = (
     for (const allocation of allocationCheck.allocations) {
       const source = sources.find((item) => item.id === allocation.sourceId);
       if (!source) return { isValid: false, error: 'Uma das fontes selecionadas não está disponível.' };
-      if (source.type !== 'MISTO' && allocation.amount > Number(source.balance || 0) + 0.005) {
-        return { isValid: false, error: `A fonte ${source.name} não possui saldo suficiente.` };
-      }
     }
   }
 

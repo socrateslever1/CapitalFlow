@@ -84,6 +84,7 @@ export interface LoanFormState {
   debtorDocument: string;
   debtorAddress: string;
   sourceId: string;
+  fundingAllocations?: Array<{ sourceId: string; amount: string }>;
   preferredPaymentMethod: PaymentMethod;
   pixKey: string;
   principal: string;
@@ -202,6 +203,10 @@ export const mapFormToLoan = (
     debtorAddress: form.debtorAddress,
 
     sourceId: form.sourceId,
+    fundingAllocations: (form.fundingAllocations || []).map((allocation) => ({
+      sourceId: allocation.sourceId,
+      amount: parseCurrency(allocation.amount),
+    })),
     preferredPaymentMethod: form.preferredPaymentMethod,
     pixKey: form.pixKey,
 

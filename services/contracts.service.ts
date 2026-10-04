@@ -10,6 +10,7 @@ import {
 } from '../utils/capitalOnlyRecovery';
 import { isTestSource } from '../utils/testSource';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
+import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 
 /* =========================
    Helpers de Sanitização
@@ -160,6 +161,13 @@ export const contractsService = {
     const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
     const selectedSource = _sources.find((source) => source.id === loan.sourceId);
     const isTestWalletLoan = isTestSource(selectedSource);
+    const fundingCheck = loan.fundingAllocations?.length
+      ? validateFundingAllocations(principal, loan.fundingAllocations)
+      : null;
+    if (fundingCheck && 'error' in fundingCheck) throw new Error(fundingCheck.error);
+    const multiSourceAllocations = fundingCheck?.ok && fundingCheck.allocations.length > 1
+      ? fundingCheck.allocations
+      : [];
 
     // ✅ contratos = owner_id
     const loanPayload: any = {
@@ -263,6 +271,34 @@ export const contractsService = {
         const { error: upsertErr } = await supabase.from('parcelas').upsert(instPayload, { onConflict: 'id' });
         if (upsertErr) throw upsertErr;
       }
+    } else if (multiSourceAllocations.length > 1) {
+      const instPayload = (loan.installments || []).map((inst, index) => ({
+        id: ensureUUID(inst.id),
+        number: (inst as any).number ?? (inst as any).numero_parcela ?? index + 1,
+        due_date: inst.dueDate,
+        amount: safeFloat(inst.amount),
+        scheduled_principal: safeFloat(inst.scheduledPrincipal),
+        scheduled_interest: safeFloat(inst.scheduledInterest),
+        principal_remaining: safeFloat(inst.principalRemaining),
+        interest_remaining: safeFloat(inst.interestRemaining),
+        late_fee_accrued: safeFloat(inst.lateFeeAccrued),
+      }));
+      const { error } = await supabase.rpc('create_contract_multi_source_v1', {
+        p_contract: {
+          ...loanPayload,
+          profile_id: ownerId,
+          source_id: safeUUID(multiSourceAllocations[0].sourceId),
+          portal_token: loan.portalToken || generateUUID(),
+          portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
+          created_at: new Date().toISOString(),
+        },
+        p_installments: instPayload,
+        p_allocations: multiSourceAllocations,
+        p_profile_id: ownerId,
+        p_operator_id: safeUUID(activeUser.id),
+        p_debit_sources: !multiSourceAllocations.every((allocation) => isTestSource(_sources.find((source) => source.id === allocation.sourceId))),
+      });
+      if (error) throw new Error(error.message);
     } else {
       await runContractMutationWithSchemaFallback({
         ...loanPayload,

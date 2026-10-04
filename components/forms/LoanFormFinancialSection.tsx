@@ -1,6 +1,6 @@
 import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import React, { useMemo } from 'react';
-import { Wallet, CalendarX, Clock, CreditCard, AlertTriangle, CalendarDays, ChevronDown, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { Wallet, CalendarX, Clock, CreditCard, AlertTriangle, CalendarDays, ChevronDown, ArrowDownRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
@@ -29,6 +29,12 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'MISTO';
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
+  const fundingAllocations = Array.isArray(formData.fundingAllocations) && formData.fundingAllocations.length > 0
+    ? formData.fundingAllocations
+    : [{ sourceId: formData.sourceId || sources[0]?.id || '', amount: '' }];
+  const distributedTotal = fundingAllocations.reduce((sum: number, allocation: any) => sum + (parseFloat(String(allocation.amount || '').replace(',', '.')) || 0), 0);
+  const principalValue = parseFloat(String(formData.principal || '').replace(',', '.')) || 0;
+  const hasMultipleSources = fundingAllocations.length > 1;
 
   const fundingCostDisplay = useMemo(() => {
       const principal = parseFloat(formData.principal) || 0;
@@ -179,18 +185,17 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             </div>
         </div>
 
-        <div className="space-y-2">
-            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de Capital</label>
-            <div className="relative group">
-                <select
-                    value={formData.sourceId || ''}
-                    onChange={e => setFormData({...formData, sourceId: e.target.value})}
-                    className="w-full appearance-none bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 pr-10 text-white text-sm outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all cursor-pointer"
-                >
-                  {sources.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type === 'MISTO' ? 'Misto' : `R$ ${s.balance.toLocaleString()}`})</option>)}
-                </select>
-                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-hover:text-purple-500 transition-colors" size={18} />
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fontes de capital</label>{!isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
+            <div className="space-y-2">
+              {fundingAllocations.map((allocation: any, index: number) => <div key={`${allocation.sourceId}-${index}`} className="flex gap-2">
+                <div className="relative group min-w-0 flex-1"><select value={allocation.sourceId || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], sourceId: event.target.value }; return { ...current, sourceId: index === 0 ? event.target.value : current.sourceId, fundingAllocations: next }; })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.type === 'MISTO' ? 'Misto' : `R$ ${Number(source.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
+                <input type="number" min="0.01" step="0.01" value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], amount: event.target.value }; return { ...current, fundingAllocations: next }; })} placeholder="Valor" className="w-28 rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 text-xs font-bold text-white outline-none focus:border-purple-500/50" />
+                {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
+              </div>)}
             </div>
+            {!hasMultipleSources && <p className="ml-2 text-[10px] text-slate-500">Uma fonte mantém o comportamento atual.</p>}
+            {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
         </div>
 
         {(isCardSource || isInstallmentFixed) && (

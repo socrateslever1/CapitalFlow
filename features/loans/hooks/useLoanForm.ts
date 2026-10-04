@@ -42,6 +42,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         debtorDocument: initialData.debtorDocument || '',
         debtorAddress: initialData.debtorAddress || '',
         sourceId: initialData.sourceId || '',
+        fundingAllocations: initialData.fundingAllocations?.map((allocation) => ({ sourceId: allocation.sourceId, amount: String(allocation.amount) })) || [{ sourceId: initialData.sourceId || '', amount: String(initialData.principal ?? '') }],
         principal: String(initialData.principal ?? ''),
         interestRate: String(initialData.interestRate ?? ''),
         finePercent: String(initialData.finePercent ?? ''),
@@ -68,6 +69,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
       setFormData({
         clientId: '', debtorName: '', debtorPhone: '', debtorDocument: '', debtorAddress: '',
         sourceId: sources[0]?.id || '', principal: '', interestRate: '', finePercent: '2', dailyInterestPercent: '1',
+        fundingAllocations: [{ sourceId: sources[0]?.id || '', amount: '' }],
         startDate: today, billingCycle: 'MONTHLY', fundingTotalPayable: '', fundingInstallmentsCount: '10',
         fundingMonthlyRate: '', customerMarginPercent: '30', fundingCalculationMode: 'TOTAL', fundingOperatorAbsorbsInterest: false,
         fundingFeePercent: '', fundingProvider: ''

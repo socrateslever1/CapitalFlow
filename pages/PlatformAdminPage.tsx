@@ -1,0 +1,22 @@
+import React, { useEffect, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { platformAdminService, PlatformProfileSummary } from '../services/platformAdmin.service';
+
+const featureLabels = [{ key: 'MULTI_SOURCE_FUNDING', label: 'Fontes múltiplas' }, { key: 'PERSONAL_WALLET', label: 'Carteira pessoal' }];
+
+export const PlatformAdminPage: React.FC = () => {
+  const [profiles, setProfiles] = useState<PlatformProfileSummary[]>([]);
+  const [featureState, setFeatureState] = useState<Record<string, boolean>>({});
+  const [supportSession, setSupportSession] = useState<{ id: string } | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState('');
+
+  useEffect(() => { platformAdminService.listProfiles().then(setProfiles).catch((reason) => setError(String(reason?.message || reason))); }, []);
+  const toggleFeature = async (profileId: string, featureKey: string) => { const key = `${profileId}:${featureKey}`; setBusy(key); try { await platformAdminService.setFeature(profileId, featureKey, !featureState[key]); setFeatureState((current) => ({ ...current, [key]: !current[key] })); } catch (reason: any) { setError(String(reason?.message || reason)); } finally { setBusy(''); } };
+  const startSupport = async (profileId: string) => { setBusy(`support:${profileId}`); try { setSupportSession({ id: await platformAdminService.startReadOnlySupport(profileId) }); } catch (reason: any) { setError(String(reason?.message || reason)); } finally { setBusy(''); } };
+  const endSupport = async () => { if (!supportSession) return; setBusy('support-end'); try { await platformAdminService.endReadOnlySupport(supportSession.id); setSupportSession(null); } catch (reason: any) { setError(String(reason?.message || reason)); } finally { setBusy(''); } };
+
+  return <section className="space-y-6"><header className="flex items-center gap-3"><div className="rounded-xl bg-amber-500/20 p-3 text-amber-300"><ShieldCheck size={24} /></div><div><h1 className="text-xl font-black text-white">Administração</h1><p className="text-xs text-slate-500">Contas e recursos do CapitalFlow</p></div></header>{error && <p className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-200">Não foi possível concluir a ação.</p>}{supportSession && <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100"><span>Suporte somente leitura ativo.</span><button type="button" disabled={busy === 'support-end'} onClick={endSupport} className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-black uppercase text-slate-950">Encerrar</button></div>}<div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900"><table className="w-full min-w-[860px] text-left text-sm"><thead className="border-b border-slate-800 text-[10px] uppercase text-slate-500"><tr><th className="p-4">Conta</th><th className="p-4">E-mail</th><th className="p-4">Nível</th><th className="p-4">Recursos</th><th className="p-4">Suporte</th></tr></thead><tbody>{profiles.map((profile) => <tr key={profile.id} className="border-b border-slate-800/70 align-top last:border-0"><td className="p-4 font-bold text-white">{profile.name || 'Sem nome'}<div className="mt-1 text-xs font-normal text-slate-500">{profile.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR') : '—'}</div></td><td className="p-4 text-slate-300">{profile.email || '—'}</td><td className="p-4 text-slate-400">{profile.access_level ?? '—'}</td><td className="space-y-2 p-4">{featureLabels.map((feature) => { const key = `${profile.id}:${feature.key}`; const enabled = featureState[key] === true; return <button key={feature.key} type="button" disabled={busy === key} onClick={() => toggleFeature(profile.id, feature.key)} className={`mr-2 rounded-lg px-3 py-2 text-[10px] font-black uppercase ${enabled ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{feature.label}: {enabled ? 'ativo' : 'inativo'}</button>; })}</td><td className="p-4"><button type="button" disabled={Boolean(supportSession) || busy === `support:${profile.id}`} onClick={() => startSupport(profile.id)} className="rounded-lg bg-slate-800 px-3 py-2 text-[10px] font-black uppercase text-slate-300">Abrir somente leitura</button></td></tr>)}</tbody></table>{profiles.length === 0 && <p className="p-6 text-sm text-slate-500">Nenhuma conta encontrada.</p>}</div></section>;
+};
+
+export default PlatformAdminPage;

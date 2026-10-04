@@ -1,0 +1,80 @@
+# Relatório de execução — CapitalFlow
+
+Data: 04/10/2026  
+HEAD inicial: `b91bf468acbb0a6ffaa66099ae72a078df76f3e4`  
+Dados financeiros reais alterados: **NÃO**  
+Custo adicional: **R$ 0,00**
+
+## Evoluções solicitadas
+
+| Item | Estado | Evidência / pendência |
+|---|---|---|
+| Super Admin exclusivo | PENDENTE | Migration, funções protegidas, serviço e tela criados. A migration ainda não foi aplicada no Supabase remoto. |
+| Minha Carteira | PENDENTE | Estrutura isolada por `auth.uid()` e tela inicial com cadastro básico de contas, cartões e despesas criada. Faturas, parcelas e validação em banco ainda faltam. |
+| Isolamento da carteira | PENDENTE | Políticas RLS foram escritas na migration, mas não foram executadas nem testadas em banco local/remoto. |
+| Controle de funcionalidades | PENDENTE | Tabelas, catálogo, função administrativa e controles visuais foram criados. Falta validação em banco. |
+| Modo suporte somente leitura | PENDENTE | Tabela, funções de início/fim e fluxo visual foram criados. Falta validação em banco e auditoria real. |
+| Contratos legados | PASS | Código atual preserva `contratos.source_id`; testes financeiros existentes passaram. |
+| Multi-fonte na criação | PENDENTE | Formulário, validação matemática e caminho de criação atômica foram adicionados. Falta aplicar a migration e validar o fluxo em banco local/staging antes de habilitar. |
+| Recebimento multi-fonte | PENDENTE | Distribuição proporcional determinística foi criada e testada isoladamente. Payment Engine V4 ainda não consome allocations. |
+| Estorno multi-fonte | PENDENTE | Falta persistir e reverter a distribuição original no Payment Engine V4. |
+| Ledger multi-fonte | PENDENTE | Falta gerar os lançamentos por fonte dentro da operação financeira autoritativa. |
+| RLS | PENDENTE | Políticas aditivas estão no arquivo de migration; falta aplicar e testar no banco. |
+
+## Arquivos criados
+
+- `supabase/migrations/20261004120000_platform_admin_personal_wallet_and_funding_allocations.sql`
+- `domain/finance/fundingAllocations.ts`
+- `domain/finance/fundingAllocations.test.ts`
+- `services/platformAdmin.service.ts`
+- `services/personalWallet.service.ts`
+- `pages/PlatformAdminPage.tsx`
+- `pages/PersonalWalletPage.tsx`
+
+## Arquivos modificados
+
+- `App.tsx`
+- `hooks/useAppState.ts`
+- `hooks/usePersistedTab.ts`
+- `layout/NavHub.tsx`
+- `types.ts`
+- `components/forms/LoanFormFinancialSection.tsx`
+- `features/loans/domain/loanForm.mapper.ts`
+- `features/loans/domain/loanForm.validators.ts`
+- `features/loans/hooks/useLoanForm.ts`
+- `services/contracts.service.ts`
+
+## Testes
+
+- Testes financeiros: **PASS**
+- Perdão de encargos: **PASS**
+- Skills, Tools e MCP read-only: **PASS**
+- Arquitetura: **PASS**
+- Textos da UI: **PASS**
+- Automação n8n: **PASS**
+- Distribuição multi-fonte unitária: **PASS**
+- `lint` / TypeScript: **PASS**
+- Build isolado: **PASS**
+- `git diff --check`: **PASS**
+- `test:db`: **BLOQUEADO** — Docker não está instalado/em execução. O teste abortou sem usar banco remoto.
+- `test:quality`: **FALHOU POR AMBIENTE** — a segunda build consecutiva encerrou o esbuild por falta de memória virtual do Windows; a build isolada anterior passou.
+
+## Pendências das tarefas anteriores
+
+- Aplicar e validar migrations no staging: **não feito**; não há staging local/seguro disponível.
+- Testar banco real, concorrência financeira e reconciliação no Supabase: **não feito**; somente testes locais em memória foram executados.
+- Teste de banco local completo: **bloqueado** por ausência do Docker.
+- Validação visual em navegador/celular: **não comprovada** nesta execução.
+- Auditoria remota identificou, sem alterar: 2 usuários Auth sem perfil, 1 contrato órfão e 5 contratos legados marcados como renegociados sem acordo ativo.
+- O contrato `0ac871` foi corrigido no código para respeitar o acordo ativo; nenhum registro remoto foi alterado.
+
+## Segurança
+
+- Nenhum segredo, senha ou `service_role` foi adicionado.
+- Nenhuma migration histórica foi apagada ou reescrita.
+- Nenhum contrato, parcela, pagamento, saldo ou ledger existente foi alterado.
+- A migration nova é aditiva, mas **não deve ser aplicada em produção antes da validação local/staging**.
+
+## Próximo bloqueio objetivo
+
+Instalar/iniciar Docker e executar `npm run test:db`. Depois, aplicar a migration somente em um ambiente de staging seguro e concluir a integração transacional multi-fonte antes de habilitar a funcionalidade para usuários.

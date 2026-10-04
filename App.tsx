@@ -29,6 +29,7 @@ import { ModalProvider } from './contexts/ModalContext';
 import { ModalHost } from './components/modals/ModalHost';
 import { filesService } from './services/files.service';
 import { contractsService } from './services/contracts.service';
+import { platformAdminService } from './services/platformAdmin.service';
 
 const DashboardContainer = lazy(() => import('./containers/DashboardContainer').then(({ DashboardContainer }) => ({ default: DashboardContainer })));
 const ClientsContainer = lazy(() => import('./containers/ClientsContainer').then(({ ClientsContainer }) => ({ default: ClientsContainer })));
@@ -44,6 +45,8 @@ const ReportsPage = lazy(() => import('./features/reports/pages/ReportsPage').th
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage })));
 const ContractDetailsPage = lazy(() => import('./pages/ContractDetailsPage').then(({ ContractDetailsPage }) => ({ default: ContractDetailsPage })));
 const FinancialStatementPage = lazy(() => import('./pages/FinancialStatementPage').then(({ FinancialStatementPage }) => ({ default: FinancialStatementPage })));
+const PersonalWalletPage = lazy(() => import('./pages/PersonalWalletPage'));
+const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
 const PublicSignaturePage = lazy(() => import('./pages/Public/PublicSignaturePage').then(({ PublicSignaturePage }) => ({ default: PublicSignaturePage })));
 const ClientRegistrationPage = lazy(() => import('./pages/Public/ClientRegistrationPage').then(({ ClientRegistrationPage }) => ({ default: ClientRegistrationPage })));
 const PortalReceiptViewer = lazy(() => import('./features/portal/components/PortalReceiptViewer').then(({ PortalReceiptViewer }) => ({ default: PortalReceiptViewer })));
@@ -208,6 +211,23 @@ export const App: React.FC = () => {
 
   const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, aiCtrl, adminCtrl } =
     controllers;
+
+  const [isPlatformSuperAdmin, setIsPlatformSuperAdmin] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!activeUser || activeUser.id === 'DEMO') {
+      setIsPlatformSuperAdmin(false);
+      return () => { active = false; };
+    }
+    platformAdminService.isSuperAdmin()
+      .then((allowed) => { if (active) setIsPlatformSuperAdmin(allowed); })
+      .catch(() => { if (active) setIsPlatformSuperAdmin(false); });
+    return () => { active = false; };
+  }, [activeUser]);
+
+  const visibleHubOrder = isPlatformSuperAdmin
+    ? [...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]
+    : hubOrder;
 
   const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
     const client = (clients as any[]).find((item: any) => item.id === clientId)
@@ -614,6 +634,18 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
+              {activeTab === 'MY_WALLET' && isPlatformSuperAdmin && (
+                <motion.div key="wallet-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <PersonalWalletPage />
+                </motion.div>
+              )}
+
+              {activeTab === 'PLATFORM_ADMIN' && isPlatformSuperAdmin && (
+                <motion.div key="platform-admin-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <PlatformAdminPage />
+                </motion.div>
+              )}
+
               {/* Removido tab SUPPORT não autorizada */}
 
               {activeTab === 'SUPPORT' && activeUser && (
@@ -786,7 +818,7 @@ export const App: React.FC = () => {
               )}
             </>
 
-            <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={hubOrder} />
+            <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={visibleHubOrder} />
           </AppShell>
         </AppGate>
 

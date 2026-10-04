@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { LayoutGrid, X, User, Calculator, ArrowRightLeft, Scale, Wallet, Users, LayoutDashboard, Settings, MenuSquare, PieChart } from 'lucide-react';
+import { LayoutGrid, X, User, Calculator, ArrowRightLeft, Scale, Wallet, Users, LayoutDashboard, Settings, MenuSquare, PieChart, ShieldCheck, CreditCard } from 'lucide-react';
 import { AppTab, UserProfile } from "../types";
 
 interface NavHubProps {
@@ -53,6 +53,8 @@ export const NavHub: React.FC<NavHubProps> = ({ onClose, onNavigate, userLevel, 
             case 'DASHBOARD': return { icon: <LayoutDashboard size={20}/>, label: 'Painel Geral', color: 'text-cyan-500', hover: 'hover:border-cyan-600' };
             case 'SETTINGS': return { icon: <Settings size={20}/>, label: 'Ajustes', color: 'text-slate-400', hover: 'hover:border-slate-500' };
             case 'REPORTS': return { icon: <PieChart size={20}/>, label: 'Inteligência', color: 'text-indigo-400', hover: 'hover:border-indigo-500' };
+            case 'MY_WALLET': return { icon: <CreditCard size={20}/>, label: 'Minha Carteira', color: 'text-fuchsia-400', hover: 'hover:border-fuchsia-500' };
+            case 'PLATFORM_ADMIN': return { icon: <ShieldCheck size={20}/>, label: 'Administração', color: 'text-amber-400', hover: 'hover:border-amber-500' };
             default: return { icon: <LayoutGrid size={20}/>, label: tab, color: 'text-slate-500', hover: 'hover:border-slate-600' };
         }
     };

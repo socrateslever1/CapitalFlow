@@ -46,7 +46,7 @@ export interface CapitalSource {
 
 export type SortOption = 'RECENT' | 'NAME' | 'VALUE' | 'STATUS' | 'DUE_DATE_ASC' | 'NAME_ASC' | 'CREATED_DESC' | 'UPDATED_DESC';
 
-export type AppTab = 'DASHBOARD' | 'DOSSIER' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS';
+export type AppTab = 'DASHBOARD' | 'DOSSIER' | 'CLIENTS' | 'LEGAL' | 'SOURCES' | 'PROFILE' | 'SETTINGS' | 'CONTRACT_DETAILS' | 'SIMULATOR' | 'FLOW' | 'LEGAL_DOCUMENT_EDITOR' | 'EXTRATO' | 'SUPPORT' | 'REPORTS' | 'MY_WALLET' | 'PLATFORM_ADMIN';
 
 export type LoanBillingModality =
   | 'MONTHLY'
@@ -309,6 +309,7 @@ export interface Loan {
   pixKey?: string;
   guaranteeDescription?: string;
   sourceId: string;
+  fundingAllocations?: Array<{ sourceId: string; amount: number; percentage?: number }>;
   preferredPaymentMethod: PaymentMethod;
   principal: number;
   interestRate: number;

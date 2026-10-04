@@ -5,7 +5,7 @@ import { AppTab } from '../types';
 const VALID_TABS = new Set<AppTab>([
   'DASHBOARD', 'DOSSIER', 'CLIENTS', 'LEGAL', 'SOURCES', 'PROFILE', 'SETTINGS',
   'CONTRACT_DETAILS', 'SIMULATOR', 'FLOW', 'LEGAL_DOCUMENT_EDITOR',
-  'EXTRATO', 'SUPPORT', 'REPORTS',
+  'EXTRATO', 'SUPPORT', 'REPORTS', 'MY_WALLET', 'PLATFORM_ADMIN',
 ]);
 
 export const usePersistedTab = (

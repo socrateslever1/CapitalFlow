@@ -1,6 +1,7 @@
 import { CapitalSource } from '../../../types';
 import { LoanFormState } from './loanForm.mapper';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
+import { validateFundingAllocations } from '../../../domain/finance/fundingAllocations';
 
 export const validateLoanForm = (
   formData: LoanFormState,
@@ -56,6 +57,21 @@ export const validateLoanForm = (
 
   if (!formData.sourceId) {
     return { isValid: false, error: "Erro: A Carteira de Origem é obrigatória." };
+  }
+
+  if (formData.fundingAllocations?.length) {
+    const allocationCheck = validateFundingAllocations(principal, formData.fundingAllocations.map((allocation) => ({
+      sourceId: allocation.sourceId,
+      amount: Number(String(allocation.amount).replace(',', '.')),
+    })));
+    if ('error' in allocationCheck) return { isValid: false, error: allocationCheck.error };
+    for (const allocation of allocationCheck.allocations) {
+      const source = sources.find((item) => item.id === allocation.sourceId);
+      if (!source) return { isValid: false, error: 'Uma das fontes selecionadas não está disponível.' };
+      if (source.type !== 'MISTO' && allocation.amount > Number(source.balance || 0) + 0.005) {
+        return { isValid: false, error: `A fonte ${source.name} não possui saldo suficiente.` };
+      }
+    }
   }
 
   const officialModalities = ['MONTHLY', 'INSTALLMENT_FIXED', 'DAILY_FREE', 'DAILY_FIXED_TERM'];

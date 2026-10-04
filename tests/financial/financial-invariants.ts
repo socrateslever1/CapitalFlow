@@ -11,6 +11,8 @@ import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
+import { calculateAdditionalCapital, isPrincipalReduction } from '../../domain/finance/capitalAdvance';
+import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -143,6 +145,27 @@ run('vencimento manual prevalece em contrato novo e não altera capital ou juros
   assert.equal(loan.installments[0].dueDate, '2026-10-14');
   assertMoney(loan.installments[0].principalRemaining, 1000, 'principal preservado');
   assertMoney(loan.installments[0].interestRemaining, 300, 'juros preservados');
+});
+
+run('fonte única não exige rateio manual nem saldo disponível', () => {
+  const form = {
+    clientId: '', debtorName: 'Teste', debtorPhone: '92999999999', debtorDocument: '00000000000',
+    debtorAddress: '', sourceId: 'fonte-a', principal: '1000', interestRate: '30',
+    finePercent: '2', dailyInterestPercent: '1', billingCycle: 'MONTHLY',
+    notes: '', guaranteeDescription: '', startDate: '2026-09-18', preferredPaymentMethod: 'PIX',
+    fundingAllocations: [{ sourceId: 'fonte-a', amount: '' }],
+  } as any;
+  const sources = [{ id: 'fonte-a', name: 'Carteira', type: 'DINHEIRO', balance: -500 }] as any;
+  assert.equal(validateLoanForm(form, sources, false).isValid, true);
+  const loan = mapFormToLoan(form, '30', null, [], [], [], '00000000-0000-4000-8000-000000000001');
+  assertMoney(loan.fundingAllocations?.[0]?.amount || 0, 1000, 'alocação automática da fonte única');
+});
+
+run('novo aporte considera somente o aumento sobre o capital atual', () => {
+  assertMoney(calculateAdditionalCapital(1200, 1000), 200, 'primeiro aporte');
+  assertMoney(calculateAdditionalCapital(1200, 1200), 0, 'salvar novamente não duplica aporte');
+  assertMoney(calculateAdditionalCapital(1300, 1200), 100, 'novo aumento usa somente a diferença');
+  assert.equal(isPrincipalReduction(1199.99, 1200), true);
 });
 
 run('renovação parcial avança pela data contratual sem somar juros novos', () => {

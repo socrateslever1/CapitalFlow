@@ -9,6 +9,7 @@ import { isTestSource } from '../../../utils/testSource';
 import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
 import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
+import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
 
 interface UseLoanFormProps {
   onAdd: (loan: Loan) => void;
@@ -196,6 +197,14 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const requestedPrincipal = Number(formData.principal.replace(',', '.')) || 0;
+    const currentPrincipal = Number(initialData?.principal || 0);
+
+    if (initialData && isPrincipalReduction(requestedPrincipal, currentPrincipal)) {
+      alert('O capital do contrato não pode ser reduzido por esta edição. Use as operações financeiras próprias para corrigir o saldo.');
+      return;
+    }
+
     const { isValid, error } = validateLoanForm(formData, sources, !!initialData);
 
     if (!isValid) {
@@ -225,12 +234,10 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         );
         loanPayload.skipWeekends = skipWeekends;
 
-        const requestedPrincipal = Number(formData.principal.replace(',', '.')) || 0;
-        const originalPrincipal = Number(initialData?.principal || 0);
-        const principalIncrease = !!initialData && requestedPrincipal > originalPrincipal + 0.005;
+        const principalIncrease = !!initialData && calculateAdditionalCapital(requestedPrincipal, currentPrincipal) > 0;
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
 
-        if (hasActiveAgreement && initialData && requestedPrincipal >= originalPrincipal - 0.005) {
+        if (hasActiveAgreement && initialData && requestedPrincipal >= currentPrincipal - 0.005) {
             loanPayload.principal = initialData.principal;
             loanPayload.billingCycle = initialData.billingCycle;
             loanPayload.startDate = initialData.startDate;

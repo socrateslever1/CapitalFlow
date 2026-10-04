@@ -11,6 +11,7 @@ import {
 import { isTestSource } from '../utils/testSource';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
+import { calculateAdditionalCapital } from '../domain/finance/capitalAdvance';
 
 /* =========================
    Helpers de Sanitização
@@ -156,13 +157,16 @@ export const contractsService = {
 
     const loanId = editingLoan ? loan.id : ensureUUID(loan.id);
     const requestedPrincipal = safeFloat(loan.principal);
+    const currentPrincipal = editingLoan
+      ? safeFloat(editingLoan.principal)
+      : requestedPrincipal;
     const originalPrincipal = editingLoan
       ? safeFloat(editingLoan.originalPrincipal || editingLoan.principal)
       : requestedPrincipal;
-    const additionalCapital = editingLoan && requestedPrincipal > originalPrincipal + 0.005
-      ? safeFloat(requestedPrincipal - originalPrincipal)
+    const additionalCapital = editingLoan
+      ? calculateAdditionalCapital(requestedPrincipal, currentPrincipal)
       : 0;
-    const principal = additionalCapital > 0 ? originalPrincipal : requestedPrincipal;
+    const principal = additionalCapital > 0 ? currentPrincipal : requestedPrincipal;
     const interestRate = safeFloat(loan.interestRate);
     const finePercent = safeFloat(loan.finePercent);
     const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
@@ -175,6 +179,9 @@ export const contractsService = {
     const multiSourceAllocations = fundingCheck?.ok && fundingCheck.allocations.length > 1
       ? fundingCheck.allocations
       : [];
+    if (multiSourceAllocations.length > 1) {
+      throw new Error('A composição por várias fontes permanece temporariamente indisponível até a validação completa dos recebimentos e estornos.');
+    }
 
     // ✅ contratos = owner_id
     const loanPayload: any = {
@@ -291,7 +298,8 @@ export const contractsService = {
         const aporteSourceId = safeUUID(loan.sourceId || editingLoan?.sourceId);
         const aporteInstallmentId = safeUUID(targetInstallment?.id);
         if (!aporteSourceId || !aporteInstallmentId) throw new Error('Não foi possível identificar a fonte ou a parcela do aporte.');
-        const stableRequest = getStableFinancialRequestKey(`capital-advance:${loanId}:${aporteInstallmentId}:${aporteSourceId}:${additionalCapital.toFixed(2)}:EDIT_CONTRACT`);
+        const requestKey = ['capital-advance', loanId, aporteInstallmentId, aporteSourceId, additionalCapital.toFixed(2), 'EDIT_CONTRACT'].join(':');
+        const stableRequest = getStableFinancialRequestKey(requestKey);
         const { error: aporteError } = await supabase.rpc('process_lend_more_atomic', {
           p_idempotency_key: stableRequest.idempotencyKey,
           p_loan_id: safeUUID(loanId),

@@ -203,9 +203,9 @@ export const mapFormToLoan = (
     debtorAddress: form.debtorAddress,
 
     sourceId: form.sourceId,
-    fundingAllocations: (form.fundingAllocations || []).map((allocation) => ({
+    fundingAllocations: (form.fundingAllocations || []).map((allocation, _, allocations) => ({
       sourceId: allocation.sourceId,
-      amount: parseCurrency(allocation.amount),
+      amount: allocations.length === 1 ? principal : parseCurrency(allocation.amount),
     })),
     preferredPaymentMethod: form.preferredPaymentMethod,
     pixKey: form.pixKey,

@@ -213,20 +213,29 @@ export const App: React.FC = () => {
     controllers;
 
   const [isPlatformSuperAdmin, setIsPlatformSuperAdmin] = useState(false);
+  const [isPlatformAccessChecked, setIsPlatformAccessChecked] = useState(false);
   useEffect(() => {
     let active = true;
+    setIsPlatformAccessChecked(false);
     if (!activeUser || activeUser.id === 'DEMO') {
       setIsPlatformSuperAdmin(false);
+      setIsPlatformAccessChecked(true);
       return () => { active = false; };
     }
     platformAdminService.isSuperAdmin()
-      .then((allowed) => { if (active) setIsPlatformSuperAdmin(allowed); })
-      .catch(() => { if (active) setIsPlatformSuperAdmin(false); });
+      .then((allowed) => { if (active) { setIsPlatformSuperAdmin(allowed); setIsPlatformAccessChecked(true); } })
+      .catch(() => { if (active) { setIsPlatformSuperAdmin(false); setIsPlatformAccessChecked(true); } });
     return () => { active = false; };
   }, [activeUser]);
 
+  useEffect(() => {
+    if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
+      handleSetActiveTab('DASHBOARD');
+    }
+  }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin]);
+
   const visibleHubOrder = isPlatformSuperAdmin
-    ? [...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]
+    ? Array.from(new Set([...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]))
     : hubOrder;
 
   const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {

@@ -15,7 +15,7 @@ Custo adicional: **R$ 0,00**
 | Controle de funcionalidades | PENDENTE | Tabelas, catálogo, função administrativa e controles visuais foram criados. Falta validação em banco. |
 | Modo suporte somente leitura | PENDENTE | Tabela, funções de início/fim e fluxo visual foram criados. Falta validação em banco e auditoria real. |
 | Contratos legados | PASS | Código atual preserva `contratos.source_id`; testes financeiros existentes passaram. |
-| Multi-fonte na criação | PENDENTE | Formulário, validação matemática e caminho de criação atômica foram adicionados. Falta aplicar a migration e validar o fluxo em banco local/staging antes de habilitar. |
+| Multi-fonte na criação | BLOQUEADO | O código-base permanece, mas a opção foi retirada da tela e o serviço falha fechado enquanto recebimento, estorno e ledger proporcional não estiverem concluídos e validados. |
 | Recebimento multi-fonte | PENDENTE | Distribuição proporcional determinística foi criada e testada isoladamente. Payment Engine V4 ainda não consome allocations. |
 | Estorno multi-fonte | PENDENTE | Falta persistir e reverter a distribuição original no Payment Engine V4. |
 | Ledger multi-fonte | PENDENTE | Falta gerar os lançamentos por fonte dentro da operação financeira autoritativa. |
@@ -57,7 +57,7 @@ Custo adicional: **R$ 0,00**
 - Build isolado: **PASS**
 - `git diff --check`: **PASS**
 - `test:db`: **BLOQUEADO** — Docker não está instalado/em execução. O teste abortou sem usar banco remoto.
-- `test:quality`: **FALHOU POR AMBIENTE** — a segunda build consecutiva encerrou o esbuild por falta de memória virtual do Windows; a build isolada anterior passou.
+- `test:quality`: **PASS** — build, testes financeiros, Skills, Tools, MCP, arquitetura, textos da interface e automação aprovados após a auditoria de regressões.
 
 ## Pendências das tarefas anteriores
 
@@ -74,6 +74,17 @@ Custo adicional: **R$ 0,00**
 - Nenhuma migration histórica foi apagada ou reescrita.
 - Nenhum contrato, parcela, pagamento, saldo ou ledger existente foi alterado.
 - A migration nova é aditiva, mas **não deve ser aplicada em produção antes da validação local/staging**.
+
+## Auditoria de regressões — 04/10/2026
+
+- **Corrigido:** contrato com uma única fonte não exige mais preenchimento manual do valor da fonte.
+- **Corrigido:** saldo insuficiente não bloqueia novo contrato; a fonte pode ficar negativa, mantendo o aviso de confirmação.
+- **Corrigido:** salvar novamente um contrato após novo aporte não duplica o aporte anterior; somente a diferença sobre o capital atual é registrada.
+- **Corrigido:** redução direta do capital pela edição foi bloqueada para preservar histórico financeiro.
+- **Corrigido:** cadastro de despesa pessoal agora exige e permite escolher a conta ou cartão utilizado.
+- **Corrigido:** troca de usuário não deixa aba exclusiva do proprietário aberta ou em branco.
+- **Corrigido:** painel administrativo carrega o estado real das funcionalidades antes de permitir alteração.
+- **Proteção aplicada:** multi-fonte permanece indisponível na interface enquanto os fluxos de recebimento, estorno e ledger ainda estiverem pendentes.
 
 ## Próximo bloqueio objetivo
 

@@ -11,7 +11,21 @@ export const PlatformAdminPage: React.FC = () => {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
 
-  useEffect(() => { platformAdminService.listProfiles().then(setProfiles).catch((reason) => setError(String(reason?.message || reason))); }, []);
+  useEffect(() => {
+    Promise.all([platformAdminService.listProfiles(), platformAdminService.listFeatureConfiguration()])
+      .then(([loadedProfiles, configuration]) => {
+        setProfiles(loadedProfiles);
+        const resolved: Record<string, boolean> = {};
+        for (const profile of loadedProfiles) {
+          for (const feature of featureLabels) {
+            const override = configuration.overrides.find((item) => item.profile_id === profile.id && item.feature_key === feature.key);
+            resolved[`${profile.id}:${feature.key}`] = override?.enabled ?? configuration.defaults[feature.key] ?? false;
+          }
+        }
+        setFeatureState(resolved);
+      })
+      .catch((reason) => setError(String(reason?.message || reason)));
+  }, []);
   const toggleFeature = async (profileId: string, featureKey: string) => { const key = `${profileId}:${featureKey}`; setBusy(key); try { await platformAdminService.setFeature(profileId, featureKey, !featureState[key]); setFeatureState((current) => ({ ...current, [key]: !current[key] })); } catch (reason: any) { setError(String(reason?.message || reason)); } finally { setBusy(''); } };
   const startSupport = async (profileId: string) => { setBusy(`support:${profileId}`); try { setSupportSession({ id: await platformAdminService.startReadOnlySupport(profileId) }); } catch (reason: any) { setError(String(reason?.message || reason)); } finally { setBusy(''); } };
   const endSupport = async () => { if (!supportSession) return; setBusy('support-end'); try { await platformAdminService.endReadOnlySupport(supportSession.id); setSupportSession(null); } catch (reason: any) { setError(String(reason?.message || reason)); } finally { setBusy(''); } };

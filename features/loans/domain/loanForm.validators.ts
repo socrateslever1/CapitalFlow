@@ -60,9 +60,10 @@ export const validateLoanForm = (
   }
 
   if (formData.fundingAllocations?.length) {
+    const singleSource = formData.fundingAllocations.length === 1;
     const allocationCheck = validateFundingAllocations(principal, formData.fundingAllocations.map((allocation) => ({
       sourceId: allocation.sourceId,
-      amount: Number(String(allocation.amount).replace(',', '.')),
+      amount: singleSource ? principal : Number(String(allocation.amount).replace(',', '.')),
     })));
     if ('error' in allocationCheck) return { isValid: false, error: allocationCheck.error };
     for (const allocation of allocationCheck.allocations) {

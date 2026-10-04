@@ -17,8 +17,11 @@ const hasValidPaymentOffer = (installment: Installment | any) =>
   && String(installment?.paymentOfferValidUntil || '').slice(0, 10) >= new Date().toISOString().slice(0, 10)
   && Number(installment?.paymentOfferAmount || 0) > ZERO_BALANCE_THRESHOLD;
 
+export const hasActiveLoanAgreement = (loan: Loan): boolean =>
+  !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(String(loan.activeAgreement.status).toUpperCase());
+
 export const getLoanNextDueDate = (loan: Loan): string => {
-  const hasActiveAgreement = !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
+  const hasActiveAgreement = hasActiveLoanAgreement(loan);
   const installments = (hasActiveAgreement && Array.isArray(loan.activeAgreement?.installments))
     ? loan.activeAgreement.installments
     : loan.installments;
@@ -41,15 +44,16 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
   }
 
   // Renegociacao.
-  const hasActiveAgreement =
-    !!loan.activeAgreement && ['ACTIVE', 'ATIVO'].includes(loan.activeAgreement.status);
+  const hasActiveAgreement = hasActiveLoanAgreement(loan);
 
   // Acordos ativos devem ser classificados pelo vencimento antes de RENEGOCIADO.
 
   // Verificacoes de quitacao.
   const hasPaidStatus = [LoanStatus.QUITADO, LoanStatus.PAGO, LoanStatus.PAID].includes(loan.status);
   const allInstallmentsPaid =
-    loan.installments.length > 0 && loan.installments.every((i) => isInstallmentPaid(i, loan.status));
+    !hasActiveAgreement
+    && loan.installments.length > 0
+    && loan.installments.every((i) => isInstallmentPaid(i, loan.status));
   const totalRemaining = loanEngine.computeRemainingBalance(loan).totalRemaining;
   const isZeroBalance = totalRemaining <= ZERO_BALANCE_THRESHOLD;
   const isAgreementFinalized =
@@ -75,7 +79,7 @@ export const resolveLoanVisualClassification = (loan: Loan): LoanVisualClassific
     return 'RENEGOCIADO';
   }
 
-  if (loan.status === LoanStatus.RENEGOCIADO || loan.status === LoanStatus.EM_ACORDO || hasActiveAgreement) {
+  if (hasActiveAgreement) {
     return 'RENEGOCIADO';
   }
 

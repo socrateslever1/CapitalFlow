@@ -38,7 +38,14 @@ Data da verificação: 2026-10-02
 - a FK `payment_transactions_operator_profile_id_fkey` continua apontando para `public.perfis(id)`;
 - a migração executou apenas DDL; nenhum pagamento, estorno ou atualização financeira foi registrado por ela.
 
-Exemplos cobertos pelo teste: em principal de 1.000, juros de 300 e atraso de 40, `CAPITAL_ONLY` e `TOTAL_CHARGES` com recebimento de 320 registram 320 no principal, zero em juros/atraso recebidos e os encargos como perdoados. Uma dispensa parcial de atraso de 20 registra 300 de juros, zero de atraso recebido, 20 de principal e 20 perdoados.
+Exemplos cobertos pelo teste: em principal de 1.000, juros de 300 e atraso de 40, `CAPITAL_ONLY` e `TOTAL_CHARGES` com recebimento de 320 registram 320 no principal, zero em juros/atraso recebidos e os encargos como perdoados. Uma dispensa parcial de atraso de 20, com recebimento de 320, registra 300 de juros recebidos, 20 de atraso recebidos, zero de principal recebido e 20 perdoados.
+
+### Modos de perdão mantidos por compatibilidade
+
+- `NONE`: não perdoa encargos.
+- `FINE_ONLY`, `MORA_ONLY` e `FINE_AND_MORA`: usam o valor de atraso informado para reduzir o encargo antes da distribuição do recebimento.
+- `TOTAL_CHARGES` e `CAPITAL_ONLY`: perdoam juros e atraso; o valor recebido é direcionado ao principal.
+- `INTEREST_ONLY` e `BOTH`: são nomes legados aceitos pelo contrato atual e preservam o mesmo tratamento de dispensa parcial de atraso; não perdoam juros automaticamente. Qualquer mudança desse significado exige decisão de negócio e migração compatível.
 
 ## Estado observado no Supabase remoto
 

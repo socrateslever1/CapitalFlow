@@ -1,6 +1,6 @@
 import { Loan, SortOption, LoanStatusFilter } from '../../types';
 import { onlyDigits } from '../../utils/formatters';
-import { resolveLoanVisualClassification, getLoanNextDueDate } from '../../utils/loanFilterResolver';
+import { resolveLoanVisualClassification, getLoanNextDueDate, hasActiveLoanAgreement } from '../../utils/loanFilterResolver';
 
 // HELPER DE ORDENAÇÃO
 const sortLoans = (loans: Loan[], sortOption: SortOption): Loan[] => {
@@ -92,7 +92,7 @@ export const filterLoans = (
         return classification === 'QUITADO';
       
       case 'RENEGOCIADO':
-        return classification === 'RENEGOCIADO';
+        return classification === 'RENEGOCIADO' || hasActiveLoanAgreement(loan);
 
       case 'ARQUIVADOS':
         return classification === 'ARQUIVADO';

@@ -5,7 +5,8 @@ import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { PlusCircle, ChevronDown } from 'lucide-react';
 import { Loan, UserProfile, CapitalSource, Installment } from '../../types';
 import { contractsService } from '../../services/contracts.service';
-import { formatMoney, cleanNumberStr } from '../../utils/formatters';
+import { formatMoney, cleanNumberStr, parseCurrency } from '../../utils/formatters';
+import { canReceiveCapitalAdvance } from '../../domain/finance/capitalAdvance';
 
 type Props = {
   open: boolean;
@@ -42,7 +43,7 @@ export const NewAporteModal: React.FC<Props> = ({
         Number(i.principalRemaining ?? i.principal_remaining ?? 0) +
         Number(i.interestRemaining ?? i.interest_remaining ?? 0) +
         Number(i.lateFeeAccrued ?? i.late_fee_accrued ?? 0);
-      return status !== 'PAID' || open > 0.5;
+      return canReceiveCapitalAdvance(status, open);
     });
   }, [installments]);
 
@@ -61,8 +62,7 @@ export const NewAporteModal: React.FC<Props> = ({
   const parsedAmount = useMemo(() => {
     const raw = amount.trim();
     if (!raw) return 0;
-    const normalized = raw.replace(/\./g, '').replace(',', '.');
-    const val = Number(normalized);
+    const val = parseCurrency(raw);
     return Number.isFinite(val) ? val : 0;
   }, [amount]);
   const selectedSource = useMemo(() => sources.find((source) => source.id === sourceId), [sourceId, sources]);

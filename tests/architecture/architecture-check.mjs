@@ -306,6 +306,9 @@ if (loanFinancialSection.includes('readOnly={!!isEditing}')) {
 if (!loanFormHook.includes('isPrincipalReduction(requestedPrincipal, currentPrincipal)')) {
   failures.push('useLoanForm.ts -> redução direta do principal não está bloqueada');
 }
+if (!contractsService.includes('validateFundingAllocations(requestedPrincipal, loan.fundingAllocations)')) {
+  failures.push('contracts.service.ts -> edição com aporte deve validar a distribuição pelo capital solicitado, não pelo saldo anterior');
+}
 for (const required of ['calculateAdditionalCapital(requestedPrincipal, currentPrincipal)', 'EDIT_CONTRACT', "rpc('process_lend_more_atomic'"]) {
   if (!contractsService.includes(required) && !loanFormHook.includes(required)) {
     failures.push(`edição de capital -> integração obrigatória ausente: ${required}`);

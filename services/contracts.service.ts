@@ -11,7 +11,7 @@ import {
 import { isTestSource } from '../utils/testSource';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
-import { calculateAdditionalCapital } from '../domain/finance/capitalAdvance';
+import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
 
 /* =========================
    Helpers de Sanitização
@@ -173,7 +173,7 @@ export const contractsService = {
     const selectedSource = _sources.find((source) => source.id === loan.sourceId);
     const isTestWalletLoan = isTestSource(selectedSource);
     const fundingCheck = loan.fundingAllocations?.length
-      ? validateFundingAllocations(principal, loan.fundingAllocations)
+      ? validateFundingAllocations(requestedPrincipal, loan.fundingAllocations)
       : null;
     if (fundingCheck && 'error' in fundingCheck) throw new Error(fundingCheck.error);
     const multiSourceAllocations = fundingCheck?.ok && fundingCheck.allocations.length > 1
@@ -293,8 +293,8 @@ export const contractsService = {
           const balance = Number(installment.principalRemaining ?? installment.principal_remaining ?? 0)
             + Number(installment.interestRemaining ?? installment.interest_remaining ?? 0)
             + Number(installment.lateFeeAccrued ?? installment.late_fee_accrued ?? 0);
-          return !['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'CANCELADO', 'RENEGOCIADO'].includes(status) && balance > 0.005;
-        }) || editingLoan?.installments?.[0];
+          return canReceiveCapitalAdvance(status, balance);
+        });
         const aporteSourceId = safeUUID(loan.sourceId || editingLoan?.sourceId);
         const aporteInstallmentId = safeUUID(targetInstallment?.id);
         if (!aporteSourceId || !aporteInstallmentId) throw new Error('Não foi possível identificar a fonte ou a parcela do aporte.');

@@ -10,7 +10,7 @@ Custo adicional: **R$ 0,00**
 | Item | Estado | Evidência / pendência |
 |---|---|---|
 | Super Admin exclusivo | PENDENTE | Migration, funções protegidas, serviço e tela criados. A migration ainda não foi aplicada no Supabase remoto. |
-| Minha Carteira | CÓDIGO COMPLETO | Contas, PIX, cartões, despesas, parcelamento, faturas, pagamento e indicadores foram implementados. Falta aplicar e validar a migration em banco local/staging. |
+| Minha Carteira | NÃO OPERACIONAL | Contas, PIX, cartões, despesas, parcelamento, faturas, pagamento e indicadores existem no código. As tabelas necessárias não existem no banco remoto; falta aplicar e validar a migration em ambiente isolado antes da liberação. |
 | Isolamento da carteira | PENDENTE DE BANCO | RLS exige simultaneamente `auth.uid()` proprietário e SUPER_ADMIN. A validação transacional aguarda Docker local. |
 | Controle de funcionalidades | PENDENTE | Tabelas, catálogo, função administrativa e controles visuais foram criados. Falta validação em banco. |
 | Modo suporte somente leitura | PENDENTE | Tabela, funções de início/fim e fluxo visual foram criados. Falta validação em banco e auditoria real. |
@@ -83,7 +83,8 @@ Custo adicional: **R$ 0,00**
 - **Corrigido:** contrato com uma única fonte não exige mais preenchimento manual do valor da fonte.
 - **Corrigido:** saldo insuficiente não bloqueia novo contrato; a fonte pode ficar negativa, mantendo o aviso de confirmação.
 - **Corrigido:** o principal pode ser aumentado na edição do contrato; somente a diferença é registrada como novo aporte pela operação financeira autoritativa.
-- **Protegido:** redução direta do principal permanece bloqueada, contratos com acordo ativo não aceitam aumento e salvar novamente não duplica o aporte.
+- **Pendente:** redução direta do principal permanece bloqueada, contrariando o pedido posterior de corrigir um valor menor sem perder o valor inicial. Não pode ser liberada por atualização direta: faltam operação atômica, lançamento reverso na fonte e reconciliação de parcela/ledger.
+- **Protegido:** contratos com acordo ativo não aceitam aumento e salvar novamente não duplica o aporte no fluxo normal.
 - **Criado:** migration aditiva que permite o saldo da fonte ficar negativo durante novo aporte, preservando lock, idempotência, ledger e estorno.
 - **Corrigido:** cadastro de despesa pessoal agora exige e permite escolher a conta ou cartão utilizado.
 - **Concluído no código:** carteira pessoal controla contas, PIX, cartões, despesas, parcelas, faturas e pagamento de fatura com atualização atômica de saldo e limite.
@@ -93,6 +94,18 @@ Custo adicional: **R$ 0,00**
 - **Corrigido:** painel administrativo carrega o estado real das funcionalidades antes de permitir alteração.
 - **Proteção aplicada:** multi-fonte permanece indisponível na interface enquanto os fluxos de recebimento, estorno e ledger ainda estiverem pendentes.
 - **Pendente de banco:** aplicar e validar `20261004211030_allow_negative_source_balance_for_capital_advances.sql` e `20261005205751_finalize_personal_wallet_operations.sql` em ambiente local/staging; produção não foi alterada.
+
+## Revisão do erro de edição — 05/10/2026
+
+- **Corrigido no código:** ao editar R$ 400 para R$ 600 em fonte única, a distribuição é validada contra R$ 600, enquanto somente R$ 200 seguem para a RPC de aporte. Antes, o serviço comparava a distribuição de R$ 600 com o capital anterior de R$ 400 e impedia o salvamento.
+- **Corrigido na tela:** o campo editável agora é identificado como capital atual, não principal original. Falhas ao salvar mostram mensagem compreensível, sem expor detalhes do banco.
+- **Corrigido no aporte:** valores com ponto decimal não são mais multiplicados por cem; parcelas encerradas deixam de ser oferecidas como destino do aporte.
+- **Validado localmente:** testes financeiros, teste de arquitetura, TypeScript e `git diff --check` passaram. Não houve teste de operação real em banco nem validação visual publicada.
+- **`test:db`:** idempotência, concorrência e rollback em memória passaram; a etapa com PostgreSQL local foi bloqueada porque Docker não está disponível. Nenhum teste apontou para produção.
+- **Não resolvido:** a migration que permite saldo negativo na fonte durante aporte não está aplicada no projeto remoto. A migration que adiciona `original_principal` também não; logo, a preservação explícita do valor inicial no banco ainda não está disponível.
+- **Não resolvido:** o aumento do capital pela RPC mantém a data de vencimento, mas soma apenas o aporte ao principal e ao valor da parcela; ela não recalcula juros proporcionais ao aporte. O valor previsto no formulário pode, portanto, divergir do valor persistido. Isso exige regra financeira explícita e teste em banco antes de alterar o motor.
+- **Não resolvido:** redução do capital com preservação do histórico; criação multi-fonte; recebimento parcial com novo vencimento como padrão; validação transacional da carteira pessoal/Admin; testes de banco, concorrência e reconciliação. Nenhuma dessas funções deve ser descrita como pronta.
+- **Sem publicação:** as alterações desta revisão existem apenas no repositório local até passarem por publicação. Nenhum dado financeiro real ou migration remota foi alterado nesta revisão.
 
 ## Próximo bloqueio objetivo
 

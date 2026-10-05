@@ -138,9 +138,9 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
-            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Principal original' : 'Principal'}</label>
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Capital atual' : 'Principal'}</label>
             <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
-            {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o principal, somente a diferença será registrada como novo aporte na parcela atual. O valor não pode ser reduzido por aqui.</p>}
+            {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{formData.billingCycle === 'MONTHLY' ? 'Juros (%) Mensal' : 'Taxa (%) Mensal'}</label>

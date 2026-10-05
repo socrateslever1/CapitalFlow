@@ -8,3 +8,7 @@ export const calculateAdditionalCapital = (requestedPrincipal: number, currentPr
 
 export const isPrincipalReduction = (requestedPrincipal: number, currentPrincipal: number): boolean =>
   money(requestedPrincipal) < money(currentPrincipal) - 0.005;
+
+export const canReceiveCapitalAdvance = (status: string, openBalance: number): boolean =>
+  !['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'CANCELADO', 'RENEGOCIADO'].includes(String(status || '').toUpperCase())
+  && Number(openBalance) > 0.005;

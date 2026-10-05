@@ -115,7 +115,10 @@ export const useLoanController = (
   };
 
   const handleSaveLoan = async (loan: Loan) => {
-    if (!activeUser) return;
+    if (!activeUser) {
+      showToast('Entre novamente para salvar o contrato.', 'error');
+      return;
+    }
 
     if (activeUser.id === 'DEMO') {
       demoService.handleSaveLoan(loan, ui.editingLoan, sources, setSources, loans, setLoans, showToast);
@@ -141,7 +144,8 @@ export const useLoanController = (
       ui.setEditingLoan(null);
       await fetchFullData(ownerId);
     } catch (e: any) {
-      showToast(e?.message || 'Erro desconhecido ao salvar', 'error');
+      console.error('Erro ao salvar contrato:', e);
+      showToast('Não foi possível salvar o contrato. Confira os dados e tente novamente.', 'error');
     }
   };
 

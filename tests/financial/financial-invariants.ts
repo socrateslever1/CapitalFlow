@@ -12,7 +12,9 @@ import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
-import { calculateAdditionalCapital, isPrincipalReduction } from '../../domain/finance/capitalAdvance';
+import { calculateAdditionalCapital, isPrincipalReduction, canReceiveCapitalAdvance } from '../../domain/finance/capitalAdvance';
+import { validateFundingAllocations } from '../../domain/finance/fundingAllocations';
+import { parseCurrency } from '../../utils/formatters';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -34,6 +36,28 @@ run('novo aporte considera somente o aumento sobre o capital atual', () => {
   assertMoney(calculateAdditionalCapital(1200, 1200), 0, 'salvar novamente não duplica aporte');
   assertMoney(calculateAdditionalCapital(1300, 1200), 100, 'novo aumento usa somente a diferença');
   assert.equal(isPrincipalReduction(1199.99, 1200), true);
+});
+
+run('editar capital de 400 para 600 valida a fonte pelo valor solicitado e aporta somente 200', () => {
+  const previousPrincipal = 400;
+  const requestedPrincipal = 600;
+  const allocation = [{ sourceId: 'fonte-a', amount: requestedPrincipal }];
+  assert.equal(validateFundingAllocations(requestedPrincipal, allocation).ok, true);
+  assert.equal(validateFundingAllocations(previousPrincipal, allocation).ok, false);
+  assertMoney(calculateAdditionalCapital(requestedPrincipal, previousPrincipal), 200, 'aporte devido');
+});
+
+run('valor de aporte aceita decimais com ponto ou vírgula sem multiplicar por cem', () => {
+  assertMoney(parseCurrency('200.50'), 200.50, 'decimal com ponto');
+  assertMoney(parseCurrency('200,50'), 200.50, 'decimal com vírgula');
+  assertMoney(parseCurrency('1.200,50'), 1200.50, 'milhar brasileiro');
+});
+
+run('aporte só pode escolher parcela aberta com capital ou encargos em aberto', () => {
+  assert.equal(canReceiveCapitalAdvance('PENDING', 200), true);
+  assert.equal(canReceiveCapitalAdvance('PAID', 200), false);
+  assert.equal(canReceiveCapitalAdvance('RENEGOCIADO', 200), false);
+  assert.equal(canReceiveCapitalAdvance('PENDING', 0), false);
 });
 
 run('pagamento parcial prioriza juros sem amortizar principal', () => {

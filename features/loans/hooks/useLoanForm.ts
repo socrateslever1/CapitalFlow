@@ -12,7 +12,7 @@ import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateH
 import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
 
 interface UseLoanFormProps {
-  onAdd: (loan: Loan) => void;
+  onAdd: (loan: Loan) => void | Promise<void>;
   onCancel: () => void;
   initialData?: Loan | null;
   clients: Client[];
@@ -266,7 +266,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         await onAdd(loanPayload);
     } catch (err: any) {
         console.error("Erro interno no formulário:", err);
-        alert("Ocorreu um erro ao processar o contrato. Verifique o console.");
+        alert('Não foi possível preparar o contrato. Confira os dados e tente novamente.');
     } finally {
         setIsSubmitting(false);
     }

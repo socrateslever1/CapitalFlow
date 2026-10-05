@@ -198,6 +198,9 @@ const paymentEngineMigration = read('supabase', 'migrations', '20260929042054_pa
 const capitalAdvanceMigration = read('supabase', 'migrations', '20260929042059_harden_capital_advances.sql');
 const negativeCapitalAdvanceMigration = read('supabase', 'migrations', '20261004211030_allow_negative_source_balance_for_capital_advances.sql');
 const contractsService = read('services', 'contracts.service.ts');
+const loanFinancialSection = read('components', 'forms', 'LoanFormFinancialSection.tsx');
+const loanFormHook = read('features', 'loans', 'hooks', 'useLoanForm.ts');
+const capitalAdvance = read('domain', 'finance', 'capitalAdvance.ts');
 const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_ai_skills_read_models.sql');
 const sourceController = read('hooks', 'controllers', 'useSourceController.ts');
 const profitWithdrawalMigration = read('supabase', 'migrations', '20260929224507_harden_profit_withdrawals_v2.sql');
@@ -294,8 +297,19 @@ for (const required of ['create or replace function public.process_lend_more_ato
 if (negativeCapitalAdvanceMigration.toLowerCase().includes('saldo insuficiente na fonte de capital')) {
   failures.push('aporte com fonte negativa -> migration corretiva ainda bloqueia saldo negativo');
 }
-if (contractsService.includes('EDIT_CONTRACT')) {
-  failures.push('contracts.service.ts -> edição de contrato não pode criar aporte oculto');
+for (const required of ['calculateAdditionalCapital', 'isPrincipalReduction']) {
+  if (!capitalAdvance.includes(required)) failures.push(`edição de capital -> regra obrigatória ausente: ${required}`);
+}
+if (loanFinancialSection.includes('readOnly={!!isEditing}')) {
+  failures.push('LoanFormFinancialSection.tsx -> principal deve permitir aumento durante a edição');
+}
+if (!loanFormHook.includes('isPrincipalReduction(requestedPrincipal, currentPrincipal)')) {
+  failures.push('useLoanForm.ts -> redução direta do principal não está bloqueada');
+}
+for (const required of ['calculateAdditionalCapital(requestedPrincipal, currentPrincipal)', 'EDIT_CONTRACT', "rpc('process_lend_more_atomic'"]) {
+  if (!contractsService.includes(required) && !loanFormHook.includes(required)) {
+    failures.push(`edição de capital -> integração obrigatória ausente: ${required}`);
+  }
 }
 if (/update\s+public\.payment_transactions/i.test(paymentOperatorProfileMigration)) {
   failures.push('migration de operador do recebimento -> histórico financeiro não pode ser reescrito automaticamente');

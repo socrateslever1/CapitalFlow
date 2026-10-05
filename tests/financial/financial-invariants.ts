@@ -12,6 +12,7 @@ import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
+import { calculateAdditionalCapital, isPrincipalReduction } from '../../domain/finance/capitalAdvance';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -27,6 +28,13 @@ const run = (name: string, fn: () => void) => {
     throw error;
   }
 };
+
+run('novo aporte considera somente o aumento sobre o capital atual', () => {
+  assertMoney(calculateAdditionalCapital(1200, 1000), 200, 'primeiro aporte');
+  assertMoney(calculateAdditionalCapital(1200, 1200), 0, 'salvar novamente não duplica aporte');
+  assertMoney(calculateAdditionalCapital(1300, 1200), 100, 'novo aumento usa somente a diferença');
+  assert.equal(isPrincipalReduction(1199.99, 1200), true);
+});
 
 run('pagamento parcial prioriza juros sem amortizar principal', () => {
   const result = allocatePaymentFromBuckets({

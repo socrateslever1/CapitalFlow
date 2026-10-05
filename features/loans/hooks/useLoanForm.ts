@@ -9,6 +9,7 @@ import { isTestSource } from '../../../utils/testSource';
 import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
 import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
+import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
 
 interface UseLoanFormProps {
   onAdd: (loan: Loan) => void;
@@ -196,6 +197,14 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const requestedPrincipal = Number(formData.principal.replace(',', '.')) || 0;
+    const currentPrincipal = Number(initialData?.principal || 0);
+
+    if (initialData && isPrincipalReduction(requestedPrincipal, currentPrincipal)) {
+      alert('O capital do contrato não pode ser reduzido por esta edição. Use as operações financeiras próprias para corrigir o saldo.');
+      return;
+    }
+
     const { isValid, error } = validateLoanForm(formData, sources, !!initialData);
 
     if (!isValid) {
@@ -225,14 +234,24 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         );
         loanPayload.skipWeekends = skipWeekends;
 
+        const principalIncrease = !!initialData && calculateAdditionalCapital(requestedPrincipal, currentPrincipal) > 0;
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
 
-        if (hasActiveAgreement && initialData) {
+        if (hasActiveAgreement && principalIncrease) {
+            alert('Não é possível aumentar o capital enquanto o contrato possui um acordo ativo.');
+            return;
+        }
+
+        if (hasActiveAgreement && initialData && requestedPrincipal >= currentPrincipal - 0.005) {
             loanPayload.principal = initialData.principal;
             loanPayload.billingCycle = initialData.billingCycle;
             loanPayload.startDate = initialData.startDate;
             loanPayload.totalToReceive = initialData.totalToReceive;
             loanPayload.installments = [];
+        } else if (principalIncrease && initialData) {
+            loanPayload.principal = requestedPrincipal;
+            loanPayload.totalToReceive = initialData.totalToReceive;
+            loanPayload.installments = initialData.installments;
         } else if (loanPayload.installments?.length && manualFirstDueDate) {
             if (formData.billingCycle === 'INSTALLMENT_FIXED') {
                 loanPayload.installments = loanPayload.installments.map((inst, index) => ({

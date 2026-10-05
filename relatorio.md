@@ -82,8 +82,8 @@ Custo adicional: **R$ 0,00**
 
 - **Corrigido:** contrato com uma única fonte não exige mais preenchimento manual do valor da fonte.
 - **Corrigido:** saldo insuficiente não bloqueia novo contrato; a fonte pode ficar negativa, mantendo o aviso de confirmação.
-- **Corrigido:** aporte possui um único fluxo visível, pela ação `Novo Aporte`; editar o contrato não cria movimentação financeira oculta.
-- **Corrigido:** o capital permanece protegido na edição comum e é atualizado automaticamente pela operação de aporte.
+- **Corrigido:** o principal pode ser aumentado na edição do contrato; somente a diferença é registrada como novo aporte pela operação financeira autoritativa.
+- **Protegido:** redução direta do principal permanece bloqueada, contratos com acordo ativo não aceitam aumento e salvar novamente não duplica o aporte.
 - **Criado:** migration aditiva que permite o saldo da fonte ficar negativo durante novo aporte, preservando lock, idempotência, ledger e estorno.
 - **Corrigido:** cadastro de despesa pessoal agora exige e permite escolher a conta ou cartão utilizado.
 - **Concluído no código:** carteira pessoal controla contas, PIX, cartões, despesas, parcelas, faturas e pagamento de fatura com atualização atômica de saldo e limite.

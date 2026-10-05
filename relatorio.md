@@ -24,6 +24,7 @@ Custo adicional: **R$ 0,00**
 ## Arquivos criados
 
 - `supabase/migrations/20261004120000_platform_admin_personal_wallet_and_funding_allocations.sql`
+- `supabase/migrations/20261004211030_allow_negative_source_balance_for_capital_advances.sql`
 - `domain/finance/fundingAllocations.ts`
 - `domain/finance/fundingAllocations.test.ts`
 - `services/platformAdmin.service.ts`
@@ -79,12 +80,14 @@ Custo adicional: **R$ 0,00**
 
 - **Corrigido:** contrato com uma única fonte não exige mais preenchimento manual do valor da fonte.
 - **Corrigido:** saldo insuficiente não bloqueia novo contrato; a fonte pode ficar negativa, mantendo o aviso de confirmação.
-- **Corrigido:** salvar novamente um contrato após novo aporte não duplica o aporte anterior; somente a diferença sobre o capital atual é registrada.
-- **Corrigido:** redução direta do capital pela edição foi bloqueada para preservar histórico financeiro.
+- **Corrigido:** aporte possui um único fluxo visível, pela ação `Novo Aporte`; editar o contrato não cria movimentação financeira oculta.
+- **Corrigido:** o capital permanece protegido na edição comum e é atualizado automaticamente pela operação de aporte.
+- **Criado:** migration aditiva que permite o saldo da fonte ficar negativo durante novo aporte, preservando lock, idempotência, ledger e estorno.
 - **Corrigido:** cadastro de despesa pessoal agora exige e permite escolher a conta ou cartão utilizado.
 - **Corrigido:** troca de usuário não deixa aba exclusiva do proprietário aberta ou em branco.
 - **Corrigido:** painel administrativo carrega o estado real das funcionalidades antes de permitir alteração.
 - **Proteção aplicada:** multi-fonte permanece indisponível na interface enquanto os fluxos de recebimento, estorno e ledger ainda estiverem pendentes.
+- **Pendente de banco:** aplicar e validar `20261004211030_allow_negative_source_balance_for_capital_advances.sql` em ambiente local/staging; produção não foi alterada.
 
 ## Próximo bloqueio objetivo
 

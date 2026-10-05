@@ -31,7 +31,7 @@ export const NewAporteModal: React.FC<Props> = ({
   const [amount, setAmount] = useState<string>('');
   const [sourceId, setSourceId] = useState<string>(loan.sourceId || '');
   const [installmentId, setInstallmentId] = useState<string>('');
-  const [notes, setNotes] = useState<string>('Renovação - novo aporte');
+  const [notes, setNotes] = useState<string>('Novo aporte');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string>('');
 
@@ -65,6 +65,8 @@ export const NewAporteModal: React.FC<Props> = ({
     const val = Number(normalized);
     return Number.isFinite(val) ? val : 0;
   }, [amount]);
+  const selectedSource = useMemo(() => sources.find((source) => source.id === sourceId), [sourceId, sources]);
+  const projectedSourceBalance = Number(selectedSource?.balance || 0) - parsedAmount;
 
   if (!open) return null;
 
@@ -107,8 +109,8 @@ export const NewAporteModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal onClose={onClose} title="Novo Aporte (Renovação)" icon={<PlusCircle size={22} />} size="md"
-      subtitle="Isso aumenta a dívida do contrato e aplica na parcela pendente (sem recalcular parcelas)." busy={loading}
+    <Modal onClose={onClose} title="Novo Aporte" icon={<PlusCircle size={22} />} size="md"
+      subtitle="Aumenta o capital do contrato e o saldo da parcela escolhida. Não depende da modalidade do contrato." busy={loading}
       footer={<button type="button" onClick={handleConfirm} disabled={loading} className={modalPrimaryActionClass}>{loading ? 'Aplicando...' : 'Confirmar Aporte'}</button>}>
       <div className="space-y-4">
           {/* Valor */}
@@ -121,7 +123,7 @@ export const NewAporteModal: React.FC<Props> = ({
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-blue-500 transition-colors"
             />
             <p className="text-[10px] text-slate-500 mt-2">
-              Prévia: <span className="text-slate-300 font-bold">{formatMoney(parsedAmount, isStealthMode)}</span>
+              Novo capital adicionado: <span className="text-slate-300 font-bold">{formatMoney(parsedAmount, isStealthMode)}</span>
             </p>
           </div>
 
@@ -143,6 +145,7 @@ export const NewAporteModal: React.FC<Props> = ({
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-hover:text-blue-500 transition-colors" size={16}/>
             </div>
+            {selectedSource && parsedAmount > 0 && <p className={`mt-2 text-[10px] font-bold ${projectedSourceBalance < 0 ? 'text-amber-300' : 'text-slate-500'}`}>Saldo da fonte após o aporte: {formatMoney(projectedSourceBalance, isStealthMode)}{projectedSourceBalance < 0 ? ' — ficará negativo' : ''}</p>}
           </div>
 
           {/* Parcela alvo (opcional) */}
@@ -169,7 +172,7 @@ export const NewAporteModal: React.FC<Props> = ({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-hover:text-blue-500 transition-colors" size={16}/>
             </div>
             <p className="text-[10px] text-slate-500 mt-2">
-              Se deixar automático, vai na próxima parcela PENDING.
+              Se deixar automático, o aporte será incluído na próxima parcela em aberto.
             </p>
           </div>
 

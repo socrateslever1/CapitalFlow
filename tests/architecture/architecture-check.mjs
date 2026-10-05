@@ -196,6 +196,7 @@ const paymentManagerModal = read('components', 'modals', 'PaymentManagerModal.ts
 const ledgerReverse = read('services', 'ledger', 'ledgerReverse.ts');
 const paymentEngineMigration = read('supabase', 'migrations', '20260929042054_payment_engine_v4.sql');
 const capitalAdvanceMigration = read('supabase', 'migrations', '20260929042059_harden_capital_advances.sql');
+const negativeCapitalAdvanceMigration = read('supabase', 'migrations', '20261004211030_allow_negative_source_balance_for_capital_advances.sql');
 const contractsService = read('services', 'contracts.service.ts');
 const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_ai_skills_read_models.sql');
 const sourceController = read('hooks', 'controllers', 'useSourceController.ts');
@@ -250,6 +251,18 @@ for (const required of [
   if (!paymentOperatorProfileMigration.toLowerCase().includes(required.toLowerCase())) {
     failures.push(`migration de operador do recebimento -> garantia ausente: ${required}`);
   }
+}
+
+for (const required of ['create or replace function public.process_lend_more_atomic', 'for update', 'update public.fontes', 'insert into public.transacoes']) {
+  if (!negativeCapitalAdvanceMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`aporte com fonte negativa -> garantia obrigatória ausente: ${required}`);
+  }
+}
+if (negativeCapitalAdvanceMigration.toLowerCase().includes('saldo insuficiente na fonte de capital')) {
+  failures.push('aporte com fonte negativa -> migration corretiva ainda bloqueia saldo negativo');
+}
+if (contractsService.includes('EDIT_CONTRACT')) {
+  failures.push('contracts.service.ts -> edição de contrato não pode criar aporte oculto');
 }
 if (/update\s+public\.payment_transactions/i.test(paymentOperatorProfileMigration)) {
   failures.push('migration de operador do recebimento -> histórico financeiro não pode ser reescrito automaticamente');

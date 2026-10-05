@@ -67,6 +67,42 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     }
   }
 
+  private isChunkLoadError() {
+    return /failed to fetch dynamically imported module|importing a module script failed|loading chunk/i.test(this.state.message);
+  }
+
+  private async recoverFromChunkLoadError() {
+    const recoveryKey = 'capitalflow-chunk-recovery-v1';
+    if (sessionStorage.getItem(recoveryKey) === 'done') {
+      location.reload();
+      return;
+    }
+
+    sessionStorage.setItem(recoveryKey, 'done');
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+    } finally {
+      const url = new URL(location.href);
+      url.searchParams.set('__asset_recovery', Date.now().toString());
+      location.replace(url.toString());
+    }
+  }
+
+  private handleRetry = () => {
+    if (this.isChunkLoadError()) {
+      void this.recoverFromChunkLoadError();
+      return;
+    }
+    this.setState({ hasError: false, message: '' });
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -158,7 +194,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
                   fontSize: 13,
                   transition: 'all 0.2s'
                 }}
-                onClick={() => this.setState({ hasError: false, message: '' })}
+                onClick={this.handleRetry}
               >
                 Tentar Novamente
               </button>

@@ -208,6 +208,39 @@ const financialTools = read('ai', 'tools', 'financial', 'tools.ts');
 const toolRegistry = read('ai', 'tools', 'core', 'registry.ts');
 const mcpAdapter = read('ai', 'mcp', 'adapter.ts');
 const mcpServer = read('ai', 'mcp', 'server.ts');
+const personalWalletMigration = read('supabase', 'migrations', '20261005205751_finalize_personal_wallet_operations.sql');
+const personalWalletService = read('services', 'personalWallet.service.ts');
+const personalWalletPage = read('pages', 'PersonalWalletPage.tsx');
+const bottomNav = read('layout', 'BottomNav.tsx');
+const app = read('App.tsx');
+
+for (const required of [
+  'personal_wallet_create_expense',
+  'personal_wallet_set_expense_status',
+  'personal_wallet_pay_invoice',
+  'for update',
+  'public.is_platform_super_admin()',
+  'owner_user_id = (select auth.uid())',
+]) {
+  if (!personalWalletMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`Minha Carteira -> garantia obrigatÃ³ria ausente: ${required}`);
+  }
+}
+if (/from\(['"]personal_wallet_expenses['"]\)\.insert/.test(personalWalletService)) {
+  failures.push('personalWallet.service.ts -> despesa pessoal nÃ£o pode ignorar a operaÃ§Ã£o atÃ´mica');
+}
+for (const required of ['personal_wallet_create_expense', 'personal_wallet_set_expense_status', 'personal_wallet_pay_invoice']) {
+  if (!personalWalletService.includes(required)) failures.push(`personalWallet.service.ts -> RPC ausente: ${required}`);
+}
+for (const required of ['invoiceAccounts', 'Pagar fatura', 'Despesas recentes']) {
+  if (!personalWalletPage.includes(required)) failures.push(`PersonalWalletPage.tsx -> seÃ§Ã£o obrigatÃ³ria ausente: ${required}`);
+}
+if (!bottomNav.includes("navOrder.includes('MY_WALLET')")) {
+  failures.push('BottomNav.tsx -> Minha Carteira nÃ£o estÃ¡ condicionada ao acesso de superadministrador');
+}
+if (!app.includes('navOrder={visibleHubOrder}')) {
+  failures.push('App.tsx -> acesso exclusivo da carteira nÃ£o foi propagado ao menu responsivo');
+}
 
 for (const forbidden of [
   'applyPaymentDirectFallback',

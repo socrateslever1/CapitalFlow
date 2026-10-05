@@ -1,6 +1,6 @@
 # Relatório de execução — CapitalFlow
 
-Data: 04/10/2026  
+Data: 05/10/2026
 HEAD inicial: `b91bf468acbb0a6ffaa66099ae72a078df76f3e4`  
 Dados financeiros reais alterados: **NÃO**  
 Custo adicional: **R$ 0,00**
@@ -10,8 +10,8 @@ Custo adicional: **R$ 0,00**
 | Item | Estado | Evidência / pendência |
 |---|---|---|
 | Super Admin exclusivo | PENDENTE | Migration, funções protegidas, serviço e tela criados. A migration ainda não foi aplicada no Supabase remoto. |
-| Minha Carteira | PENDENTE | Estrutura isolada por `auth.uid()` e tela inicial com cadastro básico de contas, cartões e despesas criada. Faturas, parcelas e validação em banco ainda faltam. |
-| Isolamento da carteira | PENDENTE | Políticas RLS foram escritas na migration, mas não foram executadas nem testadas em banco local/remoto. |
+| Minha Carteira | CÓDIGO COMPLETO | Contas, PIX, cartões, despesas, parcelamento, faturas, pagamento e indicadores foram implementados. Falta aplicar e validar a migration em banco local/staging. |
+| Isolamento da carteira | PENDENTE DE BANCO | RLS exige simultaneamente `auth.uid()` proprietário e SUPER_ADMIN. A validação transacional aguarda Docker local. |
 | Controle de funcionalidades | PENDENTE | Tabelas, catálogo, função administrativa e controles visuais foram criados. Falta validação em banco. |
 | Modo suporte somente leitura | PENDENTE | Tabela, funções de início/fim e fluxo visual foram criados. Falta validação em banco e auditoria real. |
 | Contratos legados | PASS | Código atual preserva `contratos.source_id`; testes financeiros existentes passaram. |
@@ -25,6 +25,7 @@ Custo adicional: **R$ 0,00**
 
 - `supabase/migrations/20261004120000_platform_admin_personal_wallet_and_funding_allocations.sql`
 - `supabase/migrations/20261004211030_allow_negative_source_balance_for_capital_advances.sql`
+- `supabase/migrations/20261005205751_finalize_personal_wallet_operations.sql`
 - `domain/finance/fundingAllocations.ts`
 - `domain/finance/fundingAllocations.test.ts`
 - `services/platformAdmin.service.ts`
@@ -38,6 +39,7 @@ Custo adicional: **R$ 0,00**
 - `hooks/useAppState.ts`
 - `hooks/usePersistedTab.ts`
 - `layout/NavHub.tsx`
+- `layout/BottomNav.tsx`
 - `types.ts`
 - `components/forms/LoanFormFinancialSection.tsx`
 - `features/loans/domain/loanForm.mapper.ts`
@@ -84,10 +86,13 @@ Custo adicional: **R$ 0,00**
 - **Corrigido:** o capital permanece protegido na edição comum e é atualizado automaticamente pela operação de aporte.
 - **Criado:** migration aditiva que permite o saldo da fonte ficar negativo durante novo aporte, preservando lock, idempotência, ledger e estorno.
 - **Corrigido:** cadastro de despesa pessoal agora exige e permite escolher a conta ou cartão utilizado.
+- **Concluído no código:** carteira pessoal controla contas, PIX, cartões, despesas, parcelas, faturas e pagamento de fatura com atualização atômica de saldo e limite.
+- **Corrigido:** o atalho `Carteira` aparece na barra inferior do celular, ao lado de `Capital`, somente para a conta SUPER_ADMIN; no desktop aparece em `Menu Principal`.
+- **Separado por segurança:** saldos pessoais não alteram fontes de capital dos contratos.
 - **Corrigido:** troca de usuário não deixa aba exclusiva do proprietário aberta ou em branco.
 - **Corrigido:** painel administrativo carrega o estado real das funcionalidades antes de permitir alteração.
 - **Proteção aplicada:** multi-fonte permanece indisponível na interface enquanto os fluxos de recebimento, estorno e ledger ainda estiverem pendentes.
-- **Pendente de banco:** aplicar e validar `20261004211030_allow_negative_source_balance_for_capital_advances.sql` em ambiente local/staging; produção não foi alterada.
+- **Pendente de banco:** aplicar e validar `20261004211030_allow_negative_source_balance_for_capital_advances.sql` e `20261005205751_finalize_personal_wallet_operations.sql` em ambiente local/staging; produção não foi alterada.
 
 ## Próximo bloqueio objetivo
 

@@ -462,7 +462,7 @@ export const App: React.FC = () => {
             isStealthMode={ui.isStealthMode}
             toggleStealthMode={() => ui.setIsStealthMode(!ui.isStealthMode)}
             onOpenSupport={() => ui.openModal('SUPPORT_CHAT')}
-            navOrder={navOrder}
+            navOrder={visibleHubOrder}
             onGoBack={goBack}
             isInHub={isInHub}
             title={activeTab === 'CONTRACT_DETAILS' ? loans.find(l => l.id === ui.selectedLoanId)?.debtorName : undefined}

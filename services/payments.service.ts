@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase';
 import type { CapitalSource, Installment, Loan, UserProfile } from '../types';
 import { ZERO_BALANCE_THRESHOLD } from '../domain/finance/calculations';
-import { todayDateOnlyUTC } from '../utils/dateHelpers';
+import { todayDateOnlyUTC, toISODateOnlyUTC } from '../utils/dateHelpers';
 import { generateUUID } from '../utils/generators';
 import { safeUUID } from '../utils/uuid';
 import { revalidateInstallment } from './payments/paymentPersistence';
@@ -86,14 +86,14 @@ export const paymentsService = {
     if (!Number.isFinite(amountToPay) || amountToPay <= 0) throw new Error('O valor do pagamento deve ser maior que zero.');
 
     const paymentDate = realDate || todayDateOnlyUTC();
-    const paymentDateStr = paymentDate.toISOString().split('T')[0];
+    const paymentDateStr = toISODateOnlyUTC(paymentDate);
     const dbIsActuallySettled = remainingDb <= ZERO_BALANCE_THRESHOLD;
     const offerStatus = String(instDb?.payment_offer_status || '').toUpperCase();
     const offerValidUntil = String(instDb?.payment_offer_valid_until || '').slice(0, 10);
     const offerAmount = roundMoney(Number(instDb?.payment_offer_amount || 0));
     const offerType = String(instDb?.payment_offer_type || 'SETTLEMENT').toUpperCase();
     const hasValidPaymentOffer = offerStatus === 'ACTIVE'
-      && offerValidUntil >= todayDateOnlyUTC().toISOString().slice(0, 10)
+      && offerValidUntil >= toISODateOnlyUTC(todayDateOnlyUTC())
       && offerValidUntil >= paymentDateStr
       && offerAmount > ZERO_BALANCE_THRESHOLD;
 
@@ -139,7 +139,7 @@ export const paymentsService = {
       forgivenessMode,
       requestedLateFeeForgiven,
       manualDueDate: operationType === 'RENEW_KEEP_PENDING' && manualDate
-        ? manualDate.toISOString().slice(0, 10)
+        ? toISODateOnlyUTC(manualDate)
         : null,
       caixaLivreId: safeUUID(caixaLivreId),
       reason: operationType === 'SETTLE' ? 'Quitação por valor negociado confirmada pelo operador.' : null,

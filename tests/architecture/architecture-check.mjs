@@ -193,6 +193,10 @@ const paymentPersistence = read('services', 'payments', 'paymentPersistence.ts')
 const paymentEngineV4 = read('services', 'payments', 'paymentEngineV4.ts');
 const installmentGrid = read('components', 'cards', 'components', 'InstallmentGrid.tsx');
 const paymentManagerModal = read('components', 'modals', 'PaymentManagerModal.tsx');
+if (!paymentService.includes('const paymentDateStr = toISODateOnlyUTC(paymentDate)') ||
+    !paymentManagerModal.includes('paymentDate: toISODateOnlyUTC(realPaymentDate)')) {
+  failures.push('recebimento -> prévia e execução devem usar a mesma data civil local');
+}
 const ledgerReverse = read('services', 'ledger', 'ledgerReverse.ts');
 const paymentEngineMigration = read('supabase', 'migrations', '20260929042054_payment_engine_v4.sql');
 const capitalAdvanceMigration = read('supabase', 'migrations', '20260929042059_harden_capital_advances.sql');

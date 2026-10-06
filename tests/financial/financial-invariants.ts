@@ -192,6 +192,19 @@ run('fonte única não exige rateio manual nem saldo disponível', () => {
   assertMoney(loan.fundingAllocations?.[0]?.amount || 0, 1000, 'alocação automática da fonte única');
 });
 
+run('prévia e execução preservam o dia local de Manaus após 20h', () => {
+  const previousTimezone = process.env.TZ;
+  process.env.TZ = 'America/Manaus';
+  try {
+    const localEvening = new Date('2026-10-06T02:00:00Z');
+    assert.equal(localEvening.toISOString().slice(0, 10), '2026-10-06');
+    assert.equal(toISODateOnlyUTC(localEvening), '2026-10-05');
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimezone;
+  }
+});
+
 run('renovação parcial avança pela data contratual sem somar juros novos', () => {
   const loan = { billingCycle: 'MONTHLY', interestRate: 30, principal: 1000 } as any;
   const inst = { dueDate: '2026-08-20' } as any;

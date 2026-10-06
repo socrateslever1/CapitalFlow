@@ -1,5 +1,19 @@
 # Relatório de execução — CapitalFlow
 
+## Execução local — 05/10/2026 (HEAD `501f80d`)
+
+- **Ambiente:** PASS — Node `v24.14.0`, Docker `29.6.2`, Supabase CLI `2.119.0`; branch `main` limpa e sincronizada com `origin/main` no início.
+- **Isolamento:** PASS — CLI sem projeto vinculado; nenhuma URL remota foi usada; `test:db` preserva o bloqueio de `.supabase.co` e do projeto principal.
+- **Inicialização PostgreSQL local:** **BLOQUEADA** — todas as imagens locais foram obtidas, porém a aplicação das migrations para na primeira versão, `20260222_campaign_bot_trigger.sql`, com `relation "public.campaign_messages" does not exist`. O repositório não contém migration anterior que crie essa tabela nem um baseline completo. O arquivo histórico não foi reescrito e não foi inventado um esquema financeiro substituto.
+- **Migrations de outubro:** **NÃO APLICADAS** — o bloqueio ocorre em `20260222`, antes de `20261004120000`, `20261004150000`, `20261004211030` e `20261005205751`.
+- **`npm run test:db`: FAIL/BLOQUEADO** — idempotência, concorrência e rollback em memória passaram; a etapa PostgreSQL terminou com código 1 e não conta como aprovação.
+- **`npm run test:quality`: PASS** — build, testes financeiros, perdão, Skills, Tools, MCP, arquitetura, textos e 32 testes de automação passaram.
+- **Caso R$ 400 → R$ 600:** PASS somente em teste de domínio — valida a distribuição de R$ 600 e calcula aporte de R$ 200. A persistência, ledger, fonte, vencimento, juros e estorno permanecem **BLOQUEADOS** sem banco local migrável.
+- **Automação n8n:** a cópia de compatibilidade foi normalizada para ficar byte a byte igual ao export canônico; 32/32 testes passaram.
+- **Validação visual/publicação:** **NÃO EXECUTADA** — não houve publicação nem alegação sobre `capflow.pages.dev`.
+- **Produção/staging:** não acessados nem alterados. A versão remota mais recente não foi reconfirmada porque não há staging isolado nem projeto vinculado nesta máquina.
+- **Dados reais alterados:** **NÃO**. **Custo gerado:** **R$ 0,00**.
+
 Data: 05/10/2026
 HEAD inicial: `b91bf468acbb0a6ffaa66099ae72a078df76f3e4`  
 Dados financeiros reais alterados: **NÃO**  

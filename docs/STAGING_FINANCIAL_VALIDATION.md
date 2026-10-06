@@ -1,5 +1,19 @@
 # Validação Financeira em Staging
 
+## Nova tentativa local — 05/10/2026
+
+| Verificação | Estado | Evidência |
+|---|---|---|
+| Docker e CLI | PASS | Docker `29.6.2`; Supabase CLI `2.119.0`; imagens locais baixadas. |
+| Proteção contra banco remoto | PASS | CLI sem projeto vinculado e `tests/db/run-local-db-tests.mjs` rejeita `.supabase.co`/projeto principal. |
+| Aplicação ordenada das migrations | BLOQUEADO | `20260222_campaign_bot_trigger.sql` referencia `public.campaign_messages`, ausente; não existe baseline anterior versionado. |
+| Quatro migrations de outubro | BLOQUEADO | Não alcançadas devido à falha de baseline em `20260222`. |
+| PostgreSQL/RLS/RPCs/ledger | BLOQUEADO | Não é seguro fabricar tabelas ou usar produção como baseline. |
+| Testes em memória | PASS parcial | Idempotência, concorrência e rollback; não substituem PostgreSQL. |
+| Quality gate não-DB | PASS | `npm run test:quality`, incluindo build e 32/32 testes n8n. |
+
+Comandos relevantes: `npx supabase start`, `npm run test:db` e `npm run test:quality`. Nenhuma migration foi aplicada fora da instância local descartável; nenhum dado real foi alterado e o custo adicional foi **R$ 0,00**. Para desbloquear, é necessário versionar um baseline fiel do esquema (obtido de uma fonte segura e revisada) antes da primeira migration atual; produção não deve ser usada como ambiente de teste.
+
 ## Estado
 
 **BLOQUEADA — não existe ambiente de staging identificado.**

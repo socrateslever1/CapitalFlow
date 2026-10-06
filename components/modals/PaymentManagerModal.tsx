@@ -3,7 +3,7 @@ import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { LateFeeWaiverOptions } from './payment/LateFeeWaiverOptions';
 import { Loader2, MessageSquare, DollarSign, Calendar, CalendarClock, AlertCircle, Banknote, CheckCircle2, TrendingUp, AlertTriangle, Clock, Receipt, ShieldCheck } from 'lucide-react';
 import { Loan, Installment } from '../../types';
-import { parseDateOnlyUTC } from '../../utils/dateHelpers';
+import { parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { FlexibleDailyScreen } from './payment/FlexibleDailyScreen';
 import { usePaymentManagerState, ForgivenessMode } from './payment/hooks/usePaymentManagerState';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
@@ -111,12 +111,12 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                     operationType: interestHandling,
                     amountReceived: val,
                     paymentMethod,
-                    paymentDate: realPaymentDate.toISOString().slice(0, 10),
-                    competenceDate: realPaymentDate.toISOString().slice(0, 10),
+                    paymentDate: toISODateOnlyUTC(realPaymentDate),
+                    competenceDate: toISODateOnlyUTC(realPaymentDate),
                     forgivenessMode: effectiveForgivenessMode,
                     requestedLateFeeForgiven: lateFeeForgiven,
                     manualDueDate: interestHandling === 'RENEW_KEEP_PENDING' && nextDueDate
-                        ? nextDueDate.toISOString().slice(0, 10)
+                        ? toISODateOnlyUTC(nextDueDate)
                         : null,
                 });
                 setBackendPreview(preview);

@@ -4,9 +4,7 @@ import { UserProfile, Loan, CapitalSource } from '../types';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
 import {
-  addCapitalOnlyRecoveryMarker,
   isCapitalOnlyRecoveryLoan,
-  removeCapitalOnlyRecoveryMarker,
 } from '../utils/capitalOnlyRecovery';
 import { isTestSource } from '../utils/testSource';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
@@ -405,56 +403,16 @@ export const contractsService = {
 
   async setCapitalOnlyRecovery(loan: Loan, enabled: boolean, activeUser: UserProfile) {
     const safeId = safeUUID(loan.id);
-    const ownerId = safeUUID((activeUser as any)?.supervisor_id) || safeUUID(activeUser?.id);
     if (!safeId) throw new Error('Contrato invalido.');
-    if (!ownerId) throw new Error('Perfil invalido.');
+    if (!activeUser?.id) throw new Error('Usuario nao autenticado.');
 
-    const nextNotes = enabled
-      ? addCapitalOnlyRecoveryMarker(loan.notes)
-      : removeCapitalOnlyRecoveryMarker(loan.notes);
-
-    const { error: loanError } = await supabase
-      .from('contratos')
-      .update({
-        notes: nextNotes,
-        interest_rate: enabled ? 0 : loan.interestRate,
-        fine_percent: enabled ? 0 : loan.finePercent,
-        daily_interest_percent: enabled ? 0 : loan.dailyInterestPercent,
-      })
-      .eq('id', safeId);
-
-    if (loanError) throw new Error(loanError.message);
-
-    if (enabled) {
-      const { error: installmentsError } = await supabase
-        .from('parcelas')
-        .update({
-          interest_remaining: 0,
-          late_fee_accrued: 0,
-          scheduled_interest: 0,
-        })
-        .eq('loan_id', safeId);
-
-      if (installmentsError) throw new Error(installmentsError.message);
-    }
-
-    await supabase.from('transacoes').insert({
-      id: generateUUID(),
-      loan_id: safeId,
-      profile_id: ownerId,
-      date: new Date().toISOString(),
-      type: enabled ? 'CAPITAL_ONLY_RECOVERY_ENABLED' : 'CAPITAL_ONLY_RECOVERY_DISABLED',
-      amount: 0,
-      principal_delta: 0,
-      interest_delta: 0,
-      late_fee_delta: 0,
-      category: 'INFO',
-      notes: enabled
-        ? 'Contrato marcado como Somente Capital. Recebimentos futuros recuperam apenas o principal.'
-        : 'Marcacao Somente Capital removida.'
+    const { data, error } = await supabase.rpc('set_capital_only_recovery', {
+      p_loan_id: safeId,
+      p_enabled: enabled,
     });
-
-    return true;
+    if (error) throw new Error('Nao foi possivel atualizar a condicao do contrato. Tente novamente.');
+    if (!data?.ok || data.enabled !== enabled) throw new Error('Nao foi possivel confirmar a alteracao do contrato.');
+    return data;
   },
 
   async assertClientCanBorrow(loan: Loan, existingLoans: Loan[]) {

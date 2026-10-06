@@ -22,6 +22,16 @@ export function removeCapitalOnlyRecoveryMarker(notes: string | null | undefined
     .trim();
 }
 
+export function withCapitalOnlyRecoveryState(loan: Loan, enabled: boolean): Loan {
+  return {
+    ...loan,
+    capitalOnlyRecovery: enabled,
+    notes: enabled
+      ? addCapitalOnlyRecoveryMarker(loan.notes)
+      : removeCapitalOnlyRecoveryMarker(loan.notes),
+  };
+}
+
 export function clientHasCapitalOnlyRecovery(loans: Loan[], client: { id?: string; name?: string; document?: string }): boolean {
   const doc = String(client.document || '').replace(/\D/g, '');
   const name = String(client.name || '').trim().toLowerCase();

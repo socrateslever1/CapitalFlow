@@ -239,6 +239,7 @@ export function mapLoanFromDB(
     supportUnreadCount: Number(l?.supportUnreadCount ?? l?.support_unread_count ?? 0),
 
     notes: asString(l?.notes),
+    capitalOnlyRecovery: typeof l?.capital_only_recovery === 'boolean' ? l.capital_only_recovery : undefined,
 
     guaranteeDescription: asString(l?.guarantee_description ?? l?.guaranteeDescription),
 

@@ -234,7 +234,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       const { data: dbProfiles, error: profileError } = await supabase
         .from('perfis')
         .select('*')
-        .or(`id.eq.${searchId},user_id.eq.${session?.user?.id || ''}`)
+        .or(session?.user?.id ? `id.eq.${searchId},user_id.eq.${session.user.id}` : `id.eq.${searchId}`)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -277,7 +277,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     } catch (error: any) {
       console.warn('[useAppState] Sincronização remota falhou:', error);
       const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-      if (isOffline && isRecoverableSyncError(error) && hydrateCache(searchId, cached)) {
+      if (isRecoverableSyncError(error) && hydrateCache(searchId, cached)) {
         markSyncPaused('OFFLINE_CACHE_RECOVERY');
         return;
       }

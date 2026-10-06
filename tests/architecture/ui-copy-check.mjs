@@ -53,8 +53,8 @@ const withoutComments = (source) => source
 
 const findMatches = (source) => {
   const matches = [];
-  const stringPattern = /(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
-  for (const match of source.matchAll(stringPattern)) matches.push({ text: match[2], index: match.index });
+  const stringPattern = /(['"])((?:\\.|(?!\1)[^\r\n])*)\1|(`)((?:\\.|(?!\3)[\s\S])*?)\3/g;
+  for (const match of source.matchAll(stringPattern)) matches.push({ text: match[2] ?? match[4], index: match.index });
 
   const jsxTextPattern = />([^<>{}\n]+)</g;
   for (const match of source.matchAll(jsxTextPattern)) matches.push({ text: match[1], index: match.index });

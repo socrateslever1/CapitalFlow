@@ -256,6 +256,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
 
     totalToReceive: asNumber(l.total_to_receive),
     notes: asString(l.notes),
+    capitalOnlyRecovery: typeof l.capital_only_recovery === 'boolean' ? l.capital_only_recovery : undefined,
     guaranteeDescription: asString(l.guarantee_description),
     policiesSnapshot: l.policies_snapshot || null,
 

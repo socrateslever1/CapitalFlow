@@ -323,6 +323,7 @@ export interface Loan {
   ledger: LedgerEntry[];
   notes: string;
   status: LoanStatus;
+  capitalOnlyRecovery?: boolean;
   isArchived?: boolean;
   skipWeekends?: boolean;
   clientAvatarUrl?: string;

@@ -1,4 +1,5 @@
 // src/hooks/controllers/useLoanController.ts
+import { useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { contractsService } from '../../services/contracts.service';
 import { demoService } from '../../services/demo.service';
@@ -7,7 +8,7 @@ import { tinyService } from '../../services/tinyService';
 import { getOrCreatePortalLink } from '../../utils/portalLink';
 import { maintenanceService } from '../../services/maintenance.service';
 import type { Loan, UserProfile, CapitalSource, Client, LedgerEntry } from '../../types';
-import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
+import { isCapitalOnlyRecoveryLoan, withCapitalOnlyRecoveryState } from '../../utils/capitalOnlyRecovery';
 import { markDeletedContract, markDeletedContracts } from '../../services/deletedContracts.service';
 
 const isUUID = (v: any) =>
@@ -50,6 +51,7 @@ export const useLoanController = (
   fetchFullData: (id: string) => Promise<void>,
   showToast: (msg: string, type?: 'success' | 'error') => void
 ) => {
+  const capitalOnlyUpdatesInFlight = useRef(new Set<string>());
   const getOwnerId = () => safeOwnerId(activeUser);
 
   const applyLocalActionResult = async (type: string, targetId: string) => {
@@ -392,6 +394,7 @@ export const useLoanController = (
 
   const handleToggleCapitalOnlyRecovery = async (loan: Loan) => {
     if (!activeUser) return;
+    if (capitalOnlyUpdatesInFlight.current.has(loan.id)) return;
     const ownerId = getOwnerId();
     if (!ownerId) {
       showToast('Perfil invalido. Refaca o login.', 'error');
@@ -399,12 +402,38 @@ export const useLoanController = (
     }
 
     const enabled = !isCapitalOnlyRecoveryLoan(loan);
+    capitalOnlyUpdatesInFlight.current.add(loan.id);
     try {
       await contractsService.setCapitalOnlyRecovery(loan, enabled, activeUser);
+      setLoans((previous: Loan[]) => previous.map((item) =>
+        item.id === loan.id ? withCapitalOnlyRecoveryState(item, enabled) : item
+      ));
+      const cacheIds = Array.from(new Set([ownerId, activeUser.id]));
+      cacheIds.forEach((cacheId) => pruneCache(cacheId, (cache) => ({
+        ...cache,
+        loans: (cache.loans || []).map((item: Loan) =>
+          item.id === loan.id ? withCapitalOnlyRecoveryState(item, enabled) : item
+        ),
+      })));
+      try {
+        const { db } = await import('../../services/offline/adminOfflineStore');
+        const storedLoan = await db.contratos.get(loan.id);
+        if (storedLoan) {
+          const updatedLoan = withCapitalOnlyRecoveryState({ ...loan, notes: storedLoan.notes }, enabled);
+          await db.contratos.update(loan.id, {
+            capital_only_recovery: enabled,
+            notes: updatedLoan.notes,
+          });
+        }
+      } catch (cacheError) {
+        console.warn('[LoanController] Falha ao atualizar cache de Somente Capital:', cacheError);
+      }
       showToast(enabled ? 'Contrato marcado como Somente Capital.' : 'Marcacao Somente Capital removida.', 'success');
       await fetchFullData(ownerId);
     } catch (e: any) {
       showToast(e?.message || 'Falha ao atualizar Somente Capital.', 'error');
+    } finally {
+      capitalOnlyUpdatesInFlight.current.delete(loan.id);
     }
   };
 

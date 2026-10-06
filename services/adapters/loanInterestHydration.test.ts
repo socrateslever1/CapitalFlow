@@ -3,6 +3,45 @@ import assert from 'node:assert/strict';
 import { mapLoanFromDB as mapLoanFromLegacyDB } from './dbAdapters';
 import { mapLoanFromDB as mapPortalLoanFromDB } from './loanAdapter';
 import { resolveLoanVisualClassification } from '../../utils/loanFilterResolver';
+import { isCapitalOnlyRecoveryLoan, withCapitalOnlyRecoveryState } from '../../utils/capitalOnlyRecovery';
+
+test('capital-only toggle follows the persisted state after a second click', () => {
+  const rawLoan = {
+    id: 'loan-capital-only',
+    owner_id: 'owner-1',
+    client_id: 'client-1',
+    debtor_name: 'Cliente Teste',
+    principal: 600,
+    billing_cycle: 'MONTHLY',
+    status: 'ATIVO',
+    notes: '[CAPITAL_ONLY_RECOVERY] Somente capital',
+    capital_only_recovery: true,
+    parcelas: [],
+    transacoes: [],
+  };
+
+  assert.equal(isCapitalOnlyRecoveryLoan(mapLoanFromLegacyDB(rawLoan)), true);
+  assert.equal(isCapitalOnlyRecoveryLoan(mapPortalLoanFromDB(rawLoan, [])), true);
+
+  const restoredLoan = { ...rawLoan, capital_only_recovery: false };
+  assert.equal(isCapitalOnlyRecoveryLoan(mapLoanFromLegacyDB(restoredLoan)), false);
+  assert.equal(isCapitalOnlyRecoveryLoan(mapPortalLoanFromDB(restoredLoan, [])), false);
+});
+
+test('capital-only state returns to normal after toggling twice and keeps other notes', () => {
+  const original = {
+    id: 'loan-1',
+    notes: 'Observacao anterior',
+    capitalOnlyRecovery: false,
+  } as Parameters<typeof withCapitalOnlyRecoveryState>[0];
+
+  const enabled = withCapitalOnlyRecoveryState(original, true);
+  assert.equal(isCapitalOnlyRecoveryLoan(enabled), true);
+
+  const disabled = withCapitalOnlyRecoveryState(enabled, false);
+  assert.equal(isCapitalOnlyRecoveryLoan(disabled), false);
+  assert.equal(disabled.notes, original.notes);
+});
 
 test('hydrates loan interest from legacy fields when canonical interest_rate is zero', () => {
   const rawLoan = {

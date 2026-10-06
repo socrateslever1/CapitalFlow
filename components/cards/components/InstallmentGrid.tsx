@@ -147,7 +147,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
             {selectedInst && selectedDebt && (() => {
                 const {
-                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect
+                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, canAbatePrincipal, isDirectCapitalReduction
                 } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount });
 
                 const resetSelection = () => {
@@ -248,6 +248,27 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     <span className="mt-0.5 block text-[8px] normal-case opacity-70">Quita juros, multa e mora; não abate capital</span>
                                 </button>
                             )}
+                            {!hasActiveOffer && canAbatePrincipal && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setQuickMode('PRINCIPAL_REDUCTION');
+                                        setManualReceiptMode(true);
+                                        setShowCustomAmount(true);
+                                        setLateFeeForgiven(0);
+                                        setReceiptAmount('');
+                                        setPartialBalanceAction('PRINCIPAL_REDUCTION');
+                                    }}
+                                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${quickMode === 'PRINCIPAL_REDUCTION' ? 'bg-purple-600/20 text-purple-300 border-purple-500/50' : 'bg-slate-950 text-slate-400 border-slate-700 hover:border-slate-600'}`}
+                                >
+                                    <span className="block">Abater valor</span>
+                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">
+                                        {isDirectCapitalReduction
+                                            ? 'Abatimento direto no capital (período de até 10 dias)'
+                                            : 'Quita juros em aberto e abate o excedente no capital (+10 dias)'}
+                                    </span>
+                                </button>
+                            )}
                             {!hasActiveOffer && (
                                 <LateFeeWaiverOptions
                                     loan={loan}
@@ -264,6 +285,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     type="number"
                                     step="0.01"
                                     min="0.01"
+                                    max={quickMode === 'PRINCIPAL_REDUCTION' ? principal : undefined}
+                                    placeholder={quickMode === 'PRINCIPAL_REDUCTION' ? `Valor a abater (máx. ${formatMoney(principal, isStealthMode)})` : "Digite o valor"}
                                     value={receiptAmount}
                                     onChange={e => {
                                         const nextAmount = e.target.value;
@@ -292,7 +315,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             {hasActiveOffer && isPartialPayment && (
                                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-[10px] font-bold text-emerald-300">O saldo da condição continuará reservado até a data combinada, sem renovação de juros nem nova negociação.</p>
                             )}
-                            {isPartialPayment && !hasActiveOffer && (
+                            {isPartialPayment && !hasActiveOffer && quickMode !== 'PRINCIPAL_REDUCTION' && partialBalanceAction !== 'PRINCIPAL_REDUCTION' && (
                                 <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.05] p-3 space-y-2">
                                     <div>
                                         <p className="text-[9px] font-black uppercase tracking-wide text-amber-300">Recebimento parcial</p>
@@ -324,23 +347,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     )}
                                 </div>
                             )}
-                             {false && !hasActiveOffer && principal > ZERO_BALANCE_THRESHOLD && (
-                                 <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.05] p-3">
-                                     <button
-                                         type="button"
-                                         disabled={interest + effectiveLateFee > ZERO_BALANCE_THRESHOLD}
-                                         onClick={() => setPartialBalanceAction('PRINCIPAL_REDUCTION')}
-                                         className={`w-full rounded-lg border p-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${partialBalanceAction === 'PRINCIPAL_REDUCTION' ? 'border-violet-400 bg-violet-600/30 text-violet-100' : 'border-violet-500/30 bg-slate-950 text-violet-200'}`}
-                                     >
-                                         <span className="block text-[9px] font-black uppercase">Recebimento parcial</span>
-                                         <span className="mt-0.5 block text-[8px] leading-3.5 opacity-75">
-                                             {interest + effectiveLateFee > ZERO_BALANCE_THRESHOLD
-                                                 ? 'Disponível depois que os juros e encargos do ciclo forem pagos.'
-                                                 : 'Reduz o principal sem criar novo vencimento.'}
-                                         </span>
-                                     </button>
-                                 </div>
-                             )}
+
                              {isReviewReady && (
                                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3.5">
                                     <div className="flex items-center gap-2 text-emerald-300">
@@ -405,16 +412,27 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 </button>
                             )}
                             <button
-                                disabled={isPreparingReview || isSubmittingReceipt || displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)}
+                                disabled={isPreparingReview || isSubmittingReceipt || displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD) || (quickMode === 'PRINCIPAL_REDUCTION' && displayedAmount > principal + ZERO_BALANCE_THRESHOLD)}
                                 onClick={async () => {
-                                    const amount = quickMode === 'CUSTOM'
+                                    const amount = quickMode === 'CUSTOM' || quickMode === 'PRINCIPAL_REDUCTION'
                                         ? Number(receiptAmount)
                                         : displayedAmount;
                                     if (!Number.isFinite(amount) || amount <= 0.05 || (hasActiveOffer && amount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)) return;
-                    const automaticDecision = resolveReceiptDecision({ amountReceived: amount, principal, interest, lateFee: effectiveLateFee, billingCycle: loan.billingCycle });
-                    const effectivePartialAction = isPartialPayment && !hasActiveOffer ? partialBalanceAction : undefined;
+                                    if (quickMode === 'PRINCIPAL_REDUCTION' && amount > principal + ZERO_BALANCE_THRESHOLD) {
+                                        setReceiptError('O valor a abater não pode ser maior que o capital em aberto.');
+                                        return;
+                                    }
+                    const automaticDecision = resolveReceiptDecision({
+                        amountReceived: amount,
+                        principal,
+                        interest,
+                        lateFee: effectiveLateFee,
+                        billingCycle: loan.billingCycle,
+                        businessAction: (quickMode === 'PRINCIPAL_REDUCTION' || partialBalanceAction === 'PRINCIPAL_REDUCTION') ? 'PRINCIPAL_REDUCTION' : undefined,
+                    });
+                    const effectivePartialAction = (isPartialPayment || quickMode === 'PRINCIPAL_REDUCTION') && !hasActiveOffer ? partialBalanceAction : undefined;
                     const effectiveOperation = !hasActiveOffer
-                        ? (automaticDecision.operationType === 'PRINCIPAL_REDUCTION'
+                        ? (quickMode === 'PRINCIPAL_REDUCTION' || partialBalanceAction === 'PRINCIPAL_REDUCTION' || automaticDecision.operationType === 'PRINCIPAL_REDUCTION'
                             ? 'PRINCIPAL_REDUCTION'
                             : isPartialPayment && effectivePartialAction === 'CAPITALIZE'
                             ? 'CAPITALIZE_RENEWAL'

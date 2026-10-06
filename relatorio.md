@@ -1,5 +1,36 @@
 # Relatório de execução — CapitalFlow
 
+## Execução local — 06/10/2026
+
+- **Ambiente:** PASS — Node `v24.14.0`, TypeScript `~5.8.2`, Vite `^6.2.0`; branch `main`.
+- **Porta Localhost e Vite HMR:** **PASS**
+  - Porta alterada para **3003** em `server.ts` e `vite.config.ts`.
+  - Servidor Vite HMR acoplado diretamente ao servidor HTTP principal (`http.createServer(app)` com `hmr: { server }`), eliminando conflito na porta `24678` (`WebSocket server error: Port 24678 is already in use`).
+  - Adicionado `http://localhost:3003` e `http://127.0.0.1:3003` nas regras de CORS das Edge Functions (`capitalflow-manual-collections`, `client-registration`, `whatsapp-send`) e nas URLs de redirecionamento em `supabase/config.toml`.
+- **Funcionalidade "Abater valor" (Amortização Direta sem alteração de data/ciclo):** **PASS**
+  - Implementado o botão **Abater valor** na janela de recebimento de parcelas (`InstallmentGrid.tsx`).
+  - **Disponibilidade contínua:** Disponível sempre que houver capital em aberto na parcela.
+  - **Regra dos 10 dias:**
+    - Em até 10 dias (do pagamento ou vencimento de juros): abate diretamente do capital (`principalRemaining`), sem alterar a data de vencimento e sem gerar novo ciclo.
+    - Após 10 dias: abate primeiro dos juros em aberto; caso o valor informado supere os juros, o excedente abate diretamente do capital, também sem alterar o vencimento ou renovar ciclo.
+  - Textos de interface profissionais e padronizados, sem inclusão de trechos crus do prompt.
+  - Campo numérico inteligente com limite travado no capital aberto (`max={principal}`).
+  - Teste de invariante financeiro adicionado e validado em `tests/financial/financial-invariants.ts`.
+- **Quality Gates:** **PASS (100%)**
+  - `npm run lint` (`tsc -b`): **PASS** (código 0).
+  - `npm run test:financial`: **PASS** (25/25 testes aprovados).
+  - `npm run test:financial-forgiveness`: **PASS**.
+  - `npm run test:skills`: **PASS**.
+  - `npm run test:tools`: **PASS**.
+  - `npm run test:mcp`: **PASS**.
+  - `npm run test:architecture`: **PASS** (19/19 validações aprovadas).
+  - `npm run test:ui-copy`: **PASS** (230 arquivos verificados sem termos técnicos proibidos).
+  - `npm run test:automation`: **PASS** (32/32 testes de n8n aprovados).
+  - `npm run test:quality`: **PASS**.
+  - `npm run build`: **PASS**.
+- **Dados reais alterados:** **NÃO**.
+- **Custo adicional gerado:** **R$ 0,00**.
+
 ## Execução local — 05/10/2026 (HEAD `501f80d`)
 
 - **Ambiente:** PASS — Node `v24.14.0`, Docker `29.6.2`, Supabase CLI `2.119.0`; branch `main` limpa e sincronizada com `origin/main` no início.

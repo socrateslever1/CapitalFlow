@@ -140,6 +140,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           if (partialAction === 'SETTLE' || partialAction === 'DISCOUNT_RENEWAL') showToast('Recebimento com desconto registrado com sucesso!', 'success');
           else if (partialAction === 'CAPITALIZE') showToast('Recebimento registrado e saldo restante capitalizado!', 'success');
           else if (partialAction === 'RENEW_KEEP_PENDING') showToast('Recebimento registrado e ciclo renovado com saldo pendente!', 'success');
+          else if (partialAction === 'PRINCIPAL_REDUCTION') showToast('Abatimento de capital registrado com sucesso!', 'success');
           else showToast('Recebimento registrado com sucesso!', 'success');
 
           ui.setShowReceipt({

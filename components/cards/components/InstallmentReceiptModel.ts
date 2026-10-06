@@ -3,9 +3,10 @@ import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
 import type { FinancialOperationResult, FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision } from '../../../services/payments/receiptDecision';
+import { getDaysDiff } from '../../../utils/dateHelpers';
 
 export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE' | 'PRINCIPAL_REDUCTION';
-export type QuickMode = 'TOTAL' | 'CUSTOM' | 'INTEREST_ONLY' | 'CHARGES_ONLY';
+export type QuickMode = 'TOTAL' | 'CUSTOM' | 'INTEREST_ONLY' | 'CHARGES_ONLY' | 'PRINCIPAL_REDUCTION';
 export type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
     lateFeeForgiven?: number;
@@ -54,7 +55,7 @@ export function buildInstallmentReceiptModel(params: {
                 const chargesAmount = Math.max(0, interest + effectiveLateFee);
                 const displayedAmount = showCustomAmount
                     ? (Number(receiptAmount) || 0)
-                    : quickMode === 'CUSTOM'
+                    : quickMode === 'CUSTOM' || quickMode === 'PRINCIPAL_REDUCTION'
                     ? (Number(receiptAmount) || 0)
                     : quickMode === 'INTEREST_ONLY'
                         ? interest
@@ -121,7 +122,27 @@ export function buildInstallmentReceiptModel(params: {
                 }
 
 
-    const receiptEffect = displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD
+    const hasPaidInterest = Number(selectedInst.paidInterest || 0) > ZERO_BALANCE_THRESHOLD || interest <= ZERO_BALANCE_THRESHOLD;
+    const interestDate = (hasPaidInterest && (selectedInst.paidDate || (selectedInst as any).last_payment_date || (selectedInst as any).lastPaymentDate))
+        ? (selectedInst.paidDate || (selectedInst as any).last_payment_date || (selectedInst as any).lastPaymentDate)
+        : selectedInst.dueDate;
+    const daysFromInterestDate = interestDate ? getDaysDiff(interestDate) : 0;
+    const isDirectCapitalReduction = daysFromInterestDate <= 10;
+    const canAbatePrincipal = principal > ZERO_BALANCE_THRESHOLD;
+
+    const receiptEffect = quickMode === 'PRINCIPAL_REDUCTION'
+        ? (displayedAmount > 0
+            ? (isDirectCapitalReduction
+                ? `Este valor abate ${formatMoney(Math.min(principal, displayedAmount))} diretamente do capital sem alterar vencimento nem ciclo.`
+                : (interest > ZERO_BALANCE_THRESHOLD
+                    ? (displayedAmount <= interest + ZERO_BALANCE_THRESHOLD
+                        ? `Este valor abate ${formatMoney(displayedAmount)} dos juros em aberto.`
+                        : `Este valor quita os juros (${formatMoney(interest)}) e abate ${formatMoney(Math.min(principal, displayedAmount - interest))} do capital.`)
+                    : `Este valor abate ${formatMoney(Math.min(principal, displayedAmount))} diretamente do capital sem alterar vencimento nem ciclo.`))
+            : (isDirectCapitalReduction
+                ? 'Informe o valor para abatimento direto no capital (período de até 10 dias).'
+                : 'Informe o valor para quitar os juros e abater o excedente do capital.'))
+        : displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD
         ? 'Este valor encerra a parcela.'
         : displayedAmount <= ZERO_BALANCE_THRESHOLD
             ? 'Informe um valor para ver como ele será aplicado.'
@@ -132,5 +153,5 @@ export function buildInstallmentReceiptModel(params: {
                     : `Este valor cobre os encargos e abate ${formatMoney(Math.min(principal, displayedAmount - interest))} do capital.`;
 
     const automaticDecision = resolveReceiptDecision({ amountReceived: displayedAmount, principal, interest, lateFee: effectiveLateFee, billingCycle: loan.billingCycle });
-    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, automaticDecision };
+    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, automaticDecision, canAbatePrincipal, isDirectCapitalReduction, hasPaidInterest, daysFromInterestDate };
 }

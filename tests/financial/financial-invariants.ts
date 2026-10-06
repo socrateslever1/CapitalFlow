@@ -315,6 +315,41 @@ run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () =
   assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'CHARGES_ONLY' }).displayedAmount, 150, 'juros e atraso não incluem capital');
 });
 
+run('abatimento de valor fica sempre disponível com capital e distingue janela de 10 dias', () => {
+  const base = {
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedDebt: { principal: 500, interest: 100, lateFee: 0, total: 600 },
+    lateFeeForgiven: 0,
+    quickMode: 'PRINCIPAL_REDUCTION' as const,
+    receiptAmount: '200',
+  };
+
+  const within10Days = buildInstallmentReceiptModel({
+    ...base,
+    selectedInst: { dueDate: new Date().toISOString().slice(0, 10), principalRemaining: 500, interestRemaining: 100 } as any,
+  });
+  assert.equal(within10Days.canAbatePrincipal, true);
+  assert.equal(within10Days.isDirectCapitalReduction, true);
+  assert.ok(within10Days.receiptEffect.includes('diretamente do capital'));
+
+  const past10DaysDate = new Date();
+  past10DaysDate.setDate(past10DaysDate.getDate() - 15);
+  const after10Days = buildInstallmentReceiptModel({
+    ...base,
+    selectedInst: { dueDate: past10DaysDate.toISOString().slice(0, 10), principalRemaining: 500, interestRemaining: 100 } as any,
+  });
+  assert.equal(after10Days.canAbatePrincipal, true);
+  assert.equal(after10Days.isDirectCapitalReduction, false);
+  assert.ok(after10Days.receiptEffect.includes('quita os juros') && after10Days.receiptEffect.includes('abate'));
+
+  const zeroPrincipal = buildInstallmentReceiptModel({
+    ...base,
+    selectedDebt: { principal: 0, interest: 100, lateFee: 0, total: 100 },
+    selectedInst: { dueDate: new Date().toISOString().slice(0, 10), principalRemaining: 0, interestRemaining: 100 } as any,
+  });
+  assert.equal(zeroPrincipal.canAbatePrincipal, false);
+});
+
 run('carteira conta somente contratos com obrigação ativa', () => {
   const sourceId = 'source-a';
   const loans = [

@@ -2,13 +2,15 @@ import type { Loan, Installment } from '../../../types';
 import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
 import type { FinancialOperationResult, FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
+import { resolveReceiptDecision } from '../../../services/payments/receiptDecision';
 
-export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
+export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE' | 'PRINCIPAL_REDUCTION';
 export type QuickMode = 'TOTAL' | 'CUSTOM' | 'INTEREST_ONLY' | 'CHARGES_ONLY';
 export type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
     lateFeeForgiven?: number;
     partialBalanceAction?: PartialBalanceAction;
+    operationType?: import('../../../services/payments/paymentEngineV4').FinancialOperationType;
     paymentMethod?: FinancialPaymentMethod;
     expectedPreview?: FinancialOperationResult;
 };
@@ -89,32 +91,34 @@ export function buildInstallmentReceiptModel(params: {
                     disabled?: boolean;
                 }> = [
                     {
-                        value: 'KEEP_PENDING',
-                        title: 'Manter saldo nesta parcela',
-                        detail: 'Abate o valor recebido e deixa o restante na mesma data. Se já estiver vencida, o atraso continua.',
+                        value: 'CAPITALIZE',
+                        title: 'Somar restante ao capital',
+                        detail: 'O que faltar dos juros entra no saldo principal e o próximo ciclo é calculado sobre o novo valor.',
                         activeClass: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
                     },
                     {
-                        value: 'CAPITALIZE',
-                        title: 'Incorporar encargos ao saldo',
-                        detail: 'Juros, multa e mora que sobrarem passam a compor o capital devido. Use somente se isso foi combinado.',
+                        value: 'KEEP_PENDING',
+                        title: 'Manter restante pendente',
+                        detail: 'O valor que faltar continua separado para cobrança posterior, sem virar capital.',
                         activeClass: 'bg-violet-600/20 text-violet-300 border-violet-500/50'
                     },
                     {
-                        value: 'RENEW_KEEP_PENDING',
-                        title: 'Criar novo vencimento',
-                        detail: 'Abate o recebido e leva o restante para 30 dias após o vencimento atual.',
-                        activeClass: 'bg-amber-600/20 text-amber-300 border-amber-500/50',
-                        disabled: !canRenewWithPending
-                    },
-                    {
                         value: 'SETTLE',
-                        title: 'Encerrar com desconto',
-                        detail: 'Registra o valor que realmente entrou e encerra esta parcela. O restante fica registrado como desconto concedido.',
-                        activeClass: 'bg-emerald-600/20 text-emerald-300 border-emerald-500/50',
-                        disabled: !isOnline
-                    }
+                        title: 'Renovar com desconto',
+                        detail: 'Aceita o valor recebido, registra o restante como desconto e inicia o próximo ciclo.',
+                        activeClass: 'bg-amber-600/20 text-amber-300 border-amber-500/50',
+                        disabled: !canRenewWithPending || !isOnline
+                    },
                 ];
+
+                if (showCustomAmount && chargesAmount <= ZERO_BALANCE_THRESHOLD && principal > ZERO_BALANCE_THRESHOLD) {
+                    partialChoices.push({
+                        value: 'PRINCIPAL_REDUCTION',
+                        title: 'Abater capital',
+                        detail: 'O valor informado reduz diretamente o principal, sem criar outro vencimento.',
+                        activeClass: 'bg-violet-600/20 text-violet-300 border-violet-500/50',
+                    });
+                }
 
 
     const receiptEffect = displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD
@@ -127,5 +131,6 @@ export function buildInstallmentReceiptModel(params: {
                     ? 'Este valor cobre os juros. O capital continua aberto.'
                     : `Este valor cobre os encargos e abate ${formatMoney(Math.min(principal, displayedAmount - interest))} do capital.`;
 
-    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect };
+    const automaticDecision = resolveReceiptDecision({ amountReceived: displayedAmount, principal, interest, lateFee: effectiveLateFee, billingCycle: loan.billingCycle });
+    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, automaticDecision };
 }

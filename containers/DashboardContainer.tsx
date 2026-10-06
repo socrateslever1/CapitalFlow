@@ -34,12 +34,13 @@ interface DashboardContainerProps {
   isLoadingData?: boolean;
 }
 
-type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE';
+type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE' | 'PRINCIPAL_REDUCTION';
 
 type InstallmentPaymentOptions = {
   forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
   lateFeeForgiven?: number;
   partialBalanceAction?: PartialBalanceAction;
+  operationType?: import('../services/payments/paymentEngineV4').FinancialOperationType;
   paymentMethod?: FinancialPaymentMethod;
   expectedPreview?: FinancialOperationResult;
 };
@@ -109,7 +110,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           return;
       }
 
-      const partialAction = options?.partialBalanceAction || 'KEEP_PENDING';
+      const partialAction = options?.operationType || options?.partialBalanceAction || 'KEEP_PENDING';
 
       try {
           const result = await paymentsService.processPayment({
@@ -122,7 +123,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               forgivenessMode: options?.forgivenessMode || 'NONE',
               lateFeeForgiven: options?.lateFeeForgiven,
               realDate: new Date(),
-              capitalizeRemaining: partialAction === 'CAPITALIZE',
+              capitalizeRemaining: partialAction === 'CAPITALIZE' || partialAction === 'CAPITALIZE_RENEWAL',
               renewWithPending: partialAction === 'RENEW_KEEP_PENDING',
               partialAction,
               paymentMethod: options?.paymentMethod || String(loan.preferredPaymentMethod || 'OTHER').toUpperCase() as any,
@@ -136,7 +137,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               return true;
           }
 
-          if (partialAction === 'SETTLE') showToast('Quitação por acordo registrada com sucesso!', 'success');
+          if (partialAction === 'SETTLE' || partialAction === 'DISCOUNT_RENEWAL') showToast('Recebimento com desconto registrado com sucesso!', 'success');
           else if (partialAction === 'CAPITALIZE') showToast('Recebimento registrado e saldo restante capitalizado!', 'success');
           else if (partialAction === 'RENEW_KEEP_PENDING') showToast('Recebimento registrado e ciclo renovado com saldo pendente!', 'success');
           else showToast('Recebimento registrado com sucesso!', 'success');

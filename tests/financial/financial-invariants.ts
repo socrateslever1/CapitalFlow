@@ -15,6 +15,7 @@ import { validateLoanForm } from '../../features/loans/domain/loanForm.validator
 import { calculateAdditionalCapital, isPrincipalReduction, canReceiveCapitalAdvance } from '../../domain/finance/capitalAdvance';
 import { validateFundingAllocations } from '../../domain/finance/fundingAllocations';
 import { parseCurrency } from '../../utils/formatters';
+import { resolveReceiptDecision } from '../../services/payments/receiptDecision';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -265,7 +266,7 @@ run('condição especial mantém o saldo de um recebimento parcial sem acionar r
   assert.equal(preview.isPartialPayment, true);
 });
 
-run('janela de recebimento explica as quatro decisões de saldo em linguagem clara', () => {
+run('janela de recebimento explica as três decisões excepcionais em linguagem clara', () => {
   const preview = buildInstallmentReceiptModel({
     loan: { billingCycle: 'MONTHLY' } as any,
     selectedInst: { dueDate: '2026-09-01', principalRemaining: 400, interestRemaining: 120, lateFeeAccrued: 0 } as any,
@@ -276,12 +277,11 @@ run('janela de recebimento explica as quatro decisões de saldo em linguagem cla
   });
 
   assert.deepEqual(preview.partialChoices.map((choice) => choice.title), [
-    'Manter saldo nesta parcela',
-    'Incorporar encargos ao saldo',
-    'Criar novo vencimento',
-    'Encerrar com desconto',
+    'Somar restante ao capital',
+    'Manter restante pendente',
+    'Renovar com desconto',
   ]);
-  assert.ok(preview.partialChoices.every((choice) => choice.detail.length >= 60));
+  assert.ok(preview.partialChoices.every((choice) => choice.detail.length >= 45));
   assert.ok(!/backend|keep_pending|capitalize|settle/i.test(`${preview.modalityRule.rule} ${preview.partialChoices.map((choice) => choice.detail).join(' ')}`));
 });
 
@@ -290,6 +290,14 @@ run('modo de recebimento acompanha o valor informado sem bloquear a troca manual
   assert.equal(inferReceiptMode(120, 520, 120), 'INTEREST_ONLY');
   assert.equal(inferReceiptMode(80, 520, 120), 'CUSTOM');
   assert.equal(inferReceiptMode(220, 520, 120), 'CUSTOM');
+});
+
+run('recebimento recorrente escolhe renovação sem expor decisão técnica', () => {
+  assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 220, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
+   assert.equal(resolveReceiptDecision({ amountReceived: 80, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).needsBusinessChoice, true);
+   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 600, interest: 0, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'PRINCIPAL_REDUCTION');
+   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 400, interest: 0, lateFee: 0, billingCycle: 'MONTHLY', businessAction: 'PRINCIPAL_REDUCTION' }).operationType, 'PRINCIPAL_REDUCTION');
 });
 
 run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () => {

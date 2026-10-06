@@ -6,7 +6,10 @@ export type FinancialOperationType =
   | 'KEEP_PENDING'
   | 'RENEW_KEEP_PENDING'
   | 'CAPITALIZE'
-  | 'SETTLE';
+  | 'SETTLE'
+  | 'CAPITALIZE_RENEWAL'
+  | 'DISCOUNT_RENEWAL'
+  | 'PRINCIPAL_REDUCTION';
 
 export type FinancialPaymentMethod =
   | 'PIX'
@@ -134,7 +137,7 @@ function rpcArgs(input: FinancialOperationInput) {
   return {
     p_loan_id: loanId,
     p_installment_id: installmentId,
-    p_operation_type: input.operationType,
+    p_operation_type: input.operationType === 'PRINCIPAL_REDUCTION' ? 'KEEP_PENDING' : input.operationType,
     p_amount_received: normalizeMoney(input.amountReceived),
     p_payment_method: input.paymentMethod,
     p_payment_date: input.paymentDate,
@@ -145,6 +148,26 @@ function rpcArgs(input: FinancialOperationInput) {
   };
 }
 
+function isRecurringReceiptOperation(operationType: FinancialOperationType) {
+  return operationType === 'CAPITALIZE_RENEWAL'
+    || operationType === 'DISCOUNT_RENEWAL';
+}
+
+function recurringReceiptAction(operationType: FinancialOperationType) {
+  if (operationType === 'CAPITALIZE_RENEWAL') return 'CAPITALIZE_REMAINDER';
+  if (operationType === 'DISCOUNT_RENEWAL') return 'RENEW_WITH_DISCOUNT';
+  return 'PRINCIPAL_REDUCTION';
+}
+
+function recurringReceiptArgs(input: FinancialOperationInput) {
+  const args = rpcArgs(input);
+  const { p_operation_type: _operationType, ...baseArgs } = args;
+  return {
+    ...baseArgs,
+    p_business_action: recurringReceiptAction(input.operationType),
+  };
+}
+
 export async function previewFinancialOperation(
   input: FinancialOperationInput,
 ): Promise<FinancialOperationResult> {
@@ -152,7 +175,10 @@ export async function previewFinancialOperation(
     throw new Error('Conecte-se à internet para revisar os valores deste recebimento.');
   }
 
-  const { data, error } = await supabase.rpc('preview_financial_operation_v4', rpcArgs(input));
+  const { data, error } = await supabase.rpc(
+    isRecurringReceiptOperation(input.operationType) ? 'preview_recurring_receipt_v4' : 'preview_financial_operation_v4',
+    isRecurringReceiptOperation(input.operationType) ? recurringReceiptArgs(input) : rpcArgs(input),
+  );
   if (error) {
     console.error('[PaymentEngineV4] Falha ao preparar recebimento:', error);
     throw new Error(financialOperationError(error, 'PREVIEW'));
@@ -177,9 +203,9 @@ export async function executeFinancialOperation(
 
   const { idempotencyKey, storageKey } = getStableFinancialRequestKey(signature);
   const request = (async () => {
-    const { data, error } = await supabase.rpc('process_financial_operation_v4', {
+    const { data, error } = await supabase.rpc(isRecurringReceiptOperation(input.operationType) ? 'process_recurring_receipt_v4' : 'process_financial_operation_v4', {
       p_idempotency_key: idempotencyKey,
-      ...rpcArgs(input),
+      ...(isRecurringReceiptOperation(input.operationType) ? recurringReceiptArgs(input) : rpcArgs(input)),
       p_caixa_livre_id: safeUUID(input.caixaLivreId),
       p_reason: input.reason || null,
       p_expected_preview: input.expectedPreview,

@@ -13,6 +13,7 @@ import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { buildInstallmentReceiptModel, inferReceiptMode, type PartialBalanceAction, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
+import { resolveReceiptDecision } from '../../../services/payments/receiptDecision';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -42,7 +43,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [quickMode, setQuickMode] = React.useState<QuickMode>('TOTAL');
     const [manualReceiptMode, setManualReceiptMode] = React.useState(false);
     const [lateFeeForgiven, setLateFeeForgiven] = React.useState(0);
-    const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('KEEP_PENDING');
+    const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('CAPITALIZE');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
     const [reviewPreview, setReviewPreview] = React.useState<FinancialOperationResult | null>(null);
     const [isReviewReady, setIsReviewReady] = React.useState(false);
@@ -155,7 +156,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setQuickMode('TOTAL');
                     setManualReceiptMode(false);
                     setLateFeeForgiven(0);
-                    setPartialBalanceAction('KEEP_PENDING');
+                    setPartialBalanceAction('CAPITALIZE');
                     setReviewPreview(null);
                     setIsReviewReady(false);
                     setReceiptError(null);
@@ -323,7 +324,24 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     )}
                                 </div>
                             )}
-                            {isReviewReady && (
+                             {false && !hasActiveOffer && principal > ZERO_BALANCE_THRESHOLD && (
+                                 <div className="rounded-lg border border-violet-500/25 bg-violet-500/[0.05] p-3">
+                                     <button
+                                         type="button"
+                                         disabled={interest + effectiveLateFee > ZERO_BALANCE_THRESHOLD}
+                                         onClick={() => setPartialBalanceAction('PRINCIPAL_REDUCTION')}
+                                         className={`w-full rounded-lg border p-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-60 ${partialBalanceAction === 'PRINCIPAL_REDUCTION' ? 'border-violet-400 bg-violet-600/30 text-violet-100' : 'border-violet-500/30 bg-slate-950 text-violet-200'}`}
+                                     >
+                                         <span className="block text-[9px] font-black uppercase">Recebimento parcial</span>
+                                         <span className="mt-0.5 block text-[8px] leading-3.5 opacity-75">
+                                             {interest + effectiveLateFee > ZERO_BALANCE_THRESHOLD
+                                                 ? 'Disponível depois que os juros e encargos do ciclo forem pagos.'
+                                                 : 'Reduz o principal sem criar novo vencimento.'}
+                                         </span>
+                                     </button>
+                                 </div>
+                             )}
+                             {isReviewReady && (
                                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3.5">
                                     <div className="flex items-center gap-2 text-emerald-300">
                                         <CheckCircle2 size={16} />
@@ -393,7 +411,17 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         ? Number(receiptAmount)
                                         : displayedAmount;
                                     if (!Number.isFinite(amount) || amount <= 0.05 || (hasActiveOffer && amount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)) return;
-                                    const effectivePartialAction = isPartialPayment && !hasActiveOffer ? partialBalanceAction : undefined;
+                    const automaticDecision = resolveReceiptDecision({ amountReceived: amount, principal, interest, lateFee: effectiveLateFee, billingCycle: loan.billingCycle });
+                    const effectivePartialAction = isPartialPayment && !hasActiveOffer ? partialBalanceAction : undefined;
+                    const effectiveOperation = !hasActiveOffer
+                        ? (automaticDecision.operationType === 'PRINCIPAL_REDUCTION'
+                            ? 'PRINCIPAL_REDUCTION'
+                            : isPartialPayment && effectivePartialAction === 'CAPITALIZE'
+                            ? 'CAPITALIZE_RENEWAL'
+                            : isPartialPayment && effectivePartialAction === 'SETTLE'
+                                ? 'DISCOUNT_RENEWAL'
+                                : automaticDecision.operationType)
+                        : 'KEEP_PENDING';
                                     const preferredMethod = String(loan.preferredPaymentMethod || 'OTHER').toUpperCase();
                                     const paymentMethod = (['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO'].includes(preferredMethod)
                                         ? preferredMethod
@@ -406,7 +434,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                 const preview = await previewFinancialOperation({
                                                     loanId: String(loan.id),
                                                     installmentId: String(selectedInst.id),
-                                                    operationType: effectivePartialAction || 'KEEP_PENDING',
+                                                     operationType: effectiveOperation,
                                                     amountReceived: amount,
                                                     paymentMethod,
                                                     paymentDate: toISODateOnlyUTC(new Date()),
@@ -427,6 +455,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         forgivenessMode,
                                         lateFeeForgiven: appliedLateFeeForgiveness,
                                         partialBalanceAction: effectivePartialAction,
+                                        operationType: effectiveOperation,
                                         paymentMethod,
                                         expectedPreview: reviewPreview || undefined,
                                     };

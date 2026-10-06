@@ -9,8 +9,9 @@ import { usePaymentManagerState, ForgivenessMode } from './payment/hooks/usePaym
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 import { formatMoney } from '../../utils/formatters';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
+import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../services/payments/receiptDecision';
 
-type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDING';
+type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDING' | 'CAPITALIZE_RENEWAL' | 'DISCOUNT_RENEWAL';
 
 interface PaymentManagerModalProps {
     data: {loan: Loan, inst: Installment, calculations: any} | null;
@@ -40,7 +41,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     data, onClose, isProcessing, paymentType, setPaymentType, avAmount, setAvAmount, onConfirm, onOpenMessage
 }) => {
     const {
-        manualDateStr, setManualDateStr, manualDateEdited,
+        manualDateStr, setManualDateStr,
         realPaymentDateStr, setRealPaymentDateStr,
         subMode, setSubMode,
         forgivenessMode, setForgivenessMode,
@@ -55,6 +56,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const [backendPreview, setBackendPreview] = useState<FinancialOperationResult | null>(null);
     const [previewError, setPreviewError] = useState('');
     const [isPreviewing, setIsPreviewing] = useState(false);
+    const [businessAction, setBusinessAction] = useState<ReceiptBusinessAction>('CAPITALIZE_REMAINDER');
     const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
     const totalInterestDue = debtBreakdown.interest + debtBreakdown.fine + debtBreakdown.dailyMora;
     const payableTotal = Math.max(0, debtBreakdown.total - lateFeeForgiven);
@@ -92,6 +94,18 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const amountEntering = safeParse(avAmount);
     const remainingInterest = Math.max(0, payableInterestDue - amountEntering);
     const showInterestDecision = remainingInterest > 0.05;
+    const automaticDecision = resolveReceiptDecision({
+        amountReceived: amountEntering,
+        principal: debtBreakdown.principal,
+        interest: debtBreakdown.interest,
+        lateFee: debtBreakdown.fine + debtBreakdown.dailyMora,
+        billingCycle: resolvedBillingCycle,
+        businessAction: showInterestDecision ? businessAction : undefined,
+    });
+    const effectiveOperation = automaticDecision.operationType;
+    const effectiveManualDate = effectiveOperation === 'RENEW_KEEP_PENDING' || effectiveOperation === 'CAPITALIZE_RENEWAL' || effectiveOperation === 'DISCOUNT_RENEWAL'
+        ? (manualDateStr ? parseDateOnlyUTC(manualDateStr) : null)
+        : null;
     const effectiveForgivenessMode: ForgivenessMode = lateFeeForgiven > 0.05 && forgivenessMode === 'NONE'
         ? 'FINE_AND_MORA'
         : forgivenessMode;
@@ -99,7 +113,6 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const handleConfirmWrapper = async () => {
         const val = safeParse(avAmount);
         if (val <= 0) return;
-        const nextDueDate = manualDateEdited && manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
         if (!backendPreview) {
             setIsPreviewing(true);
@@ -108,15 +121,15 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                 const preview = await previewFinancialOperation({
                     loanId: String(loan.id),
                     installmentId: String(data.inst.id),
-                    operationType: interestHandling,
+                    operationType: effectiveOperation,
                     amountReceived: val,
                     paymentMethod,
                     paymentDate: toISODateOnlyUTC(realPaymentDate),
                     competenceDate: toISODateOnlyUTC(realPaymentDate),
                     forgivenessMode: effectiveForgivenessMode,
                     requestedLateFeeForgiven: lateFeeForgiven,
-                    manualDueDate: interestHandling === 'RENEW_KEEP_PENDING' && nextDueDate
-                        ? toISODateOnlyUTC(nextDueDate)
+                    manualDueDate: effectiveManualDate
+                        ? toISODateOnlyUTC(effectiveManualDate)
                         : null,
                 });
                 setBackendPreview(preview);
@@ -127,7 +140,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             }
             return;
         }
-        onConfirm(effectiveForgivenessMode, nextDueDate, val, realPaymentDate, interestHandling as InterestHandling, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview);
+        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation as InterestHandling, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview);
     };
 
     const toggleInterestAutoFill = () => {
@@ -221,8 +234,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                             <div className="relative z-10">
                                                 <div className="flex items-center justify-between mb-6"><h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2"><Banknote size={16} className="text-blue-500"/> Registrar Recebimento</h2><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Detecção Automática</span></div>
                                                 <div className="flex items-baseline gap-3 mb-6"><span className="text-3xl sm:text-4xl font-black text-blue-500">R$</span><input type="text" inputMode="decimal" value={avAmount || ''} onChange={e => { setAvAmount(e.target.value.replace(/[^0-9.,]/g, '')); setAutoFillMode('NONE'); previousAutoFillRef.current = null; }} className="w-full bg-transparent text-5xl sm:text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter min-w-0" placeholder="0,00" autoFocus/></div>
-                                                <button onClick={toggleInterestAutoFill} className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${autoFillMode === 'INTEREST' ? 'bg-orange-600 border-orange-500 text-white' : 'border-orange-900/50 bg-orange-900/20 text-orange-400'}`}>Somente Juros/Encargos</button>
-
+                                                 <button onClick={toggleInterestAutoFill} className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${autoFillMode === 'INTEREST' ? 'bg-orange-600 border-orange-500 text-white' : 'border-orange-900/50 bg-orange-900/20 text-orange-400'}`}>Somente Juros/Encargos</button>
                                                 {safeParse(avAmount) > 0 && <div className="mt-6 bg-slate-950/50 border border-slate-800/50 p-5 rounded-lg space-y-4"><p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Impacto do Recebimento</p><p className="text-sm text-slate-200 font-bold leading-relaxed">{(() => { const val = safeParse(avAmount); const totalDue = payableTotal; const interestDue = payableInterestDue; if (isCapitalOnlyRecovery) return val >= debtBreakdown.principal - 0.05 ? 'Quitação sem juros.' : `Abate ${formatMoney(val)} diretamente do capital.`; if (val >= totalDue - 0.05) return 'Quitação total: o contrato será encerrado.'; if (val >= interestDue - 0.05) { const amort = val - interestDue; return amort > 0.05 ? `Quita os encargos e abate ${formatMoney(amort)} do capital.` : 'Quita os encargos do período.'; } return `Pagamento parcial: ainda restam ${formatMoney(Math.max(0, interestDue - val))} em juros/encargos.`; })()}</p></div>}
                                             </div>
                                         </div>
@@ -235,12 +247,18 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                             <div className="bg-slate-900/50 p-5 rounded-lg border border-amber-500/20 space-y-3">
                                                 <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest flex items-center gap-2"><AlertCircle size={14} className="text-amber-500"/> O que fazer com o saldo restante?</label>
                                                 <p className="text-[11px] text-slate-400">Restam {formatMoney(remainingInterest)} de juros/encargos após este recebimento.</p>
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                    <button onClick={() => setInterestHandling('KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'KEEP_PENDING' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Manter saldo nesta parcela<br/><span className="normal-case font-bold opacity-70">abate o recebido e mantém saldo e vencimento atuais</span></button>
-                                                    <button onClick={() => setInterestHandling('RENEW_KEEP_PENDING' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'RENEW_KEEP_PENDING' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Criar novo vencimento<br/><span className="normal-case font-bold opacity-70">leva o restante para o próximo ciclo</span></button>
-                                                    <button onClick={() => setInterestHandling('CAPITALIZE' as any)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${interestHandling === 'CAPITALIZE' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>Incorporar encargos<br/><span className="normal-case font-bold opacity-70">soma juros e atraso ao capital</span></button>
-                                                </div>
-                                            </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                        {[
+                                            ['CAPITALIZE_REMAINDER', 'Somar restante ao capital', 'O que faltar dos juros entra no saldo principal e segue para o próximo ciclo.'],
+                                            ['KEEP_REMAINDER_PENDING', 'Manter restante pendente', 'O valor que faltar continua separado para cobrança posterior.'],
+                                            ['RENEW_WITH_DISCOUNT', 'Renovar com desconto', 'Aceita o valor recebido e registra o restante como desconto.'],
+                                        ].map(([value, title, detail]) => (
+                                            <button key={value} onClick={() => setBusinessAction(value as ReceiptBusinessAction)} className={`p-3 rounded-lg border text-[10px] font-black uppercase transition-all ${businessAction === value ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-950 border-slate-800 text-slate-500'}`}>
+                                                {title}<br/><span className="normal-case font-bold opacity-70">{detail}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                                         )}
                                     </div>
                                 </div>

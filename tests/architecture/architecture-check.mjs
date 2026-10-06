@@ -199,6 +199,7 @@ if (!paymentService.includes('const paymentDateStr = toISODateOnlyUTC(paymentDat
 }
 const ledgerReverse = read('services', 'ledger', 'ledgerReverse.ts');
 const paymentEngineMigration = read('supabase', 'migrations', '20260929042054_payment_engine_v4.sql');
+const recurringReceiptMigration = read('supabase', 'migrations', '20261006013412_simplify_recurring_receipts_v4.sql');
 const capitalAdvanceMigration = read('supabase', 'migrations', '20260929042059_harden_capital_advances.sql');
 const negativeCapitalAdvanceMigration = read('supabase', 'migrations', '20261004211030_allow_negative_source_balance_for_capital_advances.sql');
 const contractsService = read('services', 'contracts.service.ts');
@@ -231,6 +232,19 @@ for (const required of [
 ]) {
   if (!personalWalletMigration.toLowerCase().includes(required.toLowerCase())) {
     failures.push(`Minha Carteira -> garantia obrigatÃ³ria ausente: ${required}`);
+  }
+}
+
+for (const required of [
+  'create or replace function public.preview_recurring_receipt_v4',
+  'create or replace function public.process_recurring_receipt_v4',
+  'CAPITALIZE_REMAINDER',
+  'RENEW_WITH_DISCOUNT',
+  'PRINCIPAL_REDUCTION',
+  'p_expected_preview',
+]) {
+  if (!recurringReceiptMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`recebimento recorrente -> garantia obrigatÃ³ria ausente: ${required}`);
   }
 }
 if (/from\(['"]personal_wallet_expenses['"]\)\.insert/.test(personalWalletService)) {

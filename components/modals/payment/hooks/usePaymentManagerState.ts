@@ -145,13 +145,16 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
         if (data && data.inst?.dueDate && realPaymentDateStr) {
             const baseDate = parseDateOnlyUTC(realPaymentDateStr);
             const isDaily = resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM';
+            const dueDate = parseDateOnlyUTC(data.inst.dueDate);
+            const overdue = baseDate > dueDate;
+            const preservesOriginalDay = overdue && forgivenessMode !== 'NONE';
             const nextDate = isDaily ? addDaysUTC(baseDate, 1)
-                : interestHandling === 'RENEW_KEEP_PENDING'
-                    ? addDaysUTC(data.inst.dueDate, 30)
+                : preservesOriginalDay
+                    ? addDaysUTC(dueDate, 30)
                     : addDaysUTC(baseDate, 30);
             if (!manualDateEdited) setSuggestedManualDateStr(toISODateOnlyUTC(nextDate));
         }
-    }, [data?.loan?.id, data?.inst?.id, data?.inst?.dueDate, resolvedBillingCycle, realPaymentDateStr, interestHandling, manualDateEdited]);
+    }, [data?.loan?.id, data?.inst?.id, data?.inst?.dueDate, resolvedBillingCycle, realPaymentDateStr, forgivenessMode, manualDateEdited]);
 
     return {
         customAmount, setCustomAmount,

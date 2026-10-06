@@ -60,4 +60,21 @@ export const platformAdminService = {
     const { error } = await supabase.rpc('platform_admin_end_support', { p_session_id: sessionId });
     if (error) throw new Error(error.message);
   },
+
+  async resetUserPassword(email: string, newPassword: string) {
+    const { data, error } = await supabase.rpc('admin_set_profile_password', {
+      p_email: email,
+      p_new_password: newPassword,
+    });
+    if (error) throw new Error(error.message);
+    return data;
+  },
+
+  async setUserAccessLevel(profileId: string, accessLevel: number) {
+    const { error } = await supabase.rpc('platform_admin_set_access_level', {
+      p_profile_id: profileId,
+      p_access_level: accessLevel,
+    });
+    if (error) throw new Error(error.message);
+  },
 };

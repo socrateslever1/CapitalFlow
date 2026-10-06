@@ -12,6 +12,7 @@ import { isTestSource } from '../utils/testSource';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
+import { adjustSourceBalanceSafe } from './payments/paymentWallets';
 
 /* =========================
    Helpers de Sanitização
@@ -380,7 +381,7 @@ export const contractsService = {
       // Saída de Caixa (novo contrato)
       const safeSrcId = safeUUID(loan.sourceId);
       if (safeSrcId && !options?.skipTransaction && !isTestWalletLoan) {
-        await supabase.rpc('adjust_source_balance', { p_source_id: safeSrcId, p_delta: -principal });
+        await adjustSourceBalanceSafe(safeSrcId, -principal);
 
         await supabase.from('transacoes').insert({
           id: generateUUID(),

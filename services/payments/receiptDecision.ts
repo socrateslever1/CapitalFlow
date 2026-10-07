@@ -24,7 +24,7 @@ export type ReceiptDecision = {
 };
 
 const EPSILON = 0.05;
-const RECURRING_CYCLES = new Set(['MONTHLY', 'GIRO', 'REVOLVING']);
+const RECURRING_CYCLES = new Set(['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'GIRO', 'REVOLVING']);
 
 export function isRecurringReceiptCycle(billingCycle?: string | null) {
   return RECURRING_CYCLES.has(String(billingCycle || '').toUpperCase());

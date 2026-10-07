@@ -1,14 +1,30 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
+import http from "http";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function getNetworkIps() {
+  const interfaces = os.networkInterfaces();
+  const ips: string[] = [];
+  for (const ifaceList of Object.values(interfaces)) {
+    for (const iface of ifaceList || []) {
+      if (iface.family === "IPv4" && !iface.internal) {
+        ips.push(iface.address);
+      }
+    }
+  }
+  return ips;
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3001;
+  const PORT = Number(process.env.PORT) || 3003;
   const isProduction = process.env.NODE_ENV === "production";
+  const httpServer = http.createServer(app);
 
   app.disable("x-powered-by");
   app.use((_req, res, next) => {
@@ -44,13 +60,13 @@ async function startServer() {
   });
 
   // API routes FIRST
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });
 
   // Vite middleware for development
   if (!isProduction) {
-    app.use((req, res, next) => {
+    app.use((_req, res, next) => {
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
@@ -75,22 +91,41 @@ self.addEventListener('activate', function (event) {
     });
 
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        host: "0.0.0.0",
+        hmr: {
+          server: httpServer,
+        },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
     // Production static file serving
     app.use(express.static(path.resolve(__dirname, "dist")));
-    
+
     // SPA fallback for production
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.resolve(__dirname, "dist", "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    const ips = getNetworkIps();
+    console.log(`\n======================================================`);
+    console.log(`🚀 CapitalFlow Server rodando em modo ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+    console.log(`------------------------------------------------------`);
+    console.log(`➜ Local:            http://localhost:${PORT}`);
+    if (ips.length > 0) {
+      ips.forEach((ip) => {
+        console.log(`➜ Rede (Wi-Fi/LAN):  http://${ip}:${PORT}`);
+      });
+    }
+    console.log(`------------------------------------------------------`);
+    console.log(`🌐 Para acesso externo via Internet:`);
+    console.log(`   Execute em outro terminal: npm run dev:tunnel`);
+    console.log(`======================================================\n`);
   });
 }
 

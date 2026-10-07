@@ -4,13 +4,11 @@ import { platformAdminService, PlatformProfileSummary } from '../services/platfo
 
 const featureLabels = [
   { key: 'MULTI_SOURCE_FUNDING', label: 'Fontes múltiplas' },
-  { key: 'PERSONAL_WALLET', label: 'Carteira pessoal' },
 ];
 
 export const PlatformAdminPage: React.FC = () => {
   const [profiles, setProfiles] = useState<PlatformProfileSummary[]>([]);
   const [featureState, setFeatureState] = useState<Record<string, boolean>>({});
-  const [supportSession, setSupportSession] = useState<{ id: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -127,48 +125,33 @@ export const PlatformAdminPage: React.FC = () => {
     }
   };
 
-  const startSupport = async (profileId: string) => {
-    setBusy(`support:${profileId}`);
-    setError('');
-    try {
-      setSupportSession({ id: await platformAdminService.startReadOnlySupport(profileId) });
-    } catch (reason: any) {
-      setError(String(reason?.message || reason));
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const endSupport = async () => {
-    if (!supportSession) return;
-    setBusy('support-end');
-    setError('');
-    try {
-      await platformAdminService.endReadOnlySupport(supportSession.id);
-      setSupportSession(null);
-    } catch (reason: any) {
-      setError(String(reason?.message || reason));
-    } finally {
-      setBusy('');
-    }
-  };
-
   return (
-    <section className="space-y-6">
+    <section className="space-y-3">
       {/* Cabeçalho */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-amber-500/20 p-3 text-amber-300">
-            <ShieldCheck size={26} />
+          <div className="rounded-lg bg-amber-500/20 p-2.5 text-amber-300">
+            <ShieldCheck size={22} />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white">Painel do Dono</h1>
-            <p className="text-xs text-slate-500">Inscrições, acessos, senhas e bloqueios do sistema</p>
+            <h1 className="text-lg font-black text-white">Administração do Sistema</h1>
+            <p className="text-xs text-slate-500">Usuários, acessos, suporte e recursos da plataforma</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs text-slate-300">
+        <div className="flex w-full items-center gap-2 lg:w-auto">
+          <div className="relative min-w-0 flex-1 lg:w-80 lg:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nome ou e-mail"
+              aria-label="Buscar inscrição por nome ou e-mail"
+              className="h-9 w-full rounded-lg border border-slate-800 bg-slate-900/90 pl-9 pr-3 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-amber-500/50 transition-all"
+            />
+          </div>
+          <div className="flex h-9 shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/80 px-3 text-xs text-slate-300">
             <Users size={15} className="text-amber-400" />
             <span className="font-bold">{profiles.length}</span>
             <span className="text-slate-500">inscrições</span>
@@ -193,32 +176,6 @@ export const PlatformAdminPage: React.FC = () => {
         </div>
       )}
 
-      {supportSession && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100">
-          <span>Modo de visualização somente leitura em andamento.</span>
-          <button
-            type="button"
-            disabled={busy === 'support-end'}
-            onClick={endSupport}
-            className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-black uppercase text-slate-950 hover:bg-amber-400 transition-colors"
-          >
-            Encerrar
-          </button>
-        </div>
-      )}
-
-      {/* Barra de Busca de Inscrições */}
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar inscrição por nome ou e-mail..."
-          className="w-full rounded-xl border border-slate-800 bg-slate-900/90 py-3 pl-10 pr-4 text-xs font-bold text-white placeholder-slate-500 outline-none focus:border-amber-500/50 transition-all"
-        />
-      </div>
-
       {/* Tabela de Inscrições / Usuários */}
       <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
         <table className="w-full min-w-[860px] text-left text-sm">
@@ -242,9 +199,9 @@ export const PlatformAdminPage: React.FC = () => {
                   <td className="p-4 font-bold text-white">
                     <div className="flex items-center gap-2">
                       <span>{profile.name || 'Sem nome'}</span>
-                      {profile.access_level === 1 && (
-                        <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[8px] font-black uppercase text-rose-300">
-                          Admin
+                      {profile.is_super_admin && (
+                        <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-300">
+                          Admin full
                         </span>
                       )}
                     </div>
@@ -326,15 +283,6 @@ export const PlatformAdminPage: React.FC = () => {
                         <span>{isBlocked ? 'Desbloquear' : 'Bloquear'}</span>
                       </button>
 
-                      {/* Suporte Somente Leitura */}
-                      <button
-                        type="button"
-                        disabled={Boolean(supportSession) || busy === `support:${profile.id}`}
-                        onClick={() => startSupport(profile.id)}
-                        className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-[10px] font-black uppercase text-slate-300 hover:bg-slate-700 transition-colors"
-                      >
-                        Visualizar
-                      </button>
                     </div>
                   </td>
                 </tr>

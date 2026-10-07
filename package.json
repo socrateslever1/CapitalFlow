@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
+    "dev:tunnel": "npx -y localtunnel --port 3003",
     "build": "tsc -b && vite build",
     "build:skip-check": "vite build",
     "lint": "tsc -b",

@@ -8,6 +8,7 @@ export type PlatformProfileSummary = {
   access_level: number | null;
   created_at: string | null;
   last_active_at: string | null;
+  is_super_admin: boolean;
 };
 
 export type PlatformFeatureConfiguration = {

@@ -16,6 +16,10 @@ export const calculateAutoDueDate = (
     ? start
     : billingCycle === 'DAILY_FIXED_TERM'
       ? addDaysUTC(start, Math.max(1, Number(fixedDuration) || 1), skipWeekends)
+      : billingCycle === 'WEEKLY'
+        ? addDaysUTC(start, 7)
+        : billingCycle === 'BIWEEKLY'
+          ? addDaysUTC(start, 15)
       : addMonthsUTC(start, 1);
 
   return formatBRDate(due.toISOString());

@@ -8,10 +8,13 @@ import { dailyFreeStrategy } from "./dailyFree/index";
 import { dailyFixedTermStrategy } from "./dailyFixedTerm/index";
 
 import { daily30Strategy, daily30CapitalStrategy } from "./daily30/index";
+import { biweeklyStrategy, weeklyStrategy } from './periodic';
 
 // Mapeamento Oficial
 const strategies: Record<string, ModalityStrategy> = {
     'MONTHLY': monthlyStrategy,
+    'BIWEEKLY': biweeklyStrategy,
+    'WEEKLY': weeklyStrategy,
     'INSTALLMENT_FIXED': installmentFixedStrategy,
     'DAILY_FREE': dailyFreeStrategy,
     'DAILY_FIXED_TERM': dailyFixedTermStrategy,

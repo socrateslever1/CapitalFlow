@@ -211,6 +211,7 @@ const sourceController = read('hooks', 'controllers', 'useSourceController.ts');
 const profitWithdrawalMigration = read('supabase', 'migrations', '20260929224507_harden_profit_withdrawals_v2.sql');
 const paymentOperatorProfileMigration = read('supabase', 'migrations', '20261002114424_align_payment_transaction_operator_profile.sql');
 const paymentForgivenessMigration = read('supabase', 'migrations', '20261002135834_fix_payment_forgiveness_order_remote.sql');
+const capitalOnlyRecoveryMigration = read('supabase', 'migrations', '20261006203347_restore_capital_only_recovery_and_debit_test_source.sql');
 const readTools = read('ai', 'tools', 'read', 'tools.ts');
 const financialTools = read('ai', 'tools', 'financial', 'tools.ts');
 const toolRegistry = read('ai', 'tools', 'core', 'registry.ts');
@@ -221,6 +222,24 @@ const personalWalletService = read('services', 'personalWallet.service.ts');
 const personalWalletPage = read('pages', 'PersonalWalletPage.tsx');
 const bottomNav = read('layout', 'BottomNav.tsx');
 const app = read('App.tsx');
+
+for (const required of [
+  "'installments'",
+  "'scheduledInterest'",
+  "'interestRemaining'",
+  "'lateFeeAccrued'",
+  'jsonb_array_elements',
+]) {
+  if (!capitalOnlyRecoveryMigration.includes(required)) {
+    failures.push(`Somente Capital reversivel -> snapshot obrigatorio ausente: ${required}`);
+  }
+}
+if (contractsService.includes('isTestWalletLoan') || contractsService.includes('!isTestSource')) {
+  failures.push('novo emprestimo -> fonte TESTE nao pode escapar do debito e da negativacao do saldo');
+}
+if (!contractsService.includes('if (safeSrcId && !options?.skipTransaction)')) {
+  failures.push('novo emprestimo -> debito da fonte deve ocorrer tambem para a carteira TESTE');
+}
 
 for (const required of [
   'personal_wallet_create_expense',

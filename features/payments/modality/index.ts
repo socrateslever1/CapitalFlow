@@ -12,6 +12,8 @@ export const paymentModalityDispatcher = {
 
         switch (resolvedStrategy.key) {
             case 'MONTHLY':
+            case 'BIWEEKLY':
+            case 'WEEKLY':
                 return paymentFlowGiro;
             case 'DAILY_FREE':
                 return paymentFlowDiarioA;

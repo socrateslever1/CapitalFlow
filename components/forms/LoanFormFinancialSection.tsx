@@ -31,6 +31,27 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'MISTO';
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
+  const periodicRateLabel = formData.billingCycle === 'WEEKLY'
+    ? 'Juros (%) semanal'
+    : formData.billingCycle === 'BIWEEKLY'
+      ? 'Juros (%) quinzenal'
+      : formData.billingCycle === 'MONTHLY'
+        ? 'Juros (%) mensal'
+        : 'Taxa (%) mensal';
+  const selectBillingCycle = (billingCycle: LoanBillingModality) => {
+    const intervalDays = billingCycle === 'WEEKLY' ? 7 : billingCycle === 'BIWEEKLY' ? 15 : 30;
+    setFormData({
+      ...formData,
+      billingCycle,
+      ...(billingCycle === 'INSTALLMENT_FIXED' ? {
+        fundingInstallmentsCount: formData.fundingInstallmentsCount || '10',
+        customerMarginPercent: formData.customerMarginPercent || '30',
+      } : {}),
+    });
+    if (formData.startDate && ['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(billingCycle)) {
+      setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(formData.startDate, intervalDays)));
+    }
+  };
   const fundingAllocations = Array.isArray(formData.fundingAllocations) && formData.fundingAllocations.length > 0
     ? formData.fundingAllocations
     : [{ sourceId: formData.sourceId || sources[0]?.id || '', amount: '' }];
@@ -78,10 +99,12 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       <h3 className="text-[10px] font-black uppercase tracking-widest text-purple-500 flex items-center gap-2"><Wallet className="w-4 h-4" /> Condições</h3>
       <div className="space-y-4">
 
-        <div className="flex bg-slate-950/50 p-1 rounded-lg border border-slate-800/80">
-            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'MONTHLY'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'MONTHLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><CalendarDays size={13}/> Mensal</button>
-            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'INSTALLMENT_FIXED', fundingInstallmentsCount: formData.fundingInstallmentsCount || '10', customerMarginPercent: formData.customerMarginPercent || '30'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isInstallmentFixed ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><CreditCard size={13}/> Parcelado</button>
-            <button type="button" onClick={() => setFormData({...formData, billingCycle: 'DAILY_FREE'})} className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isDailyModality ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}><Clock size={13}/> Diário</button>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 bg-slate-950/50 p-1.5 rounded-lg border border-slate-800/80">
+            <button type="button" onClick={() => selectBillingCycle('MONTHLY')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'MONTHLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CalendarDays size={13}/> Mensal</button>
+            <button type="button" onClick={() => selectBillingCycle('BIWEEKLY')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'BIWEEKLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CalendarDays size={13}/> Quinzenal</button>
+            <button type="button" onClick={() => selectBillingCycle('WEEKLY')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'WEEKLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CalendarDays size={13}/> Semanal</button>
+            <button type="button" onClick={() => selectBillingCycle('INSTALLMENT_FIXED')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isInstallmentFixed ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CreditCard size={13}/> Parcelado</button>
+            <button type="button" onClick={() => selectBillingCycle('DAILY_FREE')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isDailyModality ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><Clock size={13}/> Diário</button>
         </div>
 
         {isDailyModality && (
@@ -143,7 +166,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
-            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{formData.billingCycle === 'MONTHLY' ? 'Juros (%) Mensal' : 'Taxa (%) Mensal'}</label>
+            <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{periodicRateLabel}</label>
             <input required type="number" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
           </div>}
         </div>
@@ -160,7 +183,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                   onChange={e => {
                       const startDate = e.target.value;
                       setFormData((current: any) => ({ ...current, startDate }));
-                      if (startDate) setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(startDate, 30)));
+                      const intervalDays = formData.billingCycle === 'WEEKLY' ? 7 : formData.billingCycle === 'BIWEEKLY' ? 15 : 30;
+                      if (startDate) setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(startDate, intervalDays)));
                   }}
                   className={dateInputClass}
               />
@@ -174,7 +198,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                   onChange={e => setManualFirstDueDate(e.target.value)}
                   className={`${dateInputClass} border-blue-500/30 focus:border-blue-500/50`}
               />
-              <p className="ml-2 text-[10px] text-slate-500">Sugerido: 30 dias após o empréstimo. Você pode alterar livremente o vencimento.</p>
+              <p className="ml-2 text-[10px] text-slate-500">Sugerido conforme a modalidade. Você pode alterar livremente o vencimento.</p>
           </div>
         </div>
 

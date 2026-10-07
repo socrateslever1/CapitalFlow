@@ -27,12 +27,12 @@ export const Footer: React.FC<FooterProps> = ({
     const handleCapitalOnlyToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
 
-        if (isCapitalOnlyRecovery) {
-            const confirmed = window.confirm(
-                'Remover a condição SOMENTE CAPITAL?\n\nA cobrança normal de juros e encargos voltará a ser permitida. O histórico de pagamentos não será apagado.'
-            );
-            if (!confirmed) return;
-        }
+        const confirmed = window.confirm(
+            isCapitalOnlyRecovery
+                ? 'Restaurar a cobrança normal?\n\nOs juros e encargos preservados antes da ativação voltarão ao contrato. O histórico de pagamentos não será apagado.'
+                : 'Receber só o capital?\n\nA partir deste momento, os recebimentos abaterão somente o capital, sem cobrar juros, multa ou mora. Clique novamente depois para restaurar a cobrança anterior.'
+        );
+        if (!confirmed) return;
 
         onToggleCapitalOnly?.(loan);
     };
@@ -87,10 +87,10 @@ export const Footer: React.FC<FooterProps> = ({
                    <button
                     onClick={handleCapitalOnlyToggle}
                     className={`col-span-2 sm:col-span-1 px-4 py-3 rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-2 ${isCapitalOnlyRecovery ? 'bg-rose-600 text-white border border-rose-500' : 'bg-rose-950/30 text-rose-400 border border-rose-500/20 hover:bg-rose-600 hover:text-white'}`}
-                    title={isCapitalOnlyRecovery ? 'Condição protegida: exige confirmação para remover' : 'Recuperar somente o capital'}
+                    title={isCapitalOnlyRecovery ? 'Restaurar juros e encargos preservados' : 'Receber somente o capital'}
                    >
                       <ShieldAlert size={14}/>
-                      <span className="text-[9px] font-black uppercase tracking-tight">{isCapitalOnlyRecovery ? 'Somente Capital' : 'Marcar Só Capital'}</span>
+                      <span className="text-[9px] font-black uppercase tracking-tight">{isCapitalOnlyRecovery ? 'Restaurar juros' : 'Receber só capital'}</span>
                    </button>
                 )}
             </div>

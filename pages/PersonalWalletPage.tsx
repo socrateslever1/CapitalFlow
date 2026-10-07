@@ -3,9 +3,11 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  ImagePlus,
   Landmark,
   Plus,
   ReceiptText,
+  ShieldCheck,
   WalletCards,
   X,
   XCircle,
@@ -59,6 +61,10 @@ export const PersonalWalletPage: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [accountImage, setAccountImage] = useState<File | null>(null);
+  const [accountImagePreview, setAccountImagePreview] = useState('');
+  const [cardImage, setCardImage] = useState<File | null>(null);
+  const [cardImagePreview, setCardImagePreview] = useState('');
   const [invoiceAccounts, setInvoiceAccounts] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async () => {
@@ -72,9 +78,21 @@ export const PersonalWalletPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, [refresh]);
 
+  useEffect(() => () => {
+    if (cardImagePreview) URL.revokeObjectURL(cardImagePreview);
+  }, [cardImagePreview]);
+
+  useEffect(() => () => {
+    if (accountImagePreview) URL.revokeObjectURL(accountImagePreview);
+  }, [accountImagePreview]);
+
   const openForm = (mode: Exclude<FormMode, null>) => {
     setError('');
     setSuccess('');
+    setAccountImage(null);
+    setAccountImagePreview('');
+    setCardImage(null);
+    setCardImagePreview('');
     setForm(mode === 'EXPENSE' ? { expense_date: today(), status: 'PENDING', installment_count: '1' } : {});
     setFormMode(mode);
   };
@@ -106,7 +124,7 @@ export const PersonalWalletPage: React.FC = () => {
           pix_key: form.pix_key || null,
           pix_key_type: form.pix_key_type || null,
           notes: form.notes || null,
-        });
+        }, accountImage);
       }
       if (formMode === 'CARD') {
         await personalWalletService.createCard({
@@ -118,7 +136,7 @@ export const PersonalWalletPage: React.FC = () => {
           closing_day: form.closing_day ? Number(form.closing_day) : null,
           due_day: form.due_day ? Number(form.due_day) : null,
           notes: form.notes || null,
-        });
+        }, cardImage);
       }
       if (formMode === 'EXPENSE') {
         const [paymentType, paymentId] = String(form.payment_source || '').split(':');
@@ -141,6 +159,10 @@ export const PersonalWalletPage: React.FC = () => {
       }
       setFormMode(null);
       setForm({});
+      setAccountImage(null);
+      setAccountImagePreview('');
+      setCardImage(null);
+      setCardImagePreview('');
     }, formMode === 'EXPENSE' ? 'Despesa registrada.' : 'Cadastro salvo.');
   };
 
@@ -190,24 +212,25 @@ export const PersonalWalletPage: React.FC = () => {
   if (loading) return <div className="p-8 text-sm font-bold text-slate-400">Carregando sua carteira...</div>;
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <PageHeader
-        icon={<WalletCards size={23} />}
-        title={<><span>MINHA</span> <span className="text-fuchsia-400">CARTEIRA</span></>}
+        icon={<WalletCards size={21} />}
+        title="Minha carteira"
         subtitle="Contas, cartões, despesas e faturas pessoais"
-        iconClassName="border-fuchsia-500/30 bg-fuchsia-600 text-white shadow-fuchsia-950/30"
+        iconClassName="!rounded-lg border-fuchsia-500/25 bg-slate-900 text-fuchsia-300 shadow-none"
         stackActionsUntilLg
         actions={(
-          <div className="grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => openForm('ACCOUNT')} className="rounded-xl border border-fuchsia-500/30 px-3 py-3 text-[10px] font-black uppercase text-fuchsia-200"><Plus size={14} className="mx-auto mb-1" />Conta</button>
-            <button type="button" onClick={() => openForm('CARD')} className="rounded-xl border border-fuchsia-500/30 px-3 py-3 text-[10px] font-black uppercase text-fuchsia-200"><Plus size={14} className="mx-auto mb-1" />Cartão</button>
-            <button type="button" onClick={() => openForm('EXPENSE')} disabled={!data.accounts.length && !data.cards.length} className="rounded-xl bg-fuchsia-600 px-3 py-3 text-[10px] font-black uppercase text-white disabled:cursor-not-allowed disabled:opacity-40"><Plus size={14} className="mx-auto mb-1" />Despesa</button>
+          <div className="grid grid-cols-3 gap-2 lg:flex lg:justify-end">
+            <button type="button" onClick={() => openForm('ACCOUNT')} className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-[10px] font-black uppercase text-slate-200 transition-colors hover:border-emerald-500/50 hover:text-emerald-300 lg:min-w-28"><Landmark size={14} />Conta</button>
+            <button type="button" onClick={() => openForm('CARD')} className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-[10px] font-black uppercase text-slate-200 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 lg:min-w-28"><CreditCard size={14} />Cartão</button>
+            <button type="button" onClick={() => openForm('EXPENSE')} disabled={!data.accounts.length && !data.cards.length} className="flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-fuchsia-600 px-3 text-[10px] font-black uppercase text-white transition-colors hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 lg:min-w-28"><Plus size={14} />Despesa</button>
           </div>
         )}
       />
 
-      <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-950/10 px-4 py-3 text-xs text-slate-400">
-        Área pessoal protegida e separada do capital usado nos contratos.
+      <div className="flex items-center gap-2.5 rounded-lg border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-xs text-slate-400">
+        <ShieldCheck size={16} className="shrink-0 text-emerald-400" />
+        <span>Área pessoal protegida e separada do capital usado nos contratos.</span>
       </div>
 
       {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-200">{error}</div>}
@@ -228,6 +251,18 @@ export const PersonalWalletPage: React.FC = () => {
                 <label><span className={labelClass}>Tipo</span><select value={form.account_type || 'CHECKING'} onChange={(event) => setForm({ ...form, account_type: event.target.value })} className={fieldClass}><option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option><option value="CASH">Dinheiro</option><option value="INVESTMENT">Investimento</option></select></label>
                 <label><span className={labelClass}>Tipo da chave PIX</span><select value={form.pix_key_type || ''} onChange={(event) => setForm({ ...form, pix_key_type: event.target.value })} className={fieldClass}><option value="">Sem PIX</option><option value="CPF">CPF</option><option value="EMAIL">E-mail</option><option value="PHONE">Telefone</option><option value="RANDOM">Aleatória</option></select></label>
                 <label><span className={labelClass}>Chave PIX</span><input value={form.pix_key || ''} onChange={(event) => setForm({ ...form, pix_key: event.target.value })} className={fieldClass} /></label>
+                <label className="sm:col-span-2">
+                  <span className={labelClass}>Ícone ou imagem do banco</span>
+                  <span className="flex min-h-20 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-3 transition-colors hover:border-emerald-500/60">
+                    {accountImagePreview ? <img src={accountImagePreview} alt="Prévia do banco" className="h-14 w-14 rounded-lg object-cover" /> : <span className="flex h-14 w-14 items-center justify-center rounded-lg bg-slate-900 text-slate-500"><ImagePlus size={22} /></span>}
+                    <span className="min-w-0"><strong className="block truncate text-xs text-slate-200">{accountImage?.name || 'Selecionar imagem'}</strong><small className="mt-1 block text-[10px] text-slate-500">JPEG, PNG ou WebP · até 5 MB</small></span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setAccountImage(file);
+                      setAccountImagePreview(file ? URL.createObjectURL(file) : '');
+                    }} />
+                  </span>
+                </label>
               </>
             )}
             {formMode === 'CARD' && (
@@ -238,6 +273,18 @@ export const PersonalWalletPage: React.FC = () => {
                 <label><span className={labelClass}>Bandeira</span><input value={form.brand || ''} onChange={(event) => setForm({ ...form, brand: event.target.value })} className={fieldClass} /></label>
                 <label><span className={labelClass}>Últimos 4 dígitos</span><input maxLength={4} pattern="[0-9]{4}" value={form.last_four || ''} onChange={(event) => setForm({ ...form, last_four: event.target.value.replace(/\D/g, '') })} className={fieldClass} /></label>
                 <div className="grid grid-cols-2 gap-3"><label><span className={labelClass}>Fecha dia</span><input type="number" min="1" max="31" value={form.closing_day || ''} onChange={(event) => setForm({ ...form, closing_day: event.target.value })} className={fieldClass} /></label><label><span className={labelClass}>Vence dia</span><input type="number" min="1" max="31" value={form.due_day || ''} onChange={(event) => setForm({ ...form, due_day: event.target.value })} className={fieldClass} /></label></div>
+                <label className="sm:col-span-2">
+                  <span className={labelClass}>Imagem do cartão</span>
+                  <span className="flex min-h-20 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-3 transition-colors hover:border-fuchsia-500/60">
+                    {cardImagePreview ? <img src={cardImagePreview} alt="Prévia do cartão" className="h-14 w-24 rounded-md object-cover" /> : <span className="flex h-14 w-24 items-center justify-center rounded-md bg-slate-900 text-slate-500"><ImagePlus size={22} /></span>}
+                    <span className="min-w-0"><strong className="block truncate text-xs text-slate-200">{cardImage?.name || 'Selecionar imagem'}</strong><small className="mt-1 block text-[10px] text-slate-500">JPEG, PNG ou WebP · até 5 MB</small></span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setCardImage(file);
+                      setCardImagePreview(file ? URL.createObjectURL(file) : '');
+                    }} />
+                  </span>
+                </label>
               </>
             )}
             {formMode === 'EXPENSE' && (
@@ -259,12 +306,12 @@ export const PersonalWalletPage: React.FC = () => {
         </form>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-5">
         <SummaryCard label="Saldo em contas" value={totals.balance} color="text-emerald-400" />
         <SummaryCard label="Gastos do mês" value={totals.month} color="text-cyan-300" />
         <SummaryCard label="Faturas abertas" value={totals.openInvoices} color="text-amber-300" />
         <SummaryCard label="Limite utilizado" value={totals.used} color="text-rose-300" />
-        <SummaryCard label="Limite disponível" value={totals.available} color="text-fuchsia-300" className="col-span-2 lg:col-span-1" />
+        <SummaryCard label="Limite disponível" value={totals.available} color="text-blue-300" className="col-span-2 lg:col-span-1" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -274,7 +321,7 @@ export const PersonalWalletPage: React.FC = () => {
             const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
             const percentage = Number(card.credit_limit) > 0 ? Math.min(100, (Number(card.used_limit) / Number(card.credit_limit)) * 100) : 0;
             return <article key={card.id} className="mb-3 rounded-xl border border-slate-800 bg-slate-950 p-4">
-              <div className="flex items-start justify-between gap-3"><div><p className="font-black text-white">{card.nickname}</p><p className="text-xs text-slate-500">{card.issuer || 'Emissor não informado'} · •••• {card.last_four || '----'}</p></div><span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black uppercase text-emerald-300">Ativo</span></div>
+              <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-3">{card.image_url ? <img src={card.image_url} alt={`Cartão ${card.nickname}`} className="h-12 w-20 shrink-0 rounded-md object-cover" /> : <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded-md bg-slate-900 text-slate-600"><CreditCard size={20} /></span>}<div className="min-w-0"><p className="truncate font-black text-white">{card.nickname}</p><p className="truncate text-xs text-slate-500">{card.issuer || 'Emissor não informado'} · •••• {card.last_four || '----'}</p></div></div><span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-1 text-[9px] font-black uppercase text-emerald-300">Ativo</span></div>
               <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-rose-500" style={{ width: `${percentage}%` }} /></div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><p className="text-slate-600">Limite</p><strong className="text-slate-200">{formatMoney(card.credit_limit)}</strong></div><div><p className="text-slate-600">Utilizado</p><strong className="text-rose-300">{formatMoney(card.used_limit)}</strong></div><div><p className="text-slate-600">Disponível</p><strong className="text-emerald-300">{formatMoney(available)}</strong></div></div>
               <p className="mt-3 text-[10px] font-bold uppercase text-slate-500">Fecha dia {card.closing_day || '—'} · vence dia {card.due_day || '—'} · próxima fatura {formatMoney(card.current_bill)}</p>
@@ -284,7 +331,7 @@ export const PersonalWalletPage: React.FC = () => {
 
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-black uppercase text-white"><Landmark size={17} className="text-emerald-300" /> Contas e PIX</h2>
-          {!data.accounts.length ? <EmptyState text="Nenhuma conta cadastrada." /> : data.accounts.map((account) => <article key={account.id} className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 p-4"><div><p className="font-black text-white">{account.nickname}</p><p className="text-xs text-slate-500">{account.bank_name || 'Conta pessoal'}{account.pix_key_type ? ` · PIX ${account.pix_key_type}` : ''}</p></div><strong className="text-emerald-300">{formatMoney(account.balance)}</strong></article>)}
+          {!data.accounts.length ? <EmptyState text="Nenhuma conta cadastrada." /> : data.accounts.map((account) => <article key={account.id} className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950 p-4"><div className="flex min-w-0 items-center gap-3">{account.image_url ? <img src={account.image_url} alt={`Banco ${account.bank_name || account.nickname}`} className="h-11 w-11 shrink-0 rounded-lg object-cover" /> : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-emerald-400"><Landmark size={19} /></span>}<div className="min-w-0"><p className="truncate font-black text-white">{account.nickname}</p><p className="truncate text-xs text-slate-500">{account.bank_name || 'Conta pessoal'}{account.pix_key_type ? ` · PIX ${account.pix_key_type}` : ''}</p></div></div><strong className="shrink-0 text-emerald-300">{formatMoney(account.balance)}</strong></article>)}
         </section>
       </div>
 
@@ -306,7 +353,7 @@ export const PersonalWalletPage: React.FC = () => {
   );
 };
 
-const SummaryCard = ({ label, value, color, className = '' }: { label: string; value: number; color: string; className?: string }) => <div className={`rounded-xl border border-slate-800 bg-slate-900 p-4 ${className}`}><p className="text-[9px] font-black uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-2 text-lg font-black sm:text-xl ${color}`}>{formatMoney(value)}</p></div>;
+const SummaryCard = ({ label, value, color, className = '' }: { label: string; value: number; color: string; className?: string }) => <div className={`min-w-0 rounded-lg border border-slate-800 bg-slate-900/80 p-3.5 ${className}`}><p className="text-[9px] font-black uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-1.5 truncate text-base font-black sm:text-lg ${color}`}>{formatMoney(value)}</p></div>;
 const EmptyState = ({ text }: { text: string }) => <p className="rounded-xl border border-dashed border-slate-800 p-5 text-center text-sm text-slate-500">{text}</p>;
 const StatusBadge = ({ status }: { status: string }) => {
   const style = status === 'PAID' ? 'bg-emerald-500/10 text-emerald-300' : status === 'CANCELED' ? 'bg-rose-500/10 text-rose-300' : 'bg-amber-500/10 text-amber-300';

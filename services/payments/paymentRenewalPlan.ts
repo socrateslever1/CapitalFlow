@@ -15,7 +15,9 @@ export function planPaymentRenewal(params: {
     paymentDate: Date;
 }) {
     const { loan, inst, instDb, balanceAfterRpc, renewWithPending, isInterestRenewal, manualDate, paymentDate } = params;
-    const isMonthlyOrGiro = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String((loan as any).billingCycle || '').toUpperCase());
+    const billingCycle = String((loan as any).billingCycle || '').toUpperCase();
+    const isMonthlyOrGiro = ['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'GIRO', 'REVOLVING'].includes(billingCycle);
+    const cycleDays = billingCycle === 'WEEKLY' ? 7 : billingCycle === 'BIWEEKLY' ? 15 : 30;
     const hasPrincipalRemaining = Number(balanceAfterRpc.principalRemaining || 0) > ZERO_BALANCE_THRESHOLD;
     const nextCycleInterest = roundMoney(Number(balanceAfterRpc.principalRemaining || 0) * ((Number((loan as any).interestRate) || 0) / 100));
     const chargesStillPending = roundMoney(Number(balanceAfterRpc.interestRemaining || 0) + Number(balanceAfterRpc.lateFeeRemaining || 0)) > ZERO_BALANCE_THRESHOLD;
@@ -27,8 +29,8 @@ export function planPaymentRenewal(params: {
     // - nunca soma um novo juro cheio ao saldo parcial já existente.
     const paymentDateOnly = paymentDate.toISOString().slice(0, 10);
     const renewalDate = partialRenewalRequested
-      ? (manualDate || addDaysUTC(currentDueDate, 30))
-      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDateOnly, 30) : null));
+      ? (manualDate || addDaysUTC(currentDueDate, cycleDays))
+      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDateOnly, cycleDays) : null));
 
 
     return { isMonthlyOrGiro, hasPrincipalRemaining, nextCycleInterest, partialRenewalRequested, currentDueDate, renewalDate };

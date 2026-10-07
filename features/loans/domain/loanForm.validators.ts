@@ -72,7 +72,7 @@ export const validateLoanForm = (
     }
   }
 
-  const officialModalities = ['MONTHLY', 'INSTALLMENT_FIXED', 'DAILY_FREE', 'DAILY_FIXED_TERM'];
+  const officialModalities = ['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'INSTALLMENT_FIXED', 'DAILY_FREE', 'DAILY_FIXED_TERM'];
   if (!officialModalities.includes(formData.billingCycle)) {
     return { isValid: false, error: `Erro: A modalidade ${translateBillingCycle(formData.billingCycle)} não é uma modalidade oficial suportada para novos contratos.` };
   }

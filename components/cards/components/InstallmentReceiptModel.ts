@@ -75,14 +75,14 @@ export function buildInstallmentReceiptModel(params: {
                 const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
                 const cycle = String(loan.billingCycle || '').toUpperCase();
                 const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
-                    ? { name: 'Mensal · ciclo de 30 dias', rule: 'O saldo permanece ligado ao vencimento atual. A data só avança quando você escolher criar um novo ciclo; sem essa escolha, um atraso existente continua contando.' }
+                    ? { name: 'Mensal · Ciclo de 30 dias', rule: 'Cobrança mensal com apuração a cada 30 dias. O recebimento pode quitar a parcela inteira, amortizar o capital emprestado ou renovar os encargos para o mês seguinte.' }
                     : cycle === 'INSTALLMENT_FIXED'
-                        ? { name: 'Parcelado · datas definidas', rule: 'Cada parcela tem seu próprio valor e vencimento. Este recebimento reduz apenas a parcela selecionada e não altera automaticamente as demais.' }
+                        ? { name: 'Parcelado · Parcelas fixas', rule: 'Cronograma com parcelas e datas pré-fixadas. O pagamento quita ou amortiza a parcela selecionada sem alterar os vencimentos futuros.' }
                         : cycle === 'DAILY_FREE' || cycle === 'DAILY_FIXED'
-                            ? { name: 'Diária · cobrança por dia', rule: 'Os encargos acompanham os dias em aberto. O valor recebido reduz a dívida de hoje; encargos restantes não viram capital automaticamente.' }
+                            ? { name: 'Diária · Dias corridos', rule: 'Cobrança diária calculada por dias corridos. O valor recebido quita os encargos acumulados e amortiza o capital devedor sem juros ocultos.' }
                             : cycle === 'DAILY_FIXED_TERM'
-                                ? { name: 'Prazo fixo · data contratada', rule: 'O contrato vence na data combinada. Um recebimento parcial reduz o saldo, mas não muda o prazo nem cria uma nova cobrança automaticamente.' }
-                                : { name: 'Contrato anterior', rule: 'O sistema preserva os valores e datas já registrados. Confira o resultado da revisão antes de concluir o recebimento.' };
+                                ? { name: 'Prazo fixo · Término determinado', rule: 'Contrato com prazo fixo e término determinado. O valor recebido amortiza a dívida ativa dentro da vigência contratada.' }
+                                : { name: 'Contrato padrão', rule: 'Valores apurados com base no saldo devedor atualizado. Confira a discriminação detalhada antes de efetivar o recebimento.' };
 
                 const partialChoices: Array<{
                     value: PartialBalanceAction;
@@ -143,14 +143,16 @@ export function buildInstallmentReceiptModel(params: {
                 ? 'Informe o valor para abatimento direto no capital (período de até 10 dias).'
                 : 'Informe o valor para quitar os juros e abater o excedente do capital.'))
         : displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD
-        ? 'Este valor encerra a parcela.'
+        ? (principal > 0 && chargesAmount > 0
+            ? `Liquidação integral: quita ${formatMoney(principal)} de capital e ${formatMoney(chargesAmount)} de encargos, zerando totalmente esta parcela.`
+            : `Liquidação integral: quita o saldo de ${formatMoney(totalAmount)}, encerrando esta parcela com saldo zerado.`)
         : displayedAmount <= ZERO_BALANCE_THRESHOLD
-            ? 'Informe um valor para ver como ele será aplicado.'
+            ? 'Selecione uma opção de recebimento ou informe o valor pago pelo cliente.'
             : displayedAmount < interest - ZERO_BALANCE_THRESHOLD
-                ? `Este valor abate parte dos juros. Ainda faltam ${formatMoney(interest - displayedAmount)} em juros.`
+                ? `Amortização parcial de juros: quita ${formatMoney(displayedAmount)} dos encargos. Restam ${formatMoney(interest - displayedAmount)} em juros pendentes neste ciclo.`
                 : displayedAmount <= interest + ZERO_BALANCE_THRESHOLD
-                    ? 'Este valor cobre os juros. O capital continua aberto.'
-                    : `Este valor cobre os encargos e abate ${formatMoney(Math.min(principal, displayedAmount - interest))} do capital.`;
+                    ? `Quitação de encargos: liquida integralmente os juros (${formatMoney(interest)}). O capital devedor (${formatMoney(principal)}) permanece em aberto para o próximo ciclo.`
+                    : `Liquidação mista: quita todos os encargos (${formatMoney(chargesAmount)}) e amortiza ${formatMoney(Math.min(principal, displayedAmount - chargesAmount))} do capital principal.`;
 
     const automaticDecision = resolveReceiptDecision({ amountReceived: displayedAmount, principal, interest, lateFee: effectiveLateFee, billingCycle: loan.billingCycle });
     return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, automaticDecision, canAbatePrincipal, isDirectCapitalReduction, hasPaidInterest, daysFromInterestDate };

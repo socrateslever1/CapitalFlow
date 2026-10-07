@@ -53,7 +53,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     () => calculatePaymentOfferPreview(loan, installment, form),
     [loan, installment, form]
   );
-  const canRenewInterest = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
+  const canRenewInterest = ['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
   const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 

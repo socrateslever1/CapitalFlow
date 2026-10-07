@@ -17,6 +17,8 @@ import {
   X,
   Trash2,
   FolderSearch,
+  CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { Tooltip } from '../components/ui/Tooltip';
@@ -260,6 +262,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return <Gavel size={14} className="text-yellow-400" />;
       case 'PROFILE':
         return <User size={14} className="text-blue-400" />;
+      case 'MY_WALLET':
+        return <CreditCard size={14} className="text-fuchsia-400" />;
+      case 'PLATFORM_ADMIN':
+        return <ShieldCheck size={14} className="text-amber-400" />;
       case 'HUB':
         return <Menu size={14} className="text-slate-400" />;
       default:
@@ -285,6 +291,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         return 'Jurídico';
       case 'PROFILE':
         return 'Perfil';
+      case 'MY_WALLET':
+        return 'Minha Carteira';
+      case 'PLATFORM_ADMIN':
+        return 'Administração';
       case 'HUB':
         return 'Menu';
       default:

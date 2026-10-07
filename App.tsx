@@ -596,7 +596,7 @@ export const App: React.FC = () => {
                     setProfileEditForm={setProfileEditForm}
                     fileCtrl={fileCtrl}
                     navOrder={navOrder}
-                    hubOrder={hubOrder}
+                    hubOrder={visibleHubOrder}
                     saveNavConfig={saveNavConfig}
                     goBack={goBack}
                   />

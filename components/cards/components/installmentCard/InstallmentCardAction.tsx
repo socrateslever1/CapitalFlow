@@ -70,9 +70,9 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                     <button
                         onClick={handleOpen}
                         className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-2.5 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all"
-                        title={loan.billingCycle === 'MONTHLY' ? "Detalhes da parcela" : "Abrir contrato"}
+                        title={['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? "Detalhes da parcela" : "Abrir contrato"}
                     >
-                        {loan.billingCycle === 'MONTHLY' ? 'Detalhes' : 'Abrir'}
+                        {['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? 'Detalhes' : 'Abrir'}
                     </button>
                 </div>
             );
@@ -82,9 +82,9 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
             <button
                 onClick={handleReceive}
                 className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                title={loan.billingCycle === 'MONTHLY' ? "Detalhes da parcela" : "Abrir contrato"}
+                title={['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? "Detalhes da parcela" : "Abrir contrato"}
             >
-                <DollarSign size={12} /> {loan.billingCycle === 'MONTHLY' ? 'Detalhes' : 'Abrir'}
+                <DollarSign size={12} /> {['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? 'Detalhes' : 'Abrir'}
             </button>
         );
     }

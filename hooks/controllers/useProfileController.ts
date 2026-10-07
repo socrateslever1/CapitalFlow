@@ -48,8 +48,15 @@ export const useProfileController = (
     const file = e.target.files?.[0];
     if (!file || !profileEditForm || !activeUser) return;
 
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Use uma imagem JPG, PNG ou WebP.', 'error');
+      e.target.value = '';
+      return;
+    }
+
     if (file.size > 2 * 1024 * 1024) {
-      showToast('Imagem muito grande (máx 2MB).', 'error');
+      showToast('Imagem muito grande (máximo 2 MB).', 'error');
+      e.target.value = '';
       return;
     }
 
@@ -66,8 +73,15 @@ export const useProfileController = (
       }
 
       const publicUrl = await operatorProfileService.uploadAvatar(file, activeUser.id);
-      setProfileEditForm({ ...profileEditForm, photo: publicUrl });
-      showToast("Foto carregada! Clique em 'Salvar Perfil' para confirmar.", 'success');
+      const updatedProfile = await operatorProfileService.updateProfile(
+        activeUser.id,
+        { ...profileEditForm, photo: publicUrl },
+        'MANUAL'
+      );
+      if (!updatedProfile) throw new Error('O perfil não foi atualizado.');
+      setProfileEditForm(updatedProfile);
+      setActiveUser(updatedProfile);
+      showToast('Foto do perfil atualizada.', 'success');
     } catch (err: any) {
       showToast('Erro no upload: ' + err.message, 'error');
     } finally {

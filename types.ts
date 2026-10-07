@@ -50,6 +50,8 @@ export type AppTab = 'DASHBOARD' | 'DOSSIER' | 'CLIENTS' | 'LEGAL' | 'SOURCES' |
 
 export type LoanBillingModality =
   | 'MONTHLY'
+  | 'BIWEEKLY'
+  | 'WEEKLY'
   | 'INSTALLMENT_FIXED'
   | 'DAILY_FREE'
   | 'DAILY_FIXED_TERM'

@@ -428,7 +428,12 @@ export const useLoanController = (
       } catch (cacheError) {
         console.warn('[LoanController] Falha ao atualizar cache de Somente Capital:', cacheError);
       }
-      showToast(enabled ? 'Contrato marcado como Somente Capital.' : 'Marcacao Somente Capital removida.', 'success');
+      showToast(
+        enabled
+          ? 'Recebimento somente do capital ativado. Juros e encargos foram preservados para restauração.'
+          : 'Cobrança normal restaurada com os juros e encargos preservados.',
+        'success'
+      );
       await fetchFullData(ownerId);
     } catch (e: any) {
       showToast(e?.message || 'Falha ao atualizar Somente Capital.', 'error');

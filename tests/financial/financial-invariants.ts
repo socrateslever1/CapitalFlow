@@ -16,6 +16,8 @@ import { calculateAdditionalCapital, isPrincipalReduction, canReceiveCapitalAdva
 import { validateFundingAllocations } from '../../domain/finance/fundingAllocations';
 import { parseCurrency } from '../../utils/formatters';
 import { resolveReceiptDecision } from '../../services/payments/receiptDecision';
+import { calculateAutoDueDate } from '../../features/loans/domain/loanForm.preview';
+import { modalityRegistry } from '../../domain/finance/modalities/registry';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -31,6 +33,27 @@ const run = (name: string, fn: () => void) => {
     throw error;
   }
 };
+
+run('modalidades semanal e quinzenal geram ciclos e vencimentos coerentes', () => {
+  assert.equal(calculateAutoDueDate('2026-10-06', 'WEEKLY', ''), '13/10/2026');
+  assert.equal(calculateAutoDueDate('2026-10-06', 'BIWEEKLY', ''), '21/10/2026');
+
+  const weekly = modalityRegistry.get('WEEKLY').generateInstallments({
+    principal: 1000,
+    rate: 10,
+    startDate: '2026-10-06',
+  });
+  const biweekly = modalityRegistry.get('BIWEEKLY').generateInstallments({
+    principal: 1000,
+    rate: 10,
+    startDate: '2026-10-06',
+  });
+
+  assert.equal(weekly.installments[0].dueDate, '2026-10-13');
+  assert.equal(biweekly.installments[0].dueDate, '2026-10-21');
+  assertMoney(weekly.totalToReceive, 1100, 'total semanal');
+  assertMoney(biweekly.totalToReceive, 1100, 'total quinzenal');
+});
 
 run('novo aporte considera somente o aumento sobre o capital atual', () => {
   assertMoney(calculateAdditionalCapital(1200, 1000), 200, 'primeiro aporte');

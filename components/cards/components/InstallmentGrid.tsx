@@ -1,9 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, CheckCircle2, Loader2, WalletCards } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, WalletCards, Receipt, Calendar, AlertCircle, ChevronRight, Check } from 'lucide-react';
 import { Modal } from '../../ui/Modal';
 import { LateFeeWaiverOptions } from '../../modals/payment/LateFeeWaiverOptions';
-import { toISODateOnlyUTC } from '../../../utils/dateHelpers';
+import { toISODateOnlyUTC, formatBRDate, getDueStatus } from '../../../utils/dateHelpers';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
@@ -161,56 +161,266 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setIsReviewReady(false);
                     setReceiptError(null);
                 };
+                const instNumber = selectedInst.number ?? 1;
+                const dueDateFormatted = formatBRDate(selectedInst.dueDate);
+                const dueInfo = getDueStatus(selectedInst.dueDate);
 
                 const modalContent = (
-                <Modal onClose={resetSelection} title="Registrar recebimento" subtitle="Escolha o valor recebido e confira o resultado antes de concluir" size="sm">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <div className="rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2">
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Forma de cobrança</span>
-                                    <span className="text-[9px] font-black uppercase text-blue-300">{modalityRule.name}</span>
+                <Modal onClose={resetSelection} title="Registrar recebimento" subtitle={`Parcela nº ${instNumber} · Vencimento ${dueDateFormatted}`} size="sm">
+                    <div className="space-y-3.5">
+                        <div className="space-y-3">
+                            {/* Composição da Dívida */}
+                            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <Receipt size={13} className="text-blue-400" />
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-300">Composição da Dívida</span>
+                                    </div>
+                                    {dueInfo.daysLate > 0 ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-rose-400">
+                                            <AlertCircle size={9} /> {dueInfo.daysLate} dias em atraso
+                                        </span>
+                                    ) : dueInfo.isToday ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-amber-400">
+                                            Vence hoje
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">
+                                            <CheckCircle2 size={9} /> Em dia
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="mt-1 text-[8px] leading-3.5 text-slate-400">{modalityRule.rule}</p>
+
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-center">
+                                        <span className="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Capital</span>
+                                        <p className="mt-0.5 text-xs font-black text-slate-100">{formatMoney(principal, isStealthMode)}</p>
+                                        <span className="text-[7px] text-slate-500">Saldo devedor</span>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-center">
+                                        <span className="text-[7.5px] font-bold uppercase tracking-wider text-blue-400">Juros</span>
+                                        <p className="mt-0.5 text-xs font-black text-blue-300">{formatMoney(interest, isStealthMode)}</p>
+                                        <span className="text-[7px] text-slate-500">Ciclo mensal</span>
+                                    </div>
+                                    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-center">
+                                        <span className={`text-[7.5px] font-bold uppercase tracking-wider ${effectiveLateFee > 0 ? 'text-rose-400' : 'text-slate-400'}`}>Mora / Atraso</span>
+                                        <p className={`mt-0.5 text-xs font-black ${effectiveLateFee > 0 ? 'text-rose-300' : 'text-slate-300'}`}>{formatMoney(effectiveLateFee, isStealthMode)}</p>
+                                        <span className="text-[7px] text-slate-500">{effectiveLateFee > 0 ? 'Encargos' : 'Zerado'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between border-t border-slate-800/80 pt-2 px-0.5">
+                                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400">Saldo Total da Parcela</span>
+                                    <span className="text-xs font-black text-white">{formatMoney(totalAmount, isStealthMode)}</span>
+                                </div>
                             </div>
-                            {hasActiveOffer ? (
+
+                            {/* Regra de Cobrança */}
+                            <div className="flex items-start gap-2.5 rounded-lg border border-slate-800 bg-slate-950/50 px-2.5 py-2">
+                                <Calendar size={13} className="mt-0.5 shrink-0 text-blue-400" />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Forma de cobrança</span>
+                                        <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-blue-300 border border-blue-500/20">{modalityRule.name}</span>
+                                    </div>
+                                    <p className="mt-1 text-[8px] leading-relaxed text-slate-400">{modalityRule.rule}</p>
+                                </div>
+                            </div>
+
+                            {/* Condição Especial se ativa */}
+                            {hasActiveOffer && (
                                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-center">
                                     <p className="text-[9px] font-black uppercase text-emerald-400">Condição especial ativa</p>
-                                    <p className="mt-0.5 text-[9px] text-slate-400">O valor fica reservado até a data combinada. É possível receber parte sem desfazer a condição; o restante continua disponível.</p>
+                                    <p className="mt-0.5 text-[8.5px] text-slate-300">Valor reservado de {formatMoney(activeOfferAmount, isStealthMode)} até a data combinada. É possível receber parte sem desfazer a condição.</p>
                                 </div>
-                            ) : <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => {
-                                        setQuickMode('TOTAL');
-                                        setManualReceiptMode(true);
-                                        setShowCustomAmount(false);
-                                        setLateFeeForgiven(0);
-                                        setReceiptAmount(String(totalAmount.toFixed(2)));
-                                        setPartialBalanceAction('KEEP_PENDING');
-                                    }}
-                                    className={`py-2 rounded-lg text-[10px] font-black uppercase border flex items-center justify-center gap-1.5 ${quickMode === 'TOTAL' && !showCustomAmount ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
-                                >
-                                    <CheckCircle2 size={12}/>
-                                    <span>
-                                        <span className="block">Quitar esta parcela</span>
-                                        <span className="mt-0.5 block text-[8px] normal-case opacity-70">Recebe todo o saldo e encerra a parcela</span>
-                                    </span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setQuickMode('CUSTOM');
-                                        setManualReceiptMode(false);
-                                        setShowCustomAmount(true);
-                                        setLateFeeForgiven(0);
-                                        setReceiptAmount('');
-                                        setPartialBalanceAction('KEEP_PENDING');
-                                    }}
-                                    className={`py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CUSTOM' || showCustomAmount ? 'bg-blue-600/20 text-blue-400 border-blue-500/40' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
-                                >
-                                    <span className="block">Receber outro valor</span>
-                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">Você informa quanto entrou</span>
-                                </button>
-                            </div>}
+                            )}
+
+                            {/* Opções de Recebimento */}
+                            {!hasActiveOffer && (
+                                <div className="space-y-1.5">
+                                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Opção de Recebimento</span>
+                                    <div className="space-y-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setQuickMode('TOTAL');
+                                                setManualReceiptMode(true);
+                                                setShowCustomAmount(false);
+                                                setLateFeeForgiven(0);
+                                                setReceiptAmount(String(totalAmount.toFixed(2)));
+                                                setPartialBalanceAction('KEEP_PENDING');
+                                            }}
+                                            className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                quickMode === 'TOTAL' && !showCustomAmount
+                                                    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/40'
+                                                    : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                                                        quickMode === 'TOTAL' && !showCustomAmount
+                                                            ? 'border-emerald-400 bg-emerald-500 text-slate-950 font-black'
+                                                            : 'border-slate-700 bg-slate-900'
+                                                    }`}>
+                                                        {quickMode === 'TOTAL' && !showCustomAmount ? '✓' : ''}
+                                                    </span>
+                                                    <span className="text-[9.5px] font-black uppercase tracking-wide">Quitar esta parcela</span>
+                                                </div>
+                                                <span className="text-[9px] font-bold text-emerald-400">{formatMoney(totalAmount, isStealthMode)}</span>
+                                            </div>
+                                            <p className="mt-1 text-[8px] text-slate-400 pl-5.5">Liquida 100% do saldo (capital e encargos) e encerra a parcela definitivamente.</p>
+                                        </button>
+
+                                        {canAbatePrincipal && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setQuickMode('PRINCIPAL_REDUCTION');
+                                                    setManualReceiptMode(true);
+                                                    setShowCustomAmount(true);
+                                                    setLateFeeForgiven(0);
+                                                    setReceiptAmount('');
+                                                    setPartialBalanceAction('PRINCIPAL_REDUCTION');
+                                                }}
+                                                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                    quickMode === 'PRINCIPAL_REDUCTION'
+                                                        ? 'border-purple-500/50 bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/40'
+                                                        : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                                                            quickMode === 'PRINCIPAL_REDUCTION'
+                                                                ? 'border-purple-400 bg-purple-500 text-slate-950 font-black'
+                                                                : 'border-slate-700 bg-slate-900'
+                                                        }`}>
+                                                            {quickMode === 'PRINCIPAL_REDUCTION' ? '✓' : ''}
+                                                        </span>
+                                                        <span className="text-[9.5px] font-black uppercase tracking-wide">Abater valor</span>
+                                                    </div>
+                                                    <span className="rounded border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[7.5px] font-black uppercase text-purple-300">
+                                                        {isDirectCapitalReduction ? 'Sem novos juros' : 'Amortização'}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
+                                                    {isDirectCapitalReduction
+                                                        ? `Abatimento direto no capital (${formatMoney(principal, isStealthMode)}) no período de até 10 dias.`
+                                                        : `Quita juros em aberto (${formatMoney(interest, isStealthMode)}) e abate o excedente no capital.`}
+                                                </p>
+                                            </button>
+                                        )}
+
+                                        {canReceiveInterestOnly && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setQuickMode('INTEREST_ONLY');
+                                                    setManualReceiptMode(true);
+                                                    setShowCustomAmount(false);
+                                                    setReceiptAmount(String(interest.toFixed(2)));
+                                                    setPartialBalanceAction('KEEP_PENDING');
+                                                }}
+                                                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                    quickMode === 'INTEREST_ONLY'
+                                                        ? 'border-blue-500/50 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40'
+                                                        : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                                                            quickMode === 'INTEREST_ONLY'
+                                                                ? 'border-blue-400 bg-blue-500 text-slate-950 font-black'
+                                                                : 'border-slate-700 bg-slate-900'
+                                                        }`}>
+                                                            {quickMode === 'INTEREST_ONLY' ? '✓' : ''}
+                                                        </span>
+                                                        <span className="text-[9.5px] font-black uppercase tracking-wide">Receber somente juros</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-blue-400">{formatMoney(interest, isStealthMode)}</span>
+                                                </div>
+                                                <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
+                                                    Recebe os juros do mês e renova o ciclo. O capital ({formatMoney(principal, isStealthMode)}) permanece em aberto.
+                                                </p>
+                                            </button>
+                                        )}
+
+                                        {canReceiveChargesOnly && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setQuickMode('CHARGES_ONLY');
+                                                    setManualReceiptMode(true);
+                                                    setShowCustomAmount(false);
+                                                    setReceiptAmount(String(chargesAmount.toFixed(2)));
+                                                    setPartialBalanceAction('KEEP_PENDING');
+                                                }}
+                                                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                    quickMode === 'CHARGES_ONLY'
+                                                        ? 'border-orange-500/50 bg-orange-500/10 text-orange-300 ring-1 ring-orange-500/40'
+                                                        : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                                                            quickMode === 'CHARGES_ONLY'
+                                                                ? 'border-orange-400 bg-orange-500 text-slate-950 font-black'
+                                                                : 'border-slate-700 bg-slate-900'
+                                                        }`}>
+                                                            {quickMode === 'CHARGES_ONLY' ? '✓' : ''}
+                                                        </span>
+                                                        <span className="text-[9.5px] font-black uppercase tracking-wide">Receber juros e atraso</span>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold text-orange-400">{formatMoney(chargesAmount, isStealthMode)}</span>
+                                                </div>
+                                                <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
+                                                    Quita juros e multa/mora acumulada ({formatMoney(chargesAmount, isStealthMode)}). Não abate o capital.
+                                                </p>
+                                            </button>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setQuickMode('CUSTOM');
+                                                setManualReceiptMode(false);
+                                                setShowCustomAmount(true);
+                                                setLateFeeForgiven(0);
+                                                setReceiptAmount('');
+                                                setPartialBalanceAction('KEEP_PENDING');
+                                            }}
+                                            className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                (quickMode === 'CUSTOM' || showCustomAmount) && quickMode !== 'PRINCIPAL_REDUCTION'
+                                                    ? 'border-blue-500/50 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40'
+                                                    : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                                                        (quickMode === 'CUSTOM' || showCustomAmount) && quickMode !== 'PRINCIPAL_REDUCTION'
+                                                            ? 'border-blue-400 bg-blue-500 text-slate-950 font-black'
+                                                            : 'border-slate-700 bg-slate-900'
+                                                    }`}>
+                                                        {(quickMode === 'CUSTOM' || showCustomAmount) && quickMode !== 'PRINCIPAL_REDUCTION' ? '✓' : ''}
+                                                    </span>
+                                                    <span className="text-[9.5px] font-black uppercase tracking-wide">Receber outro valor</span>
+                                                </div>
+                                                <span className="rounded border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[7.5px] font-black uppercase text-blue-300">
+                                                    Personalizado
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
+                                                Informe qualquer valor recebido para calcular a divisão entre encargos e capital.
+                                            </p>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {hasActiveOffer && String(selectedInst.paymentOfferType || '').toUpperCase() !== 'INTEREST_RENEWAL' && (
                                 <button type="button"
                                     onClick={() => { setQuickMode('CUSTOM'); setShowCustomAmount(true); setReceiptAmount(''); }}
@@ -218,57 +428,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     Receber parte da condição
                                 </button>
                             )}
-                            {!hasActiveOffer && canReceiveInterestOnly && (
-                                <button
-                                    onClick={() => {
-                                        setQuickMode('INTEREST_ONLY');
-                                        setManualReceiptMode(true);
-                                        setShowCustomAmount(false);
-                                        setReceiptAmount(String(interest.toFixed(2)));
-                                        setPartialBalanceAction('KEEP_PENDING');
-                                    }}
-                                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'INTEREST_ONLY' ? 'bg-blue-600/20 text-blue-300 border-blue-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
-                                >
-                                    <span className="block">Receber somente juros</span>
-                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">Não abate capital nem muda o vencimento</span>
-                                </button>
-                            )}
-                            {!hasActiveOffer && canReceiveChargesOnly && (
-                                <button
-                                    onClick={() => {
-                                        setQuickMode('CHARGES_ONLY');
-                                        setManualReceiptMode(true);
-                                        setShowCustomAmount(false);
-                                        setReceiptAmount(String(chargesAmount.toFixed(2)));
-                                        setPartialBalanceAction('KEEP_PENDING');
-                                    }}
-                                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${quickMode === 'CHARGES_ONLY' ? 'bg-orange-600/20 text-orange-400 border-orange-500/50' : 'bg-slate-950 text-slate-400 border-slate-700'}`}
-                                >
-                                    <span className="block">Receber juros e atraso</span>
-                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">Quita juros, multa e mora; não abate capital</span>
-                                </button>
-                            )}
-                            {!hasActiveOffer && canAbatePrincipal && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setQuickMode('PRINCIPAL_REDUCTION');
-                                        setManualReceiptMode(true);
-                                        setShowCustomAmount(true);
-                                        setLateFeeForgiven(0);
-                                        setReceiptAmount('');
-                                        setPartialBalanceAction('PRINCIPAL_REDUCTION');
-                                    }}
-                                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${quickMode === 'PRINCIPAL_REDUCTION' ? 'bg-purple-600/20 text-purple-300 border-purple-500/50' : 'bg-slate-950 text-slate-400 border-slate-700 hover:border-slate-600'}`}
-                                >
-                                    <span className="block">Abater valor</span>
-                                    <span className="mt-0.5 block text-[8px] normal-case opacity-70">
-                                        {isDirectCapitalReduction
-                                            ? 'Abatimento direto no capital (período de até 10 dias)'
-                                            : 'Quita juros em aberto e abate o excedente no capital (+10 dias)'}
-                                    </span>
-                                </button>
-                            )}
+
                             {!hasActiveOffer && (
                                 <LateFeeWaiverOptions
                                     loan={loan}
@@ -280,36 +440,112 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     isStealthMode={isStealthMode}
                                 />
                             )}
+
                             {showCustomAmount && (
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    max={quickMode === 'PRINCIPAL_REDUCTION' ? principal : undefined}
-                                    placeholder={quickMode === 'PRINCIPAL_REDUCTION' ? `Valor a abater (máx. ${formatMoney(principal, isStealthMode)})` : "Digite o valor"}
-                                    value={receiptAmount}
-                                    onChange={e => {
-                                        const nextAmount = e.target.value;
-                                        setReceiptAmount(nextAmount);
-                                        if (!manualReceiptMode) {
-                                            setQuickMode(inferReceiptMode(Number(nextAmount) || 0, totalAmount, interest));
-                                        }
-                                    }}
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white font-bold outline-none focus:border-blue-500"
-                                    autoFocus
-                                />
+                                <div className="rounded-xl border border-blue-500/30 bg-blue-500/[0.04] p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[8.5px] font-black uppercase tracking-wider text-blue-300">
+                                            {quickMode === 'PRINCIPAL_REDUCTION' ? 'Valor a abater do capital principal' : 'Valor recebido em dinheiro ou Pix'}
+                                        </label>
+                                        {quickMode === 'PRINCIPAL_REDUCTION' && (
+                                            <span className="text-[8px] font-bold text-slate-400">
+                                                Disponível: {formatMoney(principal, isStealthMode)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">R$</span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            max={quickMode === 'PRINCIPAL_REDUCTION' ? principal : undefined}
+                                            placeholder={quickMode === 'PRINCIPAL_REDUCTION' ? `Até ${principal.toFixed(2)}` : '0,00'}
+                                            value={receiptAmount}
+                                            onChange={e => {
+                                                const nextAmount = e.target.value;
+                                                setReceiptAmount(nextAmount);
+                                                if (!manualReceiptMode) {
+                                                    setQuickMode(inferReceiptMode(Number(nextAmount) || 0, totalAmount, interest));
+                                                }
+                                            }}
+                                            className="w-full rounded-lg border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm font-black text-white outline-none transition-colors focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    {quickMode === 'PRINCIPAL_REDUCTION' && principal > 0 && (
+                                        <div className="flex items-center gap-1.5 pt-0.5">
+                                            <span className="text-[7.5px] font-bold uppercase text-slate-400">Atalhos:</span>
+                                            {[0.25, 0.5, 1].map((ratio) => {
+                                                const val = (principal * ratio).toFixed(2);
+                                                return (
+                                                    <button
+                                                        key={ratio}
+                                                        type="button"
+                                                        onClick={() => setReceiptAmount(val)}
+                                                        className="rounded border border-slate-700/80 bg-slate-900 px-2 py-0.5 text-[8px] font-bold text-slate-300 hover:border-slate-500 hover:bg-slate-800 transition-colors"
+                                                    >
+                                                        {ratio === 1 ? 'Total (100%)' : `${ratio * 100}%`}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
                             )}
-                            <div className="grid grid-cols-3 gap-1 text-center">
-                                <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-slate-500">Cap. {formatMoney(principal, isStealthMode)}</span>
-                                <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-blue-400">Jur. {formatMoney(interest, isStealthMode)}</span>
-                                <span className="rounded-md bg-slate-950/70 border border-slate-800 px-1.5 py-1 text-[8px] font-black uppercase text-rose-400">Atr. {formatMoney(effectiveLateFee, isStealthMode)}</span>
-                            </div>
-                            <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-center">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
-                                    {activeOfferAmount > 0.05 ? 'Valor da condição especial' : 'Valor a receber'}
-                                </p>
-                                <p className="text-base font-black text-emerald-400">{formatMoney(displayedAmount, isStealthMode)}</p>
-                                <p className="mt-1 text-[9px] leading-4 text-slate-400">{receiptEffect}</p>
+
+                            {/* Resumo do Lançamento */}
+                            <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 space-y-2.5">
+                                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                    <div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                            {activeOfferAmount > 0.05 ? 'Valor da Condição Especial' : 'Valor a Liquidar'}
+                                        </span>
+                                        <p className="text-base font-black text-emerald-400">
+                                            {formatMoney(displayedAmount, isStealthMode)}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400">Saldo Restante</span>
+                                        <p className={`text-xs font-black ${remainingAfterInput <= ZERO_BALANCE_THRESHOLD ? 'text-emerald-400' : 'text-slate-200'}`}>
+                                            {remainingAfterInput <= ZERO_BALANCE_THRESHOLD ? 'R$ 0,00 (Quitado)' : formatMoney(remainingAfterInput, isStealthMode)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg bg-slate-900/80 border border-slate-800/80 p-2.5">
+                                    <div className="flex items-start gap-2">
+                                        <CheckCircle2 size={12} className="mt-0.5 shrink-0 text-emerald-400" />
+                                        <p className="text-[8.5px] leading-relaxed text-slate-300">{receiptEffect}</p>
+                                    </div>
+                                </div>
+
+                                {displayedAmount > ZERO_BALANCE_THRESHOLD && (
+                                    <div className="grid grid-cols-2 gap-2 text-[8px]">
+                                        <div className="rounded-lg bg-slate-900/50 border border-slate-800/70 p-2 flex items-center justify-between">
+                                            <span className="font-semibold text-slate-400">Abate no Capital:</span>
+                                            <span className="font-bold text-blue-300">
+                                                {formatMoney(
+                                                    quickMode === 'PRINCIPAL_REDUCTION' && isDirectCapitalReduction
+                                                        ? Math.min(principal, displayedAmount)
+                                                        : Math.max(0, Math.min(principal, displayedAmount - chargesAmount)),
+                                                    isStealthMode
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div className="rounded-lg bg-slate-900/50 border border-slate-800/70 p-2 flex items-center justify-between">
+                                            <span className="font-semibold text-slate-400">Quita Encargos:</span>
+                                            <span className="font-bold text-amber-300">
+                                                {formatMoney(
+                                                    quickMode === 'PRINCIPAL_REDUCTION' && isDirectCapitalReduction
+                                                        ? 0
+                                                        : Math.min(chargesAmount, displayedAmount),
+                                                    isStealthMode
+                                                )}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {hasActiveOffer && isPartialPayment && (

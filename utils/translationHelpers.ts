@@ -81,6 +81,10 @@ export const translateBillingCycle = (cycle: string): string => {
   const translations: Record<string, string> = {
     MONTHLY: 'Mensal',
     MENSAL: 'Mensal',
+    BIWEEKLY: 'Quinzenal',
+    QUINZENAL: 'Quinzenal',
+    WEEKLY: 'Semanal',
+    SEMANAL: 'Semanal',
     DAILY: 'Diário',
     DIARIO: 'Diário',
     DAILY_FREE: 'Diário Livre',

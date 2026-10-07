@@ -71,6 +71,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   profileEditForm,
   setProfileEditForm,
   handleSaveProfile,
+  handlePhotoUpload,
   handleExportBackup,
   profilePhotoInputRef,
   fileInputExcelRef,
@@ -102,6 +103,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         return 'Jurídico';
       case 'PROFILE':
         return 'Perfil';
+      case 'MY_WALLET':
+        return 'Minha Carteira';
+      case 'PLATFORM_ADMIN':
+        return 'Administração';
       default:
         return tab;
     }
@@ -142,6 +147,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   return (
     <div className="space-y-8 pb-20 max-w-[1600px] mx-auto animate-in fade-in">
+      <input
+        ref={profilePhotoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handlePhotoUpload}
+        className="sr-only"
+        aria-label="Selecionar foto do perfil"
+      />
       <PageHeader
         icon={<User size={22} />}
         iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"

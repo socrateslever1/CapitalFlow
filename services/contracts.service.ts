@@ -6,7 +6,6 @@ import { isUUID, safeUUID } from '../utils/uuid';
 import {
   isCapitalOnlyRecoveryLoan,
 } from '../utils/capitalOnlyRecovery';
-import { isTestSource } from '../utils/testSource';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
@@ -169,8 +168,6 @@ export const contractsService = {
     const interestRate = safeFloat(loan.interestRate);
     const finePercent = safeFloat(loan.finePercent);
     const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
-    const selectedSource = _sources.find((source) => source.id === loan.sourceId);
-    const isTestWalletLoan = isTestSource(selectedSource);
     const fundingCheck = loan.fundingAllocations?.length
       ? validateFundingAllocations(requestedPrincipal, loan.fundingAllocations)
       : null;
@@ -339,7 +336,7 @@ export const contractsService = {
         p_allocations: multiSourceAllocations,
         p_profile_id: ownerId,
         p_operator_id: safeUUID(activeUser.id),
-        p_debit_sources: !multiSourceAllocations.every((allocation) => isTestSource(_sources.find((source) => source.id === allocation.sourceId))),
+        p_debit_sources: true,
       });
       if (error) throw new Error(error.message);
     } else {
@@ -378,7 +375,7 @@ export const contractsService = {
 
       // Saída de Caixa (novo contrato)
       const safeSrcId = safeUUID(loan.sourceId);
-      if (safeSrcId && !options?.skipTransaction && !isTestWalletLoan) {
+      if (safeSrcId && !options?.skipTransaction) {
         await adjustSourceBalanceSafe(safeSrcId, -principal);
 
         await supabase.from('transacoes').insert({

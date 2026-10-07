@@ -22,7 +22,7 @@ function spaFallbackPlugin() {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    server: { port: 3000, host: '0.0.0.0' },
+    server: { port: 3003, host: '0.0.0.0' },
     plugins: [react(), tailwindcss(), spaFallbackPlugin()],
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),

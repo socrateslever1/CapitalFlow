@@ -8,6 +8,8 @@ export const financialDispatcher = {
     calculate(loan: Loan, inst: Installment, policy: LoanPolicy): CalculationResult {
         switch (loan.billingCycle) {
             case 'MONTHLY':
+            case 'BIWEEKLY':
+            case 'WEEKLY':
                 return calculateGiro(loan, inst, policy);
             case 'DAILY_FREE':
                 return calculateDiarioA(loan, inst, policy);

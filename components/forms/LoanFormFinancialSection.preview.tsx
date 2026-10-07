@@ -8,8 +8,8 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
   const preview = useMemo(() => {
     const principal = Number(formData.principal || 0);
     const rate = Number(formData.interestRate || 0);
-    const isMonthly = formData.billingCycle === 'MONTHLY';
-    if (!Number.isFinite(principal) || principal <= 0 || !Number.isFinite(rate) || rate < 0 || !isMonthly) return null;
+    const isPeriodic = ['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(formData.billingCycle);
+    if (!Number.isFinite(principal) || principal <= 0 || !Number.isFinite(rate) || rate < 0 || !isPeriodic) return null;
     const interest = principal * (rate / 100);
     return { interest, total: principal + interest, rate };
   }, [formData.principal, formData.interestRate, formData.billingCycle]);

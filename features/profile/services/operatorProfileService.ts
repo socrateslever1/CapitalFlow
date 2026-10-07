@@ -44,21 +44,32 @@ export const operatorProfileService = {
      */
     async uploadAvatar(file: File, profileId: string): Promise<string> {
         if (!file) throw new Error("Arquivo inválido.");
-        
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${profileId}/avatar_${Date.now()}.${fileExt}`;
-        const filePath = `profiles/${fileName}`;
+
+        const allowedTypes: Record<string, string> = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp',
+        };
+        const fileExt = allowedTypes[file.type];
+        if (!fileExt) throw new Error('Use uma imagem JPG, PNG ou WebP.');
+        if (file.size > 2 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 2 MB.');
+
+        const filePath = `profiles/${profileId}/avatar.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
             .from('avatars')
-            .upload(filePath, file, { upsert: true });
+            .upload(filePath, file, {
+                upsert: true,
+                contentType: file.type,
+                cacheControl: '3600',
+            });
 
         if (uploadError) {
             throw new Error(`Erro no storage: ${uploadError.message}`);
         }
 
         const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        return data.publicUrl;
+        return `${data.publicUrl}?v=${Date.now()}`;
     },
 
     async updateProfile(profileId: string, data: UpdatableProfileFields, origin: 'MANUAL' | 'IMPORT' | 'RESTORE' = 'MANUAL'): Promise<UserProfile | null> {

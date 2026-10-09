@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, Lightbulb, Loader2, BookOpen, HeartPulse, RefreshCw, Trophy } from 'lucide-react';
+import { Sparkles, Lightbulb, Loader2, BookOpen, HeartPulse, RefreshCw } from 'lucide-react';
 import { processNaturalLanguageCommand, AIResponse } from '../../../services/geminiService';
 import { Loan } from '../../../types';
 import { isGeminiConfigError } from '../../../utils/geminiConfig';
@@ -110,11 +110,11 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
     useEffect(() => { generateMentorAdvice(); }, [portfolioSignature, clientName]);
 
     return (
-        <div className="mt-8 pt-8 border-t border-slate-800 space-y-6">
+        <div className="mt-5 pt-5 border-t border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-pink-600 rounded-lg text-white shadow-lg shadow-pink-900/20">
-                        <HeartPulse size={20}/>
+                <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-pink-600 rounded-lg text-white">
+                        <HeartPulse size={17}/>
                     </div>
                     <div>
                         <h3 className="text-white font-black uppercase text-xs tracking-tighter">Caminho da Prosperidade</h3>
@@ -128,22 +128,18 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
                 </button>
             </div>
 
-            <div className="bg-slate-950/50 p-6 rounded-lg border border-slate-800 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <Trophy size={64} className="text-white"/>
-                </div>
-
+            <div className="bg-slate-950/40 p-4 rounded-lg border border-slate-800 relative overflow-hidden">
                 {loading && !result ? (
                     <div className="py-8 flex flex-col items-center justify-center gap-3">
                         <Loader2 className="animate-spin text-pink-500" size={24}/>
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Traçando seu Perfil...</p>
                     </div>
                 ) : (
-                    <div className="space-y-4 relative z-10">
+                    <div className="space-y-3 relative z-10">
                         <div className="flex items-center gap-2 text-yellow-500 font-black text-[10px] uppercase tracking-widest">
                             <Lightbulb size={14}/> Insight Educacional
                         </div>
-                        <p className="text-sm text-slate-300 leading-relaxed font-medium italic">
+                        <p className="text-[12px] text-slate-300 leading-relaxed font-medium">
                             "{result?.analysis || result?.feedback || "Sua saúde financeira começa com a organização de hoje."}"
                         </p>
                         {result?.suggestions && (
@@ -155,12 +151,6 @@ export const PortalEducationalAI: React.FC<{ contracts: Loan[], clientName: stri
                         )}
                     </div>
                 )}
-            </div>
-
-            <div className="bg-blue-600/5 p-4 rounded-lg border border-blue-500/10 text-center">
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">
-                    Educação para o Crédito Consciente
-                </p>
             </div>
         </div>
     );

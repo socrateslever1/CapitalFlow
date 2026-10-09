@@ -16,6 +16,7 @@ import {
   Wallet,
   Calendar,
   LogOut,
+  Building,
   CheckCircle2,
   FileText,
   User,
@@ -29,6 +30,7 @@ import { usePortalPushNotifications } from '../../features/portal/hooks/usePorta
 import { notificationService } from '../../services/notification.service';
 import { PortalChatDrawer } from '../../features/portal/components/PortalChatDrawer';
 import { resolveDebtSummary, resolveInstallmentDebt, resolvePaymentOptions, getPortalDueLabel, isPortalInstallmentPaid } from '../../features/portal/mappers/portalDebtRules';
+import { PortalEducationalAI } from '../../features/portal/components/PortalEducationalAI';
 import { formatMoney } from '../../utils/formatters';
 import { legalDocumentService } from '../../services/legalDocument.service';
 import { portalService } from '../../services/portal.service';
@@ -784,7 +786,7 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
             </div>
           </div>
 
-          <div className={allOperatorFiles.length > 0 ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+          <div className="grid grid-cols-1 gap-2">
               <button
                 onClick={() => setIsLegalOpen(true)}
                 className="group bg-slate-900/50 border border-slate-800 p-2.5 rounded-lg flex items-center gap-2.5 hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 text-left w-full"
@@ -797,24 +799,6 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
                   <p className="text-[8px] text-slate-500 truncate mt-0.5">Contratos e termos</p>
                 </div>
               </button>
-
-              {allOperatorFiles.length > 0 && (
-                <button
-                  onClick={() => setIsFilesOpen(true)}
-                  className="group bg-slate-900/50 border border-slate-800 p-2.5 rounded-lg flex items-center gap-2.5 hover:bg-slate-800 hover:border-slate-700 transition-all duration-300 text-left w-full"
-                >
-                  <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-all transform group-hover:scale-105 shadow-md shrink-0 relative">
-                    <FolderOpen size={15} />
-                    <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[7px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border border-slate-950 shadow-md">
-                      {allOperatorFiles.length}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black text-white uppercase truncate tracking-tight">Arquivos</p>
-                    <p className="text-[8px] text-slate-500 truncate mt-0.5">Promissórias e recibos</p>
-                  </div>
-                </button>
-              )}
           </div>
 
           <div className="space-y-2.5">
@@ -864,18 +848,42 @@ const ClientPortalViewContent: React.FC<ClientPortalViewProps> = ({ initialPorta
               </div>
             )}
           </div>
+
+          <PortalEducationalAI contracts={clientContracts} clientName={loggedClient.name} />
+
+          {clientContracts.length > 0 && (
+            <div className="bg-slate-950/40 p-4 rounded-lg border border-slate-800/30 flex items-center gap-3">
+              <div className="p-2.5 bg-slate-900 rounded-lg text-slate-500 shrink-0">
+                <Building size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] font-black text-slate-600 uppercase tracking-[0.18em]">Instituição Credora</p>
+                <p className="mt-0.5 text-[11px] text-slate-100 font-black truncate">
+                  {(clientContracts[0] as any).creditorName || 'CapitalFlow Soluções Financeiras'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Botão de Suporte (WhatsApp do Operador ou Chat Interno) */}
                 {paymentSelections.length > 0 && (
           <div className="absolute inset-x-0 bottom-0 z-[120] border-t border-slate-700/80 bg-slate-950/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-12px_30px_rgba(2,6,23,0.75)] backdrop-blur-xl">
-            <div className="mx-auto max-w-md">
+            <div className="mx-auto flex max-w-md items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase text-white">Pagamento escolhido</p>
+                <p className="truncate text-[9px] font-semibold text-slate-400">
+                  {paymentSelections[0].mode === 'INSTALLMENT'
+                    ? `${paymentSelections[0].installmentIds.length} parcela${paymentSelections[0].installmentIds.length === 1 ? '' : 's'} selecionada${paymentSelections[0].installmentIds.length === 1 ? '' : 's'}`
+                    : `${paymentSelections.length} contrato${paymentSelections.length === 1 ? '' : 's'} selecionado${paymentSelections.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => void handleInfinitePay()}
                 disabled={processingPaymentLoanId !== null}
                 aria-label={`Pagar ${formatMoney(paymentSelections.reduce((sum, selection) => sum + selection.amount, 0))} com InfinitePay`}
-                className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border px-4 py-3 text-[12px] font-black uppercase shadow-xl transition-all active:scale-[0.98] ${
+                className={`flex min-h-12 min-w-[220px] items-center justify-center gap-2 rounded-lg border px-4 py-3 text-[12px] font-black uppercase shadow-xl transition-all active:scale-[0.98] ${
                   processingPaymentLoanId !== null
                     ? 'cursor-wait border-slate-700 bg-slate-800 text-white'
                     : 'border-white bg-white text-slate-950 shadow-black/40 hover:bg-blue-50'

@@ -185,7 +185,7 @@ const ContractBlock: React.FC<ContractBlockProps> = ({
           </span>
         </div>
 
-        <p className="text-[8px] font-black uppercase tracking-wider text-slate-500">Você deve hoje</p>
+        <p className="text-[8px] font-black uppercase tracking-wider text-slate-500">{hasActiveAgreement ? 'Saldo restante do acordo' : 'Você deve hoje'}</p>
         <div className="flex items-baseline gap-1.5">
           <span className={`text-lg font-black tracking-tight ${hasLateInstallments ? 'text-rose-400' : 'text-white'}`}>
             {formatMoney(totalDue)}

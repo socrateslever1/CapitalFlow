@@ -19,6 +19,7 @@ const DEFAULT_CLIENT_FORM = {
   state: '',
   notes: '',
   fotoUrl: '',
+  collectionDaysMode: 'ALL_DAYS',
 };
 
 const DEFAULT_SOURCE_FORM = {

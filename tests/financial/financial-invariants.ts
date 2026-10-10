@@ -6,7 +6,7 @@ import {
 } from '../../domain/finance/calculations';
 
 import { calculateMonthlyInstallments } from '../../features/loans/modalities/monthly/monthly.calculations';
-import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
+import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
@@ -53,6 +53,33 @@ run('modalidades semanal e quinzenal geram ciclos e vencimentos coerentes', () =
   assert.equal(biweekly.installments[0].dueDate, '2026-10-21');
   assertMoney(weekly.totalToReceive, 1100, 'total semanal');
   assertMoney(biweekly.totalToReceive, 1100, 'total quinzenal');
+});
+
+run('dias de recebimento respeitam domingo e fim de semana na diária', () => {
+  assert.equal(toISODateOnlyUTC(addCollectionDaysUTC('2026-10-09', 2, 'ALL_DAYS')), '2026-10-11');
+  assert.equal(toISODateOnlyUTC(addCollectionDaysUTC('2026-10-09', 2, 'SKIP_SUNDAY')), '2026-10-12');
+  assert.equal(toISODateOnlyUTC(addCollectionDaysUTC('2026-10-09', 2, 'SKIP_WEEKEND')), '2026-10-13');
+});
+
+run('semanal mantém sete dias e apenas desloca vencimento proibido', () => {
+  assert.equal(toISODateOnlyUTC(adjustToCollectionDayUTC(addDaysUTC('2026-10-04', 7), 'ALL_DAYS')), '2026-10-11');
+  assert.equal(toISODateOnlyUTC(adjustToCollectionDayUTC(addDaysUTC('2026-10-04', 7), 'SKIP_SUNDAY')), '2026-10-12');
+  assert.equal(toISODateOnlyUTC(adjustToCollectionDayUTC(addDaysUTC('2026-10-03', 7), 'SKIP_SUNDAY')), '2026-10-10');
+  assert.equal(toISODateOnlyUTC(adjustToCollectionDayUTC(addDaysUTC('2026-10-03', 7), 'SKIP_WEEKEND')), '2026-10-12');
+});
+
+run('contrato persiste política de dias sem exigir nova coluna', () => {
+  const loan = mapFormToLoan({
+    clientId: '', debtorName: 'Teste', debtorPhone: '', debtorDocument: '',
+    debtorAddress: '', sourceId: '', principal: '1000', interestRate: '10',
+    finePercent: '2', dailyInterestPercent: '1', billingCycle: 'WEEKLY',
+    notes: '', guaranteeDescription: '', startDate: '2026-10-04',
+    preferredPaymentMethod: 'PIX', collectionDaysMode: 'SKIP_SUNDAY',
+  } as any, '30', null, [], [], [], '00000000-0000-4000-8000-000000000001');
+  assert.equal(loan.collectionDaysMode, 'SKIP_SUNDAY');
+  assert.equal(loan.skipWeekends, false);
+  assert.equal(loan.policiesSnapshot?.collectionDaysMode, 'SKIP_SUNDAY');
+  assert.equal(loan.installments[0].dueDate, '2026-10-12');
 });
 
 run('novo aporte considera somente o aumento sobre o capital atual', () => {

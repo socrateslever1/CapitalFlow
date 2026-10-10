@@ -2,7 +2,8 @@ import { Loan, Installment } from "@/types";
 import {
   parseDateOnlyUTC,
   toISODateOnlyUTC,
-  addDaysUTC,
+  addCollectionDaysUTC,
+  normalizeCollectionDaysMode,
   todayDateOnlyUTC,
 } from "@/utils/dateHelpers";
 import { RenewalResult, PaymentAllocation } from "../types";
@@ -28,12 +29,12 @@ export const renewDailyFree = (
   // sincroniza start_date e due_date. Na ausência, usa o vencimento da parcela.
   const currentPaidUntil = parseDateOnlyUTC(
     loan.billingCycle === "DAILY_FREE"
-      ? (loan.startDate || inst.dueDate)
+      ? (inst.dueDate || loan.startDate)
       : inst.dueDate
   );
 
   // A preferência do contrato deve continuar válida também nas renovações.
-  const skipWeekends = !!loan.skipWeekends;
+  const collectionDaysMode = normalizeCollectionDaysMode(loan.collectionDaysMode, !!loan.skipWeekends);
 
   // Normaliza alocação
   const interestPaid = round(Number(allocation?.paidInterest) || 0);
@@ -61,7 +62,7 @@ export const renewDailyFree = (
     if (dailyCost > 0) {
       const daysToExtend = Math.floor(interestPaid / dailyCost);
       if (daysToExtend > 0) {
-        newDueDate = addDaysUTC(currentPaidUntil, daysToExtend, skipWeekends);
+        newDueDate = addCollectionDaysUTC(currentPaidUntil, daysToExtend, collectionDaysMode);
       }
     }
 

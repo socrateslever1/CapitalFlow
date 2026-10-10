@@ -36,6 +36,7 @@ export const useClientController = (
         state: client.state || '',
         notes: client.notes || '',
         fotoUrl: (client as any).foto_url || (client as any).fotoUrl || '',
+        collectionDaysMode: client.collectionDaysMode || client.collection_days_mode || 'ALL_DAYS',
       });
     } else {
       const codes = new Set(clients.map((c) => String((c as any).access_code || '').trim()).filter(Boolean));
@@ -53,6 +54,7 @@ export const useClientController = (
         state: '',
         notes: '',
         fotoUrl: '',
+        collectionDaysMode: 'ALL_DAYS',
       });
     }
 
@@ -148,7 +150,10 @@ export const useClientController = (
         state: state || null,
         notes: notes || null,
         access_code: accessCode,
-        client_number: clientNum
+        client_number: clientNum,
+        collection_days_mode: ['ALL_DAYS', 'SKIP_SUNDAY', 'SKIP_WEEKEND'].includes(String(ui.clientForm.collectionDaysMode || ''))
+          ? ui.clientForm.collectionDaysMode
+          : 'ALL_DAYS'
       };
 
       const { error } = await supabase.from('clientes').upsert(payload);

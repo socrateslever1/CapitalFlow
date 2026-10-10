@@ -50,7 +50,13 @@ const fetchRemoteSnapshot = async (ownerId: string) => Promise.all([
   supabase.from('mensagens_suporte').select('id, loan_id, read, sender_type').eq('profile_id', ownerId).eq('sender_type', 'CLIENT').eq('read', false).limit(1000),
   supabase.from('payment_intents').select('*').eq('profile_id', ownerId)
 ]);
-const mapClientFromDB = (client: any) => ({ ...client, phone: maskPhone(client.phone), document: maskDocument(client.document), fotoUrl: client.foto_url || client.fotoUrl || null });
+const mapClientFromDB = (client: any) => ({
+  ...client,
+  phone: maskPhone(client.phone),
+  document: maskDocument(client.document),
+  fotoUrl: client.foto_url || client.fotoUrl || null,
+  collectionDaysMode: client.collection_days_mode || client.collectionDaysMode || 'ALL_DAYS',
+});
 
 export const syncService = {
   async syncFullData(profileId: string, ownerId: string) {

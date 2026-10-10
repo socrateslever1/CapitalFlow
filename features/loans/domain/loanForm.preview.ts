@@ -1,23 +1,25 @@
-import { LoanBillingModality } from '../../../types';
-import { addDaysUTC, addMonthsUTC, parseDateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
+import { CollectionDaysMode, LoanBillingModality } from '../../../types';
+import { addCollectionDaysUTC, addDaysUTC, addMonthsUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
 
 export const calculateAutoDueDate = (
   startDateStr: string,
   billingCycle: LoanBillingModality,
   fixedDuration: string,
-  skipWeekends: boolean = false
+  skipWeekends: boolean = false,
+  collectionDaysMode?: CollectionDaysMode
 ): string => {
   if (!startDateStr) return '';
   const start = parseDateOnlyUTC(startDateStr);
+  const mode = normalizeCollectionDaysMode(collectionDaysMode, skipWeekends);
 
   // DAILY_FREE não tem prazo fixo: o marco inicial é o próprio dia da contratação.
   // A compra de dias ocorre somente quando os juros são pagos/renovados.
   const due = billingCycle === 'DAILY_FREE'
-    ? start
+    ? adjustToCollectionDayUTC(start, mode)
     : billingCycle === 'DAILY_FIXED_TERM'
-      ? addDaysUTC(start, Math.max(1, Number(fixedDuration) || 1), skipWeekends)
+      ? addCollectionDaysUTC(start, Math.max(1, Number(fixedDuration) || 1), mode)
       : billingCycle === 'WEEKLY'
-        ? addDaysUTC(start, 7)
+        ? adjustToCollectionDayUTC(addDaysUTC(start, 7), mode)
         : billingCycle === 'BIWEEKLY'
           ? addDaysUTC(start, 15)
       : addMonthsUTC(start, 1);

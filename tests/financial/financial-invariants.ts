@@ -285,6 +285,30 @@ run('regularização integral reinicia pela data do pagamento; data manual preva
     .renewalDate?.toISOString().slice(0, 10), '2026-10-05');
 });
 
+run('renovação semanal respeita a política de dias do contrato', () => {
+  const sundayBlocked = planPaymentRenewal({
+    loan: { billingCycle: 'WEEKLY', interestRate: 10, collectionDaysMode: 'SKIP_SUNDAY' } as any,
+    inst: { dueDate: '2026-10-04' } as any,
+    instDb: { due_date: '2026-10-04' },
+    balanceAfterRpc: { principalRemaining: 1000, interestRemaining: 100, lateFeeRemaining: 0, totalRemaining: 1100 },
+    renewWithPending: true,
+    isInterestRenewal: false,
+    paymentDate: new Date('2026-10-04T12:00:00Z'),
+  });
+  assert.equal(toISODateOnlyUTC(sundayBlocked.renewalDate), '2026-10-12');
+
+  const weekendBlocked = planPaymentRenewal({
+    loan: { billingCycle: 'WEEKLY', interestRate: 10, collectionDaysMode: 'SKIP_WEEKEND' } as any,
+    inst: { dueDate: '2026-10-03' } as any,
+    instDb: { due_date: '2026-10-03' },
+    balanceAfterRpc: { principalRemaining: 1000, interestRemaining: 100, lateFeeRemaining: 0, totalRemaining: 1100 },
+    renewWithPending: true,
+    isInterestRenewal: false,
+    paymentDate: new Date('2026-10-03T12:00:00Z'),
+  });
+  assert.equal(toISODateOnlyUTC(weekendBlocked.renewalDate), '2026-10-12');
+});
+
 run('prévia da janela desconta atraso dispensado sem alterar capital ou juro', () => {
   const preview = buildInstallmentReceiptModel({
     loan: { billingCycle: 'MONTHLY' } as any,

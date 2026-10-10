@@ -23,7 +23,6 @@ interface UseLoanFormProps {
 export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile }: UseLoanFormProps) => {
   const [formData, setFormData] = useState<any>({});
   const [fixedDuration, setFixedDuration] = useState('30');
-  const [skipWeekends, setSkipWeekends] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -58,8 +57,8 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         fundingOperatorAbsorbsInterest: (initialData as any).fundingOperatorAbsorbsInterest === true,
         fundingFeePercent: String((initialData as any).fundingFeePercent ?? ''),
         fundingProvider: String((initialData as any).fundingProvider ?? ''),
+        collectionDaysMode: initialData.collectionDaysMode || (initialData.skipWeekends ? 'SKIP_WEEKEND' : 'ALL_DAYS'),
       });
-      setSkipWeekends(!!initialData.skipWeekends);
       setAttachments(Array.isArray((initialData as any).attachments) ? (initialData as any).attachments : []);
       setCustomDocuments(Array.isArray((initialData as any).documents) ? (initialData as any).documents : []);
       const firstDue = [...(initialData.installments || [])].sort((a, b) => Number(a.number || 0) - Number(b.number || 0))[0]?.dueDate;
@@ -73,7 +72,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         fundingAllocations: [{ sourceId: sources[0]?.id || '', amount: '' }],
         startDate: today, billingCycle: 'MONTHLY', fundingTotalPayable: '', fundingInstallmentsCount: '10',
         fundingMonthlyRate: '', customerMarginPercent: '30', fundingCalculationMode: 'TOTAL', fundingOperatorAbsorbsInterest: false,
-        fundingFeePercent: '', fundingProvider: ''
+        fundingFeePercent: '', fundingProvider: '', collectionDaysMode: 'ALL_DAYS'
       });
       setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(today, 30)));
     }
@@ -232,7 +231,6 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
             userProfile?.id || '',
             manualFirstDueDate
         );
-        loanPayload.skipWeekends = skipWeekends;
 
         const principalIncrease = !!initialData && calculateAdditionalCapital(requestedPrincipal, currentPrincipal) > 0;
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
@@ -275,7 +273,6 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
   return {
     formData, setFormData,
     fixedDuration, setFixedDuration,
-    skipWeekends, setSkipWeekends,
     isSubmitting, isUploading,
     attachments, documentPhotos, customDocuments,
     showCamera, videoRef, fileInputRef,

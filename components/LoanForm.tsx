@@ -24,7 +24,6 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
   const {
     formData, setFormData,
     fixedDuration, setFixedDuration,
-    skipWeekends, setSkipWeekends,
     isSubmitting, isUploading,
     attachments, customDocuments,
     showCamera, videoRef, fileInputRef,
@@ -74,8 +73,6 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                         setFixedDuration={setFixedDuration}
                         manualFirstDueDate={manualFirstDueDate}
                         setManualFirstDueDate={setManualFirstDueDate}
-                        skipWeekends={skipWeekends}
-                        setSkipWeekends={setSkipWeekends}
                         isEditing={!!props.initialData}
                     />
                 </div>

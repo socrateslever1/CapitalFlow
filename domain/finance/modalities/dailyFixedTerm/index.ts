@@ -17,7 +17,7 @@ export const dailyFixedTermStrategy: ModalityStrategy = {
             params.rate, 
             params.startDate, 
             params.fixedDuration || '15',
-            (params.initialData as any)?.skipWeekends || false
+            (params.initialData as any)?.collectionDaysMode ?? ((params.initialData as any)?.skipWeekends ? 'SKIP_WEEKEND' : 'ALL_DAYS')
         );
     },
 

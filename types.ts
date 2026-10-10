@@ -134,6 +134,8 @@ export interface Client {
   registration_submitted_at?: string | null;
   registration_document_count?: number;
   cpf_in_identity?: boolean;
+  collection_days_mode?: CollectionDaysMode;
+  collectionDaysMode?: CollectionDaysMode;
 }
 
 /* =====================================================

@@ -60,10 +60,16 @@ export type LoanBillingModality =
   | 'DAILY_30_CAPITAL'
   | 'DAILY_FIXED';
 
+export type CollectionDaysMode =
+  | 'ALL_DAYS'
+  | 'SKIP_SUNDAY'
+  | 'SKIP_WEEKEND';
+
 export interface LoanPolicy {
   interestRate: number;
   finePercent: number;
   dailyInterestPercent: number;
+  collectionDaysMode?: CollectionDaysMode;
 }
 
 /* =====================================================
@@ -328,6 +334,7 @@ export interface Loan {
   capitalOnlyRecovery?: boolean;
   isArchived?: boolean;
   skipWeekends?: boolean;
+  collectionDaysMode?: CollectionDaysMode;
   clientAvatarUrl?: string;
   activeAgreement?: Agreement;
   pastAgreements?: Agreement[];

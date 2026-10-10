@@ -1,3 +1,4 @@
+import type { CollectionDaysMode } from '../types';
 // utils/dateHelpers.ts
 const MS_PER_DAY = 86400000;
 export type DateInput = string | Date | null | undefined;
@@ -46,6 +47,62 @@ export const parseDateOnlyUTC = (input: DateInput): Date => {
 export const isWeekendUTC = (date: Date): boolean => {
   const day = date.getUTCDay(); // UTC Timezone
   return day === 0 || day === 6;
+};
+
+export const normalizeCollectionDaysMode = (
+  value: unknown,
+  legacySkipWeekends: boolean = false
+): CollectionDaysMode => {
+  const mode = String(value || '').trim().toUpperCase();
+  if (mode === 'SKIP_SUNDAY' || mode === 'SKIP_WEEKEND' || mode === 'ALL_DAYS') {
+    return mode as CollectionDaysMode;
+  }
+  return legacySkipWeekends ? 'SKIP_WEEKEND' : 'ALL_DAYS';
+};
+
+export const isCollectionDayUTC = (
+  date: DateInput,
+  mode: CollectionDaysMode | boolean = 'ALL_DAYS'
+): boolean => {
+  const normalized = normalizeCollectionDaysMode(mode, mode === true);
+  const day = parseDateOnlyUTC(date).getDay();
+  if (normalized === 'SKIP_SUNDAY') return day !== 0;
+  if (normalized === 'SKIP_WEEKEND') return day !== 0 && day !== 6;
+  return true;
+};
+
+export const adjustToCollectionDayUTC = (
+  date: DateInput,
+  mode: CollectionDaysMode | boolean = 'ALL_DAYS'
+): Date => {
+  const normalized = normalizeCollectionDaysMode(mode, mode === true);
+  const d = parseDateOnlyUTC(date);
+  while (!isCollectionDayUTC(d, normalized)) d.setDate(d.getDate() + 1);
+  return d;
+};
+
+export const addCollectionDaysUTC = (
+  date: DateInput,
+  days: number,
+  mode: CollectionDaysMode | boolean = 'ALL_DAYS'
+): Date => {
+  const normalized = normalizeCollectionDaysMode(mode, mode === true);
+  let d = parseDateOnlyUTC(date);
+
+  if (normalized === 'ALL_DAYS') {
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  if (days === 0) return adjustToCollectionDayUTC(d, normalized);
+
+  const direction = days > 0 ? 1 : -1;
+  let counted = 0;
+  while (counted < Math.abs(days)) {
+    d.setDate(d.getDate() + direction);
+    if (isCollectionDayUTC(d, normalized)) counted++;
+  }
+  return d;
 };
 
 export const addDaysUTC = (date: DateInput, days: number, skipWeekends: boolean = false): Date => {

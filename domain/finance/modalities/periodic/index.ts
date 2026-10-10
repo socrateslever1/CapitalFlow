@@ -1,5 +1,5 @@
-import { Installment, Loan, LoanBillingModality, LoanStatus } from '../../../../types';
-import { addDaysUTC, parseDateOnlyUTC, toISODateOnlyUTC, todayDateOnlyUTC } from '../../../../utils/dateHelpers';
+import { CollectionDaysMode, Installment, Loan, LoanBillingModality, LoanStatus } from '../../../../types';
+import { addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, toISODateOnlyUTC, todayDateOnlyUTC } from '../../../../utils/dateHelpers';
 import { generateUUID } from '../../../../utils/generators';
 import { calculateMonthly } from '../monthly/monthly.calculations';
 import { ModalityStrategy, PaymentAllocation, RenewalResult } from '../types';
@@ -11,11 +11,15 @@ const generatePeriodicInstallment = (
   rate: number,
   startDate: string,
   intervalDays: number,
-  existingId?: string
+  existingId?: string,
+  collectionDaysMode: CollectionDaysMode = 'ALL_DAYS'
 ) => {
   const scheduledInterest = roundMoney(principal * (rate / 100));
   const totalToReceive = roundMoney(principal + scheduledInterest);
-  const dueDate = toISODateOnlyUTC(addDaysUTC(parseDateOnlyUTC(startDate), intervalDays));
+  const dueDate = toISODateOnlyUTC(adjustToCollectionDayUTC(
+    addDaysUTC(parseDateOnlyUTC(startDate), intervalDays),
+    collectionDaysMode
+  ));
   const installment: Installment = {
     id: existingId || generateUUID(),
     dueDate,
@@ -59,8 +63,11 @@ const renewPeriodic = (
     : 1;
   if (interestPaid <= 0 && cycleInterest > 0) cyclesPaid = 0;
   const currentDueDate = parseDateOnlyUTC(inst.dueDate);
+  const collectionDaysMode = intervalDays === 7
+    ? normalizeCollectionDaysMode(loan.collectionDaysMode, !!loan.skipWeekends)
+    : 'ALL_DAYS';
   const newDueDate = manualDate || (cyclesPaid > 0
-    ? addDaysUTC(currentDueDate, intervalDays * cyclesPaid)
+    ? adjustToCollectionDayUTC(addDaysUTC(currentDueDate, intervalDays * cyclesPaid), collectionDaysMode)
     : currentDueDate);
   const nextScheduledInterest = roundMoney(newPrincipalRemaining * (loan.interestRate / 100));
 
@@ -87,7 +94,10 @@ const createPeriodicStrategy = (
     params.rate,
     params.startDate,
     intervalDays,
-    params.initialData?.installments?.[0]?.id
+    params.initialData?.installments?.[0]?.id,
+    key === 'WEEKLY'
+      ? normalizeCollectionDaysMode((params.initialData as any)?.collectionDaysMode, !!(params.initialData as any)?.skipWeekends)
+      : 'ALL_DAYS'
   ),
   card: {
     dueDateLabel: () => 'Vencimento',

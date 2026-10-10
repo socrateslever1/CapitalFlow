@@ -1,4 +1,4 @@
-import { addDaysUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
+import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import React, { useMemo } from 'react';
 import { Wallet, CalendarX, Clock, CreditCard, AlertTriangle, CalendarDays, ChevronDown, ArrowDownRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
@@ -16,13 +16,11 @@ interface LoanFormFinancialSectionProps {
   setFixedDuration: (v: string) => void;
   manualFirstDueDate: string;
   setManualFirstDueDate: (v: string) => void;
-  skipWeekends?: boolean;
-  setSkipWeekends?: (v: boolean) => void;
   isEditing?: boolean;
 }
 
 export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> = ({
-  sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, skipWeekends, setSkipWeekends, isEditing
+  sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, isEditing
 }) => {
   const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
   const strongInputClass = `${inputClass} font-bold`;
@@ -31,6 +29,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'MISTO';
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
+  const supportsCollectionDays = isDailyModality || formData.billingCycle === 'WEEKLY';
+  const collectionDaysMode = normalizeCollectionDaysMode(formData.collectionDaysMode, !!formData.skipWeekends);
   const periodicRateLabel = formData.billingCycle === 'WEEKLY'
     ? 'Juros (%) semanal'
     : formData.billingCycle === 'BIWEEKLY'
@@ -49,7 +49,11 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       } : {}),
     });
     if (formData.startDate && ['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(billingCycle)) {
-      setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(formData.startDate, intervalDays)));
+      const rawDue = addDaysUTC(formData.startDate, intervalDays);
+      const suggestedDue = billingCycle === 'WEEKLY'
+        ? adjustToCollectionDayUTC(rawDue, collectionDaysMode)
+        : rawDue;
+      setManualFirstDueDate(toISODateOnlyUTC(suggestedDue));
     }
   };
   const fundingAllocations = Array.isArray(formData.fundingAllocations) && formData.fundingAllocations.length > 0
@@ -137,24 +141,43 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         />
                     </div>
                 )}
+            </div>
+        )}
 
-                <div className="bg-slate-950/50 p-4 rounded-lg border border-slate-800/80 flex items-center justify-between group hover:border-purple-500/30 transition-all">
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg transition-colors ${skipWeekends ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                            <CalendarX size={18}/>
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-white">Pular Fins de Semana</p>
-                            <p className="text-[9px] text-slate-500 font-bold uppercase">Apenas Dias Úteis</p>
-                        </div>
-                    </div>
-                    <button
+        {supportsCollectionDays && (
+            <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/50 p-3">
+                <div className="flex items-center gap-2 px-1">
+                    <CalendarX size={14} className="text-purple-400" />
+                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Dias de recebimento</p>
+                </div>
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                    {[
+                      ['ALL_DAYS', 'Todos os dias'],
+                      ['SKIP_SUNDAY', 'Sem domingo'],
+                      ['SKIP_WEEKEND', 'Sem sábado e domingo'],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
                         type="button"
-                        onClick={() => setSkipWeekends?.(!skipWeekends)}
-                        className={`w-12 h-6 rounded-full transition-all relative ${skipWeekends ? 'bg-purple-600' : 'bg-slate-700'}`}
-                    >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${skipWeekends ? 'left-7' : 'left-1'}`}></div>
-                    </button>
+                        onClick={() => {
+                          setFormData((current: any) => ({ ...current, collectionDaysMode: value }));
+                          if (!isEditing && formData.startDate) {
+                            let suggested = parseDateOnlyUTC(formData.startDate);
+                            if (formData.billingCycle === 'DAILY_FREE') {
+                              suggested = adjustToCollectionDayUTC(formData.startDate, value as any);
+                            } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
+                              suggested = addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), value as any);
+                            } else if (formData.billingCycle === 'WEEKLY') {
+                              suggested = adjustToCollectionDayUTC(addDaysUTC(formData.startDate, 7), value as any);
+                            }
+                            setManualFirstDueDate(toISODateOnlyUTC(suggested));
+                          }
+                        }}
+                        className={`min-h-10 rounded-md border px-2.5 py-2 text-[9px] font-black uppercase transition-all ${collectionDaysMode === value ? 'border-purple-500/50 bg-purple-600 text-white' : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-white'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                 </div>
             </div>
         )}
@@ -183,8 +206,17 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                   onChange={e => {
                       const startDate = e.target.value;
                       setFormData((current: any) => ({ ...current, startDate }));
-                      const intervalDays = formData.billingCycle === 'WEEKLY' ? 7 : formData.billingCycle === 'BIWEEKLY' ? 15 : 30;
-                      if (startDate) setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(startDate, intervalDays)));
+                      if (startDate) {
+                        let suggested = addDaysUTC(startDate, formData.billingCycle === 'WEEKLY' ? 7 : formData.billingCycle === 'BIWEEKLY' ? 15 : 30);
+                        if (formData.billingCycle === 'DAILY_FREE') {
+                          suggested = adjustToCollectionDayUTC(startDate, collectionDaysMode);
+                        } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
+                          suggested = addCollectionDaysUTC(startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode);
+                        } else if (formData.billingCycle === 'WEEKLY') {
+                          suggested = adjustToCollectionDayUTC(suggested, collectionDaysMode);
+                        }
+                        setManualFirstDueDate(toISODateOnlyUTC(suggested));
+                      }
                   }}
                   className={dateInputClass}
               />

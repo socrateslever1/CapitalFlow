@@ -1,6 +1,6 @@
 import type { Loan, Installment } from '../../types';
 import { ZERO_BALANCE_THRESHOLD } from '../../domain/finance/calculations';
-import { parseDateOnlyUTC, addDaysUTC } from '../../utils/dateHelpers';
+import { parseDateOnlyUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode } from '../../utils/dateHelpers';
 import { roundMoney } from './paymentUtils';
 
 /** Planeja a renovação sem executar mutações no banco de dados. */
@@ -28,9 +28,14 @@ export function planPaymentRenewal(params: {
     // - regularização integral de juros + multa/mora: reinicia 30 dias a partir do pagamento;
     // - nunca soma um novo juro cheio ao saldo parcial já existente.
     const paymentDateOnly = paymentDate.toISOString().slice(0, 10);
+    const collectionDaysMode = normalizeCollectionDaysMode(loan.collectionDaysMode, !!loan.skipWeekends);
+    const advanceCycle = (base: string | Date) => {
+      const raw = addDaysUTC(base, cycleDays);
+      return billingCycle === 'WEEKLY' ? adjustToCollectionDayUTC(raw, collectionDaysMode) : raw;
+    };
     const renewalDate = partialRenewalRequested
-      ? (manualDate || addDaysUTC(currentDueDate, cycleDays))
-      : (manualDate || (isInterestRenewal ? addDaysUTC(paymentDateOnly, cycleDays) : null));
+      ? (manualDate || advanceCycle(currentDueDate))
+      : (manualDate || (isInterestRenewal ? advanceCycle(paymentDateOnly) : null));
 
 
     return { isMonthlyOrGiro, hasPrincipalRemaining, nextCycleInterest, partialRenewalRequested, currentDueDate, renewalDate };

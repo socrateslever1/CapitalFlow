@@ -203,7 +203,9 @@ export const demoService = {
           client_number: clientData.client_number || '0000',
           cpf: null, cnpj: null, 
           document: clientData.document || '00000000000', 
-          notes: clientData.notes, 
+          notes: clientData.notes,
+          collectionDaysMode: clientData.collectionDaysMode || editingClient?.collectionDaysMode || 'ALL_DAYS',
+          collection_days_mode: clientData.collectionDaysMode || editingClient?.collection_days_mode || 'ALL_DAYS',
           createdAt: editingClient ? editingClient.createdAt : new Date().toISOString()
       };
       

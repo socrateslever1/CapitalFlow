@@ -107,7 +107,10 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         debtorName: client.name,
         debtorPhone: maskPhone(client.phone),
         debtorDocument: maskDocument(client.document),
-        debtorAddress: client.address || ''
+        debtorAddress: client.address || '',
+        ...(!initialData ? {
+          collectionDaysMode: client.collectionDaysMode || client.collection_days_mode || formData.collectionDaysMode || 'ALL_DAYS'
+        } : {})
       });
     }
   };

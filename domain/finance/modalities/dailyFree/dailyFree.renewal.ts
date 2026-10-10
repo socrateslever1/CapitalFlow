@@ -29,7 +29,7 @@ export const renewDailyFree = (
   // sincroniza start_date e due_date. Na ausência, usa o vencimento da parcela.
   const currentPaidUntil = parseDateOnlyUTC(
     loan.billingCycle === "DAILY_FREE"
-      ? (inst.dueDate || loan.startDate)
+      ? (loan.startDate || inst.dueDate)
       : inst.dueDate
   );
 

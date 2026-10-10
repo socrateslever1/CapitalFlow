@@ -2,6 +2,7 @@
 // services/adapters/loanAdapter.ts
 import { Agreement, AgreementInstallment, Installment, Loan, LoanStatus } from '../../types';
 import { asArray, asNumber, asString, safeDateOnlyString, safeDateString } from '../../utils/safe';
+import { normalizeCollectionDaysMode } from '../../utils/dateHelpers';
 
 const firstPositiveNumber = (...values: any[]): number => {
   const numbers = values.map(value => asNumber(value)).filter(value => Number.isFinite(value));
@@ -180,6 +181,11 @@ export function mapLoanFromDB(
   const fundingTotalPayable = asNumber(l?.funding_total_payable ?? l?.fundingTotalPayable);
   const fundingCost = asNumber(l?.funding_cost ?? l?.fundingCost);
 
+  const collectionDaysMode = normalizeCollectionDaysMode(
+    l?.policies_snapshot?.collectionDaysMode ?? l?.policiesSnapshot?.collectionDaysMode,
+    !!(l?.skip_weekends ?? l?.skipWeekends)
+  );
+
   const loan: Loan = {
     id: asString(l?.id),
 
@@ -248,7 +254,8 @@ export function mapLoanFromDB(
     customDocuments: asArray(l?.customDocuments),
 
     isArchived: !!(l?.is_archived ?? l?.isArchived),
-    skipWeekends: !!(l?.skip_weekends ?? l?.skipWeekends),
+    skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
+    collectionDaysMode,
 
     portalToken: asString(l?.portal_token ?? l?.portalToken),
     portalShortcode: asString(l?.portal_shortcode ?? l?.portalShortcode),

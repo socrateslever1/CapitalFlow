@@ -1,5 +1,5 @@
-import { addDaysUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
-import { Loan, LoanBillingModality, PaymentMethod, LoanDocument, Installment, LoanStatus } from '../../../types';
+import { addDaysUTC, normalizeCollectionDaysMode, toISODateOnlyUTC } from '../../../utils/dateHelpers';
+import { CollectionDaysMode, Loan, LoanBillingModality, PaymentMethod, LoanDocument, Installment, LoanStatus } from '../../../types';
 import { generateUUID } from '../../../utils/generators';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { parseCurrency } from '../../../utils/formatters';
@@ -96,6 +96,7 @@ export interface LoanFormState {
   guaranteeDescription: string;
   startDate: string;
   skipWeekends?: boolean;
+  collectionDaysMode?: CollectionDaysMode;
   // Campos de Funding
   fundingTotalPayable?: string;
   fundingProvider?: string;
@@ -149,6 +150,8 @@ export const mapFormToLoan = (
     fundingCost = Math.max(0, fundingTotalPayable - principal);
   }
 
+  const collectionDaysMode = normalizeCollectionDaysMode(form.collectionDaysMode, !!form.skipWeekends);
+
   // --- GERAÇÃO VIA REGISTRY ---
   const strategy = modalityRegistry.get(form.billingCycle);
 
@@ -165,7 +168,8 @@ export const mapFormToLoan = (
     operatorAbsorbsInterest: form.fundingOperatorAbsorbsInterest,
     initialData: {
       ...initialData,
-      skipWeekends: form.skipWeekends
+      skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
+      collectionDaysMode
     }
   });
 
@@ -234,7 +238,8 @@ export const mapFormToLoan = (
     policiesSnapshot: {
       interestRate: rate,
       finePercent: parseCurrency(form.finePercent),
-      dailyInterestPercent: parseCurrency(form.dailyInterestPercent)
+      dailyInterestPercent: parseCurrency(form.dailyInterestPercent),
+      collectionDaysMode
     },
 
     startDate: form.startDate,
@@ -253,7 +258,8 @@ export const mapFormToLoan = (
     customDocuments,
 
     isArchived: initialData?.isArchived || false,
-    skipWeekends: form.skipWeekends,
+    skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
+    collectionDaysMode,
     status: form.status || LoanStatus.PENDING // Atribuir status, usando o do formulário ou PENDING como default
   };
 };

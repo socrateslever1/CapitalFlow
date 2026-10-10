@@ -9,7 +9,7 @@ import { ReceiptModal } from './ReceiptModal';
 import { MessageHubModal } from './MessageHubModal';
 import { AIAssistantModal } from './AIAssistantModal';
 import { NoteWrapper } from './ModalWrappers';
-import { Copy, KeyRound, User, Camera, ShieldCheck, MapPin, Mail, Hash, Loader2 } from 'lucide-react';
+import { Copy, KeyRound, User, Camera, ShieldCheck, MapPin, Mail, Hash, Loader2, CalendarX } from 'lucide-react';
 import { maskPhone, maskDocument, capitalizeName } from '../../utils/formatters';
 import { resolveProfitBalance } from '../../utils/profitBalance';
 
@@ -106,6 +106,30 @@ export const ClientModals = () => {
                             </div>
                         </div>
                     </div>
+               </div>
+
+               <div className="space-y-2">
+                   <div className="flex items-center gap-2 px-1">
+                       <CalendarX size={14} className="text-blue-400" />
+                       <label className="text-[10px] uppercase text-slate-500 font-black tracking-wider">Dias de recebimento</label>
+                   </div>
+                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                       {[
+                         ['ALL_DAYS', 'Todos os dias'],
+                         ['SKIP_SUNDAY', 'Sem domingo'],
+                         ['SKIP_WEEKEND', 'Sem sábado e domingo'],
+                       ].map(([value, label]) => (
+                         <button
+                           key={value}
+                           type="button"
+                           onClick={() => ui.setClientForm({ ...clientForm, collectionDaysMode: value })}
+                           className={`min-h-10 rounded-lg border px-3 py-2 text-[9px] font-black uppercase transition-all ${(clientForm.collectionDaysMode || 'ALL_DAYS') === value ? 'border-blue-500/50 bg-blue-600 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-white'}`}
+                         >
+                           {label}
+                         </button>
+                       ))}
+                   </div>
+                   <p className="px-1 text-[9px] text-slate-500">Usado como padrão em novos contratos diários e semanais.</p>
                </div>
 
                <div className="space-y-2">

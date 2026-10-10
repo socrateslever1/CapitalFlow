@@ -1,5 +1,5 @@
-import { LoanStatus, Installment } from '../../../../types';
-import { addDaysUTC, parseDateOnlyUTC } from '../../../../utils/dateHelpers';
+import { CollectionDaysMode, LoanStatus, Installment } from '../../../../types';
+import { addCollectionDaysUTC, normalizeCollectionDaysMode, parseDateOnlyUTC } from '../../../../utils/dateHelpers';
 import { generateUUID } from '../../../../utils/generators';
 
 // --- NOVA MODALIDADE: DAILY_FIXED_TERM (PARCELA ÚNICA) ---
@@ -8,7 +8,7 @@ export const calculateDailyFixedTermInstallments = (
   monthlyRate: number,
   startDateStr: string,
   durationDaysStr: string,
-  skipWeekends: boolean = false
+  collectionDaysMode: CollectionDaysMode | boolean = 'ALL_DAYS'
 ): { installments: Installment[], totalToReceive: number } => {
     // 1. Definição de Prazos
     const baseDate = parseDateOnlyUTC(startDateStr);
@@ -20,7 +20,7 @@ export const calculateDailyFixedTermInstallments = (
     const totalToReceive = principal + totalInterest;
     
     // 3. Definição do Vencimento Único (Fim do Prazo)
-    const dueDate = addDaysUTC(baseDate, durationDays, skipWeekends);
+    const dueDate = addCollectionDaysUTC(baseDate, durationDays, normalizeCollectionDaysMode(collectionDaysMode, collectionDaysMode === true));
 
     // 4. Geração da Parcela Única
     const installment: Installment = {
@@ -59,7 +59,7 @@ export const calculateNewDailyInstallments = (
   startDateStr: string,
   fixedDuration: string, 
   existingId?: string,
-  skipWeekends: boolean = false
+  collectionDaysMode: CollectionDaysMode | boolean = 'ALL_DAYS'
 ): { installments: Installment[], totalToReceive: number } => {
   const baseDate = parseDateOnlyUTC(startDateStr);
   
@@ -77,7 +77,7 @@ export const calculateNewDailyInstallments = (
   }
 
   const totalToReceive = principal + scheduledInterest;
-  const dueDate = addDaysUTC(baseDate, durationDays, skipWeekends);
+  const dueDate = addCollectionDaysUTC(baseDate, durationDays, normalizeCollectionDaysMode(collectionDaysMode, collectionDaysMode === true));
   
   const installment: Installment = {
     id: existingId || generateUUID(),
@@ -107,7 +107,7 @@ export const calculateLegacyDailyInstallments = (
   rate: number,
   startDateStr: string,
   initialData: any,
-  skipWeekends: boolean = false
+  collectionDaysMode: CollectionDaysMode | boolean = 'ALL_DAYS'
 ) => {
     return calculateNewDailyInstallments(
         'DAILY',
@@ -116,6 +116,6 @@ export const calculateLegacyDailyInstallments = (
         startDateStr,
         '30',
         initialData?.installments?.[0]?.id,
-        skipWeekends
+        collectionDaysMode
     );
 };

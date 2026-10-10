@@ -2,6 +2,7 @@
 import { Loan, LoanStatus, Agreement, AgreementStatus, PaymentMethod, LoanBillingModality } from '../../types';
 import { maskPhone } from '../../utils/formatters';
 import { asArray, asNumber, asString, safeDateOnlyString, safeDateString } from '../../utils/safe';
+import { normalizeCollectionDaysMode } from '../../utils/dateHelpers';
 
 const firstPositiveNumber = (...values: any[]): number => {
   const numbers = values.map(value => asNumber(value)).filter(value => Number.isFinite(value));
@@ -212,6 +213,11 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     }
   }
 
+  const collectionDaysMode = normalizeCollectionDaysMode(
+    l.policies_snapshot?.collectionDaysMode ?? l.policiesSnapshot?.collectionDaysMode,
+    !!(l.skip_weekends ?? l.skipWeekends)
+  );
+
   return {
     id: asString(l.id, '', 'id'),
     clientId: asString(l.client_id),
@@ -267,6 +273,8 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     supportUnreadCount: asNumber(l.support_unread_count ?? l.supportUnreadCount),
     customDocuments: asArray(l.policies_snapshot?.customDocuments),
     isArchived: !!l.is_archived,
+    skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
+    collectionDaysMode,
 
     attachments: [],
     documentPhotos: [],

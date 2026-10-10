@@ -18,7 +18,7 @@ export const dailyFreeStrategy: ModalityStrategy = {
             params.startDate, 
             '0', // Duration ignored for Free
             params.initialData?.installments?.[0]?.id,
-            (params.initialData as any)?.skipWeekends || false
+            (params.initialData as any)?.collectionDaysMode ?? ((params.initialData as any)?.skipWeekends ? 'SKIP_WEEKEND' : 'ALL_DAYS')
         );
     },
 

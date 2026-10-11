@@ -108,12 +108,12 @@ export const ClientModals = () => {
                     </div>
                </div>
 
-               <div className="space-y-2">
-                   <div className="flex items-center gap-2 px-1">
-                       <CalendarX size={14} className="text-blue-400" />
-                       <label className="text-[10px] uppercase text-slate-500 font-black tracking-wider">Dias de recebimento</label>
+               <div className="space-y-1.5 rounded-lg border border-slate-800/70 bg-slate-950/30 p-2.5">
+                   <div className="flex items-center gap-1.5 px-0.5">
+                       <CalendarX size={13} className="text-blue-400" />
+                       <label className="text-[8px] uppercase text-slate-500 font-black tracking-[0.12em]">Dias de recebimento</label>
                    </div>
-                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                   <div className="grid grid-cols-3 gap-1.5">
                        {[
                          ['ALL_DAYS', 'Todos os dias'],
                          ['SKIP_SUNDAY', 'Sem domingo'],
@@ -123,13 +123,13 @@ export const ClientModals = () => {
                            key={value}
                            type="button"
                            onClick={() => ui.setClientForm({ ...clientForm, collectionDaysMode: value })}
-                           className={`min-h-10 rounded-lg border px-3 py-2 text-[9px] font-black uppercase transition-all ${(clientForm.collectionDaysMode || 'ALL_DAYS') === value ? 'border-blue-500/50 bg-blue-600 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-white'}`}
+                           className={`flex h-11 min-h-0 items-center justify-center rounded-md border px-2 py-1.5 text-center text-[8px] font-black uppercase leading-tight transition-all sm:text-[9px] ${(clientForm.collectionDaysMode || 'ALL_DAYS') === value ? 'border-blue-400/60 bg-blue-600/90 text-white shadow-sm shadow-blue-950/30' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-white'}`}
                          >
-                           {label}
+                           <span className="block whitespace-normal">{label}</span>
                          </button>
                        ))}
                    </div>
-                   <p className="px-1 text-[9px] text-slate-500">Usado como padrão em novos contratos diários e semanais.</p>
+                   <p className="px-0.5 text-[8px] leading-tight text-slate-600">Usado como padrão em novos contratos diários e semanais.</p>
                </div>
 
                <div className="space-y-2">

@@ -154,7 +154,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 <p className="mt-0.5 text-[8px] leading-tight text-slate-500">Para dívida já renegociada. Cobra somente o valor dividido nas parcelas.</p>
               </div>
               <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${interestFreeInstallment ? 'bg-emerald-500' : 'bg-slate-800'}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${interestFreeInstallment ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${interestFreeInstallment ? 'translate-x-4' : 'translate-x-0.5'}`} />
               </span>
             </button>
         )}

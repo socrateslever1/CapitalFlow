@@ -70,6 +70,7 @@ export interface LoanPolicy {
   finePercent: number;
   dailyInterestPercent: number;
   collectionDaysMode?: CollectionDaysMode;
+  interestFreeInstallment?: boolean;
 }
 
 /* =====================================================
@@ -334,6 +335,7 @@ export interface Loan {
   notes: string;
   status: LoanStatus;
   capitalOnlyRecovery?: boolean;
+  interestFreeInstallment?: boolean;
   isArchived?: boolean;
   skipWeekends?: boolean;
   collectionDaysMode?: CollectionDaysMode;

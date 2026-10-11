@@ -97,6 +97,7 @@ export interface LoanFormState {
   startDate: string;
   skipWeekends?: boolean;
   collectionDaysMode?: CollectionDaysMode;
+  interestFreeInstallment?: boolean;
   // Campos de Funding
   fundingTotalPayable?: string;
   fundingProvider?: string;
@@ -129,14 +130,17 @@ export const mapFormToLoan = (
   manualFirstDueDate?: string
 ): Loan => {
   const principal = parseCurrency(form.principal);
-  const rate = parseCurrency(form.interestRate);
+  const interestFreeInstallment = form.billingCycle === 'INSTALLMENT_FIXED' && form.interestFreeInstallment === true;
+  const rate = interestFreeInstallment ? 0 : parseCurrency(form.interestRate);
+  const finePercent = interestFreeInstallment ? 0 : parseCurrency(form.finePercent);
+  const dailyInterestPercent = interestFreeInstallment ? 0 : parseCurrency(form.dailyInterestPercent);
 
   // Cálculo do Custo de Captação (Cartão)
   let fundingTotalPayable = 0;
   let fundingCost = 0;
   const fundingInstallmentsCount = Math.max(0, Math.floor(parseCurrency(form.fundingInstallmentsCount || '')));
   const fundingMonthlyRate = parseCurrency(form.fundingMonthlyRate || '');
-  const customerMarginPercent = parseCurrency(form.customerMarginPercent || '');
+  const customerMarginPercent = interestFreeInstallment ? 0 : parseCurrency(form.customerMarginPercent || '');
   const fundingCalculationMode = form.fundingCalculationMode || (form.fundingTotalPayable ? 'TOTAL' : 'RATE');
 
   if (form.fundingTotalPayable) {
@@ -165,7 +169,8 @@ export const mapFormToLoan = (
     fundingMonthlyRate,
     fundingCalculationMode,
     customerMarginPercent,
-    operatorAbsorbsInterest: form.fundingOperatorAbsorbsInterest,
+    operatorAbsorbsInterest: interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest,
+    interestFreeInstallment,
     initialData: {
       ...initialData,
       skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
@@ -216,8 +221,8 @@ export const mapFormToLoan = (
 
     principal,
     interestRate: rate,
-    finePercent: parseCurrency(form.finePercent),
-    dailyInterestPercent: parseCurrency(form.dailyInterestPercent),
+    finePercent,
+    dailyInterestPercent,
 
     // Mapeamento de Funding
     fundingTotalPayable: fundingTotalPayable || undefined,
@@ -231,15 +236,16 @@ export const mapFormToLoan = (
     customerMarginPercent: form.billingCycle === 'INSTALLMENT_FIXED' ? customerMarginPercent : undefined,
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
-    fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? form.fundingOperatorAbsorbsInterest : undefined,
+    fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? (interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest) : undefined,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',
     policiesSnapshot: {
       interestRate: rate,
-      finePercent: parseCurrency(form.finePercent),
-      dailyInterestPercent: parseCurrency(form.dailyInterestPercent),
-      collectionDaysMode
+      finePercent,
+      dailyInterestPercent,
+      collectionDaysMode,
+      interestFreeInstallment
     },
 
     startDate: form.startDate,
@@ -260,6 +266,7 @@ export const mapFormToLoan = (
     isArchived: initialData?.isArchived || false,
     skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
     collectionDaysMode,
+    interestFreeInstallment,
     status: form.status || LoanStatus.PENDING // Atribuir status, usando o do formulário ou PENDING como default
   };
 };

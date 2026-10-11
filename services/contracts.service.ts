@@ -216,6 +216,7 @@ export const contractsService = {
       guarantee_description: loan.guaranteeDescription,
       is_archived: loan.isArchived || false,
       skip_weekends: loan.skipWeekends || false,
+      interest_free_installment: loan.interestFreeInstallment === true,
 
       funding_total_payable: loan.fundingTotalPayable,
       funding_cost: loan.fundingCost,

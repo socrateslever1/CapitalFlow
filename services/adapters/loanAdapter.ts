@@ -246,6 +246,7 @@ export function mapLoanFromDB(
 
     notes: asString(l?.notes),
     capitalOnlyRecovery: typeof l?.capital_only_recovery === 'boolean' ? l.capital_only_recovery : undefined,
+    interestFreeInstallment: l?.interest_free_installment === true || l?.policies_snapshot?.interestFreeInstallment === true,
 
     guaranteeDescription: asString(l?.guarantee_description ?? l?.guaranteeDescription),
 

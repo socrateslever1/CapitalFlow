@@ -82,6 +82,36 @@ run('contrato persiste política de dias sem exigir nova coluna', () => {
   assert.equal(loan.installments[0].dueDate, '2026-10-12');
 });
 
+run('parcelado sem juros divide somente o principal e nunca gera encargos', () => {
+  const loan = mapFormToLoan({
+    clientId: 'cliente', debtorName: 'Teste', debtorPhone: '92999999999', debtorDocument: '00000000000',
+    debtorAddress: '', sourceId: 'fonte', principal: '1000', interestRate: '30',
+    finePercent: '2', dailyInterestPercent: '1', billingCycle: 'INSTALLMENT_FIXED',
+    notes: '', guaranteeDescription: '', startDate: '2026-10-11',
+    preferredPaymentMethod: 'PIX', fundingInstallmentsCount: '3',
+    fundingCalculationMode: 'TOTAL', fundingTotalPayable: '',
+    customerMarginPercent: '30', interestFreeInstallment: true,
+  } as any, '30', null, [], [], [], '00000000-0000-4000-8000-000000000001');
+
+  assert.equal(loan.interestFreeInstallment, true);
+  assert.equal(loan.interestRate, 0);
+  assert.equal(loan.finePercent, 0);
+  assert.equal(loan.dailyInterestPercent, 0);
+  assertMoney(loan.totalToReceive, 1000, 'total sem juros');
+  assert.deepEqual(loan.installments.map((inst) => inst.number), [1, 2, 3]);
+  assert.equal(loan.installments.every((inst) => inst.scheduledInterest === 0 && inst.interestRemaining === 0), true);
+  assertMoney(loan.installments.reduce((sum, inst) => sum + inst.scheduledPrincipal, 0), 1000, 'principal distribuído');
+
+  const debt = modalityRegistry.get('INSTALLMENT_FIXED').calculate(
+    loan,
+    loan.installments[0],
+    { interestRate: 99, finePercent: 20, dailyInterestPercent: 10, interestFreeInstallment: true },
+    '2027-01-11'
+  );
+  assertMoney(debt.interest, 0, 'juros continuam zerados');
+  assertMoney(debt.lateFee, 0, 'multa e mora continuam zeradas');
+});
+
 run('novo aporte considera somente o aumento sobre o capital atual', () => {
   assertMoney(calculateAdditionalCapital(1200, 1000), 200, 'primeiro aporte');
   assertMoney(calculateAdditionalCapital(1200, 1200), 0, 'salvar novamente não duplica aporte');

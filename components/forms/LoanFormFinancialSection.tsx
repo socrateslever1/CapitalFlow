@@ -29,6 +29,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'MISTO';
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
+  const interestFreeInstallment = isInstallmentFixed && formData.interestFreeInstallment === true;
   const supportsCollectionDays = isDailyModality || formData.billingCycle === 'WEEKLY';
   const collectionDaysMode = normalizeCollectionDaysMode(formData.collectionDaysMode, !!formData.skipWeekends);
   const periodicRateLabel = formData.billingCycle === 'WEEKLY'
@@ -46,7 +47,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       ...(billingCycle === 'INSTALLMENT_FIXED' ? {
         fundingInstallmentsCount: formData.fundingInstallmentsCount || '10',
         customerMarginPercent: formData.customerMarginPercent || '30',
-      } : {}),
+        interestFreeInstallment: formData.billingCycle === 'INSTALLMENT_FIXED' ? formData.interestFreeInstallment === true : false,
+      } : {
+        interestFreeInstallment: false,
+      }),
     });
     if (formData.startDate && ['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(billingCycle)) {
       const rawDue = addDaysUTC(formData.startDate, intervalDays);
@@ -93,10 +97,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       const absorbsInterest = formData.fundingOperatorAbsorbsInterest === true;
       const baseForClient = absorbsInterest ? (principal / count) : bankInstallment;
 
-      const customerInstallment = baseForClient * (1 + margin / 100);
-      const customerTotal = customerInstallment * count;
+      const customerInstallment = interestFreeInstallment ? principal / count : baseForClient * (1 + margin / 100);
+      const customerTotal = interestFreeInstallment ? principal : customerInstallment * count;
       return { count, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
-  }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest]);
+  }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest, interestFreeInstallment]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -122,6 +126,38 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
               </button>
             ))}
         </div>
+
+        {isInstallmentFixed && (!isEditing || interestFreeInstallment) && (
+            <button
+              type="button"
+              disabled={!!isEditing}
+              aria-pressed={interestFreeInstallment}
+              onClick={() => {
+                if (isEditing) return;
+                setFormData((current: any) => {
+                  const enabled = current.interestFreeInstallment !== true;
+                  return {
+                    ...current,
+                    interestFreeInstallment: enabled,
+                    interestRate: enabled ? '0' : current.interestRate,
+                    finePercent: enabled ? '0' : (current.finePercent === '0' ? '2' : current.finePercent),
+                    dailyInterestPercent: enabled ? '0' : (current.dailyInterestPercent === '0' ? '1' : current.dailyInterestPercent),
+                    customerMarginPercent: enabled ? '0' : (current.customerMarginPercent === '0' ? '30' : current.customerMarginPercent),
+                    fundingOperatorAbsorbsInterest: enabled ? true : current.fundingOperatorAbsorbsInterest,
+                  };
+                });
+              }}
+              className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${interestFreeInstallment ? 'border-emerald-500/35 bg-emerald-500/10' : 'border-slate-800 bg-slate-950/35 hover:border-slate-700'} ${isEditing ? 'cursor-default' : ''}`}
+            >
+              <div className="min-w-0">
+                <p className={`text-[10px] font-black ${interestFreeInstallment ? 'text-emerald-300' : 'text-slate-300'}`}>Sem juros e encargos</p>
+                <p className="mt-0.5 text-[8px] leading-tight text-slate-500">Para dívida já renegociada. Cobra somente o valor dividido nas parcelas.</p>
+              </div>
+              <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${interestFreeInstallment ? 'bg-emerald-500' : 'bg-slate-800'}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${interestFreeInstallment ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+              </span>
+            </button>
+        )}
 
         {isDailyModality && (
             <div className="space-y-4 animate-in slide-in-from-top-2">
@@ -251,7 +287,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {!interestFreeInstallment && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
                 <input type="number" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
@@ -260,7 +296,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
                 <input type="number" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
-        </div>
+        </div>}
 
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
@@ -275,7 +311,26 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
         </div>
 
-        {(isCardSource || isInstallmentFixed) && (
+        {interestFreeInstallment && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-3 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Número de parcelas</label>
+                        <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData({...formData, fundingInstallmentsCount: e.target.value})} className={strongInputClass} />
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                        <p className="text-[8px] font-black uppercase text-slate-500">Valor por parcela</p>
+                        <p className="mt-1 text-sm font-black text-emerald-300">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
+                    </div>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
+                    <span className="font-bold text-slate-500">Total do contrato</span>
+                    <span className="font-black text-white">{formatMoney(principalValue)}</span>
+                </div>
+            </div>
+        )}
+
+        {!interestFreeInstallment && (isCardSource || isInstallmentFixed) && (
             <div className="bg-slate-950/60 border border-slate-800/80 rounded-lg p-5 sm:p-6 space-y-6 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-slate-700/80 animate-in slide-in-from-right">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl pointer-events-none"></div>

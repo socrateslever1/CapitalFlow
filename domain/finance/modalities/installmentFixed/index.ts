@@ -13,16 +13,17 @@ function pmt(principal: number, monthlyRatePercent: number, installmentsCount: n
     return principal * (i / (1 - Math.pow(1 + i, -n)));
 }
 
-const calculateInstallmentFixed: ModalityStrategy['calculate'] = (_loan, inst, policy, referenceDate) => {
+const calculateInstallmentFixed: ModalityStrategy['calculate'] = (loan, inst, policy, referenceDate) => {
+    const interestFreeInstallment = loan.interestFreeInstallment === true || loan.policiesSnapshot?.interestFreeInstallment === true;
     const principal = round(Math.max(0, Number(inst.principalRemaining) || 0));
-    const interest = round(Math.max(0, Number(inst.interestRemaining) || 0));
+    const interest = interestFreeInstallment ? 0 : round(Math.max(0, Number(inst.interestRemaining) || 0));
     const daysLate = Math.max(0, getDaysDiff(inst.dueDate, referenceDate));
     const baseForFine = round(principal + interest);
 
-    const finePart = daysLate > 0
+    const finePart = !interestFreeInstallment && daysLate > 0
         ? calculateRecurringMonthlyFine(baseForFine, policy.finePercent, daysLate)
         : 0;
-    const moraPart = daysLate > 0
+    const moraPart = !interestFreeInstallment && daysLate > 0
         ? round(baseForFine * (Number(policy.dailyInterestPercent || 0) / 100) * daysLate)
         : 0;
     const lateFee = round(finePart + moraPart);
@@ -72,9 +73,14 @@ export const installmentFixedStrategy: ModalityStrategy = {
         const count = Math.max(1, Math.floor(Number(params.fundingInstallmentsCount) || Number(params.fixedDuration) || 1));
         const bankTotalInput = Number(params.fundingTotalPayable) || 0;
         const bankMonthlyRate = Number(params.fundingMonthlyRate) || 0;
-        const marginPercent = params.customerMarginPercent == null
-            ? (Number(params.rate) || 0)
-            : (Number(params.customerMarginPercent) || 0);
+        const interestFreeInstallment = params.interestFreeInstallment === true
+            || params.initialData?.interestFreeInstallment === true
+            || params.initialData?.policiesSnapshot?.interestFreeInstallment === true;
+        const marginPercent = interestFreeInstallment
+            ? 0
+            : params.customerMarginPercent == null
+                ? (Number(params.rate) || 0)
+                : (Number(params.customerMarginPercent) || 0);
         const mode = params.fundingCalculationMode || (bankTotalInput > principal ? 'TOTAL' : 'RATE');
 
         let bankInstallmentValue = 0;
@@ -85,8 +91,10 @@ export const installmentFixedStrategy: ModalityStrategy = {
         }
 
         const baseForClient = params.operatorAbsorbsInterest ? (principal / count) : bankInstallmentValue;
-        const customerInstallmentValue = round(baseForClient * (1 + (marginPercent / 100)));
-        const totalToReceive = round(customerInstallmentValue * count);
+        const customerInstallmentValue = interestFreeInstallment
+            ? round(principal / count)
+            : round(baseForClient * (1 + (marginPercent / 100)));
+        const totalToReceive = interestFreeInstallment ? round(principal) : round(customerInstallmentValue * count);
         const principalPart = round(principal / count);
 
         const baseDate = parseDateOnlyUTC(params.startDate);
@@ -97,14 +105,15 @@ export const installmentFixedStrategy: ModalityStrategy = {
             const isLast = index === count;
             const scheduledPrincipal = isLast ? round(principal - principalAllocated) : principalPart;
             principalAllocated = round(principalAllocated + scheduledPrincipal);
-            const scheduledInterest = round(customerInstallmentValue - scheduledPrincipal);
+            const scheduledInterest = interestFreeInstallment ? 0 : round(customerInstallmentValue - scheduledPrincipal);
             const dueDate = addMonthsUTC(baseDate, index);
+            const installmentAmount = interestFreeInstallment ? scheduledPrincipal : customerInstallmentValue;
 
             installments.push({
                 id: generateUUID(),
                 number: index,
                 dueDate: toISODateOnlyUTC(dueDate),
-                amount: customerInstallmentValue,
+                amount: installmentAmount,
                 scheduledPrincipal,
                 scheduledInterest,
                 principalRemaining: scheduledPrincipal,

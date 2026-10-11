@@ -145,39 +145,44 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         )}
 
         {supportsCollectionDays && (
-            <div className="space-y-1.5 rounded-lg border border-slate-800/80 bg-slate-950/50 p-2.5">
+            <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/40 p-2.5">
                 <div className="flex items-center gap-1.5 px-0.5">
                     <CalendarX size={13} className="text-purple-400" />
-                    <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">Dias de recebimento</p>
+                    <p className="text-[9px] font-black tracking-wide text-slate-300">Receber em</p>
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
                     {[
-                      ['ALL_DAYS', 'Todos os dias'],
-                      ['SKIP_SUNDAY', 'Sem domingo'],
-                      ['SKIP_WEEKEND', 'Sem sábado e domingo'],
-                    ].map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setFormData((current: any) => ({ ...current, collectionDaysMode: value }));
-                          if (!isEditing && formData.startDate) {
-                            let suggested = parseDateOnlyUTC(formData.startDate);
-                            if (formData.billingCycle === 'DAILY_FREE') {
-                              suggested = adjustToCollectionDayUTC(formData.startDate, value as any);
-                            } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
-                              suggested = addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), value as any);
-                            } else if (formData.billingCycle === 'WEEKLY') {
-                              suggested = adjustToCollectionDayUTC(addDaysUTC(formData.startDate, 7), value as any);
+                      { value: 'ALL_DAYS', label: 'Todos os dias', detail: 'Seg–Dom' },
+                      { value: 'SKIP_SUNDAY', label: 'Seg. a sábado', detail: 'Domingo livre' },
+                      { value: 'SKIP_WEEKEND', label: 'Seg. a sexta', detail: 'Fim de semana livre' },
+                    ].map(({ value, label, detail }) => {
+                      const selected = collectionDaysMode === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            setFormData((current: any) => ({ ...current, collectionDaysMode: value }));
+                            if (!isEditing && formData.startDate) {
+                              let suggested = parseDateOnlyUTC(formData.startDate);
+                              if (formData.billingCycle === 'DAILY_FREE') {
+                                suggested = adjustToCollectionDayUTC(formData.startDate, value as any);
+                              } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
+                                suggested = addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), value as any);
+                              } else if (formData.billingCycle === 'WEEKLY') {
+                                suggested = adjustToCollectionDayUTC(addDaysUTC(formData.startDate, 7), value as any);
+                              }
+                              setManualFirstDueDate(toISODateOnlyUTC(suggested));
                             }
-                            setManualFirstDueDate(toISODateOnlyUTC(suggested));
-                          }
-                        }}
-                        className={`flex h-11 min-h-0 items-center justify-center rounded-md border px-2 py-1.5 text-center text-[8px] font-black uppercase leading-tight transition-all sm:text-[9px] ${collectionDaysMode === value ? 'border-purple-400/60 bg-purple-600/90 text-white shadow-sm shadow-purple-950/30' : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-white'}`}
-                      >
-                        <span className="block whitespace-normal">{label}</span>
-                      </button>
-                    ))}
+                          }}
+                          className={`flex h-[52px] min-h-0 flex-col items-center justify-center rounded-md border px-1.5 text-center transition-all ${selected ? 'border-purple-400/60 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-slate-800 bg-slate-900/45 text-slate-400 hover:border-slate-700 hover:bg-slate-900/70'}`}
+                        >
+                          <span className="text-[9px] font-black leading-tight">{label}</span>
+                          <span className={`mt-0.5 text-[7px] font-bold leading-tight ${selected ? 'text-purple-200' : 'text-slate-600'}`}>{detail}</span>
+                        </button>
+                      );
+                    })}
                 </div>
             </div>
         )}

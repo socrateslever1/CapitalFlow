@@ -108,28 +108,33 @@ export const ClientModals = () => {
                     </div>
                </div>
 
-               <div className="space-y-1.5 rounded-lg border border-slate-800/70 bg-slate-950/30 p-2.5">
+               <div className="space-y-2 rounded-lg border border-slate-800/70 bg-slate-950/30 p-2.5">
                    <div className="flex items-center gap-1.5 px-0.5">
                        <CalendarX size={13} className="text-blue-400" />
-                       <label className="text-[8px] uppercase text-slate-500 font-black tracking-[0.12em]">Dias de recebimento</label>
+                       <label className="text-[9px] font-black tracking-wide text-slate-300">Receber em</label>
                    </div>
                    <div className="grid grid-cols-3 gap-1.5">
                        {[
-                         ['ALL_DAYS', 'Todos os dias'],
-                         ['SKIP_SUNDAY', 'Sem domingo'],
-                         ['SKIP_WEEKEND', 'Sem sábado e domingo'],
-                       ].map(([value, label]) => (
-                         <button
-                           key={value}
-                           type="button"
-                           onClick={() => ui.setClientForm({ ...clientForm, collectionDaysMode: value })}
-                           className={`flex h-11 min-h-0 items-center justify-center rounded-md border px-2 py-1.5 text-center text-[8px] font-black uppercase leading-tight transition-all sm:text-[9px] ${(clientForm.collectionDaysMode || 'ALL_DAYS') === value ? 'border-blue-400/60 bg-blue-600/90 text-white shadow-sm shadow-blue-950/30' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-white'}`}
-                         >
-                           <span className="block whitespace-normal">{label}</span>
-                         </button>
-                       ))}
+                         { value: 'ALL_DAYS', label: 'Todos os dias', detail: 'Seg–Dom' },
+                         { value: 'SKIP_SUNDAY', label: 'Seg. a sábado', detail: 'Domingo livre' },
+                         { value: 'SKIP_WEEKEND', label: 'Seg. a sexta', detail: 'Fim de semana livre' },
+                       ].map(({ value, label, detail }) => {
+                         const selected = (clientForm.collectionDaysMode || 'ALL_DAYS') === value;
+                         return (
+                           <button
+                             key={value}
+                             type="button"
+                             aria-pressed={selected}
+                             onClick={() => ui.setClientForm({ ...clientForm, collectionDaysMode: value })}
+                             className={`flex h-[52px] min-h-0 flex-col items-center justify-center rounded-md border px-1.5 text-center transition-all ${selected ? 'border-blue-400/60 bg-blue-500/15 text-white ring-1 ring-blue-400/10' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:bg-slate-900/60'}`}
+                           >
+                             <span className="text-[9px] font-black leading-tight">{label}</span>
+                             <span className={`mt-0.5 text-[7px] font-bold leading-tight ${selected ? 'text-blue-200' : 'text-slate-600'}`}>{detail}</span>
+                           </button>
+                         );
+                       })}
                    </div>
-                   <p className="px-0.5 text-[8px] leading-tight text-slate-600">Usado como padrão em novos contratos diários e semanais.</p>
+                   <p className="px-0.5 text-[8px] leading-tight text-slate-600">Padrão para novos contratos diários e semanais.</p>
                </div>
 
                <div className="space-y-2">

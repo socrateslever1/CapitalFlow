@@ -132,8 +132,8 @@ export const mapFormToLoan = (
   const principal = parseCurrency(form.principal);
   const interestFreeInstallment = form.billingCycle === 'INSTALLMENT_FIXED' && form.interestFreeInstallment === true;
   const rate = interestFreeInstallment ? 0 : parseCurrency(form.interestRate);
-  const finePercent = interestFreeInstallment ? 0 : parseCurrency(form.finePercent);
-  const dailyInterestPercent = interestFreeInstallment ? 0 : parseCurrency(form.dailyInterestPercent);
+  const finePercent = parseCurrency(form.finePercent);
+  const dailyInterestPercent = parseCurrency(form.dailyInterestPercent);
 
   // Cálculo do Custo de Captação (Cartão)
   let fundingTotalPayable = 0;

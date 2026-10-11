@@ -140,8 +140,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                     ...current,
                     interestFreeInstallment: enabled,
                     interestRate: enabled ? '0' : current.interestRate,
-                    finePercent: enabled ? '0' : (current.finePercent === '0' ? '2' : current.finePercent),
-                    dailyInterestPercent: enabled ? '0' : (current.dailyInterestPercent === '0' ? '1' : current.dailyInterestPercent),
+                    finePercent: current.finePercent,
+                    dailyInterestPercent: current.dailyInterestPercent,
                     customerMarginPercent: enabled ? '0' : (current.customerMarginPercent === '0' ? '30' : current.customerMarginPercent),
                     fundingOperatorAbsorbsInterest: enabled ? true : current.fundingOperatorAbsorbsInterest,
                   };
@@ -150,8 +150,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
               className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-all ${interestFreeInstallment ? 'border-emerald-500/35 bg-emerald-500/10' : 'border-slate-800 bg-slate-950/35 hover:border-slate-700'} ${isEditing ? 'cursor-default' : ''}`}
             >
               <div className="min-w-0">
-                <p className={`text-[10px] font-black ${interestFreeInstallment ? 'text-emerald-300' : 'text-slate-300'}`}>Sem juros e encargos</p>
-                <p className="mt-0.5 text-[8px] leading-tight text-slate-500">Para dívida já renegociada. Cobra somente o valor dividido nas parcelas.</p>
+                <p className={`text-[10px] font-black ${interestFreeInstallment ? 'text-emerald-300' : 'text-slate-300'}`}>Sem juros no parcelamento</p>
+                <p className="mt-0.5 text-[8px] leading-tight text-slate-500">As parcelas não têm juros. Se atrasar, aplica a multa e a mora diária configuradas abaixo.</p>
               </div>
               <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${interestFreeInstallment ? 'bg-emerald-500' : 'bg-slate-800'}`}>
                 <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${interestFreeInstallment ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -287,7 +287,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
           </div>
         </div>
 
-        {!interestFreeInstallment && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
                 <input type="number" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
@@ -296,7 +296,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
                 <input type="number" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
-        </div>}
+        </div>
 
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>

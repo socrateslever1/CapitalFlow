@@ -20,10 +20,10 @@ const calculateInstallmentFixed: ModalityStrategy['calculate'] = (loan, inst, po
     const daysLate = Math.max(0, getDaysDiff(inst.dueDate, referenceDate));
     const baseForFine = round(principal + interest);
 
-    const finePart = !interestFreeInstallment && daysLate > 0
+    const finePart = daysLate > 0
         ? calculateRecurringMonthlyFine(baseForFine, policy.finePercent, daysLate)
         : 0;
-    const moraPart = !interestFreeInstallment && daysLate > 0
+    const moraPart = daysLate > 0
         ? round(baseForFine * (Number(policy.dailyInterestPercent || 0) / 100) * daysLate)
         : 0;
     const lateFee = round(finePart + moraPart);

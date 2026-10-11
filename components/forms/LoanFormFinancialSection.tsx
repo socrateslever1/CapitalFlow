@@ -100,15 +100,27 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <h3 className="text-[10px] font-black uppercase tracking-widest text-purple-500 flex items-center gap-2"><Wallet className="w-4 h-4" /> Condições</h3>
-      <div className="space-y-4">
+      <h3 className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-purple-400"><Wallet className="h-3.5 w-3.5" /> Condições</h3>
+      <div className="space-y-3">
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 bg-slate-950/50 p-1.5 rounded-lg border border-slate-800/80">
-            <button type="button" onClick={() => selectBillingCycle('MONTHLY')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'MONTHLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CalendarDays size={13}/> Mensal</button>
-            <button type="button" onClick={() => selectBillingCycle('BIWEEKLY')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'BIWEEKLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CalendarDays size={13}/> Quinzenal</button>
-            <button type="button" onClick={() => selectBillingCycle('WEEKLY')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${formData.billingCycle === 'WEEKLY' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CalendarDays size={13}/> Semanal</button>
-            <button type="button" onClick={() => selectBillingCycle('INSTALLMENT_FIXED')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isInstallmentFixed ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><CreditCard size={13}/> Parcelado</button>
-            <button type="button" onClick={() => selectBillingCycle('DAILY_FREE')} className={`min-h-11 px-2 rounded-md text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${isDailyModality ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-900 hover:text-white'}`}><Clock size={13}/> Diário</button>
+        <div className="grid grid-cols-6 gap-1 rounded-lg border border-slate-800/80 bg-slate-950/45 p-1">
+            {[
+              { value: 'MONTHLY', label: 'Mensal', active: formData.billingCycle === 'MONTHLY', mobileSpan: 'col-span-2' },
+              { value: 'BIWEEKLY', label: 'Quinzenal', active: formData.billingCycle === 'BIWEEKLY', mobileSpan: 'col-span-2' },
+              { value: 'WEEKLY', label: 'Semanal', active: formData.billingCycle === 'WEEKLY', mobileSpan: 'col-span-2' },
+              { value: 'INSTALLMENT_FIXED', label: 'Parcelado', active: isInstallmentFixed, mobileSpan: 'col-span-3' },
+              { value: 'DAILY_FREE', label: 'Diário', active: isDailyModality, mobileSpan: 'col-span-3' },
+            ].map(({ value, label, active, mobileSpan }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => selectBillingCycle(value as LoanBillingModality)}
+                className={`${mobileSpan} sm:col-span-1 flex h-9 min-h-0 items-center justify-center rounded-md border px-2 text-[9px] font-black uppercase tracking-wide transition-all ${active ? 'border-purple-400/50 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-transparent text-slate-500 hover:border-slate-800 hover:bg-slate-900/70 hover:text-slate-200'}`}
+              >
+                {label}
+              </button>
+            ))}
         </div>
 
         {isDailyModality && (

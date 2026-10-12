@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Loan, Installment } from '../../../../types';
-import { parseDateOnlyUTC, addDaysUTC, addMonthsUTC, todayDateOnlyUTC, toISODateOnlyUTC, getDaysDiff } from '../../../../utils/dateHelpers';
+import { parseDateOnlyUTC, addCollectionDaysUTC, addDaysUTC, addMonthsUTC, normalizeCollectionDaysMode, todayDateOnlyUTC, toISODateOnlyUTC, getDaysDiff } from '../../../../utils/dateHelpers';
 import { paymentModalityDispatcher } from '../../../../features/payments/modality/index';
 import { modalityRegistry } from '../../../../domain/finance/modalities/registry';
 import { formatMoney } from '../../../../utils/formatters';
@@ -148,7 +148,8 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
             const dueDate = parseDateOnlyUTC(data.inst.dueDate);
             const overdue = baseDate > dueDate;
             const preservesOriginalDay = overdue && forgivenessMode !== 'NONE';
-            const nextDate = isDaily ? addDaysUTC(baseDate, 1)
+            const collectionDaysMode = normalizeCollectionDaysMode(data.loan.collectionDaysMode, !!data.loan.skipWeekends);
+            const nextDate = isDaily ? addCollectionDaysUTC(baseDate, 1, collectionDaysMode)
                 : preservesOriginalDay
                     ? addDaysUTC(dueDate, 30)
                     : addDaysUTC(baseDate, 30);

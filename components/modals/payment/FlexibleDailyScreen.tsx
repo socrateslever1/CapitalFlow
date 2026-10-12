@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { CheckSquare, Clock, Target, ArrowRightLeft, CalendarClock, Calendar } from 'lucide-react';
-import { formatBRDate, parseDateOnlyUTC, addDaysUTC } from '../../../utils/dateHelpers';
+import { formatBRDate, parseDateOnlyUTC, addCollectionDaysUTC, normalizeCollectionDaysMode } from '../../../utils/dateHelpers';
 import { cleanNumberStr } from '../../../utils/formatters';
 
 interface FlexibleDailyScreenProps {
@@ -57,13 +57,12 @@ export const FlexibleDailyScreen: React.FC<FlexibleDailyScreenProps> = ({
     const dailyCost = Number(debt.principal || 0) * dailyRate;
     const daysPaid = dailyCost > 0 ? Math.floor((cleanAmount + 0.01) / dailyCost) : 0; // +0.01 tolerância float
 
-    const baseDateStr =
-      loan.billingCycle === 'DAILY_FREE'
-        ? (loan.startDate || loan.installments?.[0]?.dueDate)
-        : (loan.installments?.[0]?.dueDate);
-
+    const baseDateStr = loan.installments?.[0]?.dueDate || loan.startDate;
     const currentDueDate = parseDateOnlyUTC(baseDateStr);
-    const projectedDate = daysPaid > 0 ? addDaysUTC(currentDueDate, daysPaid, false) : currentDueDate;
+    const collectionDaysMode = normalizeCollectionDaysMode(loan.collectionDaysMode, !!loan.skipWeekends);
+    const projectedDate = daysPaid > 0
+      ? addCollectionDaysUTC(currentDueDate, daysPaid, collectionDaysMode)
+      : currentDueDate;
 
     return (
         <div className="space-y-5 animate-in slide-in-from-right">

@@ -12,10 +12,9 @@ export const calculateAutoDueDate = (
   const start = parseDateOnlyUTC(startDateStr);
   const mode = normalizeCollectionDaysMode(collectionDaysMode, skipWeekends);
 
-  // DAILY_FREE não tem prazo fixo: o marco inicial é o próprio dia da contratação.
-  // A compra de dias ocorre somente quando os juros são pagos/renovados.
+  // DAILY_FREE começa no próximo dia permitido para recebimento.
   const due = billingCycle === 'DAILY_FREE'
-    ? adjustToCollectionDayUTC(start, mode)
+    ? addCollectionDaysUTC(start, 1, mode)
     : billingCycle === 'DAILY_FIXED_TERM'
       ? addCollectionDaysUTC(start, Math.max(1, Number(fixedDuration) || 1), mode)
       : billingCycle === 'WEEKLY'

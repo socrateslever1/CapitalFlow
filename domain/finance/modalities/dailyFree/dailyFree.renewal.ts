@@ -25,13 +25,8 @@ export const renewDailyFree = (
   const dailyRate = (Number(loan.interestRate) / 100) / 30;
   const dailyCost = round(principalBase * dailyRate);
 
-  // DAILY_FREE usa como "pago até atual" a data do contrato porque o fluxo
-  // sincroniza start_date e due_date. Na ausência, usa o vencimento da parcela.
-  const currentPaidUntil = parseDateOnlyUTC(
-    loan.billingCycle === "DAILY_FREE"
-      ? (loan.startDate || inst.dueDate)
-      : inst.dueDate
-  );
+  // Sempre avança a partir do vencimento/pago-até atual.
+  const currentPaidUntil = parseDateOnlyUTC(inst.dueDate || loan.startDate);
 
   // A preferência do contrato deve continuar válida também nas renovações.
   const collectionDaysMode = normalizeCollectionDaysMode(loan.collectionDaysMode, !!loan.skipWeekends);

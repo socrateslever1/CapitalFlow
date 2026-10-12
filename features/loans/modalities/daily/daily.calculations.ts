@@ -68,7 +68,8 @@ export const calculateNewDailyInstallments = (
   const isCycle30 = billingCycle.includes('DAILY_30');
   
   let scheduledInterest = 0;
-  let durationDays = 0; 
+  // A diária livre vence no próximo dia permitido para recebimento.
+  let durationDays = billingCycle === 'DAILY_FREE' ? 1 : 0;
 
   if (isCycle30) {
       // Juros do ciclo = Principal * Taxa Mensal

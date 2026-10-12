@@ -61,6 +61,40 @@ run('dias de recebimento respeitam domingo e fim de semana na diária', () => {
   assert.equal(toISODateOnlyUTC(addCollectionDaysUTC('2026-10-09', 2, 'SKIP_WEEKEND')), '2026-10-13');
 });
 
+run('diária livre avança para o próximo dia permitido', () => {
+  assert.equal(calculateAutoDueDate('2026-10-12', 'DAILY_FREE', '', false, 'SKIP_WEEKEND'), '13/10/2026');
+  assert.equal(calculateAutoDueDate('2026-10-16', 'DAILY_FREE', '', false, 'ALL_DAYS'), '17/10/2026');
+  assert.equal(calculateAutoDueDate('2026-10-16', 'DAILY_FREE', '', false, 'SKIP_SUNDAY'), '17/10/2026');
+  assert.equal(calculateAutoDueDate('2026-10-16', 'DAILY_FREE', '', false, 'SKIP_WEEKEND'), '19/10/2026');
+
+  const daily = modalityRegistry.get('DAILY_FREE').generateInstallments({
+    principal: 1000,
+    rate: 30,
+    startDate: '2026-10-16',
+    initialData: { collectionDaysMode: 'SKIP_WEEKEND' } as any,
+  });
+  assert.equal(String(daily.installments[0].dueDate).slice(0, 10), '2026-10-19');
+});
+
+run('prazo diário e semanal respeitam os dias permitidos', () => {
+  const fixed = modalityRegistry.get('DAILY_FIXED_TERM').generateInstallments({
+    principal: 1000,
+    rate: 30,
+    startDate: '2026-10-16',
+    fixedDuration: '2',
+    initialData: { collectionDaysMode: 'SKIP_WEEKEND' } as any,
+  });
+  assert.equal(String(fixed.installments[0].dueDate).slice(0, 10), '2026-10-20');
+
+  const weekly = modalityRegistry.get('WEEKLY').generateInstallments({
+    principal: 1000,
+    rate: 10,
+    startDate: '2026-10-18',
+    initialData: { collectionDaysMode: 'SKIP_WEEKEND' } as any,
+  });
+  assert.equal(String(weekly.installments[0].dueDate).slice(0, 10), '2026-10-26');
+});
+
 run('semanal mantém sete dias e apenas desloca vencimento proibido', () => {
   assert.equal(toISODateOnlyUTC(adjustToCollectionDayUTC(addDaysUTC('2026-10-04', 7), 'ALL_DAYS')), '2026-10-11');
   assert.equal(toISODateOnlyUTC(adjustToCollectionDayUTC(addDaysUTC('2026-10-04', 7), 'SKIP_SUNDAY')), '2026-10-12');

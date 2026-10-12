@@ -52,12 +52,16 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         interestFreeInstallment: false,
       }),
     });
-    if (formData.startDate && ['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(billingCycle)) {
-      const rawDue = addDaysUTC(formData.startDate, intervalDays);
-      const suggestedDue = billingCycle === 'WEEKLY'
-        ? adjustToCollectionDayUTC(rawDue, collectionDaysMode)
-        : rawDue;
-      setManualFirstDueDate(toISODateOnlyUTC(suggestedDue));
+    if (formData.startDate) {
+      if (billingCycle === 'DAILY_FREE') {
+        setManualFirstDueDate(toISODateOnlyUTC(addCollectionDaysUTC(formData.startDate, 1, collectionDaysMode)));
+      } else if (['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(billingCycle)) {
+        const rawDue = addDaysUTC(formData.startDate, intervalDays);
+        const suggestedDue = billingCycle === 'WEEKLY'
+          ? adjustToCollectionDayUTC(rawDue, collectionDaysMode)
+          : rawDue;
+        setManualFirstDueDate(toISODateOnlyUTC(suggestedDue));
+      }
     }
   };
   const fundingAllocations = Array.isArray(formData.fundingAllocations) && formData.fundingAllocations.length > 0
@@ -166,7 +170,16 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                     <div className="relative group">
                         <select
                             value={formData.billingCycle || ''}
-                            onChange={(e) => setFormData({...formData, billingCycle: e.target.value as LoanBillingModality})}
+                            onChange={(e) => {
+                              const nextCycle = e.target.value as LoanBillingModality;
+                              setFormData({...formData, billingCycle: nextCycle});
+                              if (formData.startDate) {
+                                const suggested = nextCycle === 'DAILY_FIXED_TERM'
+                                  ? addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode)
+                                  : addCollectionDaysUTC(formData.startDate, 1, collectionDaysMode);
+                                setManualFirstDueDate(toISODateOnlyUTC(suggested));
+                              }
+                            }}
                             className="w-full appearance-none bg-slate-950/50 border border-purple-500/30 rounded-lg px-4 py-3 pr-10 text-white text-xs outline-none focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/10 transition-all cursor-pointer"
                         >
                             <option value="DAILY_FREE">Diária Livre (Somente Juros)</option>
@@ -215,7 +228,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                             if (!isEditing && formData.startDate) {
                               let suggested = parseDateOnlyUTC(formData.startDate);
                               if (formData.billingCycle === 'DAILY_FREE') {
-                                suggested = adjustToCollectionDayUTC(formData.startDate, value as any);
+                                suggested = addCollectionDaysUTC(formData.startDate, 1, value as any);
                               } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
                                 suggested = addCollectionDaysUTC(formData.startDate, Math.max(1, Number(fixedDuration) || 1), value as any);
                               } else if (formData.billingCycle === 'WEEKLY') {
@@ -262,7 +275,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                       if (startDate) {
                         let suggested = addDaysUTC(startDate, formData.billingCycle === 'WEEKLY' ? 7 : formData.billingCycle === 'BIWEEKLY' ? 15 : 30);
                         if (formData.billingCycle === 'DAILY_FREE') {
-                          suggested = adjustToCollectionDayUTC(startDate, collectionDaysMode);
+                          suggested = addCollectionDaysUTC(startDate, 1, collectionDaysMode);
                         } else if (formData.billingCycle === 'DAILY_FIXED_TERM') {
                           suggested = addCollectionDaysUTC(startDate, Math.max(1, Number(fixedDuration) || 1), collectionDaysMode);
                         } else if (formData.billingCycle === 'WEEKLY') {

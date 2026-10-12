@@ -60,20 +60,20 @@ const rules: Rule[] = [
     intent: 'estornar_pagamento',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.99,
-    patterns: [/\b(estornar|desfazer|reverter)\b.*\b(pagamento|recebimento|baixa)\b/],
+    patterns: [/\b(estorn\w*|desfaz\w*|revert\w*)\b.*\b(pagamento|recebimento|baixa)\b/],
   },
   {
     intent: 'registrar_pagamento_acordo',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.99,
-    patterns: [/\b(registrar|dar baixa|baixar|lancar)\b.*\b(pagamento|recebimento)\b.*\b(acordo|renegociacao)\b/],
+    patterns: [/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b.*\b(acordo|renegociacao)\b/],
   },
   {
     intent: 'registrar_pagamento',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
     patterns: [
-      /\b(registrar|dar baixa|baixar|lancar)\b.*\b(pagamento|recebimento)\b/,
+      /\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b/,
       /\b(recebi|recebemos)\b.*\b(r\$|reais|pagamento|parcela)?/,
       /\bexecute\b.*\bpagamento\b/,
     ],
@@ -82,7 +82,7 @@ const rules: Rule[] = [
     intent: 'alterar_vencimento',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
-    patterns: [/\b(alterar|mudar|trocar|adiar|prorrogar)\b.*\b(vencimento|data de vencimento)\b/],
+    patterns: [/\b(alter\w*|mud\w*|troc\w*|adi\w*|prorrog\w*)\b.*\b(vencimento|data de vencimento)\b/],
   },
   {
     intent: 'novo_aporte',
@@ -94,13 +94,13 @@ const rules: Rule[] = [
     intent: 'capitalizar_saldo',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
-    patterns: [/\b(capitalizar|somar|incorporar)\b.*\b(juros|multa|mora|saldo|restante)\b.*\b(capital|principal)?/],
+    patterns: [/\b(capitaliz\w*|som\w*|incorpor\w*)\b.*\b(juros|multa|mora|saldo|restante)\b.*\b(capital|principal)?/],
   },
   {
     intent: 'quitar_por_acordo',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
-    patterns: [/\b(quitar|encerrar|liquidar)\b.*\b(acordo|renegociacao)\b/],
+    patterns: [/\b(quit\w*|encerr\w*|liquid\w*)\b.*\b(acordo|renegociacao)\b/],
   },
   {
     intent: 'aplicar_desconto',
@@ -115,7 +115,7 @@ const rules: Rule[] = [
     intent: 'renovar_pagamento',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.97,
-    patterns: [/\b(renovar|renove)\b.*\b(pagamento|parcela|contrato|vencimento)\b/],
+    patterns: [/\b(renov\w*)\b.*\b(pagamento|parcela|contrato|vencimento)\b/],
   },
   {
     intent: 'loan_interest',
@@ -164,7 +164,7 @@ const rules: Rule[] = [
     route: 'READ_ONLY_SKILL',
     confidence: 0.93,
     patterns: [
-      /\b(ver|mostrar|consultar|detalhes?|status|situacao)\b.*\b(contrato)\b/,
+      /\b(ver|mostr\w*|consult\w*|detalh\w*|status|situacao)\b.*\b(contrato)\b/,
       /\b(meu|o|do|da)\s+contrato\b/,
     ],
   },
@@ -174,7 +174,7 @@ const rules: Rule[] = [
     confidence: 0.90,
     patterns: [
       /\b(cadastro|dados do cliente|dados cadastrais|cliente cadastrado)\b/,
-      /\b(mostrar|buscar|consultar|encontrar)\b.*\b(cliente|clientes)\b/,
+      /\b(mostr\w*|busc\w*|consult\w*|encontr\w*)\b.*\b(cliente|clientes)\b/,
       /\b(clientes?)\b.*\b(outro operador|cadastro|nome|cpf|codigo)\b/,
     ],
   },

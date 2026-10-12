@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'ai/**'
+      - '.github/workflows/ai-routing-check.yml'
       - 'tests/skills/**'
       - 'tests/architecture/**'
       - 'automation/n8n/**'
@@ -15,6 +16,7 @@ on:
     branches: [main]
     paths:
       - 'ai/**'
+      - '.github/workflows/ai-routing-check.yml'
       - 'tests/skills/**'
       - 'tests/architecture/**'
       - 'automation/n8n/**'

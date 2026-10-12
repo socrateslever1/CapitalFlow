@@ -99,31 +99,31 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   if (match([/\b(falar|conversar)\s+com\s+(um\s+)?(atendente|humano|pessoa)\b/, /\b(atendimento humano|quero atendente|chamar atendente)\b/])) {
     return { intent: "human_handoff", route: "HUMAN_HANDOFF", confidence: 0.99 };
   }
-  if (match([/\b(estornar|desfazer|reverter)\b.*\b(pagamento|recebimento|baixa)\b/])) {
+  if (match([/\b(estorn\w*|desfaz\w*|revert\w*)\b.*\b(pagamento|recebimento|baixa)\b/])) {
     return { intent: "estornar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.99 };
   }
-  if (match([/\b(registrar|dar baixa|baixar|lancar)\b.*\b(pagamento|recebimento)\b.*\b(acordo|renegociacao)\b/])) {
+  if (match([/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b.*\b(acordo|renegociacao)\b/])) {
     return { intent: "registrar_pagamento_acordo", route: "FINANCIAL_BLOCKED", confidence: 0.99 };
   }
-  if (match([/\b(registrar|dar baixa|baixar|lancar)\b.*\b(pagamento|recebimento)\b/, /\bexecute\b.*\bpagamento\b/])) {
+  if (match([/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b/, /\bexecute\b.*\bpagamento\b/])) {
     return { intent: "registrar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
-  if (match([/\b(alterar|mudar|trocar|adiar|prorrogar)\b.*\b(vencimento|data de vencimento)\b/])) {
+  if (match([/\b(alter\w*|mud\w*|troc\w*|adi\w*|prorrog\w*)\b.*\b(vencimento|data de vencimento)\b/])) {
     return { intent: "alterar_vencimento", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
   if (match([/\b(novo aporte|fazer aporte|emprestar mais|liberar mais capital|aumentar o capital)\b/])) {
     return { intent: "novo_aporte", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
-  if (match([/\b(capitalizar|somar|incorporar)\b.*\b(juros|multa|mora|saldo|restante)\b/])) {
+  if (match([/\b(capitaliz\w*|som\w*|incorpor\w*)\b.*\b(juros|multa|mora|saldo|restante)\b/])) {
     return { intent: "capitalizar_saldo", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
-  if (match([/\b(quitar|encerrar|liquidar)\b.*\b(acordo|renegociacao)\b/])) {
+  if (match([/\b(quit\w*|encerr\w*|liquid\w*)\b.*\b(acordo|renegociacao)\b/])) {
     return { intent: "quitar_por_acordo", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
   if (match([/\b(aplicar|dar|conceder|remover)\b.*\b(desconto|juros|multa|mora)\b/, /\b(zerar|zere|apagar|perdoar)\b.*\b(saldo|divida|juros|multa|mora)\b/])) {
     return { intent: "aplicar_desconto", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
-  if (match([/\b(renovar|renove)\b.*\b(pagamento|parcela|contrato|vencimento)\b/])) {
+  if (match([/\b(renov\w*)\b.*\b(pagamento|parcela|contrato|vencimento)\b/])) {
     return { intent: "renovar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.97 };
   }
   if (match([/\b(quero|preciso|gostaria de|tenho interesse em)\b.*\b(emprestimo|credito)\b/, /\b(simular|solicitar|pedir)\b.*\b(emprestimo|credito)\b/])) {
@@ -141,10 +141,10 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   if (match([/\b(quanto|qual valor)\b.*\b(devo|deve|divida|saldo devedor|em aberto)\b/, /\b(divida|saldo devedor|total devido|valor devido)\b/])) {
     return { intent: "consultar_divida", route: "READ_ONLY_SKILL", confidence: 0.95 };
   }
-  if (match([/\b(ver|mostrar|consultar|detalhes?|status|situacao)\b.*\bcontrato\b/, /\b(meu|o|do|da)\s+contrato\b/])) {
+  if (match([/\b(ver|mostr\w*|consult\w*|detalh\w*|status|situacao)\b.*\bcontrato\b/, /\b(meu|o|do|da)\s+contrato\b/])) {
     return { intent: "consultar_contrato", route: "READ_ONLY_SKILL", confidence: 0.93 };
   }
-  if (match([/\b(cadastro|dados do cliente|dados cadastrais|cliente cadastrado)\b/, /\b(mostrar|buscar|consultar|encontrar)\b.*\b(cliente|clientes)\b/])) {
+  if (match([/\b(cadastro|dados do cliente|dados cadastrais|cliente cadastrado)\b/, /\b(mostr\w*|busc\w*|consult\w*|encontr\w*)\b.*\b(cliente|clientes)\b/])) {
     return { intent: "consultar_cliente", route: "READ_ONLY_SKILL", confidence: 0.9 };
   }
 

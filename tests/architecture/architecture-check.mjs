@@ -441,6 +441,11 @@ for (const file of skillFiles) {
 }
 
 const skillGateway = read('ai', 'skills', 'backend', 'supabaseSkillGateway.ts');
+const skillIntentClassifier = read('ai', 'skills', 'integration', 'intentClassifier.ts');
+const skillConversationState = read('ai', 'skills', 'integration', 'conversationState.ts');
+const skillContextBuilder = read('ai', 'skills', 'integration', 'contextBuilder.ts');
+const aiRoutingMigration = read('supabase', 'migrations', '20261012191627_add_ai_routing_state_observability.sql');
+const n8nToolsFunction = read('supabase', 'functions', 'capitalflow-n8n-tools', 'index.ts');
 if (skillGateway.includes('.from(')) {
   failures.push('supabaseSkillGateway.ts -> acesso direto a tabela proibido');
 }
@@ -502,6 +507,32 @@ for (const skillPath of [
   if (!text.includes('executeToolAsSkill')) {
     failures.push(`ai/skills/${skillPath.join('/')} -> Skill deve executar via ToolRegistry`);
   }
+}
+
+for (const required of ['READ_ONLY_SKILL', 'FINANCIAL_BLOCKED', 'classifySkillIntent']) {
+  if (!skillIntentClassifier.includes(required)) failures.push(`roteador de Skills -> garantia ausente: ${required}`);
+}
+for (const required of ['AWAITING_CONFIRMATION', 'EXECUTING', 'INVALID_TRANSITION']) {
+  if (!skillConversationState.includes(required)) failures.push(`máquina de estados -> garantia ausente: ${required}`);
+}
+for (const required of ['tenantFromTrustedContextOnly', 'financialWritesEnabled: false', 'rawPromptPersisted: false']) {
+  if (!skillContextBuilder.includes(required)) failures.push(`context engineering -> guardrail ausente: ${required}`);
+}
+for (const required of [
+  'n8n_ai_conversation_states',
+  'n8n_ai_intent_events',
+  'enable row level security',
+  'revoke all on table public.n8n_ai_',
+  'grant select, insert',
+]) {
+  if (!aiRoutingMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`IA/n8n observabilidade -> migration sem garantia: ${required}`);
+  }
+}
+if (!n8nToolsFunction.includes('mode: "SHADOW"') ||
+    !n8nToolsFunction.includes('n8n_ai_intent_events') ||
+    !n8nToolsFunction.includes('n8n_ai_conversation_states')) {
+  failures.push('capitalflow-n8n-tools -> roteamento shadow não está integrado');
 }
 
 for (const required of [

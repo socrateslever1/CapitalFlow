@@ -1,0 +1,44 @@
+name: AI Routing Check
+
+on:
+  pull_request:
+    paths:
+      - 'ai/**'
+      - '.github/workflows/ai-routing-check.yml'
+      - 'tests/skills/**'
+      - 'tests/architecture/**'
+      - 'automation/n8n/**'
+      - 'supabase/functions/capitalflow-n8n-tools/**'
+      - 'supabase/migrations/**'
+      - 'docs/AI_SKILLS.md'
+      - 'docs/capitalflow-n8n.md'
+      - 'services/personalWallet.service.ts'
+  push:
+    branches: [main]
+    paths:
+      - 'ai/**'
+      - '.github/workflows/ai-routing-check.yml'
+      - 'tests/skills/**'
+      - 'tests/architecture/**'
+      - 'automation/n8n/**'
+      - 'supabase/functions/capitalflow-n8n-tools/**'
+      - 'supabase/migrations/**'
+      - 'docs/AI_SKILLS.md'
+      - 'docs/capitalflow-n8n.md'
+      - 'services/personalWallet.service.ts'
+
+jobs:
+  ai-routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --progress=false
+      - run: npm run build
+      - run: npm run test:skills
+      - run: npm run test:architecture
+      - run: npm run test:automation

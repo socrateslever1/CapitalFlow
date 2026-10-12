@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { generateUUID } from '../utils/generators';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
@@ -115,7 +116,7 @@ export const personalWalletService = {
     imageFile?: File | null,
   ) {
     const ownerUserId = await this.ownerId();
-    const accountId = crypto.randomUUID();
+    const accountId = generateUUID();
     let imagePath: string | null = null;
 
     if (imageFile) {
@@ -147,7 +148,7 @@ export const personalWalletService = {
     imageFile?: File | null,
   ) {
     const ownerUserId = await this.ownerId();
-    const cardId = crypto.randomUUID();
+    const cardId = generateUUID();
     let imagePath: string | null = null;
 
     if (imageFile) {

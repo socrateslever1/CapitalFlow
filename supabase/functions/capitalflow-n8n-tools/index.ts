@@ -81,6 +81,127 @@ const moneyBr = (value: unknown) => new Intl.NumberFormat("pt-BR", {
 }).format(Number(value || 0));
 const cents = (value: unknown) => Math.round(Number(value || 0) * 100);
 
+type AiRoute = "READ_ONLY_SKILL" | "FINANCIAL_BLOCKED" | "HUMAN_HANDOFF" | "LOAN_INTEREST" | "UNKNOWN";
+type AiState = "NEW" | "IDENTIFYING" | "IDENTIFIED" | "INTENT_PENDING" | "RESOLVING_READ" | "AWAITING_CONFIRMATION" | "EXECUTING" | "COMPLETED" | "HUMAN_HANDOFF";
+
+const normalizeIntentText = (value: unknown) => String(value ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/\s+/g, " ")
+  .trim();
+
+function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute; confidence: number } {
+  const text = normalizeIntentText(value);
+  const match = (patterns: RegExp[]) => patterns.some((pattern) => pattern.test(text));
+
+  if (!text) return { intent: "unknown", route: "UNKNOWN", confidence: 0 };
+  if (match([/\b(falar|conversar)\s+com\s+(um\s+)?(atendente|humano|pessoa)\b/, /\b(atendimento humano|quero atendente|chamar atendente)\b/])) {
+    return { intent: "human_handoff", route: "HUMAN_HANDOFF", confidence: 0.99 };
+  }
+  if (match([/\b(estorn\w*|desfaz\w*|revert\w*)\b.*\b(pagamento|recebimento|baixa)\b/])) {
+    return { intent: "estornar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.99 };
+  }
+  if (match([/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b.*\b(acordo|renegociacao)\b/])) {
+    return { intent: "registrar_pagamento_acordo", route: "FINANCIAL_BLOCKED", confidence: 0.99 };
+  }
+  if (match([/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b/, /\bexecute\b.*\bpagamento\b/])) {
+    return { intent: "registrar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
+  }
+  if (match([/\b(alter\w*|mud\w*|troc\w*|adi\w*|prorrog\w*)\b.*\b(vencimento|data de vencimento)\b/])) {
+    return { intent: "alterar_vencimento", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
+  }
+  if (match([/\b(novo aporte|fazer aporte|emprestar mais|liberar mais capital|aumentar o capital)\b/])) {
+    return { intent: "novo_aporte", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
+  }
+  if (match([/\b(capitaliz\w*|som\w*|incorpor\w*)\b.*\b(juros|multa|mora|saldo|restante)\b/])) {
+    return { intent: "capitalizar_saldo", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
+  }
+  if (match([/\b(quit\w*|encerr\w*|liquid\w*)\b.*\b(acordo|renegociacao)\b/])) {
+    return { intent: "quitar_por_acordo", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
+  }
+  if (match([/\b(aplicar|dar|conceder|remover)\b.*\b(desconto|juros|multa|mora)\b/, /\b(zerar|zere|apagar|perdoar)\b.*\b(saldo|divida|juros|multa|mora)\b/])) {
+    return { intent: "aplicar_desconto", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
+  }
+  if (match([/\b(renov\w*)\b.*\b(pagamento|parcela|contrato|vencimento)\b/])) {
+    return { intent: "renovar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.97 };
+  }
+  if (match([/\b(quero|preciso|gostaria de|tenho interesse em)\b.*\b(emprestimo|credito)\b/, /\b(simular|solicitar|pedir)\b.*\b(emprestimo|credito)\b/])) {
+    return { intent: "loan_interest", route: "LOAN_INTEREST", confidence: 0.96 };
+  }
+  if (match([/\b(quando|que dia|qual data)\b.*\b(vence|vencimento)\b/, /\b(vencimento|vencimentos)\b.*\b(quando|data|proximo|proxima|contrato|parcela)?/])) {
+    return { intent: "consultar_vencimentos", route: "READ_ONLY_SKILL", confidence: 0.96 };
+  }
+  if (match([/\b(acordo|renegociacao|renegociado)\b.*\b(ativo|aberto|tem|existe|situacao|status)?/])) {
+    return { intent: "consultar_acordo", route: "READ_ONLY_SKILL", confidence: 0.95 };
+  }
+  if (match([/\b(parcelas?|prestacoes?)\b.*\b(abertas?|pendentes?|pagas?|atrasadas?|faltam?|listar|quais)?/, /\b(quais|listar|mostrar)\b.*\b(parcelas?|prestacoes?)\b/])) {
+    return { intent: "consultar_parcelas", route: "READ_ONLY_SKILL", confidence: 0.95 };
+  }
+  if (match([/\b(quanto|qual valor)\b.*\b(devo|deve|divida|saldo devedor|em aberto)\b/, /\b(divida|saldo devedor|total devido|valor devido)\b/])) {
+    return { intent: "consultar_divida", route: "READ_ONLY_SKILL", confidence: 0.95 };
+  }
+  if (match([/\b(ver|mostr\w*|consult\w*|detalh\w*|status|situacao)\b.*\bcontrato\b/, /\b(meu|o|do|da)\s+contrato\b/])) {
+    return { intent: "consultar_contrato", route: "READ_ONLY_SKILL", confidence: 0.93 };
+  }
+  if (match([/\b(cadastro|dados do cliente|dados cadastrais|cliente cadastrado)\b/, /\b(mostr\w*|busc\w*|consult\w*|encontr\w*)\b.*\b(cliente|clientes)\b/])) {
+    return { intent: "consultar_cliente", route: "READ_ONLY_SKILL", confidence: 0.9 };
+  }
+
+  return { intent: "unknown", route: "UNKNOWN", confidence: 0.2 };
+}
+
+function observedAiState(identified: boolean, routing: { route: AiRoute }): AiState {
+  if (!identified) return "IDENTIFYING";
+  if (routing.route === "HUMAN_HANDOFF") return "HUMAN_HANDOFF";
+  if (routing.route === "READ_ONLY_SKILL") return "RESOLVING_READ";
+  if (routing.route === "UNKNOWN" || routing.route === "LOAN_INTEREST") return "INTENT_PENDING";
+  return "IDENTIFIED";
+}
+
+async function persistAiRouting(
+  supabase: any,
+  input: {
+    profileId: string;
+    phoneHash: string;
+    messageId: string;
+    routing: { intent: string; route: AiRoute; confidence: number };
+    state: AiState;
+    conversationId?: string | null;
+    clientId?: string | null;
+    expiresAt?: string | null;
+  },
+) {
+  const now = new Date().toISOString();
+  const stateWrite = await supabase.from("n8n_ai_conversation_states").upsert({
+    profile_id: input.profileId,
+    phone_hash: input.phoneHash,
+    conversation_id: input.conversationId ?? null,
+    client_id: input.clientId ?? null,
+    state: input.state,
+    last_intent: input.routing.intent,
+    last_route: input.routing.route,
+    last_message_id: input.messageId,
+    context: { source: "whatsapp", mode: "SHADOW" },
+    expires_at: input.expiresAt ?? null,
+    updated_at: now,
+  }, { onConflict: "profile_id,phone_hash" });
+  if (stateWrite.error) throw stateWrite.error;
+
+  const eventWrite = await supabase.from("n8n_ai_intent_events").upsert({
+    profile_id: input.profileId,
+    conversation_id: input.conversationId ?? null,
+    client_id: input.clientId ?? null,
+    message_id: input.messageId,
+    source: "WHATSAPP",
+    intent: input.routing.intent,
+    route: input.routing.route,
+    confidence: input.routing.confidence,
+    state: input.state,
+  }, { onConflict: "profile_id,message_id", ignoreDuplicates: true });
+  if (eventWrite.error) throw eventWrite.error;
+}
+
 async function sha256(value: string) {
   const data = new TextEncoder().encode(value);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -144,6 +265,7 @@ Deno.serve(async (req) => {
       const messageId = String(body.message_id ?? "");
       if (!messageId) return json({ error: "missing_message_id" }, 400);
       const message = String(body.message ?? "").trim().slice(0, 1000);
+      const aiRouting = classifyShadowIntent(message);
       const { error: eventError } = await supabase.from("n8n_message_events").insert({
         profile_id: organizationId,
         message_id: messageId,
@@ -368,14 +490,41 @@ Deno.serve(async (req) => {
         }
         await supabase.from("n8n_message_events").update({ status: "IGNORED" })
           .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
+        const aiState = observedAiState(false, aiRouting);
+        await persistAiRouting(supabase, {
+          profileId: organizationId,
+          phoneHash,
+          messageId,
+          routing: aiRouting,
+          state: aiState,
+          conversationId: savedSession?.conversation_id ?? null,
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        });
         return json({
           handled: false,
           status: "not_identified",
           audience: "internal_only",
           operator_contact: operatorContact,
+          ai_routing: { ...aiRouting, state: aiState, mode: "SHADOW" },
         });
       }
-      if (clients.length > 1) return json({ status: "ambiguous", request: "cpf_or_client_code" });
+      if (clients.length > 1) {
+        const aiState = observedAiState(false, aiRouting);
+        await persistAiRouting(supabase, {
+          profileId: organizationId,
+          phoneHash,
+          messageId,
+          routing: aiRouting,
+          state: aiState,
+          conversationId: savedSession?.conversation_id ?? null,
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        });
+        return json({
+          status: "ambiguous",
+          request: "cpf_or_client_code",
+          ai_routing: { ...aiRouting, state: aiState, mode: "SHADOW" },
+        });
+      }
 
       const client = clients[0];
       const verifiedBy = ["PHONE", "CPF", "CODE", "NAME"].includes(matchedBy) ? matchedBy : "PHONE";
@@ -511,6 +660,17 @@ Deno.serve(async (req) => {
           ? "🤔 Desculpe, não entendi. Digite apenas o número da opção desejada:\n\n1 - 📄 Ver meu contrato\n2 - 💳 Pagar parcela (Boleto/Pix)\n3 - 🙋 Falar com atendente"
           : "Seu cadastro não possui contrato ativo vinculado. Digite 3 para falar com o atendimento.";
       }
+      const aiState = suppliedDigits === "3" ? "HUMAN_HANDOFF" : observedAiState(true, aiRouting);
+      await persistAiRouting(supabase, {
+        profileId: organizationId,
+        phoneHash,
+        messageId,
+        routing: aiRouting,
+        state: aiState,
+        conversationId: sessionResult.data.conversation_id,
+        clientId: client.id,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      });
       await supabase.from("n8n_message_events").update({ status: "PROCESSED", client_id: client.id })
         .eq("profile_id", organizationId).eq("message_id", messageId).eq("direction", "INBOUND");
       return json({
@@ -551,6 +711,7 @@ Deno.serve(async (req) => {
         handled: true,
         reply,
         operator_contact: operatorContact,
+        ai_routing: { ...aiRouting, state: aiState, mode: "SHADOW" },
       });
     }
 

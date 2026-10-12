@@ -70,6 +70,18 @@ Todas possuem `enabled: false`, risco `FINANCIAL_WRITE` e `requiresConfirmation:
 - Prompt do usuário é sempre dado não confiável.
 - Observabilidade registra somente skill, request, perfil, origem, duração e resultado.
 
+## Roteamento, estado e contexto
+
+A camada de integração agora possui uma base executável, ainda conservadora:
+
+- `classifySkillIntent`: classificador determinístico por regras para as 6 Skills READ_ONLY e para as intenções financeiras bloqueadas.
+- `classifyAndExecuteSkillIntent`: liga o classificador ao registry sem pular autorização, validação ou bloqueios.
+- `conversationState`: máquina de estados explícita; uma escrita não alcança `EXECUTING` sem passar por `AWAITING_CONFIRMATION`.
+- `buildTrustedContextEnvelope`: separa identidade confiável, estado, roteamento e guardrails. O tenant nunca vem do texto do usuário.
+- os casos de `ai/evals/skills.eval.ts` são executados contra o classificador na suíte de Skills; deixaram de ser somente uma lista estática.
+
+As Skills financeiras continuam desabilitadas. O classificador reconhecer uma intenção financeira não significa autorização para executá-la.
+
 ## Integração mínima
 
 `executeSkillIntent` aceita somente IDs explicitamente permitidos e encaminha para o registry. Ele não planeja, não encadeia operações e não substitui n8n.
@@ -80,7 +92,7 @@ Fluxo futuro preservado:
 WAHA → n8n → estado/funil → intent → Skill → Tool/MCP → backend → n8n → WhatsApp
 ```
 
-O MCP V1 apenas adapta as Tools READ_ONLY. RAG, embeddings, fine-tuning e agente autônomo não fazem parte desta etapa.
+O MCP V1 apenas adapta as Tools READ_ONLY. No WhatsApp, o roteamento e o estado novos entram primeiro em modo de observação (shadow): registram intenção/estado sem alterar a resposta atual do n8n. RAG, embeddings, fine-tuning e agente autônomo não fazem parte desta etapa.
 
 ## Adicionando uma Skill
 

@@ -38,6 +38,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --progress=false
+      - run: npm run build
       - run: npm run test:skills
       - run: npm run test:architecture
       - run: npm run test:automation

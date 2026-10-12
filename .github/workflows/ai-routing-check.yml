@@ -12,6 +12,7 @@ on:
       - 'supabase/migrations/**'
       - 'docs/AI_SKILLS.md'
       - 'docs/capitalflow-n8n.md'
+      - 'services/personalWallet.service.ts'
   push:
     branches: [main]
     paths:
@@ -24,6 +25,7 @@ on:
       - 'supabase/migrations/**'
       - 'docs/AI_SKILLS.md'
       - 'docs/capitalflow-n8n.md'
+      - 'services/personalWallet.service.ts'
 
 jobs:
   ai-routing:

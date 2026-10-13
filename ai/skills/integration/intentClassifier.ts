@@ -52,7 +52,7 @@ const rules: Rule[] = [
     route: 'HUMAN_HANDOFF',
     confidence: 0.99,
     patterns: [
-      /\b(falar|conversar)\s+com\s+(um\s+)?(atendente|humano|pessoa)\b/,
+      /\b(fal\w*|convers\w*)\s+com\s+(um\s+)?(atendente|humano|pessoa)\b/,
       /\b(atendimento humano|quero atendente|chamar atendente)\b/,
     ],
   },
@@ -74,7 +74,7 @@ const rules: Rule[] = [
     confidence: 0.98,
     patterns: [
       /\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b/,
-      /\b(recebi|recebemos)\b.*\b(r\$|reais|pagamento|parcela)?/,
+      /\b(recebi|recebemos|pagou)\b.*\b(r\$|\d+(?:[.,]\d+)?|reais|pagamento|parcela)?/,
       /\bexecute\b.*\bpagamento\b/,
     ],
   },
@@ -82,13 +82,13 @@ const rules: Rule[] = [
     intent: 'alterar_vencimento',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
-    patterns: [/\b(alter\w*|mud\w*|troc\w*|adi\w*|prorrog\w*)\b.*\b(vencimento|data de vencimento)\b/],
+    patterns: [/\b(alter\w*|mud\w*|troc\w*|adi\w*|prorrog\w*)\b.*\b(vencimento|data de vencimento|venc|vcto)\b/],
   },
   {
     intent: 'novo_aporte',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
-    patterns: [/\b(novo aporte|fazer aporte|emprestar mais|liberar mais capital|aumentar o capital)\b/],
+    patterns: [/\b(novo aporte|fazer aporte|emprest\w* mais|liber\w* mais capital|aument\w*(?: o)? capital)\b/],
   },
   {
     intent: 'capitalizar_saldo',
@@ -107,7 +107,7 @@ const rules: Rule[] = [
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.98,
     patterns: [
-      /\b(aplicar|dar|conceder|remover)\b.*\b(desconto|juros|multa|mora)\b/,
+      /\b(aplicar|dar|conceder|remover|tir\w*|dispens\w*)\b.*\b(desconto|juros|multa|mora)\b/,
       /\b(zerar|zere|apagar|perdoar)\b.*\b(saldo|divida|juros|multa|mora)\b/,
     ],
   },
@@ -115,7 +115,7 @@ const rules: Rule[] = [
     intent: 'renovar_pagamento',
     route: 'FINANCIAL_BLOCKED',
     confidence: 0.97,
-    patterns: [/\b(renov\w*)\b.*\b(pagamento|parcela|contrato|vencimento)\b/],
+    patterns: [/\b(renov\w*)\b.*\b(pagamento|parcela|contrato|vencimento|venc)\b/],
   },
   {
     intent: 'loan_interest',
@@ -124,6 +124,7 @@ const rules: Rule[] = [
     patterns: [
       /\b(quero|preciso|gostaria de|tenho interesse em)\b.*\b(emprestimo|credito)\b/,
       /\b(simular|solicitar|pedir)\b.*\b(emprestimo|credito)\b/,
+      /\b(quero|preciso)\b.*\b\d+(?:[.,]\d+)?\b.*\bemprestad[oa]\b/,
     ],
   },
   {
@@ -131,8 +132,8 @@ const rules: Rule[] = [
     route: 'READ_ONLY_SKILL',
     confidence: 0.96,
     patterns: [
-      /\b(quando|que dia|qual data)\b.*\b(vence|vencimento)\b/,
-      /\b(vencimento|vencimentos)\b.*\b(quando|data|proximo|proxima|contrato|parcela)?/,
+      /\b(quando|qnd|que dia|qual data)\b.*\b(vence|vencimento|venc|vcto)\b/,
+      /\b(vencimento|vencimentos|vcto)\b.*\b(quando|data|proximo|proxima|contrato|parcela)?/,
     ],
   },
   {
@@ -155,7 +156,7 @@ const rules: Rule[] = [
     route: 'READ_ONLY_SKILL',
     confidence: 0.95,
     patterns: [
-      /\b(quanto|qual valor)\b.*\b(devo|deve|divida|saldo devedor|em aberto)\b/,
+      /\b(quanto|qnto|qto|qt|qual valor)\b.*\b(devo|deve|devendo|divida|saldo devedor|em aberto)\b/,
       /\b(divida|saldo devedor|total devido|valor devido)\b/,
     ],
   },

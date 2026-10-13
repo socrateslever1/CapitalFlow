@@ -483,7 +483,16 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                             <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">{fundingPaymentMethod === 'CREDIT_CARD' ? 'Parcela do cartão' : 'Débito base'}</p><p className="font-black text-white mt-1">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</p></div>
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Parcela cliente</p><p className="font-black text-emerald-400 mt-1">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p></div>
+                            <div className="grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                              <div className="min-w-0 pr-3">
+                                <p className="text-[9px] font-black uppercase text-slate-500">Parcela cliente</p>
+                                <p className="mt-1 font-black text-emerald-400">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
+                              </div>
+                              <div className="min-w-0 border-l border-slate-800 pl-3">
+                                <p className="text-[9px] font-black uppercase text-slate-500">Total cliente</p>
+                                <p className="mt-1 font-black text-white">{formatMoney(fixedInstallmentDisplay.customerTotal)}</p>
+                              </div>
+                            </div>
                             <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Lucro previsto</p><p className="font-black text-purple-400 mt-1">{formatMoney(fixedInstallmentDisplay.profit)}</p></div>
                         </div>
                     </div>

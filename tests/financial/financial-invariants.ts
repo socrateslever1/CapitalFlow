@@ -157,6 +157,41 @@ run('parcelado sem juros cobra somente atraso de cada parcela', () => {
   assert.equal(third.lateFee > 0, true);
 });
 
+run('parcelado em débito em conta aplica juros somente sobre o capital', () => {
+  const loan = mapFormToLoan({
+    clientId: 'cliente', debtorName: 'Teste', debtorPhone: '92999999999', debtorDocument: '00000000000',
+    debtorAddress: '', sourceId: 'fonte', principal: '1000', interestRate: '0',
+    finePercent: '2', dailyInterestPercent: '1', billingCycle: 'INSTALLMENT_FIXED',
+    notes: '', guaranteeDescription: '', startDate: '2026-01-01',
+    preferredPaymentMethod: 'PIX', fundingInstallmentsCount: '10',
+    fundingPaymentMethod: 'BANK_ACCOUNT_DEBIT', fundingCalculationMode: 'TOTAL',
+    fundingTotalPayable: '1400', customerMarginPercent: '30', interestFreeInstallment: false,
+  } as any, '30', null, [], [], [], '00000000-0000-4000-8000-000000000001');
+
+  assert.equal(loan.fundingPaymentMethod, 'BANK_ACCOUNT_DEBIT');
+  assertMoney(loan.fundingTotalPayable || 0, 1000, 'débito base');
+  assertMoney(loan.fundingCost || 0, 0, 'débito sem custo de captação');
+  assertMoney(loan.totalToReceive, 1300, 'total do cliente');
+  assertMoney(loan.installments[0].amount, 130, 'parcela do cliente');
+});
+
+run('parcelado no cartão preserva custo de captação e juros do cliente', () => {
+  const loan = mapFormToLoan({
+    clientId: 'cliente', debtorName: 'Teste', debtorPhone: '92999999999', debtorDocument: '00000000000',
+    debtorAddress: '', sourceId: 'fonte', principal: '1000', interestRate: '0',
+    finePercent: '2', dailyInterestPercent: '1', billingCycle: 'INSTALLMENT_FIXED',
+    notes: '', guaranteeDescription: '', startDate: '2026-01-01',
+    preferredPaymentMethod: 'PIX', fundingInstallmentsCount: '10',
+    fundingPaymentMethod: 'CREDIT_CARD', fundingCalculationMode: 'TOTAL',
+    fundingTotalPayable: '1200', customerMarginPercent: '30', interestFreeInstallment: false,
+  } as any, '30', null, [], [], [], '00000000-0000-4000-8000-000000000001');
+
+  assert.equal(loan.fundingPaymentMethod, 'CREDIT_CARD');
+  assertMoney(loan.fundingCost || 0, 200, 'custo do cartão');
+  assertMoney(loan.totalToReceive, 1560, 'total com custo e juros');
+  assertMoney(loan.installments[0].amount, 156, 'parcela no cartão');
+});
+
 
 run('novo aporte considera somente o aumento sobre o capital atual', () => {
   assertMoney(calculateAdditionalCapital(1200, 1000), 200, 'primeiro aporte');

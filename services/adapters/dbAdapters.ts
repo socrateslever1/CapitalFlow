@@ -252,6 +252,7 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     customerMarginPercent: asNumber(l.customer_margin_percent),
     customerInstallmentValue: asNumber(l.customer_installment_value),
     customerTotalPayable: asNumber(l.customer_total_payable),
+    fundingPaymentMethod: asString(l.funding_payment_method, 'CREDIT_CARD') as any,
 
     billingCycle: asString(l.billing_cycle, 'MONTHLY') as LoanBillingModality,
     amortizationType: asString(l.amortization_type, 'JUROS') as any,

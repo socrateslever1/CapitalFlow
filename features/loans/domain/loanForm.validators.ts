@@ -33,26 +33,27 @@ export const validateLoanForm = (
   if (formData.billingCycle === 'INSTALLMENT_FIXED') {
     const count = parseInt(formData.fundingInstallmentsCount || '', 10);
     const interestFreeInstallment = formData.interestFreeInstallment === true;
+    const fundingPaymentMethod = formData.fundingPaymentMethod || 'CREDIT_CARD';
 
     if (isNaN(count) || count <= 0) {
       return { isValid: false, error: "Erro: informe a quantidade de parcelas." };
     }
 
-    if (!interestFreeInstallment) {
-      const margin = parseFloat(formData.customerMarginPercent || '');
-      const totalPayable = parseFloat(formData.fundingTotalPayable || '');
-      const monthlyRate = parseFloat(formData.fundingMonthlyRate || '');
-      const mode = formData.fundingCalculationMode || 'TOTAL';
+    const margin = parseFloat(formData.customerMarginPercent || '');
+    const totalPayable = parseFloat(formData.fundingTotalPayable || '');
+    const monthlyRate = parseFloat(formData.fundingMonthlyRate || '');
+    const mode = formData.fundingCalculationMode || 'TOTAL';
 
+    if (!interestFreeInstallment) {
       if (isNaN(margin) || margin < 0) {
         return { isValid: false, error: "Erro: informe uma margem valida para o cliente." };
       }
-      if (mode === 'TOTAL' && (isNaN(totalPayable) || totalPayable < principal)) {
-        return { isValid: false, error: "Erro: o valor final do banco deve ser maior ou igual ao principal." };
-      }
-      if (mode === 'RATE' && (isNaN(monthlyRate) || monthlyRate < 0)) {
-        return { isValid: false, error: "Erro: informe a taxa mensal do banco." };
-      }
+    }
+    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'TOTAL' && (isNaN(totalPayable) || totalPayable < principal)) {
+      return { isValid: false, error: "Erro: o valor final do cartão deve ser maior ou igual ao principal." };
+    }
+    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'RATE' && (isNaN(monthlyRate) || monthlyRate < 0)) {
+      return { isValid: false, error: "Erro: informe a taxa mensal do cartão." };
     }
   }
 

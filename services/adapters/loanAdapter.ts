@@ -224,6 +224,7 @@ export function mapLoanFromDB(
     customerMarginPercent: asNumber(l?.customer_margin_percent ?? l?.customerMarginPercent),
     customerInstallmentValue: asNumber(l?.customer_installment_value ?? l?.customerInstallmentValue),
     customerTotalPayable: asNumber(l?.customer_total_payable ?? l?.customerTotalPayable),
+    fundingPaymentMethod: asString(l?.funding_payment_method ?? l?.fundingPaymentMethod, 'CREDIT_CARD') as any,
 
     interestRate: firstPositiveNumber(l?.interest_rate, l?.juros_mensal_percent, l?.juros_aplicado, l?.policies_snapshot?.interestRate, l?.policiesSnapshot?.interestRate, l?.interestRate),
     finePercent: firstPositiveNumber(l?.fine_percent, l?.multa_percent, l?.policies_snapshot?.finePercent, l?.policiesSnapshot?.finePercent, l?.finePercent),

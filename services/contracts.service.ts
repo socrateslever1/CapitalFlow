@@ -229,6 +229,7 @@ export const contractsService = {
       customer_margin_percent: loan.customerMarginPercent,
       customer_installment_value: loan.customerInstallmentValue,
       customer_total_payable: loan.customerTotalPayable,
+      funding_payment_method: loan.fundingPaymentMethod,
 
       policies_snapshot: loan.policiesSnapshot,
       cliente_foto_url: loan.clientAvatarUrl,

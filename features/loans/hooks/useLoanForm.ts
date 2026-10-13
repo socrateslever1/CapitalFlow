@@ -55,6 +55,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         customerMarginPercent: String((initialData as any).customerMarginPercent ?? ''),
         fundingCalculationMode: (initialData as any).fundingCalculationMode || 'TOTAL',
         fundingOperatorAbsorbsInterest: (initialData as any).fundingOperatorAbsorbsInterest === true,
+        fundingPaymentMethod: (initialData as any).fundingPaymentMethod || 'CREDIT_CARD',
         fundingFeePercent: String((initialData as any).fundingFeePercent ?? ''),
         fundingProvider: String((initialData as any).fundingProvider ?? ''),
         collectionDaysMode: initialData.collectionDaysMode || (initialData.skipWeekends ? 'SKIP_WEEKEND' : 'ALL_DAYS'),
@@ -73,7 +74,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         fundingAllocations: [{ sourceId: sources[0]?.id || '', amount: '' }],
         startDate: today, billingCycle: 'MONTHLY', fundingTotalPayable: '', fundingInstallmentsCount: '10',
         fundingMonthlyRate: '', customerMarginPercent: '30', fundingCalculationMode: 'TOTAL', fundingOperatorAbsorbsInterest: false,
-        fundingFeePercent: '', fundingProvider: '', collectionDaysMode: 'ALL_DAYS', interestFreeInstallment: false
+        fundingFeePercent: '', fundingProvider: '', fundingPaymentMethod: 'CREDIT_CARD', collectionDaysMode: 'ALL_DAYS', interestFreeInstallment: false
       });
       setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(today, 30)));
     }

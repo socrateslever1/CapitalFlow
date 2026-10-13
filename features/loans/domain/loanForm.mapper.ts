@@ -107,6 +107,7 @@ export interface LoanFormState {
   fundingMonthlyRate?: string;
   customerMarginPercent?: string;
   fundingOperatorAbsorbsInterest?: boolean;
+  fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
 }
 
 function calculateFundingTotalFromRate(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
@@ -141,6 +142,7 @@ export const mapFormToLoan = (
   const fundingInstallmentsCount = Math.max(0, Math.floor(parseCurrency(form.fundingInstallmentsCount || '')));
   const fundingMonthlyRate = parseCurrency(form.fundingMonthlyRate || '');
   const customerMarginPercent = interestFreeInstallment ? 0 : parseCurrency(form.customerMarginPercent || '');
+  const fundingPaymentMethod = form.fundingPaymentMethod || 'CREDIT_CARD';
   const fundingCalculationMode = form.fundingCalculationMode || (form.fundingTotalPayable ? 'TOTAL' : 'RATE');
 
   if (form.fundingTotalPayable) {
@@ -152,6 +154,10 @@ export const mapFormToLoan = (
   if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingCalculationMode === 'RATE' && fundingInstallmentsCount > 0) {
     fundingTotalPayable = calculateFundingTotalFromRate(principal, fundingMonthlyRate, fundingInstallmentsCount);
     fundingCost = Math.max(0, fundingTotalPayable - principal);
+  }
+  if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT') {
+    fundingTotalPayable = principal;
+    fundingCost = 0;
   }
 
   const collectionDaysMode = normalizeCollectionDaysMode(form.collectionDaysMode, !!form.skipWeekends);
@@ -169,7 +175,7 @@ export const mapFormToLoan = (
     fundingMonthlyRate,
     fundingCalculationMode,
     customerMarginPercent,
-    operatorAbsorbsInterest: interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest,
+    operatorAbsorbsInterest: interestFreeInstallment || fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT' ? true : form.fundingOperatorAbsorbsInterest,
     interestFreeInstallment,
     initialData: {
       ...initialData,
@@ -237,6 +243,7 @@ export const mapFormToLoan = (
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
     fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? (interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest) : undefined,
+    fundingPaymentMethod: form.billingCycle === 'INSTALLMENT_FIXED' ? fundingPaymentMethod : undefined,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',
@@ -245,7 +252,8 @@ export const mapFormToLoan = (
       finePercent,
       dailyInterestPercent,
       collectionDaysMode,
-      interestFreeInstallment
+      interestFreeInstallment,
+      fundingPaymentMethod
     },
 
     startDate: form.startDate,

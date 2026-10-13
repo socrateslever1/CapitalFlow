@@ -71,6 +71,7 @@ export interface LoanPolicy {
   dailyInterestPercent: number;
   collectionDaysMode?: CollectionDaysMode;
   interestFreeInstallment?: boolean;
+  fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
 }
 
 /* =====================================================
@@ -364,6 +365,7 @@ export interface Loan {
   customerInstallmentValue?: number;
   customerTotalPayable?: number;
   fundingOperatorAbsorbsInterest?: boolean;
+  fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
   portalToken?: string;
   portalShortcode?: string;
   contato_whatsapp?: string;

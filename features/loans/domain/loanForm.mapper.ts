@@ -3,6 +3,7 @@ import { CollectionDaysMode, Loan, LoanBillingModality, PaymentMethod, LoanDocum
 import { generateUUID } from '../../../utils/generators';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { parseCurrency } from '../../../utils/formatters';
+import { calculateFundingInstallment } from '../../../domain/finance/installmentFunding';
 
 /* =========================
    Trava de vencimento manual
@@ -113,10 +114,7 @@ export interface LoanFormState {
 
 function calculateFundingTotalFromRate(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
   const n = Math.max(1, Math.floor(installmentsCount));
-  const i = monthlyRatePercent / 100;
-  const installment = i > 0
-    ? principal * (i / (1 - Math.pow(1 + i, -n)))
-    : principal / n;
+  const installment = calculateFundingInstallment(principal, monthlyRatePercent, n);
   return parseFloat((installment * n).toFixed(2));
 }
 

@@ -4,8 +4,48 @@ import { Wallet, CalendarX, Clock, CreditCard, Landmark, AlertTriangle, Calendar
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
+import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
 
 const MULTI_SOURCE_CREATION_ENABLED = false;
+
+const parseFundingInput = (value: unknown) => parseFloat(String(value || '').replace(',', '.')) || 0;
+const formatMoneyInput = (value: number) => value.toFixed(2);
+const formatRateInput = (value: number) => value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+
+const getFundingSourceValue = (data: any, mode: FundingCalculationMode) => {
+  if (mode === 'RATE') return String(data.fundingMonthlyRate || '');
+  if (mode === 'INSTALLMENT') return String(data.fundingInstallmentValue || '');
+  return String(data.fundingTotalPayable || '');
+};
+
+const synchronizeFundingValues = (
+  current: any,
+  mode: FundingCalculationMode,
+  sourceValue: string,
+  changes: Record<string, unknown> = {}
+) => {
+  const sourceField = mode === 'RATE'
+    ? 'fundingMonthlyRate'
+    : mode === 'INSTALLMENT'
+      ? 'fundingInstallmentValue'
+      : 'fundingTotalPayable';
+  const next = { ...current, ...changes, fundingCalculationMode: mode, [sourceField]: sourceValue };
+  if (sourceValue === '') return next;
+
+  const values = deriveFundingValues(
+    parseFundingInput(next.principal),
+    parseFundingInput(next.fundingInstallmentsCount),
+    mode,
+    parseFundingInput(sourceValue)
+  );
+
+  return {
+    ...next,
+    fundingTotalPayable: mode === 'TOTAL' ? sourceValue : formatMoneyInput(values.total),
+    fundingInstallmentValue: mode === 'INSTALLMENT' ? sourceValue : formatMoneyInput(values.installment),
+    fundingMonthlyRate: mode === 'RATE' ? sourceValue : formatRateInput(values.monthlyRate),
+  };
+};
 
 interface LoanFormFinancialSectionProps {
   sources: CapitalSource[];
@@ -257,7 +297,14 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Capital atual' : 'Principal'}</label>
-            <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => setFormData({...formData,principal: cleanNumberStr(e.target.value)})} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
+            <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
+              const principal = cleanNumberStr(e.target.value);
+              setFormData((current: any) => {
+                if (current.billingCycle !== 'INSTALLMENT_FIXED' || (current.fundingPaymentMethod || 'CREDIT_CARD') !== 'CREDIT_CARD') return { ...current, principal };
+                const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
+              });
+            }} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
             {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
@@ -374,7 +421,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label className="ml-1 text-[9px] font-black uppercase text-slate-500">Número de parcelas</label>
-                        <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData({...formData, fundingInstallmentsCount: e.target.value})} className={strongInputClass} />
+                        <input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
+                          const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                          return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
+                        })} className={strongInputClass} />
                     </div>
                     <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
                         <p className="text-[8px] font-black uppercase text-slate-500">Valor por parcela</p>
@@ -384,15 +434,17 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 {fundingPaymentMethod === 'CREDIT_CARD' && (
                   <div className="grid grid-cols-1 gap-3 border-t border-slate-800/70 pt-3 sm:grid-cols-2">
                     <div className="grid grid-cols-3 rounded-lg border border-slate-800/60 bg-slate-900/80 p-1">
-                      <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'TOTAL'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === 'TOTAL' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Valor final</button>
-                      <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'INSTALLMENT'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === 'INSTALLMENT' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Parcela</button>
-                      <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'RATE'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === 'RATE' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Taxa mensal</button>
+                      {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
+                        const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                        const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
+                        return { ...synchronized, fundingCalculationMode: mode };
+                      })} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === mode ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
                     </div>
                     {formData.fundingCalculationMode === 'RATE'
-                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><input type="number" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
+                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><input type="number" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div>
                       : formData.fundingCalculationMode === 'INSTALLMENT'
-                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => setFormData({...formData, fundingInstallmentValue: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
-                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><input type="number" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>}
+                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div>
+                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><input type="number" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>}
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
@@ -415,13 +467,18 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 {isInstallmentFixed ? (
                     <div className="space-y-5">
                         {fundingPaymentMethod === 'CREDIT_CARD' && <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
-                            <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'TOTAL'})} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === 'TOTAL' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Valor final</button>
-                            <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'INSTALLMENT'})} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === 'INSTALLMENT' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Parcela</button>
-                            <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'RATE'})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${formData.fundingCalculationMode === 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Taxa mensal</button>
+                            {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
+                              const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                              const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
+                              return { ...synchronized, fundingCalculationMode: mode };
+                            })} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === mode ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
                         </div>}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData({...formData, fundingInstallmentsCount: e.target.value})} className={strongInputClass}/></div>
-                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => setFormData({...formData, fundingInstallmentValue: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>)}
+                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
+                              const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                              return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
+                            })} className={strongInputClass}/></div>
+                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>)}
                             <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><input type="number" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">

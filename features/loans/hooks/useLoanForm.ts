@@ -10,6 +10,7 @@ import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
 import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
+import { deriveFundingValues, FundingCalculationMode } from '../../../domain/finance/installmentFunding';
 
 interface UseLoanFormProps {
   onAdd: (loan: Loan) => void | Promise<void>;
@@ -35,6 +36,14 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
 
   useEffect(() => {
     if (initialData) {
+      const fundingMode = ((initialData as any).fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+      const fundingCount = Number((initialData as any).fundingInstallmentsCount || 1);
+      const fundingSourceValue = fundingMode === 'RATE'
+        ? Number((initialData as any).fundingMonthlyRate || 0)
+        : fundingMode === 'INSTALLMENT'
+          ? Number((initialData as any).fundingInstallmentValue || 0)
+          : Number((initialData as any).fundingTotalPayable || 0);
+      const derivedFunding = deriveFundingValues(Number(initialData.principal || 0), fundingCount, fundingMode, fundingSourceValue);
       setFormData({
         clientId: initialData.clientId || '',
         debtorName: initialData.debtorName || '',
@@ -49,12 +58,12 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         dailyInterestPercent: String(initialData.dailyInterestPercent ?? ''),
         startDate: String(initialData.startDate || '').slice(0, 10),
         billingCycle: initialData.billingCycle || 'MONTHLY',
-        fundingTotalPayable: String((initialData as any).fundingTotalPayable ?? ''),
+        fundingTotalPayable: initialData.billingCycle === 'INSTALLMENT_FIXED' && fundingSourceValue > 0 ? derivedFunding.total.toFixed(2) : String((initialData as any).fundingTotalPayable ?? ''),
         fundingInstallmentsCount: String((initialData as any).fundingInstallmentsCount ?? ''),
-        fundingMonthlyRate: String((initialData as any).fundingMonthlyRate ?? ''),
-        fundingInstallmentValue: String((initialData as any).fundingInstallmentValue ?? ''),
+        fundingMonthlyRate: initialData.billingCycle === 'INSTALLMENT_FIXED' && fundingSourceValue > 0 ? String(derivedFunding.monthlyRate) : String((initialData as any).fundingMonthlyRate ?? ''),
+        fundingInstallmentValue: initialData.billingCycle === 'INSTALLMENT_FIXED' && fundingSourceValue > 0 ? derivedFunding.installment.toFixed(2) : String((initialData as any).fundingInstallmentValue ?? ''),
         customerMarginPercent: String((initialData as any).customerMarginPercent ?? ''),
-        fundingCalculationMode: (initialData as any).fundingCalculationMode || 'TOTAL',
+        fundingCalculationMode: fundingMode,
         fundingOperatorAbsorbsInterest: (initialData as any).fundingOperatorAbsorbsInterest === true,
         fundingPaymentMethod: (initialData as any).fundingPaymentMethod || 'CREDIT_CARD',
         fundingFeePercent: String((initialData as any).fundingFeePercent ?? ''),

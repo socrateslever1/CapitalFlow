@@ -3,15 +3,9 @@ import { addMonthsUTC, getDaysDiff, parseDateOnlyUTC, toISODateOnlyUTC } from ".
 import { generateUUID } from "../../../../utils/generators";
 import { calculateRecurringMonthlyFine } from "../../lateFeePolicy";
 import { ModalityStrategy } from "../types";
+import { calculateFundingInstallment } from "../../installmentFunding";
 
 const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-
-function pmt(principal: number, monthlyRatePercent: number, installmentsCount: number): number {
-    const n = Math.max(1, Math.floor(installmentsCount));
-    const i = monthlyRatePercent / 100;
-    if (i <= 0) return principal / n;
-    return principal * (i / (1 - Math.pow(1 + i, -n)));
-}
 
 const calculateInstallmentFixed: ModalityStrategy['calculate'] = (loan, inst, policy, referenceDate) => {
     const interestFreeInstallment = loan.interestFreeInstallment === true || loan.policiesSnapshot?.interestFreeInstallment === true;
@@ -90,7 +84,7 @@ export const installmentFixedStrategy: ModalityStrategy = {
         } else if (mode === 'TOTAL' && bankTotalInput > 0) {
             bankInstallmentValue = bankTotalInput / count;
         } else {
-            bankInstallmentValue = pmt(principal, bankMonthlyRate, count);
+            bankInstallmentValue = calculateFundingInstallment(principal, bankMonthlyRate, count);
         }
 
         const baseForClient = params.operatorAbsorbsInterest ? (principal / count) : bankInstallmentValue;

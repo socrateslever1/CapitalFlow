@@ -18,6 +18,7 @@ import { parseCurrency } from '../../utils/formatters';
 import { resolveReceiptDecision } from '../../services/payments/receiptDecision';
 import { calculateAutoDueDate } from '../../features/loans/domain/loanForm.preview';
 import { modalityRegistry } from '../../domain/finance/modalities/registry';
+import { deriveFundingValues } from '../../domain/finance/installmentFunding';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -208,6 +209,20 @@ run('parcelado no cartão aceita o valor da parcela como condição de captaçã
   assertMoney(loan.fundingTotalPayable || 0, 1200, 'total calculado do cartão');
   assertMoney(loan.fundingCost || 0, 200, 'custo calculado do cartão');
   assertMoney(loan.totalToReceive, 1560, 'total do cliente');
+});
+
+run('condições do cartão sincronizam total, parcela e taxa mensal', () => {
+  const fromInstallment = deriveFundingValues(500, 3, 'INSTALLMENT', 225.68);
+  assertMoney(fromInstallment.total, 677.04, 'total derivado da parcela');
+  assert.equal(fromInstallment.monthlyRate > 0, true);
+
+  const fromTotal = deriveFundingValues(500, 3, 'TOTAL', 677.04);
+  assertMoney(fromTotal.installment, 225.68, 'parcela derivada do total');
+  assertMoney(fromTotal.monthlyRate, fromInstallment.monthlyRate, 'taxa equivalente');
+
+  const fromRate = deriveFundingValues(500, 3, 'RATE', fromInstallment.monthlyRate);
+  assertMoney(fromRate.installment, 225.68, 'parcela recalculada pela taxa');
+  assertMoney(fromRate.total, 677.04, 'total recalculado pela taxa');
 });
 
 

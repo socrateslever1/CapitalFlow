@@ -207,6 +207,20 @@ const loanFinancialSection = read('components', 'forms', 'LoanFormFinancialSecti
 const loanFormHook = read('features', 'loans', 'hooks', 'useLoanForm.ts');
 const capitalAdvance = read('domain', 'finance', 'capitalAdvance.ts');
 const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_ai_skills_read_models.sql');
+const profitabilityReadModelMigration = read('supabase', 'migrations', '20261013025835_add_profitability_read_model.sql');
+for (const required of [
+  'add column if not exists original_principal',
+  "fo.status = 'COMPLETED'",
+  "fo.operation_type <> 'REVERSAL'",
+]) {
+  if (!profitabilityReadModelMigration.toLowerCase().includes(required.toLowerCase())) {
+    failures.push(`rentabilidade -> garantia obrigatória ausente: ${required}`);
+  }
+}
+if (/max\s*\(\s*contract_id\s*\)/i.test(profitabilityReadModelMigration)) {
+  failures.push('rentabilidade -> PostgreSQL não suporta max(uuid) para contract_id');
+}
+
 const sourceController = read('hooks', 'controllers', 'useSourceController.ts');
 const profitWithdrawalMigration = read('supabase', 'migrations', '20260929224507_harden_profit_withdrawals_v2.sql');
 const paymentOperatorProfileMigration = read('supabase', 'migrations', '20261002114424_align_payment_transaction_operator_profile.sql');

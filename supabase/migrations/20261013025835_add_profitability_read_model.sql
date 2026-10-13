@@ -1,6 +1,12 @@
 -- Read-only profitability model. Financial values come exclusively from the
 -- immutable Payment Engine V4 operation ledger. Reversed operations have no
 -- economic effect and principal recovery is reported separately from profit.
+alter table if exists public.contratos
+  add column if not exists original_principal numeric(14,2);
+
+comment on column public.contratos.original_principal is
+  'Valor inicial preservado para auditoria; principal permanece como valor atual do contrato.';
+
 create or replace function public.skill_get_profitability_v1(
   p_profile_id uuid,
   p_scope text default 'CLIENT',
@@ -60,7 +66,7 @@ begin
     from scoped_contracts sc left join operation_totals ot using (contract_id)
   ), result_rows as (
     select client_id, max(client_name) as client_name,
-      case when v_scope = 'CONTRACT' then max(contract_id) else null end as contract_id,
+      case when v_scope = 'CONTRACT' then contract_id else null end as contract_id,
       round(sum(invested_principal), 2) as invested_principal,
       round(sum(principal_recovered), 2) as principal_recovered,
       round(sum(interest_received), 2) as interest_received,

@@ -207,7 +207,7 @@ const loanFinancialSection = read('components', 'forms', 'LoanFormFinancialSecti
 const loanFormHook = read('features', 'loans', 'hooks', 'useLoanForm.ts');
 const capitalAdvance = read('domain', 'finance', 'capitalAdvance.ts');
 const skillReadModelMigration = read('supabase', 'migrations', '20260929042103_ai_skills_read_models.sql');
-const profitabilityReadModelMigration = read('supabase', 'migrations', '20261013025835_add_profitability_read_model.sql');
+const profitabilityReadModelMigration = read('supabase', 'migrations', '20261013033838_add_profitability_read_model.sql');
 for (const required of [
   'add column if not exists original_principal',
   "fo.status = 'COMPLETED'",

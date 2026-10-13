@@ -1,5 +1,18 @@
 # Validação Financeira em Staging
 
+## Tentativa local — 12/10/2026
+
+`npx -y supabase@2.120.0 start` iniciou o PostgreSQL local, mas o replay parou na primeira migration:
+
+```text
+Applying migration 20260222_campaign_bot_trigger.sql...
+ERROR: relation "public.campaign_messages" does not exist (SQLSTATE 42P01)
+```
+
+Estado: **BLOQUEADO**. Não existe migration de baseline anterior que crie essa tabela. As migrations novas e os testes reais de `preview_financial_operation_v4` / `process_financial_operation_v4` não foram executados. Testes em memória não contam como aprovação PostgreSQL.
+
+Nenhum remoto foi vinculado ou usado. Produção modificada: **NÃO**. Dados históricos modificados: **NÃO**. Custo: **R$ 0,00**.
+
 ## Nova tentativa local — 05/10/2026
 
 | Verificação | Estado | Evidência |

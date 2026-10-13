@@ -1,5 +1,21 @@
 # Relatório de execução — CapitalFlow
 
+## Continuação da arquitetura de IA — 12/10/2026
+
+HEAD inicial: `b828637be768c548135f73967f241779fb6d332e`
+
+- **Skills READ_ONLY:** sete capacidades registradas; as seis anteriores foram preservadas e `consultar_rentabilidade` foi adicionada.
+- **Rentabilidade:** lucro realizado vem de `interest_paid + late_fee_paid` do ledger V4; principal recuperado, perdões e ROI ficam separados; operações estornadas não produzem efeito econômico.
+- **Router:** classificação determinística da mensagem bruta, confiança, contexto conversacional, proteção contra prompt injection e seleção de Skill. Escritas financeiras continuam bloqueadas.
+- **State Machine:** sessões expiradas ou inválidas reiniciam em `NEW`; handoff funciona antes da identificação financeira.
+- **Context Builder:** remove CPF/documentos, tokens, segredos e dados bancários antes de montar o contexto do modelo.
+- **Evals:** 18 casos; accuracy `1`, unknown rate `0,3333`, handoff rate `0,0556`, wrong-skill rate `0`.
+- **n8n/WAHA:** permanece em shadow; empréstimo cria `HUMAN_HANDOFF` sem aprovar crédito.
+- **Observabilidade:** migration aditiva completa skill, tool, duração, resultado, erro, estados e handoff, sem texto bruto.
+- **Dependências:** `npm audit fix` sem `--force` atualizou duas dependências transitivas; zero vulnerabilidades.
+- **Supabase local / RPC real:** **BLOQUEADO** em `20260222_campaign_bot_trigger.sql`: `public.campaign_messages` não existe e não há baseline anterior versionado. Nenhuma migration nova foi aplicada.
+- **Produção modificada:** **NÃO**. **Dados históricos modificados:** **NÃO**. **Custo novo:** **R$ 0,00**.
+
 ## Execução local — 06/10/2026
 
 - **Ambiente:** PASS — Node `v24.14.0`, TypeScript `~5.8.2`, Vite `^6.2.0`; branch `main`.

@@ -91,11 +91,14 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       const count = Math.max(1, parseInt(formData.fundingInstallmentsCount || '1', 10) || 1);
       const bankTotalInput = parseFloat(formData.fundingTotalPayable) || 0;
       const bankMonthlyRate = parseFloat(formData.fundingMonthlyRate) || 0;
+      const bankInstallmentInput = parseFloat(formData.fundingInstallmentValue) || 0;
       const margin = parseFloat(formData.customerMarginPercent) || 0;
       const mode = formData.fundingCalculationMode || 'TOTAL';
       const monthlyRate = bankMonthlyRate / 100;
       const bankInstallment = fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT'
           ? principal / count
+          : mode === 'INSTALLMENT'
+          ? bankInstallmentInput
           : mode === 'RATE'
           ? (monthlyRate > 0 ? principal * (monthlyRate / (1 - Math.pow(1 + monthlyRate, -count))) : principal / count)
           : (bankTotalInput > 0 ? bankTotalInput / count : principal / count);
@@ -107,7 +110,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
       const customerInstallment = interestFreeInstallment ? principal / count : baseForClient * (1 + margin / 100);
       const customerTotal = interestFreeInstallment ? principal : customerInstallment * count;
       return { count, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
-  }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest, interestFreeInstallment, fundingPaymentMethod]);
+  }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.fundingInstallmentValue, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest, interestFreeInstallment, fundingPaymentMethod]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -380,13 +383,16 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 </div>
                 {fundingPaymentMethod === 'CREDIT_CARD' && (
                   <div className="grid grid-cols-1 gap-3 border-t border-slate-800/70 pt-3 sm:grid-cols-2">
-                    <div className="flex rounded-lg border border-slate-800/60 bg-slate-900/80 p-1">
-                      <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'TOTAL'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode !== 'RATE' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Valor final</button>
+                    <div className="grid grid-cols-3 rounded-lg border border-slate-800/60 bg-slate-900/80 p-1">
+                      <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'TOTAL'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === 'TOTAL' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Valor final</button>
+                      <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'INSTALLMENT'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === 'INSTALLMENT' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Parcela</button>
                       <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'RATE'})} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === 'RATE' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Taxa mensal</button>
                     </div>
                     {formData.fundingCalculationMode === 'RATE'
                       ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><input type="number" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
-                      : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><input type="number" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>}
+                      : formData.fundingCalculationMode === 'INSTALLMENT'
+                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => setFormData({...formData, fundingInstallmentValue: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
+                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><input type="number" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>}
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
@@ -408,13 +414,14 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
                 {isInstallmentFixed ? (
                     <div className="space-y-5">
-                        {fundingPaymentMethod === 'CREDIT_CARD' && <div className="flex bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
-                            <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'TOTAL'})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${formData.fundingCalculationMode !== 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Valor final</button>
+                        {fundingPaymentMethod === 'CREDIT_CARD' && <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
+                            <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'TOTAL'})} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === 'TOTAL' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Valor final</button>
+                            <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'INSTALLMENT'})} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === 'INSTALLMENT' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Parcela</button>
                             <button type="button" onClick={() => setFormData({...formData, fundingCalculationMode: 'RATE'})} className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ${formData.fundingCalculationMode === 'RATE' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>Taxa mensal</button>
                         </div>}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData({...formData, fundingInstallmentsCount: e.target.value})} className={strongInputClass}/></div>
-                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>)}
+                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => setFormData({...formData, fundingMonthlyRate: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => setFormData({...formData, fundingInstallmentValue: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>)}
                             <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><input type="number" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">

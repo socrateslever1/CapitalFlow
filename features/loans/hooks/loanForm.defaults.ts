@@ -27,6 +27,7 @@ export const getInitialFormState = (defaultSourceId: string = ''): LoanFormState
         guaranteeDescription: '',
         startDate: defaultDateStr,
         fundingCalculationMode: 'TOTAL',
+        fundingInstallmentValue: '',
         fundingPaymentMethod: 'CREDIT_CARD',
         fundingInstallmentsCount: '1',
         fundingMonthlyRate: '',

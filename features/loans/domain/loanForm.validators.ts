@@ -42,6 +42,7 @@ export const validateLoanForm = (
     const margin = parseFloat(formData.customerMarginPercent || '');
     const totalPayable = parseFloat(formData.fundingTotalPayable || '');
     const monthlyRate = parseFloat(formData.fundingMonthlyRate || '');
+    const installmentValue = parseFloat(formData.fundingInstallmentValue || '');
     const mode = formData.fundingCalculationMode || 'TOTAL';
 
     if (!interestFreeInstallment) {
@@ -54,6 +55,9 @@ export const validateLoanForm = (
     }
     if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'RATE' && (isNaN(monthlyRate) || monthlyRate < 0)) {
       return { isValid: false, error: "Erro: informe a taxa mensal do cartão." };
+    }
+    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'INSTALLMENT' && (isNaN(installmentValue) || installmentValue <= 0 || installmentValue * count < principal)) {
+      return { isValid: false, error: "Erro: a parcela do cartão deve gerar um total maior ou igual ao principal." };
     }
   }
 

@@ -73,6 +73,7 @@ export const installmentFixedStrategy: ModalityStrategy = {
         const count = Math.max(1, Math.floor(Number(params.fundingInstallmentsCount) || Number(params.fixedDuration) || 1));
         const bankTotalInput = Number(params.fundingTotalPayable) || 0;
         const bankMonthlyRate = Number(params.fundingMonthlyRate) || 0;
+        const bankInstallmentInput = Number(params.fundingInstallmentValue) || 0;
         const interestFreeInstallment = params.interestFreeInstallment === true
             || params.initialData?.interestFreeInstallment === true
             || params.initialData?.policiesSnapshot?.interestFreeInstallment === true;
@@ -84,7 +85,9 @@ export const installmentFixedStrategy: ModalityStrategy = {
         const mode = params.fundingCalculationMode || (bankTotalInput > principal ? 'TOTAL' : 'RATE');
 
         let bankInstallmentValue = 0;
-        if (mode === 'TOTAL' && bankTotalInput > 0) {
+        if (mode === 'INSTALLMENT' && bankInstallmentInput > 0) {
+            bankInstallmentValue = bankInstallmentInput;
+        } else if (mode === 'TOTAL' && bankTotalInput > 0) {
             bankInstallmentValue = bankTotalInput / count;
         } else {
             bankInstallmentValue = pmt(principal, bankMonthlyRate, count);

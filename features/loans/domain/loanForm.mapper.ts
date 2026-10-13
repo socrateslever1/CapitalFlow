@@ -102,9 +102,10 @@ export interface LoanFormState {
   fundingTotalPayable?: string;
   fundingProvider?: string;
   fundingFeePercent?: string;
-  fundingCalculationMode?: 'TOTAL' | 'RATE';
+  fundingCalculationMode?: 'TOTAL' | 'INSTALLMENT' | 'RATE';
   fundingInstallmentsCount?: string;
   fundingMonthlyRate?: string;
+  fundingInstallmentValue?: string;
   customerMarginPercent?: string;
   fundingOperatorAbsorbsInterest?: boolean;
   fundingPaymentMethod?: 'CREDIT_CARD' | 'BANK_ACCOUNT_DEBIT';
@@ -141,6 +142,7 @@ export const mapFormToLoan = (
   let fundingCost = 0;
   const fundingInstallmentsCount = Math.max(0, Math.floor(parseCurrency(form.fundingInstallmentsCount || '')));
   const fundingMonthlyRate = parseCurrency(form.fundingMonthlyRate || '');
+  const fundingInstallmentValue = parseCurrency(form.fundingInstallmentValue || '');
   const customerMarginPercent = interestFreeInstallment ? 0 : parseCurrency(form.customerMarginPercent || '');
   const fundingPaymentMethod = form.fundingPaymentMethod || 'CREDIT_CARD';
   const fundingCalculationMode = form.fundingCalculationMode || (form.fundingTotalPayable ? 'TOTAL' : 'RATE');
@@ -153,6 +155,10 @@ export const mapFormToLoan = (
   }
   if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingCalculationMode === 'RATE' && fundingInstallmentsCount > 0) {
     fundingTotalPayable = calculateFundingTotalFromRate(principal, fundingMonthlyRate, fundingInstallmentsCount);
+    fundingCost = Math.max(0, fundingTotalPayable - principal);
+  }
+  if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingCalculationMode === 'INSTALLMENT' && fundingInstallmentsCount > 0) {
+    fundingTotalPayable = parseFloat((fundingInstallmentValue * fundingInstallmentsCount).toFixed(2));
     fundingCost = Math.max(0, fundingTotalPayable - principal);
   }
   if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT') {
@@ -173,6 +179,7 @@ export const mapFormToLoan = (
     fundingTotalPayable,
     fundingInstallmentsCount,
     fundingMonthlyRate,
+    fundingInstallmentValue,
     fundingCalculationMode,
     customerMarginPercent,
     operatorAbsorbsInterest: interestFreeInstallment || fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT' ? true : form.fundingOperatorAbsorbsInterest,
@@ -238,7 +245,7 @@ export const mapFormToLoan = (
     fundingCalculationMode,
     fundingInstallmentsCount: fundingInstallmentsCount || undefined,
     fundingMonthlyRate: fundingMonthlyRate || undefined,
-    fundingInstallmentValue: fundingInstallmentsCount > 0 && fundingTotalPayable > 0 ? parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2)) : undefined,
+    fundingInstallmentValue: fundingInstallmentsCount > 0 && fundingTotalPayable > 0 ? (fundingCalculationMode === 'INSTALLMENT' ? fundingInstallmentValue : parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2))) : undefined,
     customerMarginPercent: form.billingCycle === 'INSTALLMENT_FIXED' ? customerMarginPercent : undefined,
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,

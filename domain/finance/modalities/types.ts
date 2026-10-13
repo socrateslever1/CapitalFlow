@@ -40,7 +40,8 @@ export interface InstallmentGenerationParams {
     fundingTotalPayable?: number;
     fundingInstallmentsCount?: number;
     fundingMonthlyRate?: number;
-    fundingCalculationMode?: 'TOTAL' | 'RATE';
+    fundingCalculationMode?: 'TOTAL' | 'INSTALLMENT' | 'RATE';
+    fundingInstallmentValue?: number;
     customerMarginPercent?: number;
     operatorAbsorbsInterest?: boolean;
     interestFreeInstallment?: boolean;

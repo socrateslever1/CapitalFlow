@@ -357,7 +357,7 @@ export interface Loan {
   fundingCost?: number;
   fundingProvider?: string;
   fundingFeePercent?: number;
-  fundingCalculationMode?: 'TOTAL' | 'RATE';
+  fundingCalculationMode?: 'TOTAL' | 'INSTALLMENT' | 'RATE';
   fundingInstallmentsCount?: number;
   fundingMonthlyRate?: number;
   fundingInstallmentValue?: number;

@@ -34,7 +34,19 @@ export const dueDatesSchema = z.object({
   'Intervalo inválido.',
 );
 
+export const profitabilitySchema = z.object({
+  scope: z.enum(['CLIENT', 'CONTRACT', 'RANKING']),
+  clientId: uuid.optional(),
+  contractId: uuid.optional(),
+  limit: z.number().int().min(1).max(50).optional().default(10),
+}).strict().superRefine((value, context) => {
+  if (value.scope === 'CLIENT' && !value.clientId) context.addIssue({ code: 'custom', message: 'clientId é obrigatório.' });
+  if (value.scope === 'CONTRACT' && !value.contractId) context.addIssue({ code: 'custom', message: 'contractId é obrigatório.' });
+  if (value.scope === 'RANKING' && (value.clientId || value.contractId)) context.addIssue({ code: 'custom', message: 'Ranking não aceita identificador.' });
+});
+
 export type ClientLookupInput = z.infer<typeof clientLookupSchema>;
 export type ContractSelectorInput = z.infer<typeof contractSelectorSchema>;
 export type DebtInput = z.infer<typeof debtSchema>;
 export type DueDatesInput = z.infer<typeof dueDatesSchema>;
+export type ProfitabilityInput = z.infer<typeof profitabilitySchema>;

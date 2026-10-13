@@ -25,6 +25,28 @@ export type TrustedContextEnvelope = Readonly<{
   }>;
 }>;
 
+const SENSITIVE_KEYS = /cpf|document|token|secret|password|bank|account|pix|rawprompt/i;
+
+export function minimizeContextValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.slice(0, 20).map(minimizeContextValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => !SENSITIVE_KEYS.test(key))
+    .map(([key, item]) => [key, minimizeContextValue(item)]));
+}
+
+export function buildSkillPromptContext(
+  envelope: TrustedContextEnvelope,
+  authoritativeData: unknown,
+): Readonly<{ identity: { clientId?: string }; conversation: TrustedContextEnvelope['conversation']; routing: IntentClassification; data: unknown }> {
+  return Object.freeze({
+    identity: Object.freeze(envelope.identity.clientId ? { clientId: envelope.identity.clientId } : {}),
+    conversation: envelope.conversation,
+    routing: envelope.routing,
+    data: minimizeContextValue(authoritativeData),
+  });
+}
+
 export function buildTrustedContextEnvelope(
   context: SkillContext,
   state: ConversationState,

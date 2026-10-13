@@ -62,6 +62,19 @@ assert.equal((inventedProfile as any).error, 'NOT_AUTHORIZED');
 const unavailable = createCapitalFlowToolRegistry(createFakeGateway({
   findClients: async () => { throw new Error('offline'); },
 }));
+
+const profitabilityRegistry = createCapitalFlowToolRegistry(createFakeGateway({
+  getProfitability: async (_input, receivedContext) => {
+    assert.equal(receivedContext.profileId, PROFILE_A);
+    return [{ investedPrincipal: 1000, principalRecovered: 400, interestReceived: 80, lateFeeReceived: 20, realizedProfit: 100, forgivenAmount: 5, roiPercent: 10 }];
+  },
+}));
+const profitability = await profitabilityRegistry.execute('profitability.get', { scope: 'CONTRACT', contractId: CONTRACT_A }, context);
+assert.equal(profitability.ok, true);
+if (profitability.ok) {
+  assert.equal(profitability.data[0].realizedProfit, 100);
+  assert.equal(profitability.data[0].principalRecovered, 400);
+}
 assert.equal((await unavailable.execute('client.search', { kind: 'NAME', query: 'Maria' }, context) as any).error, 'BACKEND_ERROR');
 
 for (const prompt of [

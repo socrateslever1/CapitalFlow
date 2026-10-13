@@ -1,4 +1,4 @@
-export type SkillCategory = 'CLIENT' | 'CONTRACT' | 'PAYMENT' | 'COLLECTION' | 'AGREEMENT' | 'SUPPORT';
+export type SkillCategory = 'CLIENT' | 'CONTRACT' | 'PAYMENT' | 'COLLECTION' | 'AGREEMENT' | 'PROFITABILITY' | 'SUPPORT';
 
 export type SkillRisk = 'READ_ONLY' | 'LOW' | 'FINANCIAL_WRITE' | 'CRITICAL';
 

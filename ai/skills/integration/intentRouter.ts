@@ -5,10 +5,11 @@ import type { SkillRegistry } from '../core/registry';
 import type { SkillResult } from '../core/result';
 import { skillFailure } from '../core/result';
 import {
-  classifySkillIntent,
+  classifySkillIntentWithContext,
   isSkillIntent,
   SKILL_INTENT_IDS,
   type IntentClassification,
+  type IntentConversationContext,
 } from './intentClassifier';
 
 const ALLOWED_INTENTS = new Set<string>(SKILL_INTENT_IDS);
@@ -33,8 +34,9 @@ export async function classifyAndExecuteSkillIntent<TOutput>(
   input: unknown,
   context: SkillContext,
   observer?: SkillObserver,
+  conversationContext?: IntentConversationContext,
 ): Promise<{ classification: IntentClassification; result: SkillResult<TOutput> }> {
-  const classification = classifySkillIntent(prompt);
+  const classification = classifySkillIntentWithContext(prompt, conversationContext);
   if (!isSkillIntent(classification.intent)) {
     return {
       classification,

@@ -24,3 +24,20 @@ test('telemetria não persiste texto bruto da mensagem', () => {
   assert.doesNotMatch(helper, /message:\s*input\./);
   assert.match(helper, /context:\s*\{\s*source:\s*"whatsapp",\s*mode:\s*"SHADOW"\s*\}/);
 });
+
+test('shadow reconhece rentabilidade e bloqueia prompt injection', () => {
+  assert.match(source, /consultar_rentabilidade/);
+  assert.match(source, /ignore\|desconsidere\|esqueca/);
+  assert.match(source, /route:\s*"UNKNOWN",\s*confidence:\s*0\.99/);
+});
+
+test('solicitação de empréstimo sempre cria handoff sem aprovar crédito', () => {
+  const start = source.indexOf('if (action === "loan_interest")');
+  const end = source.indexOf('if (action === "human_handoff")', start);
+  const branch = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(branch, /n8n_loan_leads/);
+  assert.match(branch, /n8n_handoffs/);
+  assert.match(branch, /HUMAN_HANDOFF/);
+  assert.doesNotMatch(branch, /process_financial_operation_v4|aprova/i);
+});

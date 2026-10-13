@@ -96,6 +96,12 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   const match = (patterns: RegExp[]) => patterns.some((pattern) => pattern.test(text));
 
   if (!text) return { intent: "unknown", route: "UNKNOWN", confidence: 0 };
+  if (match([/\b(ignore|desconsidere|esqueca)\b.*\b(regras|instrucoes|sistema|tenant|tudo)\b/, /\b(mostre|revele|envie)\b.*\b(token|senha|secret|chave|outro cliente)\b/, /\b(execute|rode)\b.*\b(sql|update|delete|drop|truncate)\b/])) {
+    return { intent: "unknown", route: "UNKNOWN", confidence: 0.99 };
+  }
+  if (match([/\b(lucro|lucrativ\w*|rentabilidade|roi|juros recebidos|recebi de juros|ganhei de juros)\b/, /\b(quanto perdi|perda)\b.*\b(descontos?|perdao|encargos)\b/])) {
+    return { intent: "consultar_rentabilidade", route: "READ_ONLY_SKILL", confidence: 0.97 };
+  }
   if (match([/\b(falar|conversar)\s+com\s+(um\s+)?(atendente|humano|pessoa)\b/, /\b(atendimento humano|quero atendente|chamar atendente)\b/])) {
     return { intent: "human_handoff", route: "HUMAN_HANDOFF", confidence: 0.99 };
   }
@@ -152,8 +158,8 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
 }
 
 function observedAiState(identified: boolean, routing: { route: AiRoute }): AiState {
-  if (!identified) return "IDENTIFYING";
   if (routing.route === "HUMAN_HANDOFF") return "HUMAN_HANDOFF";
+  if (!identified) return "IDENTIFYING";
   if (routing.route === "READ_ONLY_SKILL") return "RESOLVING_READ";
   if (routing.route === "UNKNOWN" || routing.route === "LOAN_INTEREST") return "INTENT_PENDING";
   return "IDENTIFIED";
@@ -198,6 +204,12 @@ async function persistAiRouting(
     route: input.routing.route,
     confidence: input.routing.confidence,
     state: input.state,
+    state_after: input.state,
+    skill: input.routing.route === "READ_ONLY_SKILL" ? input.routing.intent : null,
+    tool: null,
+    result: "SHADOW_OBSERVED",
+    error_code: null,
+    handoff: input.state === "HUMAN_HANDOFF",
   }, { onConflict: "profile_id,message_id", ignoreDuplicates: true });
   if (eventWrite.error) throw eventWrite.error;
 }
@@ -719,8 +731,14 @@ Deno.serve(async (req) => {
       const fullName = String(body.full_name ?? "").trim().slice(0, 160) || null;
       const { error } = await supabase.from("n8n_loan_leads").insert({ profile_id: organizationId, phone_hash: phoneHash, full_name: fullName });
       if (error) throw error;
+      const handoff = await supabase.from("n8n_handoffs").insert({
+        profile_id: organizationId,
+        phone_hash: phoneHash,
+        reason: "Solicitacao de emprestimo encaminhada para analise humana.",
+      });
+      if (handoff.error) throw handoff.error;
       await supabase.from("notificacoes").insert({ profile_id: organizationId, titulo: "Novo interesse em empréstimo", mensagem: fullName ? `${fullName} solicitou contato.` : "Novo interessado solicitou contato.", item_type: "WHATSAPP_LEAD" });
-      return json({ status: "registered" });
+      return json({ status: "registered", state: "HUMAN_HANDOFF", reply: "Solicitacao encaminhada para analise." });
     }
 
     if (action === "human_handoff") {

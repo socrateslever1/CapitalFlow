@@ -6,6 +6,7 @@ import { createConsultarDividaSkill } from './consultar-divida/skill';
 import { createConsultarParcelasSkill } from './consultar-parcelas/skill';
 import { createConsultarVencimentosSkill } from './consultar-vencimentos/skill';
 import { createConsultarAcordoSkill } from './consultar-acordo/skill';
+import { createConsultarRentabilidadeSkill } from './consultar-rentabilidade/skill';
 import { financialSkillScaffolds } from './financial/skills';
 import { createCapitalFlowToolRegistry } from '../tools/registry';
 
@@ -18,7 +19,8 @@ export function createCapitalFlowSkillRegistry(gateway: CapitalFlowSkillGateway)
     .register(createConsultarParcelasSkill(tools))
     .register(createConsultarContratoSkill(tools))
     .register(createConsultarVencimentosSkill(tools))
-    .register(createConsultarAcordoSkill(tools));
+    .register(createConsultarAcordoSkill(tools))
+    .register(createConsultarRentabilidadeSkill(tools));
   financialSkillScaffolds.forEach((skill) => registry.register(skill));
   return registry;
 }

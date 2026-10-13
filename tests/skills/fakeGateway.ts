@@ -6,6 +6,7 @@ import type {
   SkillDebtPosition,
   SkillDueItem,
   SkillInstallment,
+  SkillProfitability,
 } from '../../ai/skills/core/gateway';
 import { createCapitalFlowToolRegistry } from '../../ai/tools/registry';
 
@@ -17,6 +18,7 @@ export function createFakeGateway(overrides: Partial<CapitalFlowSkillGateway> = 
     listInstallments: async (): Promise<SkillInstallment[] | null> => null,
     listDue: async (): Promise<SkillDueItem[]> => [],
     getActiveAgreement: async (): Promise<SkillAgreement | null> => null,
+    getProfitability: async (): Promise<SkillProfitability[]> => [],
     ...overrides,
   };
 }

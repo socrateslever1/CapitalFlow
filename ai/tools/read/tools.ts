@@ -6,6 +6,7 @@ import type {
   SkillDebtPosition,
   SkillDueItem,
   SkillInstallment,
+  SkillProfitability,
 } from '../../skills/core/gateway';
 import { SkillBackendError } from '../../skills/core/gateway';
 import type { ToolContext } from '../core/context';
@@ -17,10 +18,12 @@ import {
   contractSelectorSchema,
   debtSchema,
   dueDatesSchema,
+  profitabilitySchema,
   type ClientLookupInput,
   type ContractSelectorInput,
   type DebtInput,
   type DueDatesInput,
+  type ProfitabilityInput,
 } from './schemas';
 
 function backendFailure(error: unknown): ToolResult<never> {
@@ -174,5 +177,19 @@ export function createReadOnlyTools(gateway: CapitalFlowSkillGateway): CapitalFl
     },
   };
 
-  return [clientSearch, clientGet, debtGet, installmentsList, contractGet, dueDatesList, agreementGet];
+  const profitabilityGet: CapitalFlowTool<ProfitabilityInput, SkillProfitability[]> = {
+    id: 'profitability.get', description: 'Consulta lucro realizado, recuperações, perdões e ROI calculados pelo backend.',
+    risk: 'READ_ONLY', enabled: true, inputSchema: profitabilitySchema,
+    permissions: ['SKILLS_READ'], requiresAuthentication: true, requiresConfirmation: false,
+    async execute(input, context) {
+      try {
+        const rows = await gateway.getProfitability(input, context);
+        return toolSuccess(rows, { authoritativeBackend: 'skill_get_profitability_v1' });
+      } catch (error) {
+        return backendFailure(error);
+      }
+    },
+  };
+
+  return [clientSearch, clientGet, debtGet, installmentsList, contractGet, dueDatesList, agreementGet, profitabilityGet];
 }

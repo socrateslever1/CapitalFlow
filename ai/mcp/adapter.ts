@@ -10,6 +10,7 @@ const MCP_TOOL_MAP = {
   get_contract: 'contract.get',
   list_due_dates: 'due_dates.list',
   get_agreement: 'agreement.get',
+  get_profitability: 'profitability.get',
 } as const;
 
 export type CapitalFlowMcpToolName = keyof typeof MCP_TOOL_MAP;

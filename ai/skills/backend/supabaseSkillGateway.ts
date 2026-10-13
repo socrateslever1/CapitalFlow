@@ -8,6 +8,7 @@ import type {
   SkillDebtPosition,
   SkillDueItem,
   SkillInstallment,
+  SkillProfitability,
 } from '../core/gateway';
 import { SkillBackendError } from '../core/gateway';
 import type { SkillContext } from '../core/types';
@@ -75,6 +76,16 @@ export const supabaseSkillGateway: CapitalFlowSkillGateway = {
     return callRpc<SkillAgreement | null>('skill_get_agreement_v1', {
       p_profile_id: trustedProfileId(context),
       p_contract_id: contractId,
+    });
+  },
+
+  getProfitability(input, context: SkillContext) {
+    return callRpc<SkillProfitability[]>('skill_get_profitability_v1', {
+      p_profile_id: trustedProfileId(context),
+      p_scope: input.scope,
+      p_client_id: input.clientId || null,
+      p_contract_id: input.contractId || null,
+      p_limit: input.limit || 10,
     });
   },
 };

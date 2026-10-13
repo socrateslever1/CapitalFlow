@@ -5,6 +5,7 @@ export const SKILL_INTENT_IDS = [
   'consultar_contrato',
   'consultar_vencimentos',
   'consultar_acordo',
+  'consultar_rentabilidade',
   'registrar_pagamento',
   'estornar_pagamento',
   'renovar_pagamento',
@@ -17,19 +18,26 @@ export const SKILL_INTENT_IDS = [
 ] as const;
 
 export type SkillIntentId = typeof SKILL_INTENT_IDS[number];
-export type RoutedIntent = SkillIntentId | 'human_handoff' | 'loan_interest' | 'unknown';
+export type RoutedIntent = SkillIntentId | 'greeting' | 'identify_client' | 'payment_request' | 'payment_link_request' | 'dispute_amount' | 'human_handoff' | 'loan_interest' | 'unknown';
 export type IntentRoute =
   | 'READ_ONLY_SKILL'
   | 'FINANCIAL_BLOCKED'
   | 'HUMAN_HANDOFF'
   | 'LOAN_INTEREST'
+  | 'CONVERSATION'
   | 'UNKNOWN';
 
 export type IntentClassification = Readonly<{
   intent: RoutedIntent;
   route: IntentRoute;
   confidence: number;
-  matchedBy: 'RULE';
+  matchedBy: 'RULE' | 'CONTEXT';
+}>;
+
+export type IntentConversationContext = Readonly<{
+  previousIntent?: RoutedIntent;
+  identified?: boolean;
+  hasActiveContract?: boolean;
 }>;
 
 type Rule = {
@@ -47,6 +55,18 @@ const normalize = (value: unknown) => String(value ?? '')
   .trim();
 
 const rules: Rule[] = [
+  {
+    intent: 'consultar_rentabilidade', route: 'READ_ONLY_SKILL', confidence: 0.97,
+    patterns: [
+      /\b(lucro|lucrativ\w*|rentabilidade|roi|juros recebidos|recebi de juros|ganhei de juros)\b/,
+      /\b(quanto perdi|perda)\b.*\b(descontos?|perdao|encargos)\b/,
+      /\b(cliente)\b.*\b(mais lucrativo|maior lucro)\b/,
+    ],
+  },
+  {
+    intent: 'greeting', route: 'CONVERSATION', confidence: 0.98,
+    patterns: [/^(oi|ola|bom dia|boa tarde|boa noite|e ai|tudo bem)[!.? ]*$/],
+  },
   {
     intent: 'human_handoff',
     route: 'HUMAN_HANDOFF',
@@ -127,6 +147,30 @@ const rules: Rule[] = [
     ],
   },
   {
+    intent: 'consultar_rentabilidade', route: 'READ_ONLY_SKILL', confidence: 0.97,
+    patterns: [
+      /\b(lucro|lucrativ\w*|rentabilidade|roi|juros recebidos|ganhei de juros)\b/,
+      /\b(quanto perdi|perda)\b.*\b(descontos?|perdao|encargos)\b/,
+      /\b(cliente)\b.*\b(mais lucrativo|maior lucro)\b/,
+    ],
+  },
+  {
+    intent: 'payment_link_request', route: 'CONVERSATION', confidence: 0.96,
+    patterns: [/\b(link|pix|boleto)\b.*\b(pagar|pagamento|parcela)\b/, /\b(quero|preciso)\b.*\bpagar\b/],
+  },
+  {
+    intent: 'payment_request', route: 'CONVERSATION', confidence: 0.94,
+    patterns: [/\b(como|onde|posso)\b.*\b(pagar|pagamento)\b/],
+  },
+  {
+    intent: 'dispute_amount', route: 'HUMAN_HANDOFF', confidence: 0.96,
+    patterns: [/\b(valor|saldo|divida|cobranca)\b.*\b(errad\w*|incorret\w*|discord\w*|nao reconheco)\b/],
+  },
+  {
+    intent: 'identify_client', route: 'CONVERSATION', confidence: 0.91,
+    patterns: [/\b(meu cpf|meu codigo|sou o cliente|me chamo|meu nome e)\b/],
+  },
+  {
     intent: 'consultar_vencimentos',
     route: 'READ_ONLY_SKILL',
     confidence: 0.96,
@@ -196,6 +240,39 @@ export function classifySkillIntent(prompt: unknown): IntentClassification {
   }
 
   return { intent: 'unknown', route: 'UNKNOWN', confidence: 0.2, matchedBy: 'RULE' };
+}
+
+export function classifySkillIntentWithContext(
+  prompt: unknown,
+  context: IntentConversationContext = {},
+): IntentClassification {
+  const text = normalize(prompt);
+  if (/\b(ignore|desconsidere|esqueca)\b.*\b(regras|instrucoes|sistema|tenant|tudo)\b/.test(text)
+    || /\b(mostre|revele|envie)\b.*\b(token|senha|secret|chave|outro cliente)\b/.test(text)
+    || /\b(execute|rode)\b.*\b(sql|update|delete|drop|truncate)\b/.test(text)) {
+    return { intent: 'unknown', route: 'UNKNOWN', confidence: 0.99, matchedBy: 'RULE' };
+  }
+
+  if (/\b(lucro|lucrativ\w*|rentabilidade|roi|juros recebidos|recebi de juros|ganhei de juros)\b/.test(text)
+    || /\b(quanto perdi|perda)\b.*\b(descontos?|perdao|encargos)\b/.test(text)) {
+    return { intent: 'consultar_rentabilidade', route: 'READ_ONLY_SKILL', confidence: 0.97, matchedBy: 'RULE' };
+  }
+
+  const direct = classifySkillIntent(text);
+  if (direct.intent !== 'unknown') return direct;
+
+  if (/^(e\s+)?(a\s+)?proxim[ao](\s+parcela)?[?.! ]*$/.test(text)) {
+    return { intent: 'consultar_vencimentos', route: 'READ_ONLY_SKILL', confidence: 0.88, matchedBy: 'CONTEXT' };
+  }
+  if (/^(e\s+)?(as\s+)?outras?[?.! ]*$/.test(text)
+    && ['consultar_parcelas', 'consultar_vencimentos'].includes(String(context.previousIntent))) {
+    return { intent: 'consultar_parcelas', route: 'READ_ONLY_SKILL', confidence: 0.84, matchedBy: 'CONTEXT' };
+  }
+  if (/^(e\s+)?(esse|essa|ele|ela|isso)(\s+contrato)?[?.! ]*$/.test(text)
+    && context.hasActiveContract) {
+    return { intent: 'consultar_contrato', route: 'READ_ONLY_SKILL', confidence: 0.82, matchedBy: 'CONTEXT' };
+  }
+  return direct;
 }
 
 export function isSkillIntent(intent: RoutedIntent): intent is SkillIntentId {

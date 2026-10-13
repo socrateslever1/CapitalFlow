@@ -25,6 +25,7 @@ Skill → ToolRegistry → Tool → gateway autorizado → RPC/backend
 | `installments.list` | `skill_list_installments_v1` |
 | `due_dates.list` | `skill_list_due_v1` |
 | `agreement.get` | `skill_get_agreement_v1` |
+| `profitability.get` | `skill_get_profitability_v1` |
 
 `client.get` e `contract.get` recusam ambiguidade. Os schemas são estritos e rejeitam campos como `profileId` enviados no input.
 

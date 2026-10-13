@@ -44,8 +44,11 @@ O input de uma Skill não possui `profileId`, tenant ou owner. Esses valores vê
 | `consultar_contrato` | `contract.get` | `skill_list_contracts_v1` | contrato sem tokens ou segredos |
 | `consultar_vencimentos` | `due_dates.list` | `skill_list_due_v1` | vencimentos do perfil |
 | `consultar_acordo` | `agreement.get` | `skill_get_agreement_v1` | acordo ativo persistido |
+| `consultar_rentabilidade` | `profitability.get` | `skill_get_profitability_v1` | lucro realizado, principal recuperado, perdões e ROI oficiais |
 
-As RPCs de leitura estão na migration `20260929042103_ai_skills_read_models.sql`, já registrada no histórico remoto.
+As seis RPCs originais estão na migration `20260929042103_ai_skills_read_models.sql`. A rentabilidade usa uma migration aditiva local e permanece pendente de validação PostgreSQL local antes de qualquer implantação.
+
+Rentabilidade nunca é calculada pelo LLM. O backend considera lucro realizado apenas `interest_paid + late_fee_paid` de operações V4 concluídas. Principal recuperado é informado separadamente, perdões não viram receita e operações estornadas são excluídas.
 
 ## Riscos
 
@@ -74,11 +77,12 @@ Todas possuem `enabled: false`, risco `FINANCIAL_WRITE` e `requiresConfirmation:
 
 A camada de integração agora possui uma base executável, ainda conservadora:
 
-- `classifySkillIntent`: classificador determinístico por regras para as 6 Skills READ_ONLY e para as intenções financeiras bloqueadas.
+- `classifySkillIntentWithContext`: classificador determinístico para as 7 Skills READ_ONLY, intents conversacionais e financeiras bloqueadas, com continuidade contextual e bloqueio de padrões hostis.
 - `classifyAndExecuteSkillIntent`: liga o classificador ao registry sem pular autorização, validação ou bloqueios.
 - `conversationState`: máquina de estados explícita; uma escrita não alcança `EXECUTING` sem passar por `AWAITING_CONFIRMATION`.
-- `buildTrustedContextEnvelope`: separa identidade confiável, estado, roteamento e guardrails. O tenant nunca vem do texto do usuário.
-- os casos de `ai/evals/skills.eval.ts` são executados contra o classificador na suíte de Skills; deixaram de ser somente uma lista estática.
+- `buildTrustedContextEnvelope` e `buildSkillPromptContext`: separam identidade confiável, minimizam dados e removem CPF, tokens, segredos e dados bancários antes de qualquer prompt.
+- `restoreConversationState`: reinicia sessão expirada ou inválida sem reaproveitar estado inseguro.
+- `npm run test:evals`: executa mensagem → Router → seleção/estado e publica accuracy, unknown rate, handoff rate e wrong-skill rate sem API paga.
 
 As Skills financeiras continuam desabilitadas. O classificador reconhecer uma intenção financeira não significa autorização para executá-la.
 

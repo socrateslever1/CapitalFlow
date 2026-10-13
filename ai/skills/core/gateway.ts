@@ -81,6 +81,21 @@ export type SkillAgreement = {
   }>;
 };
 
+export type ProfitabilityScope = 'CLIENT' | 'CONTRACT' | 'RANKING';
+
+export type SkillProfitability = {
+  clientId?: string | null;
+  clientName?: string | null;
+  contractId?: string | null;
+  investedPrincipal: number;
+  principalRecovered: number;
+  interestReceived: number;
+  lateFeeReceived: number;
+  realizedProfit: number;
+  forgivenAmount: number;
+  roiPercent?: number | null;
+};
+
 export interface CapitalFlowSkillGateway {
   findClients(input: { kind: ClientLookupKind; query: string; includeDocument: boolean }, context: SkillContext): Promise<SkillClient[]>;
   listContracts(input: { contractId?: string; clientId?: string }, context: SkillContext): Promise<SkillContract[]>;
@@ -88,6 +103,7 @@ export interface CapitalFlowSkillGateway {
   listInstallments(contractId: string, context: SkillContext): Promise<SkillInstallment[] | null>;
   listDue(input: { from: string; to: string; onlyOverdue: boolean; referenceDate: string }, context: SkillContext): Promise<SkillDueItem[]>;
   getActiveAgreement(contractId: string, context: SkillContext): Promise<SkillAgreement | null>;
+  getProfitability(input: { scope: ProfitabilityScope; clientId?: string; contractId?: string; limit?: number }, context: SkillContext): Promise<SkillProfitability[]>;
 }
 
 export class SkillBackendError extends Error {

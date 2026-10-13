@@ -13,7 +13,7 @@ const adapter = new CapitalFlowMcpAdapter(registry);
 
 assert.deepEqual(adapter.listTools(), [
   'search_client', 'get_client', 'get_debt', 'list_installments',
-  'get_contract', 'list_due_dates', 'get_agreement',
+  'get_contract', 'list_due_dates', 'get_agreement', 'get_profitability',
 ]);
 
 const result = await adapter.call('get_client', { kind: 'NAME', query: 'Maria Silva' }, context);

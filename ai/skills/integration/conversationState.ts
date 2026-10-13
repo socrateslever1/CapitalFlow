@@ -107,11 +107,31 @@ export function observedStateForIntent(
   identified: boolean,
   classification: IntentClassification,
 ): ConversationState {
-  if (!identified) return 'IDENTIFYING';
   if (classification.route === 'HUMAN_HANDOFF') return 'HUMAN_HANDOFF';
+  if (!identified) return 'IDENTIFYING';
   if (classification.route === 'READ_ONLY_SKILL') return 'RESOLVING_READ';
-  if (classification.route === 'UNKNOWN' || classification.route === 'LOAN_INTEREST') return 'INTENT_PENDING';
+  if (classification.route === 'UNKNOWN' || classification.route === 'LOAN_INTEREST' || classification.route === 'CONVERSATION') return 'INTENT_PENDING';
 
   // Escritas financeiras continuam bloqueadas nesta etapa. Não avançar para EXECUTING.
   return 'IDENTIFIED';
+}
+
+export type PersistedConversationState = Readonly<{
+  state: ConversationState;
+  version: number;
+  expiresAt?: string | null;
+  lastIntent?: IntentClassification['intent'];
+}>;
+
+export function restoreConversationState(
+  persisted: PersistedConversationState | null | undefined,
+  now = new Date(),
+): PersistedConversationState {
+  if (!persisted || !transitions[persisted.state] || !Number.isInteger(persisted.version) || persisted.version < 1) {
+    return { state: 'NEW', version: 1 };
+  }
+  if (persisted.expiresAt && Date.parse(persisted.expiresAt) <= now.getTime()) {
+    return { state: 'NEW', version: persisted.version + 1 };
+  }
+  return persisted;
 }

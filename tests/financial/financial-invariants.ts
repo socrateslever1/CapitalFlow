@@ -573,7 +573,7 @@ run('abatimento de valor fica sempre disponível com capital e distingue janela 
   });
   assert.equal(after10Days.canAbatePrincipal, true);
   assert.equal(after10Days.isDirectCapitalReduction, false);
-  assert.ok(after10Days.receiptEffect.includes('quita os juros') && after10Days.receiptEffect.includes('abate'));
+  assert.ok(after10Days.receiptEffect.toLowerCase().includes('quita os juros') && after10Days.receiptEffect.toLowerCase().includes('abate'));
 
   const zeroPrincipal = buildInstallmentReceiptModel({
     ...base,

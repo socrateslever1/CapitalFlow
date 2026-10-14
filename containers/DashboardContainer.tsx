@@ -42,6 +42,7 @@ type InstallmentPaymentOptions = {
   partialBalanceAction?: PartialBalanceAction;
   operationType?: import('../services/payments/paymentEngineV4').FinancialOperationType;
   paymentMethod?: FinancialPaymentMethod;
+  manualDate?: Date | null;
   expectedPreview?: FinancialOperationResult;
 };
 
@@ -123,6 +124,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               forgivenessMode: options?.forgivenessMode || 'NONE',
               lateFeeForgiven: options?.lateFeeForgiven,
               realDate: new Date(),
+              manualDate: options?.manualDate || null,
               capitalizeRemaining: partialAction === 'CAPITALIZE' || partialAction === 'CAPITALIZE_RENEWAL',
               renewWithPending: partialAction === 'RENEW_KEEP_PENDING',
               partialAction,

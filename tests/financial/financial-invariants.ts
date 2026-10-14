@@ -8,7 +8,7 @@ import {
 import { calculateMonthlyInstallments } from '../../features/loans/modalities/monthly/monthly.calculations';
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
-import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
+import { planPaymentRenewal, suggestRenewalDueDate } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
@@ -413,6 +413,43 @@ run('renovação parcial avança pela data contratual sem somar juros novos', ()
   assert.equal(result.renewalDate?.toISOString().slice(0, 10), '2026-09-19');
   assertMoney(result.nextCycleInterest, 300, 'juros planejados sem duplicação');
   assertMoney(balance.interestRemaining, 300, 'juros em aberto preservados');
+});
+
+run('regra única de próximo vencimento diferencia dispensa e regularização completa', () => {
+  const monthly = { billingCycle: 'MONTHLY' } as any;
+  const inst = { dueDate: '2026-10-02' } as any;
+
+  const preserved = suggestRenewalDueDate({
+    loan: monthly,
+    inst,
+    paymentDate: '2026-10-13',
+    preserveOriginalCycle: true,
+  });
+  assert.equal(toISODateOnlyUTC(preserved), '2026-11-01');
+
+  const restarted = suggestRenewalDueDate({
+    loan: monthly,
+    inst,
+    paymentDate: '2026-10-13',
+    preserveOriginalCycle: false,
+  });
+  assert.equal(toISODateOnlyUTC(restarted), '2026-11-12');
+
+  const weekly = suggestRenewalDueDate({
+    loan: { billingCycle: 'WEEKLY', collectionDaysMode: 'SKIP_WEEKEND' } as any,
+    inst: { dueDate: '2026-10-09' } as any,
+    paymentDate: '2026-10-09',
+    preserveOriginalCycle: true,
+  });
+  assert.equal(toISODateOnlyUTC(weekly), '2026-10-16');
+
+  const daily = suggestRenewalDueDate({
+    loan: { billingCycle: 'DAILY_FREE', collectionDaysMode: 'SKIP_WEEKEND' } as any,
+    inst: { dueDate: '2026-10-16' } as any,
+    paymentDate: '2026-10-16',
+    preserveOriginalCycle: false,
+  });
+  assert.equal(toISODateOnlyUTC(daily), '2026-10-19');
 });
 
 run('regularização integral reinicia pela data do pagamento; data manual prevalece', () => {

@@ -149,7 +149,9 @@ export function buildInstallmentReceiptModel(params: {
     ) {
         const latePaid = Math.max(0, displayedAmount - interest);
         const lateRemaining = Math.max(0, effectiveLateFee - latePaid);
-        receiptEffect = `Quita os juros e recebe ${formatMoney(latePaid)} do atraso. Ainda ficam ${formatMoney(lateRemaining)} de atraso no vencimento atual.`;
+        receiptEffect = latePaid <= ZERO_BALANCE_THRESHOLD
+            ? `Quita os juros. O atraso de ${formatMoney(lateRemaining)} continua pendente no vencimento atual.`
+            : `Quita os juros e recebe ${formatMoney(latePaid)} do atraso. Ainda ficam ${formatMoney(lateRemaining)} de atraso no vencimento atual.`;
     } else if (displayedAmount <= chargesAmount + ZERO_BALANCE_THRESHOLD && chargesAmount > ZERO_BALANCE_THRESHOLD) {
         receiptEffect = automaticDecision.operationType === 'RENEW_KEEP_PENDING'
             ? `Quita os encargos do ciclo e renova o vencimento. O capital de ${formatMoney(principal)} permanece em aberto.`

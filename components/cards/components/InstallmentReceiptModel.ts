@@ -13,6 +13,7 @@ export type QuickPaymentOptions = {
     partialBalanceAction?: PartialBalanceAction;
     operationType?: import('../../../services/payments/paymentEngineV4').FinancialOperationType;
     paymentMethod?: FinancialPaymentMethod;
+    manualDate?: Date | null;
     expectedPreview?: FinancialOperationResult;
 };
 export type InstallmentPaymentHandler = (

@@ -153,7 +153,7 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
                 loan: data.loan,
                 inst: data.inst,
                 paymentDate,
-                preserveOriginalCycle,
+                preserveOriginalCycle: preservesOriginalCycle,
             });
             if (!manualDateEdited && nextDate) setSuggestedManualDateStr(toISODateOnlyUTC(nextDate));
         }

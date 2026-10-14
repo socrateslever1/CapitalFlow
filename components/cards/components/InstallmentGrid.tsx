@@ -1,9 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, CheckCircle2, Loader2, WalletCards, Receipt, Calendar, AlertCircle, ChevronRight, Check } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, WalletCards, ChevronRight, Check } from 'lucide-react';
 import { Modal } from '../../ui/Modal';
 import { LateFeeWaiverOptions } from '../../modals/payment/LateFeeWaiverOptions';
-import { toISODateOnlyUTC, formatBRDate, getDueStatus } from '../../../utils/dateHelpers';
+import { DebtCompositionSummary } from '../../modals/payment/DebtCompositionSummary';
+import { ReceiptRemainderDecision } from '../../modals/payment/ReceiptRemainderDecision';
+import { toISODateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
@@ -11,9 +13,9 @@ import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
-import { buildInstallmentReceiptModel, inferReceiptMode, type PartialBalanceAction, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
-import { resolveReceiptDecision } from '../../../services/payments/receiptDecision';
+import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -43,7 +45,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [quickMode, setQuickMode] = React.useState<QuickMode>('TOTAL');
     const [manualReceiptMode, setManualReceiptMode] = React.useState(false);
     const [lateFeeForgiven, setLateFeeForgiven] = React.useState(0);
-    const [partialBalanceAction, setPartialBalanceAction] = React.useState<PartialBalanceAction>('CAPITALIZE');
+    const [businessAction, setBusinessAction] = React.useState<ReceiptBusinessAction>('CAPITALIZE_REMAINDER');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
     const [reviewPreview, setReviewPreview] = React.useState<FinancialOperationResult | null>(null);
     const [isReviewReady, setIsReviewReady] = React.useState(false);
@@ -61,7 +63,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
         setReviewPreview(null);
         setIsReviewReady(false);
         setReceiptError(null);
-    }, [selectedInst?.id, receiptAmount, quickMode, lateFeeForgiven, partialBalanceAction]);
+    }, [selectedInst?.id, receiptAmount, quickMode, lateFeeForgiven, businessAction]);
 
     const context = {
         fixedTermStats,
@@ -112,7 +114,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 setQuickMode('TOTAL');
                                 setManualReceiptMode(false);
                                 setLateFeeForgiven(0);
-                                setPartialBalanceAction('KEEP_PENDING');
+                                setBusinessAction('CAPITALIZE_REMAINDER');
                                 setReviewPreview(null);
                                 setIsReviewReady(false);
                                 setReceiptError(null);
@@ -147,7 +149,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
             {selectedInst && selectedDebt && (() => {
                 const {
-                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, canAbatePrincipal, isDirectCapitalReduction
+                    principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount,
+                    totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly,
+                    hasActiveOffer, forgivenessMode, isPartialPayment, isOnline, missingInterestAmount,
+                    needsBusinessChoice, modalityRule, receiptEffect, automaticDecision, canAbatePrincipal,
+                    isDirectCapitalReduction
                 } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount });
 
                 const resetSelection = () => {
@@ -156,14 +162,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setQuickMode('TOTAL');
                     setManualReceiptMode(false);
                     setLateFeeForgiven(0);
-                    setPartialBalanceAction('CAPITALIZE');
+                    setBusinessAction('CAPITALIZE_REMAINDER');
                     setReviewPreview(null);
                     setIsReviewReady(false);
                     setReceiptError(null);
                 };
                 const instNumber = selectedInst.number ?? 1;
                 const dueDateFormatted = formatBRDate(selectedInst.dueDate);
-                const dueInfo = getDueStatus(selectedInst.dueDate);
 
                 const modalContent = (
                 <Modal onClose={resetSelection} title="Registrar recebimento" subtitle={`Parcela nº ${instNumber} · Vencimento ${dueDateFormatted}`} size="sm">

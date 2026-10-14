@@ -322,7 +322,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     lateFee={lateFee}
                                     referenceDate={toISODateOnlyUTC(new Date())}
                                     value={appliedLateFeeForgiveness}
-                                    onChange={setLateFeeForgiven}
+                                    onChange={(amount) => {
+                                        setLateFeeForgiven(amount);
+                                        if (quickMode === 'CHARGES_ONLY' && Math.max(0, lateFee - amount) <= ZERO_BALANCE_THRESHOLD) {
+                                            setQuickMode('INTEREST_ONLY');
+                                            setReceiptAmount(String(interest.toFixed(2)));
+                                        }
+                                    }}
                                     isStealthMode={isStealthMode}
                                 />
                             )}
@@ -437,37 +443,14 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             {hasActiveOffer && isPartialPayment && (
                                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-[10px] font-bold text-emerald-300">O saldo da condição continuará reservado até a data combinada, sem renovação de juros nem nova negociação.</p>
                             )}
-                            {isPartialPayment && !hasActiveOffer && quickMode !== 'PRINCIPAL_REDUCTION' && partialBalanceAction !== 'PRINCIPAL_REDUCTION' && (
-                                <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.05] p-3 space-y-2">
-                                    <div>
-                                        <p className="text-[9px] font-black uppercase tracking-wide text-amber-300">Recebimento parcial</p>
-                                        <p className="mt-0.5 text-[9px] leading-4 text-slate-400">
-                                            Restam {formatMoney(remainingAfterInput, isStealthMode)}. Escolha exatamente o que o sistema deve fazer com esse saldo.
-                                        </p>
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-1.5">
-                                        {partialChoices.map((choice) => (
-                                            <button
-                                                key={choice.value}
-                                                type="button"
-                                                disabled={choice.disabled}
-                                                onClick={() => setPartialBalanceAction(choice.value)}
-                                                className={`rounded-lg border p-2.5 text-left transition-all disabled:cursor-not-allowed disabled:opacity-35 ${partialBalanceAction === choice.value ? choice.activeClass : 'border-slate-700 bg-slate-950 text-slate-300'}`}
-                                            >
-                                                <span className="block text-[9px] font-black uppercase">{choice.title}</span>
-                                                <span className="mt-0.5 block text-[8px] leading-3.5 opacity-75">{choice.detail}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    {partialBalanceAction === 'SETTLE' && (
-                                        <p className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2 text-[8px] font-bold leading-3.5 text-emerald-200">
-                                            Quitação por acordo exige internet e registra o saldo dispensado como desconto auditável. Se houver outras parcelas abertas, elas não serão apagadas automaticamente.
-                                        </p>
-                                    )}
-                                    {partialBalanceAction === 'RENEW_KEEP_PENDING' && !canRenewWithPending && (
-                                        <p className="text-[8px] font-bold text-amber-300">Renovação parcial está disponível apenas para contratos mensais ou de giro.</p>
-                                    )}
-                                </div>
+                            {needsBusinessChoice && (
+                                <ReceiptRemainderDecision
+                                    remainingInterest={missingInterestAmount}
+                                    value={businessAction}
+                                    onChange={setBusinessAction}
+                                    isOnline={isOnline}
+                                    isStealthMode={isStealthMode}
+                                />
                             )}
 
                              {isReviewReady && (
@@ -504,12 +487,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             </>
                                         )}
                                     </div>
-                                    {isPartialPayment && !hasActiveOffer && (
-                                        <p className="mt-3 text-[9px] leading-4 text-slate-300">
-                                            <span className="font-black text-white">Saldo restante:</span>{' '}
-                                            {partialChoices.find(choice => choice.value === partialBalanceAction)?.title}.
-                                        </p>
-                                    )}
+
                                 </div>
                             )}
                             {receiptError && (
@@ -544,24 +522,26 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         setReceiptError('O valor a abater não pode ser maior que o capital em aberto.');
                                         return;
                                     }
-                    const automaticDecision = resolveReceiptDecision({
-                        amountReceived: amount,
-                        principal,
-                        interest,
-                        lateFee: effectiveLateFee,
-                        billingCycle: loan.billingCycle,
-                        businessAction: (quickMode === 'PRINCIPAL_REDUCTION' || partialBalanceAction === 'PRINCIPAL_REDUCTION') ? 'PRINCIPAL_REDUCTION' : undefined,
-                    });
-                    const effectivePartialAction = (isPartialPayment || quickMode === 'PRINCIPAL_REDUCTION') && !hasActiveOffer ? partialBalanceAction : undefined;
-                    const effectiveOperation = !hasActiveOffer
-                        ? (quickMode === 'PRINCIPAL_REDUCTION' || partialBalanceAction === 'PRINCIPAL_REDUCTION' || automaticDecision.operationType === 'PRINCIPAL_REDUCTION'
-                            ? 'PRINCIPAL_REDUCTION'
-                            : isPartialPayment && effectivePartialAction === 'CAPITALIZE'
-                            ? 'CAPITALIZE_RENEWAL'
-                            : isPartialPayment && effectivePartialAction === 'SETTLE'
-                                ? 'DISCOUNT_RENEWAL'
-                                : automaticDecision.operationType)
-                        : 'KEEP_PENDING';
+                                    const finalDecision = quickMode === 'PRINCIPAL_REDUCTION'
+                                        ? resolveReceiptDecision({
+                                            amountReceived: amount,
+                                            principal,
+                                            interest,
+                                            lateFee: effectiveLateFee,
+                                            billingCycle: loan.billingCycle,
+                                            businessAction: 'PRINCIPAL_REDUCTION',
+                                        })
+                                        : needsBusinessChoice
+                                            ? resolveReceiptDecision({
+                                                amountReceived: amount,
+                                                principal,
+                                                interest,
+                                                lateFee: effectiveLateFee,
+                                                billingCycle: loan.billingCycle,
+                                                businessAction,
+                                            })
+                                            : automaticDecision;
+                                    const effectiveOperation = hasActiveOffer ? 'KEEP_PENDING' : finalDecision.operationType;
                                     const preferredMethod = String(loan.preferredPaymentMethod || 'OTHER').toUpperCase();
                                     const paymentMethod = (['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO'].includes(preferredMethod)
                                         ? preferredMethod
@@ -594,7 +574,6 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     const paymentOptions: QuickPaymentOptions = {
                                         forgivenessMode,
                                         lateFeeForgiven: appliedLateFeeForgiveness,
-                                        partialBalanceAction: effectivePartialAction,
                                         operationType: effectiveOperation,
                                         paymentMethod,
                                         expectedPreview: reviewPreview || undefined,

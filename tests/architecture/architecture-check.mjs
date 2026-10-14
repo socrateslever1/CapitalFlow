@@ -317,6 +317,10 @@ for (const required of ['process_financial_operation_v4', 'preview_financial_ope
 if (/\.from\(['"](?:parcelas|contratos|fontes|perfis|transacoes|payment_transactions)['"]\)/.test(paymentEngineV4)) {
   failures.push('paymentEngineV4.ts -> acesso direto a tabela financeira proibido');
 }
+
+if (/input\.operationType\s*===\s*['"]PRINCIPAL_REDUCTION['"]\s*\?\s*['"]KEEP_PENDING['"]/.test(paymentEngineV4)) {
+  failures.push('Payment Engine V4 -> abatimento de capital não pode ser convertido em recebimento comum');
+}
 if (/window\.(?:confirm|alert)\s*\(/.test(installmentGrid)) {
   failures.push('InstallmentGrid.tsx -> recebimento deve usar confirmação visual interna, não alerta nativo');
 }

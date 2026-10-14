@@ -137,7 +137,7 @@ function rpcArgs(input: FinancialOperationInput) {
   return {
     p_loan_id: loanId,
     p_installment_id: installmentId,
-    p_operation_type: input.operationType === 'PRINCIPAL_REDUCTION' ? 'KEEP_PENDING' : input.operationType,
+    p_operation_type: input.operationType,
     p_amount_received: normalizeMoney(input.amountReceived),
     p_payment_method: input.paymentMethod,
     p_payment_date: input.paymentDate,

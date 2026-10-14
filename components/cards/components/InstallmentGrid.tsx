@@ -16,6 +16,7 @@ import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../do
 import { buildInstallmentReceiptModel, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
+import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewalPlan';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -542,6 +543,16 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             })
                                             : automaticDecision;
                                     const effectiveOperation = hasActiveOffer ? 'KEEP_PENDING' : finalDecision.operationType;
+                                    const paymentDate = new Date();
+                                    const advancesDueDate = ['RENEW_KEEP_PENDING', 'CAPITALIZE_RENEWAL', 'DISCOUNT_RENEWAL'].includes(effectiveOperation);
+                                    const suggestedRenewalDate = advancesDueDate
+                                        ? suggestRenewalDueDate({
+                                            loan,
+                                            inst: selectedInst,
+                                            paymentDate,
+                                            preserveOriginalCycle: needsBusinessChoice || appliedLateFeeForgiveness > ZERO_BALANCE_THRESHOLD,
+                                        })
+                                        : null;
                                     const preferredMethod = String(loan.preferredPaymentMethod || 'OTHER').toUpperCase();
                                     const paymentMethod = (['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO'].includes(preferredMethod)
                                         ? preferredMethod
@@ -557,9 +568,10 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                      operationType: effectiveOperation,
                                                     amountReceived: amount,
                                                     paymentMethod,
-                                                    paymentDate: toISODateOnlyUTC(new Date()),
+                                                    paymentDate: toISODateOnlyUTC(paymentDate),
                                                     forgivenessMode,
                                                     requestedLateFeeForgiven: appliedLateFeeForgiveness,
+                                                    manualDueDate: suggestedRenewalDate ? toISODateOnlyUTC(suggestedRenewalDate) : null,
                                                 });
                                                 setReviewPreview(preview);
                                             }
@@ -576,6 +588,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         lateFeeForgiven: appliedLateFeeForgiveness,
                                         operationType: effectiveOperation,
                                         paymentMethod,
+                                        manualDate: suggestedRenewalDate,
                                         expectedPreview: reviewPreview || undefined,
                                     };
                                     setIsSubmittingReceipt(true);

@@ -72,6 +72,9 @@ function financialOperationError(error: unknown, action: 'PREVIEW' | 'EXECUTE') 
   if (/permission|permiss[aã]o|access denied|acesso negado|jwt|auth/i.test(message)) {
     return 'Sua sessão não tem permissão para concluir este recebimento. Entre novamente ou procure o administrador.';
   }
+  if (/could not find the function|schema cache|pgrst202|process_recurring_receipt_v4/i.test(message)) {
+    return 'A rotina de recebimento precisa ser atualizada no servidor. Atualize a página e tente novamente.';
+  }
   if (/posição financeira mudou|posicao financeira mudou|expected_preview|prévia|previa/i.test(message)) {
     return 'Os valores desta parcela mudaram durante a confirmação. Revise os dados atualizados antes de continuar.';
   }

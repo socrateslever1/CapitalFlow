@@ -9,7 +9,7 @@ import { calculateMonthlyInstallments } from '../../features/loans/modalities/mo
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import { planPaymentRenewal, suggestRenewalDueDate } from '../../services/payments/paymentRenewalPlan';
-import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, calculateReceiptForTargetBalance, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
 import { calculateAdditionalCapital, isPrincipalReduction, canReceiveCapitalAdvance } from '../../domain/finance/capitalAdvance';
@@ -606,6 +606,26 @@ run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () =
   const waived = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 30, quickMode: 'CHARGES_ONLY' });
   assertMoney(waived.displayedAmount, 120, 'dispensa total do atraso deixa somente juros');
   assert.equal(waived.canReceiveChargesOnly, false, 'atalho duplicado deve desaparecer quando atraso foi dispensado');
+});
+
+run('ajuste por saldo desejado usa recebimento normal e não abatimento direto', () => {
+  assertMoney(calculateReceiptForTargetBalance(624, 300) || 0, 324, '624 para 300 exige registro de 324');
+  assert.equal(calculateReceiptForTargetBalance(624, 700), null, 'saldo alvo acima do total deve ser recusado');
+
+  const model = buildInstallmentReceiptModel({
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-10-16', principalRemaining: 480, interestRemaining: 144, lateFeeAccrued: 0 } as any,
+    selectedDebt: { principal: 480, interest: 144, lateFee: 0, total: 624 },
+    lateFeeForgiven: 0,
+    quickMode: 'CUSTOM',
+    receiptAmount: '324',
+    showCustomAmount: true,
+  });
+
+  assertMoney(model.displayedAmount, 324, 'valor recebido');
+  assertMoney(model.remainingAfterInput, 300, 'saldo restante');
+  assert.equal(model.automaticDecision.operationType, 'RENEW_KEEP_PENDING');
+  assert.ok(model.receiptEffect.includes('R$ 180') || model.receiptEffect.includes('R$ 180') || model.receiptEffect.includes('180,00'));
 });
 
 run('abatimento de valor fica sempre disponível com capital e distingue janela de 10 dias', () => {

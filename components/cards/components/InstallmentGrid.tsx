@@ -13,7 +13,7 @@ import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
-import { buildInstallmentReceiptModel, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, calculateReceiptForTargetBalance, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
 import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewalPlan';
@@ -42,11 +42,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [selectedInst, setSelectedInst] = React.useState<Installment | null>(null);
     const [selectedDebt, setSelectedDebt] = React.useState<any>(null);
     const [receiptAmount, setReceiptAmount] = React.useState('');
+    const [targetBalance, setTargetBalance] = React.useState('');
     const [showCustomAmount, setShowCustomAmount] = React.useState(false);
     const [quickMode, setQuickMode] = React.useState<QuickMode>('TOTAL');
     const [manualReceiptMode, setManualReceiptMode] = React.useState(false);
     const [lateFeeForgiven, setLateFeeForgiven] = React.useState(0);
-    const [businessAction, setBusinessAction] = React.useState<ReceiptBusinessAction>('CAPITALIZE_REMAINDER');
+    const [businessAction, setBusinessAction] = React.useState<ReceiptBusinessAction>('AUTOMATIC');
     const [offerInstallment, setOfferInstallment] = React.useState<Installment | null>(null);
     const [reviewPreview, setReviewPreview] = React.useState<FinancialOperationResult | null>(null);
     const [isReviewReady, setIsReviewReady] = React.useState(false);
@@ -111,11 +112,12 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     && String(targetInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
                                     && offerAmount > 0.05;
                                 setReceiptAmount(String(Number(offerIsActive ? offerAmount : targetDebt?.total || targetInst.amount || 0).toFixed(2)));
+                                setTargetBalance('');
                                 setShowCustomAmount(false);
                                 setQuickMode('TOTAL');
                                 setManualReceiptMode(false);
                                 setLateFeeForgiven(0);
-                                setBusinessAction('CAPITALIZE_REMAINDER');
+                                setBusinessAction('AUTOMATIC');
                                 setReviewPreview(null);
                                 setIsReviewReady(false);
                                 setReceiptError(null);
@@ -160,10 +162,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const resetSelection = () => {
                     setSelectedInst(null);
                     setSelectedDebt(null);
+                    setTargetBalance('');
                     setQuickMode('TOTAL');
                     setManualReceiptMode(false);
                     setLateFeeForgiven(0);
-                    setBusinessAction('CAPITALIZE_REMAINDER');
+                    setBusinessAction('AUTOMATIC');
                     setReviewPreview(null);
                     setIsReviewReady(false);
                     setReceiptError(null);
@@ -211,7 +214,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                 setManualReceiptMode(true);
                                                 setShowCustomAmount(false);
                                                 setReceiptAmount(String(totalAmount.toFixed(2)));
-                                                setBusinessAction('CAPITALIZE_REMAINDER');
+                                                setBusinessAction('AUTOMATIC');
                                             }}
                                             className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                 quickMode === 'TOTAL' && !showCustomAmount
@@ -231,7 +234,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     setManualReceiptMode(true);
                                                     setShowCustomAmount(false);
                                                     setReceiptAmount(String(interest.toFixed(2)));
-                                                    setBusinessAction('CAPITALIZE_REMAINDER');
+                                                    setBusinessAction('AUTOMATIC');
                                                 }}
                                                 className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                     quickMode === 'INTEREST_ONLY'
@@ -252,7 +255,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     setManualReceiptMode(true);
                                                     setShowCustomAmount(false);
                                                     setReceiptAmount(String(chargesAmount.toFixed(2)));
-                                                    setBusinessAction('CAPITALIZE_REMAINDER');
+                                                    setBusinessAction('AUTOMATIC');
                                                 }}
                                                 className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                     quickMode === 'CHARGES_ONLY'
@@ -293,7 +296,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                 setManualReceiptMode(false);
                                                 setShowCustomAmount(true);
                                                 setReceiptAmount('');
-                                                setBusinessAction('CAPITALIZE_REMAINDER');
+                                                setTargetBalance('');
+                                                setBusinessAction('AUTOMATIC');
                                             }}
                                             className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                 quickMode === 'CUSTOM' && showCustomAmount
@@ -310,7 +314,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
 
                             {hasActiveOffer && String(selectedInst.paymentOfferType || '').toUpperCase() !== 'INTEREST_RENEWAL' && (
                                 <button type="button"
-                                    onClick={() => { setQuickMode('CUSTOM'); setShowCustomAmount(true); setReceiptAmount(''); }}
+                                    onClick={() => { setQuickMode('CUSTOM'); setShowCustomAmount(true); setReceiptAmount(''); setTargetBalance(''); setBusinessAction('AUTOMATIC'); }}
                                     className="w-full rounded-lg border border-blue-500/40 bg-blue-500/10 py-2 text-[10px] font-black uppercase text-blue-300">
                                     Receber parte da condição
                                 </button>
@@ -358,6 +362,10 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             onChange={e => {
                                                 const nextAmount = e.target.value;
                                                 setReceiptAmount(nextAmount);
+                                                if (quickMode !== 'PRINCIPAL_REDUCTION') {
+                                                    setTargetBalance('');
+                                                    setBusinessAction('AUTOMATIC');
+                                                }
                                                 if (!manualReceiptMode) {
                                                     setQuickMode(inferReceiptMode(Number(nextAmount) || 0, totalAmount, interest));
                                                 }
@@ -366,6 +374,47 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             autoFocus
                                         />
                                     </div>
+                                    {quickMode !== 'PRINCIPAL_REDUCTION' && !hasActiveOffer && (
+                                        <div className="rounded-lg border border-slate-800/80 bg-slate-950/55 p-2.5">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Ou saldo que deve ficar</label>
+                                                <span className="text-[7.5px] text-slate-600">O recebimento é calculado automaticamente</span>
+                                            </div>
+                                            <div className="relative mt-1.5">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">R$</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    max={totalAmount}
+                                                    placeholder="Saldo final"
+                                                    value={targetBalance}
+                                                    onChange={(e) => {
+                                                        const nextTarget = e.target.value;
+                                                        setTargetBalance(nextTarget);
+                                                        setQuickMode('CUSTOM');
+                                                        setManualReceiptMode(false);
+                                                        setBusinessAction('AUTOMATIC');
+                                                        if (!nextTarget.trim()) {
+                                                            setReceiptAmount('');
+                                                            return;
+                                                        }
+                                                        const calculated = calculateReceiptForTargetBalance(totalAmount, Number(nextTarget));
+                                                        setReceiptAmount(calculated == null ? '' : calculated.toFixed(2));
+                                                    }}
+                                                    className="w-full rounded-md border border-slate-800 bg-slate-950 py-2 pl-8 pr-3 text-sm font-black text-white outline-none transition-colors focus:border-blue-500"
+                                                />
+                                            </div>
+                                            {targetBalance && calculateReceiptForTargetBalance(totalAmount, Number(targetBalance)) != null && (
+                                                <p className="mt-1.5 text-[8px] leading-3.5 text-slate-400">
+                                                    Para deixar {formatMoney(Number(targetBalance), isStealthMode)}, o registro será de {formatMoney(calculateReceiptForTargetBalance(totalAmount, Number(targetBalance)) || 0, isStealthMode)} e seguirá a distribuição normal da dívida.
+                                                </p>
+                                            )}
+                                            {targetBalance && calculateReceiptForTargetBalance(totalAmount, Number(targetBalance)) == null && (
+                                                <p className="mt-1.5 text-[8px] font-semibold text-rose-300">Informe um saldo entre zero e o total atual.</p>
+                                            )}
+                                        </div>
+                                    )}
                                     {quickMode === 'PRINCIPAL_REDUCTION' && principal > 0 && (
                                         <div className="flex items-center gap-1.5 pt-0.5">
                                             <span className="text-[7.5px] font-bold uppercase text-slate-400">Atalhos:</span>
@@ -513,12 +562,16 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 </button>
                             )}
                             <button
-                                disabled={isPreparingReview || isSubmittingReceipt || displayedAmount <= 0.05 || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD) || (quickMode === 'PRINCIPAL_REDUCTION' && displayedAmount > principal + ZERO_BALANCE_THRESHOLD)}
+                                disabled={isPreparingReview || isSubmittingReceipt || displayedAmount <= 0.05 || (needsBusinessChoice && businessAction === 'AUTOMATIC') || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD) || (quickMode === 'PRINCIPAL_REDUCTION' && displayedAmount > principal + ZERO_BALANCE_THRESHOLD)}
                                 onClick={async () => {
                                     const amount = quickMode === 'CUSTOM' || quickMode === 'PRINCIPAL_REDUCTION'
                                         ? Number(receiptAmount)
                                         : displayedAmount;
                                     if (!Number.isFinite(amount) || amount <= 0.05 || (hasActiveOffer && amount > activeOfferAmount + ZERO_BALANCE_THRESHOLD)) return;
+                                    if (needsBusinessChoice && businessAction === 'AUTOMATIC') {
+                                        setReceiptError('Escolha como tratar a diferença dos juros antes de continuar.');
+                                        return;
+                                    }
                                     if (quickMode === 'PRINCIPAL_REDUCTION' && amount > principal + ZERO_BALANCE_THRESHOLD) {
                                         setReceiptError('O valor a abater não pode ser maior que o capital em aberto.');
                                         return;

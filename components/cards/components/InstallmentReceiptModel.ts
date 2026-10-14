@@ -30,6 +30,13 @@ export function inferReceiptMode(amount: number, totalAmount: number, interest: 
     return 'CUSTOM';
 }
 
+export function calculateReceiptForTargetBalance(totalAmount: number, targetBalance: number): number | null {
+    const total = Math.max(0, Number(totalAmount) || 0);
+    const target = Number(targetBalance);
+    if (!Number.isFinite(target) || target < 0 || target > total + ZERO_BALANCE_THRESHOLD) return null;
+    return Math.max(0, Math.round((total - target + Number.EPSILON) * 100) / 100);
+}
+
 /** Prepara a janela de recebimento sem movimentar caixa ou alterar parcelas. */
 export function buildInstallmentReceiptModel(params: {
     loan: Loan;

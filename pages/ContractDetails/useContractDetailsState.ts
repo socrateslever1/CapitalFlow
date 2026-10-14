@@ -102,7 +102,8 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
         paymentType,
         setPaymentType,
         avAmount,
-        setAvAmount
+        setAvAmount,
+        lateFeeForgiven
     });
 
     const groupedLedger: Record<string, LedgerEntry[]> = useMemo(() => {

@@ -329,6 +329,13 @@ if (/setQuickMode\('INTEREST_ONLY'\)[\s\S]{0,300}setPartialBalanceAction\([^)]*R
 for (const label of ['Quitar esta parcela', 'Receber outro valor', 'Receber somente juros', 'Receber juros e atraso']) {
   if (!installmentGrid.includes(label)) failures.push(`InstallmentGrid.tsx -> ação de recebimento sem descrição clara: ${label}`);
 }
+
+if (!installmentGrid.includes('ReceiptRemainderDecision') || !paymentManagerModal.includes('ReceiptRemainderDecision')) {
+  failures.push('recebimentos -> decisões excepcionais devem reutilizar o mesmo componente');
+}
+if (installmentGrid.includes('setPartialBalanceAction')) {
+  failures.push('InstallmentGrid.tsx -> não deve manter um segundo roteador local de decisões parciais');
+}
 for (const required of [
   'drop constraint if exists payment_transactions_operator_profile_id_fkey',
   'references public.perfis(id)',

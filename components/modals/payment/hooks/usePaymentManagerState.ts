@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Loan, Installment } from '../../../../types';
-import { parseDateOnlyUTC, addCollectionDaysUTC, addDaysUTC, addMonthsUTC, normalizeCollectionDaysMode, todayDateOnlyUTC, toISODateOnlyUTC, getDaysDiff } from '../../../../utils/dateHelpers';
+import { parseDateOnlyUTC, addDaysUTC, addMonthsUTC, todayDateOnlyUTC, toISODateOnlyUTC, getDaysDiff } from '../../../../utils/dateHelpers';
+import { suggestRenewalDueDate } from '../../../../services/payments/paymentRenewalPlan';
 import { paymentModalityDispatcher } from '../../../../features/payments/modality/index';
 import { modalityRegistry } from '../../../../domain/finance/modalities/registry';
 import { formatMoney } from '../../../../utils/formatters';
@@ -12,6 +13,7 @@ interface UsePaymentManagerProps {
     setPaymentType: (t: any) => void;
     avAmount: string;
     setAvAmount: (v: string) => void;
+    lateFeeForgiven?: number;
 }
 
 export type ForgivenessMode =
@@ -26,7 +28,7 @@ export type ForgivenessMode =
 
 export type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDING';
 
-export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAmount, setAvAmount }: UsePaymentManagerProps) => {
+export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAmount, setAvAmount, lateFeeForgiven = 0 }: UsePaymentManagerProps) => {
     const [customAmount, setCustomAmount] = useState('');
     const [manualDateStr, setSuggestedManualDateStr] = useState('');
     const [manualDateEdited, setManualDateEdited] = useState(false);
@@ -143,19 +145,19 @@ export const usePaymentManagerState = ({ data, paymentType, setPaymentType, avAm
 
     useEffect(() => {
         if (data && data.inst?.dueDate && realPaymentDateStr) {
-            const baseDate = parseDateOnlyUTC(realPaymentDateStr);
-            const isDaily = resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM';
+            const paymentDate = parseDateOnlyUTC(realPaymentDateStr);
             const dueDate = parseDateOnlyUTC(data.inst.dueDate);
-            const overdue = baseDate > dueDate;
-            const preservesOriginalDay = overdue && forgivenessMode !== 'NONE';
-            const collectionDaysMode = normalizeCollectionDaysMode(data.loan.collectionDaysMode, !!data.loan.skipWeekends);
-            const nextDate = isDaily ? addCollectionDaysUTC(baseDate, 1, collectionDaysMode)
-                : preservesOriginalDay
-                    ? addDaysUTC(dueDate, 30)
-                    : addDaysUTC(baseDate, 30);
-            if (!manualDateEdited) setSuggestedManualDateStr(toISODateOnlyUTC(nextDate));
+            const overdue = paymentDate > dueDate;
+            const preservesOriginalCycle = overdue && (forgivenessMode !== 'NONE' || lateFeeForgiven > 0.05);
+            const nextDate = suggestRenewalDueDate({
+                loan: data.loan,
+                inst: data.inst,
+                paymentDate,
+                preserveOriginalCycle: preservesOriginalCycle,
+            });
+            if (!manualDateEdited && nextDate) setSuggestedManualDateStr(toISODateOnlyUTC(nextDate));
         }
-    }, [data?.loan?.id, data?.inst?.id, data?.inst?.dueDate, resolvedBillingCycle, realPaymentDateStr, forgivenessMode, manualDateEdited]);
+    }, [data?.loan?.id, data?.inst?.id, data?.inst?.dueDate, resolvedBillingCycle, realPaymentDateStr, forgivenessMode, lateFeeForgiven, manualDateEdited]);
 
     return {
         customAmount, setCustomAmount,

@@ -8,7 +8,7 @@ import {
 import { calculateMonthlyInstallments } from '../../features/loans/modalities/monthly/monthly.calculations';
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
-import { planPaymentRenewal } from '../../services/payments/paymentRenewalPlan';
+import { planPaymentRenewal, suggestRenewalDueDate } from '../../services/payments/paymentRenewalPlan';
 import { buildInstallmentReceiptModel, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
@@ -415,6 +415,43 @@ run('renovação parcial avança pela data contratual sem somar juros novos', ()
   assertMoney(balance.interestRemaining, 300, 'juros em aberto preservados');
 });
 
+run('regra única de próximo vencimento diferencia dispensa e regularização completa', () => {
+  const monthly = { billingCycle: 'MONTHLY' } as any;
+  const inst = { dueDate: '2026-10-02' } as any;
+
+  const preserved = suggestRenewalDueDate({
+    loan: monthly,
+    inst,
+    paymentDate: '2026-10-13',
+    preserveOriginalCycle: true,
+  });
+  assert.equal(toISODateOnlyUTC(preserved), '2026-11-01');
+
+  const restarted = suggestRenewalDueDate({
+    loan: monthly,
+    inst,
+    paymentDate: '2026-10-13',
+    preserveOriginalCycle: false,
+  });
+  assert.equal(toISODateOnlyUTC(restarted), '2026-11-12');
+
+  const weekly = suggestRenewalDueDate({
+    loan: { billingCycle: 'WEEKLY', collectionDaysMode: 'SKIP_WEEKEND' } as any,
+    inst: { dueDate: '2026-10-09' } as any,
+    paymentDate: '2026-10-09',
+    preserveOriginalCycle: true,
+  });
+  assert.equal(toISODateOnlyUTC(weekly), '2026-10-16');
+
+  const daily = suggestRenewalDueDate({
+    loan: { billingCycle: 'DAILY_FREE', collectionDaysMode: 'SKIP_WEEKEND' } as any,
+    inst: { dueDate: '2026-10-16' } as any,
+    paymentDate: '2026-10-16',
+    preserveOriginalCycle: false,
+  });
+  assert.equal(toISODateOnlyUTC(daily), '2026-10-19');
+});
+
 run('regularização integral reinicia pela data do pagamento; data manual prevalece', () => {
   const base = {
     loan: { billingCycle: 'MONTHLY', interestRate: 30 } as any,
@@ -484,8 +521,20 @@ run('condição especial mantém o saldo de um recebimento parcial sem acionar r
   assert.equal(preview.isPartialPayment, true);
 });
 
-run('janela de recebimento explica as três decisões excepcionais em linguagem clara', () => {
-  const preview = buildInstallmentReceiptModel({
+run('janela só pede decisão extra quando o valor não cobre os juros', () => {
+  const underInterest = buildInstallmentReceiptModel({
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-09-01', principalRemaining: 400, interestRemaining: 120, lateFeeAccrued: 0 } as any,
+    selectedDebt: { principal: 400, interest: 120, lateFee: 0, total: 520 },
+    lateFeeForgiven: 0,
+    quickMode: 'CUSTOM',
+    receiptAmount: '80',
+  });
+  assert.equal(underInterest.needsBusinessChoice, true);
+  assertMoney(underInterest.missingInterestAmount, 40, 'diferença dos juros');
+  assert.ok(underInterest.receiptEffect.includes('Ainda faltam'));
+
+  const aboveInterest = buildInstallmentReceiptModel({
     loan: { billingCycle: 'MONTHLY' } as any,
     selectedInst: { dueDate: '2026-09-01', principalRemaining: 400, interestRemaining: 120, lateFeeAccrued: 0 } as any,
     selectedDebt: { principal: 400, interest: 120, lateFee: 0, total: 520 },
@@ -493,14 +542,8 @@ run('janela de recebimento explica as três decisões excepcionais em linguagem 
     quickMode: 'CUSTOM',
     receiptAmount: '220',
   });
-
-  assert.deepEqual(preview.partialChoices.map((choice) => choice.title), [
-    'Somar restante ao capital',
-    'Manter restante pendente',
-    'Renovar com desconto',
-  ]);
-  assert.ok(preview.partialChoices.every((choice) => choice.detail.length >= 45));
-  assert.ok(!/backend|keep_pending|capitalize|settle/i.test(`${preview.modalityRule.rule} ${preview.partialChoices.map((choice) => choice.detail).join(' ')}`));
+  assert.equal(aboveInterest.needsBusinessChoice, false);
+  assert.equal(aboveInterest.automaticDecision.operationType, 'RENEW_KEEP_PENDING');
 });
 
 run('modo de recebimento acompanha o valor informado sem bloquear a troca manual', () => {
@@ -510,12 +553,38 @@ run('modo de recebimento acompanha o valor informado sem bloquear a troca manual
   assert.equal(inferReceiptMode(220, 520, 120), 'CUSTOM');
 });
 
-run('recebimento recorrente escolhe renovação sem expor decisão técnica', () => {
+run('recebimento recorrente renova só quando o atraso efetivo foi regularizado', () => {
   assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
   assert.equal(resolveReceiptDecision({ amountReceived: 220, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
-   assert.equal(resolveReceiptDecision({ amountReceived: 80, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).needsBusinessChoice, true);
-   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 600, interest: 0, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'PRINCIPAL_REDUCTION');
-   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 400, interest: 0, lateFee: 0, billingCycle: 'MONTHLY', businessAction: 'PRINCIPAL_REDUCTION' }).operationType, 'PRINCIPAL_REDUCTION');
+  assert.equal(resolveReceiptDecision({ amountReceived: 120, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 149, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 150, principal: 400, interest: 120, lateFee: 30, billingCycle: 'MONTHLY' }).operationType, 'RENEW_KEEP_PENDING');
+  assert.equal(resolveReceiptDecision({ amountReceived: 80, principal: 400, interest: 120, lateFee: 0, billingCycle: 'MONTHLY' }).needsBusinessChoice, true);
+  assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 600, interest: 0, lateFee: 0, billingCycle: 'MONTHLY' }).operationType, 'PRINCIPAL_REDUCTION');
+  assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 400, interest: 0, lateFee: 0, billingCycle: 'MONTHLY', businessAction: 'PRINCIPAL_REDUCTION' }).operationType, 'PRINCIPAL_REDUCTION');
+});
+
+run('cenário de juros 300 e atraso 169 não duplica opções nem renova atraso aberto', () => {
+  const base = {
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-10-02', principalRemaining: 1000, interestRemaining: 300, lateFeeAccrued: 169 } as any,
+    selectedDebt: { principal: 1000, interest: 300, lateFee: 169, total: 1469 },
+    quickMode: 'INTEREST_ONLY' as const,
+    receiptAmount: '',
+  };
+
+  const charged = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 0 });
+  assertMoney(charged.displayedAmount, 300, 'somente juros');
+  assert.equal(charged.canReceiveChargesOnly, true);
+  assert.equal(charged.needsBusinessChoice, false);
+  assert.equal(charged.automaticDecision.operationType, 'KEEP_PENDING');
+  assert.ok(charged.receiptEffect.includes('continua pendente'));
+
+  const waived = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 169 });
+  assertMoney(waived.displayedAmount, 300, 'juros após dispensa');
+  assert.equal(waived.canReceiveChargesOnly, false, 'juros + atraso duplicado deve sumir');
+  assert.equal(waived.needsBusinessChoice, false);
+  assert.equal(waived.automaticDecision.operationType, 'RENEW_KEEP_PENDING');
 });
 
 run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () => {
@@ -530,7 +599,13 @@ run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () =
   assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'TOTAL' }).displayedAmount, 550, 'quitação recebe todo o saldo');
   assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'CUSTOM', receiptAmount: '175' }).displayedAmount, 175, 'outro valor respeita o informado');
   assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'INTEREST_ONLY' }).displayedAmount, 120, 'somente juros não inclui capital nem atraso');
-  assertMoney(buildInstallmentReceiptModel({ ...base, quickMode: 'CHARGES_ONLY' }).displayedAmount, 150, 'juros e atraso não incluem capital');
+  const charges = buildInstallmentReceiptModel({ ...base, quickMode: 'CHARGES_ONLY' });
+  assertMoney(charges.displayedAmount, 150, 'juros e atraso não incluem capital');
+  assert.equal(charges.canReceiveChargesOnly, true);
+
+  const waived = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 30, quickMode: 'CHARGES_ONLY' });
+  assertMoney(waived.displayedAmount, 120, 'dispensa total do atraso deixa somente juros');
+  assert.equal(waived.canReceiveChargesOnly, false, 'atalho duplicado deve desaparecer quando atraso foi dispensado');
 });
 
 run('abatimento de valor fica sempre disponível com capital e distingue janela de 10 dias', () => {
@@ -558,7 +633,7 @@ run('abatimento de valor fica sempre disponível com capital e distingue janela 
   });
   assert.equal(after10Days.canAbatePrincipal, true);
   assert.equal(after10Days.isDirectCapitalReduction, false);
-  assert.ok(after10Days.receiptEffect.includes('quita os juros') && after10Days.receiptEffect.includes('abate'));
+  assert.ok(after10Days.receiptEffect.toLowerCase().includes('quita os juros') && after10Days.receiptEffect.toLowerCase().includes('abate'));
 
   const zeroPrincipal = buildInstallmentReceiptModel({
     ...base,

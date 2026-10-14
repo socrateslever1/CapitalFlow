@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { paymentsService } from '../../services/payments.service';
 import { UserProfile, Loan, CapitalSource, UIController } from '../../types';
-import type { FinancialOperationResult, FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
+import type { FinancialOperationResult, FinancialOperationType, FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -19,7 +19,7 @@ const parseMoney = (v: string) => {
   return parseFloat(clean) || 0;
 };
 
-type InterestHandling = 'CAPITALIZE' | 'KEEP_PENDING' | 'RENEW_KEEP_PENDING';
+type InterestHandling = FinancialOperationType;
 
 export const usePaymentController = (
   activeUser: UserProfile | null,

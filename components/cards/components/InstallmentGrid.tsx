@@ -151,7 +151,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 const {
                     principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount,
                     totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly,
-                    hasActiveOffer, forgivenessMode, isPartialPayment, isOnline, missingInterestAmount,
+                    hasActiveOffer, forgivenessMode, isPartialPayment, isOnline, remainingAfterInput, missingInterestAmount,
                     needsBusinessChoice, modalityRule, receiptEffect, automaticDecision, canAbatePrincipal,
                     isDirectCapitalReduction
                 } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount });

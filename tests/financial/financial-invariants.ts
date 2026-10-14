@@ -527,6 +527,29 @@ run('recebimento recorrente renova só quando o atraso efetivo foi regularizado'
   assert.equal(resolveReceiptDecision({ amountReceived: 200, principal: 400, interest: 0, lateFee: 0, billingCycle: 'MONTHLY', businessAction: 'PRINCIPAL_REDUCTION' }).operationType, 'PRINCIPAL_REDUCTION');
 });
 
+run('cenário de juros 300 e atraso 169 não duplica opções nem renova atraso aberto', () => {
+  const base = {
+    loan: { billingCycle: 'MONTHLY' } as any,
+    selectedInst: { dueDate: '2026-10-02', principalRemaining: 1000, interestRemaining: 300, lateFeeAccrued: 169 } as any,
+    selectedDebt: { principal: 1000, interest: 300, lateFee: 169, total: 1469 },
+    quickMode: 'INTEREST_ONLY' as const,
+    receiptAmount: '',
+  };
+
+  const charged = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 0 });
+  assertMoney(charged.displayedAmount, 300, 'somente juros');
+  assert.equal(charged.canReceiveChargesOnly, true);
+  assert.equal(charged.needsBusinessChoice, false);
+  assert.equal(charged.automaticDecision.operationType, 'KEEP_PENDING');
+  assert.ok(charged.receiptEffect.includes('continua pendente'));
+
+  const waived = buildInstallmentReceiptModel({ ...base, lateFeeForgiven: 169 });
+  assertMoney(waived.displayedAmount, 300, 'juros após dispensa');
+  assert.equal(waived.canReceiveChargesOnly, false, 'juros + atraso duplicado deve sumir');
+  assert.equal(waived.needsBusinessChoice, false);
+  assert.equal(waived.automaticDecision.operationType, 'RENEW_KEEP_PENDING');
+});
+
 run('atalhos de recebimento usam valores coerentes com o efeito anunciado', () => {
   const base = {
     loan: { billingCycle: 'MONTHLY' } as any,

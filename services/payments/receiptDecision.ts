@@ -64,5 +64,13 @@ export function resolveReceiptDecision(input: ReceiptDecisionInput): ReceiptDeci
     return { action: 'CAPITALIZE_REMAINDER', operationType: 'CAPITALIZE_RENEWAL', isRecurring, needsBusinessChoice: true };
   }
 
+  // Cobrir os juros não significa que o atraso foi regularizado.
+  // Enquanto houver multa/mora não paga, o recebimento fica no vencimento atual.
+  // Se o operador dispensar o atraso, a UI chama esta função com lateFee = 0
+  // e a renovação volta a ser automática.
+  if (lateFee > EPSILON && amount < interest + lateFee - EPSILON) {
+    return { action: 'AUTOMATIC', operationType: 'KEEP_PENDING', isRecurring, needsBusinessChoice: false };
+  }
+
   return { action: 'AUTOMATIC', operationType: 'RENEW_KEEP_PENDING', isRecurring, needsBusinessChoice: false };
 }

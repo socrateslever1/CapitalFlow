@@ -138,7 +138,7 @@ export const paymentsService = {
       competenceDate: paymentDateStr,
       forgivenessMode,
       requestedLateFeeForgiven,
-      manualDueDate: operationType === 'RENEW_KEEP_PENDING' && manualDate
+      manualDueDate: ['RENEW_KEEP_PENDING', 'CAPITALIZE_RENEWAL', 'DISCOUNT_RENEWAL'].includes(operationType) && manualDate
         ? toISODateOnlyUTC(manualDate)
         : null,
       caixaLivreId: safeUUID(caixaLivreId),

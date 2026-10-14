@@ -29,7 +29,7 @@ export function inferReceiptMode(amount: number, totalAmount: number, interest: 
     return 'CUSTOM';
 }
 
-/** Preparação pura da janela rápida: não movimenta caixa nem altera parcelas. */
+/** Prepara a janela de recebimento sem movimentar caixa ou alterar parcelas. */
 export function buildInstallmentReceiptModel(params: {
     loan: Loan;
     selectedInst: Installment;
@@ -39,90 +39,72 @@ export function buildInstallmentReceiptModel(params: {
     receiptAmount: string;
     showCustomAmount?: boolean;
 }) {
-    const { loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount = false } = params;
-                const principal = Math.max(0, Number(selectedDebt?.principal ?? selectedInst.principalRemaining ?? 0) || 0);
-                const interest = Math.max(0, Number(selectedDebt?.interest ?? selectedInst.interestRemaining ?? 0) || 0);
-                const lateFee = Math.max(0, Number(selectedDebt?.lateFee ?? selectedInst.lateFeeAccrued ?? 0) || 0);
-                const appliedLateFeeForgiveness = Math.min(lateFee, Math.max(0, lateFeeForgiven));
-                const effectiveLateFee = Math.max(0, lateFee - appliedLateFeeForgiveness);
-                const activeOfferAmount = String(selectedInst.paymentOfferStatus || '') === 'ACTIVE'
-                    && String(selectedInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
-                    ? Number(selectedInst.paymentOfferAmount || 0)
-                    : 0;
-                const totalAmount = activeOfferAmount > 0.05
-                    ? activeOfferAmount
-                    : Math.max(0, Number(selectedDebt?.total || 0) - appliedLateFeeForgiveness);
-                const chargesAmount = Math.max(0, interest + effectiveLateFee);
-                const displayedAmount = showCustomAmount
-                    ? (Number(receiptAmount) || 0)
-                    : quickMode === 'CUSTOM' || quickMode === 'PRINCIPAL_REDUCTION'
-                    ? (Number(receiptAmount) || 0)
-                    : quickMode === 'INTEREST_ONLY'
-                        ? interest
-                        : quickMode === 'CHARGES_ONLY'
-                            ? chargesAmount
-                            : totalAmount;
-                const canReceiveInterestOnly = interest > 0.05 && principal > 0.05;
-                const canReceiveChargesOnly = chargesAmount > 0.05 && principal > 0.05;
-                const hasActiveOffer = activeOfferAmount > 0.05;
-                const forgivenessMode = appliedLateFeeForgiveness > ZERO_BALANCE_THRESHOLD
-                    ? 'FINE_AND_MORA' as const
-                    : 'NONE' as const;
-                const isPartialPayment = displayedAmount > 0.05
-                    && displayedAmount < totalAmount - ZERO_BALANCE_THRESHOLD;
-                const canRenewWithPending = ['MONTHLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
-                const isOnline = typeof navigator === 'undefined' || navigator.onLine;
-                const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
-                const cycle = String(loan.billingCycle || '').toUpperCase();
-                const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
-                    ? { name: 'Mensal · Ciclo de 30 dias', rule: 'Cobrança mensal com apuração a cada 30 dias. O recebimento pode quitar a parcela inteira, amortizar o capital emprestado ou renovar os encargos para o mês seguinte.' }
-                    : cycle === 'INSTALLMENT_FIXED'
-                        ? { name: 'Parcelado · Parcelas fixas', rule: 'Cronograma com parcelas e datas pré-fixadas. O pagamento quita ou amortiza a parcela selecionada sem alterar os vencimentos futuros.' }
-                        : cycle === 'DAILY_FREE' || cycle === 'DAILY_FIXED'
-                            ? { name: 'Diária · Dias corridos', rule: 'Cobrança diária calculada por dias corridos. O valor recebido quita os encargos acumulados e amortiza o capital devedor sem juros ocultos.' }
-                            : cycle === 'DAILY_FIXED_TERM'
-                                ? { name: 'Prazo fixo · Término determinado', rule: 'Contrato com prazo fixo e término determinado. O valor recebido amortiza a dívida ativa dentro da vigência contratada.' }
-                                : { name: 'Contrato padrão', rule: 'Valores apurados com base no saldo devedor atualizado. Confira a discriminação detalhada antes de efetivar o recebimento.' };
+    const {
+        loan,
+        selectedInst,
+        selectedDebt,
+        lateFeeForgiven,
+        quickMode,
+        receiptAmount,
+        showCustomAmount = false,
+    } = params;
 
-                const partialChoices: Array<{
-                    value: PartialBalanceAction;
-                    title: string;
-                    detail: string;
-                    activeClass: string;
-                    disabled?: boolean;
-                }> = [
-                    {
-                        value: 'CAPITALIZE',
-                        title: 'Somar restante ao capital',
-                        detail: 'O que faltar dos juros entra no saldo principal e o próximo ciclo é calculado sobre o novo valor.',
-                        activeClass: 'bg-blue-600/20 text-blue-300 border-blue-500/50'
-                    },
-                    {
-                        value: 'KEEP_PENDING',
-                        title: 'Manter restante pendente',
-                        detail: 'O valor que faltar continua separado para cobrança posterior, sem virar capital.',
-                        activeClass: 'bg-violet-600/20 text-violet-300 border-violet-500/50'
-                    },
-                    {
-                        value: 'SETTLE',
-                        title: 'Renovar com desconto',
-                        detail: 'Aceita o valor recebido, registra o restante como desconto e inicia o próximo ciclo.',
-                        activeClass: 'bg-amber-600/20 text-amber-300 border-amber-500/50',
-                        disabled: !canRenewWithPending || !isOnline
-                    },
-                ];
+    const principal = Math.max(0, Number(selectedDebt?.principal ?? selectedInst.principalRemaining ?? 0) || 0);
+    const interest = Math.max(0, Number(selectedDebt?.interest ?? selectedInst.interestRemaining ?? 0) || 0);
+    const lateFee = Math.max(0, Number(selectedDebt?.lateFee ?? selectedInst.lateFeeAccrued ?? 0) || 0);
+    const appliedLateFeeForgiveness = Math.min(lateFee, Math.max(0, lateFeeForgiven));
+    const effectiveLateFee = Math.max(0, lateFee - appliedLateFeeForgiveness);
 
-                if (showCustomAmount && chargesAmount <= ZERO_BALANCE_THRESHOLD && principal > ZERO_BALANCE_THRESHOLD) {
-                    partialChoices.push({
-                        value: 'PRINCIPAL_REDUCTION',
-                        title: 'Abater capital',
-                        detail: 'O valor informado reduz diretamente o principal, sem criar outro vencimento.',
-                        activeClass: 'bg-violet-600/20 text-violet-300 border-violet-500/50',
-                    });
-                }
+    const activeOfferAmount = String(selectedInst.paymentOfferStatus || '') === 'ACTIVE'
+        && String(selectedInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
+        ? Number(selectedInst.paymentOfferAmount || 0)
+        : 0;
+    const hasActiveOffer = activeOfferAmount > ZERO_BALANCE_THRESHOLD;
 
+    const totalAmount = hasActiveOffer
+        ? activeOfferAmount
+        : Math.max(0, Number(selectedDebt?.total || 0) - appliedLateFeeForgiveness);
+    const chargesAmount = Math.max(0, interest + effectiveLateFee);
 
-    const hasPaidInterest = Number(selectedInst.paidInterest || 0) > ZERO_BALANCE_THRESHOLD || interest <= ZERO_BALANCE_THRESHOLD;
+    const displayedAmount = showCustomAmount
+        ? (Number(receiptAmount) || 0)
+        : quickMode === 'CUSTOM' || quickMode === 'PRINCIPAL_REDUCTION'
+            ? (Number(receiptAmount) || 0)
+            : quickMode === 'INTEREST_ONLY'
+                ? interest
+                : quickMode === 'CHARGES_ONLY'
+                    ? chargesAmount
+                    : totalAmount;
+
+    const canReceiveInterestOnly = interest > ZERO_BALANCE_THRESHOLD && principal > ZERO_BALANCE_THRESHOLD;
+    // Só há um segundo atalho quando existe atraso efetivo. Após dispensar todo o atraso,
+    // "juros + atraso" seria idêntico a "somente juros" e portanto fica oculto.
+    const canReceiveChargesOnly = effectiveLateFee > ZERO_BALANCE_THRESHOLD
+        && chargesAmount > interest + ZERO_BALANCE_THRESHOLD
+        && principal > ZERO_BALANCE_THRESHOLD;
+
+    const forgivenessMode = appliedLateFeeForgiveness > ZERO_BALANCE_THRESHOLD
+        ? 'FINE_AND_MORA' as const
+        : 'NONE' as const;
+    const isPartialPayment = displayedAmount > ZERO_BALANCE_THRESHOLD
+        && displayedAmount < totalAmount - ZERO_BALANCE_THRESHOLD;
+    const isOnline = typeof navigator === 'undefined' || navigator.onLine;
+    const remainingAfterInput = Math.max(0, totalAmount - displayedAmount);
+    const missingInterestAmount = Math.max(0, interest - displayedAmount);
+
+    const cycle = String(loan.billingCycle || '').toUpperCase();
+    const modalityRule = cycle === 'MONTHLY' || cycle === 'GIRO' || cycle === 'REVOLVING'
+        ? { name: 'Mensal · 30 dias', rule: 'O sistema distribui o valor recebido entre juros, atraso e capital. Só pede uma decisão extra quando o valor não cobre nem os juros do ciclo.' }
+        : cycle === 'INSTALLMENT_FIXED'
+            ? { name: 'Parcelado · datas fixas', rule: 'Cada parcela é tratada separadamente e os vencimentos futuros não mudam com o recebimento desta parcela.' }
+            : cycle === 'DAILY_FREE' || cycle === 'DAILY_FIXED'
+                ? { name: 'Diária', rule: 'O recebimento segue os dias configurados no contrato e o saldo é atualizado pelo motor financeiro.' }
+                : cycle === 'DAILY_FIXED_TERM'
+                    ? { name: 'Diária · prazo fixo', rule: 'O contrato tem término definido e o recebimento reduz a obrigação em aberto sem criar cobrança paralela.' }
+                    : { name: 'Contrato', rule: 'O valor é distribuído automaticamente conforme a composição atual da dívida.' };
+
+    const hasPaidInterest = Number(selectedInst.paidInterest || 0) > ZERO_BALANCE_THRESHOLD
+        || interest <= ZERO_BALANCE_THRESHOLD;
     const interestDate = (hasPaidInterest && (selectedInst.paidDate || (selectedInst as any).last_payment_date || (selectedInst as any).lastPaymentDate))
         ? (selectedInst.paidDate || (selectedInst as any).last_payment_date || (selectedInst as any).lastPaymentDate)
         : selectedInst.dueDate;
@@ -130,30 +112,78 @@ export function buildInstallmentReceiptModel(params: {
     const isDirectCapitalReduction = daysFromInterestDate <= 10;
     const canAbatePrincipal = principal > ZERO_BALANCE_THRESHOLD;
 
-    const receiptEffect = quickMode === 'PRINCIPAL_REDUCTION'
-        ? (displayedAmount > 0
-            ? (isDirectCapitalReduction
-                ? `Este valor abate ${formatMoney(Math.min(principal, displayedAmount))} diretamente do capital sem alterar vencimento nem ciclo.`
-                : (interest > ZERO_BALANCE_THRESHOLD
-                    ? (displayedAmount <= interest + ZERO_BALANCE_THRESHOLD
-                        ? `Este valor abate ${formatMoney(displayedAmount)} dos juros em aberto.`
-                        : `Este valor quita os juros (${formatMoney(interest)}) e abate ${formatMoney(Math.min(principal, displayedAmount - interest))} do capital.`)
-                    : `Este valor abate ${formatMoney(Math.min(principal, displayedAmount))} diretamente do capital sem alterar vencimento nem ciclo.`))
-            : (isDirectCapitalReduction
-                ? 'Informe o valor para abatimento direto no capital (período de até 10 dias).'
-                : 'Informe o valor para quitar os juros e abater o excedente do capital.'))
-        : displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD
-        ? (principal > 0 && chargesAmount > 0
-            ? `Liquidação integral: quita ${formatMoney(principal)} de capital e ${formatMoney(chargesAmount)} de encargos, zerando totalmente esta parcela.`
-            : `Liquidação integral: quita o saldo de ${formatMoney(totalAmount)}, encerrando esta parcela com saldo zerado.`)
-        : displayedAmount <= ZERO_BALANCE_THRESHOLD
-            ? 'Selecione uma opção de recebimento ou informe o valor pago pelo cliente.'
-            : displayedAmount < interest - ZERO_BALANCE_THRESHOLD
-                ? `Amortização parcial de juros: quita ${formatMoney(displayedAmount)} dos encargos. Restam ${formatMoney(interest - displayedAmount)} em juros pendentes neste ciclo.`
-                : displayedAmount <= interest + ZERO_BALANCE_THRESHOLD
-                    ? `Quitação de encargos: liquida integralmente os juros (${formatMoney(interest)}). O capital devedor (${formatMoney(principal)}) permanece em aberto para o próximo ciclo.`
-                    : `Liquidação mista: quita todos os encargos (${formatMoney(chargesAmount)}) e amortiza ${formatMoney(Math.min(principal, displayedAmount - chargesAmount))} do capital principal.`;
+    const automaticDecision = resolveReceiptDecision({
+        amountReceived: displayedAmount,
+        principal,
+        interest,
+        lateFee: effectiveLateFee,
+        billingCycle: loan.billingCycle,
+    });
+    const needsBusinessChoice = !hasActiveOffer
+        && quickMode !== 'PRINCIPAL_REDUCTION'
+        && automaticDecision.needsBusinessChoice;
 
-    const automaticDecision = resolveReceiptDecision({ amountReceived: displayedAmount, principal, interest, lateFee: effectiveLateFee, billingCycle: loan.billingCycle });
-    return { principal, interest, lateFee, appliedLateFeeForgiveness, effectiveLateFee, activeOfferAmount, totalAmount, chargesAmount, displayedAmount, canReceiveInterestOnly, canReceiveChargesOnly, hasActiveOffer, forgivenessMode, isPartialPayment, canRenewWithPending, isOnline, remainingAfterInput, modalityRule, partialChoices, receiptEffect, automaticDecision, canAbatePrincipal, isDirectCapitalReduction, hasPaidInterest, daysFromInterestDate };
+    let receiptEffect = 'Informe o valor recebido para ver o efeito antes de registrar.';
+    if (quickMode === 'PRINCIPAL_REDUCTION') {
+        if (displayedAmount <= ZERO_BALANCE_THRESHOLD) {
+            receiptEffect = isDirectCapitalReduction
+                ? 'Informe quanto será abatido diretamente do capital, sem mudar vencimento ou ciclo.'
+                : 'Informe o valor. O sistema quita os encargos em aberto e aplica o excedente ao capital.';
+        } else if (isDirectCapitalReduction) {
+            receiptEffect = `Abate ${formatMoney(Math.min(principal, displayedAmount))} diretamente do capital, sem mudar vencimento ou ciclo.`;
+        } else if (displayedAmount <= interest + ZERO_BALANCE_THRESHOLD) {
+            receiptEffect = `Recebe ${formatMoney(displayedAmount)} dos juros em aberto; o capital não é reduzido.`;
+        } else {
+            receiptEffect = `Quita os juros e abate ${formatMoney(Math.min(principal, Math.max(0, displayedAmount - interest)))} do capital.`;
+        }
+    } else if (displayedAmount >= totalAmount - ZERO_BALANCE_THRESHOLD && totalAmount > ZERO_BALANCE_THRESHOLD) {
+        receiptEffect = principal > 0 && chargesAmount > 0
+            ? `Quita esta parcela: ${formatMoney(principal)} de capital + ${formatMoney(chargesAmount)} de encargos.`
+            : `Quita o saldo de ${formatMoney(totalAmount)} desta parcela.`;
+    } else if (displayedAmount > ZERO_BALANCE_THRESHOLD && displayedAmount < interest - ZERO_BALANCE_THRESHOLD) {
+        receiptEffect = `Recebe ${formatMoney(displayedAmount)} dos juros. Ainda faltam ${formatMoney(missingInterestAmount)} de juros; escolha abaixo o que fazer com essa diferença.`;
+    } else if (
+        effectiveLateFee > ZERO_BALANCE_THRESHOLD
+        && displayedAmount >= interest - ZERO_BALANCE_THRESHOLD
+        && displayedAmount < chargesAmount - ZERO_BALANCE_THRESHOLD
+    ) {
+        const latePaid = Math.max(0, displayedAmount - interest);
+        const lateRemaining = Math.max(0, effectiveLateFee - latePaid);
+        receiptEffect = `Quita os juros e recebe ${formatMoney(latePaid)} do atraso. Ainda ficam ${formatMoney(lateRemaining)} de atraso no vencimento atual.`;
+    } else if (displayedAmount <= chargesAmount + ZERO_BALANCE_THRESHOLD && chargesAmount > ZERO_BALANCE_THRESHOLD) {
+        receiptEffect = automaticDecision.operationType === 'RENEW_KEEP_PENDING'
+            ? `Quita os encargos do ciclo e renova o vencimento. O capital de ${formatMoney(principal)} permanece em aberto.`
+            : `Quita os encargos cobertos pelo valor informado. O capital de ${formatMoney(principal)} permanece em aberto.`;
+    } else if (displayedAmount > chargesAmount + ZERO_BALANCE_THRESHOLD) {
+        const capitalReduction = Math.min(principal, Math.max(0, displayedAmount - chargesAmount));
+        receiptEffect = `Quita os encargos e abate ${formatMoney(capitalReduction)} do capital. O sistema aplica o restante automaticamente.`;
+    }
+
+    return {
+        principal,
+        interest,
+        lateFee,
+        appliedLateFeeForgiveness,
+        effectiveLateFee,
+        activeOfferAmount,
+        totalAmount,
+        chargesAmount,
+        displayedAmount,
+        canReceiveInterestOnly,
+        canReceiveChargesOnly,
+        hasActiveOffer,
+        forgivenessMode,
+        isPartialPayment,
+        isOnline,
+        remainingAfterInput,
+        missingInterestAmount,
+        needsBusinessChoice,
+        modalityRule,
+        receiptEffect,
+        automaticDecision,
+        canAbatePrincipal,
+        isDirectCapitalReduction,
+        hasPaidInterest,
+        daysFromInterestDate,
+    };
 }

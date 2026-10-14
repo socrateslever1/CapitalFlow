@@ -39,6 +39,7 @@ interface PaymentManagerModalProps {
 export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     data, onClose, isProcessing, paymentType, setPaymentType, avAmount, setAvAmount, onConfirm, onOpenMessage
 }) => {
+    const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
     const {
         manualDateStr, setManualDateStr,
         realPaymentDateStr, setRealPaymentDateStr,
@@ -46,10 +47,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
         forgivenessMode, setForgivenessMode,
         debtBreakdown,
         resolvedBillingCycle
-    } = usePaymentManagerState({ data, paymentType, setPaymentType, avAmount, setAvAmount });
+    } = usePaymentManagerState({ data, paymentType, setPaymentType, avAmount, setAvAmount, lateFeeForgiven });
 
     const [autoFillMode, setAutoFillMode] = useState<'NONE' | 'TOTAL' | 'INTEREST'>('TOTAL');
-    const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState<FinancialPaymentMethod>('OTHER');
     const [backendPreview, setBackendPreview] = useState<FinancialOperationResult | null>(null);
     const [previewError, setPreviewError] = useState('');

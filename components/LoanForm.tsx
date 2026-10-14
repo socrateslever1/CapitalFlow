@@ -2,7 +2,7 @@
 import React from 'react';
 import { Modal } from './ui/Modal';
 import { Loan, Client, CapitalSource, UserProfile } from '../types';
-import { X, Camera, History } from 'lucide-react';
+import { X, Camera, History, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { formatBRDate } from '../utils/dateHelpers';
 import { useLoanForm } from '../features/loans/hooks/useLoanForm';
 import { LoanFormClientSection } from './forms/LoanFormClientSection';
@@ -27,7 +27,7 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
     isSubmitting, isUploading,
     attachments, customDocuments,
     showCamera, videoRef, fileInputRef,
-    manualFirstDueDate, setManualFirstDueDate, isDailyModality,
+    manualFirstDueDate, setManualFirstDueDate, formNotice, setFormNotice, isDailyModality,
     startCamera, takePhoto, stopCamera,
     handleClientSelect, handlePickContact,
     handleFileUpload, toggleDocVisibility, removeDoc,
@@ -46,12 +46,28 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
                     <div>
                         <p className="text-[10px] font-black uppercase text-blue-500/70 tracking-widest">Auditoria do Registro</p>
                         <p className="text-xs text-slate-300 font-bold">Iniciado em: {formatBRDate(props.initialData.createdAt || props.initialData.startDate)}</p>
-                        <p className="text-[9px] text-slate-500 font-bold mt-1">Principal original e parcelas já liquidadas são preservados. Alterações de saldo/parcelas remanescentes devem ser feitas no editor do acordo.</p>
+                        <p className="text-[9px] text-slate-500 font-bold mt-1">
+                          {String(props.initialData.billingCycle || '').toUpperCase() === 'DAILY_FREE'
+                            ? 'Na Diária Livre, o capital pode ser ajustado aqui. Reduções são registradas e reconciliadas sem apagar o principal original.'
+                            : 'Principal original e parcelas já liquidadas são preservados. Alterações de saldo devem seguir o fluxo financeiro da modalidade.'}
+                        </p>
                     </div>
                 </div>
             )}
 
             <form id={formId} onSubmit={handleSubmit} className="space-y-10">
+              {formNotice && (
+                <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${formNotice.type === 'error' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : formNotice.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-blue-500/30 bg-blue-500/10 text-blue-200'}`}>
+                  <div className="mt-0.5 shrink-0">
+                    {formNotice.type === 'error' ? <AlertCircle size={17}/> : formNotice.type === 'success' ? <CheckCircle2 size={17}/> : <Info size={17}/>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-wide">{formNotice.type === 'error' ? 'Não foi possível continuar' : formNotice.type === 'success' ? 'Concluído' : 'Atenção'}</p>
+                    <p className="mt-1 text-[11px] font-semibold leading-relaxed opacity-90">{formNotice.message}</p>
+                  </div>
+                  <button type="button" onClick={() => setFormNotice(null)} className="shrink-0 rounded-md p-1 opacity-60 transition hover:bg-white/10 hover:opacity-100" aria-label="Fechar aviso"><X size={14}/></button>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 <div className="space-y-6">
                     <LoanFormClientSection

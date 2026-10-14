@@ -31,6 +31,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
   const [customDocuments, setCustomDocuments] = useState<LoanDocument[]>([]);
   const [showCamera, setShowCamera] = useState<{ active: boolean; type: 'guarantee' | 'document' }>({ active: false, type: 'guarantee' });
   const [manualFirstDueDate, setManualFirstDueDate] = useState('');
+  const [formNotice, setFormNotice] = useState<{ type: 'error' | 'info' | 'success'; message: string } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -211,18 +212,23 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const requestedPrincipal = Number(formData.principal.replace(',', '.')) || 0;
+    setFormNotice(null);
+    const requestedPrincipal = Number(String(formData.principal || '').replace(',', '.')) || 0;
     const currentPrincipal = Number(initialData?.principal || 0);
+    const principalReduction = !!initialData && isPrincipalReduction(requestedPrincipal, currentPrincipal);
 
-    if (initialData && isPrincipalReduction(requestedPrincipal, currentPrincipal)) {
-      alert('O capital do contrato não pode ser reduzido por esta edição. Use as operações financeiras próprias para corrigir o saldo.');
+    if (principalReduction && String(initialData?.billingCycle || '').toUpperCase() !== 'DAILY_FREE') {
+      setFormNotice({
+        type: 'error',
+        message: 'A redução direta de capital está liberada na Diária Livre. Nas demais modalidades, faça o ajuste pelo recebimento ou renegociação para preservar o histórico financeiro.'
+      });
       return;
     }
 
     const { isValid, error } = validateLoanForm(formData, sources, !!initialData);
 
     if (!isValid) {
-        alert(error);
+        setFormNotice({ type: 'error', message: error || 'Confira os dados do contrato.' });
         return;
     }
 
@@ -251,7 +257,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
 
         if (hasActiveAgreement && principalIncrease) {
-            alert('Não é possível aumentar o capital enquanto o contrato possui um acordo ativo.');
+            setFormNotice({ type: 'error', message: 'Este contrato possui um acordo ativo. Para aumentar o capital, encerre ou ajuste o acordo primeiro.' });
             return;
         }
 
@@ -279,7 +285,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         await onAdd(loanPayload);
     } catch (err: any) {
         console.error("Erro interno no formulário:", err);
-        alert('Não foi possível preparar o contrato. Confira os dados e tente novamente.');
+        setFormNotice({ type: 'error', message: err?.message || 'Não foi possível preparar o contrato. Confira os dados e tente novamente.' });
     } finally {
         setIsSubmitting(false);
     }
@@ -292,6 +298,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
     attachments, documentPhotos, customDocuments,
     showCamera, videoRef, fileInputRef,
     manualFirstDueDate, setManualFirstDueDate,
+    formNotice, setFormNotice,
     isDailyModality,
     startCamera, takePhoto, stopCamera,
     handleClientSelect, handlePickContact,

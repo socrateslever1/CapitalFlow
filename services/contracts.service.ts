@@ -164,7 +164,19 @@ export const contractsService = {
     const additionalCapital = editingLoan
       ? calculateAdditionalCapital(requestedPrincipal, currentPrincipal)
       : 0;
-    const principal = additionalCapital > 0 ? currentPrincipal : requestedPrincipal;
+    const principalReduction = editingLoan
+      ? Math.max(0, Math.round((currentPrincipal - requestedPrincipal + Number.EPSILON) * 100) / 100)
+      : 0;
+    const isDailyFreePrincipalReduction = !!editingLoan
+      && principalReduction > 0.005
+      && String(editingLoan.billingCycle || '').toUpperCase() === 'DAILY_FREE';
+    if (principalReduction > 0.005 && !isDailyFreePrincipalReduction) {
+      throw new Error('A redução direta de capital está disponível apenas na Diária Livre.');
+    }
+    if (isDailyFreePrincipalReduction && safeUUID(loan.sourceId) !== safeUUID(editingLoan?.sourceId)) {
+      throw new Error('Para reduzir o capital, mantenha a fonte atual do contrato. A fonte pode ser alterada em uma operação separada.');
+    }
+    const principal = (additionalCapital > 0 || isDailyFreePrincipalReduction) ? currentPrincipal : requestedPrincipal;
     const interestRate = safeFloat(loan.interestRate);
     const finePercent = safeFloat(loan.finePercent);
     const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
@@ -210,7 +222,7 @@ export const contractsService = {
       billing_cycle: loan.billingCycle,
       amortization_type: loan.amortizationType,
       start_date: loan.startDate,
-      total_to_receive: safeFloat(loan.totalToReceive),
+      total_to_receive: isDailyFreePrincipalReduction ? safeFloat(editingLoan?.totalToReceive) : safeFloat(loan.totalToReceive),
 
       notes: loan.notes,
       guarantee_description: loan.guaranteeDescription,
@@ -241,7 +253,20 @@ export const contractsService = {
       );
 
       // ✅ parcelas = profile_id (conforme seu schema)
-      if (loan.installments?.length) {
+      // Na redução da Diária Livre, os valores financeiros ficam sob responsabilidade
+      // da RPC atômica. Aqui persistimos somente eventual mudança de vencimento.
+      if (isDailyFreePrincipalReduction && loan.installments?.length) {
+        for (const inst of loan.installments) {
+          const safeInstId = safeUUID(inst.id);
+          if (!safeInstId) continue;
+          const { error: dueDateError } = await supabase
+            .from('parcelas')
+            .update({ due_date: inst.dueDate, data_vencimento: inst.dueDate })
+            .eq('id', safeInstId)
+            .eq('loan_id', safeUUID(loanId));
+          if (dueDateError) throw dueDateError;
+        }
+      } else if (loan.installments?.length) {
         const instPayload = loan.installments.map((inst, index) => ({
           id: ensureUUID(inst.id),
           loan_id: loanId,
@@ -283,6 +308,24 @@ export const contractsService = {
 
         const { error: upsertErr } = await supabase.from('parcelas').upsert(instPayload, { onConflict: 'id' });
         if (upsertErr) throw upsertErr;
+      }
+
+      if (isDailyFreePrincipalReduction) {
+        const stableRequest = getStableFinancialRequestKey(
+          ['daily-free-principal-correction', loanId, requestedPrincipal.toFixed(2), currentPrincipal.toFixed(2)].join(':')
+        );
+        const { error: reductionError } = await supabase.rpc('process_daily_free_principal_correction_v1', {
+          p_idempotency_key: stableRequest.idempotencyKey,
+          p_loan_id: safeUUID(loanId),
+          p_profile_id: safeUUID(ownerId),
+          p_target_principal: requestedPrincipal,
+          p_operator_id: safeUUID(activeUser.id),
+          p_reason: 'Ajuste de capital pela edição da Diária Livre',
+        });
+        if (reductionError) {
+          throw new Error(`Não foi possível ajustar o capital com segurança: ${reductionError.message}`);
+        }
+        clearStableFinancialRequestKey(stableRequest.storageKey);
       }
 
       if (additionalCapital > 0) {

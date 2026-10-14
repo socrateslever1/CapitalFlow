@@ -72,8 +72,13 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
             return isInstallmentOpen(inst) && due.getTime() < today.getTime();
         }).sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
         if (lateInstallments.length === 0) return null;
+        const maxDaysLate = lateInstallments.reduce((max, inst) => {
+            const daysLate = Math.max(0, Math.floor((today.getTime() - parseDateOnlyUTC(inst.dueDate).getTime()) / 86400000));
+            return Math.max(max, daysLate);
+        }, 0);
+
         return {
-            totalMonths: lateInstallments.length,
+            totalDaysLate: maxDaysLate,
             items: lateInstallments.map(inst => ({
                 number: inst.number || 0,
                 dueDate: inst.dueDate,

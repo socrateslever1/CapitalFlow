@@ -196,82 +196,31 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 </div>
                             )}
 
-                            {/* Opções de Recebimento */}
                             {!hasActiveOffer && (
-                                <div className="space-y-1.5">
-                                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Opção de Recebimento</span>
-                                    <div className="space-y-1.5">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between px-0.5">
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-slate-500">Atalhos de valor</span>
+                                        <span className="text-[8px] text-slate-600">O efeito aparece logo abaixo</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1.5">
                                         <button
                                             type="button"
                                             onClick={() => {
                                                 setQuickMode('TOTAL');
                                                 setManualReceiptMode(true);
                                                 setShowCustomAmount(false);
-                                                setLateFeeForgiven(0);
                                                 setReceiptAmount(String(totalAmount.toFixed(2)));
-                                                setPartialBalanceAction('KEEP_PENDING');
+                                                setBusinessAction('CAPITALIZE_REMAINDER');
                                             }}
-                                            className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                            className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                 quickMode === 'TOTAL' && !showCustomAmount
-                                                    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/40'
-                                                    : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                                    ? 'border-emerald-500/45 bg-emerald-500/10'
+                                                    : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'
                                             }`}
                                         >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                                                        quickMode === 'TOTAL' && !showCustomAmount
-                                                            ? 'border-emerald-400 bg-emerald-500 text-slate-950 font-black'
-                                                            : 'border-slate-700 bg-slate-900'
-                                                    }`}>
-                                                        {quickMode === 'TOTAL' && !showCustomAmount ? '✓' : ''}
-                                                    </span>
-                                                    <span className="text-[9.5px] font-black uppercase tracking-wide">Quitar esta parcela</span>
-                                                </div>
-                                                <span className="text-[9px] font-bold text-emerald-400">{formatMoney(totalAmount, isStealthMode)}</span>
-                                            </div>
-                                            <p className="mt-1 text-[8px] text-slate-400 pl-5.5">Liquida 100% do saldo (capital e encargos) e encerra a parcela definitivamente.</p>
+                                            <span className="block text-[8px] font-black uppercase text-slate-300">Quitar esta parcela</span>
+                                            <span className="mt-0.5 block text-[9px] font-black tabular-nums text-emerald-400">{formatMoney(totalAmount, isStealthMode)}</span>
                                         </button>
-
-                                        {canAbatePrincipal && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setQuickMode('PRINCIPAL_REDUCTION');
-                                                    setManualReceiptMode(true);
-                                                    setShowCustomAmount(true);
-                                                    setLateFeeForgiven(0);
-                                                    setReceiptAmount('');
-                                                    setPartialBalanceAction('PRINCIPAL_REDUCTION');
-                                                }}
-                                                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
-                                                    quickMode === 'PRINCIPAL_REDUCTION'
-                                                        ? 'border-purple-500/50 bg-purple-500/10 text-purple-300 ring-1 ring-purple-500/40'
-                                                        : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
-                                                }`}
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                                                            quickMode === 'PRINCIPAL_REDUCTION'
-                                                                ? 'border-purple-400 bg-purple-500 text-slate-950 font-black'
-                                                                : 'border-slate-700 bg-slate-900'
-                                                        }`}>
-                                                            {quickMode === 'PRINCIPAL_REDUCTION' ? '✓' : ''}
-                                                        </span>
-                                                        <span className="text-[9.5px] font-black uppercase tracking-wide">Abater valor</span>
-                                                    </div>
-                                                    <span className="rounded border border-purple-500/30 bg-purple-500/10 px-1.5 py-0.5 text-[7.5px] font-black uppercase text-purple-300">
-                                                        {isDirectCapitalReduction ? 'Sem novos juros' : 'Amortização'}
-                                                    </span>
-                                                </div>
-                                                <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
-                                                    {isDirectCapitalReduction
-                                                        ? `Abatimento direto no capital (${formatMoney(principal, isStealthMode)}) no período de até 10 dias.`
-                                                        : `Quita juros em aberto (${formatMoney(interest, isStealthMode)}) e abate o excedente no capital.`}
-                                                </p>
-                                            </button>
-                                        )}
 
                                         {canReceiveInterestOnly && (
                                             <button
@@ -281,30 +230,16 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     setManualReceiptMode(true);
                                                     setShowCustomAmount(false);
                                                     setReceiptAmount(String(interest.toFixed(2)));
-                                                    setPartialBalanceAction('KEEP_PENDING');
+                                                    setBusinessAction('CAPITALIZE_REMAINDER');
                                                 }}
-                                                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                     quickMode === 'INTEREST_ONLY'
-                                                        ? 'border-blue-500/50 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40'
-                                                        : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                                        ? 'border-blue-500/45 bg-blue-500/10'
+                                                        : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'
                                                 }`}
                                             >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                                                            quickMode === 'INTEREST_ONLY'
-                                                                ? 'border-blue-400 bg-blue-500 text-slate-950 font-black'
-                                                                : 'border-slate-700 bg-slate-900'
-                                                        }`}>
-                                                            {quickMode === 'INTEREST_ONLY' ? '✓' : ''}
-                                                        </span>
-                                                        <span className="text-[9.5px] font-black uppercase tracking-wide">Receber somente juros</span>
-                                                    </div>
-                                                    <span className="text-[9px] font-bold text-blue-400">{formatMoney(interest, isStealthMode)}</span>
-                                                </div>
-                                                <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
-                                                    Recebe os juros do mês e renova o ciclo. O capital ({formatMoney(principal, isStealthMode)}) permanece em aberto.
-                                                </p>
+                                                <span className="block text-[8px] font-black uppercase text-slate-300">Receber somente juros</span>
+                                                <span className="mt-0.5 block text-[9px] font-black tabular-nums text-blue-400">{formatMoney(interest, isStealthMode)}</span>
                                             </button>
                                         )}
 
@@ -316,30 +251,37 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     setManualReceiptMode(true);
                                                     setShowCustomAmount(false);
                                                     setReceiptAmount(String(chargesAmount.toFixed(2)));
-                                                    setPartialBalanceAction('KEEP_PENDING');
+                                                    setBusinessAction('CAPITALIZE_REMAINDER');
                                                 }}
-                                                className={`w-full rounded-xl border p-2.5 text-left transition-all ${
+                                                className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
                                                     quickMode === 'CHARGES_ONLY'
-                                                        ? 'border-orange-500/50 bg-orange-500/10 text-orange-300 ring-1 ring-orange-500/40'
-                                                        : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                                        ? 'border-orange-500/45 bg-orange-500/10'
+                                                        : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'
                                                 }`}
                                             >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                                                            quickMode === 'CHARGES_ONLY'
-                                                                ? 'border-orange-400 bg-orange-500 text-slate-950 font-black'
-                                                                : 'border-slate-700 bg-slate-900'
-                                                        }`}>
-                                                            {quickMode === 'CHARGES_ONLY' ? '✓' : ''}
-                                                        </span>
-                                                        <span className="text-[9.5px] font-black uppercase tracking-wide">Receber juros e atraso</span>
-                                                    </div>
-                                                    <span className="text-[9px] font-bold text-orange-400">{formatMoney(chargesAmount, isStealthMode)}</span>
-                                                </div>
-                                                <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
-                                                    Quita juros e multa/mora acumulada ({formatMoney(chargesAmount, isStealthMode)}). Não abate o capital.
-                                                </p>
+                                                <span className="block text-[8px] font-black uppercase text-slate-300">Receber juros e atraso</span>
+                                                <span className="mt-0.5 block text-[9px] font-black tabular-nums text-orange-400">{formatMoney(chargesAmount, isStealthMode)}</span>
+                                            </button>
+                                        )}
+
+                                        {canAbatePrincipal && isDirectCapitalReduction && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setQuickMode('PRINCIPAL_REDUCTION');
+                                                    setManualReceiptMode(true);
+                                                    setShowCustomAmount(true);
+                                                    setReceiptAmount('');
+                                                    setBusinessAction('PRINCIPAL_REDUCTION');
+                                                }}
+                                                className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
+                                                    quickMode === 'PRINCIPAL_REDUCTION'
+                                                        ? 'border-purple-500/45 bg-purple-500/10'
+                                                        : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'
+                                                }`}
+                                            >
+                                                <span className="block text-[8px] font-black uppercase text-slate-300">Abater capital</span>
+                                                <span className="mt-0.5 block text-[8px] font-bold text-purple-300">Sem mudar vencimento</span>
                                             </button>
                                         )}
 
@@ -349,34 +291,17 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                 setQuickMode('CUSTOM');
                                                 setManualReceiptMode(false);
                                                 setShowCustomAmount(true);
-                                                setLateFeeForgiven(0);
                                                 setReceiptAmount('');
-                                                setPartialBalanceAction('KEEP_PENDING');
+                                                setBusinessAction('CAPITALIZE_REMAINDER');
                                             }}
-                                            className={`w-full rounded-xl border p-2.5 text-left transition-all ${
-                                                (quickMode === 'CUSTOM' || showCustomAmount) && quickMode !== 'PRINCIPAL_REDUCTION'
-                                                    ? 'border-blue-500/50 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/40'
-                                                    : 'border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700'
+                                            className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
+                                                quickMode === 'CUSTOM' && showCustomAmount
+                                                    ? 'border-slate-500/60 bg-slate-800/55'
+                                                    : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'
                                             }`}
                                         >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
-                                                        (quickMode === 'CUSTOM' || showCustomAmount) && quickMode !== 'PRINCIPAL_REDUCTION'
-                                                            ? 'border-blue-400 bg-blue-500 text-slate-950 font-black'
-                                                            : 'border-slate-700 bg-slate-900'
-                                                    }`}>
-                                                        {(quickMode === 'CUSTOM' || showCustomAmount) && quickMode !== 'PRINCIPAL_REDUCTION' ? '✓' : ''}
-                                                    </span>
-                                                    <span className="text-[9.5px] font-black uppercase tracking-wide">Receber outro valor</span>
-                                                </div>
-                                                <span className="rounded border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[7.5px] font-black uppercase text-blue-300">
-                                                    Personalizado
-                                                </span>
-                                            </div>
-                                            <p className="mt-1 text-[8px] text-slate-400 pl-5.5">
-                                                Informe qualquer valor recebido para calcular a divisão entre encargos e capital.
-                                            </p>
+                                            <span className="block text-[8px] font-black uppercase text-slate-300">Receber outro valor</span>
+                                            <span className="mt-0.5 block text-[8px] font-bold text-slate-500">O sistema distribui automaticamente</span>
                                         </button>
                                     </div>
                                 </div>

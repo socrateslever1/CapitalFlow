@@ -174,62 +174,18 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                 <Modal onClose={resetSelection} title="Registrar recebimento" subtitle={`Parcela nº ${instNumber} · Vencimento ${dueDateFormatted}`} size="sm">
                     <div className="space-y-3.5">
                         <div className="space-y-3">
-                            {/* Composição da Dívida */}
-                            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2.5">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                        <Receipt size={13} className="text-blue-400" />
-                                        <span className="text-[9px] font-black uppercase tracking-wider text-slate-300">Composição da Dívida</span>
-                                    </div>
-                                    {dueInfo.daysLate > 0 ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-rose-400">
-                                            <AlertCircle size={9} /> {dueInfo.daysLate} dias em atraso
-                                        </span>
-                                    ) : dueInfo.isToday ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-amber-400">
-                                            Vence hoje
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-400">
-                                            <CheckCircle2 size={9} /> Em dia
-                                        </span>
-                                    )}
-                                </div>
+                            <DebtCompositionSummary
+                                principal={principal}
+                                interest={interest}
+                                lateFee={effectiveLateFee}
+                                total={totalAmount}
+                                dueDate={selectedInst.dueDate}
+                                isStealthMode={isStealthMode}
+                            />
 
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-center">
-                                        <span className="text-[7.5px] font-bold uppercase tracking-wider text-slate-400">Capital</span>
-                                        <p className="mt-0.5 text-xs font-black text-slate-100">{formatMoney(principal, isStealthMode)}</p>
-                                        <span className="text-[7px] text-slate-500">Saldo devedor</span>
-                                    </div>
-                                    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-center">
-                                        <span className="text-[7.5px] font-bold uppercase tracking-wider text-blue-400">Juros</span>
-                                        <p className="mt-0.5 text-xs font-black text-blue-300">{formatMoney(interest, isStealthMode)}</p>
-                                        <span className="text-[7px] text-slate-500">Ciclo mensal</span>
-                                    </div>
-                                    <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2 text-center">
-                                        <span className={`text-[7.5px] font-bold uppercase tracking-wider ${effectiveLateFee > 0 ? 'text-rose-400' : 'text-slate-400'}`}>Mora / Atraso</span>
-                                        <p className={`mt-0.5 text-xs font-black ${effectiveLateFee > 0 ? 'text-rose-300' : 'text-slate-300'}`}>{formatMoney(effectiveLateFee, isStealthMode)}</p>
-                                        <span className="text-[7px] text-slate-500">{effectiveLateFee > 0 ? 'Encargos' : 'Zerado'}</span>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between border-t border-slate-800/80 pt-2 px-0.5">
-                                    <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400">Saldo Total da Parcela</span>
-                                    <span className="text-xs font-black text-white">{formatMoney(totalAmount, isStealthMode)}</span>
-                                </div>
-                            </div>
-
-                            {/* Regra de Cobrança */}
-                            <div className="flex items-start gap-2.5 rounded-lg border border-slate-800 bg-slate-950/50 px-2.5 py-2">
-                                <Calendar size={13} className="mt-0.5 shrink-0 text-blue-400" />
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">Forma de cobrança</span>
-                                        <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-blue-300 border border-blue-500/20">{modalityRule.name}</span>
-                                    </div>
-                                    <p className="mt-1 text-[8px] leading-relaxed text-slate-400">{modalityRule.rule}</p>
-                                </div>
+                            <div className="flex items-center justify-between gap-2 px-0.5">
+                                <span className="text-[8px] font-black uppercase tracking-wider text-slate-500">{modalityRule.name}</span>
+                                <span className="min-w-0 truncate text-right text-[8px] text-slate-500">{modalityRule.rule}</span>
                             </div>
 
                             {/* Condição Especial se ativa */}

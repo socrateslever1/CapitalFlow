@@ -42,6 +42,9 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
         openInstallments,
         paidTotal,
         outstandingBalance,
+        logicalInstallmentsCount,
+        paidEquivalentInstallments,
+        displayNumberById,
         projectedInstallments,
         projectedLastInstallment,
         handleBreak,
@@ -260,6 +263,17 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                 </div>
             </div>
 
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
+                <div>
+                    <p className="text-[8px] font-black uppercase tracking-wider text-slate-500">Recebido no acordo</p>
+                    <p className="text-[12px] font-black text-emerald-400">{formatMoney(paidTotal, isStealthMode)}</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-[8px] font-black uppercase tracking-wider text-slate-500">Progresso atual</p>
+                    <p className="text-[11px] font-black text-white">{paidEquivalentInstallments} de {logicalInstallmentsCount}</p>
+                </div>
+            </div>
+
             <div className="flex flex-col gap-0.5 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1 -mr-1">
                 {(agreement.installments || []).filter(inst => inst != null).sort((a,b) => {
                     const isAPaid = a?.status === 'PAID' || a?.status === 'PAGO';
@@ -273,10 +287,11 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                     const isPaid = inst?.status === 'PAID' || inst?.status === 'PAGO' || remainingPrincipal <= 0.05;
                     const lateFee = isPaid ? 0 : calculateAgreementInstallmentLateFee(inst);
                     const remainingAmountTotal = remainingPrincipal + lateFee;
+                    const displayNumber = displayNumberById[String(inst.id)] || inst.number;
                     return (
                     <div id={inst.id} key={inst.id} className={`flex justify-between items-center px-3 py-2.5 rounded-lg border transition-all ${isPaid ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' : 'bg-slate-900/40 border-slate-800/50 hover:bg-slate-900/60'}`}>
                         <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-500 w-4">{inst.number}</span>
+                            <span className="text-[10px] font-black text-slate-500 w-4">{displayNumber}</span>
                             <div>
                                 <p className={`text-[12px] font-bold ${isPaid ? 'text-emerald-400' : 'text-slate-200'}`}>
                                     {formatMoney(remainingAmountTotal, isStealthMode)}
@@ -293,7 +308,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setSelectedInst(inst);
+                                        setSelectedInst({ ...inst, number: displayNumber });
                                         setPaymentAmount(String(remainingAmountTotal));
                                         setShowCustomAmount(false);
                                         setForgiveLateFee(false);
@@ -311,7 +326,7 @@ export const AgreementView: React.FC<AgreementViewProps> = ({ agreement, loan, a
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setSelectedInst(inst);
+                                            setSelectedInst({ ...inst, number: displayNumber });
                                             setConfirmAction('REVERSE');
                                         }}
                                         className="text-[8px] font-black uppercase text-rose-500/40 hover:text-rose-500 transition-colors mt-0.5"

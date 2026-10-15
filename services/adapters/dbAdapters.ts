@@ -59,6 +59,7 @@ export const agreementAdapter = (raw: any): Agreement => {
     installmentsCount: asNumber(raw.num_parcelas) || installments.length,
     frequency: normalizedFrequency,
     startDate: safeDateOnlyString(raw.created_at),
+    firstDueDate: safeDateOnlyString(raw.first_due_date),
     status: normalizedStatus,
     createdAt: safeDateString(raw.created_at),
     installments,

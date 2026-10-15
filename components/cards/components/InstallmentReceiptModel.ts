@@ -3,7 +3,6 @@ import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
 import type { FinancialOperationResult, FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision } from '../../../services/payments/receiptDecision';
-import { getDaysDiff } from '../../../utils/dateHelpers';
 
 export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE' | 'PRINCIPAL_REDUCTION';
 export type QuickMode = 'TOTAL' | 'CUSTOM' | 'INTEREST_ONLY' | 'CHARGES_ONLY' | 'PRINCIPAL_REDUCTION';
@@ -13,6 +12,7 @@ export type QuickPaymentOptions = {
     partialBalanceAction?: PartialBalanceAction;
     operationType?: import('../../../services/payments/paymentEngineV4').FinancialOperationType;
     paymentMethod?: FinancialPaymentMethod;
+    paymentDate?: Date;
     manualDate?: Date | null;
     expectedPreview?: FinancialOperationResult;
 };
@@ -37,6 +37,13 @@ export function calculateReceiptForTargetBalance(totalAmount: number, targetBala
     return Math.max(0, Math.round((total - target + Number.EPSILON) * 100) / 100);
 }
 
+export function calculatePrincipalReductionForTarget(principalAmount: number, targetPrincipal: number): number | null {
+    const principal = Math.max(0, Number(principalAmount) || 0);
+    const target = Number(targetPrincipal);
+    if (!Number.isFinite(target) || target < 0 || target > principal + ZERO_BALANCE_THRESHOLD) return null;
+    return Math.max(0, Math.round((principal - target + Number.EPSILON) * 100) / 100);
+}
+
 /** Prepara a janela de recebimento sem movimentar caixa ou alterar parcelas. */
 export function buildInstallmentReceiptModel(params: {
     loan: Loan;
@@ -46,6 +53,7 @@ export function buildInstallmentReceiptModel(params: {
     quickMode: QuickMode;
     receiptAmount: string;
     showCustomAmount?: boolean;
+    paymentDate?: string | Date;
 }) {
     const {
         loan,
@@ -111,14 +119,8 @@ export function buildInstallmentReceiptModel(params: {
                     ? { name: 'Diária · prazo fixo', rule: 'O contrato tem término definido e o recebimento reduz a obrigação em aberto sem criar cobrança paralela.' }
                     : { name: 'Contrato', rule: 'O valor é distribuído automaticamente conforme a composição atual da dívida.' };
 
-    const hasPaidInterest = Number(selectedInst.paidInterest || 0) > ZERO_BALANCE_THRESHOLD
-        || interest <= ZERO_BALANCE_THRESHOLD;
-    const interestDate = (hasPaidInterest && (selectedInst.paidDate || (selectedInst as any).last_payment_date || (selectedInst as any).lastPaymentDate))
-        ? (selectedInst.paidDate || (selectedInst as any).last_payment_date || (selectedInst as any).lastPaymentDate)
-        : selectedInst.dueDate;
-    const daysFromInterestDate = interestDate ? getDaysDiff(interestDate) : 0;
-    const isDirectCapitalReduction = daysFromInterestDate <= 10;
     const canAbatePrincipal = principal > ZERO_BALANCE_THRESHOLD;
+    const isDirectCapitalReduction = canAbatePrincipal;
 
     const automaticDecision = resolveReceiptDecision({
         amountReceived: displayedAmount,
@@ -193,7 +195,5 @@ export function buildInstallmentReceiptModel(params: {
         automaticDecision,
         canAbatePrincipal,
         isDirectCapitalReduction,
-        hasPaidInterest,
-        daysFromInterestDate,
     };
 }

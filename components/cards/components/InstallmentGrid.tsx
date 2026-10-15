@@ -5,7 +5,7 @@ import { Modal } from '../../ui/Modal';
 import { LateFeeWaiverOptions } from '../../modals/payment/LateFeeWaiverOptions';
 import { DebtCompositionSummary } from '../../modals/payment/DebtCompositionSummary';
 import { ReceiptRemainderDecision } from '../../modals/payment/ReceiptRemainderDecision';
-import { toISODateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
+import { parseDateOnlyUTC, toISODateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
 import { formatMoney } from '../../../utils/formatters';
 import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
@@ -13,7 +13,7 @@ import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
-import { buildInstallmentReceiptModel, calculateReceiptForTargetBalance, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, calculatePrincipalReductionForTarget, calculateReceiptForTargetBalance, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
 import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewalPlan';
@@ -42,7 +42,9 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [selectedInst, setSelectedInst] = React.useState<Installment | null>(null);
     const [selectedDebt, setSelectedDebt] = React.useState<any>(null);
     const [receiptAmount, setReceiptAmount] = React.useState('');
+    const [paymentDateStr, setPaymentDateStr] = React.useState(toISODateOnlyUTC(new Date()));
     const [targetBalance, setTargetBalance] = React.useState('');
+    const [targetPrincipalBalance, setTargetPrincipalBalance] = React.useState('');
     const [showCustomAmount, setShowCustomAmount] = React.useState(false);
     const [quickMode, setQuickMode] = React.useState<QuickMode>('TOTAL');
     const [manualReceiptMode, setManualReceiptMode] = React.useState(false);
@@ -65,7 +67,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
         setReviewPreview(null);
         setIsReviewReady(false);
         setReceiptError(null);
-    }, [selectedInst?.id, receiptAmount, quickMode, lateFeeForgiven, businessAction]);
+    }, [selectedInst?.id, receiptAmount, paymentDateStr, quickMode, lateFeeForgiven, businessAction]);
 
     const context = {
         fixedTermStats,
@@ -112,7 +114,9 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     && String(targetInst.paymentOfferValidUntil || '') >= new Date().toISOString().slice(0, 10)
                                     && offerAmount > 0.05;
                                 setReceiptAmount(String(Number(offerIsActive ? offerAmount : targetDebt?.total || targetInst.amount || 0).toFixed(2)));
+                                setPaymentDateStr(toISODateOnlyUTC(new Date()));
                                 setTargetBalance('');
+                                setTargetPrincipalBalance('');
                                 setShowCustomAmount(false);
                                 setQuickMode('TOTAL');
                                 setManualReceiptMode(false);
@@ -157,12 +161,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     hasActiveOffer, forgivenessMode, isPartialPayment, isOnline, remainingAfterInput, missingInterestAmount,
                     needsBusinessChoice, modalityRule, receiptEffect, automaticDecision, canAbatePrincipal,
                     isDirectCapitalReduction
-                } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount });
+                } = buildInstallmentReceiptModel({ loan, selectedInst, selectedDebt, lateFeeForgiven, quickMode, receiptAmount, showCustomAmount, paymentDate: paymentDateStr });
 
                 const resetSelection = () => {
                     setSelectedInst(null);
                     setSelectedDebt(null);
                     setTargetBalance('');
+                    setTargetPrincipalBalance('');
                     setQuickMode('TOTAL');
                     setManualReceiptMode(false);
                     setLateFeeForgiven(0);
@@ -186,6 +191,16 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 dueDate={selectedInst.dueDate}
                                 isStealthMode={isStealthMode}
                             />
+
+                            <label className="block rounded-lg border border-slate-800 bg-slate-950/55 p-2.5">
+                                <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Data real do recebimento</span>
+                                <input
+                                    type="date"
+                                    value={paymentDateStr}
+                                    onChange={(event) => setPaymentDateStr(event.target.value)}
+                                    className="mt-1 w-full bg-transparent text-sm font-bold text-white outline-none [color-scheme:dark]"
+                                />
+                            </label>
 
                             <div className="flex items-center justify-between gap-2 px-0.5">
                                 <span className="text-[8px] font-black uppercase tracking-wider text-slate-500">{modalityRule.name}</span>
@@ -268,7 +283,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             </button>
                                         )}
 
-                                        {canAbatePrincipal && isDirectCapitalReduction && (
+                                        {canAbatePrincipal && (
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -276,6 +291,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     setManualReceiptMode(true);
                                                     setShowCustomAmount(true);
                                                     setReceiptAmount('');
+                                                    setTargetPrincipalBalance('');
                                                     setBusinessAction('PRINCIPAL_REDUCTION');
                                                 }}
                                                 className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
@@ -297,6 +313,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                 setShowCustomAmount(true);
                                                 setReceiptAmount('');
                                                 setTargetBalance('');
+                                                setTargetPrincipalBalance('');
                                                 setBusinessAction('AUTOMATIC');
                                             }}
                                             className={`min-h-12 rounded-lg border px-2.5 py-2 text-left transition-all ${
@@ -365,6 +382,8 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                 if (quickMode !== 'PRINCIPAL_REDUCTION') {
                                                     setTargetBalance('');
                                                     setBusinessAction('AUTOMATIC');
+                                                } else {
+                                                    setTargetPrincipalBalance('');
                                                 }
                                                 if (!manualReceiptMode) {
                                                     setQuickMode(inferReceiptMode(Number(nextAmount) || 0, totalAmount, interest));
@@ -374,10 +393,48 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             autoFocus
                                         />
                                     </div>
+                                    {quickMode === 'PRINCIPAL_REDUCTION' && (
+                                        <div className="rounded-lg border border-purple-500/25 bg-purple-500/[0.05] p-2.5">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <label className="text-[8px] font-black uppercase tracking-wider text-purple-200">Capital que deve ficar</label>
+                                                <span className="text-[7.5px] text-purple-200/60">Juros não são alterados</span>
+                                            </div>
+                                            <div className="relative mt-1.5">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-purple-200/60">R$</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    max={principal}
+                                                    placeholder="Capital final"
+                                                    value={targetPrincipalBalance}
+                                                    onChange={(event) => {
+                                                        const nextTarget = event.target.value;
+                                                        setTargetPrincipalBalance(nextTarget);
+                                                        if (!nextTarget.trim()) {
+                                                            setReceiptAmount('');
+                                                            return;
+                                                        }
+                                                        const calculated = calculatePrincipalReductionForTarget(principal, Number(nextTarget));
+                                                        setReceiptAmount(calculated == null ? '' : calculated.toFixed(2));
+                                                    }}
+                                                    className="w-full rounded-md border border-purple-500/25 bg-slate-950 py-2 pl-8 pr-3 text-sm font-black text-white outline-none transition-colors focus:border-purple-400"
+                                                />
+                                            </div>
+                                            {targetPrincipalBalance && calculatePrincipalReductionForTarget(principal, Number(targetPrincipalBalance)) != null && (
+                                                <p className="mt-1.5 text-[8px] leading-3.5 text-purple-100/75">
+                                                    Será abatido {formatMoney(calculatePrincipalReductionForTarget(principal, Number(targetPrincipalBalance)) || 0, isStealthMode)} exclusivamente do capital.
+                                                </p>
+                                            )}
+                                            {targetPrincipalBalance && calculatePrincipalReductionForTarget(principal, Number(targetPrincipalBalance)) == null && (
+                                                <p className="mt-1.5 text-[8px] font-semibold text-rose-300">O capital final deve ficar entre zero e o capital aberto atual. Para desfazer um ajuste já errado, estorne o lançamento antes de registrar outro recebimento.</p>
+                                            )}
+                                        </div>
+                                    )}
                                     {quickMode !== 'PRINCIPAL_REDUCTION' && !hasActiveOffer && (
                                         <div className="rounded-lg border border-slate-800/80 bg-slate-950/55 p-2.5">
                                             <div className="flex items-center justify-between gap-3">
-                                                <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Ou saldo que deve ficar</label>
+                                                <label className="text-[8px] font-black uppercase tracking-wider text-slate-400">Saldo total que deve ficar</label>
                                                 <span className="text-[7.5px] text-slate-600">O recebimento é calculado automaticamente</span>
                                             </div>
                                             <div className="relative mt-1.5">
@@ -387,7 +444,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                                     step="0.01"
                                                     min="0"
                                                     max={totalAmount}
-                                                    placeholder="Saldo final"
+                                                    placeholder="Total final da dívida"
                                                     value={targetBalance}
                                                     onChange={(e) => {
                                                         const nextTarget = e.target.value;
@@ -596,7 +653,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             })
                                             : automaticDecision;
                                     const effectiveOperation = hasActiveOffer ? 'KEEP_PENDING' : finalDecision.operationType;
-                                    const paymentDate = new Date();
+                                    const paymentDate = parseDateOnlyUTC(paymentDateStr);
                                     const advancesDueDate = ['RENEW_KEEP_PENDING', 'CAPITALIZE_RENEWAL', 'DISCOUNT_RENEWAL'].includes(effectiveOperation);
                                     const suggestedRenewalDate = advancesDueDate
                                         ? suggestRenewalDueDate({
@@ -641,6 +698,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         lateFeeForgiven: appliedLateFeeForgiveness,
                                         operationType: effectiveOperation,
                                         paymentMethod,
+                                        paymentDate,
                                         manualDate: suggestedRenewalDate,
                                         expectedPreview: reviewPreview || undefined,
                                     };

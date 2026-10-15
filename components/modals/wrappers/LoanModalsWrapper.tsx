@@ -34,7 +34,10 @@ export const LoanModalsWrapper = () => {
                 activeUser={activeUser}
                 sources={sources}
                 installments={ui.newAporteModalLoan.installments}
-                onSuccess={() => { closeModal(); fetchFullData(activeUser.id); }}
+                onSuccess={async () => {
+                    const profileId = (activeUser as any).owner_profile_id || activeUser.supervisor_id || activeUser.id;
+                    await fetchFullData(profileId);
+                }}
                 isStealthMode={ui.isStealthMode}
             />
         );

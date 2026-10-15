@@ -6,10 +6,10 @@ import {
 } from '../../domain/finance/calculations';
 
 import { calculateMonthlyInstallments } from '../../features/loans/modalities/monthly/monthly.calculations';
-import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
+import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { mapFormToLoan } from '../../features/loans/domain/loanForm.mapper';
 import { planPaymentRenewal, suggestRenewalDueDate } from '../../services/payments/paymentRenewalPlan';
-import { buildInstallmentReceiptModel, calculateReceiptForTargetBalance, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
+import { buildInstallmentReceiptModel, calculatePrincipalReductionForTarget, calculateReceiptForTargetBalance, inferReceiptMode } from '../../components/cards/components/InstallmentReceiptModel';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import { validateLoanForm } from '../../features/loans/domain/loanForm.validators';
 import { calculateAdditionalCapital, isPrincipalReduction, canReceiveCapitalAdvance } from '../../domain/finance/capitalAdvance';
@@ -459,9 +459,9 @@ run('regularização integral reinicia pela data do pagamento; data manual preva
     instDb: { due_date: '2026-08-20' },
     balanceAfterRpc: { principalRemaining: 1000, interestRemaining: 0, lateFeeRemaining: 0, totalRemaining: 1000 },
     renewWithPending: false, isInterestRenewal: true,
-    paymentDate: new Date('2026-09-19T00:00:00Z')
+    paymentDate: parseDateOnlyUTC('2026-09-19')
   };
-  assert.equal(planPaymentRenewal(base).renewalDate?.toISOString().slice(0, 10), '2026-10-19');
+  assert.equal(toISODateOnlyUTC(planPaymentRenewal(base).renewalDate), '2026-10-19');
   assert.equal(planPaymentRenewal({ ...base, manualDate: new Date('2026-10-05T00:00:00Z') })
     .renewalDate?.toISOString().slice(0, 10), '2026-10-05');
 });
@@ -628,7 +628,7 @@ run('ajuste por saldo desejado usa recebimento normal e não abatimento direto',
   assert.ok(model.receiptEffect.includes('R$ 180') || model.receiptEffect.includes('R$ 180') || model.receiptEffect.includes('180,00'));
 });
 
-run('abatimento de valor fica sempre disponível com capital e distingue janela de 10 dias', () => {
+run('abatimento de valor fica sempre disponível com capital', () => {
   const base = {
     loan: { billingCycle: 'MONTHLY' } as any,
     selectedDebt: { principal: 500, interest: 100, lateFee: 0, total: 600 },
@@ -644,16 +644,6 @@ run('abatimento de valor fica sempre disponível com capital e distingue janela 
   assert.equal(within10Days.canAbatePrincipal, true);
   assert.equal(within10Days.isDirectCapitalReduction, true);
   assert.ok(within10Days.receiptEffect.includes('diretamente do capital'));
-
-  const past10DaysDate = new Date();
-  past10DaysDate.setDate(past10DaysDate.getDate() - 15);
-  const after10Days = buildInstallmentReceiptModel({
-    ...base,
-    selectedInst: { dueDate: past10DaysDate.toISOString().slice(0, 10), principalRemaining: 500, interestRemaining: 100 } as any,
-  });
-  assert.equal(after10Days.canAbatePrincipal, true);
-  assert.equal(after10Days.isDirectCapitalReduction, false);
-  assert.ok(after10Days.receiptEffect.toLowerCase().includes('quita os juros') && after10Days.receiptEffect.toLowerCase().includes('abate'));
 
   const zeroPrincipal = buildInstallmentReceiptModel({
     ...base,
@@ -688,4 +678,9 @@ run('carteira conta somente contratos com obrigação ativa', () => {
 
   assert.deepEqual(getActiveSourceLoans(loans, sourceId).map((loan) => loan.id), ['active']);
 });
+run('abatimento por capital desejado não confunde capital com saldo total', () => {
+  assertMoney(calculatePrincipalReductionForTarget(600, 300) || 0, 300, 'capital de 600 para 300 exige abatimento de 300');
+  assert.equal(calculatePrincipalReductionForTarget(156, 300), null, 'abatimento não pode aumentar capital já reduzido');
+});
+
 console.log('Suite financeira concluída com sucesso.');

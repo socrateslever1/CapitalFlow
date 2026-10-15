@@ -15,7 +15,7 @@ type Props = {
   activeUser: UserProfile;
   sources: CapitalSource[];
   installments: Installment[];
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
   isStealthMode?: boolean;
 };
 
@@ -99,9 +99,9 @@ export const NewAporteModal: React.FC<Props> = ({
         activeUser,
       });
 
+      await onSuccess?.();
       setLoading(false);
       onClose();
-      onSuccess?.();
     } catch (e: any) {
       setLoading(false);
       setErr(e?.message || 'Falha ao aplicar aporte.');

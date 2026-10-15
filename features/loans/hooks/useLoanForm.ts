@@ -217,12 +217,12 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
     const currentPrincipal = Number(initialData?.principal || 0);
     const principalReduction = !!initialData && isPrincipalReduction(requestedPrincipal, currentPrincipal);
 
-    if (principalReduction && String(initialData?.billingCycle || '').toUpperCase() !== 'DAILY_FREE') {
-      setFormNotice({
-        type: 'error',
-        message: 'A redução direta de capital está liberada na Diária Livre. Nas demais modalidades, faça o ajuste pelo recebimento ou renegociação para preservar o histórico financeiro.'
-      });
-      return;
+    if (principalReduction) {
+      const diff = Math.round((currentPrincipal - requestedPrincipal) * 100) / 100;
+      const confirmed = window.confirm(
+        `CONFIRMAÇÃO DE ABATIMENTO DE CAPITAL:\n\nVocê está reduzindo o capital de R$ ${currentPrincipal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para R$ ${requestedPrincipal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.\n\nA diferença de R$ ${diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} será registrada como ABATIMENTO DE CAPITAL e retornará para a fonte.\n\nDeseja confirmar este abatimento?`
+      );
+      if (!confirmed) return;
     }
 
     const { isValid, error } = validateLoanForm(formData, sources, !!initialData);
@@ -256,8 +256,8 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         const principalIncrease = !!initialData && calculateAdditionalCapital(requestedPrincipal, currentPrincipal) > 0;
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
 
-        if (hasActiveAgreement && principalIncrease) {
-            setFormNotice({ type: 'error', message: 'Este contrato possui um acordo ativo. Para aumentar o capital, encerre ou ajuste o acordo primeiro.' });
+        if (hasActiveAgreement && (principalIncrease || principalReduction)) {
+            setFormNotice({ type: 'error', message: 'Este contrato possui um acordo ativo. Para alterar o capital, encerre ou ajuste o acordo primeiro.' });
             return;
         }
 
@@ -267,7 +267,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
             loanPayload.startDate = initialData.startDate;
             loanPayload.totalToReceive = initialData.totalToReceive;
             loanPayload.installments = [];
-        } else if (principalIncrease && initialData) {
+        } else if ((principalIncrease || principalReduction) && initialData) {
             loanPayload.principal = requestedPrincipal;
             loanPayload.totalToReceive = initialData.totalToReceive;
             loanPayload.installments = initialData.installments;

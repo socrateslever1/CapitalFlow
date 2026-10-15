@@ -72,6 +72,109 @@ const runContractMutationWithSchemaFallback = async (
   throw new Error('Falha ao salvar contrato por incompatibilidade de schema.');
 };
 
+async function applyDirectPrincipalReductionFallback({
+  loanId,
+  ownerId,
+  operatorId,
+  sourceId,
+  currentPrincipal,
+  requestedPrincipal,
+  reductionAmount,
+  editingLoan,
+  idempotencyKey,
+}: {
+  loanId: string;
+  ownerId: string;
+  operatorId: string | null;
+  sourceId: string | null;
+  currentPrincipal: number;
+  requestedPrincipal: number;
+  reductionAmount: number;
+  editingLoan: any;
+  idempotencyKey: string;
+}) {
+  if (!sourceId) throw new Error('Fonte de capital obrigatória para o abatimento.');
+
+  // 1. Credit the source balance with the reduced amount
+  await adjustSourceBalanceSafe(sourceId, reductionAmount);
+
+  // 2. Update contract principal and totalToReceive
+  const totalBefore = Number(editingLoan?.totalToReceive ?? editingLoan?.principal ?? currentPrincipal);
+  const totalAfter = Math.max(0, Math.round((totalBefore - reductionAmount) * 100) / 100);
+  await supabase
+    .from('contratos')
+    .update({
+      principal: requestedPrincipal,
+      total_to_receive: totalAfter,
+    })
+    .eq('id', loanId);
+
+  // 3. Distribute reduction across open installments from last to first
+  const openInstallments = (editingLoan?.installments || [])
+    .filter((inst: any) => {
+      const status = String(inst.status || '').toUpperCase();
+      const pRem = Number(inst.principalRemaining ?? inst.principal_remaining ?? 0);
+      return !['PAID', 'PAGO', 'QUITADO', 'QUITADA', 'CANCELADO', 'RENEGOCIADO'].includes(status) && pRem > 0.005;
+    })
+    .sort((a: any, b: any) => {
+      const numA = Number(a.number ?? a.numero_parcela ?? 0);
+      const numB = Number(b.number ?? b.numero_parcela ?? 0);
+      return numB - numA;
+    });
+
+  let remainingReduction = reductionAmount;
+  const firstInstId = openInstallments[0]?.id || null;
+
+  for (const inst of openInstallments) {
+    if (remainingReduction <= 0.005) break;
+    const instPrincipal = Number(inst.principalRemaining ?? inst.principal_remaining ?? 0);
+    const alloc = Math.min(remainingReduction, instPrincipal);
+    const newPrincipalRem = Math.max(0, Math.round((instPrincipal - alloc) * 100) / 100);
+    const schedP = Math.max(0, Math.round((Number(inst.scheduledPrincipal ?? inst.scheduled_principal ?? instPrincipal) - alloc) * 100) / 100);
+    const amt = Math.max(0, Math.round((Number(inst.amount ?? inst.valor_parcela ?? 0) - alloc) * 100) / 100);
+
+    await supabase
+      .from('parcelas')
+      .update({
+        principal_remaining: newPrincipalRem,
+        scheduled_principal: schedP,
+        amount: amt,
+        valor_parcela: amt,
+      })
+      .eq('id', inst.id);
+
+    remainingReduction = Math.round((remainingReduction - alloc) * 100) / 100;
+  }
+
+  // 4. Record ledger transaction
+  const txPayload: any = {
+    id: generateUUID(),
+    profile_id: ownerId,
+    loan_id: loanId,
+    installment_id: safeUUID(firstInstId),
+    source_id: sourceId,
+    date: new Date().toISOString(),
+    type: 'PRINCIPAL_CORRECTION_REDUCTION',
+    amount: 0,
+    principal_delta: -reductionAmount,
+    interest_delta: 0,
+    late_fee_delta: 0,
+    notes: 'Abatimento de capital registrado na edição do contrato',
+    category: 'CORRECAO',
+    idempotency_key: idempotencyKey,
+    operator_id: operatorId,
+    payment_type: 'CORRECAO',
+    meta: {
+      engine: 'CONTRACT_PRINCIPAL_REDUCTION_FALLBACK',
+      reduction_amount: reductionAmount,
+      principal_before: currentPrincipal,
+      principal_after: requestedPrincipal,
+    },
+  };
+
+  await supabase.from('transacoes').insert(txPayload);
+}
+
 export const contractsService = {
   async saveLoan(loan: Loan, activeUser: UserProfile, _sources: CapitalSource[], editingLoan: Loan | null, options?: { skipTransaction?: boolean }) {
     if (!activeUser?.id) throw new Error('Usuário não autenticado.');
@@ -170,13 +273,10 @@ export const contractsService = {
     const isDailyFreePrincipalReduction = !!editingLoan
       && principalReduction > 0.005
       && String(editingLoan.billingCycle || '').toUpperCase() === 'DAILY_FREE';
-    if (principalReduction > 0.005 && !isDailyFreePrincipalReduction) {
-      throw new Error('A redução direta de capital está disponível apenas na Diária Livre.');
-    }
-    if (isDailyFreePrincipalReduction && safeUUID(loan.sourceId) !== safeUUID(editingLoan?.sourceId)) {
+    if (principalReduction > 0.005 && safeUUID(loan.sourceId) !== safeUUID(editingLoan?.sourceId)) {
       throw new Error('Para reduzir o capital, mantenha a fonte atual do contrato. A fonte pode ser alterada em uma operação separada.');
     }
-    const principal = (additionalCapital > 0 || isDailyFreePrincipalReduction) ? currentPrincipal : requestedPrincipal;
+    const principal = (additionalCapital > 0 || principalReduction > 0.005) ? currentPrincipal : requestedPrincipal;
     const interestRate = safeFloat(loan.interestRate);
     const finePercent = safeFloat(loan.finePercent);
     const dailyInterestPercent = safeFloat(loan.dailyInterestPercent);
@@ -310,20 +410,52 @@ export const contractsService = {
         if (upsertErr) throw upsertErr;
       }
 
-      if (isDailyFreePrincipalReduction) {
+      if (principalReduction > 0.005) {
         const stableRequest = getStableFinancialRequestKey(
-          ['daily-free-principal-correction', loanId, requestedPrincipal.toFixed(2), currentPrincipal.toFixed(2)].join(':')
+          ['contract-principal-reduction', loanId, requestedPrincipal.toFixed(2), currentPrincipal.toFixed(2)].join(':')
         );
-        const { error: reductionError } = await supabase.rpc('process_daily_free_principal_correction_v1', {
+        const rpcPayload = {
           p_idempotency_key: stableRequest.idempotencyKey,
           p_loan_id: safeUUID(loanId),
           p_profile_id: safeUUID(ownerId),
           p_target_principal: requestedPrincipal,
           p_operator_id: safeUUID(activeUser.id),
-          p_reason: 'Ajuste de capital pela edição da Diária Livre',
-        });
+          p_reason: isDailyFreePrincipalReduction
+            ? 'Ajuste de capital pela edição da Diária Livre'
+            : 'Abatimento de capital registrado na edição do contrato',
+        };
+
+        let reductionError: any = null;
+        const { error: primaryErr } = await supabase.rpc('process_contract_principal_reduction_v1', rpcPayload);
+        if (primaryErr) {
+          if (isDailyFreePrincipalReduction) {
+            const { error: dailyFreeErr } = await supabase.rpc('process_daily_free_principal_correction_v1', rpcPayload);
+            reductionError = dailyFreeErr;
+          } else {
+            reductionError = primaryErr;
+          }
+        }
+
         if (reductionError) {
-          throw new Error(`Não foi possível ajustar o capital com segurança: ${reductionError.message}`);
+          const isRpcMissing = String(reductionError?.message || '').toLowerCase().includes('not found')
+            || String(reductionError?.message || '').toLowerCase().includes('does not exist')
+            || String(reductionError?.message || '').toLowerCase().includes('could not find');
+
+          if (isRpcMissing) {
+            await applyDirectPrincipalReductionFallback({
+              loanId,
+              ownerId,
+              operatorId: safeUUID(activeUser.id),
+              sourceId: safeUUID(loan.sourceId || editingLoan?.sourceId),
+              currentPrincipal,
+              requestedPrincipal,
+              reductionAmount: principalReduction,
+              editingLoan,
+              idempotencyKey: stableRequest.idempotencyKey,
+            });
+          } else {
+            throw new Error(`Não foi possível ajustar o capital com segurança: ${reductionError.message}`);
+          }
         }
         clearStableFinancialRequestKey(stableRequest.storageKey);
       }

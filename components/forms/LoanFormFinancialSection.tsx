@@ -170,7 +170,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 type="button"
                 aria-pressed={active}
                 onClick={() => selectBillingCycle(value as LoanBillingModality)}
-                className={`${mobileSpan} sm:col-span-1 flex h-9 min-h-0 items-center justify-center rounded-md border px-2 text-[9px] font-black uppercase tracking-wide transition-all ${active ? 'border-purple-400/50 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-transparent text-slate-500 hover:border-slate-800 hover:bg-slate-900/70 hover:text-slate-200'}`}
+                className={`${mobileSpan} flex h-9 min-h-0 min-w-0 items-center justify-center rounded-md border px-2 text-[9px] font-black uppercase tracking-wide whitespace-nowrap transition-all ${active ? 'border-purple-400/50 bg-purple-500/15 text-white ring-1 ring-purple-400/10' : 'border-transparent text-slate-500 hover:border-slate-800 hover:bg-slate-900/70 hover:text-slate-200'}`}
               >
                 {label}
               </button>

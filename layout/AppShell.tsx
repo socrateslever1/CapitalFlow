@@ -7,11 +7,18 @@ import { PageBackProvider } from '../contexts/PageBackContext';
 import { ApplePageBackBar } from './ApplePageBackBar';
 import { isAppleMobile } from '../utils/appleMobile';
 import { BottomNav } from './BottomNav';
-import { UserProfile } from '../types';
+import { UserProfile, Client } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  useReminders,
+  ReminderFAB,
+  ReminderAlertModal,
+  ReminderManagerModal,
+  ReminderFormModal
+} from '../features/reminders';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -38,11 +45,13 @@ interface AppShellProps {
   addNotification?: (notif: Omit<InAppNotification, 'id' | 'createdAt'>) => void;
   activeModal?: any;
   onCloseSupport?: () => void;
+  clients?: Client[];
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients
 }) => {
+  const remindersState = useReminders(activeUser?.id);
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
   const mainRef = useRef<HTMLElement | null>(null);
@@ -213,6 +222,14 @@ export const AppShell: React.FC<AppShellProps> = ({
             <span className="absolute right-full mr-4 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-2xl">Novo Contrato</span>
           </button>
 
+          {/* Botão de Lembretes & Tarefas */}
+          <ReminderFAB
+            dueCount={remindersState.dueCount}
+            overdueCount={remindersState.overdueCount}
+            brandColor={activeUser?.brandColor}
+            onClick={() => remindersState.setIsManagerOpen(true)}
+          />
+
           <button
             onClick={onOpenSupport}
             className="w-12 h-12 relative flex items-center justify-center text-white rounded-full shadow-2xl hover:scale-110 transition-all active:scale-95 group"
@@ -231,6 +248,52 @@ export const AppShell: React.FC<AppShellProps> = ({
           </button>
         </div>
       )}
+
+      {/* Modal de Alerta de Lembrete no Horário Específico */}
+      <AnimatePresence>
+        {remindersState.activeAlertReminder && (
+          <ReminderAlertModal
+            reminder={remindersState.activeAlertReminder}
+            onComplete={(id) => remindersState.toggleComplete(id)}
+            onSnooze={(id, minutes) => remindersState.snooze(id, minutes)}
+            onDismiss={() => remindersState.setActiveAlertReminder(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Central de Lembretes & Tarefas */}
+      <AnimatePresence>
+        {remindersState.isManagerOpen && (
+          <ReminderManagerModal
+            reminders={remindersState.reminders}
+            clients={clients}
+            onToggleComplete={(id) => remindersState.toggleComplete(id)}
+            onDelete={(id) => remindersState.deleteReminder(id)}
+            onOpenCreate={() => remindersState.openCreate()}
+            onOpenEdit={(item) => remindersState.openEdit(item)}
+            onTriggerAlertPreview={(item) => remindersState.triggerAlertPreview(item)}
+            onClose={() => remindersState.setIsManagerOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Criação / Edição de Lembrete */}
+      <AnimatePresence>
+        {remindersState.isFormOpen && (
+          <ReminderFormModal
+            initialData={remindersState.editingReminder}
+            clients={clients}
+            onSave={(data) => {
+              if (remindersState.editingReminder) {
+                remindersState.updateReminder(remindersState.editingReminder.id, data);
+              } else {
+                remindersState.createReminder(data);
+              }
+            }}
+            onClose={() => remindersState.closeForm()}
+          />
+        )}
+      </AnimatePresence>
 
       <BottomNav
           activeTab={isSupportOpen ? 'SUPPORT' : activeTab}

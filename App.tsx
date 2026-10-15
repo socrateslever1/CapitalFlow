@@ -474,6 +474,7 @@ export const App: React.FC = () => {
             onNavigate={navigate}
             activeModal={ui.activeModal}
             onCloseSupport={ui.closeModal}
+            clients={clients}
           >
             {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
             <div

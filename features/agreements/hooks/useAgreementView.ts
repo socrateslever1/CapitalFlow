@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Agreement, AgreementInstallment } from "../../../types";
 import { agreementService } from "../services/agreementService";
 import { agreementScheduleService } from "../services/agreementScheduleService";
+import { resolveAgreementScheduleProgress } from "../domain/agreementScheduleProgress";
 
 interface UseAgreementViewProps {
     agreement: Agreement;
@@ -45,15 +46,16 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
             .sort((a, b) => (a?.number || 0) - (b?.number || 0));
     }, [agreement.installments]);
 
-    const paidTotal = useMemo(() => {
-        return (agreement.installments || []).reduce((sum, inst: any) => sum + Math.min(getAmount(inst), getPaidAmount(inst)), 0);
-    }, [agreement.installments]);
+    const scheduleProgress = useMemo(
+        () => resolveAgreementScheduleProgress(agreement),
+        [agreement]
+    );
 
-    const outstandingBalance = useMemo(() => {
-        return (agreement.installments || []).reduce((sum, inst: any) => {
-            return sum + Math.max(0, getAmount(inst) - getPaidAmount(inst));
-        }, 0);
-    }, [agreement.installments]);
+    const paidTotal = scheduleProgress.paidTotal;
+    const outstandingBalance = scheduleProgress.outstandingBalance;
+    const logicalInstallmentsCount = scheduleProgress.logicalInstallmentsCount;
+    const paidEquivalentInstallments = scheduleProgress.paidEquivalentInstallments;
+    const displayNumberById = scheduleProgress.displayNumberById;
 
     const projectedInstallments = useMemo(() => {
         const installmentValue = Number(String(scheduleInstallmentValue).replace(',', '.')) || 0;
@@ -146,6 +148,9 @@ export const useAgreementView = ({ agreement, onUpdate }: UseAgreementViewProps)
         openInstallments,
         paidTotal,
         outstandingBalance,
+        logicalInstallmentsCount,
+        paidEquivalentInstallments,
+        displayNumberById,
         projectedInstallments,
         projectedLastInstallment,
         handleBreak,

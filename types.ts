@@ -183,6 +183,7 @@ export interface Agreement {
   installmentsCount: number;
   frequency: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
   startDate: string;
+  firstDueDate?: string;
   status: AgreementStatus;
   createdAt: string;
   installments?: AgreementInstallment[];

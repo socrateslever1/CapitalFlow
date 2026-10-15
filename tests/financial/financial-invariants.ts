@@ -19,6 +19,7 @@ import { resolveReceiptDecision } from '../../services/payments/receiptDecision'
 import { calculateAutoDueDate } from '../../features/loans/domain/loanForm.preview';
 import { modalityRegistry } from '../../domain/finance/modalities/registry';
 import { deriveFundingValues } from '../../domain/finance/installmentFunding';
+import { resolveAgreementScheduleProgress } from '../../features/agreements/domain/agreementScheduleProgress';
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const assertMoney = (actual: number, expected: number, message: string) => {
@@ -34,6 +35,53 @@ const run = (name: string, fn: () => void) => {
     throw error;
   }
 };
+
+run('reorganização de acordo usa equivalência financeira, não quantidade histórica de linhas', () => {
+  const installments = [
+    ...Array.from({ length: 16 }, (_, index) => ({
+      id: `legacy-${index + 1}`,
+      number: index + 1,
+      dueDate: `2026-${String(5 + Math.floor(index / 4)).padStart(2, '0')}-${String(6 + ((index % 4) * 7)).padStart(2, '0')}`,
+      amount: 100,
+      paidAmount: 100,
+      status: 'PAID',
+    })),
+    {
+      id: 'monthly-paid',
+      number: 17,
+      dueDate: '2026-09-17',
+      amount: 400,
+      paidAmount: 400,
+      status: 'PAID',
+    },
+    ...Array.from({ length: 15 }, (_, index) => ({
+      id: `monthly-open-${index + 1}`,
+      number: 18 + index,
+      dueDate: new Date(Date.UTC(2026, 9 + index, 17)).toISOString().slice(0, 10),
+      amount: 400,
+      paidAmount: 0,
+      status: 'PENDING',
+    })),
+  ];
+
+  const progress = resolveAgreementScheduleProgress({
+    negotiatedTotal: 8000,
+    installmentValue: 400,
+    installmentsCount: 32,
+    firstDueDate: '2026-09-17',
+    installments,
+  } as any);
+
+  assertMoney(progress.paidTotal, 2000, 'total recebido preservado');
+  assertMoney(progress.outstandingBalance, 6000, 'saldo aberto');
+  assert.equal(progress.logicalInstallmentsCount, 20);
+  assert.equal(progress.paidEquivalentInstallments, 5);
+  assert.equal(progress.displayNumberById['monthly-paid'], 5);
+  assert.equal(progress.displayNumberById['monthly-open-1'], 6);
+  assert.equal(progress.displayNumberById['monthly-open-15'], 20);
+  assert.equal(progress.displayNumberById['legacy-16'], 16);
+});
+
 
 run('modalidades semanal e quinzenal geram ciclos e vencimentos coerentes', () => {
   assert.equal(calculateAutoDueDate('2026-10-06', 'WEEKLY', ''), '13/10/2026');

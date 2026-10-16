@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell, Plus, CheckCircle2, Circle, Clock, Calendar, User, Search, Trash2, Edit2,
-  X, MessageCircle, AlertCircle, Image as ImageIcon, Volume2, Play, Check
+  Clock, User, Search, Trash2, Edit2, X, MessageCircle, Check
 } from 'lucide-react';
 import { ReminderItem, ReminderStatus } from '../types';
 import { Client } from '../../../types';
 import { AudioPlayer } from './AudioPlayer';
 import { getThemeById } from '../themes/reminderThemes';
+import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
 
 interface ReminderManagerModalProps {
   reminders: ReminderItem[];
@@ -84,61 +83,25 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-[10400] flex items-center justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 15 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 15 }}
-          className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col h-[85vh] max-h-[800px] overflow-hidden"
-        >
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/90">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
-                <Bell size={20} />
-              </div>
-              <div>
-                <span className="text-[10px] font-black tracking-widest text-blue-400 uppercase">
-                  Gestão de Lembretes & Tarefas
-                </span>
-                <h2 className="text-lg font-black text-white">Central de Tarefas</h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onOpenCreate}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-600/30 transition-transform active:scale-95"
-              >
-                <Plus size={15} />
-                <span>Novo Lembrete</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Abas e Barra de Pesquisa */}
-          <div className="p-4 border-b border-slate-800/60 bg-slate-900/50 space-y-3">
+      <Modal
+        onClose={onClose}
+        title="Central de Tarefas"
+        size="md"
+        footer={<button type="button" onClick={onOpenCreate} className={modalPrimaryActionClass}>Novo lembrete</button>}
+      >
+          <div className="space-y-2">
             {/* Tabs */}
-            <div className="flex items-center gap-2 bg-slate-950/80 p-1 rounded-2xl border border-slate-800">
+            <div className="grid grid-cols-3 gap-1 rounded-lg border border-slate-800 bg-slate-950/80 p-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('TODAY')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`flex min-w-0 items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-bold whitespace-nowrap transition-all sm:px-3 sm:text-xs ${
                   activeTab === 'TODAY'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <span>Hoje & Atrasados</span>
+                <span>Hoje</span>
                 {todayReminders.length > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white">
                     {todayReminders.length}
@@ -149,7 +112,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('UPCOMING')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`flex min-w-0 items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-bold whitespace-nowrap transition-all sm:px-3 sm:text-xs ${
                   activeTab === 'UPCOMING'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
@@ -166,7 +129,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('COMPLETED')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`flex min-w-0 items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-bold whitespace-nowrap transition-all sm:px-3 sm:text-xs ${
                   activeTab === 'COMPLETED'
                     ? 'bg-emerald-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
@@ -183,27 +146,24 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
 
             {/* Input de Pesquisa */}
             <div className="relative">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Pesquisar lembretes por título, cliente ou texto..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Pesquisar lembretes"
+                className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 pl-9 pr-4 text-xs text-white placeholder-slate-500 transition-colors focus:border-blue-500 focus:outline-none"
               />
             </div>
           </div>
 
           {/* Lista de Lembretes */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="mt-2 space-y-2">
             {currentList.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
-                <div className="w-14 h-14 rounded-3xl bg-slate-800/60 flex items-center justify-center text-slate-400">
-                  <Bell size={24} />
-                </div>
+              <div className="flex min-h-48 flex-col items-center justify-center space-y-2 rounded-lg border border-slate-800/70 bg-slate-950/35 p-5 text-center text-slate-500">
                 <div>
                   <h4 className="text-sm font-bold text-white">Nenhum lembrete nesta aba</h4>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                  <p className="mx-auto mt-1 max-w-xs text-xs text-slate-400">
                     {activeTab === 'TODAY'
                       ? 'Nenhuma tarefa pendente para hoje ou atrasada. Parabéns!'
                       : activeTab === 'UPCOMING'
@@ -214,7 +174,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
                 <button
                   type="button"
                   onClick={onOpenCreate}
-                  className="px-4 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 text-xs font-bold hover:bg-blue-600/30 transition-colors"
+                  className="rounded-lg border border-blue-500/30 bg-blue-600/20 px-4 py-2 text-xs font-bold text-blue-400 transition-colors hover:bg-blue-600/30"
                 >
                   Criar Primeiro Lembrete
                 </button>
@@ -227,7 +187,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
                 return (
                   <div
                     key={item.id}
-                    className={`p-4 rounded-2xl border transition-all ${
+                    className={`rounded-lg border p-3 transition-colors ${
                       isCompleted
                         ? 'bg-slate-950/40 border-slate-800/50 opacity-70'
                         : overdue
@@ -235,33 +195,33 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
                         : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2">
                       {/* Checkbox de Conclusão */}
                       <button
                         type="button"
                         onClick={() => onToggleComplete(item.id)}
-                        className={`mt-0.5 w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${
+                        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-md border transition-colors ${
                           isCompleted
                             ? 'bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-600/30'
                             : 'border-slate-700 hover:border-emerald-500 text-transparent hover:text-emerald-400 bg-slate-900'
                         }`}
                         title={isCompleted ? 'Marcar como pendente' : 'Marcar como concluída'}
                       >
-                        <Check size={14} className="stroke-[3]" />
+                        <Check size={12} className="stroke-[3]" />
                       </button>
 
                       {/* Conteúdo */}
-                      <div className="flex-1 min-w-0 space-y-2">
+                      <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <h3
-                            className={`text-sm font-bold tracking-tight ${
+                            className={`text-xs font-bold tracking-tight ${
                               isCompleted ? 'line-through text-slate-500' : 'text-white'
                             }`}
                           >
                             {item.title}
                           </h3>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1">
                             {/* Horário */}
                             <span
                               className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${
@@ -314,8 +274,8 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
 
                         {/* Cliente Marcado */}
                         {(item.clientName || item.clientId) && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-blue-950/50 border border-blue-500/30 text-blue-300 text-xs font-bold">
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            <span className="inline-flex items-center gap-1 rounded-lg border border-blue-500/30 bg-blue-950/50 px-2 py-0.5 text-[11px] font-bold text-blue-300">
                               <User size={12} className="text-blue-400" />
                               <span>@{item.clientName || 'Cliente'}</span>
                             </span>
@@ -325,7 +285,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
                                 href={`https://wa.me/55${item.clientPhone.replace(/\D/g, '')}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold hover:bg-emerald-950/70 transition-colors"
+                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-2 py-0.5 text-[11px] font-bold text-emerald-400 transition-colors hover:bg-emerald-950/70"
                               >
                                 <MessageCircle size={12} />
                                 <span>WhatsApp</span>
@@ -360,7 +320,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
                         )}
 
                         {/* Botões de Ação */}
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-900/60">
+                        <div className="flex items-center justify-between border-t border-slate-900/60 pt-1.5">
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -398,8 +358,7 @@ export const ReminderManagerModal: React.FC<ReminderManagerModalProps> = ({
               })
             )}
           </div>
-        </motion.div>
-      </div>
+      </Modal>
 
       {/* Lightbox para Imagem Preview */}
       {selectedImagePreview && (

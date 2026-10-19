@@ -482,11 +482,15 @@ for (const rpc of [
   'skill_list_installments_v1',
   'skill_list_due_v1',
   'skill_get_agreement_v1',
-  'skill_get_profitability_v1',
 ]) {
   if (!skillGateway.includes(rpc) || !skillReadModelMigration.includes(rpc)) {
     failures.push(`Skills READ_ONLY -> RPC autorizada ausente: ${rpc}`);
   }
+}
+
+if (!skillGateway.includes('skill_get_profitability_v1')
+    || !profitabilityReadModelMigration.includes('skill_get_profitability_v1')) {
+  failures.push('Skills READ_ONLY -> RPC autorizada ausente: skill_get_profitability_v1');
 }
 
 const financialSkills = read('ai', 'skills', 'financial', 'skills.ts');

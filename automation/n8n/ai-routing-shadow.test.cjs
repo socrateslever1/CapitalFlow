@@ -38,6 +38,11 @@ test('shadow mantém conversas comuns fora das Skills financeiras', () => {
   assert.match(source, /intent:\s*"identify_client",\s*route:\s*"CONVERSATION"/);
 });
 
+test('shadow encaminha divergência de valor e reconhece pagamento recebido', () => {
+  assert.match(source, /intent:\s*"dispute_amount",\s*route:\s*"HUMAN_HANDOFF"/);
+  assert.match(source, /recebi\|recebemos/);
+});
+
 test('solicitação de empréstimo sempre cria handoff sem aprovar crédito', () => {
   const start = source.indexOf('if (action === "loan_interest")');
   const end = source.indexOf('if (action === "human_handoff")', start);

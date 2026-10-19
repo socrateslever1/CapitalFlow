@@ -6,7 +6,7 @@ WAHA recebe mensagens do WhatsApp e entrega eventos ao webhook interno do n8n. O
 
 ### Roteamento de IA em shadow
 
-O `capitalflow-n8n-tools` registra, sem mudar o atendimento atual, uma classificação de intenção e o estado mínimo da conversa. Essa telemetria não guarda o texto bruto da mensagem, não habilita escrita financeira e não substitui o menu existente. As tabelas internas `n8n_ai_conversation_states` e `n8n_ai_intent_events` são acessíveis somente por `service_role` e servem para validar o roteador e preparar a futura máquina de estados do n8n.
+O `capitalflow-n8n-tools` registra, sem mudar o atendimento atual, uma classificação de intenção e o estado mínimo da conversa. Essa telemetria não guarda o texto bruto da mensagem, registra estado anterior/posterior para auditoria, não habilita escrita financeira e não substitui o menu existente. As tabelas internas `n8n_ai_conversation_states` e `n8n_ai_intent_events` são acessíveis somente por `service_role` e servem para validar o roteador e preparar a futura máquina de estados do n8n.
 
 Uma saudação simples não gera menu financeiro para desconhecidos. Empréstimo só é tratado quando a própria pessoa manifesta interesse e passa pela identificação do backend. Informações financeiras só são respondidas após identificação segura e a partir do contexto retornado pelo backend.
 

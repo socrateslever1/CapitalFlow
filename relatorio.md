@@ -1,5 +1,16 @@
 # Relatório de execução — CapitalFlow
 
+## Fechamento da fase Skills/Router — 19/10/2026
+
+- **GitHub:** Router, State Machine, Context Builder, 7 Skills READ_ONLY, Tools, MCP, Evals e gates arquiteturais permanecem preservados.
+- **Paridade corrigida:** rotas `CONVERSATION` no shadow agora observam `INTENT_PENDING`, igual ao núcleo de estado; escritas financeiras continuam bloqueadas.
+- **Observabilidade:** eventos passam a registrar `state_before` e `state_after` sem texto bruto.
+- **Rentabilidade:** `consultar_rentabilidade → profitability.get → skill_get_profitability_v1` passa a ser verificada também pelos gates de arquitetura e MCP.
+- **Produção financeira:** nenhuma escrita financeira da IA foi habilitada.
+- **Dados financeiros históricos:** não alterados.
+- **Custo novo:** R$ 0,00.
+
+
 ## Continuação da arquitetura de IA — 12/10/2026
 
 HEAD inicial: `b828637be768c548135f73967f241779fb6d332e`

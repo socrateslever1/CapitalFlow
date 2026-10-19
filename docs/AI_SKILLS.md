@@ -46,7 +46,7 @@ O input de uma Skill não possui `profileId`, tenant ou owner. Esses valores vê
 | `consultar_acordo` | `agreement.get` | `skill_get_agreement_v1` | acordo ativo persistido |
 | `consultar_rentabilidade` | `profitability.get` | `skill_get_profitability_v1` | lucro realizado, principal recuperado, perdões e ROI oficiais |
 
-As seis RPCs originais estão na migration `20260929042103_ai_skills_read_models.sql`. A rentabilidade usa uma migration aditiva local e permanece pendente de validação PostgreSQL local antes de qualquer implantação.
+As seis RPCs originais estão na migration `20260929042103_ai_skills_read_models.sql`. A rentabilidade está versionada em `20261013033838_add_profitability_read_model.sql` e já existe no Supabase de produção como RPC READ_ONLY.
 
 Rentabilidade nunca é calculada pelo LLM. O backend considera lucro realizado apenas `interest_paid + late_fee_paid` de operações V4 concluídas. Principal recuperado é informado separadamente, perdões não viram receita e operações estornadas são excluídas.
 
@@ -83,6 +83,8 @@ A camada de integração agora possui uma base executável, ainda conservadora:
 - `buildTrustedContextEnvelope` e `buildSkillPromptContext`: separam identidade confiável, minimizam dados e removem CPF, tokens, segredos e dados bancários antes de qualquer prompt.
 - `restoreConversationState`: reinicia sessão expirada ou inválida sem reaproveitar estado inseguro.
 - `npm run test:evals`: executa mensagem → Router → seleção/estado e publica accuracy, unknown rate, handoff rate e wrong-skill rate sem API paga.
+- O shadow do WhatsApp usa os mesmos estados observados para rotas conversacionais; `CONVERSATION` permanece em `INTENT_PENDING`, sem autorizar escrita financeira.
+- A observabilidade grava `state_before` e `state_after` sem persistir o texto bruto da mensagem.
 
 As Skills financeiras continuam desabilitadas. O classificador reconhecer uma intenção financeira não significa autorização para executá-la.
 

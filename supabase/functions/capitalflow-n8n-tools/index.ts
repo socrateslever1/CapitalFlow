@@ -184,7 +184,9 @@ function observedAiState(identified: boolean, routing: { route: AiRoute }): AiSt
   if (routing.route === "HUMAN_HANDOFF") return "HUMAN_HANDOFF";
   if (!identified) return "IDENTIFYING";
   if (routing.route === "READ_ONLY_SKILL") return "RESOLVING_READ";
-  if (routing.route === "UNKNOWN" || routing.route === "LOAN_INTEREST") return "INTENT_PENDING";
+  if (routing.route === "UNKNOWN" || routing.route === "LOAN_INTEREST" || routing.route === "CONVERSATION") return "INTENT_PENDING";
+
+  // Escritas financeiras seguem bloqueadas no shadow: observar não autoriza executar.
   return "IDENTIFIED";
 }
 
@@ -202,6 +204,20 @@ async function persistAiRouting(
   },
 ) {
   const now = new Date().toISOString();
+  const previousStateRead = await supabase.from("n8n_ai_conversation_states")
+    .select("state, expires_at")
+    .eq("profile_id", input.profileId)
+    .eq("phone_hash", input.phoneHash)
+    .maybeSingle();
+  if (previousStateRead.error) throw previousStateRead.error;
+
+  const previousExpired = previousStateRead.data?.expires_at
+    ? Date.parse(previousStateRead.data.expires_at) <= Date.now()
+    : false;
+  const stateBefore: AiState = previousExpired
+    ? "NEW"
+    : ((previousStateRead.data?.state as AiState | null) || "NEW");
+
   const stateWrite = await supabase.from("n8n_ai_conversation_states").upsert({
     profile_id: input.profileId,
     phone_hash: input.phoneHash,
@@ -227,6 +243,7 @@ async function persistAiRouting(
     route: input.routing.route,
     confidence: input.routing.confidence,
     state: input.state,
+    state_before: stateBefore,
     state_after: input.state,
     skill: input.routing.route === "READ_ONLY_SKILL" ? input.routing.intent : null,
     tool: null,

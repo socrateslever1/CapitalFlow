@@ -20,7 +20,9 @@ for (const item of routingEvalCases) {
   if (result.route === 'HUMAN_HANDOFF') handoff += 1;
   if (!matches && result.route === 'READ_ONLY_SKILL') wrongSkill += 1;
   assert.equal(result.intent, item.expectedIntent, `${item.name}: intent incorreto`);
-  if (item.expectHandoff) assert.equal(observedStateForIntent(Boolean(item.identified), result), 'HUMAN_HANDOFF');
+  const observedState = observedStateForIntent(Boolean(item.identified), result);
+  if (item.expectedState) assert.equal(observedState, item.expectedState, `${item.name}: estado incorreto`);
+  if (item.expectHandoff) assert.equal(observedState, 'HUMAN_HANDOFF');
 }
 
 const total = routingEvalCases.length;

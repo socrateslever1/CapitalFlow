@@ -53,3 +53,24 @@ test('solicitação de empréstimo sempre cria handoff sem aprovar crédito', ()
   assert.match(branch, /HUMAN_HANDOFF/);
   assert.doesNotMatch(branch, /process_financial_operation_v4|aprova/i);
 });
+
+
+test('shadow mantém paridade de estado para rotas conversacionais', () => {
+  const start = source.indexOf('function observedAiState');
+  const end = source.indexOf('\n}', start) + 2;
+  const helper = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(helper, /routing\.route === "UNKNOWN" \|\| routing\.route === "LOAN_INTEREST" \|\| routing\.route === "CONVERSATION"/);
+  assert.match(helper, /return "INTENT_PENDING"/);
+});
+
+test('telemetria registra estado anterior e posterior sem texto bruto', () => {
+  const helperStart = source.indexOf('async function persistAiRouting');
+  const helperEnd = source.indexOf('\n}', helperStart) + 2;
+  const helper = source.slice(helperStart, helperEnd);
+  assert.ok(helperStart >= 0);
+  assert.match(helper, /state_before:\s*stateBefore/);
+  assert.match(helper, /state_after:\s*input\.state/);
+  assert.match(helper, /select\("state, expires_at"\)/);
+  assert.doesNotMatch(helper, /message:\s*input\./);
+});

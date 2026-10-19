@@ -482,6 +482,7 @@ for (const rpc of [
   'skill_list_installments_v1',
   'skill_list_due_v1',
   'skill_get_agreement_v1',
+  'skill_get_profitability_v1',
 ]) {
   if (!skillGateway.includes(rpc) || !skillReadModelMigration.includes(rpc)) {
     failures.push(`Skills READ_ONLY -> RPC autorizada ausente: ${rpc}`);
@@ -513,7 +514,7 @@ for (const file of walk(path.join(root, 'ai', 'tools'))) {
 
 for (const toolId of [
   'client.search', 'client.get', 'debt.get', 'installments.list',
-  'contract.get', 'due_dates.list', 'agreement.get',
+  'contract.get', 'due_dates.list', 'agreement.get', 'profitability.get',
 ]) {
   if (!readTools.includes(`id: '${toolId}'`)) {
     failures.push(`Tools READ_ONLY -> Tool obrigatória ausente: ${toolId}`);
@@ -528,6 +529,7 @@ for (const skillPath of [
   ['consultar-cliente', 'skill.ts'], ['consultar-divida', 'skill.ts'],
   ['consultar-parcelas', 'skill.ts'], ['consultar-contrato', 'skill.ts'],
   ['consultar-vencimentos', 'skill.ts'], ['consultar-acordo', 'skill.ts'],
+  ['consultar-rentabilidade', 'skill.ts'],
 ]) {
   const text = read('ai', 'skills', ...skillPath);
   if (!text.includes('executeToolAsSkill')) {
@@ -560,7 +562,7 @@ if (!n8nToolsFunction.includes('mode: "SHADOW"') ||
     !n8nToolsFunction.includes('n8n_ai_conversation_states')) {
   failures.push('capitalflow-n8n-tools -> roteamento shadow não está integrado');
 }
-for (const required of ['CONVERSATION', 'greeting', 'payment_link_request', 'identify_client', 'dispute_amount']) {
+for (const required of ['CONVERSATION', 'greeting', 'payment_link_request', 'identify_client', 'dispute_amount', 'consultar_rentabilidade']) {
   if (!n8nToolsFunction.includes(required)) {
     failures.push(`capitalflow-n8n-tools -> paridade de conversa ausente: ${required}`);
   }
@@ -576,6 +578,16 @@ for (const required of [
 }
 
 for (const required of [
+  'routing.route === "UNKNOWN" || routing.route === "LOAN_INTEREST" || routing.route === "CONVERSATION"',
+  'state_before: stateBefore',
+  'state_after: input.state',
+]) {
+  if (!n8nToolsFunction.includes(required)) {
+    failures.push(`capitalflow-n8n-tools -> paridade/observabilidade ausente: ${required}`);
+  }
+}
+
+for (const required of [
   'payment.preview', 'payment.execute', 'payment.reverse', 'payment.capitalize',
   'payment.renew', 'payment.settle', 'loan.lend_more',
   'enabled: false', 'requiresConfirmation: true', 'STAGING_NOT_VERIFIED',
@@ -585,7 +597,7 @@ for (const required of [
 
 for (const mcpName of [
   'search_client', 'get_client', 'get_debt', 'list_installments',
-  'get_contract', 'list_due_dates', 'get_agreement',
+  'get_contract', 'list_due_dates', 'get_agreement', 'get_profitability',
 ]) {
   if (!mcpAdapter.includes(mcpName)) failures.push(`MCP READ_ONLY -> Tool ausente: ${mcpName}`);
 }

@@ -114,7 +114,11 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   if (match([/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b.*\b(acordo|renegociacao)\b/])) {
     return { intent: "registrar_pagamento_acordo", route: "FINANCIAL_BLOCKED", confidence: 0.99 };
   }
-  if (match([/\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b/, /\bexecute\b.*\bpagamento\b/])) {
+  if (match([
+    /\b(registr\w*|dar baixa|baix\w*|lanc\w*)\b.*\b(pagamento|recebimento)\b/,
+    /\b(recebi|recebemos)\b.*\b(r\$|reais|pagamento|parcela)?/,
+    /\bexecute\b.*\bpagamento\b/,
+  ])) {
     return { intent: "registrar_pagamento", route: "FINANCIAL_BLOCKED", confidence: 0.98 };
   }
   if (match([/\b(alter\w*|mud\w*|troc\w*|adi\w*|prorrog\w*)\b.*\b(vencimento|data de vencimento)\b/])) {
@@ -144,6 +148,9 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   if (match([/\b(como|onde|posso)\b.*\b(pagar|pagamento)\b/])) {
     return { intent: "payment_request", route: "CONVERSATION", confidence: 0.94 };
   }
+  if (match([/\b(valor|saldo|divida|cobranca)\b.*\b(errad\w*|incorret\w*|discord\w*|nao reconheco)\b/])) {
+    return { intent: "dispute_amount", route: "HUMAN_HANDOFF", confidence: 0.96 };
+  }
   if (match([/\b(meu cpf|meu codigo|sou o cliente|me chamo|meu nome e)\b/])) {
     return { intent: "identify_client", route: "CONVERSATION", confidence: 0.91 };
   }
@@ -162,7 +169,11 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   if (match([/\b(ver|mostr\w*|consult\w*|detalh\w*|status|situacao)\b.*\bcontrato\b/, /\b(meu|o|do|da)\s+contrato\b/])) {
     return { intent: "consultar_contrato", route: "READ_ONLY_SKILL", confidence: 0.93 };
   }
-  if (match([/\b(cadastro|dados do cliente|dados cadastrais|cliente cadastrado)\b/, /\b(mostr\w*|busc\w*|consult\w*|encontr\w*)\b.*\b(cliente|clientes)\b/])) {
+  if (match([
+    /\b(cadastro|dados do cliente|dados cadastrais|cliente cadastrado)\b/,
+    /\b(mostr\w*|busc\w*|consult\w*|encontr\w*)\b.*\b(cliente|clientes)\b/,
+    /\b(clientes?)\b.*\b(outro operador|cadastro|nome|cpf|codigo)\b/,
+  ])) {
     return { intent: "consultar_cliente", route: "READ_ONLY_SKILL", confidence: 0.9 };
   }
 

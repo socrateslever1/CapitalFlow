@@ -470,6 +470,7 @@ const skillIntentClassifier = read('ai', 'skills', 'integration', 'intentClassif
 const skillConversationState = read('ai', 'skills', 'integration', 'conversationState.ts');
 const skillContextBuilder = read('ai', 'skills', 'integration', 'contextBuilder.ts');
 const aiRoutingMigration = read('supabase', 'migrations', '20261012191627_add_ai_routing_state_observability.sql');
+const aiConversationRouteMigration = read('supabase', 'migrations', '20261019044108_align_ai_conversation_routes.sql');
 const n8nToolsFunction = read('supabase', 'functions', 'capitalflow-n8n-tools', 'index.ts');
 if (skillGateway.includes('.from(')) {
   failures.push('supabaseSkillGateway.ts -> acesso direto a tabela proibido');
@@ -558,6 +559,20 @@ if (!n8nToolsFunction.includes('mode: "SHADOW"') ||
     !n8nToolsFunction.includes('n8n_ai_intent_events') ||
     !n8nToolsFunction.includes('n8n_ai_conversation_states')) {
   failures.push('capitalflow-n8n-tools -> roteamento shadow não está integrado');
+}
+for (const required of ['CONVERSATION', 'greeting', 'payment_link_request', 'identify_client']) {
+  if (!n8nToolsFunction.includes(required)) {
+    failures.push(`capitalflow-n8n-tools -> paridade de conversa ausente: ${required}`);
+  }
+}
+for (const required of [
+  'n8n_ai_conversation_states_last_route_check',
+  'n8n_ai_intent_events_route_check',
+  "'CONVERSATION'",
+]) {
+  if (!aiConversationRouteMigration.includes(required)) {
+    failures.push(`IA/n8n rotas de conversa -> migration sem garantia: ${required}`);
+  }
 }
 
 for (const required of [

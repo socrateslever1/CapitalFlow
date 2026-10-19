@@ -81,7 +81,7 @@ const moneyBr = (value: unknown) => new Intl.NumberFormat("pt-BR", {
 }).format(Number(value || 0));
 const cents = (value: unknown) => Math.round(Number(value || 0) * 100);
 
-type AiRoute = "READ_ONLY_SKILL" | "FINANCIAL_BLOCKED" | "HUMAN_HANDOFF" | "LOAN_INTEREST" | "UNKNOWN";
+type AiRoute = "READ_ONLY_SKILL" | "FINANCIAL_BLOCKED" | "HUMAN_HANDOFF" | "LOAN_INTEREST" | "CONVERSATION" | "UNKNOWN";
 type AiState = "NEW" | "IDENTIFYING" | "IDENTIFIED" | "INTENT_PENDING" | "RESOLVING_READ" | "AWAITING_CONFIRMATION" | "EXECUTING" | "COMPLETED" | "HUMAN_HANDOFF";
 
 const normalizeIntentText = (value: unknown) => String(value ?? "")
@@ -98,6 +98,9 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   if (!text) return { intent: "unknown", route: "UNKNOWN", confidence: 0 };
   if (match([/\b(ignore|desconsidere|esqueca)\b.*\b(regras|instrucoes|sistema|tenant|tudo)\b/, /\b(mostre|revele|envie)\b.*\b(token|senha|secret|chave|outro cliente)\b/, /\b(execute|rode)\b.*\b(sql|update|delete|drop|truncate)\b/])) {
     return { intent: "unknown", route: "UNKNOWN", confidence: 0.99 };
+  }
+  if (match([/^(oi|ola|bom dia|boa tarde|boa noite|e ai|tudo bem)[!.? ]*$/])) {
+    return { intent: "greeting", route: "CONVERSATION", confidence: 0.98 };
   }
   if (match([/\b(lucro|lucrativ\w*|rentabilidade|roi|juros recebidos|recebi de juros|ganhei de juros)\b/, /\b(quanto perdi|perda)\b.*\b(descontos?|perdao|encargos)\b/])) {
     return { intent: "consultar_rentabilidade", route: "READ_ONLY_SKILL", confidence: 0.97 };
@@ -134,6 +137,15 @@ function classifyShadowIntent(value: unknown): { intent: string; route: AiRoute;
   }
   if (match([/\b(quero|preciso|gostaria de|tenho interesse em)\b.*\b(emprestimo|credito)\b/, /\b(simular|solicitar|pedir)\b.*\b(emprestimo|credito)\b/])) {
     return { intent: "loan_interest", route: "LOAN_INTEREST", confidence: 0.96 };
+  }
+  if (match([/\b(link|pix|boleto)\b.*\b(pagar|pagamento|parcela)\b/, /\b(quero|preciso)\b.*\bpagar\b/])) {
+    return { intent: "payment_link_request", route: "CONVERSATION", confidence: 0.96 };
+  }
+  if (match([/\b(como|onde|posso)\b.*\b(pagar|pagamento)\b/])) {
+    return { intent: "payment_request", route: "CONVERSATION", confidence: 0.94 };
+  }
+  if (match([/\b(meu cpf|meu codigo|sou o cliente|me chamo|meu nome e)\b/])) {
+    return { intent: "identify_client", route: "CONVERSATION", confidence: 0.91 };
   }
   if (match([/\b(quando|que dia|qual data)\b.*\b(vence|vencimento)\b/, /\b(vencimento|vencimentos)\b.*\b(quando|data|proximo|proxima|contrato|parcela)?/])) {
     return { intent: "consultar_vencimentos", route: "READ_ONLY_SKILL", confidence: 0.96 };

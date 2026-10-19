@@ -147,14 +147,6 @@ const rules: Rule[] = [
     ],
   },
   {
-    intent: 'consultar_rentabilidade', route: 'READ_ONLY_SKILL', confidence: 0.97,
-    patterns: [
-      /\b(lucro|lucrativ\w*|rentabilidade|roi|juros recebidos|ganhei de juros)\b/,
-      /\b(quanto perdi|perda)\b.*\b(descontos?|perdao|encargos)\b/,
-      /\b(cliente)\b.*\b(mais lucrativo|maior lucro)\b/,
-    ],
-  },
-  {
     intent: 'payment_link_request', route: 'CONVERSATION', confidence: 0.96,
     patterns: [/\b(link|pix|boleto)\b.*\b(pagar|pagamento|parcela)\b/, /\b(quero|preciso)\b.*\bpagar\b/],
   },

@@ -31,6 +31,13 @@ test('shadow reconhece rentabilidade e bloqueia prompt injection', () => {
   assert.match(source, /route:\s*"UNKNOWN",\s*confidence:\s*0\.99/);
 });
 
+test('shadow mantém conversas comuns fora das Skills financeiras', () => {
+  assert.match(source, /"CONVERSATION"/);
+  assert.match(source, /intent:\s*"greeting",\s*route:\s*"CONVERSATION"/);
+  assert.match(source, /intent:\s*"payment_link_request",\s*route:\s*"CONVERSATION"/);
+  assert.match(source, /intent:\s*"identify_client",\s*route:\s*"CONVERSATION"/);
+});
+
 test('solicitação de empréstimo sempre cria handoff sem aprovar crédito', () => {
   const start = source.indexOf('if (action === "loan_interest")');
   const end = source.indexOf('if (action === "human_handoff")', start);

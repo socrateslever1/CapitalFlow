@@ -560,7 +560,7 @@ if (!n8nToolsFunction.includes('mode: "SHADOW"') ||
     !n8nToolsFunction.includes('n8n_ai_conversation_states')) {
   failures.push('capitalflow-n8n-tools -> roteamento shadow não está integrado');
 }
-for (const required of ['CONVERSATION', 'greeting', 'payment_link_request', 'identify_client']) {
+for (const required of ['CONVERSATION', 'greeting', 'payment_link_request', 'identify_client', 'dispute_amount']) {
   if (!n8nToolsFunction.includes(required)) {
     failures.push(`capitalflow-n8n-tools -> paridade de conversa ausente: ${required}`);
   }

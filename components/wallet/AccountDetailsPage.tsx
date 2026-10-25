@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ImagePlus, Landmark, Pencil, ReceiptText, Save, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft, CheckCircle2, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -65,23 +65,6 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
     setError('');
     setEditing(false);
   };
-
-  const movements = useMemo(() => [
-    ...expenses.filter(expense => expense.account_id === account.id && expense.status === 'PAID').map(expense => ({
-      id: `expense-${expense.id}`,
-      date: expense.expense_date,
-      label: expense.description,
-      category: 'Despesa registrada',
-      amount: -Number(expense.amount || 0),
-    })),
-    ...invoicePayments.filter(payment => payment.account_id === account.id && payment.source === 'ACCOUNT').map(payment => ({
-      id: `invoice-${payment.id}`,
-      date: payment.created_at,
-      label: 'Pagamento de fatura',
-      category: 'Cartão de crédito',
-      amount: -Number(payment.amount || 0),
-    })),
-  ].sort((a, b) => b.date.localeCompare(a.date)), [account.id, expenses, invoicePayments]);
 
   const update = (field: keyof typeof form, value: string) => setForm(current => ({ ...current, [field]: value }));
 
@@ -212,27 +195,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
         </form>
       )}
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ReceiptText size={18} className="text-emerald-400" /> Movimentações registradas</h2>
-        <p className="mt-1 text-xs text-slate-400">Exibe despesas pagas e pagamentos de faturas feitos por esta conta. O saldo inicial não é uma movimentação individual.</p>
-        {movements.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">Nenhuma movimentação registrada nesta conta.</p>
-        ) : (
-          <div className="mt-4 divide-y divide-slate-800">
-            {movements.map(movement => (
-              <div key={movement.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-white">{movement.label}</p>
-                  <p className="text-[11px] text-slate-400">{movement.category} · {new Date(movement.date.slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                </div>
-                <strong className="shrink-0 text-sm text-rose-300">{formatMoney(movement.amount)}</strong>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       <AccountActivityPanel account={account} accounts={accounts}
-        operations={accountOperations} statementRows={statementRows} onSaved={onSaved} />
+        operations={accountOperations} statementRows={statementRows}
+        expenses={expenses} invoicePayments={invoicePayments} onSaved={onSaved} />
     </section>
   );
 };

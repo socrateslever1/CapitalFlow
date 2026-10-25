@@ -292,7 +292,7 @@ for (const required of ['selectedInvoiceDueMonth', 'Pagar parte ou total', 'invo
 const accountDetailsPage = read('components', 'wallet', 'AccountDetailsPage.tsx');
 const walletActivity = read('components', 'wallet', 'AccountActivityPanel.tsx');
 const walletStatementImporter = read('components', 'wallet', 'WalletStatementImport.tsx');
-const walletAccountMigration = read('supabase', 'migrations', '20261025081000_personal_wallet_account_ledger_and_statements.sql');
+const walletAccountMigration = read('supabase', 'migrations', '20261025073621_personal_wallet_account_ledger_and_statements.sql');
 for (const required of ["INCOME", "RECEIPT", "EXPENSE", "PAYMENT", "TRANSFER", "Extrato da conta", "Importar PDF"]) {
   if (!walletActivity.includes(required)) failures.push(`Minha Carteira -> operacao ou extrato ausente: ${required}`);
 }

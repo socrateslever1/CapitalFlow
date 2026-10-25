@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Banknote, TrendingUp, ShieldCheck, CheckCircle2, Loader2 } from 'lucide-react';
+import { Banknote, TrendingUp, ShieldCheck, CheckCircle2, Loader2, QrCode } from 'lucide-react';
 import { Loan, Installment } from '../../types';
 import { LateFeeWaiverOptions } from '../../components/modals/payment/LateFeeWaiverOptions';
 import { formatMoney } from '../../utils/formatters';
@@ -42,6 +42,7 @@ interface PaymentRegistrationFormProps {
     totalInterestDue: number;
     safeParse: (val: string) => number;
     handleConfirm: () => void;
+    onOpenPix?: () => void;
 }
 
 export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = ({
@@ -70,7 +71,8 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
     showInterestDecision,
     totalInterestDue,
     safeParse,
-    handleConfirm
+    handleConfirm,
+    onOpenPix
 }) => {
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
     const [autoFillMode, setAutoFillMode] = useState<'NONE' | 'TOTAL' | 'INTEREST'>('TOTAL');
@@ -253,9 +255,24 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     </div>
                 )}
 
-                <button onClick={handleConfirm} disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0} className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-sm shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {isProcessing ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle2 size={20} /> Confirmar Recebimento</>}
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {onOpenPix && (
+                        <button
+                            type="button"
+                            onClick={onOpenPix}
+                            className="w-full py-4 bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 rounded-lg font-black uppercase text-xs tracking-wider transition-all flex items-center justify-center gap-2"
+                        >
+                            <QrCode size={18} /> Gerar Cobrança Pix
+                        </button>
+                    )}
+                    <button
+                        onClick={handleConfirm}
+                        disabled={isProcessing || !avAmount || safeParse(avAmount) <= 0}
+                        className={`w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black uppercase text-xs tracking-wider shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${!onOpenPix ? 'sm:col-span-2 py-5 text-sm' : ''}`}
+                    >
+                        {isProcessing ? <Loader2 className="animate-spin" size={18} /> : <><CheckCircle2 size={18} /> Confirmar Recebimento</>}
+                    </button>
+                </div>
             </div>
         </div>
     );

@@ -2,7 +2,7 @@ import React from 'react';
 import { BadgePercent, CalendarClock, CheckCircle2, Handshake, Info, Layers, FolderOpen, FileText, ExternalLink } from 'lucide-react';
 import { AgreementView } from '../../../features/agreements/components/AgreementView';
 import { InstallmentGrid } from '../components/InstallmentGrid';
-import { Loan, UserProfile, Installment, Agreement, AgreementInstallment } from '../../../types';
+import { Loan, UserProfile, Installment, Agreement, AgreementInstallment, CapitalSource } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
@@ -34,12 +34,13 @@ interface BodyProps {
     onLegalDocument?: (path: string) => void;
     daysBeforeDue?: number;
     hasActiveAgreement: boolean;
+    sources?: CapitalSource[];
 }
 
 export const Body: React.FC<BodyProps> = ({
     hasActiveAgreement, loan, activeUser, activeAgreement, onRefresh, onAgreementPayment, onReverseAgreementPayment,
     onInstallmentPayment, onReverseInstallmentPayment, orderedInstallments, fixedTermStats, isPaid, isLate, isZeroBalance, isFullyFinalized, daysUntilDue,
-    showProgress, strategy, isDailyFree, isFixedTerm, isStealthMode, allLoans, onNavigate, onLegalDocument
+    showProgress, strategy, isDailyFree, isFixedTerm, isStealthMode, allLoans, onNavigate, onLegalDocument, sources
 }) => {
     // Encontrar contratos que foram unificados neste aqui
     const unifiedChildren = React.useMemo(() => {
@@ -233,6 +234,8 @@ export const Body: React.FC<BodyProps> = ({
                         isStealthMode={isStealthMode}
                         onNavigate={onNavigate}
                         onRefresh={onRefresh}
+                        activeUser={activeUser}
+                        sources={sources}
                     />
                 </div>
             )}

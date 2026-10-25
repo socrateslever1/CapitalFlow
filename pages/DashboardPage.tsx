@@ -192,6 +192,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 staffMembers={staffMembers}
                 selectedStaffId={selectedStaffId}
                 onStaffChange={onStaffChange}
+                filteredLoans={filteredLoans}
+                sources={sources}
               />
 
               {/* Lista de Contratos: Renderização Agrupada */}

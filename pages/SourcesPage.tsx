@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import PixDepositModal from "../components/modals/PixDepositModal";
 import { CapitalSource, Loan } from "../types";
 import { Plus, Wallet, Upload, Image as ImageIcon, Link2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Modal, modalPrimaryActionClass } from '../components/ui/Modal';
 import { SourceCard } from '../components/cards/SourceCard';
 import { filesService } from '../services/files.service';
@@ -74,13 +75,13 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
     if (!file || !activeUser || !ui.editingSource) return;
 
     if (!file.type.startsWith('image/')) {
-      window.alert('Selecione uma imagem válida.');
+      toast.error('Selecione uma imagem válida.');
       e.target.value = '';
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      window.alert('A imagem deve ter no máximo 2 MB.');
+      toast.error('A imagem deve ter no máximo 2 MB.');
       e.target.value = '';
       return;
     }
@@ -105,7 +106,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       setLogoPreviewUrl(signedPreview || localPreview);
     } catch (error) {
       console.error('[source-logo] Erro no upload:', error);
-      window.alert('Não foi possível carregar a imagem da carteira.');
+      toast.error('Não foi possível carregar a imagem da carteira.');
     } finally {
       setLogoLoading(false);
       URL.revokeObjectURL(localPreview);

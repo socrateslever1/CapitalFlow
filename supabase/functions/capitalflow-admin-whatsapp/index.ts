@@ -265,7 +265,7 @@ async function classifyAdminIntentWithGemini(raw: string) {
   try {
     const { GoogleGenerativeAI } = await import("https://esm.sh/@google/generative-ai@0.14.0");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: Deno.env.get("GOOGLE_ADMIN_MODEL") || "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: Deno.env.get("GOOGLE_ADMIN_MODEL") || "gemini-3.8-flash" });
     const prompt = [
       "Classifique a mensagem administrativa do operador do CapitalFlow.",
       "Retorne somente JSON compacto, sem markdown.",

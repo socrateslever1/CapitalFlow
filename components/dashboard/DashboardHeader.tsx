@@ -15,6 +15,8 @@ export const DashboardHeader: React.FC<any> = (props) => {
         staffMembers={props.staffMembers}
         selectedStaffId={props.selectedStaffId}
         onStaffChange={props.onStaffChange}
+        filteredLoans={props.filteredLoans || props.loans}
+        sources={props.sources}
       />
     </div>
   );

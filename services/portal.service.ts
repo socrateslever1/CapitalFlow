@@ -419,7 +419,40 @@ export const portalService = {
 
     if (error) {
       const msg = String((error as any)?.message || '');
-      if (msg.includes('Failed to send a request to the Edge Function') || msg.includes('NOT_FOUND')) {
+      if (
+        msg.includes('Failed to send a request to the Edge Function') ||
+        msg.includes('NOT_FOUND') ||
+        msg.includes('FunctionsFetchError') ||
+        msg.includes('indisponivel')
+      ) {
+        // Fallback para o endpoint Express local
+        try {
+          const fallbackRes = await fetch('/api/infinitepay/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount,
+              loan_id: validTargets[0].loanId,
+              installment_id: validTargets[0].installmentIds[0],
+              payer_name: clientData.name,
+              payer_email: clientData.email,
+              payer_doc: clientData.doc,
+              payer_phone: clientData.phone,
+              return_url: window.location.href,
+            }),
+          });
+          const fallbackData = await fallbackRes.json().catch(() => null);
+          if (fallbackData?.ok && fallbackData?.checkout_url) {
+            return {
+              checkoutUrl: fallbackData.checkout_url,
+              externalReference: fallbackData.external_reference,
+              chargeId: fallbackData.charge_id,
+            };
+          }
+        } catch (fbErr) {
+          console.warn('[PortalService] Fallback local falhou:', fbErr);
+        }
+
         throw new Error('Funcao InfinitePay indisponivel no servidor. Solicite o deploy da Edge Function infinitepay-create-checkout.');
       }
       throw new Error(error.message || 'Falha ao gerar checkout InfinitePay.');

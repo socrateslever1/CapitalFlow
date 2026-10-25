@@ -29,11 +29,21 @@ function readEnv(): EnvLike {
 function requireEnv(key: string): string {
   const env = readEnv();
   const val = String(env?.[key] ?? '').trim();
-  if (!val || val === 'undefined' || val === 'null') {
+  const isInvalid =
+    !val ||
+    val === 'undefined' ||
+    val === 'null' ||
+    val.startsWith('cole_') ||
+    val.startsWith('SEU_') ||
+    val.includes('placeholder') ||
+    val.includes('sua_chave') ||
+    (key === 'VITE_SUPABASE_ANON_KEY' && (!val.startsWith('eyJ') || !val.includes('.')));
+
+  if (isInvalid) {
     if (key === 'VITE_SUPABASE_URL') return 'https://hzchchbxkhryextaymkn.supabase.co';
     if (key === 'VITE_SUPABASE_ANON_KEY') return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh6Y2hjaGJ4a2hyeWV4dGF5bWtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NTk2ODcsImV4cCI6MjA4MzMzNTY4N30.kX6FlTuPkl7XfycwVuZN2mI6e3ed8NaDUoyAHy9L3nc';
 
-    console.warn(`[ENV] Variável obrigatória ausente: ${key}. Usando valor de fallback.`);
+    console.warn(`[ENV] Variável obrigatória ausente ou inválida: ${key}. Usando valor de fallback.`);
     return 'placeholder-key';
   }
   return val;

@@ -7,10 +7,11 @@ import { DebtCompositionSummary } from '../../modals/payment/DebtCompositionSumm
 import { ReceiptRemainderDecision } from '../../modals/payment/ReceiptRemainderDecision';
 import { parseDateOnlyUTC, toISODateOnlyUTC, formatBRDate } from '../../../utils/dateHelpers';
 import { formatMoney } from '../../../utils/formatters';
-import { Loan, Installment, Agreement, AgreementInstallment } from '../../../types';
+import { Loan, Installment, Agreement, AgreementInstallment, UserProfile, CapitalSource } from '../../../types';
 import { InstallmentCard } from './InstallmentCard';
 import { prepareInstallmentViewModel } from './InstallmentGrid.logic';
 import { PaymentOfferModal } from './PaymentOfferModal';
+import { InstallmentPixModal } from '../../modals/InstallmentPixModal';
 import { getInstallmentsPaidAmount } from '../../../utils/loanStatus';
 import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { buildInstallmentReceiptModel, calculatePrincipalReductionForTarget, calculateReceiptForTargetBalance, inferReceiptMode, type QuickPaymentOptions, type QuickMode } from './InstallmentReceiptModel';
@@ -36,11 +37,14 @@ interface InstallmentGridProps {
     isStealthMode?: boolean;
     onNavigate?: () => void;
     onRefresh?: () => void | Promise<void>;
+    activeUser?: UserProfile | null;
+    sources?: CapitalSource[];
 }
 
 export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [selectedInst, setSelectedInst] = React.useState<Installment | null>(null);
     const [selectedDebt, setSelectedDebt] = React.useState<any>(null);
+    const [pixModalTarget, setPixModalTarget] = React.useState<{ inst: Installment; debt?: any } | null>(null);
     const [receiptAmount, setReceiptAmount] = React.useState('');
     const [paymentDateStr, setPaymentDateStr] = React.useState(toISODateOnlyUTC(new Date()));
     const [targetBalance, setTargetBalance] = React.useState('');
@@ -128,6 +132,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             }}
                             onReverseInstallment={onReverseInstallmentPayment}
                             onPaymentOffer={(_targetLoan, targetInst) => setOfferInstallment(targetInst)}
+                            onOpenPix={(_targetLoan, targetInst, targetDebt) => setPixModalTarget({ inst: targetInst, debt: targetDebt })}
                             onNavigate={onNavigate}
                         />
                     );
@@ -732,6 +737,19 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     onSaved={async () => {
                         await onRefresh?.();
                     }}
+                />,
+                document.body
+            )}
+
+            {pixModalTarget && typeof document !== 'undefined' && createPortal(
+                <InstallmentPixModal
+                    isOpen={!!pixModalTarget}
+                    onClose={() => setPixModalTarget(null)}
+                    loan={loan}
+                    installment={pixModalTarget.inst}
+                    debt={pixModalTarget.debt}
+                    activeUser={props.activeUser}
+                    sources={props.sources}
                 />,
                 document.body
             )}

@@ -206,6 +206,7 @@ export const LoanCard: React.FC<LoanCardProps> = (props) => {
                 onLegalDocument?.(path);
               }}
               daysUntilDue={daysUntilDue}
+              sources={sources}
             />
 
             {loan.ledger && loan.ledger.length > 0 && (

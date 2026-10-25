@@ -24,6 +24,7 @@ interface InstallmentCardProps {
     onPayInstallment?: (loan: Loan, inst: Installment, debt: any) => void;
     onReverseInstallment?: (loan: Loan, inst: Installment) => void;
     onPaymentOffer?: (loan: Loan, inst: Installment) => void;
+    onOpenPix?: (loan: Loan, inst: Installment, debt: any) => void;
     onNavigate?: () => void;
 }
 
@@ -37,6 +38,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     onPayInstallment,
     onReverseInstallment,
     onPaymentOffer,
+    onOpenPix,
     onNavigate
 }) => {
     const {
@@ -69,7 +71,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                     isPaid={isPaid}
                     isStealthMode={isStealthMode}
                 />
-                <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} inlinePaymentEnabled={inlinePaymentEnabled} onPayInstallment={onPayInstallment} onReverseInstallment={onReverseInstallment} onPaymentOffer={onPaymentOffer} onNavigate={onNavigate} />
+                <InstallmentCardAction isDisabled={isActionDisabled} isFullyFinalized={isFullyFinalized} loan={loan} originalInst={originalInst} debt={debt} inlinePaymentEnabled={inlinePaymentEnabled} onPayInstallment={onPayInstallment} onReverseInstallment={onReverseInstallment} onPaymentOffer={onPaymentOffer} onOpenPix={onOpenPix} onNavigate={onNavigate} />
             </div>
         );
     }
@@ -142,6 +144,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                     onPayInstallment={onPayInstallment}
                     onReverseInstallment={onReverseInstallment}
                     onPaymentOffer={onPaymentOffer}
+                    onOpenPix={onOpenPix}
                     onNavigate={onNavigate}
                 />
             </div>

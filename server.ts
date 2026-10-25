@@ -22,7 +22,7 @@ function getNetworkIps() {
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3003;
+  const PORT = Number(process.env.PORT) || 3000;
   const isProduction = process.env.NODE_ENV === "production";
   const httpServer = http.createServer(app);
 
@@ -32,7 +32,6 @@ async function startServer() {
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     res.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
     res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
 
     if (isProduction) {
       res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -42,7 +41,6 @@ async function startServer() {
           "default-src 'self'",
           "base-uri 'self'",
           "object-src 'none'",
-          "frame-ancestors 'self'",
           "script-src 'self' 'unsafe-inline' https://accounts.google.com",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' data: https://fonts.gstatic.com",
@@ -59,9 +57,97 @@ async function startServer() {
     next();
   });
 
+  app.use(express.json());
+
   // API routes FIRST
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
+  });
+
+  app.post("/api/infinitepay/checkout", async (req, res) => {
+    try {
+      const {
+        handle,
+        amount,
+        loan_id,
+        installment_id,
+        payer_name,
+        payer_email,
+        payer_phone,
+        return_url,
+      } = req.body || {};
+
+      let cleanHandle = String(handle || "").trim().replace(/^[@$]+/, "");
+
+      if (!cleanHandle) {
+        cleanHandle = String(process.env.INFINITEPAY_HANDLE || "").trim().replace(/^[@$]+/, "");
+      }
+
+      if (!cleanHandle) {
+        return res.status(400).json({
+          ok: false,
+          error: "InfiniteTag não informada. Configure sua InfiniteTag (ex: socrateslever).",
+        });
+      }
+
+      const numAmount = Number(amount || 0);
+      if (!Number.isFinite(numAmount) || numAmount <= 0) {
+        return res.status(400).json({ ok: false, error: "Valor inválido para cobrança." });
+      }
+
+      const orderNsu = "cf_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8);
+      const redirectUrl = String(
+        return_url || (req.headers.referer ? String(req.headers.referer) : "https://capitalflow.app")
+      );
+
+      const checkoutPayload: Record<string, unknown> = {
+        handle: cleanHandle,
+        redirect_url: redirectUrl,
+        order_nsu: orderNsu,
+        items: [
+          {
+            quantity: 1,
+            price: Math.round(numAmount * 100),
+            description: `Parcela - Contrato ${String(loan_id || "").slice(0, 8)}`,
+          },
+        ],
+      };
+
+      const customerName = String(payer_name || "").trim();
+      const customerEmail = String(payer_email || "").trim();
+      const customerPhone = String(payer_phone || "").trim();
+
+      if (customerName || customerEmail || customerPhone) {
+        checkoutPayload.customer = {
+          name: customerName || "Cliente",
+          email: customerEmail || "cliente@capitalflow.app",
+          phone_number: customerPhone || undefined,
+        };
+      }
+
+      const providerRes = await fetch("https://api.checkout.infinitepay.io/links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(checkoutPayload),
+      });
+
+      const providerData: any = await providerRes.json().catch(() => null);
+
+      if (!providerRes.ok || !providerData?.url) {
+        const errorMsg =
+          providerData?.message || providerData?.error || "Erro ao gerar checkout na InfinitePay.";
+        return res.status(400).json({ ok: false, error: errorMsg, details: providerData });
+      }
+
+      return res.json({
+        ok: true,
+        checkout_url: providerData.url,
+        external_reference: orderNsu,
+      });
+    } catch (err: any) {
+      console.error("[InfinitePay API Error]:", err);
+      return res.status(500).json({ ok: false, error: err?.message || "Erro interno no servidor." });
+    }
   });
 
   // Vite middleware for development

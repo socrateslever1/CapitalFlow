@@ -1,8 +1,9 @@
 
 import React, { useState, useRef } from 'react';
-import { ShieldAlert, ArrowDownWideNarrow, Search, X, Users, ChevronDown, AlertTriangle, RefreshCw, CheckCircle2, DollarSign, Archive } from 'lucide-react';
-import { SortOption, UserProfile } from '../../types';
+import { ShieldAlert, ArrowDownWideNarrow, Search, X, Users, ChevronDown, AlertTriangle, RefreshCw, CheckCircle2, DollarSign, Archive, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { SortOption, UserProfile, Loan, CapitalSource } from '../../types';
 import { translateFilter } from '../../utils/translationHelpers';
+import { exportLoansToExcel, exportLoansToCSV } from '../../utils/loanExport';
 
 interface DashboardControlsProps {
     statusFilter: string;
@@ -16,14 +17,43 @@ interface DashboardControlsProps {
     selectedStaffId: string;
     onStaffChange: (id: string) => void;
     isMaster: boolean;
+    filteredLoans?: Loan[];
+    sources?: CapitalSource[];
 }
 
 export const DashboardControls: React.FC<DashboardControlsProps> = ({
     statusFilter, setStatusFilter, sortOption, setSortOption, searchTerm, setSearchTerm, showToast,
-    staffMembers = [], selectedStaffId, onStaffChange, isMaster
+    staffMembers = [], selectedStaffId, onStaffChange, isMaster, filteredLoans = [], sources = []
 }) => {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExport = async (format: 'EXCEL' | 'CSV') => {
+        if (!filteredLoans || filteredLoans.length === 0) {
+            showToast('Nenhum contrato encontrado no filtro atual para exportar.', 'warning');
+            return;
+        }
+
+        try {
+            setIsExporting(true);
+            const activeFilterLabel = translateFilter(statusFilter);
+            if (format === 'EXCEL') {
+                await exportLoansToExcel(filteredLoans, sources, activeFilterLabel);
+                showToast(`Relatório Excel exportado com sucesso (${filteredLoans.length} contratos)!`, 'success');
+            } else {
+                exportLoansToCSV(filteredLoans, sources, activeFilterLabel);
+                showToast(`Relatório CSV exportado com sucesso (${filteredLoans.length} contratos)!`, 'success');
+            }
+            setIsExportOpen(false);
+        } catch (error: any) {
+            console.error('[DashboardControls] Erro ao exportar:', error);
+            showToast('Erro ao exportar: ' + (error?.message || 'Falha inesperada'), 'error');
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     // Lógica de arrastar para rolar (Drag to Scroll)
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -86,18 +116,26 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
             <div className="flex items-center gap-3 w-full">
                 <div className="flex gap-1.5 flex-shrink-0">
                     <button
-                        onClick={() => { setIsSearchOpen(!isSearchOpen); setIsSortOpen(false); }}
+                        onClick={() => { setIsSearchOpen(!isSearchOpen); setIsSortOpen(false); setIsExportOpen(false); }}
                         className={`p-2.5 rounded-lg border transition-all ${isSearchOpen ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
                         title="Buscar"
                     >
                         <Search size={18} />
                     </button>
                     <button
-                        onClick={() => { setIsSortOpen(!isSortOpen); setIsSearchOpen(false); }}
+                        onClick={() => { setIsSortOpen(!isSortOpen); setIsSearchOpen(false); setIsExportOpen(false); }}
                         className={`p-2.5 rounded-lg border transition-all ${isSortOpen ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
                         title="Ordenar"
                     >
                         <ArrowDownWideNarrow size={18} />
+                    </button>
+                    <button
+                        onClick={() => { setIsExportOpen(!isExportOpen); setIsSearchOpen(false); setIsSortOpen(false); }}
+                        disabled={isExporting}
+                        className={`p-2.5 rounded-lg border transition-all ${isExportOpen ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-emerald-400'}`}
+                        title="Exportar contratos filtrados (Excel/CSV)"
+                    >
+                        {isExporting ? <Loader2 size={18} className="animate-spin text-emerald-400" /> : <Download size={18} />}
                     </button>
                 </div>
 
@@ -184,6 +222,58 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                             {sortOption === option.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />}
                         </button>
                     ))}
+                </div>
+            )}
+
+            {isExportOpen && (
+                <div className="absolute top-full left-0 sm:left-auto sm:right-auto mt-2 bg-slate-900 border border-slate-800 p-2 rounded-xl flex flex-col gap-1.5 animate-in slide-in-from-top-2 duration-200 z-50 w-full md:max-w-[340px] shadow-2xl shadow-black/80">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 mb-1">
+                        <div className="flex items-center gap-2">
+                            <Download size={15} className="text-emerald-400" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-200">Exportar Relatório</span>
+                        </div>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                            {filteredLoans.length} {filteredLoans.length === 1 ? 'contrato' : 'contratos'}
+                        </span>
+                    </div>
+
+                    <p className="px-3 text-[10px] text-slate-400 mb-1 leading-relaxed">
+                        Exporta os dados financeiros da visualização atual (<span className="text-white font-bold">{translateFilter(statusFilter)}</span>).
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() => handleExport('EXCEL')}
+                        disabled={isExporting || filteredLoans.length === 0}
+                        className="w-full text-left p-3 rounded-lg border border-emerald-500/20 bg-emerald-950/20 hover:bg-emerald-900/40 text-white transition-all flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-600/30 group-hover:scale-105 transition-transform shrink-0">
+                                <FileSpreadsheet size={16} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">Planilha Excel (.xlsx)</p>
+                                <p className="text-[9px] text-slate-400">Com formatação, moeda R$, cores e totais</p>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => handleExport('CSV')}
+                        disabled={isExporting || filteredLoans.length === 0}
+                        className="w-full text-left p-3 rounded-lg border border-blue-500/20 bg-blue-950/20 hover:bg-blue-900/40 text-white transition-all flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 rounded-lg bg-blue-600 text-white shadow-md shadow-blue-600/30 group-hover:scale-105 transition-transform shrink-0">
+                                <FileText size={16} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-black uppercase tracking-wider text-blue-300">Arquivo CSV (.csv)</p>
+                                <p className="text-[9px] text-slate-400">Texto com UTF-8 BOM e ponto-e-vírgula</p>
+                            </div>
+                        </div>
+                    </button>
                 </div>
             )}
         </div>

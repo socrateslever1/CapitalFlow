@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarClock, DollarSign, Lock, RefreshCcw } from 'lucide-react';
+import { CalendarClock, DollarSign, Lock, RefreshCcw, QrCode } from 'lucide-react';
 import { Loan, Installment } from '../../../../types';
 import { CalculationResult } from '../../../../domain/finance/modalities/types';
 
@@ -13,6 +13,7 @@ interface InstallmentCardActionProps {
     onPayInstallment?: (loan: Loan, inst: Installment, debt: CalculationResult) => void;
     onReverseInstallment?: (loan: Loan, inst: Installment) => void;
     onPaymentOffer?: (loan: Loan, inst: Installment) => void;
+    onOpenPix?: (loan: Loan, inst: Installment, debt: CalculationResult) => void;
     onNavigate?: () => void;
 }
 
@@ -26,6 +27,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
     onPayInstallment,
     onReverseInstallment,
     onPaymentOffer,
+    onOpenPix,
     onNavigate
 }) => {
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
@@ -48,6 +50,18 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
         if (inlinePaymentEnabled && onPayInstallment) {
             return (
                 <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    {onOpenPix && (
+                        <button
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onOpenPix(loan, originalInst, debt);
+                            }}
+                            className="flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
+                            title="Gerar QR Code Pix desta parcela"
+                        >
+                            <QrCode size={12} /> Pix
+                        </button>
+                    )}
                     {onPaymentOffer && (
                         <button
                             onClick={(event) => {
@@ -79,13 +93,27 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
         }
 
         return (
-            <button
-                onClick={handleReceive}
-                className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
-                title={['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? "Detalhes da parcela" : "Abrir contrato"}
-            >
-                <DollarSign size={12} /> {['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? 'Detalhes' : 'Abrir'}
-            </button>
+            <div className="flex items-center gap-1.5">
+                {onOpenPix && (
+                    <button
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenPix(loan, originalInst, debt);
+                        }}
+                        className="flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-[9px] font-black uppercase text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
+                        title="Gerar QR Code Pix desta parcela"
+                    >
+                        <QrCode size={12} /> Pix
+                    </button>
+                )}
+                <button
+                    onClick={handleReceive}
+                    className="text-[9px] font-black uppercase bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition-all flex items-center gap-1.5"
+                    title={['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? "Detalhes da parcela" : "Abrir contrato"}
+                >
+                    <DollarSign size={12} /> {['MONTHLY', 'BIWEEKLY', 'WEEKLY'].includes(loan.billingCycle) ? 'Detalhes' : 'Abrir'}
+                </button>
+            </div>
         );
     }
 

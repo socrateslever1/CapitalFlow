@@ -12,14 +12,34 @@ const isPortalAccessUrl = (() => {
   }
 })();
 
+const isPlaceholderOrInvalid = (val: string): boolean => {
+  if (!val) return true;
+  const trimmed = val.trim();
+  return (
+    trimmed.startsWith('cole_') ||
+    trimmed.startsWith('SEU_') ||
+    trimmed.includes('placeholder') ||
+    trimmed.includes('example') ||
+    trimmed.includes('sua_chave') ||
+    trimmed === 'undefined' ||
+    trimmed === 'null'
+  );
+};
+
 const getSafeEnv = (key: string, fallback: string): string => {
   const env = (import.meta as any).env;
-  const val = env?.[key] || '';
-  if (!val && isDev) {
-    console.warn(`[BOOT_WARNING] ${key} nao encontrada no ambiente. Usando fallback.`);
+  const val = String(env?.[key] || '').trim();
+  if (!val || isPlaceholderOrInvalid(val)) {
+    if (isDev) {
+      console.warn(`[BOOT_WARNING] ${key} ausente ou contém placeholder no ambiente. Usando fallback.`);
+    }
     return fallback;
   }
-  return val || fallback;
+  if (key.includes('ANON_KEY') && (!val.startsWith('eyJ') || !val.includes('.'))) {
+    console.warn(`[BOOT_WARNING] ${key} não é um JWT válido do Supabase. Usando fallback.`);
+    return fallback;
+  }
+  return val;
 };
 
 const REAL_URL = 'https://hzchchbxkhryextaymkn.supabase.co';

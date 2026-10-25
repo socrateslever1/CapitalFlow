@@ -15,7 +15,7 @@ import { SystemBackButton } from '../components/ui/SystemBackButton';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import {
     TrendingUp, AlertTriangle, MessageSquare, ShieldCheck,
-    FileText, Download, RefreshCcw, Loader2, User, FileEdit, History, ArrowLeft
+    FileText, Download, RefreshCcw, Loader2, User, FileEdit, History, ArrowLeft, QrCode
 } from 'lucide-react';
 import { Loan, LedgerEntry, UserProfile, CapitalSource } from '../types';
 import { formatMoney } from '../utils/formatters';
@@ -25,6 +25,7 @@ import { AgreementView } from '../features/agreements/components/AgreementView';
 import { ScopedCollectionAutomation } from '../features/collections/components/ScopedCollectionAutomation';
 import { supabase } from '../lib/supabase';
 import { safeUUID } from '../utils/uuid';
+import { InstallmentPixModal } from '../components/modals/InstallmentPixModal';
 
 // Subcomponentes e Hooks Refatorados
 import { useContractDetailsState } from './ContractDetails/useContractDetailsState';
@@ -103,6 +104,8 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         statusColor,
         nextDueDateDisplay
     } = useContractDetailsState({ loanId, loans, onPayment });
+
+    const [isPixModalOpen, setIsPixModalOpen] = React.useState(false);
 
     if (!loan) {
         return (
@@ -213,8 +216,9 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
 
                     <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 space-y-4">
                         <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><ShieldCheck size={16} className="text-purple-500"/> Ações Rápidas</h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             <button onClick={() => onOpenMessage(loan)} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-[9px] font-black uppercase text-slate-400 hover:text-emerald-400"><MessageSquare size={14} className="mx-auto mb-1"/> Cobrar</button>
+                            <button onClick={() => setIsPixModalOpen(true)} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-[9px] font-black uppercase text-cyan-400 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors"><QrCode size={14} className="mx-auto mb-1 text-cyan-400"/> Pix</button>
                             <button onClick={() => onEdit(loan)} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-[9px] font-black uppercase text-slate-400 hover:text-blue-400"><FileEdit size={14} className="mx-auto mb-1"/> Editar</button>
                             <button onClick={() => onExportExtrato(loan)} className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-[9px] font-black uppercase text-slate-400 hover:text-white"><Download size={14} className="mx-auto mb-1"/> Extrato</button>
                         </div>
@@ -263,11 +267,24 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
                         totalInterestDue={totalInterestDue}
                         safeParse={safeParse}
                         handleConfirm={handleConfirm}
+                        onOpenPix={() => setIsPixModalOpen(true)}
                     />
 
                     <div className="md:hidden grid grid-cols-1 gap-4"><button onClick={() => onOpenMessage(loan)} className="flex items-center justify-center gap-2 p-4 bg-slate-900 border border-slate-800 rounded-lg text-[10px] font-black uppercase text-slate-400"><MessageSquare size={16}/> Cobrar</button></div>
                 </div>
             </div>
+
+            {isPixModalOpen && (
+                <InstallmentPixModal
+                    isOpen={isPixModalOpen}
+                    onClose={() => setIsPixModalOpen(false)}
+                    loan={loan}
+                    installment={data?.inst || loan.installments[0]}
+                    debt={debtBreakdown}
+                    activeUser={activeUser}
+                    sources={sources}
+                />
+            )}
         </div>
     );
 };

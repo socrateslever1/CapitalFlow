@@ -4,14 +4,20 @@ import {
   PersonalWalletAccount,
   PersonalWalletExpense,
   PersonalWalletInvoicePayment,
+  WalletAccountOperation,
+  WalletStatementRow,
   personalWalletService,
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { AccountActivityPanel } from './AccountActivityPanel';
 
 type Props = {
   account: PersonalWalletAccount;
   expenses: PersonalWalletExpense[];
   invoicePayments: PersonalWalletInvoicePayment[];
+  accounts: PersonalWalletAccount[];
+  accountOperations: WalletAccountOperation[];
+  statementRows: WalletStatementRow[];
   onBack: () => void;
   onSaved: () => Promise<void>;
 };
@@ -25,7 +31,7 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, expenses, invoicePayments, onBack, onSaved }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expenses, invoicePayments, accountOperations, statementRows, onBack, onSaved }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -225,6 +231,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, expenses, invoice
           </div>
         )}
       </div>
+      <AccountActivityPanel account={account} accounts={accounts}
+        operations={accountOperations} statementRows={statementRows} onSaved={onSaved} />
     </section>
   );
 };

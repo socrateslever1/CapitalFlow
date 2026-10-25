@@ -325,6 +325,38 @@ const accountChanges = accountUpdateMethod.split('const changes =')[1]?.split('c
 if (!accountChanges || /\bbalance\s*:|\bused_limit\s*:|\bcurrent_bill\s*:/.test(accountChanges)) {
   failures.push('Minha Carteira -> edicao cadastral nao pode alterar saldo ou limites');
 }
+const walletV7Migration = read('supabase','migrations','20261025121000_wallet_v7_integrated_assets_recurring_payables.sql');
+const recurringPanel = read('components','wallet','RecurringIncomePanel.tsx');
+const payablesPanel = read('components','wallet','WalletPayablesPanel.tsx');
+const pixCharge = read('components','wallet','WalletPixCharge.tsx');
+for(const required of ['personal_wallet_recurring_incomes','personal_wallet_recurring_receipts',
+  'personal_wallet_create_linked_assets','personal_wallet_pay_payable_from_card',
+  'personal_wallet_post_recurring_income','ENABLE ROW LEVEL SECURITY',
+  'CREATE POLICY recurring_income_owner_all','pg_advisory_xact_lock','primary_color']) {
+  if(!walletV7Migration.includes(required)) failures.push('Carteira V7 -> migration incompleta: '+required);
+}
+for(const required of ['createHybridAssets','createRecurringIncome','postRecurringIncome',
+  'personal_wallet_pay_payable_from_card']) {
+  if(!personalWalletService.includes(required)) failures.push('Carteira V7 -> servico incompleto: '+required);
+}
+for(const required of ['<RecurringIncomePanel','linked_card_nickname',
+  "link_mode==='new'",'origin_card_id','lg:col-span-7','lg:col-span-5']) {
+  if(!personalWalletPage.includes(required)) failures.push('Carteira V7 -> UI ausente: '+required);
+}
+if(personalWalletPage.includes('CVC / CVV') || personalWalletPage.includes('form.card_number')) {
+  failures.push('Carteira V7 -> cadastro de numero completo/CVC proibido');
+}
+if(!recurringPanel.includes('postRecurringIncome') || !recurringPanel.includes('Previsto/mês')) {
+  failures.push('Carteira V7 -> receitas recorrentes nao operacionais');
+}
+if(!payablesPanel.includes('cardId') || !payablesPanel.includes('onPay(')) {
+  failures.push('Carteira V7 -> pagamento de divida sem escolha de origem');
+}
+if(!pixCharge.includes('QRCodeSVG') || !pixCharge.includes("value={description}") ||
+   !pixCharge.includes('Copiar Código PIX')) {
+  failures.push('Carteira V7 -> gerador PIX incompleto');
+}
+
 const partialWalletMigration = read('supabase', 'migrations', '20261025064729_wallet_partial_invoice_payments.sql');
 const invoiceModal = read('components', 'wallet', 'PayInvoiceModal.tsx');
 for (const required of ['personal_wallet_pay_invoice_partial', 'personal_wallet_invoice_payments', 'request_id', 'paid_amount', 'is_platform_super_admin()']) {

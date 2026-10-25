@@ -26,6 +26,8 @@ import {
   PersonalWalletInvoicePayment,
   PersonalWalletPayable,
   PersonalWalletPayablePayment,
+  WalletRecurringIncome,
+  WalletRecurringReceipt,
   WalletAccountOperation,
   WalletStatementRow,
 } from '../services/personalWallet.service';
@@ -40,6 +42,7 @@ import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
 import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 import { BankStack } from '../components/wallet/BankStack';
 import { CardEditModal } from '../components/wallet/CardEditModal';
+import { RecurringIncomePanel } from '../components/wallet/RecurringIncomePanel';
 import { UserProfile } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
@@ -54,10 +57,12 @@ type WalletData = {
   statementRows: WalletStatementRow[];
   payables: PersonalWalletPayable[];
   payablePayments: PersonalWalletPayablePayment[];
+  recurringIncomes: WalletRecurringIncome[];
+  recurringReceipts: WalletRecurringReceipt[];
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
-type WalletTab = 'ACCOUNTS' | 'INVOICES' | 'EXPENSES' | 'PAYABLES';
+type WalletTab = 'ACCOUNTS' | 'INVOICES' | 'EXPENSES' | 'PAYABLES' | 'INCOME';
 
 export type InvoiceSummary = {
   key: string;
@@ -68,7 +73,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [], recurringIncomes: [], recurringReceipts: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -161,7 +166,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
     if (accountImagePreview) URL.revokeObjectURL(accountImagePreview);
   }, [accountImagePreview]);
 
-  const isAnyModalActive = Boolean(formMode || selectedCardForDetail || selectedCardForInvoice || selectedAccountId);
+  const isAnyModalActive = Boolean(formMode || selectedCardForDetail || selectedCardForEdit || selectedCardForInvoice || selectedAccountId);
 
   // Armazena a ação de voltar em ref para desacoplar a função de retorno dos hooks de efeito
   const handleBackRef = useRef<() => void>(() => {});
@@ -171,6 +176,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
       setIsDraftRestored(false);
     }
     if (selectedCardForDetail) setSelectedCardForDetail(null);
+    if (selectedCardForEdit) setSelectedCardForEdit(null);
     if (selectedCardForInvoice) setSelectedCardForInvoice(null);
     if (selectedAccountId) setSelectedAccountId(null);
   };
@@ -270,41 +276,55 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
     const currentMode = formMode;
     await runAction(async () => {
       if (currentMode === 'ACCOUNT') {
-        await personalWalletService.createAccount({
-          nickname: form.nickname || 'Conta',
-          bank_name: form.bank_name || null,
-          institution_key: getBankVisual(form.bank_name || form.nickname || 'Conta').key,
-          account_type: form.account_type || 'CHECKING',
-          balance: Number(form.balance || 0),
-          pix_key: form.pix_key || null,
-          pix_key_type: form.pix_key_type || null,
-          notes: form.notes || null,
-        }, accountImage);
+        if(form.link_credit==='yes'){
+          if(accountImage||cardImage)throw new Error('Ao criar conta e cartão juntos, utilize os logos automáticos. Personalize depois.');
+          await personalWalletService.createHybridAssets({
+            account:{nickname:form.nickname||'Conta',bank_name:form.bank_name||'',
+              account_type:form.account_type||'CHECKING',balance:Number(form.balance||0),
+              pix_key:form.pix_key||null,pix_key_type:form.pix_key_type||null},
+            card:{nickname:form.linked_card_nickname||'Cartão',issuer:form.bank_name||'',
+              brand:form.linked_card_brand||null,last_four:form.linked_card_last_four||null,
+              credit_limit:Number(form.linked_card_limit||0),primary_color:form.linked_card_primary_color||null,
+              closing_day:form.linked_card_closing?Number(form.linked_card_closing):null,
+              due_day:form.linked_card_due?Number(form.linked_card_due):null}
+          });
+        }else{
+          await personalWalletService.createAccount({
+            nickname:form.nickname||'Conta',bank_name:form.bank_name||null,
+            institution_key:getBankVisual(form.bank_name||form.nickname||'Conta').key,
+            account_type:form.account_type||'CHECKING',balance:Number(form.balance||0),
+            pix_key:form.pix_key||null,pix_key_type:form.pix_key_type||null,notes:form.notes||null
+          },accountImage);
+        }
       }
       if (currentMode === 'CARD') {
-        const rawDigits = String(form.card_number || form.last_four || '').replace(/\D/g, '');
-        const lastFour = rawDigits.length >= 4 ? rawDigits.slice(-4) : (form.last_four || null);
-
-        const cardMeta = {
-          holder_name: form.holder_name?.trim() || null,
-          card_number: rawDigits || null,
-          expiration: form.expiration?.trim() || null,
-          cvv: form.cvv?.trim() || null,
-          user_notes: form.notes || null,
-        };
-
-        await personalWalletService.createCard({
-          nickname: form.nickname || 'Cartão',
-          issuer: form.issuer || null,
-          institution_key: getBankVisual(form.issuer || data.accounts.find(account => account.id === form.account_id)?.bank_name || form.nickname || 'Cartão').key,
-          brand: form.brand || null,
-          last_four: lastFour,
-          credit_limit: Number(form.credit_limit || 0),
-          closing_day: form.closing_day ? Number(form.closing_day) : null,
-          due_day: form.due_day ? Number(form.due_day) : null,
-          notes: JSON.stringify(cardMeta),
-          account_id: form.account_id || null,
-        }, cardImage);
+        const lastFour=String(form.last_four||'').replace(/\D/g,'');
+        if(lastFour&&lastFour.length!==4)throw new Error('Informe quatro dígitos finais.');
+        if(form.link_mode==='new'){
+          if(cardImage)throw new Error('Ao criar conta e cartão juntos, use o logo automático; personalize depois.');
+          await personalWalletService.createHybridAssets({
+            account:{nickname:form.new_account_name||form.issuer||'Conta',bank_name:form.issuer||'',
+              account_type:'CHECKING',balance:Number(form.new_account_balance||0),
+              pix_key:form.new_account_pix||null,pix_key_type:form.new_account_pix_type||null},
+            card:{nickname:form.nickname||'Cartão',issuer:form.issuer||'',brand:form.brand||null,
+              last_four:lastFour||null,credit_limit:Number(form.credit_limit||0),primary_color:form.primary_color||null,
+              closing_day:form.closing_day?Number(form.closing_day):null,
+              due_day:form.due_day?Number(form.due_day):null}
+          });
+        }else{
+          const accountId=form.link_mode==='existing'?form.account_id||null:null;
+          if(form.link_mode==='existing'&&!accountId)throw new Error('Selecione a conta vinculada.');
+          await personalWalletService.createCard({
+            nickname:form.nickname||'Cartão',issuer:form.issuer||null,
+            institution_key:getBankVisual(form.issuer||'Cartão').key,
+            brand:form.brand||null,last_four:lastFour||null,
+            credit_limit:Number(form.credit_limit||0),primary_color:form.primary_color||null,
+            closing_day:form.closing_day?Number(form.closing_day):null,
+            due_day:form.due_day?Number(form.due_day):null,
+            notes:JSON.stringify({holder_name:form.holder_name?.trim()||null,user_notes:form.notes||null}),
+            account_id:accountId
+          },cardImage);
+        }
       }
       if (currentMode === 'PAYABLE') {
         await personalWalletService.createPayable({
@@ -313,6 +333,10 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           description: form.description || '',
           creditor_document: form.creditor_document || null,
           total_amount: Number(form.amount || 0),
+          category:form.category||'Outros',
+          origin_type:String(form.payment_source||'').startsWith('account:')?'ACCOUNT':'CARD',
+          origin_account_id:String(form.payment_source||'').startsWith('account:')?form.payment_source.split(':')[1]:null,
+          origin_card_id:String(form.payment_source||'').startsWith('card:')?form.payment_source.split(':')[1]:null,
           due_date: form.due_date || null,
           interest_rate: Number(form.interest_rate || 0),
           fine_percent: Number(form.fine_percent || 0),
@@ -476,13 +500,25 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="min-w-0 space-y-5 lg:col-span-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="min-w-0 space-y-5 lg:col-span-7">
           <BankStack accounts={data.accounts} cards={data.cards} holderName={activeUser?.fullName || activeUser?.name}
             onAccount={openAccountDetails} onCard={setSelectedCardForDetail} onEditCard={setSelectedCardForEdit}
             onSelectionChange={setActiveStackCard} onCreateCard={() => openForm('CARD')}/>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <h3 className="text-sm font-bold text-white">Liquidez e compromissos</h3>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Saldo em contas</p><strong className="mt-1 block text-lg text-emerald-300">{formatMoney(totals.balance)}</strong></div>
+              <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Faturas abertas</p><strong className="mt-1 block text-lg text-amber-300">{formatMoney(totals.openInvoices)}</strong></div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={()=>goToTab('INCOME')} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-emerald-300">Receitas fixas</button>
+              <button type="button" onClick={()=>goToTab('PAYABLES')} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-rose-300">Dívidas contraídas</button>
+              <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-blue-300">Minhas contas</button>
+            </div>
+          </section>
         </div>
-        <aside className="min-w-0 space-y-3 lg:col-span-4">
+        <aside className="min-w-0 space-y-3 lg:col-span-5">
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <h3 className="text-sm font-bold text-white">Cartão selecionado</h3>
             {activeStackCard ? <>
@@ -499,6 +535,15 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                 <button type="button" onClick={() => {setSelectedInvoiceDueMonth(null);setSelectedCardForInvoice(activeStackCard);}} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Pagar fatura</button>
               </div>
             </> : <p className="mt-2 text-xs text-slate-400">Cadastre um cartão para começar.</p>}
+          </section>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <h3 className="text-sm font-bold text-white">Extrato consolidado</h3>
+            {data.accountOperations.length===0 ? <p className="mt-2 text-xs text-slate-400">Nenhuma movimentação registrada.</p> :
+              data.accountOperations.slice(0,5).map(op => <div key={op.id} className="flex items-center justify-between gap-2 border-b border-slate-800 py-2 text-xs">
+                <span className="min-w-0 truncate text-slate-300">{op.description}</span>
+                <strong className={op.from_account_id?'text-rose-300':'text-emerald-300'}>{formatMoney(op.amount)}</strong>
+              </div>)}
+            <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="mt-2 text-xs font-bold text-blue-300">Ver extrato das contas</button>
           </section>
           <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <h3 className="text-sm font-bold text-white">Contas e passivos</h3>
@@ -554,10 +599,21 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                   <>
                     <label><span className={labelClass}>Apelido</span><input required value={form.nickname || ''} onChange={(e) => updateField('nickname', e.target.value)} className={fieldClass} placeholder="Ex: Nubank Principal" /></label>
                     <label><span className={labelClass}>Saldo atual</span><input required type="number" min="0" step="0.01" value={form.balance || ''} onChange={(e) => updateField('balance', e.target.value)} className={fieldClass} placeholder="0,00" /></label>
-                    <label><span className={labelClass}>Banco</span><input value={form.bank_name || ''} onChange={(e) => updateField('bank_name', e.target.value)} className={fieldClass} placeholder="Ex: Itaú, Nubank, Bradesco" /></label>
+                    <label><span className={labelClass}>Banco</span><input required={form.link_credit==='yes'} value={form.bank_name || ''} onChange={(e) => updateField('bank_name', e.target.value)} className={fieldClass} placeholder="Ex: Itaú, Nubank, Bradesco" /></label>
                     <label><span className={labelClass}>Tipo</span><select value={form.account_type || 'CHECKING'} onChange={(e) => updateField('account_type', e.target.value)} className={fieldClass}><option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option><option value="CASH">Dinheiro</option><option value="INVESTMENT">Investimento</option></select></label>
                     <label><span className={labelClass}>Tipo da chave PIX</span><select value={form.pix_key_type || ''} onChange={(e) => updateField('pix_key_type', e.target.value)} className={fieldClass}><option value="">Sem PIX</option><option value="CPF">CPF</option><option value="EMAIL">E-mail</option><option value="PHONE">Telefone</option><option value="RANDOM">Aleatória</option></select></label>
                     <label><span className={labelClass}>Chave PIX</span><input value={form.pix_key || ''} onChange={(e) => updateField('pix_key', e.target.value)} className={fieldClass} placeholder="Chave para transferências" /></label>
+                    <label className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200"><input type="checkbox" checked={form.link_credit==='yes'} onChange={e=>updateField('link_credit',e.target.checked?'yes':'')}/>Esta conta possui cartão de crédito vinculado?</label>
+                    {form.link_credit==='yes'&&<>
+                      <label><span className={labelClass}>Apelido do cartão</span><input required className={fieldClass} value={form.linked_card_nickname||''} onChange={e=>updateField('linked_card_nickname',e.target.value)}/></label>
+                      <label><span className={labelClass}>Limite do cartão</span><input required type="number" min="0" step="0.01" className={fieldClass} value={form.linked_card_limit||''} onChange={e=>updateField('linked_card_limit',e.target.value)}/></label>
+                      <label><span className={labelClass}>Bandeira</span><select className={fieldClass} value={form.linked_card_brand||''} onChange={e=>updateField('linked_card_brand',e.target.value)}><option value="">Não informada</option><option>Mastercard</option><option>Visa</option><option>Elo</option></select></label>
+                      <label><span className={labelClass}>Cor do cartão</span><input type="color" className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1" value={form.linked_card_primary_color||getBankVisual(form.bank_name||'Nubank').accent} onChange={e=>updateField('linked_card_primary_color',e.target.value)}/></label>
+                      <label><span className={labelClass}>Últimos quatro dígitos</span><input maxLength={4} pattern="[0-9]{4}" className={fieldClass} value={form.linked_card_last_four||''} onChange={e=>updateField('linked_card_last_four',e.target.value.replace(/\D/g,'').slice(0,4))}/></label>
+                      <label><span className={labelClass}>Fechamento</span><input type="number" min="1" max="31" className={fieldClass} value={form.linked_card_closing||''} onChange={e=>updateField('linked_card_closing',e.target.value)}/></label>
+                      <label><span className={labelClass}>Vencimento</span><input type="number" min="1" max="31" className={fieldClass} value={form.linked_card_due||''} onChange={e=>updateField('linked_card_due',e.target.value)}/></label>
+                    </>}
+
                     <label className="sm:col-span-2">
                       <span className={labelClass}>Ícone ou logotipo do banco</span>
                       <span className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-2.5 transition-colors hover:border-emerald-500/60">
@@ -578,23 +634,19 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                     <label><span className={labelClass}>Apelido do cartão</span><input required value={form.nickname || ''} onChange={(e) => updateField('nickname', e.target.value)} className={fieldClass} placeholder="Ex: Nubank Ultravioleta" /></label>
                     <label><span className={labelClass}>Nome impresso no cartão</span><input value={form.holder_name || ''} onChange={(e) => updateField('holder_name', e.target.value.toUpperCase())} className={fieldClass} placeholder="Ex: MANOEL S C LEVER" /></label>
                     <label><span className={labelClass}>Limite total</span><input required type="number" min="0" step="0.01" value={form.credit_limit || ''} onChange={(e) => updateField('credit_limit', e.target.value)} className={fieldClass} placeholder="0,00" /></label>
-                    <label><span className={labelClass}>Emissor / Banco</span><input value={form.issuer || ''} onChange={(e) => updateField('issuer', e.target.value)} className={fieldClass} placeholder="Ex: Nubank, Inter, Itaú, XP" /></label>
+                    <label><span className={labelClass}>Cor principal</span><input type="color" className="h-10 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1" value={form.primary_color||getBankVisual(form.issuer||'Nubank').accent} onChange={e=>updateField('primary_color',e.target.value)}/></label>
+                    <label><span className={labelClass}>Limite disponível</span><input readOnly value={formatMoney(Number(form.credit_limit||0))} className={fieldClass+' opacity-70'}/></label>
+                    <label><span className={labelClass}>Emissor / Banco</span><input required value={form.issuer || ''} onChange={(e) => updateField('issuer', e.target.value)} className={fieldClass} placeholder="Ex: Nubank, Inter, Itaú, XP" /></label>
                     <label><span className={labelClass}>Bandeira</span><input value={form.brand || ''} onChange={(e) => updateField('brand', e.target.value)} className={fieldClass} placeholder="Ex: Mastercard, Visa, Elo" /></label>
-                    <label className="sm:col-span-2"><span className={labelClass}>Conta vinculada</span><select value={form.account_id || ''} onChange={(e) => updateField('account_id', e.target.value)} className={fieldClass}><option value="">Cartão independente (sem conta)</option>{data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname} · {account.bank_name || 'Conta'}</option>)}</select><small className="mt-1 block text-[9px] text-slate-500">Vincule quando débito e crédito pertencem à mesma conta.</small></label>
-                    <label><span className={labelClass}>Número do cartão</span><input value={form.card_number || ''} maxLength={19} onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 16);
-                      const formatted = v.match(/.{1,4}/g)?.join(' ') || v;
-                      updateField('card_number', formatted);
-                      if (v.length >= 4) updateField('last_four', v.slice(-4));
-                    }} className={fieldClass} placeholder="•••• •••• •••• 8696" /></label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label><span className={labelClass}>Validade (MM/AA)</span><input value={form.expiration || ''} maxLength={5} onChange={(e) => {
-                        let v = e.target.value.replace(/\D/g, '').slice(0, 4);
-                        if (v.length >= 3) v = `${v.slice(0, 2)}/${v.slice(2, 4)}`;
-                        updateField('expiration', v);
-                      }} className={fieldClass} placeholder="08/34" /></label>
-                      <label><span className={labelClass}>Código CVC / CVV</span><input value={form.cvv || ''} maxLength={4} onChange={(e) => updateField('cvv', e.target.value.replace(/\D/g, ''))} className={fieldClass} placeholder="267" /></label>
-                    </div>
+                    <label className="sm:col-span-2"><span className={labelClass}>Tipo de cartão</span><select className={fieldClass} value={form.link_mode||'none'} onChange={e=>updateField('link_mode',e.target.value)}><option value="none">Avulso — apenas crédito</option><option value="existing">Associar a conta existente</option><option value="new">Criar conta corrente junto com cartão</option></select></label>
+                    {form.link_mode==='existing'&&<label className="sm:col-span-2"><span className={labelClass}>Conta vinculada</span><select required className={fieldClass} value={form.account_id||''} onChange={e=>updateField('account_id',e.target.value)}><option value="">Selecione a conta</option>{data.accounts.map(a=><option key={a.id} value={a.id}>{a.nickname}</option>)}</select></label>}
+                    {form.link_mode==='new'&&<>
+                      <label><span className={labelClass}>Apelido da conta</span><input required className={fieldClass} value={form.new_account_name||''} onChange={e=>updateField('new_account_name',e.target.value)}/></label>
+                      <label><span className={labelClass}>Saldo inicial</span><input required type="number" min="0" step="0.01" className={fieldClass} value={form.new_account_balance||''} onChange={e=>updateField('new_account_balance',e.target.value)}/></label>
+                      <label><span className={labelClass}>Tipo PIX</span><select className={fieldClass} value={form.new_account_pix_type||''} onChange={e=>updateField('new_account_pix_type',e.target.value)}><option value="">Sem PIX</option><option value="CPF">CPF</option><option value="EMAIL">E-mail</option><option value="PHONE">Telefone</option><option value="RANDOM">Aleatória</option></select></label>
+                      <label><span className={labelClass}>Chave PIX</span><input className={fieldClass} value={form.new_account_pix||''} onChange={e=>updateField('new_account_pix',e.target.value)}/></label>
+                    </>}
+                    <label><span className={labelClass}>Últimos quatro dígitos</span><input maxLength={4} pattern="[0-9]{4}" className={fieldClass} value={form.last_four||''} onChange={e=>updateField('last_four',e.target.value.replace(/\D/g,'').slice(0,4))}/></label>
                     <div className="grid grid-cols-2 gap-2">
                       <label><span className={labelClass}>Fecha dia</span><input type="number" min="1" max="31" value={form.closing_day || ''} onChange={(e) => updateField('closing_day', e.target.value)} className={fieldClass} placeholder="Dia" /></label>
                       <label><span className={labelClass}>Vence dia</span><input type="number" min="1" max="31" value={form.due_day || ''} onChange={(e) => updateField('due_day', e.target.value)} className={fieldClass} placeholder="Dia" /></label>
@@ -650,9 +702,11 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                   <label className="sm:col-span-2"><span className={labelClass}>CPF/CNPJ (opcional)</span><input inputMode="numeric" value={form.creditor_document || ''} onChange={e => updateField('creditor_document', e.target.value.replace(/\D/g, '').slice(0, 14))} className={fieldClass} placeholder="Somente números" /></label>
                   <label className="sm:col-span-2"><span className={labelClass}>Descrição</span><input required value={form.description || ''} onChange={e => updateField('description', e.target.value)} className={fieldClass} placeholder="Ex: empréstimo, fornecedor, serviço" /></label>
                   <label><span className={labelClass}>Valor</span><input required type="number" min="0.01" step="0.01" value={form.amount || ''} onChange={e => updateField('amount', e.target.value)} className={fieldClass} /></label>
-                  <label><span className={labelClass}>Vencimento</span><input type="date" value={form.due_date || ''} onChange={e => updateField('due_date', e.target.value)} className={fieldClass} /></label>
+                  <label><span className={labelClass}>Vencimento</span><input required type="date" value={form.due_date || ''} onChange={e => updateField('due_date', e.target.value)} className={fieldClass} /></label>
                   <label><span className={labelClass}>Juros (% ao mês)</span><input type="number" min="0" max="100" step="0.01" value={form.interest_rate || ''} onChange={e => updateField('interest_rate', e.target.value)} className={fieldClass} /></label>
                   <label><span className={labelClass}>Multa (%)</span><input type="number" min="0" max="100" step="0.01" value={form.fine_percent || ''} onChange={e => updateField('fine_percent', e.target.value)} className={fieldClass} /></label>
+                  <label><span className={labelClass}>Categoria</span><input required value={form.category||'Outros'} onChange={e=>updateField('category',e.target.value)} className={fieldClass}/></label>
+                  <label className="sm:col-span-2"><span className={labelClass}>Origem do pagamento</span><select required className={fieldClass} value={form.payment_source||''} onChange={e=>updateField('payment_source',e.target.value)}><option value="">Selecione uma conta ou cartão</option><optgroup label="Contas bancárias">{data.accounts.map(a=><option key={a.id} value={'account:'+a.id}>{a.nickname}</option>)}</optgroup><optgroup label="Cartões de crédito">{data.cards.filter(c=>c.status==='ACTIVE').map(c=><option key={c.id} value={'card:'+c.id}>{c.nickname}</option>)}</optgroup></select></label>
                   <label className="sm:col-span-2"><span className={labelClass}>Observações</span><input value={form.notes || ''} onChange={e => updateField('notes', e.target.value)} className={fieldClass} /></label>
                 </>)}
               </div>
@@ -717,6 +771,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           ['INVOICES','Faturas'],
           ['EXPENSES','Despesas'],
           ['PAYABLES','A pagar'],
+          ['INCOME','Receitas fixas'],
         ] as const).map(([tab,label]) => <button key={tab} type="button" onClick={() => goToTab(tab)}
           aria-current={activeTab === tab ? 'page' : undefined}
           className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${activeTab===tab?'border-blue-500 bg-blue-600 text-white':'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'}`}>
@@ -829,9 +884,19 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           </div>
         )}
 
-        {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
-          await runAction(() => personalWalletService.payPayable({ ...input, requestId: generateUUID() }), 'Pagamento registrado e passivo atualizado.');
-        }} />}
+        {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards}
+          saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
+          setSaving(true);setError('');
+          try{
+            await personalWalletService.payPayable(input);
+            await refresh();
+            setSuccess('Pagamento registrado e passivo atualizado.');
+          }catch(reason){const message=reason instanceof Error?reason.message:'Pagamento não realizado';setError(message);throw new Error(message);}
+          finally{setSaving(false);}
+        }}/>}
+        {activeTab === 'INCOME' && <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
+          receivedIds={new Set(data.recurringReceipts.filter(r=>r.reference_month===currentMonth()+'-01').map(r=>r.income_id))}
+          onSaved={refresh}/>}
 
         {/* Aba 4: Despesas Recentes */}
         {activeTab === 'EXPENSES' && (

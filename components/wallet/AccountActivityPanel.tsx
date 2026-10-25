@@ -80,6 +80,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         amount:parsedAmount,description,category,date,requestId:transactionRef.current.id,
       });
       await onSaved();
+      transactionRef.current={signature:'',id:generateUUID()};
       clear();
       setSuccess('Movimentação registrada no extrato e saldo atualizado.');
     }catch(err:any){setError(err?.message||'Não foi possível registrar a operação.');}

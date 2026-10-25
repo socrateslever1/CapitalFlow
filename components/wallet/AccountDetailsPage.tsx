@@ -11,6 +11,8 @@ import {
 import { formatMoney } from '../../utils/formatters';
 import { AccountActivityPanel } from './AccountActivityPanel';
 import { WalletPixCharge } from './WalletPixCharge';
+import { BankLogo } from './BankLogo';
+import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -113,9 +115,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
         <div className="flex items-center gap-3">
-          {account.image_url
-            ? <img src={account.image_url} alt={`Banco ${account.nickname}`} className="h-11 w-11 shrink-0 rounded-xl border border-slate-700 object-cover" />
-            : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><Landmark size={20}/></span>}
+          <BankLogo name={account.bank_name} alternateName={account.nickname} customImage={account.image_url} />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">Conta bancária</p>
             <h1 className="truncate text-lg font-bold text-white">{account.nickname}</h1>
@@ -154,12 +154,17 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
       {editing && (
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
           <h2 className="text-sm font-bold text-white">Editar dados da conta</h2>
+          <datalist id="account-bank-catalog">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
+          <div className="flex items-center gap-2 rounded-lg border border-slate-800 p-2 text-xs text-slate-400">
+            <BankLogo name={form.bank_name} alternateName={form.nickname} size="sm"/>
+            Logo local automático quando disponível; a imagem personalizada tem prioridade.
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className={labelClass}>Apelido
               <input required maxLength={120} className={inputClass} value={form.nickname} onChange={e => update('nickname', e.target.value)} />
             </label>
             <label className={labelClass}>Banco
-              <input maxLength={120} className={inputClass} value={form.bank_name} onChange={e => update('bank_name', e.target.value)} />
+              <input list="account-bank-catalog" maxLength={120} className={inputClass} value={form.bank_name} onChange={e => update('bank_name', e.target.value)} />
             </label>
             <label className={labelClass}>Tipo de conta
               <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>

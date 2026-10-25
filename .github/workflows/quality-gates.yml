@@ -23,8 +23,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci --progress=false
+
+      - run: |
+          if [ -f package-lock.json ]; then npm ci --progress=false; else npm install --progress=false --no-fund; fi
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - run: npm run test:quality
@@ -37,8 +38,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci --progress=false
+
+      - run: |
+          if [ -f package-lock.json ]; then npm ci --progress=false; else npm install --progress=false --no-fund; fi
       - run: npm run build
       - name: Start preview server
         run: |

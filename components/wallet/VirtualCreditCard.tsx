@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Copy, Check, Eye, EyeOff, RotateCw, Wifi } from 'lucide-react';
 import { PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { resolveBankLogo } from '../../utils/bankLogoRegistry';
 
 export interface VirtualCreditCardProps {
   card: PersonalWalletCard;
@@ -185,8 +186,8 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
             {/* Topo: Emissor, Banco e Contactless */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {theme.logoText === 'nu' ? (
-                  <span className="font-sans font-black text-2xl tracking-tighter text-white">nu</span>
+                {resolveBankLogo(card.issuer, card.nickname) ? (
+                  <img src={resolveBankLogo(card.issuer, card.nickname)!} alt={`Logo ${card.issuer || card.nickname}`} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
                 ) : (
                   <span className="font-extrabold text-sm sm:text-base tracking-wider uppercase text-white/95">
                     {card.issuer || theme.logoText}

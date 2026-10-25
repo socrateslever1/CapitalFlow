@@ -357,7 +357,9 @@ export const PersonalWalletPage: React.FC = () => {
     available: data.cards.reduce((sum, card) => sum + Math.max(0, Number(card.credit_limit || 0) - Number(card.used_limit || 0)), 0),
     month: data.expenses
       .filter((expense) => expense.status !== 'CANCELED' && String(expense.expense_date).slice(0, 7) === currentMonth())
-      .reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
+      .reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
+      + data.accountOperations.filter(op => op.operation_type === 'EXPENSE' && String(op.operation_date).slice(0,7) === currentMonth())
+        .reduce((sum, op) => sum + Number(op.amount || 0), 0),
     openInvoices: invoices.reduce((sum, invoice) => sum + invoice.amount, 0),
   }), [data, invoices]);
 

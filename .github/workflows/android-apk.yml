@@ -61,6 +61,29 @@ jobs:
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
+      - name: Validate native package structure and signature
+        working-directory: android
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          unzip -t -q "$apk" >/dev/null
+          unzip -Z -1 "$apk" | grep -qx "AndroidManifest.xml"
+          unzip -Z -1 "$apk" | grep -qE '^classes([0-9]+)?\.dex        uses: actions/upload-artifact@v4
+        with:
+          name: CapitalFlow-Android-debug
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+          if [ -n "${ANDROID_HOME:-}" ]; then
+            signer="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+            test -n "$signer"
+            "$signer" verify "$apk"
+          fi
+          sha256sum "$apk" > "$apk.sha256"
       - name: Publish APK artifact
         uses: actions/upload-artifact@v4
         with:

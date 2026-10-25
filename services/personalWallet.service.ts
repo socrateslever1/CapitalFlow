@@ -11,6 +11,13 @@ const CARD_IMAGE_EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
 };
 
+
+export type WalletRecurringIncome={
+ id:string;user_id:string;description:string;category:string;amount:number;
+ receipt_day:number;destination_account_id:string;active:boolean;created_at:string;
+};
+export type WalletRecurringReceipt={id:string;income_id:string;reference_month:string;operation_id:string};
+
 export type PersonalWalletAccount = {
   id: string;
   nickname: string;
@@ -42,6 +49,8 @@ export type PersonalWalletCard = {
   notes?: string | null;
   account_id?: string | null;
   institution_key?: string | null;
+  primary_color?: string | null;
+  available_limit?: number;
 };
 
 export type PersonalWalletPayable = {
@@ -55,6 +64,10 @@ export type PersonalWalletPayable = {
   due_date: string | null;
   status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE' | 'CANCELED';
   creditor_document?: string | null;
+  category?: string;
+  origin_type?: 'ACCOUNT' | 'CARD' | 'CASH' | null;
+  origin_account_id?: string | null;
+  origin_card_id?: string | null;
   interest_rate: number;
   fine_percent: number;
   proof_path?: string | null;
@@ -67,6 +80,7 @@ export type PersonalWalletPayablePayment = {
   id: string;
   payable_id: string;
   account_id: string | null;
+  card_id?: string | null;
   amount: number;
   proof_path: string | null;
   paid_at: string;
@@ -160,7 +174,7 @@ export const personalWalletService = {
   },
 
   async load() {
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
@@ -169,9 +183,11 @@ export const personalWalletService = {
       supabase.from('personal_wallet_account_operations').select('*').order('operation_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }),
-      supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }),
+      supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,card_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }),
+      supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day',{ascending:true}),
+      supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month',{ascending:false}).limit(500),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error;
+    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error;
     if (error) throw new Error(error.message);
     const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (card) => {
       if (!card.image_path) return card;
@@ -193,6 +209,8 @@ export const personalWalletService = {
       statementRows: (statementRows.data || []) as WalletStatementRow[],
       payables: (payables.data || []) as PersonalWalletPayable[],
       payablePayments: (payablePayments.data || []) as PersonalWalletPayablePayment[],
+      recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
+      recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
     };
   },
 
@@ -242,14 +260,52 @@ export const personalWalletService = {
     nickname: string; issuer: string; brand: string; account_id: string | null;
     credit_limit: number; closing_day: number | null; due_day: number | null;
     status: 'ACTIVE' | 'BLOCKED' | 'CANCELED';
+    primary_color?:string|null;
   }) {
     const { error } = await supabase.rpc('personal_wallet_update_card_metadata', {
       p_card_id: cardId, p_nickname: input.nickname, p_issuer: input.issuer,
       p_brand: input.brand, p_account_id: input.account_id,
       p_limit: input.credit_limit, p_closing_day: input.closing_day,
       p_due_day: input.due_day, p_status: input.status,
+      p_primary_color: input.primary_color || null,
     });
     if (error) throw new Error(error.message);
+  },
+
+
+  async createHybridAssets(input: {
+    account?: {nickname:string;bank_name:string;balance:number;account_type:string;pix_key:string|null;pix_key_type:string|null}|null;
+    card?: {nickname:string;issuer:string;brand:string|null;last_four:string|null;credit_limit:number;closing_day:number|null;due_day:number|null;primary_color?:string|null}|null;
+    existingAccountId?:string|null;
+  }) {
+    const {data,error}=await supabase.rpc('personal_wallet_create_linked_assets',{
+      p_account:input.account||null,p_card:input.card||null,
+      p_existing_account_id:input.existingAccountId||null
+    });
+    if(error)throw new Error(error.message);
+    return data as {account_id:string|null;card_id:string|null};
+  },
+
+  async createRecurringIncome(input:{description:string;category:string;amount:number;receipt_day:number;destination_account_id:string}) {
+    const owner_user_id=await this.ownerId();
+    if(!Number.isFinite(input.amount)||input.amount<=0||!Number.isInteger(input.receipt_day)||input.receipt_day<1||input.receipt_day>31)throw new Error('Dados inválidos.');
+    const {error}=await supabase.from('personal_wallet_recurring_incomes').insert({
+      user_id:owner_user_id,description:input.description.trim(),category:input.category.trim(),
+      amount:input.amount,receipt_day:input.receipt_day,destination_account_id:input.destination_account_id
+    });
+    if(error)throw new Error(error.message);
+  },
+  async postRecurringIncome(id:string,month:string,requestId:string) {
+    const {error}=await supabase.rpc('personal_wallet_post_recurring_income',{
+      p_income_id:id,p_month:month,p_request_id:requestId
+    });
+    if(error)throw new Error(error.message);
+  },
+  async deactivateRecurringIncome(id:string) {
+    const owner_user_id=await this.ownerId();
+    const {error}=await supabase.from('personal_wallet_recurring_incomes').update({active:false})
+      .eq('id',id).eq('user_id',owner_user_id);
+    if(error)throw new Error(error.message);
   },
 
   async createAccount(
@@ -392,7 +448,7 @@ export const personalWalletService = {
     return data as PersonalWalletCard;
   },
 
-  async createPayable(input: { creditor_name: string; creditor_type: 'PERSON' | 'COMPANY'; creditor_document?: string | null; description: string; total_amount: number; due_date?: string | null; interest_rate?: number; fine_percent?: number; notes?: string | null }) {
+  async createPayable(input: { creditor_name: string; creditor_type: 'PERSON' | 'COMPANY'; creditor_document?: string | null; description: string; category?:string; origin_type?:'ACCOUNT'|'CARD'|'CASH'; origin_account_id?:string|null; origin_card_id?:string|null; total_amount: number; due_date?: string | null; interest_rate?: number; fine_percent?: number; notes?: string | null }) {
     if (!Number.isFinite(input.total_amount) || input.total_amount <= 0) throw new Error('Informe um valor válido para a dívida.');
     const document = String(input.creditor_document || '').replace(/\D/g, '');
     if (document && ![11, 14].includes(document.length)) throw new Error('Informe um CPF ou CNPJ válido.');
@@ -409,7 +465,7 @@ export const personalWalletService = {
     return data as PersonalWalletPayable;
   },
 
-  async payPayable(input: { payableId: string; accountId: string | null; amount: number; requestId: string; receipt?: File | null }) {
+  async payPayable(input: { payableId: string; accountId: string | null; cardId?: string | null; amount: number; requestId: string; receipt?: File | null }) {
     const ownerUserId = await this.ownerId();
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) throw new Error('Informe um valor positivo com até duas casas decimais.');
     let proofPath: string | null = null;
@@ -419,9 +475,18 @@ export const personalWalletService = {
       if (!extension || input.receipt.size > 10 * 1024 * 1024) throw new Error('Use comprovante PDF, JPEG, PNG ou WebP de até 10 MB.');
       proofPath = `${ownerUserId}/${input.payableId}/${input.requestId}.${extension}`;
       const uploaded = await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).upload(proofPath, input.receipt, { contentType: input.receipt.type, upsert: false });
-      if (uploaded.error) throw new Error(`Falha ao enviar comprovante: ${uploaded.error.message}`);
+      if (uploaded.error && !/already exists|duplicate|conflict/i.test(uploaded.error.message)) throw new Error(`Falha ao enviar comprovante: ${uploaded.error.message}`);
     }
-    const { data, error } = await supabase.rpc('personal_wallet_pay_payable', { p_payable_id: input.payableId, p_amount: input.amount, p_account_id: input.accountId, p_proof_path: proofPath, p_request_id: input.requestId });
+    if (input.accountId && input.cardId) throw new Error('Selecione apenas uma origem de fundos.');
+    const {data,error}=input.cardId
+      ? await supabase.rpc('personal_wallet_pay_payable_from_card', {
+          p_payable_id: input.payableId,p_card_id:input.cardId,p_amount:input.amount,
+          p_request_id:input.requestId,p_proof_path:proofPath
+        })
+      : await supabase.rpc('personal_wallet_pay_payable', {
+          p_payable_id:input.payableId,p_amount:input.amount,
+          p_account_id:input.accountId,p_proof_path:proofPath,p_request_id:input.requestId
+        });
     if (error) {
       if (proofPath) await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).remove([proofPath]);
       throw new Error(error.message);

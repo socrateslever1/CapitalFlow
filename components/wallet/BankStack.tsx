@@ -20,6 +20,7 @@ export const BankStack:React.FC<Props>=({accounts,cards,onAccount,onCard,onEditC
  const [sheetOpen,setSheetOpen]=useState(false);
  const [showHolder,setShowHolder]=useState(false);
  const startX=useRef<number|null>(null);
+ const preventOpen=useRef(false);
  const selected=availableCards.find(c=>c.id===selectedId)||availableCards[0]||null;
  const index=selected?availableCards.findIndex(c=>c.id===selected.id):0;
  const rear=availableCards.filter(c=>c.id!==selected?.id).slice(0,3);
@@ -35,7 +36,7 @@ export const BankStack:React.FC<Props>=({accounts,cards,onAccount,onCard,onEditC
   const key=card.institution_key||account?.institution_key||issuer;
   const v=getBankVisual(key);
   const lower=String(key).toLowerCase();
-  const accent=lower==='mercadopago'?'#1F2229':lower==='picpay'?'#11C76F':lower==='nubank'?'#820AD1':lower==='bradesco'?'#CC092F':lower==='inter'?'#FF7A00':v.accent;
+  const accent=card.primary_color|| (lower==='mercadopago'?'#1F2229':lower==='picpay'?'#11C76F':lower==='nubank'?'#820AD1':lower==='bradesco'?'#CC092F':lower==='inter'?'#FF7A00':v.accent);
   return {issuer,visual:v,accent};
  };
  const front=selected?identity(selected):null;
@@ -51,10 +52,13 @@ export const BankStack:React.FC<Props>=({accounts,cards,onAccount,onCard,onEditC
        style={{zIndex:i+1,width:String(92+i*3)+'%',transform:'translateY('+String(i*14)+'px)',background:visual.accent}}>
        <span className="absolute left-3 top-1.5 text-[10px] font-bold text-white">{c.nickname}</span>
       </button>;})}
-      <div className="relative z-20 aspect-[1.586/1] w-full overflow-hidden rounded-2xl border border-white/25 shadow-2xl"
+      <div className="relative z-30 aspect-[1.586/1] w-full overflow-hidden rounded-2xl border border-white/25 shadow-2xl"
        style={{background:'linear-gradient(125deg,'+front!.accent+','+front!.visual.secondary+')'}}
        onTouchStart={e=>{startX.current=e.touches[0]?.clientX??null;}}
-       onTouchEnd={e=>{const distance=(e.changedTouches[0]?.clientX??0)-(startX.current??0);startX.current=null;if(Math.abs(distance)>45)cycle(distance<0?1:-1);}}>
+       onTouchEnd={e=>{const distance=(e.changedTouches[0]?.clientX??0)-(startX.current??0);startX.current=null;if(Math.abs(distance)>45){preventOpen.current=true;cycle(distance<0?1:-1);}}}
+       onClick={()=>{if(preventOpen.current){preventOpen.current=false;return;}setSheetOpen(true);}}
+       role="button" tabIndex={0} aria-label="Ver uso do limite dos cartões"
+       onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSheetOpen(true);}}}>
        <div aria-hidden className="absolute -right-7 -top-10 select-none text-[7rem] font-black text-white/10">{front!.visual.monogram}</div>
        <div className="relative flex h-full flex-col justify-between p-3.5 text-white sm:p-5">
         <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-xs">{front!.issuer}</strong></div><Network brand={selected.brand}/></div>

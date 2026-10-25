@@ -3,10 +3,11 @@ import {AlertTriangle,Save,X} from 'lucide-react';
 import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '../../services/personalWallet.service';
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
+import {getBankVisual} from './walletPresentation';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
- const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status});
+ const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState('');
  const change=(key:keyof typeof form,value:string)=>setForm(previous=>({...previous,[key]:value}));
@@ -17,7 +18,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
    await personalWalletService.updateCardMetadata(card.id,{
     nickname:form.nickname,issuer:form.issuer,brand:form.brand,account_id:form.account_id||null,
     credit_limit:Number(form.credit_limit),closing_day:form.closing_day?Number(form.closing_day):null,
-    due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED'
+    due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED',primary_color:form.primary_color
    });
    await onSaved();onClose();
   }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
@@ -35,6 +36,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     <label className="text-xs text-slate-300">Limite disponível<input readOnly className={field+' opacity-70'} value={formatMoney(Math.max(0,Number(form.credit_limit)-Number(card.used_limit)))}/><span className="text-[10px] text-slate-500">Calculado a partir do uso real</span></label>
     <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
     <label className="text-xs text-slate-300">Vencimento (dia)<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
+    <label className="text-xs text-slate-300">Cor principal<input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
     <label className="text-xs text-slate-300 sm:col-span-2">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option><option value="CANCELED">Arquivar cartão</option></select></label>
     <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar exige saldo e faturas quitados. Bloqueio no CapitalFlow não bloqueia o cartão no banco; histórico financeiro não é apagado.</p>
     {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}

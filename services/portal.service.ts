@@ -453,7 +453,7 @@ export const portalService = {
           console.warn('[PortalService] Fallback local falhou:', fbErr);
         }
 
-        throw new Error('Funcao InfinitePay indisponivel no servidor. Solicite o deploy da Edge Function infinitepay-create-checkout.');
+        throw new Error('Não foi possível conectar ao checkout InfinitePay. Verifique a conexão, o domínio autorizado e os registros da função no Supabase.');
       }
       throw new Error(error.message || 'Falha ao gerar checkout InfinitePay.');
     }

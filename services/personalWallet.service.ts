@@ -156,6 +156,82 @@ export const personalWalletService = {
     return data as PersonalWalletAccount;
   },
 
+  /**
+   * Atualiza exclusivamente os metadados da conta. O saldo fica protegido:
+   * entradas e saídas continuam sendo registradas pelos fluxos financeiros próprios.
+   */
+  async updateAccount(
+    accountId: string,
+    input: Pick<PersonalWalletAccount, 'nickname' | 'bank_name' | 'account_type' | 'pix_key' | 'pix_key_type' | 'notes'>,
+    imageFile?: File | null,
+  ) {
+    const ownerUserId = await this.ownerId();
+    const nickname = String(input.nickname || '').trim();
+    if (!nickname || nickname.length > 120) throw new Error('Informe um apelido válido de até 120 caracteres.');
+    const accountType = String(input.account_type || '').trim().toUpperCase();
+    if (!['CHECKING', 'SAVINGS', 'CASH', 'INVESTMENT'].includes(accountType)) {
+      throw new Error('Tipo de conta inválido.');
+    }
+    const pixKeyType = String(input.pix_key_type || '').trim().toUpperCase();
+    if (pixKeyType && !['CPF', 'EMAIL', 'PHONE', 'RANDOM'].includes(pixKeyType)) {
+      throw new Error('Tipo de chave PIX inválido.');
+    }
+    const pixKey = String(input.pix_key || '').trim();
+    if (pixKeyType && !pixKey) throw new Error('Informe a chave PIX do tipo escolhido.');
+    if (!pixKeyType && pixKey) throw new Error('Selecione o tipo da chave PIX.');
+    if (pixKey.length > 255) throw new Error('Chave PIX muito longa.');
+    const bankName = String(input.bank_name || '').trim();
+    const notes = String(input.notes || '').trim();
+    if (bankName.length > 120 || notes.length > 2000) throw new Error('Dados da conta excedem o limite permitido.');
+
+    const { data: current, error: loadError } = await supabase
+      .from('personal_wallet_accounts')
+      .select('id,image_path')
+      .eq('id', accountId)
+      .eq('owner_user_id', ownerUserId)
+      .single();
+    if (loadError || !current) throw new Error('Conta não encontrada ou acesso não autorizado.');
+
+    let uploadedPath: string | null = null;
+    if (imageFile) {
+      const ext = CARD_IMAGE_EXTENSIONS[imageFile.type];
+      if (!ext || imageFile.size > MAX_CARD_IMAGE_SIZE) {
+        throw new Error('A imagem deve ser JPEG, PNG ou WebP de até 5 MB.');
+      }
+      uploadedPath = `${ownerUserId}/${accountId}/account-${generateUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(ACCOUNT_IMAGES_BUCKET)
+        .upload(uploadedPath, imageFile, { contentType: imageFile.type, upsert: false });
+      if (uploadError) throw new Error('Erro ao enviar a imagem: ' + uploadError.message);
+    }
+
+    const changes = {
+      nickname,
+      bank_name: bankName || null,
+      account_type: accountType,
+      pix_key_type: pixKeyType || null,
+      pix_key: pixKey || null,
+      notes: notes || null,
+      updated_at: new Date().toISOString(),
+      ...(uploadedPath ? { image_path: uploadedPath } : {}),
+    };
+    const { data, error } = await supabase
+      .from('personal_wallet_accounts')
+      .update(changes)
+      .eq('id', accountId)
+      .eq('owner_user_id', ownerUserId)
+      .select('id')
+      .single();
+    if (error || !data) {
+      if (uploadedPath) await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([uploadedPath]);
+      throw new Error(error?.message || 'Não foi possível salvar a edição.');
+    }
+    // Remover imagem anterior somente DEPOIS de confirmar a atualização.
+    // Falha de limpeza não altera os dados da conta.
+    if (uploadedPath && current.image_path && current.image_path !== uploadedPath) {
+      await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([current.image_path]).catch(() => {});
+    }
+  },
+
   async createCard(
     input: Omit<PersonalWalletCard, 'id' | 'used_limit' | 'current_bill' | 'status' | 'image_url' | 'image_path'> & { used_limit?: number; current_bill?: number; status?: string },
     imageFile?: File | null,

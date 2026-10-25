@@ -25,6 +25,8 @@ import {
   PersonalWalletInvoicePayment,
   WalletAccountOperation,
   WalletStatementRow,
+  WalletAccountOperation,
+  WalletStatementRow,
 } from '../services/personalWallet.service';
 import { formatMoney } from '../utils/formatters';
 import { usePageBack } from '../contexts/PageBackContext';

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -10,6 +10,7 @@ import {
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { AccountActivityPanel } from './AccountActivityPanel';
+import { WalletPixCharge } from './WalletPixCharge';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -33,6 +34,8 @@ const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
 export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expenses, invoicePayments, accountOperations, statementRows, onBack, onSaved }) => {
   const [editing, setEditing] = useState(false);
+  const [pixChargeOpen, setPixChargeOpen] = useState(false);
+  const [pixCopied, setPixCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -108,34 +111,42 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
         </button>}
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <div className="flex items-start gap-3">
-          {account.image_url ? (
-            <img src={account.image_url} alt={`Imagem da conta ${account.nickname}`} className="h-14 w-14 shrink-0 rounded-xl border border-slate-700 object-cover" />
-          ) : (
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-              <Landmark size={26} />
-            </div>
-          )}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
+        <div className="flex items-center gap-3">
+          {account.image_url
+            ? <img src={account.image_url} alt={`Banco ${account.nickname}`} className="h-11 w-11 shrink-0 rounded-xl border border-slate-700 object-cover" />
+            : <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><Landmark size={20}/></span>}
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-400">Conta bancária</p>
-            <h1 className="break-words text-xl font-bold text-white">{account.nickname}</h1>
-            <p className="text-sm text-slate-400">{account.bank_name || 'Banco não informado'} · {typeLabels[account.account_type] || account.account_type}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">Conta bancária</p>
+            <h1 className="truncate text-lg font-bold text-white">{account.nickname}</h1>
+            <p className="truncate text-xs text-slate-400">{account.bank_name || 'Banco não informado'} · {typeLabels[account.account_type] || account.account_type}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">Saldo</p>
+            <p className="whitespace-nowrap text-lg font-extrabold text-emerald-400">{formatMoney(Number(account.balance))}</p>
           </div>
         </div>
-        <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Saldo registrado</p>
-          <p className="mt-1 text-2xl font-black text-emerald-400">{formatMoney(Number(account.balance))}</p>
-          <p className="mt-2 text-xs text-slate-500">O saldo não pode ser alterado pela edição dos dados cadastrais.</p>
-        </div>
-        {!editing && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 text-sm">
-            <div><p className="text-xs text-slate-400">Tipo da chave PIX</p><p className="mt-1 break-words text-white">{account.pix_key_type || 'Não cadastrado'}</p></div>
-            <div><p className="text-xs text-slate-400">Chave PIX</p><p className="mt-1 break-all text-white">{account.pix_key || 'Não cadastrada'}</p></div>
-            <div className="sm:col-span-2"><p className="text-xs text-slate-400">Observações</p><p className="mt-1 whitespace-pre-wrap break-words text-white">{account.notes || 'Nenhuma observação.'}</p></div>
+        {!editing && <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-[10px] font-bold text-slate-400">PIX {account.pix_key_type || ''}</span>
+            <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{account.pix_key || 'Chave não cadastrada'}</span>
           </div>
-        )}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={!account.pix_key} onClick={async()=>{
+              try {await navigator.clipboard.writeText(account.pix_key || '');setPixCopied(true);setError('');}
+              catch {setError('Não foi possível copiar a chave PIX neste navegador.');}
+            }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-xs font-semibold text-slate-200 disabled:opacity-40">
+              {pixCopied?<CheckCircle2 size={15}/>:<Copy size={15}/>} {pixCopied?'PIX copiado':'Copiar PIX'}
+            </button>
+            <button type="button" disabled={!account.pix_key} onClick={()=>setPixChargeOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-40">
+              <QrCode size={16}/> Gerar cobrança
+            </button>
+          </div>
+          {account.notes && <p className="truncate text-[11px] text-slate-500" title={account.notes}>{account.notes}</p>}
+        </div>}
       </div>
+      {pixChargeOpen && account.pix_key && <WalletPixCharge pixKey={account.pix_key} onClose={()=>setPixChargeOpen(false)} />}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}

@@ -23,6 +23,8 @@ import {
   PersonalWalletExpense,
   PersonalWalletExpenseInstallment,
   PersonalWalletInvoicePayment,
+  WalletAccountOperation,
+  WalletStatementRow,
 } from '../services/personalWallet.service';
 import { formatMoney } from '../utils/formatters';
 import { usePageBack } from '../contexts/PageBackContext';
@@ -37,6 +39,8 @@ type WalletData = {
   expenses: PersonalWalletExpense[];
   installments: PersonalWalletExpenseInstallment[];
   invoicePayments: PersonalWalletInvoicePayment[];
+  accountOperations: WalletAccountOperation[];
+  statementRows: WalletStatementRow[];
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | null;
@@ -51,7 +55,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -370,6 +374,9 @@ export const PersonalWalletPage: React.FC = () => {
       account={selectedAccount}
       expenses={data.expenses}
       invoicePayments={data.invoicePayments}
+      accounts={data.accounts}
+      accountOperations={data.accountOperations}
+      statementRows={data.statementRows}
       onBack={() => setSelectedAccountId(null)}
       onSaved={refresh}
     />;
@@ -1048,6 +1055,8 @@ export const PersonalWalletPage: React.FC = () => {
         <CardDetailModal
           card={selectedCardForDetail}
           accounts={data.accounts}
+          statementRows={data.statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===selectedCardForDetail.id)}
+          onImported={refresh}
           openInvoiceAmount={
             invoices
               .filter((inv) => inv.cardId === selectedCardForDetail.id)

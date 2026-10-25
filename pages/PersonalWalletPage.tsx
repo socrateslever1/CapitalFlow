@@ -15,6 +15,7 @@ import {
   X,
   XCircle,
   ChevronRight,
+  Pencil,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
@@ -48,6 +49,7 @@ import { RecurringObligationsPanel } from '../components/wallet/RecurringObligat
 import { UserProfile } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
+import { ExpenseEditModal } from '../components/wallet/ExpenseEditModal';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -147,6 +149,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<PersonalWalletCard | null>(null);
   const [activeStackCard, setActiveStackCard] = useState<PersonalWalletCard | null>(null);
   const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<PersonalWalletCard | null>(null);
+  const [selectedExpenseForEdit, setSelectedExpenseForEdit] = useState<PersonalWalletExpense | null>(null);
 
   const pageBack = usePageBack();
 
@@ -945,6 +948,18 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                       <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                         <strong className="text-xs sm:text-sm font-bold text-cyan-300">{formatMoney(expense.amount)}</strong>
                         <div className="flex items-center gap-1">
+                          {expense.status === 'PENDING' && expense.card_id && (
+                            <button
+                              type="button"
+                              disabled={saving}
+                              title="Editar lançamento"
+                              aria-label={`Editar lançamento ${expense.description}`}
+                              onClick={() => setSelectedExpenseForEdit(expense)}
+                              className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-1.5 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
                           {expense.status === 'PENDING' && expense.account_id && (
                             <button
                               type="button"
@@ -987,16 +1002,8 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         <CardDetailModal
           card={selectedCardForDetail}
           accounts={data.accounts}
-          expenses={data.expenses.filter((expense) => expense.card_id === selectedCardForDetail.id)}
           statementRows={data.statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===selectedCardForDetail.id)}
           onImported={refresh}
-          onEditExpense={async (input) => {
-            await personalWalletService.updateExpense(input);
-            const wallet = await personalWalletService.load();
-            setData(wallet);
-            setSelectedCardForDetail(wallet.cards.find((card) => card.id === selectedCardForDetail.id) || null);
-            setSuccess('Lançamento atualizado. Limite e fatura foram recalculados.');
-          }}
           openInvoiceAmount={
             invoices
               .filter((inv) => inv.cardId === selectedCardForDetail.id)
@@ -1011,6 +1018,18 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
             setSelectedCardForDetail(null);
             const foundCard = data.cards.find((c) => c.id === cardId);
             if (foundCard) { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(foundCard); }
+          }}
+        />
+      )}
+
+      {selectedExpenseForEdit && (
+        <ExpenseEditModal
+          expense={selectedExpenseForEdit}
+          onClose={() => setSelectedExpenseForEdit(null)}
+          onSave={async (input) => {
+            await personalWalletService.updateExpense(input);
+            await refresh();
+            setSuccess('Lançamento atualizado. Limite e fatura foram recalculados.');
           }}
         />
       )}

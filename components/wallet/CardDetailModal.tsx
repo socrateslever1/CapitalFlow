@@ -9,49 +9,38 @@ import {
   Maximize2,
   Image as ImageIcon,
   RotateCw,
-  FileUp,
-  Pencil
+  FileUp
 } from 'lucide-react';
-import type { PersonalWalletCard, PersonalWalletAccount, PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
+import type { PersonalWalletCard, PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { VirtualCreditCard } from './VirtualCreditCard';
 import { WalletStatementImport } from './WalletStatementImport';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
-import { ExpenseEditModal } from './ExpenseEditModal';
 
 export interface CardDetailModalProps {
   card: PersonalWalletCard;
   accounts: PersonalWalletAccount[];
-  expenses: PersonalWalletExpense[];
   openInvoiceAmount?: number;
   onClose: () => void;
   onNewExpense: (cardId: string) => void;
   onPayInvoice: (cardId: string) => void;
   statementRows?: WalletStatementRow[];
   onImported?: () => Promise<void>;
-  onEditExpense: (input: UpdatePersonalWalletExpense) => Promise<void>;
 }
 
 export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   card,
   accounts,
-  expenses,
   openInvoiceAmount = 0,
   onClose,
   onNewExpense,
   onPayInvoice,
   statementRows = [],
   onImported,
-  onEditExpense,
 }) => {
   const [importOpen,setImportOpen] = useState(false);
   const [activeView, setActiveView] = useState<'CARD' | 'PHOTO'>('CARD');
   const [showFullPhoto, setShowFullPhoto] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<PersonalWalletExpense | null>(null);
-
-  const cardExpenses = expenses
-    .filter((expense) => expense.card_id === card.id && expense.status !== 'CANCELED')
-    .sort((left, right) => right.expense_date.localeCompare(left.expense_date));
 
   const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
   const usedPercentage = Number(card.credit_limit) > 0
@@ -110,48 +99,6 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             </button>
           </div>
 
-          <section className="rounded-xl border border-slate-800 bg-slate-950/60 p-4" aria-labelledby="card-expenses-title">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h3 id="card-expenses-title" className="text-xs font-extrabold uppercase tracking-wider text-slate-200">Lançamentos do cartão</h3>
-                <p className="mt-0.5 text-[10px] text-slate-500">Despesas que compõem o limite e a fatura.</p>
-              </div>
-              <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{cardExpenses.length}</span>
-            </div>
-
-            {cardExpenses.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-500">Nenhum lançamento neste cartão.</p>
-            ) : (
-              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                {cardExpenses.map((expense) => {
-                  const canEdit = expense.status === 'PENDING';
-                  return (
-                    <article key={expense.id} className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-100">{expense.description}</p>
-                        <p className="mt-0.5 text-[10px] text-slate-500">
-                          {expense.expense_date.split('-').reverse().join('/')} · {expense.category}
-                          {expense.installment_count > 1 ? ` · ${expense.installment_count}x` : ''}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs font-extrabold text-rose-300">{formatMoney(Number(expense.amount))}</p>
-                        <button
-                          type="button"
-                          disabled={!canEdit}
-                          onClick={() => setEditingExpense(expense)}
-                          aria-label={`Editar lançamento ${expense.description}`}
-                          className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-blue-400 transition hover:text-blue-300 disabled:cursor-not-allowed disabled:text-slate-600"
-                        >
-                          <Pencil size={11} /> {canEdit ? 'Editar lançamento' : 'Liquidado'}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
         </div>
 
         {/* Scrollable Content */}
@@ -304,13 +251,6 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
         </div>
       </div>
       {importOpen && onImported && <WalletStatementImport kind="CARD" targetId={card.id} targetName={card.nickname} onClose={()=>setImportOpen(false)} onImported={onImported}/>}
-      {editingExpense && (
-        <ExpenseEditModal
-          expense={editingExpense}
-          onClose={() => setEditingExpense(null)}
-          onSave={onEditExpense}
-        />
-      )}
     </div>
   );
 };

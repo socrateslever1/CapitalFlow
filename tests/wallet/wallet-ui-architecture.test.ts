@@ -15,3 +15,11 @@ test('a carteira usa uma pilha física absoluta e abre somente o bottom sheet', 
   assert.match(stack, /WalletCardsSheet/);
   assert.doesNotMatch(stack, /ChevronUp|ChevronDown|expanded|accordion/i);
 });
+
+test('a pilha preserva o alternador por setas e gesto horizontal sem cartão sintético CapitalFlow', () => {
+  assert.match(stack, /aria-label="Cartão anterior"/);
+  assert.match(stack, /aria-label="Próximo cartão"/);
+  assert.match(stack, /onTouchStart/);
+  assert.match(stack, /onTouchEnd/);
+  assert.doesNotMatch(stack, />CapitalFlow</);
+});

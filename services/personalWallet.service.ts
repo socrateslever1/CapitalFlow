@@ -1,3 +1,9 @@
+export type WalletRecurringObligation={
+ id:string;owner_user_id:string;kind:'EXPENSE'|'DEBT';description:string;creditor_name:string;
+ creditor_type:'PERSON'|'COMPANY';category:string;amount:number;due_day:number;
+ origin_type:'ACCOUNT'|'CARD';origin_account_id:string|null;origin_card_id:string|null;
+ start_month:string;active:boolean;created_at:string;
+};
 import { supabase } from '../lib/supabase';
 import { generateUUID } from '../utils/generators';
 
@@ -174,7 +180,7 @@ export const personalWalletService = {
   },
 
   async load() {
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
@@ -186,8 +192,9 @@ export const personalWalletService = {
       supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,card_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }),
       supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day',{ascending:true}),
       supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month',{ascending:false}).limit(500),
+      supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at',{ascending:false}),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error;
+    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error || recurringObligations.error;
     if (error) throw new Error(error.message);
     const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (card) => {
       if (!card.image_path) return card;
@@ -211,6 +218,7 @@ export const personalWalletService = {
       payablePayments: (payablePayments.data || []) as PersonalWalletPayablePayment[],
       recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
       recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
+      recurringObligations: (recurringObligations.data || []) as WalletRecurringObligation[],
     };
   },
 
@@ -272,6 +280,33 @@ export const personalWalletService = {
     if (error) throw new Error(error.message);
   },
 
+
+  async createRecurringObligation(input:{
+    kind:'EXPENSE'|'DEBT';description:string;creditor_name:string;creditor_type:'PERSON'|'COMPANY';
+    category:string;amount:number;due_day:number;origin_type:'ACCOUNT'|'CARD';origin_id:string;start_month:string;
+  }) {
+    const {data,error}=await supabase.rpc('personal_wallet_create_recurring_obligation',{
+      p_kind:input.kind,p_description:input.description,p_creditor:input.creditor_name,
+      p_creditor_type:input.creditor_type,p_category:input.category,p_amount:input.amount,
+      p_due_day:input.due_day,p_origin_type:input.origin_type,p_origin_id:input.origin_id,
+      p_start_month:input.start_month
+    });
+    if(error)throw new Error(error.message);
+    return String(data);
+  },
+  async generateRecurringObligations(month:string,months=3):Promise<number> {
+    const {data,error}=await supabase.rpc('personal_wallet_generate_recurring_obligations',{
+      p_month:month,p_months:months
+    });
+    if(error)throw new Error(error.message);
+    return Number(data||0);
+  },
+  async setRecurringObligationActive(id:string,active:boolean) {
+    const {error}=await supabase.rpc('personal_wallet_set_recurring_obligation_active',{
+      p_id:id,p_active:active
+    });
+    if(error)throw new Error(error.message);
+  },
 
   async createHybridAssets(input: {
     account?: {nickname:string;bank_name:string;balance:number;account_type:string;pix_key:string|null;pix_key_type:string|null}|null;

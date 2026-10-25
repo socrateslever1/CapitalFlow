@@ -694,6 +694,25 @@ for (const doc of ['AI_TOOLS.md', 'MCP.md']) {
   if (!fs.existsSync(path.join(root, 'docs', doc))) failures.push(`documentação ausente: docs/${doc}`);
 }
 
+const recurringSchema = read('supabase','migrations','20261025134000_wallet_recurring_obligation_schema.sql');
+const recurringRpcs = read('supabase','migrations','20261025134100_wallet_recurring_obligation_rpcs.sql');
+const recurringUi = read('components','wallet','RecurringObligationsPanel.tsx');
+const walletService = read('services','personalWallet.service.ts');
+const walletPage = read('pages','PersonalWalletPage.tsx');
+for (const guard of ['ENABLE ROW LEVEL SECURITY','UNIQUE(owner_user_id,obligation_id,reference_month)','revoke all','owner_user_id=auth.uid()']) {
+  if (!recurringSchema.toLowerCase().includes(guard.toLowerCase())) failures.push('Recorrência -> esquema sem garantia: '+guard);
+}
+for (const guard of ['personal_wallet_create_recurring_obligation','personal_wallet_generate_recurring_obligations','pg_advisory_xact_lock','personal_wallet_set_recurring_obligation_active']) {
+  if (!recurringRpcs.includes(guard)) failures.push('Recorrência -> RPC ausente: '+guard);
+}
+if (!recurringRpcs.includes('v_created:=v_created+1') || recurringRpcs.includes('update public.personal_wallet_accounts set balance'))
+  failures.push('Recorrência -> não deve alterar saldo automaticamente');
+for (const guard of ['createRecurringObligation','generateRecurringObligations','setRecurringObligationActive','recurringObligations']) {
+  if (!walletService.includes(guard)) failures.push('Recorrência -> serviço incompleto: '+guard);
+}
+if (!walletPage.includes('<RecurringObligationsPanel') || !recurringUi.includes('Gerar vencimentos dos próximos 3 meses'))
+  failures.push('Recorrência -> módulo da carteira incompleto');
+
 if (failures.length > 0) {
   console.error('Falhas arquiteturais encontradas:');
   for (const failure of failures) console.error(` - ${failure}`);

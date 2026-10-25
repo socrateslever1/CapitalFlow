@@ -215,7 +215,7 @@ export const personalWalletService = {
   },
 
   async payInvoicePartial(cardId: string, dueMonth: string, accountId: string | null, amount: number, requestId: string) {
-    if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) {
+    if (!Number.isFinite(amount) || amount <= 0 || Math.abs(amount * 100 - Math.round(amount * 100)) > 0.000001) {
       throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_pay_invoice_partial', {

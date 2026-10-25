@@ -912,6 +912,25 @@ export const PersonalWalletPage: React.FC = () => {
                 ))}
               </div>
             )}
+            {data.invoicePayments.length > 0 && (
+              <div className="space-y-2 pt-3 border-t border-slate-800">
+                <h3 className="text-xs font-bold uppercase text-slate-400">Histórico de pagamentos registrados</h3>
+                {data.invoicePayments.map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs text-white font-semibold truncate">
+                        {cardsById.get(payment.card_id)?.nickname || 'Cartão'} · {formatMonth(payment.due_month)}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {payment.source === 'MANUAL' ? 'Registro manual · sem débito em conta' : 'Debitado de conta cadastrada'}
+                        {' · '}{new Date(payment.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <strong className="text-xs text-emerald-400 shrink-0">{formatMoney(Number(payment.amount))}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

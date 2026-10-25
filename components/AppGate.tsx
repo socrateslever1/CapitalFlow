@@ -4,6 +4,7 @@ import { AuthScreen } from '../features/auth/AuthScreen';
 import { Lock, Loader2 } from 'lucide-react';
 import { AlertTriangle } from 'lucide-react';
 import { LoadingScreen } from './ui/LoadingScreen';
+import { PublicPixChargePage } from '../pages/Public/PublicPixChargePage';
 
 const ClientPortalView = lazy(() => import('../containers/ClientPortal/ClientPortalView').then(({ ClientPortalView }) => ({ default: ClientPortalView })));
 const PublicSignaturePage = lazy(() => import('../pages/Public/PublicSignaturePage').then(({ PublicSignaturePage }) => ({ default: PublicSignaturePage })));
@@ -97,6 +98,8 @@ export const AppGate: React.FC<AppGateProps> = ({
   // =========================
   // Rotas públicas
   // =========================
+  if (window.location.pathname.replace(/\/$/,'') === '/pix/cobrar') return <PublicPixChargePage />;
+
   if (portalToken) {
     return (
       <Suspense fallback={<LoadingScreen />}>

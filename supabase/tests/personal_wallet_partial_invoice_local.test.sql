@@ -1,6 +1,6 @@
 -- Testes em banco LOCAL exclusivamente; transacao revertida.
 begin;
-select plan(17);
+select plan(19);
 set local session_replication_role = replica;
 insert into auth.users (
   instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
@@ -64,5 +64,12 @@ select is(
 );
 select is((select current_bill from public.personal_wallet_cards where id='43000000-0000-0000-0000-000000000001'),0::numeric,'fatura quitada zera saldo restante');
 select is((select count(*)::integer from public.personal_wallet_expenses where status='PAID'),2,'quitacao conclui as duas despesas sem alterar seus valores');
+select set_config('request.jwt.claim.sub','41000000-0000-0000-0000-000000000002',true);
+select throws_ok(
+  $select public.personal_wallet_pay_invoice_partial('43000000-0000-0000-0000-000000000001','2026-10-01',null,1,'44000000-0000-0000-0000-000000000005')$,
+  'Acesso nao autorizado.',
+  'outro usuario nao pode pagar fatura do administrador'
+);
+select is((select count(*)::integer from public.personal_wallet_invoice_payments),0,'outro usuario nao visualiza historico de pagamentos');
 select * from finish();
 rollback;

@@ -22,12 +22,14 @@ import {
   Download,
   ChevronLeft,
   CreditCard as PaymentIcon,
+  Loader2,
 } from 'lucide-react';
 
 import type { AppTab, Loan, UserProfile, Client, CapitalSource } from '../types';
 import { maskDocument, maskPhone } from '../utils/formatters';
 import { SYSTEM_VERSION } from '../src/constants/version';
 import { PageHeader } from '../components/ui/PageHeader';
+import { exportLoansToExcel, exportLoansToCSV } from '../utils/loanExport';
 
 import { useProfilePageLogic } from '../features/profile/hooks/useProfilePageLogic';
 import { ProfileAuditLog } from '../features/profile/components/ProfileAuditLog';

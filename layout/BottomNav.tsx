@@ -91,7 +91,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerMove={handlePointerMove}
-      className={`md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800 z-[300] flex items-center p-2 pb-safe overflow-x-auto hide-scrollbar gap-2 px-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`bottom-nav-mobile md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800 z-[var(--z-nav,200)] flex items-center p-2 pb-safe overflow-x-auto hide-scrollbar gap-2 px-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
        {mobileTabs.map(tab => (

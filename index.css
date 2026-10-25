@@ -44,6 +44,18 @@
   #root {
     @apply w-full min-h-screen;
   }
+
+  body[data-hide-fab="true"] .fab-action-container,
+  body:has([role="dialog"]) .fab-action-container,
+  body:has([data-modal-open="true"]) .fab-action-container {
+    display: none !important;
+  }
+
+  body[data-hide-fab="true"] .bottom-nav-mobile,
+  body:has([role="dialog"]) .bottom-nav-mobile,
+  body:has([data-modal-open="true"]) .bottom-nav-mobile {
+    display: none !important;
+  }
 }
 
 @utility client-name {

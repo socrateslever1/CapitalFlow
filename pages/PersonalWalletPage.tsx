@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  Eye,
   ImagePlus,
   Landmark,
   Plus,
+  Receipt,
   ReceiptText,
   ShieldCheck,
   WalletCards,
@@ -21,6 +23,10 @@ import {
   PersonalWalletExpenseInstallment,
 } from '../services/personalWallet.service';
 import { formatMoney } from '../utils/formatters';
+import { usePageBack } from '../contexts/PageBackContext';
+import { CardDetailModal } from '../components/wallet/CardDetailModal';
+import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
+import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -32,7 +38,7 @@ type WalletData = {
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | null;
 type WalletTab = 'CARDS' | 'ACCOUNTS' | 'INVOICES' | 'EXPENSES';
 
-type InvoiceSummary = {
+export type InvoiceSummary = {
   key: string;
   cardId: string;
   cardName: string;
@@ -54,6 +60,32 @@ const formatMonth = (value: string) => {
     .format(new Date(`${normalized}-01T12:00:00Z`));
 };
 
+const DRAFT_PREFIX = 'capitalflow_wallet_draft_';
+
+const getDraft = (mode: FormMode): Record<string, string> | null => {
+  if (!mode) return null;
+  try {
+    const raw = localStorage.getItem(`${DRAFT_PREFIX}${mode}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveDraft = (mode: FormMode, formData: Record<string, string>) => {
+  if (!mode) return;
+  try {
+    localStorage.setItem(`${DRAFT_PREFIX}${mode}`, JSON.stringify(formData));
+  } catch {}
+};
+
+const clearDraft = (mode: FormMode) => {
+  if (!mode) return;
+  try {
+    localStorage.removeItem(`${DRAFT_PREFIX}${mode}`);
+  } catch {}
+};
+
 export const PersonalWalletPage: React.FC = () => {
   const [data, setData] = useState<WalletData>(emptyWallet);
   const [loading, setLoading] = useState(true);
@@ -63,11 +95,18 @@ export const PersonalWalletPage: React.FC = () => {
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [activeTab, setActiveTab] = useState<WalletTab>('CARDS');
   const [form, setForm] = useState<Record<string, string>>({});
+  const [isDraftRestored, setIsDraftRestored] = useState<boolean>(false);
   const [accountImage, setAccountImage] = useState<File | null>(null);
   const [accountImagePreview, setAccountImagePreview] = useState('');
   const [cardImage, setCardImage] = useState<File | null>(null);
   const [cardImagePreview, setCardImagePreview] = useState('');
   const [invoiceAccounts, setInvoiceAccounts] = useState<Record<string, string>>({});
+
+  // Modais de detalhes e pagamento de fatura
+  const [selectedCardForDetail, setSelectedCardForDetail] = useState<PersonalWalletCard | null>(null);
+  const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<PersonalWalletCard | null>(null);
+
+  const pageBack = usePageBack();
 
   const refresh = useCallback(async () => {
     const wallet = await personalWalletService.load();
@@ -88,15 +127,90 @@ export const PersonalWalletPage: React.FC = () => {
     if (accountImagePreview) URL.revokeObjectURL(accountImagePreview);
   }, [accountImagePreview]);
 
-  const openForm = (mode: Exclude<FormMode, null>) => {
+  const isAnyModalActive = Boolean(formMode || selectedCardForDetail || selectedCardForInvoice);
+
+  // Armazena a ação de voltar em ref para desacoplar a função de retorno dos hooks de efeito
+  const handleBackRef = useRef<() => void>(() => {});
+  handleBackRef.current = () => {
+    if (formMode) {
+      setFormMode(null);
+      setIsDraftRestored(false);
+    }
+    if (selectedCardForDetail) setSelectedCardForDetail(null);
+    if (selectedCardForInvoice) setSelectedCardForInvoice(null);
+  };
+
+  // Ocultação de botões flutuantes (FABs) ao abrir formulário ou modal
+  useEffect(() => {
+    if (isAnyModalActive) {
+      document.body.setAttribute('data-hide-fab', 'true');
+    } else {
+      document.body.removeAttribute('data-hide-fab');
+    }
+    return () => {
+      document.body.removeAttribute('data-hide-fab');
+    };
+  }, [isAnyModalActive]);
+
+  // Registra no botão de voltar do sistema (ApplePageBackBar / popstate) de forma estável
+  const registerBack = pageBack?.register;
+  useEffect(() => {
+    if (!isAnyModalActive || !registerBack) return;
+
+    const onPop = () => handleBackRef.current();
+    window.addEventListener('popstate', onPop);
+
+    const unregister = registerBack({
+      onClick: (e) => {
+        e?.preventDefault?.();
+        handleBackRef.current();
+      },
+    });
+
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      unregister?.();
+    };
+  }, [isAnyModalActive, registerBack]);
+
+  const openForm = (mode: Exclude<FormMode, null>, initialOverrides?: Record<string, string>) => {
     setError('');
     setSuccess('');
     setAccountImage(null);
     setAccountImagePreview('');
     setCardImage(null);
     setCardImagePreview('');
-    setForm(mode === 'EXPENSE' ? { expense_date: today(), status: 'PENDING', installment_count: '1' } : {});
+
+    const savedDraft = getDraft(mode);
+    if (savedDraft && Object.keys(savedDraft).length > 0) {
+      setForm({ ...savedDraft, ...(initialOverrides || {}) });
+      setIsDraftRestored(true);
+    } else {
+      setForm(
+        mode === 'EXPENSE'
+          ? { expense_date: today(), status: 'PENDING', installment_count: '1', ...(initialOverrides || {}) }
+          : { ...(initialOverrides || {}) }
+      );
+      setIsDraftRestored(false);
+    }
     setFormMode(mode);
+
+    try {
+      window.history.pushState({ walletFormOpen: true }, '');
+    } catch {}
+  };
+
+  const closeForm = () => {
+    setFormMode(null);
+    setIsDraftRestored(false);
+  };
+
+  const updateField = (key: string, value: string) => {
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (formMode) saveDraft(formMode, next);
+      return next;
+    });
   };
 
   const runAction = async (action: () => Promise<unknown>, message: string) => {
@@ -116,8 +230,9 @@ export const PersonalWalletPage: React.FC = () => {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const currentMode = formMode;
     await runAction(async () => {
-      if (formMode === 'ACCOUNT') {
+      if (currentMode === 'ACCOUNT') {
         await personalWalletService.createAccount({
           nickname: form.nickname || 'Conta',
           bank_name: form.bank_name || null,
@@ -128,19 +243,30 @@ export const PersonalWalletPage: React.FC = () => {
           notes: form.notes || null,
         }, accountImage);
       }
-      if (formMode === 'CARD') {
+      if (currentMode === 'CARD') {
+        const rawDigits = String(form.card_number || form.last_four || '').replace(/\D/g, '');
+        const lastFour = rawDigits.length >= 4 ? rawDigits.slice(-4) : (form.last_four || null);
+
+        const cardMeta = {
+          holder_name: form.holder_name?.trim() || null,
+          card_number: rawDigits || null,
+          expiration: form.expiration?.trim() || null,
+          cvv: form.cvv?.trim() || null,
+          user_notes: form.notes || null,
+        };
+
         await personalWalletService.createCard({
           nickname: form.nickname || 'Cartão',
           issuer: form.issuer || null,
           brand: form.brand || null,
-          last_four: form.last_four || null,
+          last_four: lastFour,
           credit_limit: Number(form.credit_limit || 0),
           closing_day: form.closing_day ? Number(form.closing_day) : null,
           due_day: form.due_day ? Number(form.due_day) : null,
-          notes: form.notes || null,
+          notes: JSON.stringify(cardMeta),
         }, cardImage);
       }
-      if (formMode === 'EXPENSE') {
+      if (currentMode === 'EXPENSE') {
         const [paymentType, paymentId] = String(form.payment_source || '').split(':');
         if (!paymentId || !['account', 'card'].includes(paymentType)) {
           throw new Error('Escolha a conta ou o cartão utilizado.');
@@ -159,13 +285,19 @@ export const PersonalWalletPage: React.FC = () => {
           notes: form.notes || null,
         });
       }
+
+      if (currentMode) {
+        clearDraft(currentMode);
+      }
+
       setFormMode(null);
+      setIsDraftRestored(false);
       setForm({});
       setAccountImage(null);
       setAccountImagePreview('');
       setCardImage(null);
       setCardImagePreview('');
-    }, formMode === 'EXPENSE' ? 'Despesa registrada.' : 'Cadastro salvo.');
+    }, currentMode === 'EXPENSE' ? 'Despesa registrada com sucesso.' : 'Cadastro salvo com sucesso.');
   };
 
   const expensesById = useMemo(
@@ -271,114 +403,178 @@ export const PersonalWalletPage: React.FC = () => {
         </div>
       )}
 
-      {/* Formulário Modal/Drawer Compacto */}
+      {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
       {formMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm animate-in fade-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-modal-open="true"
+          className="fixed inset-0 z-[2000] flex flex-col justify-end sm:justify-center sm:items-center bg-slate-950/85 p-0 sm:p-4 backdrop-blur-sm animate-in fade-in overflow-hidden"
+        >
           <form
             onSubmit={submit}
-            className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5 shadow-2xl max-h-[90vh] overflow-y-auto"
+            className="w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl border-0 sm:border border-slate-800 bg-slate-900 shadow-2xl h-full sm:h-auto max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden"
           >
-            <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-white">
-                {formMode === 'ACCOUNT' ? 'Nova conta bancária' : formMode === 'CARD' ? 'Novo cartão de crédito' : 'Nova despesa'}
-              </h2>
+            {/* Header Fixo */}
+            <div className="shrink-0 p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-black uppercase tracking-wider text-white">
+                  {formMode === 'ACCOUNT' ? 'Nova conta bancária' : formMode === 'CARD' ? 'Novo cartão de crédito' : 'Nova despesa'}
+                </h2>
+                {isDraftRestored && (
+                  <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                    Rascunho recuperado
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
-                onClick={() => setFormMode(null)}
+                onClick={closeForm}
                 aria-label="Fechar formulário"
-                className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white"
+                className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white transition-colors"
               >
-                <X size={15} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {formMode === 'ACCOUNT' && (
-                <>
-                  <label><span className={labelClass}>Apelido</span><input required value={form.nickname || ''} onChange={(event) => setForm({ ...form, nickname: event.target.value })} className={fieldClass} placeholder="Ex: Nubank Principal" /></label>
-                  <label><span className={labelClass}>Saldo atual</span><input required type="number" min="0" step="0.01" value={form.balance || ''} onChange={(event) => setForm({ ...form, balance: event.target.value })} className={fieldClass} placeholder="0,00" /></label>
-                  <label><span className={labelClass}>Banco</span><input value={form.bank_name || ''} onChange={(event) => setForm({ ...form, bank_name: event.target.value })} className={fieldClass} placeholder="Ex: Itaú, Nubank, Bradesco" /></label>
-                  <label><span className={labelClass}>Tipo</span><select value={form.account_type || 'CHECKING'} onChange={(event) => setForm({ ...form, account_type: event.target.value })} className={fieldClass}><option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option><option value="CASH">Dinheiro</option><option value="INVESTMENT">Investimento</option></select></label>
-                  <label><span className={labelClass}>Tipo da chave PIX</span><select value={form.pix_key_type || ''} onChange={(event) => setForm({ ...form, pix_key_type: event.target.value })} className={fieldClass}><option value="">Sem PIX</option><option value="CPF">CPF</option><option value="EMAIL">E-mail</option><option value="PHONE">Telefone</option><option value="RANDOM">Aleatória</option></select></label>
-                  <label><span className={labelClass}>Chave PIX</span><input value={form.pix_key || ''} onChange={(event) => setForm({ ...form, pix_key: event.target.value })} className={fieldClass} placeholder="Chave para transferências" /></label>
-                  <label className="sm:col-span-2">
-                    <span className={labelClass}>Ícone ou logotipo do banco</span>
-                    <span className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-2.5 transition-colors hover:border-emerald-500/60">
-                      {accountImagePreview ? <img src={accountImagePreview} alt="Prévia do banco" className="h-10 w-10 rounded-lg object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-slate-500"><ImagePlus size={18} /></span>}
-                      <span className="min-w-0"><strong className="block truncate text-xs text-slate-200">{accountImage?.name || 'Selecionar imagem'}</strong><small className="block text-[9px] text-slate-500">JPEG, PNG ou WebP</small></span>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
-                        const file = event.target.files?.[0] || null;
-                        setAccountImage(file);
-                        setAccountImagePreview(file ? URL.createObjectURL(file) : '');
-                      }} />
-                    </span>
-                  </label>
-                </>
-              )}
+            {/* Corpo Rolável (com scroll suave e seguro no celular) */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-3.5 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {formMode === 'ACCOUNT' && (
+                  <>
+                    <label><span className={labelClass}>Apelido</span><input required value={form.nickname || ''} onChange={(e) => updateField('nickname', e.target.value)} className={fieldClass} placeholder="Ex: Nubank Principal" /></label>
+                    <label><span className={labelClass}>Saldo atual</span><input required type="number" min="0" step="0.01" value={form.balance || ''} onChange={(e) => updateField('balance', e.target.value)} className={fieldClass} placeholder="0,00" /></label>
+                    <label><span className={labelClass}>Banco</span><input value={form.bank_name || ''} onChange={(e) => updateField('bank_name', e.target.value)} className={fieldClass} placeholder="Ex: Itaú, Nubank, Bradesco" /></label>
+                    <label><span className={labelClass}>Tipo</span><select value={form.account_type || 'CHECKING'} onChange={(e) => updateField('account_type', e.target.value)} className={fieldClass}><option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option><option value="CASH">Dinheiro</option><option value="INVESTMENT">Investimento</option></select></label>
+                    <label><span className={labelClass}>Tipo da chave PIX</span><select value={form.pix_key_type || ''} onChange={(e) => updateField('pix_key_type', e.target.value)} className={fieldClass}><option value="">Sem PIX</option><option value="CPF">CPF</option><option value="EMAIL">E-mail</option><option value="PHONE">Telefone</option><option value="RANDOM">Aleatória</option></select></label>
+                    <label><span className={labelClass}>Chave PIX</span><input value={form.pix_key || ''} onChange={(e) => updateField('pix_key', e.target.value)} className={fieldClass} placeholder="Chave para transferências" /></label>
+                    <label className="sm:col-span-2">
+                      <span className={labelClass}>Ícone ou logotipo do banco</span>
+                      <span className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-2.5 transition-colors hover:border-emerald-500/60">
+                        {accountImagePreview ? <img src={accountImagePreview} alt="Prévia do banco" className="h-10 w-10 rounded-lg object-cover" /> : <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-slate-500"><ImagePlus size={18} /></span>}
+                        <span className="min-w-0"><strong className="block truncate text-xs text-slate-200">{accountImage?.name || 'Selecionar imagem'}</strong><small className="block text-[9px] text-slate-500">JPEG, PNG ou WebP</small></span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
+                          const file = event.target.files?.[0] || null;
+                          setAccountImage(file);
+                          setAccountImagePreview(file ? URL.createObjectURL(file) : '');
+                        }} />
+                      </span>
+                    </label>
+                  </>
+                )}
 
-              {formMode === 'CARD' && (
-                <>
-                  <label><span className={labelClass}>Apelido do cartão</span><input required value={form.nickname || ''} onChange={(event) => setForm({ ...form, nickname: event.target.value })} className={fieldClass} placeholder="Ex: Nubank Ultravioleta" /></label>
-                  <label><span className={labelClass}>Limite total</span><input required type="number" min="0" step="0.01" value={form.credit_limit || ''} onChange={(event) => setForm({ ...form, credit_limit: event.target.value })} className={fieldClass} placeholder="0,00" /></label>
-                  <label><span className={labelClass}>Emissor / Banco</span><input value={form.issuer || ''} onChange={(event) => setForm({ ...form, issuer: event.target.value })} className={fieldClass} placeholder="Ex: Inter, C6, XP" /></label>
-                  <label><span className={labelClass}>Bandeira</span><input value={form.brand || ''} onChange={(event) => setForm({ ...form, brand: event.target.value })} className={fieldClass} placeholder="Ex: Mastercard, Visa" /></label>
-                  <label><span className={labelClass}>Últimos 4 dígitos</span><input maxLength={4} pattern="[0-9]{4}" value={form.last_four || ''} onChange={(event) => setForm({ ...form, last_four: event.target.value.replace(/\D/g, '') })} className={fieldClass} placeholder="1234" /></label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label><span className={labelClass}>Fecha dia</span><input type="number" min="1" max="31" value={form.closing_day || ''} onChange={(event) => setForm({ ...form, closing_day: event.target.value })} className={fieldClass} placeholder="Dia" /></label>
-                    <label><span className={labelClass}>Vence dia</span><input type="number" min="1" max="31" value={form.due_day || ''} onChange={(event) => setForm({ ...form, due_day: event.target.value })} className={fieldClass} placeholder="Dia" /></label>
-                  </div>
-                  <label className="sm:col-span-2">
-                    <span className={labelClass}>Imagem ou foto do cartão</span>
-                    <span className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-2.5 transition-colors hover:border-blue-500/60">
-                      {cardImagePreview ? <img src={cardImagePreview} alt="Prévia do cartão" className="h-10 w-16 rounded object-cover" /> : <span className="flex h-10 w-16 items-center justify-center rounded bg-slate-900 text-slate-500"><ImagePlus size={18} /></span>}
-                      <span className="min-w-0"><strong className="block truncate text-xs text-slate-200">{cardImage?.name || 'Selecionar imagem'}</strong><small className="block text-[9px] text-slate-500">JPEG, PNG ou WebP</small></span>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
-                        const file = event.target.files?.[0] || null;
-                        setCardImage(file);
-                        setCardImagePreview(file ? URL.createObjectURL(file) : '');
-                      }} />
-                    </span>
-                  </label>
-                </>
-              )}
+                {formMode === 'CARD' && (
+                  <>
+                    <label><span className={labelClass}>Apelido do cartão</span><input required value={form.nickname || ''} onChange={(e) => updateField('nickname', e.target.value)} className={fieldClass} placeholder="Ex: Nubank Ultravioleta" /></label>
+                    <label><span className={labelClass}>Nome impresso no cartão</span><input value={form.holder_name || ''} onChange={(e) => updateField('holder_name', e.target.value.toUpperCase())} className={fieldClass} placeholder="Ex: MANOEL S C LEVER" /></label>
+                    <label><span className={labelClass}>Limite total</span><input required type="number" min="0" step="0.01" value={form.credit_limit || ''} onChange={(e) => updateField('credit_limit', e.target.value)} className={fieldClass} placeholder="0,00" /></label>
+                    <label><span className={labelClass}>Emissor / Banco</span><input value={form.issuer || ''} onChange={(e) => updateField('issuer', e.target.value)} className={fieldClass} placeholder="Ex: Nubank, Inter, Itaú, XP" /></label>
+                    <label><span className={labelClass}>Bandeira</span><input value={form.brand || ''} onChange={(e) => updateField('brand', e.target.value)} className={fieldClass} placeholder="Ex: Mastercard, Visa, Elo" /></label>
+                    <label><span className={labelClass}>Número do cartão</span><input value={form.card_number || ''} maxLength={19} onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, '').slice(0, 16);
+                      const formatted = v.match(/.{1,4}/g)?.join(' ') || v;
+                      updateField('card_number', formatted);
+                      if (v.length >= 4) updateField('last_four', v.slice(-4));
+                    }} className={fieldClass} placeholder="•••• •••• •••• 8696" /></label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label><span className={labelClass}>Validade (MM/AA)</span><input value={form.expiration || ''} maxLength={5} onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        if (v.length >= 3) v = `${v.slice(0, 2)}/${v.slice(2, 4)}`;
+                        updateField('expiration', v);
+                      }} className={fieldClass} placeholder="08/34" /></label>
+                      <label><span className={labelClass}>Código CVC / CVV</span><input value={form.cvv || ''} maxLength={4} onChange={(e) => updateField('cvv', e.target.value.replace(/\D/g, ''))} className={fieldClass} placeholder="267" /></label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label><span className={labelClass}>Fecha dia</span><input type="number" min="1" max="31" value={form.closing_day || ''} onChange={(e) => updateField('closing_day', e.target.value)} className={fieldClass} placeholder="Dia" /></label>
+                      <label><span className={labelClass}>Vence dia</span><input type="number" min="1" max="31" value={form.due_day || ''} onChange={(e) => updateField('due_day', e.target.value)} className={fieldClass} placeholder="Dia" /></label>
+                    </div>
+                    <label className="sm:col-span-2">
+                      <span className={labelClass}>Foto ou imagem real do cartão (opcional)</span>
+                      <span className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-dashed border-slate-700 bg-slate-950 p-2.5 transition-colors hover:border-blue-500/60">
+                        {cardImagePreview ? <img src={cardImagePreview} alt="Prévia do cartão" className="h-10 w-16 rounded object-cover" /> : <span className="flex h-10 w-16 items-center justify-center rounded bg-slate-900 text-slate-500"><ImagePlus size={18} /></span>}
+                        <span className="min-w-0"><strong className="block truncate text-xs text-slate-200">{cardImage?.name || 'Selecionar foto do cartão'}</strong><small className="block text-[9px] text-slate-500">O sistema já gera um cartão virtual ultra-realista completo</small></span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => {
+                          const file = event.target.files?.[0] || null;
+                          setCardImage(file);
+                          setCardImagePreview(file ? URL.createObjectURL(file) : '');
+                        }} />
+                      </span>
+                    </label>
+                  </>
+                )}
 
-              {formMode === 'EXPENSE' && (
-                <>
-                  <label className="sm:col-span-2"><span className={labelClass}>Descrição</span><input required value={form.description || ''} onChange={(event) => setForm({ ...form, description: event.target.value })} className={fieldClass} placeholder="Ex: Supermercado, Combustível" /></label>
-                  <label><span className={labelClass}>Valor</span><input required type="number" min="0.01" step="0.01" value={form.amount || ''} onChange={(event) => setForm({ ...form, amount: event.target.value })} className={fieldClass} placeholder="0,00" /></label>
-                  <label><span className={labelClass}>Categoria</span><input required value={form.category || ''} onChange={(event) => setForm({ ...form, category: event.target.value })} className={fieldClass} placeholder="Ex: Alimentação, Transporte" /></label>
-                  <label className="sm:col-span-2"><span className={labelClass}>Conta ou cartão utilizado</span><select required value={form.payment_source || ''} onChange={(event) => setForm({ ...form, payment_source: event.target.value, status: 'PENDING' })} className={fieldClass}><option value="">Selecione a forma de pagamento</option>{data.accounts.map((account) => <option key={account.id} value={`account:${account.id}`}>{account.nickname} · Saldo: {formatMoney(account.balance)}</option>)}{data.cards.map((card) => <option key={card.id} value={`card:${card.id}`}>{card.nickname} •••• {card.last_four || '----'}</option>)}</select></label>
-                  <label><span className={labelClass}>Data da despesa</span><input required type="date" value={form.expense_date || ''} onChange={(event) => setForm({ ...form, expense_date: event.target.value })} className={fieldClass} /></label>
-                  <label><span className={labelClass}>Primeiro vencimento</span><input type="date" value={form.due_date || ''} onChange={(event) => setForm({ ...form, due_date: event.target.value })} className={fieldClass} /></label>
-                  <label><span className={labelClass}>Nº de parcelas</span><input required type="number" min="1" max="120" value={form.installment_count || '1'} onChange={(event) => setForm({ ...form, installment_count: event.target.value })} className={fieldClass} /></label>
-                  <label><span className={labelClass}>Recorrência</span><select value={form.recurrence || ''} onChange={(event) => setForm({ ...form, recurrence: event.target.value })} className={fieldClass}><option value="">Não recorrente</option><option value="MONTHLY">Mensal</option><option value="YEARLY">Anual</option></select></label>
-                  {selectedPaymentType === 'account' && <label><span className={labelClass}>Situação</span><select value={form.status || 'PENDING'} onChange={(event) => setForm({ ...form, status: event.target.value })} className={fieldClass}><option value="PENDING">Pendente</option><option value="PAID">Pago agora</option></select></label>}
-                  <label className={selectedPaymentType === 'account' ? '' : 'sm:col-span-2'}><span className={labelClass}>Observações</span><input value={form.notes || ''} onChange={(event) => setForm({ ...form, notes: event.target.value })} className={fieldClass} placeholder="Opcional" /></label>
-                </>
-              )}
+                {formMode === 'EXPENSE' && (
+                  <>
+                    <label className="sm:col-span-2"><span className={labelClass}>Descrição</span><input required value={form.description || ''} onChange={(e) => updateField('description', e.target.value)} className={fieldClass} placeholder="Ex: Supermercado, Combustível, Fatura" /></label>
+                    <label><span className={labelClass}>Valor</span><input required type="number" min="0.01" step="0.01" value={form.amount || ''} onChange={(e) => updateField('amount', e.target.value)} className={fieldClass} placeholder="0,00" /></label>
+                    <label><span className={labelClass}>Categoria</span><input required value={form.category || ''} onChange={(e) => updateField('category', e.target.value)} className={fieldClass} placeholder="Ex: Alimentação, Transporte, Lazer" /></label>
+                    <label className="sm:col-span-2">
+                      <span className={labelClass}>Conta ou cartão utilizado</span>
+                      <select required value={form.payment_source || ''} onChange={(e) => updateField('payment_source', e.target.value)} className={fieldClass}>
+                        <option value="">Selecione a forma de pagamento</option>
+                        {data.cards.map((card) => (
+                          <option key={card.id} value={`card:${card.id}`}>
+                            💳 Cartão {card.nickname} •••• {card.last_four || '----'} (Disp: {formatMoney(Math.max(0, Number(card.credit_limit) - Number(card.used_limit)))})
+                          </option>
+                        ))}
+                        {data.accounts.map((account) => (
+                          <option key={account.id} value={`account:${account.id}`}>
+                            🏦 Conta {account.nickname} · Saldo: {formatMoney(account.balance)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label><span className={labelClass}>Data da despesa</span><input required type="date" value={form.expense_date || ''} onChange={(e) => updateField('expense_date', e.target.value)} className={fieldClass} /></label>
+                    <label><span className={labelClass}>Primeiro vencimento</span><input type="date" value={form.due_date || ''} onChange={(e) => updateField('due_date', e.target.value)} className={fieldClass} /></label>
+                    <label><span className={labelClass}>Nº de parcelas</span><input required type="number" min="1" max="120" value={form.installment_count || '1'} onChange={(e) => updateField('installment_count', e.target.value)} className={fieldClass} /></label>
+                    <label><span className={labelClass}>Recorrência</span><select value={form.recurrence || ''} onChange={(e) => updateField('recurrence', e.target.value)} className={fieldClass}><option value="">Não recorrente</option><option value="MONTHLY">Mensal</option><option value="YEARLY">Anual</option></select></label>
+                    {selectedPaymentType === 'account' && <label><span className={labelClass}>Situação</span><select value={form.status || 'PENDING'} onChange={(e) => updateField('status', e.target.value)} className={fieldClass}><option value="PENDING">Pendente</option><option value="PAID">Pago agora</option></select></label>}
+                    <label className={selectedPaymentType === 'account' ? '' : 'sm:col-span-2'}><span className={labelClass}>Observações</span><input value={form.notes || ''} onChange={(e) => updateField('notes', e.target.value)} className={fieldClass} placeholder="Opcional" /></label>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-800 pt-3">
-              <button
-                type="button"
-                onClick={() => setFormMode(null)}
-                className="h-8 px-3 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 text-xs font-bold hover:text-white"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="h-8 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-md shadow-blue-600/20 disabled:opacity-50"
-              >
-                {saving ? 'Salvando...' : 'Salvar'}
-              </button>
+            {/* Rodapé Fixo e Acessível no Celular (Salvar sempre visível) */}
+            <div className="shrink-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-slate-900/95 border-t border-slate-800 flex items-center justify-between gap-2 shadow-2xl">
+              {isDraftRestored ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearDraft(formMode);
+                    setForm(formMode === 'EXPENSE' ? { expense_date: today(), status: 'PENDING', installment_count: '1' } : {});
+                    setIsDraftRestored(false);
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-rose-300 underline"
+                >
+                  Descartar rascunho
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="h-9 px-4 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 text-xs font-bold hover:text-white transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="h-9 px-5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-600/30 disabled:opacity-50 transition-all flex items-center gap-1.5"
+                >
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
       )}
 
-      {/* KPI Strip Compacto (Reduzido em 60% sem perder dados) */}
+      {/* KPI Strip Compacto */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {/* Card 1: Saldo */}
         <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 transition-colors hover:border-slate-700">
@@ -429,7 +625,7 @@ export const PersonalWalletPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Navegação por Abas (Padrão Central de Tarefas) */}
+      {/* Navegação por Abas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
         <button
           type="button"
@@ -528,39 +724,98 @@ export const PersonalWalletPage: React.FC = () => {
                 onAction={() => openForm('CARD')}
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {data.cards.map((card) => {
                   const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
                   const percentage = Number(card.credit_limit) > 0 ? Math.min(100, (Number(card.used_limit) / Number(card.credit_limit)) * 100) : 0;
+                  const cardInvoices = invoices.filter((inv) => inv.cardId === card.id);
+                  const openInvoiceTotal = cardInvoices.reduce((acc, cur) => acc + cur.amount, 0);
+
                   return (
-                    <article key={card.id} className="rounded-xl border border-slate-800/90 bg-slate-900/80 p-3 hover:border-slate-700 transition-all">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {card.image_url ? (
-                            <img src={card.image_url} alt={`Cartão ${card.nickname}`} className="h-8 w-13 shrink-0 rounded object-cover border border-slate-800" />
-                          ) : (
-                            <span className="flex h-8 w-13 shrink-0 items-center justify-center rounded bg-slate-800/80 text-blue-400">
-                              <CreditCard size={16} />
-                            </span>
-                          )}
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-bold text-white">{card.nickname}</p>
-                            <p className="truncate text-[10px] text-slate-400">{card.issuer || 'Emissor'} · •••• {card.last_four || '----'}</p>
+                    <article key={card.id} className="rounded-xl border border-slate-800/90 bg-slate-900/80 p-3.5 hover:border-slate-700 transition-all flex flex-col justify-between shadow-lg">
+                      <div>
+                        {/* Topo do cartão - Clicável para abrir o detalhe realista */}
+                        <div
+                          onClick={() => setSelectedCardForDetail(card)}
+                          className="flex items-center justify-between gap-2 cursor-pointer group"
+                          title="Toque para abrir a imagem real e detalhes do cartão"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {card.image_url ? (
+                              <div className="relative group/thumb shrink-0">
+                                <img
+                                  src={card.image_url}
+                                  alt={`Cartão ${card.nickname}`}
+                                  className="h-9 w-14 shrink-0 rounded-lg object-cover border border-slate-700 group-hover/thumb:border-blue-400 transition-all shadow"
+                                />
+                                <span className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white text-[9px] font-bold rounded-lg transition-opacity">
+                                  <Eye size={13} />
+                                </span>
+                              </div>
+                            ) : (
+                              <div
+                                className={`h-9 w-14 shrink-0 rounded-lg bg-gradient-to-br ${getCardTheme(card.nickname, card.issuer).gradient} border border-white/20 shadow p-1 flex flex-col justify-between group-hover:scale-105 transition-all text-white`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[7px] font-black uppercase tracking-tight text-white/90 truncate">
+                                    {getCardTheme(card.nickname, card.issuer).logoText}
+                                  </span>
+                                  <div className="w-2 h-1.5 rounded-sm bg-amber-400/80" />
+                                </div>
+                                <div className="text-[7px] font-mono tracking-wider text-white/80">
+                                  •••• {card.last_four || '8696'}
+                                </div>
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-extrabold text-white group-hover:text-blue-300 transition-colors flex items-center gap-1.5">
+                                {card.nickname}
+                                <Eye size={12} className="text-slate-500 group-hover:text-blue-400 shrink-0" />
+                              </p>
+                              <p className="truncate text-[10px] text-slate-400">{card.issuer || 'Emissor'} · •••• {card.last_four || '----'}</p>
+                            </div>
                           </div>
+                          <span className="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">Ativo</span>
                         </div>
-                        <span className="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">Ativo</span>
+
+                        {/* Barra de Limite */}
+                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all" style={{ width: `${percentage}%` }} />
+                        </div>
+
+                        {/* Informações Numéricas */}
+                        <div className="mt-2.5 grid grid-cols-3 gap-1 text-[11px]">
+                          <div><span className="text-[9px] uppercase font-bold text-slate-500 block">Limite</span><strong className="text-slate-200 font-bold">{formatMoney(card.credit_limit)}</strong></div>
+                          <div><span className="text-[9px] uppercase font-bold text-rose-400 block">Usado</span><strong className="text-rose-300 font-bold">{formatMoney(card.used_limit)}</strong></div>
+                          <div><span className="text-[9px] uppercase font-bold text-emerald-400 block">Disponível</span><strong className="text-emerald-300 font-bold">{formatMoney(available)}</strong></div>
+                        </div>
+
+                        {/* Detalhes do Ciclo e Fatura */}
+                        <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
+                          <span>Fecha dia {card.closing_day || '—'} · Vence dia {card.due_day || '—'}</span>
+                          <span>Fatura: <strong className="text-amber-300 font-bold">{formatMoney(openInvoiceTotal > 0 ? openInvoiceTotal : Number(card.current_bill || 0))}</strong></span>
+                        </div>
                       </div>
-                      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-800">
-                        <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all" style={{ width: `${percentage}%` }} />
-                      </div>
-                      <div className="mt-2 grid grid-cols-3 gap-1 text-[11px]">
-                        <div><span className="text-[9px] uppercase text-slate-500 block">Limite</span><strong className="text-slate-200 font-bold">{formatMoney(card.credit_limit)}</strong></div>
-                        <div><span className="text-[9px] uppercase text-slate-500 block">Usado</span><strong className="text-rose-300 font-bold">{formatMoney(card.used_limit)}</strong></div>
-                        <div><span className="text-[9px] uppercase text-slate-500 block">Disponível</span><strong className="text-emerald-300 font-bold">{formatMoney(available)}</strong></div>
-                      </div>
-                      <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Fecha dia {card.closing_day || '—'} · Vence dia {card.due_day || '—'}</span>
-                        <span>Fatura: <strong className="text-slate-200">{formatMoney(card.current_bill)}</strong></span>
+
+                      {/* Botões de Ação Direta no Cartão Salvo */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-800/80 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openForm('EXPENSE', { payment_source: `card:${card.id}` })}
+                          className="py-2 px-2 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                        >
+                          <Plus size={13} />
+                          <span>+ Despesa</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCardForInvoice(card)}
+                          className="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700/80 hover:border-emerald-500/40 text-slate-200 hover:text-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Receipt size={13} className="text-amber-400" />
+                          <span>Pagar Fatura</span>
+                        </button>
                       </div>
                     </article>
                   );
@@ -746,6 +1001,50 @@ export const PersonalWalletPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Detalhes e Visualização do Cartão */}
+      {selectedCardForDetail && (
+        <CardDetailModal
+          card={selectedCardForDetail}
+          accounts={data.accounts}
+          openInvoiceAmount={
+            invoices
+              .filter((inv) => inv.cardId === selectedCardForDetail.id)
+              .reduce((acc, cur) => acc + cur.amount, 0)
+          }
+          onClose={() => setSelectedCardForDetail(null)}
+          onNewExpense={(cardId) => {
+            setSelectedCardForDetail(null);
+            openForm('EXPENSE', { payment_source: `card:${cardId}` });
+          }}
+          onPayInvoice={(cardId) => {
+            setSelectedCardForDetail(null);
+            const foundCard = data.cards.find((c) => c.id === cardId);
+            if (foundCard) setSelectedCardForInvoice(foundCard);
+          }}
+        />
+      )}
+
+      {/* Modal de Pagamento de Fatura */}
+      {selectedCardForInvoice && (
+        <PayInvoiceModal
+          card={selectedCardForInvoice}
+          accounts={data.accounts}
+          invoiceAmount={
+            invoices
+              .filter((inv) => inv.cardId === selectedCardForInvoice.id)
+              .reduce((acc, cur) => acc + cur.amount, 0)
+          }
+          dueMonth={invoices.find((inv) => inv.cardId === selectedCardForInvoice.id)?.dueMonth}
+          onClose={() => setSelectedCardForInvoice(null)}
+          onPay={async (cardId, dueMonth, accountId) => {
+            await runAction(
+              () => personalWalletService.payInvoice(cardId, dueMonth, accountId),
+              'Fatura paga e limite liberado com sucesso!'
+            );
+          }}
+        />
+      )}
     </section>
   );
 };

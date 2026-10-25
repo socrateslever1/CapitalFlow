@@ -11,6 +11,8 @@ import { formatMoney } from '../../utils/formatters';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialOperationType, type FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../services/payments/receiptDecision';
 import { ReceiptRemainderDecision } from './payment/ReceiptRemainderDecision';
+import { useModal } from '../../contexts/ModalContext';
+import { InstallmentPixCopyBox } from './payment/InstallmentPixCopyBox';
 
 interface PaymentManagerModalProps {
     data: {loan: Loan, inst: Installment, calculations: any} | null;
@@ -80,6 +82,17 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     const { loan, calculations } = data;
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
+
+    let modalActiveUser: any = null;
+    let modalSources: any[] = [];
+    try {
+        const modalCtx = useModal();
+        modalActiveUser = modalCtx?.activeUser || null;
+        modalSources = modalCtx?.sources || [];
+    } catch {
+        // Safe fallback if not inside ModalProvider
+    }
+    const currentSource = modalSources.find((s: any) => s.id === loan.sourceId) || null;
 
     const safeParse = (val: string) => {
         if (!val) return 0;
@@ -230,6 +243,16 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                         <option value="PIX">PIX</option><option value="CASH">Dinheiro</option><option value="BANK_TRANSFER">Transferência</option><option value="CREDIT_CARD">Cartão</option><option value="BOLETO">Boleto</option><option value="OTHER">Outro</option>
                                     </select>
                                 </div>
+
+                                <InstallmentPixCopyBox
+                                    loan={loan}
+                                    installment={data.inst}
+                                    amount={amountEntering > 0 ? amountEntering : payableTotal}
+                                    activeUser={modalActiveUser}
+                                    source={currentSource}
+                                    isPaymentMethodPix={paymentMethod === 'PIX'}
+                                    onSelectPixMethod={() => setPaymentMethod('PIX')}
+                                />
 
                                 {previewError && <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-bold text-rose-300">{previewError}</p>}
                                 {backendPreview && <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-slate-200"><p className="font-black uppercase text-emerald-300">Confira o resultado</p><p className="mt-2">Valor recebido: {formatMoney(backendPreview.amount_received)} · Capital abatido: {formatMoney(backendPreview.principal_paid)} · Encargos recebidos: {formatMoney(backendPreview.interest_paid + backendPreview.late_fee_paid)}</p>{(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven) > 0.05 && <p className="mt-1 font-bold text-rose-200">Desconto aplicado: {formatMoney(backendPreview.principal_forgiven + backendPreview.interest_forgiven + backendPreview.late_fee_forgiven)}</p>}<p className="mt-1">Saldo restante: {formatMoney(Number((backendPreview.after as any)?.total || 0))}</p></div>}

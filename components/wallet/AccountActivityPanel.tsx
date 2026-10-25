@@ -118,6 +118,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-white">{labels[action]}</h3>
           <button type="button" onClick={clear} className="text-xs text-slate-400">Cancelar</button></div>
         {action==='TRANSFER' && <p className="text-xs text-amber-300">Transferência contábil entre suas contas cadastradas. Não envia PIX nem transfere valores no banco.</p>}
+        {action==='PAYMENT' && <p className="text-xs text-amber-300">Para quitar fatura de cartão, utilize a opção Faturas. Registrar aqui também causaria débito em duplicidade.</p>}
+        {action==='RECEIPT' && <p className="text-xs text-slate-400">Registra o recebimento informado. Não solicita dinheiro nem gera cobrança PIX.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-300">Valor (R$)
             <input required className={input} inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0,00"/>

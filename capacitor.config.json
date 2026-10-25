@@ -1,0 +1,11 @@
+{
+  "appId": "com.socrateslever.capitalflow",
+  "appName": "CapitalFlow",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

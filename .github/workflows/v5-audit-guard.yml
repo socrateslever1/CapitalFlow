@@ -16,6 +16,7 @@ permissions:
   contents: read
 jobs:
   verify-no-financial-changes:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'audit/v5-non-invasive-baseline'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

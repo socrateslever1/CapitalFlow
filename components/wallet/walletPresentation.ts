@@ -11,6 +11,19 @@ const visuals: Record<string, { accent: string; secondary: string; monogram: str
   bb: { accent: '#f9dd16', secondary: '#2754c5', monogram: 'BB' },
   caixa: { accent: '#1479bd', secondary: '#f5a623', monogram: 'CX' },
   c6: { accent: '#242424', secondary: '#777777', monogram: 'C6' },
+  recargapay: { accent: '#6657d9', secondary: '#302a78', monogram: 'R' },
+  pagbank: { accent: '#55c552', secondary: '#167d4a', monogram: 'P' },
+  pan: { accent: '#08a7e8', secondary: '#03619a', monogram: 'PAN' },
+};
+
+const canonicalAliases: Record<string, string> = {
+  nu: 'nubank',
+  'nu pagamentos': 'nubank',
+  'nu pagamentos sa': 'nubank',
+  'mercado pago': 'mercadopago',
+  'recarga pay': 'recargapay',
+  'banco inter': 'inter',
+  'itau unibanco': 'itau',
 };
 
 function hashColor(value: string) {
@@ -20,8 +33,10 @@ function hashColor(value: string) {
 }
 
 export function getBankVisual(name?: string | null) {
-  const brand = findBankBrand(name);
-  const key = brand?.id || normalizeBankName(name).replace(/\s/g, '-') || 'carteira';
+  const normalized = normalizeBankName(name);
+  const aliasKey = canonicalAliases[normalized];
+  const brand = findBankBrand(aliasKey || name);
+  const key = aliasKey || brand?.id || normalized.replace(/\s/g, '-') || 'carteira';
   const title = brand?.name || String(name || 'Carteira').trim();
   const monogram = title.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
   return { key, name: title, ...(visuals[key] || { accent: hashColor(key), secondary: '#334155', monogram: monogram || 'CF' }) };
@@ -45,10 +60,25 @@ export function groupWalletByBank<A extends AccountLike, C extends CardLike>(acc
   return [...map.values()];
 }
 
-export function buildChargeLink(baseUrl: string, input: { pixKey: string; recipient: string; amount?: number }) {
+export function buildChargeLink(baseUrl: string, input: { pixKey: string; recipient: string; amount?: number; description?: string }) {
   const url = new URL(baseUrl);
   url.searchParams.set('pix', input.pixKey);
   url.searchParams.set('recebedor', input.recipient);
   if (input.amount != null) url.searchParams.set('valor', input.amount.toFixed(2));
+  if (typeof input.description === 'string') {
+    const description = input.description.trim();
+    if (description) url.searchParams.set('descricao', description);
+  }
   return url.toString();
+}
+
+export function getCreditSummary(cards: Array<{ credit_limit: number; used_limit: number }>) {
+  const total = cards.reduce((sum, card) => sum + Math.max(0, Number(card.credit_limit) || 0), 0);
+  const used = cards.reduce((sum, card) => sum + Math.max(0, Number(card.used_limit) || 0), 0);
+  return {
+    total,
+    used,
+    available: Math.max(0, total - used),
+    percentage: total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0,
+  };
 }

@@ -25,6 +25,7 @@ import {
   PersonalWalletExpenseInstallment,
   PersonalWalletInvoicePayment,
   PersonalWalletPayable,
+  PersonalWalletPayablePayment,
   WalletAccountOperation,
   WalletStatementRow,
 } from '../services/personalWallet.service';
@@ -38,6 +39,8 @@ import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
 import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 import { BankStack } from '../components/wallet/BankStack';
 import { UserProfile } from '../types';
+import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
+import { getBankVisual } from '../components/wallet/walletPresentation';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -48,6 +51,7 @@ type WalletData = {
   accountOperations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
   payables: PersonalWalletPayable[];
+  payablePayments: PersonalWalletPayablePayment[];
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
@@ -62,7 +66,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -108,7 +112,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formMode, setFormMode] = useState<FormMode>(null);
-  const [activeTab, setActiveTab] = useState<WalletTab>('CARDS');
+  const [activeTab, setActiveTab] = useState<WalletTab>('ACCOUNTS');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
   const goToTab = (tab: WalletTab) => {
@@ -265,6 +269,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         await personalWalletService.createAccount({
           nickname: form.nickname || 'Conta',
           bank_name: form.bank_name || null,
+          institution_key: getBankVisual(form.bank_name || form.nickname || 'Conta').key,
           account_type: form.account_type || 'CHECKING',
           balance: Number(form.balance || 0),
           pix_key: form.pix_key || null,
@@ -287,6 +292,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         await personalWalletService.createCard({
           nickname: form.nickname || 'Cartão',
           issuer: form.issuer || null,
+          institution_key: getBankVisual(form.issuer || data.accounts.find(account => account.id === form.account_id)?.bank_name || form.nickname || 'Cartão').key,
           brand: form.brand || null,
           last_four: lastFour,
           credit_limit: Number(form.credit_limit || 0),
@@ -301,8 +307,11 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           creditor_name: form.creditor_name || '',
           creditor_type: (form.creditor_type || 'PERSON') as 'PERSON' | 'COMPANY',
           description: form.description || '',
-          amount: Number(form.amount || 0),
+          creditor_document: form.creditor_document || null,
+          total_amount: Number(form.amount || 0),
           due_date: form.due_date || null,
+          interest_rate: Number(form.interest_rate || 0),
+          fine_percent: Number(form.fine_percent || 0),
           notes: form.notes || null,
         });
       }
@@ -599,9 +608,12 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                 {formMode === 'PAYABLE' && (<>
                   <label><span className={labelClass}>Credor</span><input required value={form.creditor_name || ''} onChange={e => updateField('creditor_name', e.target.value)} className={fieldClass} placeholder="Pessoa ou empresa" /></label>
                   <label><span className={labelClass}>Tipo</span><select value={form.creditor_type || 'PERSON'} onChange={e => updateField('creditor_type', e.target.value)} className={fieldClass}><option value="PERSON">Pessoa</option><option value="COMPANY">Empresa</option></select></label>
+                  <label className="sm:col-span-2"><span className={labelClass}>CPF/CNPJ (opcional)</span><input inputMode="numeric" value={form.creditor_document || ''} onChange={e => updateField('creditor_document', e.target.value.replace(/\D/g, '').slice(0, 14))} className={fieldClass} placeholder="Somente números" /></label>
                   <label className="sm:col-span-2"><span className={labelClass}>Descrição</span><input required value={form.description || ''} onChange={e => updateField('description', e.target.value)} className={fieldClass} placeholder="Ex: empréstimo, fornecedor, serviço" /></label>
                   <label><span className={labelClass}>Valor</span><input required type="number" min="0.01" step="0.01" value={form.amount || ''} onChange={e => updateField('amount', e.target.value)} className={fieldClass} /></label>
                   <label><span className={labelClass}>Vencimento</span><input type="date" value={form.due_date || ''} onChange={e => updateField('due_date', e.target.value)} className={fieldClass} /></label>
+                  <label><span className={labelClass}>Juros (% ao mês)</span><input type="number" min="0" max="100" step="0.01" value={form.interest_rate || ''} onChange={e => updateField('interest_rate', e.target.value)} className={fieldClass} /></label>
+                  <label><span className={labelClass}>Multa (%)</span><input type="number" min="0" max="100" step="0.01" value={form.fine_percent || ''} onChange={e => updateField('fine_percent', e.target.value)} className={fieldClass} /></label>
                   <label className="sm:col-span-2"><span className={labelClass}>Observações</span><input value={form.notes || ''} onChange={e => updateField('notes', e.target.value)} className={fieldClass} /></label>
                 </>)}
               </div>
@@ -688,7 +700,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </button>
 
         {/* Card 4: Limite */}
-        <button type="button" aria-label="Abrir cartões e limites" onClick={() => goToTab('CARDS')}
+        <button type="button" aria-label="Ir para a pilha de cartões" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Limite dos Cartões</span>
@@ -702,25 +714,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
       </div>
 
       {/* Navegação por Abas */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab('CARDS')}
-          className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
-            activeTab === 'CARDS'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <CreditCard size={13} className="shrink-0" />
-          <span className="truncate">Cartões</span>
-          {data.cards.length > 0 && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${activeTab === 'CARDS' ? 'bg-blue-800 text-white' : 'bg-slate-800 text-slate-300'}`}>
-              {data.cards.length}
-            </span>
-          )}
-        </button>
-
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
         <button
           type="button"
           onClick={() => setActiveTab('ACCOUNTS')}
@@ -776,7 +770,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </button>
 
         <button type="button" onClick={() => setActiveTab('PAYABLES')} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${activeTab === 'PAYABLES' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-          <HandCoins size={13} /><span className="truncate">A pagar</span>{data.payables.filter(item => item.status === 'PENDING').length > 0 && <span className="rounded-full bg-rose-500/20 px-1.5 text-[10px] text-rose-300">{data.payables.filter(item => item.status === 'PENDING').length}</span>}
+          <HandCoins size={13} /><span className="truncate">A pagar</span>{data.payables.filter(item => !['PAID', 'CANCELED'].includes(item.status)).length > 0 && <span className="rounded-full bg-rose-500/20 px-1.5 text-[10px] text-rose-300">{data.payables.filter(item => !['PAID', 'CANCELED'].includes(item.status)).length}</span>}
         </button>
       </div>
 
@@ -1008,12 +1002,9 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           </div>
         )}
 
-        {activeTab === 'PAYABLES' && (
-          <div className="space-y-2.5 animate-in fade-in">
-            <div className="flex items-center justify-between px-1"><h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400"><HandCoins size={14} className="text-rose-400" /> Dívidas com pessoas e empresas</h2><button type="button" onClick={() => openForm('PAYABLE')} className="flex items-center gap-1 text-[10px] font-bold text-rose-300"><Plus size={12} /> Registrar dívida</button></div>
-            {!data.payables.length ? <EmptyState text="Nenhuma dívida a pagar registrada." actionLabel="Registrar dívida" onAction={() => openForm('PAYABLE')} /> : <div className="space-y-2">{data.payables.map(item => <article key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><strong className="truncate text-xs text-white">{item.creditor_name}</strong><StatusBadge status={item.status} /></div><p className="mt-1 truncate text-[10px] text-slate-400">{item.creditor_type === 'COMPANY' ? 'Empresa' : 'Pessoa'} · {item.description}{item.due_date ? ` · vence ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}</p></div><div className="flex shrink-0 items-center gap-2"><strong className="text-sm text-rose-300">{formatMoney(item.amount)}</strong>{item.status === 'PENDING' && <button type="button" disabled={saving} onClick={() => runAction(() => personalWalletService.setPayableStatus(item.id, 'PAID'), 'Dívida marcada como paga.')} className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400" title="Marcar como paga"><CheckCircle2 size={15} /></button>}</div></article>)}</div>}
-          </div>
-        )}
+        {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
+          await runAction(() => personalWalletService.payPayable({ ...input, requestId: crypto.randomUUID() }), 'Pagamento registrado e passivo atualizado.');
+        }} />}
 
         {/* Aba 4: Despesas Recentes */}
         {activeTab === 'EXPENSES' && (

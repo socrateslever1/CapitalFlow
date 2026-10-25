@@ -3,6 +3,7 @@ import { generateUUID } from '../utils/generators';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
+const PAYABLE_RECEIPTS_BUCKET = 'personal-wallet-payable-receipts';
 const MAX_CARD_IMAGE_SIZE = 5 * 1024 * 1024;
 const CARD_IMAGE_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -21,6 +22,7 @@ export type PersonalWalletAccount = {
   image_path?: string | null;
   image_url?: string | null;
   notes?: string | null;
+  institution_key?: string | null;
 };
 
 export type PersonalWalletCard = {
@@ -39,6 +41,7 @@ export type PersonalWalletCard = {
   image_url?: string | null;
   notes?: string | null;
   account_id?: string | null;
+  institution_key?: string | null;
 };
 
 export type PersonalWalletPayable = {
@@ -47,11 +50,26 @@ export type PersonalWalletPayable = {
   creditor_type: 'PERSON' | 'COMPANY';
   description: string;
   amount: number;
+  total_amount: number;
+  outstanding_balance: number;
   due_date: string | null;
-  status: 'PENDING' | 'PAID' | 'CANCELED';
+  status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE' | 'CANCELED';
+  creditor_document?: string | null;
+  interest_rate: number;
+  fine_percent: number;
+  proof_path?: string | null;
   notes?: string | null;
   paid_at?: string | null;
   created_at: string;
+};
+
+export type PersonalWalletPayablePayment = {
+  id: string;
+  payable_id: string;
+  account_id: string | null;
+  amount: number;
+  proof_path: string | null;
+  paid_at: string;
 };
 
 export type PersonalWalletExpense = {
@@ -142,7 +160,7 @@ export const personalWalletService = {
   },
 
   async load() {
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
@@ -151,8 +169,9 @@ export const personalWalletService = {
       supabase.from('personal_wallet_account_operations').select('*').order('operation_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }),
+      supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error;
+    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error;
     if (error) throw new Error(error.message);
     const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (card) => {
       if (!card.image_path) return card;
@@ -173,6 +192,7 @@ export const personalWalletService = {
       accountOperations: (accountOperations.data || []) as WalletAccountOperation[],
       statementRows: (statementRows.data || []) as WalletStatementRow[],
       payables: (payables.data || []) as PersonalWalletPayable[],
+      payablePayments: (payablePayments.data || []) as PersonalWalletPayablePayment[],
     };
   },
 
@@ -358,16 +378,41 @@ export const personalWalletService = {
     return data as PersonalWalletCard;
   },
 
-  async createPayable(input: Omit<PersonalWalletPayable, 'id' | 'status' | 'paid_at' | 'created_at'>) {
-    if (!Number.isFinite(input.amount) || input.amount <= 0) throw new Error('Informe um valor válido para a dívida.');
+  async createPayable(input: { creditor_name: string; creditor_type: 'PERSON' | 'COMPANY'; creditor_document?: string | null; description: string; total_amount: number; due_date?: string | null; interest_rate?: number; fine_percent?: number; notes?: string | null }) {
+    if (!Number.isFinite(input.total_amount) || input.total_amount <= 0) throw new Error('Informe um valor válido para a dívida.');
+    const document = String(input.creditor_document || '').replace(/\D/g, '');
+    if (document && ![11, 14].includes(document.length)) throw new Error('Informe um CPF ou CNPJ válido.');
     const ownerUserId = await this.ownerId();
     const { data, error } = await supabase.from('personal_wallet_payables').insert({
       ...input,
+      creditor_document: document || null,
+      amount: input.total_amount,
+      outstanding_balance: input.total_amount,
       owner_user_id: ownerUserId,
       status: 'PENDING',
     }).select().single();
     if (error) throw new Error(error.message);
     return data as PersonalWalletPayable;
+  },
+
+  async payPayable(input: { payableId: string; accountId: string | null; amount: number; requestId: string; receipt?: File | null }) {
+    const ownerUserId = await this.ownerId();
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) throw new Error('Informe um valor positivo com até duas casas decimais.');
+    let proofPath: string | null = null;
+    if (input.receipt) {
+      const allowed: Record<string, string> = { ...CARD_IMAGE_EXTENSIONS, 'application/pdf': 'pdf' };
+      const extension = allowed[input.receipt.type];
+      if (!extension || input.receipt.size > 10 * 1024 * 1024) throw new Error('Use comprovante PDF, JPEG, PNG ou WebP de até 10 MB.');
+      proofPath = `${ownerUserId}/${input.payableId}/${input.requestId}.${extension}`;
+      const uploaded = await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).upload(proofPath, input.receipt, { contentType: input.receipt.type, upsert: false });
+      if (uploaded.error) throw new Error(`Falha ao enviar comprovante: ${uploaded.error.message}`);
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_pay_payable', { p_payable_id: input.payableId, p_amount: input.amount, p_account_id: input.accountId, p_proof_path: proofPath, p_request_id: input.requestId });
+    if (error) {
+      if (proofPath) await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).remove([proofPath]);
+      throw new Error(error.message);
+    }
+    return data as { outstanding_balance: number; idempotent: boolean };
   },
 
   async setPayableStatus(id: string, status: 'PAID' | 'CANCELED') {

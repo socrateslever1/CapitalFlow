@@ -148,7 +148,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
           {account.notes && <p className="truncate text-[11px] text-slate-500" title={account.notes}>{account.notes}</p>}
         </div>}
       </div>
-      {pixChargeOpen && account.pix_key && <WalletPixCharge pixKey={account.pix_key} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} />}
+      {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} />}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}

@@ -130,6 +130,16 @@ export function restoreConversationState(
   if (!persisted || !transitions[persisted.state] || !Number.isInteger(persisted.version) || persisted.version < 1) {
     return { state: 'NEW', version: 1 };
   }
+  // An interrupted execution must never be replayed solely because its state was persisted.
+  // Re-identification is required before continuing; financial writes stay disabled.
+  if (persisted.state === 'EXECUTING') {
+    return { state: 'NEW', version: persisted.version + 1 };
+  }
+  // Confirmation requests without valid expiration cannot be resumed indefinitely.
+  if (persisted.state === 'AWAITING_CONFIRMATION' &&
+      (!persisted.expiresAt || !Number.isFinite(Date.parse(persisted.expiresAt)))) {
+    return { state: 'IDENTIFIED', version: persisted.version + 1 };
+  }
   if (persisted.expiresAt && Date.parse(persisted.expiresAt) <= now.getTime()) {
     return { state: 'NEW', version: persisted.version + 1 };
   }

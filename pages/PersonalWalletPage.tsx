@@ -30,6 +30,7 @@ import {
   WalletStatementRow,
 } from '../services/personalWallet.service';
 import { formatMoney } from '../utils/formatters';
+import { generateUUID } from '../utils/generators';
 import { usePageBack } from '../contexts/PageBackContext';
 import { CardDetailModal } from '../components/wallet/CardDetailModal';
 import { AccountDetailsPage } from '../components/wallet/AccountDetailsPage';
@@ -791,7 +792,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         )}
 
         {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
-          await runAction(() => personalWalletService.payPayable({ ...input, requestId: crypto.randomUUID() }), 'Pagamento registrado e passivo atualizado.');
+          await runAction(() => personalWalletService.payPayable({ ...input, requestId: generateUUID() }), 'Pagamento registrado e passivo atualizado.');
         }} />}
 
         {/* Aba 4: Despesas Recentes */}

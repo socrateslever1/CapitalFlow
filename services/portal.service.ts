@@ -418,44 +418,27 @@ export const portalService = {
     });
 
     if (error) {
-      const msg = String((error as any)?.message || '');
-      if (
-        msg.includes('Failed to send a request to the Edge Function') ||
-        msg.includes('NOT_FOUND') ||
-        msg.includes('FunctionsFetchError') ||
-        msg.includes('indisponivel')
-      ) {
-        // Fallback para o endpoint Express local
-        try {
-          const fallbackRes = await fetch('/api/infinitepay/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount,
-              loan_id: validTargets[0].loanId,
-              installment_id: validTargets[0].installmentIds[0],
-              payer_name: clientData.name,
-              payer_email: clientData.email,
-              payer_doc: clientData.doc,
-              payer_phone: clientData.phone,
-              return_url: window.location.href,
-            }),
-          });
-          const fallbackData = await fallbackRes.json().catch(() => null);
-          if (fallbackData?.ok && fallbackData?.checkout_url) {
-            return {
-              checkoutUrl: fallbackData.checkout_url,
-              externalReference: fallbackData.external_reference,
-              chargeId: fallbackData.charge_id,
-            };
-          }
-        } catch (fbErr) {
-          console.warn('[PortalService] Fallback local falhou:', fbErr);
-        }
-
-        throw new Error('Não foi possível conectar ao checkout InfinitePay. Verifique a conexão, o domínio autorizado e os registros da função no Supabase.');
+      // Preserve HTTP status and the structured error returned by the Edge Function.
+      // Do not fall back to the local Express endpoint: it does not carry the
+      // portal credentials or complete multi-contract payment targets.
+      const status = Number((error as any)?.context?.status || 0);
+      let details: any = null;
+      try {
+        details = await (error as any)?.context?.json?.();
+      } catch {
+        // Network/CORS errors may not have a readable response body.
       }
-      throw new Error(error.message || 'Falha ao gerar checkout InfinitePay.');
+      if (details?.error) throw new Error(String(details.error));
+      if (status === 401 || status === 403) {
+        throw new Error('Acesso ao pagamento não autorizado. Atualize o portal e tente novamente.');
+      }
+      if (status === 404) {
+        throw new Error('Serviço InfinitePay não encontrado neste ambiente. Verifique a configuração do Supabase.');
+      }
+      if (status >= 500) {
+        throw new Error('O servidor InfinitePay apresentou uma falha. Tente novamente ou consulte o suporte.');
+      }
+      throw new Error('Não foi possível conectar ao InfinitePay. Confira a conexão e tente novamente.');
     }
 
     if (!data?.ok || !data?.checkout_url) {

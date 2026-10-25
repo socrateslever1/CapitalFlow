@@ -21,6 +21,7 @@ import {
   PersonalWalletCard,
   PersonalWalletExpense,
   PersonalWalletExpenseInstallment,
+  PersonalWalletInvoicePayment,
 } from '../services/personalWallet.service';
 import { formatMoney } from '../utils/formatters';
 import { usePageBack } from '../contexts/PageBackContext';
@@ -33,6 +34,7 @@ type WalletData = {
   cards: PersonalWalletCard[];
   expenses: PersonalWalletExpense[];
   installments: PersonalWalletExpenseInstallment[];
+  invoicePayments: PersonalWalletInvoicePayment[];
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | null;
@@ -47,7 +49,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -100,7 +102,7 @@ export const PersonalWalletPage: React.FC = () => {
   const [accountImagePreview, setAccountImagePreview] = useState('');
   const [cardImage, setCardImage] = useState<File | null>(null);
   const [cardImagePreview, setCardImagePreview] = useState('');
-  const [invoiceAccounts, setInvoiceAccounts] = useState<Record<string, string>>({});
+  const [selectedInvoiceDueMonth, setSelectedInvoiceDueMonth] = useState<string | null>(null);
 
   // Modais de detalhes e pagamento de fatura
   const [selectedCardForDetail, setSelectedCardForDetail] = useState<PersonalWalletCard | null>(null);
@@ -324,7 +326,7 @@ export const PersonalWalletPage: React.FC = () => {
         amount: 0,
         installmentCount: 0,
       };
-      current.amount += Number(installment.amount || 0);
+      current.amount += Math.max(0, Number(installment.amount || 0) - Number(installment.paid_amount || 0));
       current.installmentCount += 1;
       grouped.set(key, current);
     });
@@ -810,7 +812,7 @@ export const PersonalWalletPage: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => setSelectedCardForInvoice(card)}
+                          onClick={() => { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(card); }}
                           className="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700/80 hover:border-emerald-500/40 text-slate-200 hover:text-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                         >
                           <Receipt size={13} className="text-amber-400" />
@@ -895,27 +897,15 @@ export const PersonalWalletPage: React.FC = () => {
                       </div>
                       <strong className="text-xs sm:text-sm font-extrabold text-amber-300 shrink-0">{formatMoney(invoice.amount)}</strong>
                     </div>
-                    <div className="mt-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <select
-                        aria-label={`Conta para pagar fatura ${invoice.cardName}`}
-                        value={invoiceAccounts[invoice.key] || ''}
-                        onChange={(event) => setInvoiceAccounts((current) => ({ ...current, [invoice.key]: event.target.value }))}
-                        className="flex-1 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500"
-                      >
-                        <option value="">Selecione a conta para pagamento</option>
-                        {data.accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.nickname} · {formatMoney(account.balance)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={saving || !invoiceAccounts[invoice.key]}
-                        onClick={() => runAction(() => personalWalletService.payInvoice(invoice.cardId, invoice.dueMonth, invoiceAccounts[invoice.key]), 'Fatura paga e saldo atualizado.')}
-                        className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold uppercase tracking-wider text-white transition-all disabled:opacity-40 shrink-0 shadow-sm"
-                      >
-                        Pagar fatura
+                    <div className="mt-2.5 flex items-center justify-end">
+                      <button type="button" disabled={saving || invoice.amount <= 0}
+                        onClick={() => {
+                          setSelectedInvoiceDueMonth(invoice.dueMonth);
+                          const card = data.cards.find((item) => item.id === invoice.cardId);
+                          if (card) setSelectedCardForInvoice(card);
+                        }}
+                        className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white disabled:opacity-40">
+                        Pagar parte ou total
                       </button>
                     </div>
                   </article>
@@ -1020,7 +1010,7 @@ export const PersonalWalletPage: React.FC = () => {
           onPayInvoice={(cardId) => {
             setSelectedCardForDetail(null);
             const foundCard = data.cards.find((c) => c.id === cardId);
-            if (foundCard) setSelectedCardForInvoice(foundCard);
+            if (foundCard) { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(foundCard); }
           }}
         />
       )}
@@ -1030,18 +1020,15 @@ export const PersonalWalletPage: React.FC = () => {
         <PayInvoiceModal
           card={selectedCardForInvoice}
           accounts={data.accounts}
-          invoiceAmount={
-            invoices
-              .filter((inv) => inv.cardId === selectedCardForInvoice.id)
-              .reduce((acc, cur) => acc + cur.amount, 0)
-          }
-          dueMonth={invoices.find((inv) => inv.cardId === selectedCardForInvoice.id)?.dueMonth}
-          onClose={() => setSelectedCardForInvoice(null)}
-          onPay={async (cardId, dueMonth, accountId) => {
-            await runAction(
-              () => personalWalletService.payInvoice(cardId, dueMonth, accountId),
-              'Fatura paga e limite liberado com sucesso!'
-            );
+          invoiceAmount={invoices.find((inv) => inv.cardId === selectedCardForInvoice.id
+            && (!selectedInvoiceDueMonth || inv.dueMonth === selectedInvoiceDueMonth))?.amount || 0}
+          dueMonth={selectedInvoiceDueMonth || invoices.find((inv) => inv.cardId === selectedCardForInvoice.id)?.dueMonth}
+          onClose={() => { setSelectedCardForInvoice(null); setSelectedInvoiceDueMonth(null); }}
+          onPay={async (cardId, dueMonth, accountId, amount, requestId) => {
+            // Do not use runAction here: it swallows errors and would close the modal after a failed RPC.
+            await personalWalletService.payInvoicePartial(cardId, dueMonth, accountId, amount, requestId);
+            await refresh();
+            setSuccess(`Pagamento de ${formatMoney(amount)} registrado. Saldo da fatura atualizado.`);
           }}
         />
       )}

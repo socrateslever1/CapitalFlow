@@ -15,8 +15,8 @@ export const calculateDaily30 = (loan: Loan, inst: Installment, policy: LoanPoli
   let lateInterest = 0;
   let lateFee = 0;
 
-  // NÃO recalcula juros de ciclo
-  // juros do ciclo já estão em interestRemaining
+  // Nï¿½O recalcula juros de ciclo
+  // juros do ciclo jï¿½ estï¿½o em interestRemaining
 
   if (daysLate > 0) {
     lateInterest =

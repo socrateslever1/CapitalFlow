@@ -11,7 +11,7 @@ export const calculateDailyFixed = (loan: Loan, inst: Installment, policy: LoanP
 
   const daysLate = getDaysDiff(inst.dueDate, referenceDate);
 
-  // NÃO soma juros corridos normais (já estão no interestRemaining)
+  // Nï¿½O soma juros corridos normais (jï¿½ estï¿½o no interestRemaining)
   let lateInterest = 0;
   let lateFee = 0;
 

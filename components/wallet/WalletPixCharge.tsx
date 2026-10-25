@@ -3,7 +3,6 @@ import { CheckCircle2, Copy, Link2, QrCode, Share2, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
-import { buildChargeLink } from './walletPresentation';
 import { buildStaticPix } from './pixPayload';
 
 type Props = {
@@ -35,9 +34,13 @@ export const WalletPixCharge: React.FC<Props> = ({ accounts, initialAccountId, r
       if (!selectedAccount?.pix_key) throw new Error('Selecione uma conta com chave PIX cadastrada.');
       if (!/^\d+(\.\d{1,2})?$/.test(raw) || amount <= 0) throw new Error('Digite um valor válido, com até duas casas decimais.');
       if (!description.trim()) throw new Error('Informe uma descrição ou identificador para a cobrança.');
+      if (!recipient.trim()) throw new Error('Seu perfil precisa ter nome completo para gerar uma cobrança.');
       const nextPayload = buildStaticPix({ key: selectedAccount.pix_key, recipient, city, amount, description });
       setPayload(nextPayload);
-      setLink(buildChargeLink(`${window.location.origin}${window.location.pathname}`, { pixKey: selectedAccount.pix_key, recipient, amount, description }));
+      const publicLink = new URL('/pix/cobrar',window.location.origin);
+      publicLink.searchParams.set('brcode',nextPayload);
+      publicLink.searchParams.set('descricao',description.trim());
+      setLink(publicLink.toString());
     } catch (reason) {
       setPayload(''); setLink('');
       setError(reason instanceof Error ? reason.message : 'Não foi possível gerar a cobrança.');
@@ -56,7 +59,7 @@ export const WalletPixCharge: React.FC<Props> = ({ accounts, initialAccountId, r
     <div className="max-h-[96dvh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] border border-slate-700/80 bg-slate-900 p-5 text-white shadow-2xl sm:rounded-[2rem]">
       <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-600 sm:hidden" />
       <div className="flex items-center justify-between"><h2 id="pix-charge-title" className="flex items-center gap-2 text-lg font-bold"><QrCode size={21} className="text-emerald-400" /> Gerar cobrança</h2><button type="button" aria-label="Fechar" onClick={onClose} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white"><X size={19} /></button></div>
-      <p className="mt-1 text-sm text-slate-400">O titular é preenchido automaticamente pelo seu perfil. Informe somente os dados da cobrança.</p>
+      <p className="mt-1 text-sm text-slate-400">Seu nome é obtido do perfil. Informe apenas valor e descrição. O link abre uma página pública com o código PIX.</p>
       <form className="mt-5 space-y-4" onSubmit={generate}>
         <label className="block text-xs font-semibold text-slate-300">Conta de recebimento
           <select required value={accountId} onChange={event => { setAccountId(event.target.value); clearResult(); }} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-emerald-500">

@@ -303,9 +303,14 @@ for (const required of ["personal_wallet_record_account_operation", "personal_wa
   if (!walletAccountMigration.includes(required)) failures.push(`Minha Carteira -> falta protecao transacional: ${required}`);
 }
 
-for (const tab of ['ACCOUNTS', 'EXPENSES', 'INVOICES', 'CARDS']) {
-  if (!personalWalletPage.includes(`goToTab('${tab}')`)) failures.push(`Resumo da Carteira -> atalho de ${tab} ausente`);
+for (const tab of ['ACCOUNTS', 'EXPENSES', 'INVOICES', 'PAYABLES']) {
+  if (!personalWalletPage.includes(`goToTab(tab)`) || !personalWalletPage.includes(`['${tab}'`)) failures.push(`Carteira -> navegação de ${tab} ausente`);
 }
+const bankStack = read('components', 'wallet', 'BankStack.tsx');
+const walletSheet = read('components', 'wallet', 'WalletCardsSheet.tsx');
+if (!personalWalletPage.includes('<BankStack') || personalWalletPage.includes("activeTab === 'CARDS'")) failures.push('Carteira -> pilha real obrigatória sem lista duplicada');
+if (!bankStack.includes('absolute inset-x-0 bottom-0') || !bankStack.includes('WalletCardsSheet')) failures.push('Carteira -> pilha sobreposta ou bottom sheet ausente');
+if (!walletSheet.includes('aria-modal="true"') || !walletSheet.includes('Você usou')) failures.push('Carteira -> bottom sheet sem resumo acessível');
 for (const required of ['openAccountDetails(account.id)', 'AccountDetailsPage', 'selectedAccountId']) {
   if (!personalWalletPage.includes(required)) failures.push(`Minha Carteira -> navegacao da conta ausente: ${required}`);
 }

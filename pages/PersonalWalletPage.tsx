@@ -30,6 +30,7 @@ import {
   WalletStatementRow,
 } from '../services/personalWallet.service';
 import { formatMoney } from '../utils/formatters';
+import { generateUUID } from '../utils/generators';
 import { usePageBack } from '../contexts/PageBackContext';
 import { CardDetailModal } from '../components/wallet/CardDetailModal';
 import { AccountDetailsPage } from '../components/wallet/AccountDetailsPage';
@@ -55,7 +56,7 @@ type WalletData = {
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
-type WalletTab = 'CARDS' | 'ACCOUNTS' | 'INVOICES' | 'EXPENSES' | 'PAYABLES';
+type WalletTab = 'ACCOUNTS' | 'INVOICES' | 'EXPENSES' | 'PAYABLES';
 
 export type InvoiceSummary = {
   key: string;
@@ -422,7 +423,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
       <PageHeader
         icon={<WalletCards size={20} />}
         title={<>Minha <span className="text-emerald-400">Carteira</span></>}
-        subtitle="Contas, cartões, despesas e faturas pessoais"
+        subtitle="Seus cartões e finanças em um único lugar"
         iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
         actions={(
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -472,7 +473,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </div>
       )}
 
-      <BankStack accounts={data.accounts} cards={data.cards} onAccount={openAccountDetails} onCard={setSelectedCardForDetail} />
+      <BankStack accounts={data.accounts} cards={data.cards} onAccount={openAccountDetails} onCard={setSelectedCardForDetail} onCreateCard={() => openForm('CARD')} />
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
       {formMode && (
@@ -658,247 +659,35 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </div>
       )}
 
-      {/* KPI Strip Compacto */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        {/* Card 1: Saldo */}
-        <button type="button" aria-label="Abrir contas bancárias" onClick={() => goToTab('ACCOUNTS')}
-          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
-          <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-            <span className="truncate">Saldo em Contas</span>
-            <Landmark size={12} className="text-emerald-400 shrink-0" />
-          </div>
-          <div className="mt-1 flex items-baseline justify-between gap-2">
-            <span className="text-sm sm:text-base font-extrabold text-emerald-400 truncate">{formatMoney(totals.balance)}</span>
-            <span className="text-[10px] text-slate-500 truncate">{data.accounts.length} conta(s)</span>
-          </div>
+      <div className="grid grid-cols-3 gap-2">
+        <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 text-left">
+          <span className="block text-[10px] text-slate-400">Em contas</span><strong className="block truncate text-xs sm:text-sm text-emerald-300">{formatMoney(totals.balance)}</strong>
         </button>
-
-        {/* Card 2: Gastos */}
-        <button type="button" aria-label="Abrir despesas do mês" onClick={() => goToTab('EXPENSES')}
-          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
-          <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-            <span className="truncate">Gastos do Mês</span>
-            <ReceiptText size={12} className="text-cyan-400 shrink-0" />
-          </div>
-          <div className="mt-1 flex items-baseline justify-between gap-2">
-            <span className="text-sm sm:text-base font-extrabold text-cyan-300 truncate">{formatMoney(totals.month)}</span>
-            <span className="text-[10px] text-slate-500">Mês atual</span>
-          </div>
+        <button type="button" onClick={()=>goToTab('INVOICES')} className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 text-left">
+          <span className="block text-[10px] text-slate-400">Faturas</span><strong className="block truncate text-xs sm:text-sm text-amber-300">{formatMoney(totals.openInvoices)}</strong>
         </button>
-
-        {/* Card 3: Faturas */}
-        <button type="button" aria-label="Abrir faturas abertas" onClick={() => goToTab('INVOICES')}
-          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
-          <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-            <span className="truncate">Faturas Abertas</span>
-            <CalendarDays size={12} className="text-amber-400 shrink-0" />
-          </div>
-          <div className="mt-1 flex items-baseline justify-between gap-2">
-            <span className="text-sm sm:text-base font-extrabold text-amber-300 truncate">{formatMoney(totals.openInvoices)}</span>
-            <span className="text-[10px] text-slate-500 truncate">{invoices.length} fatura(s)</span>
-          </div>
-        </button>
-
-        {/* Card 4: Limite */}
-        <button type="button" aria-label="Ir para a pilha de cartões" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
-          <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
-            <span className="truncate">Limite dos Cartões</span>
-            <CreditCard size={12} className="text-blue-400 shrink-0" />
-          </div>
-          <div className="mt-1 flex items-baseline justify-between gap-2">
-            <span className="text-sm sm:text-base font-extrabold text-blue-300 truncate">{formatMoney(totals.available)}</span>
-            <span className="text-[10px] font-semibold text-rose-300 truncate">Uso: {formatMoney(totals.used)}</span>
-          </div>
+        <button type="button" onClick={()=>goToTab('PAYABLES')} className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 text-left">
+          <span className="block text-[10px] text-slate-400">Passivos</span><strong className="block truncate text-xs sm:text-sm text-rose-300">{formatMoney(data.payables.filter(p=>!['PAID','CANCELED'].includes(p.status)).reduce((sum,p)=>sum+Number(p.outstanding_balance||0),0))}</strong>
         </button>
       </div>
 
-      {/* Navegação por Abas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
-        <button
-          type="button"
-          onClick={() => setActiveTab('ACCOUNTS')}
-          className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
-            activeTab === 'ACCOUNTS'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Landmark size={13} className="shrink-0" />
-          <span className="truncate">Contas & PIX</span>
-          {data.accounts.length > 0 && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${activeTab === 'ACCOUNTS' ? 'bg-blue-800 text-white' : 'bg-slate-800 text-slate-300'}`}>
-              {data.accounts.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('INVOICES')}
-          className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
-            activeTab === 'INVOICES'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <CalendarDays size={13} className="shrink-0" />
-          <span className="truncate">Faturas</span>
-          {invoices.length > 0 && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${activeTab === 'INVOICES' ? 'bg-amber-400 text-slate-950' : 'bg-amber-500/20 text-amber-300'}`}>
-              {invoices.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('EXPENSES')}
-          className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
-            activeTab === 'EXPENSES'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <ReceiptText size={13} className="shrink-0" />
-          <span className="truncate">Despesas</span>
-          {data.expenses.length > 0 && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${activeTab === 'EXPENSES' ? 'bg-blue-800 text-white' : 'bg-slate-800 text-slate-300'}`}>
-              {data.expenses.length}
-            </span>
-          )}
-        </button>
-
-        <button type="button" onClick={() => setActiveTab('PAYABLES')} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${activeTab === 'PAYABLES' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-          <HandCoins size={13} /><span className="truncate">A pagar</span>{data.payables.filter(item => !['PAID', 'CANCELED'].includes(item.status)).length > 0 && <span className="rounded-full bg-rose-500/20 px-1.5 text-[10px] text-rose-300">{data.payables.filter(item => !['PAID', 'CANCELED'].includes(item.status)).length}</span>}
-        </button>
-      </div>
+      {/* Navegação compacta apenas para módulos com conteúdo próprio.
+           Cartões ficam exclusivamente na pilha e no bottom sheet. */}
+      <nav aria-label="Módulos da carteira" className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {([
+          ['ACCOUNTS','Contas & PIX'],
+          ['INVOICES','Faturas'],
+          ['EXPENSES','Despesas'],
+          ['PAYABLES','A pagar'],
+        ] as const).map(([tab,label]) => <button key={tab} type="button" onClick={() => goToTab(tab)}
+          aria-current={activeTab === tab ? 'page' : undefined}
+          className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${activeTab===tab?'border-blue-500 bg-blue-600 text-white':'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'}`}>
+          {label}
+        </button>)}
+      </nav>
 
       {/* Conteúdo da Aba Ativa */}
       <div ref={tabContentRef} className="pt-1 scroll-mt-4">
-        {/* Aba 1: Cartões */}
-        {activeTab === 'CARDS' && (
-          <div className="space-y-2.5 animate-in fade-in">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <CreditCard size={14} className="text-blue-400" /> Cartões de Crédito
-              </h2>
-              <button
-                type="button"
-                onClick={() => openForm('CARD')}
-                className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1"
-              >
-                <Plus size={12} /> Cadastrar cartão
-              </button>
-            </div>
-            {!data.cards.length ? (
-              <EmptyState
-                text="Nenhum cartão cadastrado."
-                actionLabel="Cadastrar cartão"
-                onAction={() => openForm('CARD')}
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {data.cards.map((card) => {
-                  const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
-                  const percentage = Number(card.credit_limit) > 0 ? Math.min(100, (Number(card.used_limit) / Number(card.credit_limit)) * 100) : 0;
-                  const cardInvoices = invoices.filter((inv) => inv.cardId === card.id);
-                  const openInvoiceTotal = cardInvoices.reduce((acc, cur) => acc + cur.amount, 0);
-
-                  return (
-                    <article key={card.id} className="rounded-xl border border-slate-800/90 bg-slate-900/80 p-3.5 hover:border-slate-700 transition-all flex flex-col justify-between shadow-lg">
-                      <div>
-                        {/* Topo do cartão - Clicável para abrir o detalhe realista */}
-                        <div
-                          onClick={() => setSelectedCardForDetail(card)}
-                          className="flex items-center justify-between gap-2 cursor-pointer group"
-                          title="Toque para abrir a imagem real e detalhes do cartão"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            {card.image_url ? (
-                              <div className="relative group/thumb shrink-0">
-                                <img
-                                  src={card.image_url}
-                                  alt={`Cartão ${card.nickname}`}
-                                  className="h-9 w-14 shrink-0 rounded-lg object-cover border border-slate-700 group-hover/thumb:border-blue-400 transition-all shadow"
-                                />
-                                <span className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white text-[9px] font-bold rounded-lg transition-opacity">
-                                  <Eye size={13} />
-                                </span>
-                              </div>
-                            ) : (
-                              <div
-                                className={`h-9 w-14 shrink-0 rounded-lg bg-gradient-to-br ${getCardTheme(card.nickname, card.issuer).gradient} border border-white/20 shadow p-1 flex flex-col justify-between group-hover:scale-105 transition-all text-white`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[7px] font-black uppercase tracking-tight text-white/90 truncate">
-                                    {getCardTheme(card.nickname, card.issuer).logoText}
-                                  </span>
-                                  <div className="w-2 h-1.5 rounded-sm bg-amber-400/80" />
-                                </div>
-                                <div className="text-[7px] font-mono tracking-wider text-white/80">
-                                  •••• {card.last_four || '8696'}
-                                </div>
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-extrabold text-white group-hover:text-blue-300 transition-colors flex items-center gap-1.5">
-                                {card.nickname}
-                                <Eye size={12} className="text-slate-500 group-hover:text-blue-400 shrink-0" />
-                              </p>
-                              <p className="truncate text-[10px] text-slate-400">{card.issuer || 'Emissor'} · •••• {card.last_four || '----'}</p>
-                            </div>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">Ativo</span>
-                        </div>
-
-                        {/* Barra de Limite */}
-                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800">
-                          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all" style={{ width: `${percentage}%` }} />
-                        </div>
-
-                        {/* Informações Numéricas */}
-                        <div className="mt-2.5 grid grid-cols-3 gap-1 text-[11px]">
-                          <div><span className="text-[9px] uppercase font-bold text-slate-500 block">Limite</span><strong className="text-slate-200 font-bold">{formatMoney(card.credit_limit)}</strong></div>
-                          <div><span className="text-[9px] uppercase font-bold text-rose-400 block">Usado</span><strong className="text-rose-300 font-bold">{formatMoney(card.used_limit)}</strong></div>
-                          <div><span className="text-[9px] uppercase font-bold text-emerald-400 block">Disponível</span><strong className="text-emerald-300 font-bold">{formatMoney(available)}</strong></div>
-                        </div>
-
-                        {/* Detalhes do Ciclo e Fatura */}
-                        <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
-                          <span>Fecha dia {card.closing_day || '—'} · Vence dia {card.due_day || '—'}</span>
-                          <span>Fatura: <strong className="text-amber-300 font-bold">{formatMoney(openInvoiceTotal > 0 ? openInvoiceTotal : Number(card.current_bill || 0))}</strong></span>
-                        </div>
-                      </div>
-
-                      {/* Botões de Ação Direta no Cartão Salvo */}
-                      <div className="mt-3 pt-2.5 border-t border-slate-800/80 grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openForm('EXPENSE', { payment_source: `card:${card.id}` })}
-                          className="py-2 px-2 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                        >
-                          <Plus size={13} />
-                          <span>+ Despesa</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(card); }}
-                          className="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700/80 hover:border-emerald-500/40 text-slate-200 hover:text-emerald-300 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
-                        >
-                          <Receipt size={13} className="text-amber-400" />
-                          <span>Pagar Fatura</span>
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Aba 2: Contas & PIX */}
         {activeTab === 'ACCOUNTS' && (
           <div className="space-y-2.5 animate-in fade-in">
@@ -1003,7 +792,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         )}
 
         {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
-          await runAction(() => personalWalletService.payPayable({ ...input, requestId: crypto.randomUUID() }), 'Pagamento registrado e passivo atualizado.');
+          await runAction(() => personalWalletService.payPayable({ ...input, requestId: generateUUID() }), 'Pagamento registrado e passivo atualizado.');
         }} />}
 
         {/* Aba 4: Despesas Recentes */}

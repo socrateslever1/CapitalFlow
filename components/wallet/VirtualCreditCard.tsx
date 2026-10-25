@@ -142,9 +142,9 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
   }
 
   const effectiveHolder = holderName || parsedMeta.holder_name || card.nickname.toUpperCase();
-  const rawNumber = cardNumber || parsedMeta.card_number || (card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• 8696');
+  const rawNumber = cardNumber || parsedMeta.card_number || (card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• ----');
   const effectiveExp = expiration || parsedMeta.expiration || (card.closing_day && card.due_day ? `${String(card.due_day).padStart(2, '0')}/28` : '12/29');
-  const effectiveCvv = cvv || parsedMeta.cvv || '267';
+  const effectiveCvv = cvv || parsedMeta.cvv || '•••';
   const effectiveBrand = card.brand || theme.brand;
 
   // Formata o número em grupos de 4 dígitos

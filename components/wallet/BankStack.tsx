@@ -1,87 +1,82 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowUpRight, CreditCard } from 'lucide-react';
-import { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
-import { formatMoney } from '../../utils/formatters';
-import { getBankVisual, getCreditSummary, groupWalletByBank } from './walletPresentation';
-import { BankLogo } from './BankLogo';
-import { WalletCardsSheet } from './WalletCardsSheet';
+import React,{useEffect,useMemo,useState,useRef} from 'react';
+import {ArrowLeft,ArrowRight,ArrowUpRight,Pencil,Wifi} from 'lucide-react';
+import {PersonalWalletAccount,PersonalWalletCard} from '../../services/personalWallet.service';
+import {formatMoney} from '../../utils/formatters';
+import {BankLogo} from './BankLogo';
+import {WalletCardsSheet} from './WalletCardsSheet';
+import {getBankVisual,getCreditSummary,groupWalletByBank} from './walletPresentation';
 
-type Props = {
-  accounts: PersonalWalletAccount[];
-  cards: PersonalWalletCard[];
-  onAccount: (id: string) => void;
-  onCard: (card: PersonalWalletCard) => void;
-  onCreateCard?: () => void;
+type Props={accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];onAccount:(id:string)=>void;onCard:(c:PersonalWalletCard)=>void;onEditCard:(c:PersonalWalletCard)=>void;onCreateCard?:()=>void;onSelectionChange?:(c:PersonalWalletCard|null)=>void;holderName?:string};
+const Chip=()=> <svg viewBox="0 0 42 33" width="36" height="29" aria-label="Chip EMV"><rect x="1" y="1" width="40" height="31" rx="6" fill="#DFC48C" stroke="#977844"/><path d="M14 1v31M28 1v31M1 11h40M1 22h40M14 11h14v11H14z" fill="none" stroke="#977844" strokeWidth="1.5"/></svg>;
+const Network=({brand}:{brand:string|null})=>{
+ const value=(brand||'').toLowerCase();
+ if(value.includes('master'))return <span aria-label="Mastercard" className="relative h-6 w-9"><span className="absolute left-0 top-0 h-6 w-6 rounded-full bg-red-500"/><span className="absolute right-0 top-0 h-6 w-6 rounded-full bg-yellow-400/90"/></span>;
+ if(value.includes('visa'))return <span className="rounded bg-white px-1.5 py-0.5 text-xs font-black italic text-blue-900">VISA</span>;
+ return <span className="text-xs font-bold">{brand||'CRÉDITO'}</span>;
 };
-
-/** Physical overlapping deck: cards behind peek ABOVE the front card, not an accordion. */
-export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard, onCreateCard }) => {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const groups = useMemo(() => groupWalletByBank(accounts, cards), [accounts, cards]);
-  const summary = useMemo(() => getCreditSummary(cards), [cards]);
-  const uniqueBanks = groups.filter(group => group.cards.length > 0).length;
-  const deck = cards.slice(0, 4).reverse();
-
-  return <section aria-label="Carteira de cartões" className="mx-auto w-full max-w-xl">
-    <div className="mb-3 flex items-center justify-between gap-3 px-1">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Minha carteira</p>
-        <h2 className="text-base font-bold text-slate-100">Cartões de crédito</h2>
-      </div>
-      {onCreateCard && <button type="button" onClick={onCreateCard} className="text-xs font-bold text-blue-300">+ Novo cartão</button>}
-    </div>
-    {cards.length === 0
-      ? <div className="rounded-2xl border border-dashed border-slate-700 px-5 py-7 text-center text-sm text-slate-400">
-          Nenhum cartão cadastrado.
-          {onCreateCard && <button type="button" onClick={onCreateCard} className="ml-2 font-bold text-blue-300">Cadastrar cartão</button>}
+export const BankStack:React.FC<Props>=({accounts,cards,onAccount,onCard,onEditCard,onCreateCard,onSelectionChange,holderName})=>{
+ const availableCards=useMemo(()=>cards.filter(c=>c.status!=='CANCELED'),[cards]);
+ const [selectedId,setSelectedId]=useState<string|null>(null);
+ const [sheetOpen,setSheetOpen]=useState(false);
+ const [showHolder,setShowHolder]=useState(false);
+ const startX=useRef<number|null>(null);
+ const selected=availableCards.find(c=>c.id===selectedId)||availableCards[0]||null;
+ const index=selected?availableCards.findIndex(c=>c.id===selected.id):0;
+ const rear=availableCards.filter(c=>c.id!==selected?.id).slice(0,3);
+ const summary=useMemo(()=>getCreditSummary(availableCards),[availableCards]);
+ const banks=useMemo(()=>groupWalletByBank(accounts,availableCards),[accounts,availableCards]);
+ const count=banks.filter(g=>g.cards.length>0).length;
+ useEffect(()=>{onSelectionChange?.(selected);},[selected?.id,onSelectionChange]);
+ useEffect(()=>{setShowHolder(false);},[selected?.id]);
+ const cycle=(step:number)=>{if(availableCards.length>1)setSelectedId(availableCards[(index+step+availableCards.length)%availableCards.length].id);};
+ const identity=(card:PersonalWalletCard)=>{
+  const account=accounts.find(a=>a.id===card.account_id);
+  const issuer=account?.bank_name||card.issuer||card.nickname;
+  const key=card.institution_key||account?.institution_key||issuer;
+  const v=getBankVisual(key);
+  const lower=String(key).toLowerCase();
+  const accent=lower==='mercadopago'?'#1F2229':lower==='picpay'?'#11C76F':lower==='nubank'?'#820AD1':lower==='bradesco'?'#CC092F':lower==='inter'?'#FF7A00':v.accent;
+  return {issuer,visual:v,accent};
+ };
+ const front=selected?identity(selected):null;
+ return <section aria-label="Carteira de cartões" className="w-full min-w-0">
+  <header className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold text-white">Cartões de crédito</h2>{onCreateCard&&<button onClick={onCreateCard} type="button" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-300">+ Cartão</button>}</header>
+  {!selected?<div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div>:<>
+   <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-3">
+    <button type="button" disabled={availableCards.length<2} onClick={()=>cycle(-1)} aria-label="Cartão anterior" className="rounded-full p-1 text-slate-300 disabled:opacity-30"><ArrowLeft size={19}/></button>
+    <div className="mx-auto w-full min-w-0 max-w-[285px] sm:max-w-[370px]">
+     <div className="relative w-full" style={{paddingTop:rear.length*14}}>
+      {rear.map((c,i)=>{const visual=identity(c);return <button type="button" key={c.id} onClick={()=>setSelectedId(c.id)} aria-label={'Selecionar '+c.nickname}
+       className="absolute inset-x-0 top-0 mx-auto h-14 rounded-t-2xl border border-white/20 shadow-xl transition-all duration-300 ease-out"
+       style={{zIndex:i+1,width:String(92+i*3)+'%',transform:'translateY('+String(i*14)+'px)',background:visual.accent}}>
+       <span className="absolute left-3 top-1.5 text-[10px] font-bold text-white">{c.nickname}</span>
+      </button>;})}
+      <div className="relative z-20 aspect-[1.586/1] w-full overflow-hidden rounded-2xl border border-white/25 shadow-2xl"
+       style={{background:'linear-gradient(125deg,'+front!.accent+','+front!.visual.secondary+')'}}
+       onTouchStart={e=>{startX.current=e.touches[0]?.clientX??null;}}
+       onTouchEnd={e=>{const distance=(e.changedTouches[0]?.clientX??0)-(startX.current??0);startX.current=null;if(Math.abs(distance)>45)cycle(distance<0?1:-1);}}>
+       <div aria-hidden className="absolute -right-7 -top-10 select-none text-[7rem] font-black text-white/10">{front!.visual.monogram}</div>
+       <div className="relative flex h-full flex-col justify-between p-3.5 text-white sm:p-5">
+        <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-xs">{front!.issuer}</strong></div><Network brand={selected.brand}/></div>
+        <div className="flex items-center justify-between"><Chip/><Wifi size={18} className="rotate-90 opacity-80"/></div>
+        <div className="flex items-end justify-between gap-2">
+         <div className="min-w-0"><small className="block text-[9px] uppercase text-white/75">{showHolder?'Titular':'Disponível'}</small><strong className="block truncate text-base font-black sm:text-xl">{showHolder?(holderName||selected.nickname).toUpperCase():formatMoney(Math.max(0,Number(selected.credit_limit)-Number(selected.used_limit)))}</strong><small className="text-[9px] text-white/70">{selected.status==='BLOCKED'?'Bloqueado':selected.nickname}</small></div>
+         <strong className="shrink-0 font-mono text-xs tracking-wide">•••• {selected.last_four||'----'}</strong>
         </div>
-      : <button type="button" onClick={() => setSheetOpen(true)} aria-label="Abrir uso do limite dos cartões"
-          className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400">
-          <div className="relative w-full" style={{ height: `${Math.min(deck.length - 1, 3) * 16 + 168}px` }}>
-            {deck.map((card, index) => {
-              const visual = getBankVisual(card.issuer || card.nickname);
-              const front = index === deck.length - 1;
-              const depth = deck.length - 1 - index;
-              const institution = groups.find(group => group.cards.some(item => item.id === card.id));
-              return <div key={card.id}
-                className="absolute inset-x-0 bottom-0 origin-bottom overflow-hidden rounded-2xl border border-white/20 shadow-xl transition-transform duration-200 hover:-translate-y-1"
-                style={{
-                  height: '168px',
-                  transform: `scale(${1 - depth * 0.025}) translateY(${-depth * 16}px)`,
-                  zIndex: index + 1,
-                  background: `linear-gradient(120deg, ${visual.accent}, ${visual.secondary})`,
-                }}>
-                <div className="pointer-events-none absolute -right-6 -top-12 select-none text-[7.5rem] font-black text-white/10">{visual.monogram}</div>
-                <div className="relative flex h-full flex-col justify-between p-4 text-white">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <span className="rounded-xl bg-white/95 p-1"><BankLogo size="sm" name={institution?.visual.name || card.issuer} alternateName={card.nickname}/></span>
-                      <span className="min-w-0"><span className="block truncate text-xs font-bold">{visual.name}</span>
-                        {front && <small className="block text-[10px] text-white/70">{card.nickname}</small>}</span>
-                    </span>
-                    <span className="text-[10px] font-bold tracking-widest text-white/75">{card.brand || 'CRÉDITO'}</span>
-                  </div>
-                  {front && <div className="flex items-end justify-between gap-2">
-                    <div><span className="block text-[10px] font-semibold uppercase tracking-wider text-white/70">Disponível</span>
-                      <strong className="text-xl font-black">{formatMoney(summary.available)}</strong></div>
-                    <span className="font-mono text-xs font-bold tracking-wider text-white/85">•••• {card.last_four || '----'}</span>
-                  </div>}
-                </div>
-              </div>;
-            })}
-          </div>
-        </button>}
-    {cards.length > 0 && <div className="mt-2 flex items-center justify-between gap-3 px-1">
-      <div className="min-w-0 text-[11px] text-slate-400">Limite total em {uniqueBanks} banco(s)
-        <strong className="ml-1 whitespace-nowrap font-bold text-slate-200">{formatMoney(summary.total)}</strong>
+       </div>
       </div>
-      <button type="button" onClick={() => setSheetOpen(true)} className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-blue-300">
-        Ver uso do limite <ArrowUpRight size={15}/>
-      </button>
-    </div>}
-    <WalletCardsSheet open={sheetOpen} cards={cards} accounts={accounts}
-      onClose={() => setSheetOpen(false)}
-      onCard={card => {setSheetOpen(false);onCard(card);}}
-      onAccount={id => {setSheetOpen(false);onAccount(id);}}/>
-  </section>;
+     </div>
+    </div>
+    <button type="button" disabled={availableCards.length<2} onClick={()=>cycle(1)} aria-label="Próximo cartão" className="rounded-full p-1 text-slate-300 disabled:opacity-30"><ArrowRight size={19}/></button>
+   </div>
+   <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+    <button type="button" onClick={()=>setShowHolder(x=>!x)} className="rounded-full border border-slate-700 px-3 py-2 text-xs text-slate-200">{showHolder?'Ver limite':'Ver titular'}</button>
+    <button type="button" onClick={()=>onEditCard(selected)} className="flex items-center gap-1 rounded-full border border-slate-700 px-3 py-2 text-xs text-slate-200"><Pencil size={14}/> Editar cartão</button>
+    <button type="button" onClick={()=>onCard(selected)} className="rounded-full border border-slate-700 px-3 py-2 text-xs text-blue-300">Detalhes</button>
+   </div>
+   <div className="mt-2 flex items-center justify-between gap-2 text-[11px]"><span className="text-slate-400">Limite total em {count} bancos <strong className="text-slate-200">{formatMoney(summary.total)}</strong></span><button type="button" onClick={()=>setSheetOpen(true)} className="flex items-center gap-1 font-bold text-blue-300">Ver uso <ArrowUpRight size={14}/></button></div>
+   <p className="mt-2 text-center text-[10px] text-slate-500">{index+1} de {availableCards.length} · Deslize ou toque para trocar</p>
+  </>}
+  <WalletCardsSheet open={sheetOpen} cards={availableCards} accounts={accounts} onClose={()=>setSheetOpen(false)} onCard={c=>{setSheetOpen(false);setSelectedId(c.id);onCard(c);}} onAccount={id=>{setSheetOpen(false);onAccount(id);}}/>
+ </section>;
 };

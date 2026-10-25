@@ -238,6 +238,20 @@ export const personalWalletService = {
     return String(data);
   },
 
+  async updateCardMetadata(cardId: string, input: {
+    nickname: string; issuer: string; brand: string; account_id: string | null;
+    credit_limit: number; closing_day: number | null; due_day: number | null;
+    status: 'ACTIVE' | 'BLOCKED' | 'CANCELED';
+  }) {
+    const { error } = await supabase.rpc('personal_wallet_update_card_metadata', {
+      p_card_id: cardId, p_nickname: input.nickname, p_issuer: input.issuer,
+      p_brand: input.brand, p_account_id: input.account_id,
+      p_limit: input.credit_limit, p_closing_day: input.closing_day,
+      p_due_day: input.due_day, p_status: input.status,
+    });
+    if (error) throw new Error(error.message);
+  },
+
   async createAccount(
     input: Omit<PersonalWalletAccount, 'id' | 'balance' | 'image_url' | 'image_path'> & { balance?: number },
     imageFile?: File | null,

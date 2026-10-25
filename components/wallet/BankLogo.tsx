@@ -12,7 +12,7 @@ type Props = {
 const sizes = {sm:'h-8 w-8',md:'h-11 w-11',lg:'h-14 w-14'};
 export const BankLogo: React.FC<Props> = ({name,alternateName,customImage,size='md',className=''}) => {
   const [failed,setFailed] = useState(false);
-  const localLogo = resolveBankLogo(name,alternateName);
+  const localLogo = resolveBankLogo(name === 'Bradescard' ? 'Bradesco' : name, alternateName);
   const url = customImage || localLogo;
   const fallbackName = String(name || alternateName || 'Banco').trim();
   const initials = fallbackName.split(/\s+/).filter(Boolean).slice(0,2).map(t=>t[0]).join('').toUpperCase();

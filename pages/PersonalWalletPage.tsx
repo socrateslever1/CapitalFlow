@@ -39,6 +39,7 @@ import { BANK_CATALOG } from '../utils/bankLogoRegistry';
 import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
 import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 import { BankStack } from '../components/wallet/BankStack';
+import { CardEditModal } from '../components/wallet/CardEditModal';
 import { UserProfile } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
@@ -135,6 +136,8 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
 
   // Modais de detalhes e pagamento de fatura
   const [selectedCardForDetail, setSelectedCardForDetail] = useState<PersonalWalletCard | null>(null);
+  const [selectedCardForEdit, setSelectedCardForEdit] = useState<PersonalWalletCard | null>(null);
+  const [activeStackCard, setActiveStackCard] = useState<PersonalWalletCard | null>(null);
   const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<PersonalWalletCard | null>(null);
 
   const pageBack = usePageBack();
@@ -417,7 +420,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
   }
 
   return (
-    <section className="space-y-3 pb-32 sm:pb-16 max-w-6xl mx-auto animate-in fade-in">
+    <section className="space-y-3 pb-32 sm:pb-16 w-full max-w-7xl mx-auto px-4 sm:px-6 animate-in fade-in">
       <datalist id="wallet-bank-options">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
       {/* Cabeçalho Compacto e Integrado */}
       <PageHeader
@@ -473,7 +476,42 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </div>
       )}
 
-      <BankStack accounts={data.accounts} cards={data.cards} onAccount={openAccountDetails} onCard={setSelectedCardForDetail} onCreateCard={() => openForm('CARD')} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="min-w-0 space-y-5 lg:col-span-8">
+          <BankStack accounts={data.accounts} cards={data.cards} holderName={activeUser?.fullName || activeUser?.name}
+            onAccount={openAccountDetails} onCard={setSelectedCardForDetail} onEditCard={setSelectedCardForEdit}
+            onSelectionChange={setActiveStackCard} onCreateCard={() => openForm('CARD')}/>
+        </div>
+        <aside className="min-w-0 space-y-3 lg:col-span-4">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <h3 className="text-sm font-bold text-white">Cartão selecionado</h3>
+            {activeStackCard ? <>
+              <p className="mt-2 text-sm font-semibold text-slate-200">{activeStackCard.nickname}</p>
+              <p className="text-xs text-slate-400">{activeStackCard.issuer || 'Banco não informado'} · •••• {activeStackCard.last_four || '----'}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-slate-950 p-3"><span className="text-[10px] text-slate-400">Utilizado</span><strong className="block text-sm text-rose-300">{formatMoney(activeStackCard.used_limit)}</strong></div>
+                <div className="rounded-xl bg-slate-950 p-3"><span className="text-[10px] text-slate-400">Disponível</span><strong className="block text-sm text-emerald-300">{formatMoney(Math.max(0,Number(activeStackCard.credit_limit)-Number(activeStackCard.used_limit)))}</strong></div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setSelectedCardForEdit(activeStackCard)} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-blue-300">Editar cartão</button>
+                <button type="button" onClick={() => setSelectedCardForDetail(activeStackCard)} className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white">Detalhes</button>
+                <button type="button" onClick={() => openForm('EXPENSE',{payment_source:'card:'+activeStackCard.id})} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Nova despesa</button>
+                <button type="button" onClick={() => {setSelectedInvoiceDueMonth(null);setSelectedCardForInvoice(activeStackCard);}} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Pagar fatura</button>
+              </div>
+            </> : <p className="mt-2 text-xs text-slate-400">Cadastre um cartão para começar.</p>}
+          </section>
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <h3 className="text-sm font-bold text-white">Contas e passivos</h3>
+            <p className="mt-2 text-xs text-slate-400">Saldo nas contas</p><strong className="text-lg text-emerald-300">{formatMoney(totals.balance)}</strong>
+            <p className="mt-3 text-xs text-slate-400">Dívidas a pagar</p>
+            <strong className="text-base text-rose-300">{formatMoney(data.payables.filter(p => !['PAID','CANCELED'].includes(p.status)).reduce((n,p)=>n+Number(p.outstanding_balance||0),0))}</strong>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Ver contas</button>
+              <button type="button" onClick={()=>goToTab('PAYABLES')} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Dívidas</button>
+            </div>
+          </section>
+        </aside>
+      </div>
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
       {formMode && (
@@ -872,6 +910,8 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         )}
       </div>
 
+      {selectedCardForEdit && <CardEditModal key={selectedCardForEdit.id} card={selectedCardForEdit} accounts={data.accounts}
+        onClose={() => setSelectedCardForEdit(null)} onSaved={refresh} />}
       {/* Modal de Detalhes e Visualização do Cartão */}
       {selectedCardForDetail && (
         <CardDetailModal

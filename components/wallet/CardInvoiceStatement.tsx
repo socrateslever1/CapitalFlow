@@ -12,9 +12,11 @@ type CardInvoiceStatementProps = {
   installments: PersonalWalletExpenseInstallment[];
   onEdit: (input: UpdatePersonalWalletExpense) => Promise<void>;
   onDelete: (expenseId: string) => Promise<void>;
+  headerAction?: React.ReactNode;
+  className?: string;
 };
 
-export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete }) => {
+export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, headerAction, className = '' }) => {
   const [editing, setEditing] = useState<PersonalWalletExpense | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -30,17 +32,17 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
   };
 
   return (
-    <section aria-labelledby="invoice-statement-title" className="mx-4 mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-      <header className="flex items-center justify-between gap-3">
+    <section aria-labelledby="invoice-statement-title" className={`mx-4 mb-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 ${className}`}>
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id="invoice-statement-title" className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-200"><ReceiptText size={15} className="text-cyan-400"/> Extrato da Fatura</h3>
           <p className="mt-1 text-[10px] text-slate-500">{dueMonth ? `Vencimento ${dueMonth.split('-').reverse().join('/')}` : 'Nenhuma fatura em aberto'}</p>
         </div>
-        <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{entries.length}</span>
+        <div className="flex flex-wrap items-center gap-2">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
       </header>
 
       {!entries.length ? <p className="mt-3 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-500">Nenhum lançamento ativo nesta fatura.</p> : (
-        <div className="mt-3 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-1 overscroll-contain">
+        <div className="mt-3 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-1 overscroll-contain lg:max-h-none">
           {entries.map(({ expense, installment }) => (
             <article key={installment.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-500/10 text-cyan-300"><ShoppingBag size={16}/></span>

@@ -19,7 +19,18 @@ test('mantém intactos os blocos protegidos do detalhe do cartão', () => {
 test('adiciona o extrato da fatura depois da importação sem inseri-lo no cabeçalho', () => {
   assert.match(detail, /CardInvoiceStatement/);
   assert.ok(detail.indexOf('WalletStatementImport') < detail.lastIndexOf('CardInvoiceStatement'));
-  assert.ok(detail.indexOf('Scrollable Content') < detail.lastIndexOf('CardInvoiceStatement'));
+  assert.ok(detail.indexOf('lg:grid-cols-12') < detail.lastIndexOf('CardInvoiceStatement'));
+});
+
+test('detalhe usa cabeçalho retrátil no scroll mobile e master-detail 5/7 no desktop', () => {
+  assert.match(detail, /onScroll=/);
+  assert.match(detail, /scrollTop > 60/);
+  assert.match(detail, /sticky top-0 z-40/);
+  assert.match(detail, /transition-all duration-300/);
+  assert.match(detail, /lg:grid-cols-12/);
+  assert.match(detail, /lg:col-span-5/);
+  assert.match(detail, /lg:col-span-7/);
+  assert.match(detail, /lg:sticky lg:top-6/);
 });
 
 test('adiciona o balanço geral consolidado sem substituir liquidez e compromissos', () => {

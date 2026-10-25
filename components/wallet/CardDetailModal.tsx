@@ -212,6 +212,18 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             <FileUp size={16}/> Importar PDF da fatura para conferência
           </button>
           <p className="text-[11px] text-slate-400">{statementRows.filter(row=>row.target_id===card.id).length} lançamentos do PDF importados para consulta, sem somar à fatura já cadastrada.</p>
+          {statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===card.id).length>0 &&
+            <div className="max-h-40 overflow-y-auto divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/70 px-3">
+              {statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===card.id).slice(0,50).map(row=>(
+                <div key={row.id} className="flex justify-between gap-3 py-2 text-xs">
+                  <div className="min-w-0">
+                    <p className="truncate text-slate-200">{row.description}</p>
+                    <p className="text-[10px] text-slate-500">{row.entry_date.split('-').reverse().join('/')} · {row.category}</p>
+                  </div>
+                  <span className={row.amount>=0?'shrink-0 text-emerald-300':'shrink-0 text-rose-300'}>{formatMoney(Math.abs(Number(row.amount)))}</span>
+                </div>
+              ))}
+            </div>}
         </div>}
         {/* Footer com Ações Diretas - Sticky e Livre de interferências */}
         <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-800 bg-slate-900/95 shrink-0 grid grid-cols-2 gap-2 shadow-2xl">

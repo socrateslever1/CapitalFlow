@@ -1,0 +1,62 @@
+name: CapitalFlow Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'capacitor.config.json'
+      - '.github/workflows/android-apk.yml'
+      - 'android/**'
+      - 'main.tsx'
+      - 'index.html'
+      - 'App.tsx'
+      - 'lib/**'
+      - 'components/**'
+      - 'pages/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  android-debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install existing dependencies
+        run: npm ci
+      - name: Install Capacitor Android build tools
+        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+      - name: Build shared web application
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+      - name: Generate native Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Build installable debug APK
+        working-directory: android
+        run: bash gradlew assembleDebug --no-daemon
+      - name: Publish APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CapitalFlow-Android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

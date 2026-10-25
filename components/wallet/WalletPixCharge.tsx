@@ -4,8 +4,8 @@ import {QRCodeSVG} from 'qrcode.react';
 import {PersonalWalletAccount} from '../../services/personalWallet.service';
 import {buildStaticPix} from './pixPayload';
 import {formatMoney} from '../../utils/formatters';
-type Props={accounts:PersonalWalletAccount[];initialAccountId?:string;recipient:string;city?:string;onClose:()=>void};
-export const WalletPixCharge:React.FC<Props>=({accounts,initialAccountId,recipient,city,onClose})=>{
+type Props={accounts:PersonalWalletAccount[];initialAccountId?:string;recipient:string;city?:string;onClose:()=>void;embedded?:boolean};
+export const WalletPixCharge:React.FC<Props>=({accounts,initialAccountId,recipient,city,onClose,embedded=false})=>{
  const account=accounts.find(a=>a.id===initialAccountId&&a.pix_key)||accounts.find(a=>a.pix_key)||null;
  const [amount,setAmount]=useState('');
  const [description,setDescription]=useState('');
@@ -34,9 +34,9 @@ export const WalletPixCharge:React.FC<Props>=({accounts,initialAccountId,recipie
    else await copy(generated.url,'link');
   }catch{setError('Não foi possível compartilhar. Copie o link.');}
  };
- return <div role="dialog" aria-modal="true" aria-labelledby="wallet-pix-title" className="fixed inset-0 z-[2500] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
-  <section className="max-h-[96dvh] w-full max-w-lg space-y-4 overflow-y-auto rounded-t-3xl border border-slate-700 bg-slate-900 p-5 text-white shadow-2xl sm:rounded-3xl">
-   <header className="flex items-center justify-between"><h2 id="wallet-pix-title" className="flex items-center gap-2 text-lg font-bold"><QrCode size={19} className="text-emerald-300"/>Cobrança PIX</h2><button type="button" onClick={onClose} aria-label="Fechar"><X size={19}/></button></header>
+ return <div role={embedded?'region':'dialog'} aria-modal={embedded?undefined:'true'} aria-labelledby="wallet-pix-title" className={embedded?'mx-auto w-full max-w-2xl':'fixed inset-0 z-[2500] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4'}>
+  <section className={`${embedded?'rounded-3xl':'max-h-[96dvh] rounded-t-3xl sm:rounded-3xl'} w-full space-y-4 overflow-y-auto border border-slate-700 bg-slate-900 p-5 text-white shadow-2xl`}>
+   <header className="flex items-center justify-between"><h2 id="wallet-pix-title" className="flex items-center gap-2 text-lg font-bold"><QrCode size={19} className="text-emerald-300"/>Cobrança PIX</h2>{!embedded&&<button type="button" onClick={onClose} aria-label="Fechar"><X size={19}/></button>}</header>
    <p className="text-xs text-slate-400">Recebedor: {recipient||'Perfil sem nome'} · {account?.nickname||'Nenhuma chave PIX'}. Pix estático: confirme o crédito no banco.</p>
    <div className="grid gap-3 sm:grid-cols-2">
     <label className="text-xs text-slate-300">Valor (R$)<input inputMode="decimal" autoFocus value={amount} onChange={e=>{setAmount(e.target.value);setCopied('');}} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-lg font-bold text-white" placeholder="0,00"/></label>

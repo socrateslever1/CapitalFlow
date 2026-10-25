@@ -45,7 +45,7 @@ const ReportsPage = lazy(() => import('./features/reports/pages/ReportsPage').th
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(({ SettingsPage }) => ({ default: SettingsPage })));
 const ContractDetailsPage = lazy(() => import('./pages/ContractDetailsPage').then(({ ContractDetailsPage }) => ({ default: ContractDetailsPage })));
 const FinancialStatementPage = lazy(() => import('./pages/FinancialStatementPage').then(({ FinancialStatementPage }) => ({ default: FinancialStatementPage })));
-const PersonalWalletPage = lazy(() => import('./pages/PersonalWalletPage'));
+const WalletModule = lazy(() => import('./features/wallet/WalletModule'));
 const PlatformAdminPage = lazy(() => import('./pages/PlatformAdminPage'));
 const PublicSignaturePage = lazy(() => import('./pages/Public/PublicSignaturePage').then(({ PublicSignaturePage }) => ({ default: PublicSignaturePage })));
 const ClientRegistrationPage = lazy(() => import('./pages/Public/ClientRegistrationPage').then(({ ClientRegistrationPage }) => ({ default: ClientRegistrationPage })));
@@ -154,6 +154,7 @@ export const App: React.FC = () => {
 
   const legalMatch = location.pathname.match(/^\/legal\/editor\/([a-f0-9-]+)$/i);
   const legalIdFromUrl = legalMatch ? legalMatch[1] : null;
+  const isWalletPath = location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
 
   // ✅ token público de assinatura vem ou do hook (portal) ou do querystring
   const legalSignToken = legalSignTokenParam || legalSignTokenFromHook;
@@ -165,7 +166,10 @@ export const App: React.FC = () => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
     if (location.pathname === processedPathRef.current) return;
 
-    if (contractIdFromUrl && activeTab !== 'CONTRACT_DETAILS') {
+    if (isWalletPath && activeTab !== 'MY_WALLET') {
+      processedPathRef.current = location.pathname;
+      setActiveTab('MY_WALLET');
+    } else if (contractIdFromUrl && activeTab !== 'CONTRACT_DETAILS') {
       processedPathRef.current = location.pathname;
       ui.setSelectedLoanId(contractIdFromUrl);
       handleSetActiveTab('CONTRACT_DETAILS');
@@ -182,7 +186,7 @@ export const App: React.FC = () => {
       }
       processedPathRef.current = location.pathname;
     }
-  }, [contractIdFromUrl, legalIdFromUrl, activeTab, handleSetActiveTab, location.pathname]);
+  }, [contractIdFromUrl, legalIdFromUrl, isWalletPath, activeTab, handleSetActiveTab, location.pathname, setActiveTab]);
 
   const navigate = (path: string) => {
     routerNavigate(path);
@@ -229,14 +233,16 @@ export const App: React.FC = () => {
   }, [activeUser]);
 
   useEffect(() => {
-    if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
+    if (isPlatformAccessChecked && !isPlatformSuperAdmin && activeTab === 'PLATFORM_ADMIN') {
       handleSetActiveTab('DASHBOARD');
     }
   }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin]);
 
-  const visibleHubOrder = isPlatformSuperAdmin
-    ? Array.from(new Set([...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]))
-    : hubOrder;
+  const visibleHubOrder = Array.from(new Set([
+    ...hubOrder,
+    'MY_WALLET' as any,
+    ...(isPlatformSuperAdmin ? ['PLATFORM_ADMIN' as any] : []),
+  ]));
 
   const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
     const client = (clients as any[]).find((item: any) => item.id === clientId)
@@ -644,9 +650,9 @@ export const App: React.FC = () => {
                 </motion.div>
               )}
 
-              {activeTab === 'MY_WALLET' && isPlatformSuperAdmin && (
+              {activeTab === 'MY_WALLET' && (
                 <motion.div key="wallet-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <PersonalWalletPage activeUser={activeUser} />
+                  <WalletModule activeUser={activeUser} />
                 </motion.div>
               )}
 

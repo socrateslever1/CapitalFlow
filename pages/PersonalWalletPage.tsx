@@ -43,6 +43,7 @@ import { getBankVisual } from '../components/wallet/walletPresentation';
 import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
 import { CardInvoiceStatement } from '../components/wallet/CardInvoiceStatement';
 import { WalletStatementImport } from '../components/wallet/WalletStatementImport';
+import { AccountCardStack } from '../components/wallet/AccountCardStack';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -60,7 +61,7 @@ type WalletData = {
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
-type ActiveTab = 'extrato' | 'contas' | 'dividas' | 'receitas';
+export type ActiveTab = 'extrato' | 'contas' | 'dividas' | 'receitas';
 
 export type InvoiceSummary = {
   key: string;
@@ -103,22 +104,31 @@ const clearDraft = (mode: FormMode) => {
   } catch {}
 };
 
-export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUser }) => {
+type PersonalWalletPageProps = {
+  activeUser?: UserProfile | null;
+  initialTab?: ActiveTab;
+  onTabChange?: (tab: ActiveTab) => void;
+  moduleView?: 'overview' | 'cards' | 'accounts' | 'payables' | 'income';
+};
+
+export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUser, initialTab = 'extrato', onTabChange, moduleView }) => {
   const [data, setData] = useState<WalletData>(emptyWallet);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formMode, setFormMode] = useState<FormMode>(null);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('extrato');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [statementImportOpen, setStatementImportOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
   const goToTab = (tab: ActiveTab) => {
     setSelectedAccountId(null);
     setActiveTab(tab);
+    onTabChange?.(tab);
     window.requestAnimationFrame(() => tabContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
+  useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
   const openAccountDetails = (accountId: string) => {
     setSelectedAccountId(accountId);
     try { window.history.pushState({ walletAccountOpen: true, accountId }, ''); } catch {}
@@ -444,7 +454,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
     <section className="space-y-3 pb-32 sm:pb-16 w-full max-w-7xl mx-auto px-4 sm:px-6 animate-in fade-in">
       <datalist id="wallet-bank-options">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
       {/* Cabeçalho Compacto e Integrado */}
-      <PageHeader
+      {!moduleView && <PageHeader
         icon={<WalletCards size={20} />}
         title={<>Minha <span className="text-emerald-400">Carteira</span></>}
         subtitle="Seus cartões e finanças em um único lugar"
@@ -478,13 +488,13 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
             </button>
           </div>
         )}
-      />
+      />}
 
       {/* Faixa Discreta de Proteção */}
-      <div className="flex items-center gap-1.5 px-1 text-[11px] text-slate-400">
+      {!moduleView && <div className="flex items-center gap-1.5 px-1 text-[11px] text-slate-400">
         <ShieldCheck size={13} className="text-emerald-400 shrink-0" />
         <span className="truncate">Área pessoal protegida e separada do capital dos contratos.</span>
-      </div>
+      </div>}
 
       {error && (
         <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2 text-xs text-rose-200">
@@ -498,7 +508,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
       )}
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        <div className="min-w-0 space-y-6 lg:col-span-5 lg:self-start lg:sticky lg:top-6">
+        {(!moduleView || moduleView === 'overview' || moduleView === 'cards') && <div className={`min-w-0 space-y-6 lg:self-start lg:sticky lg:top-6 ${moduleView === 'overview' ? 'lg:col-span-12 lg:grid lg:grid-cols-2 lg:gap-8' : 'lg:col-span-5'}`}>
           <BankStack
             accounts={data.accounts}
             cards={data.cards}
@@ -510,13 +520,13 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
             onNewExpense={(card) => openForm('EXPENSE', { payment_source: `card:${card.id}` })}
             onPayInvoice={(card) => { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(card); }}
           />
-          <WalletBalanceOverview accounts={data.accounts} recurringIncomes={data.recurringIncomes}
+          {moduleView !== 'cards' && <WalletBalanceOverview accounts={data.accounts} recurringIncomes={data.recurringIncomes}
             receivedIncomeIds={receivedIncomeIdsThisMonth} openCardInvoices={totals.openInvoices}
-            payables={data.payables} month={currentMonth()} />
-        </div>
+            payables={data.payables} month={currentMonth()} />}
+        </div>}
 
-        <section ref={tabContentRef} aria-label="Base operacional da carteira" className="min-w-0 lg:col-span-7">
-          <nav aria-label="Áreas da carteira" className="sticky top-0 z-30 grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-950/90 p-1.5 backdrop-blur-md sm:grid-cols-4 lg:top-6">
+        {moduleView !== 'overview' && <section ref={tabContentRef} aria-label="Base operacional da carteira" className={`min-w-0 ${moduleView && moduleView !== 'cards' ? 'lg:col-span-12' : 'lg:col-span-7'}`}>
+          {!moduleView && <nav aria-label="Áreas da carteira" className="sticky top-0 z-30 grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-950/90 p-1.5 backdrop-blur-md sm:grid-cols-4 lg:top-6">
             {([
               ['extrato', 'Extrato do Cartão'],
               ['contas', 'Contas Bancárias & PIX'],
@@ -528,9 +538,9 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                 {label}
               </button>
             ))}
-          </nav>
+          </nav>}
 
-          <div className="mt-4 min-h-[28rem] rounded-2xl border border-slate-800 bg-slate-900/55 p-3 sm:p-4">
+          <div className={`${moduleView ? '' : 'mt-4'} min-h-[28rem] rounded-2xl border border-slate-800 bg-slate-900/55 p-3 sm:p-4`}>
             {activeTab === 'extrato' && (activeStackCard ? (
               <CardInvoiceStatement cardId={activeStackCard.id}
                 dueMonth={invoices.find(invoice => invoice.cardId === activeStackCard.id)?.dueMonth || null}
@@ -544,7 +554,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
 
             {activeTab === 'contas' && <div className="space-y-3 animate-in fade-in">
               <div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-300"><Landmark size={14} className="text-emerald-400"/> Contas Bancárias e Chaves PIX</h2><button type="button" onClick={() => openForm('ACCOUNT')} className="shrink-0 text-[10px] font-bold text-emerald-400"><Plus size={12} className="inline"/> Cadastrar conta</button></div>
-              {!data.accounts.length ? <EmptyState text="Nenhuma conta cadastrada." actionLabel="Cadastrar conta" onAction={() => openForm('ACCOUNT')}/> : <div className="grid gap-2">{data.accounts.map(account => <button type="button" key={account.id} onClick={() => openAccountDetails(account.id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-left hover:border-emerald-500"><span className="flex min-w-0 items-center gap-2.5"><BankLogo name={account.bank_name} alternateName={account.nickname} customImage={account.image_url} size="sm"/><span className="min-w-0"><strong className="block truncate text-xs text-white">{account.nickname}</strong><small className="block truncate text-[10px] text-slate-400">{account.bank_name || 'Conta pessoal'}{account.pix_key_type ? ` · PIX: ${account.pix_key || account.pix_key_type}` : ''}</small></span></span><span className="flex shrink-0 items-center gap-2"><strong className="text-xs text-emerald-300">{formatMoney(account.balance)}</strong><ChevronRight size={15} className="text-slate-500"/></span></button>)}</div>}
+              {!data.accounts.length ? <EmptyState text="Nenhuma conta cadastrada." actionLabel="Cadastrar conta" onAction={() => openForm('ACCOUNT')}/> : <AccountCardStack accounts={data.accounts} onOpen={account => openAccountDetails(account.id)}/>}
             </div>}
 
             {activeTab === 'dividas' && <div className="space-y-4 animate-in fade-in"><RecurringObligationsPanel accounts={data.accounts} cards={data.cards} items={data.recurringObligations} onSaved={refresh}/><WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards} saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => { setSaving(true); setError(''); try { await personalWalletService.payPayable(input); await refresh(); setSuccess('Pagamento registrado e passivo atualizado.'); } catch (reason) { const message = reason instanceof Error ? reason.message : 'Pagamento não realizado'; setError(message); throw new Error(message); } finally { setSaving(false); } }}/></div>}
@@ -554,7 +564,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
                 receivedIds={receivedIncomeIdsThisMonth} onSaved={refresh} />
             )}
           </div>
-        </section>
+        </section>}
       </div>
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}

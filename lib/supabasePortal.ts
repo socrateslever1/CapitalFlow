@@ -37,7 +37,7 @@ function requireEnv(key: string): string {
     val.startsWith('SEU_') ||
     val.includes('placeholder') ||
     val.includes('sua_chave') ||
-    (key === 'VITE_SUPABASE_ANON_KEY' && (!val.startsWith('eyJ') || !val.includes('.')));
+    (key === 'VITE_SUPABASE_ANON_KEY' && !(val.startsWith('sb_publishable_') || (val.startsWith('eyJ') && val.includes('.'))));
 
   if (isInvalid) {
     if (key === 'VITE_SUPABASE_URL') return 'https://hzchchbxkhryextaymkn.supabase.co';

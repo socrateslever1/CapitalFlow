@@ -60,7 +60,18 @@ export type PersonalWalletExpenseInstallment = {
   installment_number: number;
   due_month: string;
   amount: number;
+  paid_amount?: number;
   status: 'PENDING' | 'PAID' | 'CANCELED';
+};
+
+export type PersonalWalletInvoicePayment = {
+  id: string;
+  card_id: string;
+  due_month: string;
+  account_id: string | null;
+  amount: number;
+  source: 'MANUAL' | 'ACCOUNT';
+  created_at: string;
 };
 
 export type CreatePersonalWalletExpense = {
@@ -85,13 +96,14 @@ export const personalWalletService = {
   },
 
   async load() {
-    const [accounts, cards, expenses, installments] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
       supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }),
+      supabase.from('personal_wallet_invoice_payments').select('id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error;
+    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error;
     if (error) throw new Error(error.message);
     const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (card) => {
       if (!card.image_path) return card;
@@ -108,6 +120,7 @@ export const personalWalletService = {
       cards: cardsWithImages,
       expenses: (expenses.data || []) as PersonalWalletExpense[],
       installments: (installments.data || []) as PersonalWalletExpenseInstallment[],
+      invoicePayments: (invoicePayments.data || []) as PersonalWalletInvoicePayment[],
     };
   },
 
@@ -201,11 +214,16 @@ export const personalWalletService = {
     if (error) throw new Error(error.message);
   },
 
-  async payInvoice(cardId: string, dueMonth: string, accountId: string) {
-    const { data, error } = await supabase.rpc('personal_wallet_pay_invoice', {
+  async payInvoicePartial(cardId: string, dueMonth: string, accountId: string | null, amount: number, requestId: string) {
+    if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) {
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_pay_invoice_partial', {
       p_card_id: cardId,
       p_due_month: dueMonth,
-      p_account_id: accountId,
+      p_account_id: accountId || null,
+      p_amount: amount,
+      p_request_id: requestId,
     });
     if (error) throw new Error(error.message);
     return Number(data || 0);

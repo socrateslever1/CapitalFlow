@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('edição fica na lista geral e não cria extrato dentro do detalhe do cartão', () => {
+test('edição permanece na lista geral e o detalhe usa extrato isolado abaixo do conteúdo protegido', () => {
   const modal = readFileSync('components/wallet/CardDetailModal.tsx', 'utf8');
   const page = readFileSync('pages/PersonalWalletPage.tsx', 'utf8');
   assert.doesNotMatch(modal, /Lançamentos do cartão/);
-  assert.doesNotMatch(modal, /expenses: PersonalWalletExpense\[\]/);
+  assert.match(modal, /CardInvoiceStatement/);
   assert.match(page, /Editar lançamento/);
   assert.match(page, /ExpenseEditModal/);
 });

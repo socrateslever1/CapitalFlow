@@ -4,11 +4,12 @@ import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../s
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
+  compact?: boolean;
   onClose: () => void;
   onSave: (input: UpdatePersonalWalletExpense) => Promise<void>;
 };
 
-export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, onClose, onSave }) => {
+export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, compact = false, onClose, onSave }) => {
   const [description, setDescription] = useState(expense.description);
   const [amount, setAmount] = useState(String(Number(expense.amount).toFixed(2)).replace('.', ','));
   const [category, setCategory] = useState(expense.category || 'Outros');
@@ -80,13 +81,13 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, onC
             <label className="block text-xs font-bold text-slate-300">Data da compra
               <span className="relative mt-1.5 block"><CalendarDays className="pointer-events-none absolute left-3 top-3 text-slate-500" size={15} /><input type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className={`${fieldClass} pl-9`} /></span>
             </label>
-            <label className="block text-xs font-bold text-slate-300">Primeiro vencimento
+            {!compact && <label className="block text-xs font-bold text-slate-300">Primeiro vencimento
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${fieldClass} mt-1.5`} />
-            </label>
+            </label>}
           </div>
-          <label className="block text-xs font-bold text-slate-300">Observações
+          {!compact && <label className="block text-xs font-bold text-slate-300">Observações
             <textarea maxLength={2000} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={`${fieldClass} mt-1.5 resize-none`} />
-          </label>
+          </label>}
         </div>
 
         {error && <p role="alert" className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</p>}

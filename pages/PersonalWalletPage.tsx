@@ -50,6 +50,7 @@ import { UserProfile } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
 import { ExpenseEditModal } from '../components/wallet/ExpenseEditModal';
+import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -425,6 +426,10 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         .reduce((sum, op) => sum + Number(op.amount || 0), 0),
     openInvoices: invoices.reduce((sum, invoice) => sum + invoice.amount, 0),
   }), [data, invoices]);
+  const receivedIncomeIdsThisMonth = useMemo(
+    () => new Set(data.recurringReceipts.filter(receipt => receipt.reference_month === `${currentMonth()}-01`).map(receipt => receipt.income_id)),
+    [data.recurringReceipts],
+  );
 
   const selectedPaymentType = String(form.payment_source || '').split(':')[0];
 
@@ -563,6 +568,15 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           </section>
         </aside>
       </div>
+
+      <WalletBalanceOverview
+        accounts={data.accounts}
+        recurringIncomes={data.recurringIncomes}
+        receivedIncomeIds={receivedIncomeIdsThisMonth}
+        openCardInvoices={totals.openInvoices}
+        payables={data.payables}
+        month={currentMonth()}
+      />
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
       {formMode && (
@@ -1002,8 +1016,25 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         <CardDetailModal
           card={selectedCardForDetail}
           accounts={data.accounts}
+          expenses={data.expenses}
+          installments={data.installments}
+          invoiceDueMonth={invoices.find(invoice => invoice.cardId === selectedCardForDetail.id)?.dueMonth || null}
           statementRows={data.statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===selectedCardForDetail.id)}
           onImported={refresh}
+          onEditExpense={async (input) => {
+            await personalWalletService.updateExpense(input);
+            const wallet = await personalWalletService.load();
+            setData(wallet);
+            setSelectedCardForDetail(wallet.cards.find(card => card.id === selectedCardForDetail.id) || null);
+            setSuccess('Lançamento atualizado. Fatura e limite recalculados.');
+          }}
+          onDeleteExpense={async (expenseId) => {
+            await personalWalletService.setExpenseStatus(expenseId, 'CANCELED');
+            const wallet = await personalWalletService.load();
+            setData(wallet);
+            setSelectedCardForDetail(wallet.cards.find(card => card.id === selectedCardForDetail.id) || null);
+            setSuccess('Lançamento excluído. Fatura e limite recalculados.');
+          }}
           openInvoiceAmount={
             invoices
               .filter((inv) => inv.cardId === selectedCardForDetail.id)

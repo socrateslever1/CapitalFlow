@@ -11,32 +11,43 @@ import {
   RotateCw,
   FileUp
 } from 'lucide-react';
-import type { PersonalWalletCard, PersonalWalletAccount } from '../../services/personalWallet.service';
+import type { PersonalWalletCard, PersonalWalletAccount, PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { VirtualCreditCard } from './VirtualCreditCard';
 import { WalletStatementImport } from './WalletStatementImport';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
+import { CardInvoiceStatement } from './CardInvoiceStatement';
 
 export interface CardDetailModalProps {
   card: PersonalWalletCard;
   accounts: PersonalWalletAccount[];
+  expenses: PersonalWalletExpense[];
+  installments: PersonalWalletExpenseInstallment[];
+  invoiceDueMonth?: string | null;
   openInvoiceAmount?: number;
   onClose: () => void;
   onNewExpense: (cardId: string) => void;
   onPayInvoice: (cardId: string) => void;
   statementRows?: WalletStatementRow[];
   onImported?: () => Promise<void>;
+  onEditExpense: (input: UpdatePersonalWalletExpense) => Promise<void>;
+  onDeleteExpense: (expenseId: string) => Promise<void>;
 }
 
 export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   card,
   accounts,
+  expenses,
+  installments,
+  invoiceDueMonth = null,
   openInvoiceAmount = 0,
   onClose,
   onNewExpense,
   onPayInvoice,
   statementRows = [],
   onImported,
+  onEditExpense,
+  onDeleteExpense,
 }) => {
   const [importOpen,setImportOpen] = useState(false);
   const [activeView, setActiveView] = useState<'CARD' | 'PHOTO'>('CARD');
@@ -227,6 +238,14 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
             </div>}
         </div>}
         {/* Footer com Ações Diretas - Sticky e Livre de interferências */}
+        <CardInvoiceStatement
+          cardId={card.id}
+          dueMonth={invoiceDueMonth}
+          expenses={expenses}
+          installments={installments}
+          onEdit={onEditExpense}
+          onDelete={onDeleteExpense}
+        />
         <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-800 bg-slate-900/95 shrink-0 grid grid-cols-2 gap-2 shadow-2xl">
           <button
             type="button"

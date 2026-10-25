@@ -13,6 +13,7 @@ import {
   WalletCards,
   X,
   XCircle,
+  ChevronRight,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
@@ -26,6 +27,7 @@ import {
 import { formatMoney } from '../utils/formatters';
 import { usePageBack } from '../contexts/PageBackContext';
 import { CardDetailModal } from '../components/wallet/CardDetailModal';
+import { AccountDetailsPage } from '../components/wallet/AccountDetailsPage';
 import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
 import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 
@@ -96,6 +98,17 @@ export const PersonalWalletPage: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [activeTab, setActiveTab] = useState<WalletTab>('CARDS');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const tabContentRef = useRef<HTMLDivElement | null>(null);
+  const goToTab = (tab: WalletTab) => {
+    setSelectedAccountId(null);
+    setActiveTab(tab);
+    window.requestAnimationFrame(() => tabContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+  const openAccountDetails = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    try { window.history.pushState({ walletAccountOpen: true, accountId }, ''); } catch {}
+  };
   const [form, setForm] = useState<Record<string, string>>({});
   const [isDraftRestored, setIsDraftRestored] = useState<boolean>(false);
   const [accountImage, setAccountImage] = useState<File | null>(null);
@@ -129,7 +142,7 @@ export const PersonalWalletPage: React.FC = () => {
     if (accountImagePreview) URL.revokeObjectURL(accountImagePreview);
   }, [accountImagePreview]);
 
-  const isAnyModalActive = Boolean(formMode || selectedCardForDetail || selectedCardForInvoice);
+  const isAnyModalActive = Boolean(formMode || selectedCardForDetail || selectedCardForInvoice || selectedAccountId);
 
   // Armazena a ação de voltar em ref para desacoplar a função de retorno dos hooks de efeito
   const handleBackRef = useRef<() => void>(() => {});
@@ -140,6 +153,7 @@ export const PersonalWalletPage: React.FC = () => {
     }
     if (selectedCardForDetail) setSelectedCardForDetail(null);
     if (selectedCardForInvoice) setSelectedCardForInvoice(null);
+    if (selectedAccountId) setSelectedAccountId(null);
   };
 
   // Ocultação de botões flutuantes (FABs) ao abrir formulário ou modal
@@ -347,6 +361,18 @@ export const PersonalWalletPage: React.FC = () => {
 
   if (loading) {
     return <div className="p-8 text-xs font-bold text-slate-400">Carregando sua carteira...</div>;
+  }
+
+  const selectedAccount = data.accounts.find((account) => account.id === selectedAccountId);
+  if (selectedAccount) {
+    return <AccountDetailsPage
+      key={selectedAccount.id}
+      account={selectedAccount}
+      expenses={data.expenses}
+      invoicePayments={data.invoicePayments}
+      onBack={() => setSelectedAccountId(null)}
+      onSaved={refresh}
+    />;
   }
 
   return (
@@ -579,7 +605,8 @@ export const PersonalWalletPage: React.FC = () => {
       {/* KPI Strip Compacto */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {/* Card 1: Saldo */}
-        <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 transition-colors hover:border-slate-700">
+        <button type="button" aria-label="Abrir contas bancárias" onClick={() => goToTab('ACCOUNTS')}
+          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Saldo em Contas</span>
             <Landmark size={12} className="text-emerald-400 shrink-0" />
@@ -588,10 +615,11 @@ export const PersonalWalletPage: React.FC = () => {
             <span className="text-sm sm:text-base font-extrabold text-emerald-400 truncate">{formatMoney(totals.balance)}</span>
             <span className="text-[10px] text-slate-500 truncate">{data.accounts.length} conta(s)</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 2: Gastos */}
-        <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 transition-colors hover:border-slate-700">
+        <button type="button" aria-label="Abrir despesas do mês" onClick={() => goToTab('EXPENSES')}
+          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Gastos do Mês</span>
             <ReceiptText size={12} className="text-cyan-400 shrink-0" />
@@ -600,10 +628,11 @@ export const PersonalWalletPage: React.FC = () => {
             <span className="text-sm sm:text-base font-extrabold text-cyan-300 truncate">{formatMoney(totals.month)}</span>
             <span className="text-[10px] text-slate-500">Mês atual</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 3: Faturas */}
-        <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 transition-colors hover:border-slate-700">
+        <button type="button" aria-label="Abrir faturas abertas" onClick={() => goToTab('INVOICES')}
+          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Faturas Abertas</span>
             <CalendarDays size={12} className="text-amber-400 shrink-0" />
@@ -612,10 +641,11 @@ export const PersonalWalletPage: React.FC = () => {
             <span className="text-sm sm:text-base font-extrabold text-amber-300 truncate">{formatMoney(totals.openInvoices)}</span>
             <span className="text-[10px] text-slate-500 truncate">{invoices.length} fatura(s)</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 4: Limite */}
-        <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 transition-colors hover:border-slate-700">
+        <button type="button" aria-label="Abrir cartões e limites" onClick={() => goToTab('CARDS')}
+          className="w-full cursor-pointer rounded-lg border border-slate-800/80 bg-slate-900/80 p-2.5 text-left transition-colors hover:border-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500">
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Limite dos Cartões</span>
             <CreditCard size={12} className="text-blue-400 shrink-0" />
@@ -624,7 +654,7 @@ export const PersonalWalletPage: React.FC = () => {
             <span className="text-sm sm:text-base font-extrabold text-blue-300 truncate">{formatMoney(totals.available)}</span>
             <span className="text-[10px] font-semibold text-rose-300 truncate">Uso: {formatMoney(totals.used)}</span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Navegação por Abas */}
@@ -703,7 +733,7 @@ export const PersonalWalletPage: React.FC = () => {
       </div>
 
       {/* Conteúdo da Aba Ativa */}
-      <div className="pt-1">
+      <div ref={tabContentRef} className="pt-1 scroll-mt-4">
         {/* Aba 1: Cartões */}
         {activeTab === 'CARDS' && (
           <div className="space-y-2.5 animate-in fade-in">
@@ -851,7 +881,9 @@ export const PersonalWalletPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {data.accounts.map((account) => (
-                  <article key={account.id} className="flex items-center justify-between gap-2.5 rounded-xl border border-slate-800/90 bg-slate-900/80 p-3 hover:border-slate-700 transition-all">
+                  <button type="button" key={account.id} onClick={() => openAccountDetails(account.id)}
+                    aria-label={`Abrir detalhes da conta ${account.nickname}`}
+                    className="flex w-full items-center justify-between gap-2.5 rounded-xl border border-slate-800/90 bg-slate-900/80 p-3 text-left hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 transition-all">
                     <div className="flex items-center gap-2.5 min-w-0">
                       {account.image_url ? (
                         <img src={account.image_url} alt={`Banco ${account.bank_name || account.nickname}`} className="h-8 w-8 shrink-0 rounded-lg object-cover border border-slate-800" />
@@ -868,8 +900,8 @@ export const PersonalWalletPage: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    <strong className="shrink-0 text-xs sm:text-sm font-bold text-emerald-300">{formatMoney(account.balance)}</strong>
-                  </article>
+                    <span className="flex items-center gap-2 shrink-0"><strong className="text-xs sm:text-sm font-bold text-emerald-300">{formatMoney(account.balance)}</strong><ChevronRight size={15} className="text-slate-400" /></span>
+                  </button>
                 ))}
               </div>
             )}

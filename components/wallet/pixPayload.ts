@@ -41,3 +41,10 @@ export function buildStaticPix(input: PixInput) {
   const check = `${fields}6304`;
   return check + crc16(check);
 }
+
+/** Validate BR Code checksum before displaying a public payment request. */
+export function isValidPixPayload(value: string): boolean {
+  if (!value.startsWith('000201') || value.length<30 || value.length>1000 || !/6304[0-9A-F]{4}$/.test(value)) return false;
+  const data=value.slice(0,-4);
+  return crc16(data)===value.slice(-4);
+}

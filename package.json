@@ -14,16 +14,16 @@
     "build:skip-check": "vite build",
     "lint": "tsc -b",
     "preview": "vite preview",
-  "test:financial": "tsx tests/financial/financial-invariants.ts",
-  "test:financial-forgiveness": "node tests/financial/payment-forgiveness-order.test.mjs",
+    "test:financial": "tsx tests/financial/financial-invariants.ts",
+    "test:financial-forgiveness": "node tests/financial/payment-forgiveness-order.test.mjs",
     "test:skills": "tsx tests/skills/skills.test.ts",
     "test:tools": "tsx tests/tools/tools.test.ts",
     "test:mcp": "tsx tests/mcp/mcp.test.ts",
     "test:evals": "tsx ai/evals/run.ts",
     "test:architecture": "node tests/architecture/architecture-check.mjs",
     "test:automation": "node --test automation/n8n/*.test.cjs",
-  "test:ui-copy": "node tests/architecture/ui-copy-check.mjs",
-  "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation",
+    "test:ui-copy": "node tests/architecture/ui-copy-check.mjs",
+    "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation",
     "test:db": "node tests/db/run-local-db-tests.mjs",
     "test:load": "k6 run tests/load/app-smoke.js"
   },
@@ -52,7 +52,8 @@
     "recharts": "^3.6.0",
     "sonner": "^2.0.7",
     "tinymce": "^8.3.2",
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "pdfjs-dist": "5.4.296"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

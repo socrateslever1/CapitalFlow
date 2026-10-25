@@ -74,6 +74,38 @@ export type PersonalWalletInvoicePayment = {
   created_at: string;
 };
 
+export type WalletAccountOperation = {
+  id: string;
+  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER';
+  from_account_id: string|null;
+  to_account_id: string|null;
+  amount: number;
+  description: string;
+  category: string;
+  operation_date: string;
+  created_at: string;
+};
+export type WalletStatementRow = {
+  id: string;
+  target_kind: 'ACCOUNT'|'CARD';
+  target_id: string;
+  document_hash: string;
+  row_key: string;
+  entry_date: string;
+  description: string;
+  amount: number;
+  category: string;
+};
+export type RecordWalletOperation = {
+  type: WalletAccountOperation['operation_type'];
+  fromAccountId: string|null;
+  toAccountId: string|null;
+  amount: number;
+  description: string;
+  category: string;
+  date: string;
+  requestId: string;
+};
 export type CreatePersonalWalletExpense = {
   description: string;
   amount: number;
@@ -96,14 +128,16 @@ export const personalWalletService = {
   },
 
   async load() {
-    const [accounts, cards, expenses, installments, invoicePayments] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
       supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }),
       supabase.from('personal_wallet_invoice_payments').select('id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }),
+      supabase.from('personal_wallet_account_operations').select('*').order('operation_date', {ascending:false}).limit(2000),
+      supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', {ascending:false}).limit(2000),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error;
+    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error;
     if (error) throw new Error(error.message);
     const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (card) => {
       if (!card.image_path) return card;
@@ -121,7 +155,51 @@ export const personalWalletService = {
       expenses: (expenses.data || []) as PersonalWalletExpense[],
       installments: (installments.data || []) as PersonalWalletExpenseInstallment[],
       invoicePayments: (invoicePayments.data || []) as PersonalWalletInvoicePayment[],
+      accountOperations: (accountOperations.data || []) as WalletAccountOperation[],
+      statementRows: (statementRows.data || []) as WalletStatementRow[],
     };
+  },
+
+  async recordAccountOperation(input: RecordWalletOperation) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Valor inválido.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_record_account_operation', {
+      p_type: input.type,
+      p_from_account: input.fromAccountId,
+      p_to_account: input.toAccountId,
+      p_amount: input.amount,
+      p_description: input.description,
+      p_category: input.category,
+      p_operation_date: input.date,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  async recordStatementRow(input: {
+    targetKind: 'ACCOUNT'|'CARD';
+    targetId: string;
+    documentHash: string;
+    rowKey: string;
+    date: string;
+    description: string;
+    amount: number;
+    category: string;
+  }) {
+    const { data, error } = await supabase.rpc('personal_wallet_record_statement_row', {
+      p_target_kind: input.targetKind,
+      p_target_id: input.targetId,
+      p_document_hash: input.documentHash,
+      p_row_key: input.rowKey,
+      p_entry_date: input.date,
+      p_description: input.description,
+      p_amount: input.amount,
+      p_category: input.category,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
   },
 
   async createAccount(

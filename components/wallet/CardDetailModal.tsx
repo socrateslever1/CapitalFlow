@@ -8,11 +8,14 @@ import {
   Eye, 
   Maximize2,
   Image as ImageIcon,
-  RotateCw
+  RotateCw,
+  FileUp
 } from 'lucide-react';
 import { PersonalWalletCard, PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { VirtualCreditCard } from './VirtualCreditCard';
+import { WalletStatementImport } from './WalletStatementImport';
+import type { WalletStatementRow } from '../../services/personalWallet.service';
 
 export interface CardDetailModalProps {
   card: PersonalWalletCard;
@@ -21,6 +24,8 @@ export interface CardDetailModalProps {
   onClose: () => void;
   onNewExpense: (cardId: string) => void;
   onPayInvoice: (cardId: string) => void;
+  statementRows?: WalletStatementRow[];
+  onImported?: () => Promise<void>;
 }
 
 export const CardDetailModal: React.FC<CardDetailModalProps> = ({
@@ -30,7 +35,10 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   onClose,
   onNewExpense,
   onPayInvoice,
+  statementRows = [],
+  onImported,
 }) => {
+  const [importOpen,setImportOpen] = useState(false);
   const [activeView, setActiveView] = useState<'CARD' | 'PHOTO'>('CARD');
   const [showFullPhoto, setShowFullPhoto] = useState(false);
 
@@ -199,6 +207,24 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           </div>
         </div>
 
+        {onImported && <div className="px-4 pb-3 space-y-2">
+          <button type="button" onClick={()=>setImportOpen(true)} className="w-full flex items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-cyan-900/20 p-3 text-xs font-bold text-cyan-300">
+            <FileUp size={16}/> Importar PDF da fatura para conferência
+          </button>
+          <p className="text-[11px] text-slate-400">{statementRows.filter(row=>row.target_id===card.id).length} lançamentos do PDF importados para consulta, sem somar à fatura já cadastrada.</p>
+          {statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===card.id).length>0 &&
+            <div className="max-h-40 overflow-y-auto divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-950/70 px-3">
+              {statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===card.id).slice(0,50).map(row=>(
+                <div key={row.id} className="flex justify-between gap-3 py-2 text-xs">
+                  <div className="min-w-0">
+                    <p className="truncate text-slate-200">{row.description}</p>
+                    <p className="text-[10px] text-slate-500">{row.entry_date.split('-').reverse().join('/')} · {row.category}</p>
+                  </div>
+                  <span className={row.amount>=0?'shrink-0 text-emerald-300':'shrink-0 text-rose-300'}>{formatMoney(Math.abs(Number(row.amount)))}</span>
+                </div>
+              ))}
+            </div>}
+        </div>}
         {/* Footer com Ações Diretas - Sticky e Livre de interferências */}
         <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-slate-800 bg-slate-900/95 shrink-0 grid grid-cols-2 gap-2 shadow-2xl">
           <button
@@ -223,6 +249,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           </button>
         </div>
       </div>
+      {importOpen && onImported && <WalletStatementImport kind="CARD" targetId={card.id} targetName={card.nickname} onClose={()=>setImportOpen(false)} onImported={onImported}/>}
     </div>
   );
 };

@@ -33,6 +33,14 @@ const stale=restoreConversationState({state:'AWAITING_CONFIRMATION',version:8,ex
 assert.equal(stale.state,'NEW'); assert.equal(stale.version,9);
 const invalid=restoreConversationState({state:'EXECUTING',version:0},new Date('2026-10-25T00:00:00.000Z'));
 assert.equal(invalid.state,'NEW');
+const crashed=restoreConversationState({state:'EXECUTING',version:4},new Date('2026-10-25T00:00:00.000Z'));
+assert.deepEqual(crashed,{state:'NEW',version:5},'an interrupted execution cannot be replayed');
+const indefinite=restoreConversationState({state:'AWAITING_CONFIRMATION',version:4});
+assert.deepEqual(indefinite,{state:'IDENTIFIED',version:5},'confirmation requests must have expiry');
+const validConfirmation=restoreConversationState({
+ state:'AWAITING_CONFIRMATION',version:4,expiresAt:'2026-10-25T00:15:00.000Z'
+},new Date('2026-10-25T00:00:00.000Z'));
+assert.equal(validConfirmation.state,'AWAITING_CONFIRMATION');
 const classified=classifySkillIntentWithContext('Registre um pagamento da parcela', {identified:true});
 assert.equal(observedStateForIntent(true,classified),'IDENTIFIED','financial writes must stay blocked in shadow');
 console.log(JSON.stringify({suite:'multi-turn-state-security',traces:traces.length,checks:'passed',financialWritesEnabled:false}));

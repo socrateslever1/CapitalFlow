@@ -22,69 +22,65 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android-debug:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Install Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - uses: actions/setup-java@v4
+      - name: Configure Java 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
-      - name: Install existing dependencies
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install locked dependencies
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install --no-fund; fi
-      - name: Install Capacitor Android build tools
-        run: npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
-      - name: Validate financial invariants and AI routing
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+      - name: Install Capacitor Android toolchain
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+      - name: Validate architecture and financial invariants
         run: npm run test:quality
-      - name: Build shared web application
+      - name: Build application bundle
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
-      - name: Generate native Android project
+      - name: Generate and synchronize native Android project
         run: |
           npx cap add android
           npx cap sync android
-      - name: Build installable debug APK
+      - name: Assemble Android debug APK
         working-directory: android
         run: bash gradlew assembleDebug --no-daemon
-      - name: Verify APK artifact and compute checksum
+      - name: Validate APK structure, signature and SHA-256
         working-directory: android
-        run: |
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
-      - name: Validate native package structure and signature
-        working-directory: android
+        shell: bash
         run: |
           set -euo pipefail
           apk="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$apk"
           unzip -t -q "$apk" >/dev/null
           unzip -Z -1 "$apk" | grep -qx "AndroidManifest.xml"
-          unzip -Z -1 "$apk" | grep -qE '^classes([0-9]+)?\.dex        uses: actions/upload-artifact@v4
-        with:
-          name: CapitalFlow-Android-debug
-          path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/debug/app-debug.apk.sha256
-          if-no-files-found: error
-          retention-days: 30
-
-          if [ -n "${ANDROID_HOME:-}" ]; then
-            signer="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-            test -n "$signer"
-            "$signer" verify "$apk"
-          fi
+          unzip -Z -1 "$apk" | grep -Eq '^classes([0-9]+)?\.dex$'
+          signer="$(find "${ANDROID_HOME:?}/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$signer"
+          "$signer" verify "$apk"
           sha256sum "$apk" > "$apk.sha256"
-      - name: Publish APK artifact
+      - name: Publish verified APK and checksum
         uses: actions/upload-artifact@v4
         with:
           name: CapitalFlow-Android-debug

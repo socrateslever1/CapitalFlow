@@ -9,12 +9,27 @@ const INFINITEPAY_LINKS_URL = "https://api.checkout.infinitepay.io/links";
 const baseCorsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
 };
+
+const allowedOrigins = new Set([
+  APP_ORIGIN.replace(/\/$/, ""),
+  "https://capflow.pages.dev",
+  "https://capitalflow.app",
+  "https://www.capitalflow.app",
+  "http://localhost:3003",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost",
+  "https://localhost",
+]);
 
 function corsHeaders(req: Request) {
   const origin = req.headers.get("origin") || "";
-  const allowOrigin = origin === APP_ORIGIN ? origin : APP_ORIGIN;
-  return { ...baseCorsHeaders, "Access-Control-Allow-Origin": allowOrigin };
+  return {
+    ...baseCorsHeaders,
+    "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : APP_ORIGIN,
+  };
 }
 
 function json(req: Request, data: unknown, status = 200) {

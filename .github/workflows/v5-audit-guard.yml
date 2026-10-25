@@ -1,0 +1,24 @@
+name: V5 Non-Invasive Guard
+on:
+  pull_request:
+    paths:
+      - 'docs/V5_NON_INVASIVE_BASELINE.md'
+      - 'tests/architecture/v5-financial-protection.test.mjs'
+      - '.github/workflows/v5-audit-guard.yml'
+      - 'domain/finance/**'
+      - 'services/payments/**'
+      - 'features/agreements/**'
+      - 'supabase/migrations/**'
+      - 'supabase/functions/**'
+      - 'tests/financial/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-no-financial-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: node --test tests/architecture/v5-financial-protection.test.mjs

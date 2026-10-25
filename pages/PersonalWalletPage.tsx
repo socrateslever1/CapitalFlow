@@ -987,8 +987,16 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         <CardDetailModal
           card={selectedCardForDetail}
           accounts={data.accounts}
+          expenses={data.expenses.filter((expense) => expense.card_id === selectedCardForDetail.id)}
           statementRows={data.statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===selectedCardForDetail.id)}
           onImported={refresh}
+          onEditExpense={async (input) => {
+            await personalWalletService.updateExpense(input);
+            const wallet = await personalWalletService.load();
+            setData(wallet);
+            setSelectedCardForDetail(wallet.cards.find((card) => card.id === selectedCardForDetail.id) || null);
+            setSuccess('Lançamento atualizado. Limite e fatura foram recalculados.');
+          }}
           openInvoiceAmount={
             invoices
               .filter((inv) => inv.cardId === selectedCardForDetail.id)

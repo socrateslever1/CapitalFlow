@@ -172,6 +172,16 @@ export type CreatePersonalWalletExpense = {
   notes?: string | null;
 };
 
+export type UpdatePersonalWalletExpense = {
+  expenseId: string;
+  description: string;
+  amount: number;
+  category: string;
+  expenseDate: string;
+  dueDate?: string | null;
+  notes?: string | null;
+};
+
 export const personalWalletService = {
   async ownerId() {
     const { data, error } = await supabase.auth.getUser();
@@ -555,6 +565,23 @@ export const personalWalletService = {
     });
     if (error) throw new Error(error.message);
     return String(data);
+  },
+
+  async updateExpense(input: UpdatePersonalWalletExpense) {
+    if (!input.description.trim()) throw new Error('Informe a descrição do lançamento.');
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
+    }
+    const { error } = await supabase.rpc('personal_wallet_update_expense', {
+      p_expense_id: input.expenseId,
+      p_description: input.description.trim(),
+      p_amount: input.amount,
+      p_category: input.category.trim() || 'Outros',
+      p_expense_date: input.expenseDate,
+      p_due_date: input.dueDate || null,
+      p_notes: input.notes?.trim() || null,
+    });
+    if (error) throw new Error(error.message);
   },
 
   async setExpenseStatus(expenseId: string, status: 'PAID' | 'CANCELED') {

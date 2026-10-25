@@ -36,8 +36,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci --progress=false
+
+      - run: |
+          if [ -f package-lock.json ]; then npm ci --progress=false; else npm install --progress=false --no-fund; fi
       - run: npm run build
       - run: npm run test:skills
       - run: npm run test:architecture

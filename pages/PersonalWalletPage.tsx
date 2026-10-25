@@ -30,6 +30,8 @@ import { formatMoney } from '../utils/formatters';
 import { usePageBack } from '../contexts/PageBackContext';
 import { CardDetailModal } from '../components/wallet/CardDetailModal';
 import { AccountDetailsPage } from '../components/wallet/AccountDetailsPage';
+import { BankLogo } from '../components/wallet/BankLogo';
+import { BANK_CATALOG } from '../utils/bankLogoRegistry';
 import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
 import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 
@@ -386,6 +388,7 @@ export const PersonalWalletPage: React.FC = () => {
 
   return (
     <section className="space-y-3 pb-32 sm:pb-16 max-w-6xl mx-auto animate-in fade-in">
+      <datalist id="wallet-bank-options">{BANK_CATALOG.map(bank => <option key={bank.id} value={bank.name}/>)}</datalist>
       {/* Cabeçalho Compacto e Integrado */}
       <PageHeader
         icon={<WalletCards size={20} />}
@@ -894,13 +897,7 @@ export const PersonalWalletPage: React.FC = () => {
                     aria-label={`Abrir detalhes da conta ${account.nickname}`}
                     className="flex w-full items-center justify-between gap-2.5 rounded-xl border border-slate-800/90 bg-slate-900/80 p-3 text-left hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 transition-all">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {account.image_url ? (
-                        <img src={account.image_url} alt={`Banco ${account.bank_name || account.nickname}`} className="h-8 w-8 shrink-0 rounded-lg object-cover border border-slate-800" />
-                      ) : (
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                          <Landmark size={15} />
-                        </span>
-                      )}
+                      <BankLogo name={account.bank_name} alternateName={account.nickname} customImage={account.image_url} size="sm" />
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-white">{account.nickname}</p>
                         <p className="truncate text-[10px] text-slate-400">

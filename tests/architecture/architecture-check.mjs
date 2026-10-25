@@ -289,7 +289,7 @@ for (const required of ['personal_wallet_create_expense', 'personal_wallet_set_e
 for (const required of ['selectedInvoiceDueMonth', 'Pagar parte ou total', 'invoicePayments', 'Despesas recentes']) {
   if (!personalWalletPage.includes(required)) failures.push(`PersonalWalletPage.tsx -> seÃ§Ã£o obrigatÃ³ria ausente: ${required}`);
 }
-const partialWalletMigration = read('supabase', 'migrations', '20261025062500_wallet_partial_invoice_payments.sql');
+const partialWalletMigration = read('supabase', 'migrations', '20261025064729_wallet_partial_invoice_payments.sql');
 const invoiceModal = read('components', 'wallet', 'PayInvoiceModal.tsx');
 for (const required of ['personal_wallet_pay_invoice_partial', 'personal_wallet_invoice_payments', 'request_id', 'paid_amount', 'is_platform_super_admin()']) {
   if (!partialWalletMigration.includes(required)) failures.push(`Minha Carteira -> protecao parcial ausente: ${required}`);

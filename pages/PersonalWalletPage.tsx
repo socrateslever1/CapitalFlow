@@ -28,6 +28,7 @@ import {
   PersonalWalletPayablePayment,
   WalletRecurringIncome,
   WalletRecurringReceipt,
+  WalletRecurringObligation,
   WalletAccountOperation,
   WalletStatementRow,
 } from '../services/personalWallet.service';
@@ -43,6 +44,7 @@ import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 import { BankStack } from '../components/wallet/BankStack';
 import { CardEditModal } from '../components/wallet/CardEditModal';
 import { RecurringIncomePanel } from '../components/wallet/RecurringIncomePanel';
+import { RecurringObligationsPanel } from '../components/wallet/RecurringObligationsPanel';
 import { UserProfile } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
@@ -59,6 +61,7 @@ type WalletData = {
   payablePayments: PersonalWalletPayablePayment[];
   recurringIncomes: WalletRecurringIncome[];
   recurringReceipts: WalletRecurringReceipt[];
+  recurringObligations: WalletRecurringObligation[];
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
@@ -73,7 +76,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [], recurringIncomes: [], recurringReceipts: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [], recurringIncomes: [], recurringReceipts: [], recurringObligations: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -884,6 +887,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
           </div>
         )}
 
+        {activeTab === 'PAYABLES' && <RecurringObligationsPanel accounts={data.accounts} cards={data.cards} items={data.recurringObligations} onSaved={refresh}/>}
         {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards}
           saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
           setSaving(true);setError('');
@@ -905,6 +909,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <ReceiptText size={14} className="text-cyan-400" /> Despesas recentes
               </h2>
+              <button type="button" onClick={()=>goToTab('PAYABLES')} className="text-[10px] font-bold text-amber-300">Despesas e dívidas fixas</button>
               <button
                 type="button"
                 onClick={() => openForm('EXPENSE')}

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, ReceiptText, Search } from 'lucide-react';
-import { PersonalWalletAccount, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
+import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { WalletStatementImport } from './WalletStatementImport';
@@ -10,6 +10,8 @@ type Props = {
   accounts: PersonalWalletAccount[];
   operations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
+  expenses: PersonalWalletExpense[];
+  invoicePayments: PersonalWalletInvoicePayment[];
   onSaved: () => Promise<void>;
 };
 type Action = WalletAccountOperation['operation_type'];
@@ -18,7 +20,7 @@ const labels: Record<Action,string> = {
 };
 const fmtDate=(date:string)=>new Date(date.slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR');
 const input='w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-emerald-500';
-export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,onSaved}) => {
+export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
   const [description,setDescription]=useState('');
@@ -34,7 +36,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const parsedAmount=Number(amount.trim().replace(',','.'));
 
-  const entries=useMemo(()=>operations.filter(op=>op.from_account_id===account.id||op.to_account_id===account.id)
+  const entries=useMemo(()=>([
+    ...operations.filter(op=>op.from_account_id===account.id||op.to_account_id===account.id)
     .map(op=>{
       const incoming=op.to_account_id===account.id;
       const otherId=incoming?op.from_account_id:op.to_account_id;
@@ -46,7 +49,16 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           : labels[op.operation_type],
         amount: incoming?Number(op.amount):-Number(op.amount),
       };
-    }).sort((a,b)=>b.date.localeCompare(a.date)),[account.id,accounts,operations]);
+    }),
+    ...expenses.filter(expense=>expense.account_id===account.id && expense.status==='PAID').map(expense=>({
+      id:'legacy-expense-'+expense.id,date:expense.expense_date,label:expense.description,
+      category:'Despesa já registrada',amount:-Number(expense.amount||0),
+    })),
+    ...invoicePayments.filter(payment=>payment.account_id===account.id && payment.source==='ACCOUNT').map(payment=>({
+      id:'card-payment-'+payment.id,date:payment.created_at,
+      label:'Pagamento de fatura',category:'Cartão de crédito',amount:-Number(payment.amount||0),
+    })),
+  ].sort((a,b)=>b.date.localeCompare(a.date)),[account.id,accounts,operations,expenses,invoicePayments]);
   const filtered=entries.filter(x=>(x.label+' '+x.category).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const imported=statementRows.filter(row=>row.target_kind==='ACCOUNT'&&row.target_id===account.id);
   const others=accounts.filter(a=>a.id!==account.id);

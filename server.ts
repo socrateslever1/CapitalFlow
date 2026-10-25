@@ -197,22 +197,38 @@ self.addEventListener('activate', function (event) {
     });
   }
 
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    const ips = getNetworkIps();
-    console.log(`\n======================================================`);
-    console.log(`🚀 CapitalFlow Server rodando em modo ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
-    console.log(`------------------------------------------------------`);
-    console.log(`➜ Local:            http://localhost:${PORT}`);
-    if (ips.length > 0) {
-      ips.forEach((ip) => {
-        console.log(`➜ Rede (Wi-Fi/LAN):  http://${ip}:${PORT}`);
-      });
+  let currentPort = PORT;
+  const startListen = (port: number) => {
+    currentPort = port;
+    httpServer.listen(port, "0.0.0.0", () => {
+      const ips = getNetworkIps();
+      console.log(`\n======================================================`);
+      console.log(`🚀 CapitalFlow Server rodando em modo ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+      console.log(`------------------------------------------------------`);
+      console.log(`➜ Local:            http://localhost:${port}`);
+      if (ips.length > 0) {
+        ips.forEach((ip) => {
+          console.log(`➜ Rede (Wi-Fi/LAN):  http://${ip}:${port}`);
+        });
+      }
+      console.log(`------------------------------------------------------`);
+      console.log(`🌐 Para acesso externo via Internet:`);
+      console.log(`   Execute em outro terminal: npm run dev:tunnel -- --port ${port}`);
+      console.log(`======================================================\n`);
+    });
+  };
+
+  httpServer.on("error", (err: any) => {
+    if ((err.code === "EACCES" || err.code === "EADDRINUSE") && !process.env.PORT && currentPort < 3010) {
+      const nextPort = currentPort + 1;
+      console.warn(`⚠️ Porta ${currentPort} ocupada ou sem permissão (${err.code}). Tentando porta ${nextPort}...`);
+      startListen(nextPort);
+      return;
     }
-    console.log(`------------------------------------------------------`);
-    console.log(`🌐 Para acesso externo via Internet:`);
-    console.log(`   Execute em outro terminal: npm run dev:tunnel`);
-    console.log(`======================================================\n`);
+    throw err;
   });
+
+  startListen(PORT);
 }
 
 startServer();

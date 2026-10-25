@@ -53,13 +53,20 @@ assert.equal(
   'o perdão de 20 no atraso não pode virar dinheiro recebido'
 );
 
-for (const legacyMode of ['INTEREST_ONLY', 'BOTH']) {
+for (const partialMode of ['FINE_ONLY', 'MORA_ONLY', 'FINE_AND_MORA', 'INTEREST_ONLY', 'BOTH']) {
   assert.deepEqual(
-    distribute({ principal: 1000, interest: 300, lateFee: 40, received: 320, lateFeeForgiven: 20, mode: legacyMode }),
+    distribute({ principal: 1000, interest: 300, lateFee: 40, received: 320, lateFeeForgiven: 20, mode: partialMode }),
     { interestPaid: 300, lateFeePaid: 20, principalPaid: 0, interestForgiven: 0, lateFeeForgiven: 20 },
-    `${legacyMode} deve preservar o comportamento legado do motor`
+    `${partialMode} deve preservar o comportamento do motor e juros`
   );
 }
+
+const noneMode = distribute({ principal: 1000, interest: 300, lateFee: 40, received: 320, lateFeeForgiven: 0, mode: 'NONE' });
+assert.deepEqual(
+  noneMode,
+  { interestPaid: 300, lateFeePaid: 20, principalPaid: 0, interestForgiven: 0, lateFeeForgiven: 0 },
+  'NONE não deve perdoar nenhum encargo'
+);
 
 const totalCharges = distribute({ principal: 1000, interest: 300, lateFee: 40, received: 320, mode: 'TOTAL_CHARGES' });
 assert.deepEqual(totalCharges, { interestPaid: 0, lateFeePaid: 0, principalPaid: 320, interestForgiven: 300, lateFeeForgiven: 40 });

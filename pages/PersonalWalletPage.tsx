@@ -610,12 +610,12 @@ export const PersonalWalletPage: React.FC = () => {
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Saldo em Contas</span>
             <Landmark size={12} className="text-emerald-400 shrink-0" />
-          </button>
+          </div>
           <div className="mt-1 flex items-baseline justify-between gap-2">
             <span className="text-sm sm:text-base font-extrabold text-emerald-400 truncate">{formatMoney(totals.balance)}</span>
             <span className="text-[10px] text-slate-500 truncate">{data.accounts.length} conta(s)</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 2: Gastos */}
         <button type="button" aria-label="Abrir despesas do mês" onClick={() => goToTab('EXPENSES')}
@@ -623,12 +623,12 @@ export const PersonalWalletPage: React.FC = () => {
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Gastos do Mês</span>
             <ReceiptText size={12} className="text-cyan-400 shrink-0" />
-          </button>
+          </div>
           <div className="mt-1 flex items-baseline justify-between gap-2">
             <span className="text-sm sm:text-base font-extrabold text-cyan-300 truncate">{formatMoney(totals.month)}</span>
             <span className="text-[10px] text-slate-500">Mês atual</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 3: Faturas */}
         <button type="button" aria-label="Abrir faturas abertas" onClick={() => goToTab('INVOICES')}
@@ -636,12 +636,12 @@ export const PersonalWalletPage: React.FC = () => {
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Faturas Abertas</span>
             <CalendarDays size={12} className="text-amber-400 shrink-0" />
-          </button>
+          </div>
           <div className="mt-1 flex items-baseline justify-between gap-2">
             <span className="text-sm sm:text-base font-extrabold text-amber-300 truncate">{formatMoney(totals.openInvoices)}</span>
             <span className="text-[10px] text-slate-500 truncate">{invoices.length} fatura(s)</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 4: Limite */}
         <button type="button" aria-label="Abrir cartões e limites" onClick={() => goToTab('CARDS')}
@@ -649,12 +649,12 @@ export const PersonalWalletPage: React.FC = () => {
           <div className="flex items-center justify-between gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
             <span className="truncate">Limite dos Cartões</span>
             <CreditCard size={12} className="text-blue-400 shrink-0" />
-          </button>
+          </div>
           <div className="mt-1 flex items-baseline justify-between gap-2">
             <span className="text-sm sm:text-base font-extrabold text-blue-300 truncate">{formatMoney(totals.available)}</span>
             <span className="text-[10px] font-semibold text-rose-300 truncate">Uso: {formatMoney(totals.used)}</span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Navegação por Abas */}

@@ -33,8 +33,8 @@ test('detalhe usa cabeçalho retrátil no scroll mobile e master-detail 5/7 no d
   assert.match(detail, /lg:sticky lg:top-6/);
 });
 
-test('adiciona o balanço geral consolidado sem substituir liquidez e compromissos', () => {
-  assert.match(page, /Liquidez e compromissos/);
+test('mantém o balanço geral consolidado como único resumo financeiro', () => {
+  assert.doesNotMatch(page, /Liquidez e compromissos/);
   assert.match(page, /WalletBalanceOverview/);
   assert.match(balancePanel, /Balanço Geral da Carteira/);
 });

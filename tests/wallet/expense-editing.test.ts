@@ -2,13 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('edição permanece na lista geral e o detalhe usa extrato isolado abaixo do conteúdo protegido', () => {
+test('edição permanece no extrato chaveado e no detalhe isolado do cartão', () => {
   const modal = readFileSync('components/wallet/CardDetailModal.tsx', 'utf8');
   const page = readFileSync('pages/PersonalWalletPage.tsx', 'utf8');
+  const statement = readFileSync('components/wallet/CardInvoiceStatement.tsx', 'utf8');
   assert.doesNotMatch(modal, /Lançamentos do cartão/);
   assert.match(modal, /CardInvoiceStatement/);
-  assert.match(page, /Editar lançamento/);
-  assert.match(page, /ExpenseEditModal/);
+  assert.match(page, /activeTab === 'extrato'/);
+  assert.match(page, /CardInvoiceStatement/);
+  assert.match(statement, /aria-label=\{`Editar/);
+  assert.match(statement, /ExpenseEditModal/);
 });
 
 test('edição financeira usa RPC transacional autenticada', () => {

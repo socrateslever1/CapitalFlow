@@ -1,21 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CalendarDays,
-  CheckCircle2,
   CreditCard,
-  Eye,
   ImagePlus,
   Landmark,
   Plus,
-  Receipt,
-  ReceiptText,
-  HandCoins,
   ShieldCheck,
   WalletCards,
   X,
-  XCircle,
   ChevronRight,
-  Pencil,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
@@ -41,7 +33,6 @@ import { AccountDetailsPage } from '../components/wallet/AccountDetailsPage';
 import { BankLogo } from '../components/wallet/BankLogo';
 import { BANK_CATALOG } from '../utils/bankLogoRegistry';
 import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
-import { getCardTheme } from '../components/wallet/VirtualCreditCard';
 import { BankStack } from '../components/wallet/BankStack';
 import { CardEditModal } from '../components/wallet/CardEditModal';
 import { RecurringIncomePanel } from '../components/wallet/RecurringIncomePanel';
@@ -49,8 +40,9 @@ import { RecurringObligationsPanel } from '../components/wallet/RecurringObligat
 import { UserProfile } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
-import { ExpenseEditModal } from '../components/wallet/ExpenseEditModal';
 import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
+import { CardInvoiceStatement } from '../components/wallet/CardInvoiceStatement';
+import { WalletStatementImport } from '../components/wallet/WalletStatementImport';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -68,7 +60,7 @@ type WalletData = {
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
-type WalletTab = 'ACCOUNTS' | 'INVOICES' | 'EXPENSES' | 'PAYABLES' | 'INCOME';
+type ActiveTab = 'extrato' | 'contas' | 'dividas' | 'receitas';
 
 export type InvoiceSummary = {
   key: string;
@@ -84,13 +76,6 @@ const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
 const currentMonth = () => today().slice(0, 7);
-
-const formatMonth = (value: string) => {
-  const normalized = String(value || '').slice(0, 7);
-  if (!normalized) return 'Sem vencimento';
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${normalized}-01T12:00:00Z`));
-};
 
 const DRAFT_PREFIX = 'capitalflow_wallet_draft_';
 
@@ -125,10 +110,11 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formMode, setFormMode] = useState<FormMode>(null);
-  const [activeTab, setActiveTab] = useState<WalletTab>('ACCOUNTS');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('extrato');
+  const [statementImportOpen, setStatementImportOpen] = useState(false);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
-  const goToTab = (tab: WalletTab) => {
+  const goToTab = (tab: ActiveTab) => {
     setSelectedAccountId(null);
     setActiveTab(tab);
     window.requestAnimationFrame(() => tabContentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
@@ -150,7 +136,6 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<PersonalWalletCard | null>(null);
   const [activeStackCard, setActiveStackCard] = useState<PersonalWalletCard | null>(null);
   const [selectedCardForInvoice, setSelectedCardForInvoice] = useState<PersonalWalletCard | null>(null);
-  const [selectedExpenseForEdit, setSelectedExpenseForEdit] = useState<PersonalWalletExpense | null>(null);
 
   const pageBack = usePageBack();
 
@@ -173,7 +158,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
     if (accountImagePreview) URL.revokeObjectURL(accountImagePreview);
   }, [accountImagePreview]);
 
-  const isAnyModalActive = Boolean(formMode || selectedCardForDetail || selectedCardForEdit || selectedCardForInvoice || selectedAccountId);
+  const isAnyModalActive = Boolean(formMode || statementImportOpen || selectedCardForDetail || selectedCardForEdit || selectedCardForInvoice || selectedAccountId);
 
   // Armazena a ação de voltar em ref para desacoplar a função de retorno dos hooks de efeito
   const handleBackRef = useRef<() => void>(() => {});
@@ -186,6 +171,7 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
     if (selectedCardForEdit) setSelectedCardForEdit(null);
     if (selectedCardForInvoice) setSelectedCardForInvoice(null);
     if (selectedAccountId) setSelectedAccountId(null);
+    if (statementImportOpen) setStatementImportOpen(false);
   };
 
   // Ocultação de botões flutuantes (FABs) ao abrir formulário ou modal
@@ -511,72 +497,65 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <div className="min-w-0 space-y-5 lg:col-span-7">
-          <BankStack accounts={data.accounts} cards={data.cards} holderName={activeUser?.fullName || activeUser?.name}
-            onAccount={openAccountDetails} onCard={setSelectedCardForDetail} onEditCard={setSelectedCardForEdit}
-            onSelectionChange={setActiveStackCard} onCreateCard={() => openForm('CARD')}/>
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h3 className="text-sm font-bold text-white">Liquidez e compromissos</h3>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Saldo em contas</p><strong className="mt-1 block text-lg text-emerald-300">{formatMoney(totals.balance)}</strong></div>
-              <div className="rounded-xl bg-slate-950 p-3"><p className="text-xs text-slate-400">Faturas abertas</p><strong className="mt-1 block text-lg text-amber-300">{formatMoney(totals.openInvoices)}</strong></div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={()=>goToTab('INCOME')} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-emerald-300">Receitas fixas</button>
-              <button type="button" onClick={()=>goToTab('PAYABLES')} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-rose-300">Dívidas contraídas</button>
-              <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-blue-300">Minhas contas</button>
-            </div>
-          </section>
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
+        <div className="min-w-0 space-y-6 lg:col-span-5 lg:self-start lg:sticky lg:top-6">
+          <BankStack
+            accounts={data.accounts}
+            cards={data.cards}
+            onAccount={openAccountDetails}
+            onCard={setSelectedCardForDetail}
+            onEditCard={setSelectedCardForEdit}
+            onSelectionChange={setActiveStackCard}
+            onCreateCard={() => openForm('CARD')}
+            onNewExpense={(card) => openForm('EXPENSE', { payment_source: `card:${card.id}` })}
+            onPayInvoice={(card) => { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(card); }}
+          />
+          <WalletBalanceOverview accounts={data.accounts} recurringIncomes={data.recurringIncomes}
+            receivedIncomeIds={receivedIncomeIdsThisMonth} openCardInvoices={totals.openInvoices}
+            payables={data.payables} month={currentMonth()} />
         </div>
-        <aside className="min-w-0 space-y-3 lg:col-span-5">
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h3 className="text-sm font-bold text-white">Cartão selecionado</h3>
-            {activeStackCard ? <>
-              <p className="mt-2 text-sm font-semibold text-slate-200">{activeStackCard.nickname}</p>
-              <p className="text-xs text-slate-400">{activeStackCard.issuer || 'Banco não informado'} · •••• {activeStackCard.last_four || '----'}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-slate-950 p-3"><span className="text-[10px] text-slate-400">Utilizado</span><strong className="block text-sm text-rose-300">{formatMoney(activeStackCard.used_limit)}</strong></div>
-                <div className="rounded-xl bg-slate-950 p-3"><span className="text-[10px] text-slate-400">Disponível</span><strong className="block text-sm text-emerald-300">{formatMoney(Math.max(0,Number(activeStackCard.credit_limit)-Number(activeStackCard.used_limit)))}</strong></div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setSelectedCardForEdit(activeStackCard)} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-blue-300">Editar cartão</button>
-                <button type="button" onClick={() => setSelectedCardForDetail(activeStackCard)} className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white">Detalhes</button>
-                <button type="button" onClick={() => openForm('EXPENSE',{payment_source:'card:'+activeStackCard.id})} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Nova despesa</button>
-                <button type="button" onClick={() => {setSelectedInvoiceDueMonth(null);setSelectedCardForInvoice(activeStackCard);}} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Pagar fatura</button>
-              </div>
-            </> : <p className="mt-2 text-xs text-slate-400">Cadastre um cartão para começar.</p>}
-          </section>
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h3 className="text-sm font-bold text-white">Extrato consolidado</h3>
-            {data.accountOperations.length===0 ? <p className="mt-2 text-xs text-slate-400">Nenhuma movimentação registrada.</p> :
-              data.accountOperations.slice(0,5).map(op => <div key={op.id} className="flex items-center justify-between gap-2 border-b border-slate-800 py-2 text-xs">
-                <span className="min-w-0 truncate text-slate-300">{op.description}</span>
-                <strong className={op.from_account_id?'text-rose-300':'text-emerald-300'}>{formatMoney(op.amount)}</strong>
-              </div>)}
-            <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="mt-2 text-xs font-bold text-blue-300">Ver extrato das contas</button>
-          </section>
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <h3 className="text-sm font-bold text-white">Contas e passivos</h3>
-            <p className="mt-2 text-xs text-slate-400">Saldo nas contas</p><strong className="text-lg text-emerald-300">{formatMoney(totals.balance)}</strong>
-            <p className="mt-3 text-xs text-slate-400">Dívidas a pagar</p>
-            <strong className="text-base text-rose-300">{formatMoney(data.payables.filter(p => !['PAID','CANCELED'].includes(p.status)).reduce((n,p)=>n+Number(p.outstanding_balance||0),0))}</strong>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Ver contas</button>
-              <button type="button" onClick={()=>goToTab('PAYABLES')} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300">Dívidas</button>
-            </div>
-          </section>
-        </aside>
-      </div>
 
-      <WalletBalanceOverview
-        accounts={data.accounts}
-        recurringIncomes={data.recurringIncomes}
-        receivedIncomeIds={receivedIncomeIdsThisMonth}
-        openCardInvoices={totals.openInvoices}
-        payables={data.payables}
-        month={currentMonth()}
-      />
+        <section ref={tabContentRef} aria-label="Base operacional da carteira" className="min-w-0 lg:col-span-7">
+          <nav aria-label="Áreas da carteira" className="sticky top-0 z-30 grid grid-cols-2 gap-1 rounded-2xl border border-slate-800 bg-slate-950/90 p-1.5 backdrop-blur-md sm:grid-cols-4 lg:top-6">
+            {([
+              ['extrato', 'Extrato do Cartão'],
+              ['contas', 'Contas Bancárias & PIX'],
+              ['dividas', 'Dívidas & A Pagar'],
+              ['receitas', 'Receitas Fixas'],
+            ] as const).map(([tab, label]) => (
+              <button key={tab} type="button" onClick={() => goToTab(tab)} aria-current={activeTab === tab ? 'page' : undefined}
+                className={`min-h-10 rounded-xl px-2 py-2 text-[10px] font-bold transition-all sm:text-xs ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/40' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}>
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="mt-4 min-h-[28rem] rounded-2xl border border-slate-800 bg-slate-900/55 p-3 sm:p-4">
+            {activeTab === 'extrato' && (activeStackCard ? (
+              <CardInvoiceStatement cardId={activeStackCard.id}
+                dueMonth={invoices.find(invoice => invoice.cardId === activeStackCard.id)?.dueMonth || null}
+                expenses={data.expenses} installments={data.installments}
+                onEdit={async input => { await personalWalletService.updateExpense(input); await refresh(); setSuccess('Lançamento atualizado. Fatura e limite recalculados.'); }}
+                onDelete={async expenseId => { await personalWalletService.setExpenseStatus(expenseId, 'CANCELED'); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
+                className="m-0 border-0 bg-transparent p-0"
+                headerAction={<button type="button" onClick={() => setStatementImportOpen(true)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-300">Importar PDF da fatura</button>}
+              />
+            ) : <EmptyState text="Cadastre um cartão para visualizar o extrato." actionLabel="Cadastrar cartão" onAction={() => openForm('CARD')} />)}
+
+            {activeTab === 'contas' && <div className="space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-300"><Landmark size={14} className="text-emerald-400"/> Contas Bancárias e Chaves PIX</h2><button type="button" onClick={() => openForm('ACCOUNT')} className="shrink-0 text-[10px] font-bold text-emerald-400"><Plus size={12} className="inline"/> Cadastrar conta</button></div>
+              {!data.accounts.length ? <EmptyState text="Nenhuma conta cadastrada." actionLabel="Cadastrar conta" onAction={() => openForm('ACCOUNT')}/> : <div className="grid gap-2">{data.accounts.map(account => <button type="button" key={account.id} onClick={() => openAccountDetails(account.id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-left hover:border-emerald-500"><span className="flex min-w-0 items-center gap-2.5"><BankLogo name={account.bank_name} alternateName={account.nickname} customImage={account.image_url} size="sm"/><span className="min-w-0"><strong className="block truncate text-xs text-white">{account.nickname}</strong><small className="block truncate text-[10px] text-slate-400">{account.bank_name || 'Conta pessoal'}{account.pix_key_type ? ` · PIX: ${account.pix_key || account.pix_key_type}` : ''}</small></span></span><span className="flex shrink-0 items-center gap-2"><strong className="text-xs text-emerald-300">{formatMoney(account.balance)}</strong><ChevronRight size={15} className="text-slate-500"/></span></button>)}</div>}
+            </div>}
+
+            {activeTab === 'dividas' && <div className="space-y-4 animate-in fade-in"><RecurringObligationsPanel accounts={data.accounts} cards={data.cards} items={data.recurringObligations} onSaved={refresh}/><WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards} saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => { setSaving(true); setError(''); try { await personalWalletService.payPayable(input); await refresh(); setSuccess('Pagamento registrado e passivo atualizado.'); } catch (reason) { const message = reason instanceof Error ? reason.message : 'Pagamento não realizado'; setError(message); throw new Error(message); } finally { setSaving(false); } }}/></div>}
+
+            {activeTab === 'receitas' && (
+              <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
+                receivedIds={receivedIncomeIdsThisMonth} onSaved={refresh} />
+            )}
+          </div>
+        </section>
+      </div>
 
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
       {formMode && (
@@ -771,246 +750,12 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
-        <button type="button" onClick={()=>goToTab('ACCOUNTS')} className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 text-left">
-          <span className="block text-[10px] text-slate-400">Em contas</span><strong className="block truncate text-xs sm:text-sm text-emerald-300">{formatMoney(totals.balance)}</strong>
-        </button>
-        <button type="button" onClick={()=>goToTab('INVOICES')} className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 text-left">
-          <span className="block text-[10px] text-slate-400">Faturas</span><strong className="block truncate text-xs sm:text-sm text-amber-300">{formatMoney(totals.openInvoices)}</strong>
-        </button>
-        <button type="button" onClick={()=>goToTab('PAYABLES')} className="rounded-xl border border-slate-800 bg-slate-900 p-2.5 text-left">
-          <span className="block text-[10px] text-slate-400">Passivos</span><strong className="block truncate text-xs sm:text-sm text-rose-300">{formatMoney(data.payables.filter(p=>!['PAID','CANCELED'].includes(p.status)).reduce((sum,p)=>sum+Number(p.outstanding_balance||0),0))}</strong>
-        </button>
-      </div>
-
-      {/* Navegação compacta apenas para módulos com conteúdo próprio.
-           Cartões ficam exclusivamente na pilha e no bottom sheet. */}
-      <nav aria-label="Módulos da carteira" className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {([
-          ['ACCOUNTS','Contas & PIX'],
-          ['INVOICES','Faturas'],
-          ['EXPENSES','Despesas'],
-          ['PAYABLES','A pagar'],
-          ['INCOME','Receitas fixas'],
-        ] as const).map(([tab,label]) => <button key={tab} type="button" onClick={() => goToTab(tab)}
-          aria-current={activeTab === tab ? 'page' : undefined}
-          className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${activeTab===tab?'border-blue-500 bg-blue-600 text-white':'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'}`}>
-          {label}
-        </button>)}
-      </nav>
-
-      {/* Conteúdo da Aba Ativa */}
-      <div ref={tabContentRef} className="pt-1 scroll-mt-4">
-        {/* Aba 2: Contas & PIX */}
-        {activeTab === 'ACCOUNTS' && (
-          <div className="space-y-2.5 animate-in fade-in">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Landmark size={14} className="text-emerald-400" /> Contas Bancárias e Chaves PIX
-              </h2>
-              <button
-                type="button"
-                onClick={() => openForm('ACCOUNT')}
-                className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-              >
-                <Plus size={12} /> Cadastrar conta
-              </button>
-            </div>
-            {!data.accounts.length ? (
-              <EmptyState
-                text="Nenhuma conta cadastrada."
-                actionLabel="Cadastrar conta"
-                onAction={() => openForm('ACCOUNT')}
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {data.accounts.map((account) => (
-                  <button type="button" key={account.id} onClick={() => openAccountDetails(account.id)}
-                    aria-label={`Abrir detalhes da conta ${account.nickname}`}
-                    className="flex w-full items-center justify-between gap-2.5 rounded-xl border border-slate-800/90 bg-slate-900/80 p-3 text-left hover:border-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 transition-all">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <BankLogo name={account.bank_name} alternateName={account.nickname} customImage={account.image_url} size="sm" />
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-bold text-white">{account.nickname}</p>
-                        <p className="truncate text-[10px] text-slate-400">
-                          {account.bank_name || 'Conta pessoal'}
-                          {account.pix_key_type ? ` · PIX: ${account.pix_key || account.pix_key_type}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="flex items-center gap-2 shrink-0"><strong className="text-xs sm:text-sm font-bold text-emerald-300">{formatMoney(account.balance)}</strong><ChevronRight size={15} className="text-slate-400" /></span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Aba 3: Faturas */}
-        {activeTab === 'INVOICES' && (
-          <div className="space-y-2.5 animate-in fade-in">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <CalendarDays size={14} className="text-amber-400" /> Faturas e Próximos Vencimentos
-              </h2>
-            </div>
-            {!invoices.length ? (
-              <EmptyState text="Nenhuma fatura pendente no momento." />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {invoices.map((invoice) => (
-                  <article key={invoice.key} className="rounded-xl border border-slate-800/90 bg-slate-900/80 p-3 hover:border-slate-700 transition-all">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-white truncate">{invoice.cardName}</p>
-                        <p className="text-[10px] text-slate-400 capitalize">{formatMonth(invoice.dueMonth)} · {invoice.installmentCount} lançamento(s)</p>
-                      </div>
-                      <strong className="text-xs sm:text-sm font-extrabold text-amber-300 shrink-0">{formatMoney(invoice.amount)}</strong>
-                    </div>
-                    <div className="mt-2.5 flex items-center justify-end">
-                      <button type="button" disabled={saving || invoice.amount <= 0}
-                        onClick={() => {
-                          setSelectedInvoiceDueMonth(invoice.dueMonth);
-                          const card = data.cards.find((item) => item.id === invoice.cardId);
-                          if (card) setSelectedCardForInvoice(card);
-                        }}
-                        className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white disabled:opacity-40">
-                        Pagar parte ou total
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-            {data.invoicePayments.length > 0 && (
-              <div className="space-y-2 pt-3 border-t border-slate-800">
-                <h3 className="text-xs font-bold uppercase text-slate-400">Histórico de pagamentos registrados</h3>
-                {data.invoicePayments.map((payment) => (
-                  <div key={payment.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
-                    <div className="min-w-0">
-                      <p className="text-xs text-white font-semibold truncate">
-                        {cardsById.get(payment.card_id)?.nickname || 'Cartão'} · {formatMonth(payment.due_month)}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        {payment.source === 'MANUAL' ? 'Registro manual · sem débito em conta' : 'Debitado de conta cadastrada'}
-                        {' · '}{new Date(payment.created_at).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                    <strong className="text-xs text-emerald-400 shrink-0">{formatMoney(Number(payment.amount))}</strong>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'PAYABLES' && <RecurringObligationsPanel accounts={data.accounts} cards={data.cards} items={data.recurringObligations} onSaved={refresh}/>}
-        {activeTab === 'PAYABLES' && <WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards}
-          saving={saving} onCreate={() => openForm('PAYABLE')} onPay={async input => {
-          setSaving(true);setError('');
-          try{
-            await personalWalletService.payPayable(input);
-            await refresh();
-            setSuccess('Pagamento registrado e passivo atualizado.');
-          }catch(reason){const message=reason instanceof Error?reason.message:'Pagamento não realizado';setError(message);throw new Error(message);}
-          finally{setSaving(false);}
-        }}/>}
-        {activeTab === 'INCOME' && <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
-          receivedIds={new Set(data.recurringReceipts.filter(r=>r.reference_month===currentMonth()+'-01').map(r=>r.income_id))}
-          onSaved={refresh}/>}
-
-        {/* Aba 4: Despesas Recentes */}
-        {activeTab === 'EXPENSES' && (
-          <div className="space-y-2.5 animate-in fade-in">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <ReceiptText size={14} className="text-cyan-400" /> Despesas recentes
-              </h2>
-              <button type="button" onClick={()=>goToTab('PAYABLES')} className="text-[10px] font-bold text-amber-300">Despesas e dívidas fixas</button>
-              <button
-                type="button"
-                onClick={() => openForm('EXPENSE')}
-                disabled={!data.accounts.length && !data.cards.length}
-                className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 disabled:opacity-40"
-              >
-                <Plus size={12} /> Nova despesa
-              </button>
-            </div>
-            {!data.expenses.length ? (
-              <EmptyState
-                text="Nenhuma despesa registrada."
-                actionLabel="Registrar despesa"
-                onAction={() => openForm('EXPENSE')}
-              />
-            ) : (
-              <div className="space-y-2">
-                {data.expenses.slice(0, 25).map((expense) => {
-                  const sourceName = expense.account_id
-                    ? data.accounts.find((account) => account.id === expense.account_id)?.nickname
-                    : data.cards.find((card) => card.id === expense.card_id)?.nickname;
-                  return (
-                    <article key={expense.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-slate-800/80 bg-slate-900/70 p-3 hover:border-slate-700 transition-all">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-xs font-bold text-white truncate">{expense.description}</p>
-                          <StatusBadge status={expense.status} />
-                        </div>
-                        <p className="mt-0.5 text-[10px] text-slate-400 truncate">
-                          {expense.category} · {sourceName || 'Origem'} · {expense.installment_count}x · {expense.expense_date}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                        <strong className="text-xs sm:text-sm font-bold text-cyan-300">{formatMoney(expense.amount)}</strong>
-                        <div className="flex items-center gap-1">
-                          {expense.status === 'PENDING' && expense.card_id && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              title="Editar lançamento"
-                              aria-label={`Editar lançamento ${expense.description}`}
-                              onClick={() => setSelectedExpenseForEdit(expense)}
-                              className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-1.5 text-blue-400 hover:bg-blue-500/20 transition-colors"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                          )}
-                          {expense.status === 'PENDING' && expense.account_id && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              title="Marcar como paga"
-                              aria-label={`Marcar ${expense.description} como paga`}
-                              onClick={() => runAction(() => personalWalletService.setExpenseStatus(expense.id, 'PAID'), 'Despesa paga e saldo atualizado.')}
-                              className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-1.5 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                            >
-                              <CheckCircle2 size={14} />
-                            </button>
-                          )}
-                          {expense.status !== 'CANCELED' && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              title="Cancelar despesa"
-                              aria-label={`Cancelar ${expense.description}`}
-                              onClick={() => runAction(() => personalWalletService.setExpenseStatus(expense.id, 'CANCELED'), 'Despesa cancelada.')}
-                              className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-1.5 text-rose-400 hover:bg-rose-500/20 transition-colors"
-                            >
-                              <XCircle size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {selectedCardForEdit && <CardEditModal key={selectedCardForEdit.id} card={selectedCardForEdit} accounts={data.accounts}
         onClose={() => setSelectedCardForEdit(null)} onSaved={refresh} />}
+      {statementImportOpen && activeStackCard && (
+        <WalletStatementImport kind="CARD" targetId={activeStackCard.id} targetName={activeStackCard.nickname}
+          onClose={() => setStatementImportOpen(false)} onImported={async () => { await refresh(); setStatementImportOpen(false); }} />
+      )}
       {/* Modal de Detalhes e Visualização do Cartão */}
       {selectedCardForDetail && (
         <CardDetailModal
@@ -1049,18 +794,6 @@ export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> =
             setSelectedCardForDetail(null);
             const foundCard = data.cards.find((c) => c.id === cardId);
             if (foundCard) { setSelectedInvoiceDueMonth(null); setSelectedCardForInvoice(foundCard); }
-          }}
-        />
-      )}
-
-      {selectedExpenseForEdit && (
-        <ExpenseEditModal
-          expense={selectedExpenseForEdit}
-          onClose={() => setSelectedExpenseForEdit(null)}
-          onSave={async (input) => {
-            await personalWalletService.updateExpense(input);
-            await refresh();
-            setSuccess('Lançamento atualizado. Limite e fatura foram recalculados.');
           }}
         />
       )}

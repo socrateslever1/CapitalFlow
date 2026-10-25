@@ -23,3 +23,19 @@ test('a pilha preserva o alternador por setas e gesto horizontal sem cartão sin
   assert.match(stack, /onTouchEnd/);
   assert.doesNotMatch(stack, />CapitalFlow</);
 });
+
+test('a página da carteira possui somente pilha, balanço e base operacional por quatro abas', () => {
+  assert.match(page, /type ActiveTab = 'extrato' \| 'contas' \| 'dividas' \| 'receitas'/);
+  assert.match(page, /lg:grid-cols-12/);
+  assert.match(page, /lg:col-span-5/);
+  assert.match(page, /lg:col-span-7/);
+  assert.match(page, /lg:sticky lg:top-6/);
+  assert.match(page, /Extrato do Cartão/);
+  assert.match(page, /Contas Bancárias & PIX/);
+  assert.match(page, /Dívidas & A Pagar/);
+  assert.match(page, /Receitas Fixas/);
+  assert.doesNotMatch(page, /Liquidez e compromissos/);
+  assert.doesNotMatch(page, /Cartão selecionado/);
+  assert.doesNotMatch(page, /Contas e passivos/);
+  assert.doesNotMatch(page, />Em contas</);
+});

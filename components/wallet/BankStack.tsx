@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Pencil, Wifi } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, CreditCard, Pencil, Plus, Wifi } from 'lucide-react';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { BankLogo } from './BankLogo';
@@ -14,7 +14,8 @@ type Props = {
   onEditCard: (card: PersonalWalletCard) => void;
   onCreateCard?: () => void;
   onSelectionChange?: (card: PersonalWalletCard | null) => void;
-  holderName?: string;
+  onNewExpense?: (card: PersonalWalletCard) => void;
+  onPayInvoice?: (card: PersonalWalletCard) => void;
 };
 
 const Chip = () => <svg viewBox="0 0 42 33" width="36" height="29" aria-label="Chip EMV"><rect x="1" y="1" width="40" height="31" rx="6" fill="#DFC48C" stroke="#977844"/><path d="M14 1v31M28 1v31M1 11h40M1 22h40M14 11h14v11H14z" fill="none" stroke="#977844" strokeWidth="1.5"/></svg>;
@@ -26,11 +27,10 @@ const Network = ({ brand }: { brand: string | null }) => {
   return <span className="text-xs font-bold">{brand || 'CRÉDITO'}</span>;
 };
 
-export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard, onEditCard, onCreateCard, onSelectionChange, holderName }) => {
+export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard, onEditCard, onCreateCard, onSelectionChange, onNewExpense, onPayInvoice }) => {
   const availableCards = useMemo(() => cards.filter(card => card.status !== 'CANCELED'), [cards]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [showHolder, setShowHolder] = useState(false);
   const startX = useRef<number | null>(null);
   const preventOpen = useRef(false);
   const selected = availableCards.find(card => card.id === selectedId) || availableCards[0] || null;
@@ -41,7 +41,6 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard,
   const count = banks.filter(group => group.cards.length > 0).length;
 
   useEffect(() => { onSelectionChange?.(selected); }, [selected, onSelectionChange]);
-  useEffect(() => { setShowHolder(false); }, [selected?.id]);
 
   const cycle = (step: number) => {
     if (availableCards.length > 1) setSelectedId(availableCards[(index + step + availableCards.length) % availableCards.length].id);
@@ -88,7 +87,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard,
                 <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-xs">{front!.issuer}</strong></div><Network brand={selected.brand}/></div>
                 <div className="flex items-center justify-between"><Chip/><Wifi size={18} className="rotate-90 opacity-80"/></div>
                 <div className="flex items-end justify-between gap-2">
-                  <div className="min-w-0"><small className="block text-[9px] uppercase text-white/75">{showHolder ? 'Titular' : 'Disponível'}</small><strong className="block truncate text-base font-black sm:text-xl">{showHolder ? (holderName || selected.nickname).toUpperCase() : formatMoney(Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)))}</strong><small className="text-[9px] text-white/70">{selected.status === 'BLOCKED' ? 'Bloqueado' : selected.nickname}</small></div>
+                  <div className="min-w-0"><small className="block text-[9px] uppercase text-white/75">Disponível</small><strong className="block truncate text-base font-black sm:text-xl">{formatMoney(Math.max(0, Number(selected.credit_limit) - Number(selected.used_limit)))}</strong><small className="text-[9px] text-white/70">{selected.status === 'BLOCKED' ? 'Bloqueado' : selected.nickname}</small></div>
                   <strong className="shrink-0 font-mono text-xs tracking-wide">•••• {selected.last_four || '----'}</strong>
                 </div>
               </div>
@@ -97,12 +96,12 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard,
         </div>
         <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(1)} aria-label="Próximo cartão" className="rounded-full p-1 text-slate-300 disabled:opacity-30"><ArrowRight size={19}/></button>
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-        <button type="button" onClick={() => setShowHolder(current => !current)} className="rounded-full border border-slate-700 px-3 py-2 text-xs text-slate-200">{showHolder ? 'Ver limite' : 'Ver titular'}</button>
-        <button type="button" onClick={() => onEditCard(selected)} className="flex items-center gap-1 rounded-full border border-slate-700 px-3 py-2 text-xs text-slate-200"><Pencil size={14}/> Editar cartão</button>
-        <button type="button" onClick={() => onCard(selected)} className="rounded-full border border-slate-700 px-3 py-2 text-xs text-blue-300">Detalhes</button>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <button type="button" onClick={() => onNewExpense?.(selected)} className="flex min-w-0 items-center justify-center gap-1 rounded-xl bg-blue-600 px-2 py-2.5 text-[10px] font-bold text-white sm:text-xs"><Plus size={14}/> Despesa</button>
+        <button type="button" onClick={() => onPayInvoice?.(selected)} className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2 py-2.5 text-[10px] font-bold text-amber-200 sm:text-xs"><CreditCard size={14}/> Pagar fatura</button>
+        <button type="button" onClick={() => onEditCard(selected)} className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-700 px-2 py-2.5 text-[10px] font-bold text-slate-200 sm:text-xs"><Pencil size={14}/> Editar cartão</button>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2 text-[11px]"><span className="text-slate-400">Limite total em {count} bancos <strong className="text-slate-200">{formatMoney(summary.total)}</strong></span><button type="button" onClick={() => setSheetOpen(true)} className="flex items-center gap-1 font-bold text-blue-300">Ver uso <ArrowUpRight size={14}/></button></div>
+      <button type="button" onClick={() => setSheetOpen(true)} className="mt-2 flex w-full items-center justify-between gap-2 text-left text-[11px]"><span className="text-slate-400">Limite total em {count} bancos: <strong className="text-slate-200">{formatMoney(summary.total)}</strong></span><span className="flex items-center gap-1 font-bold text-blue-300">Ver uso do limite <ArrowUpRight size={14}/></span></button>
       <p className="mt-2 text-center text-[10px] text-slate-500">{index + 1} de {availableCards.length} · Deslize ou use as setas para trocar</p>
     </>}
     <WalletCardsSheet open={sheetOpen} cards={availableCards} accounts={accounts} onClose={() => setSheetOpen(false)} onCard={card => { setSheetOpen(false); setSelectedId(card.id); onCard(card); }} onAccount={accountId => { setSheetOpen(false); onAccount(accountId); }}/>

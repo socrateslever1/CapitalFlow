@@ -23,6 +23,8 @@ type Props = {
   statementRows: WalletStatementRow[];
   onBack: () => void;
   onSaved: () => Promise<void>;
+  ownerName?: string;
+  ownerCity?: string;
 };
 
 const typeLabels: Record<string, string> = {
@@ -34,7 +36,7 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expenses, invoicePayments, accountOperations, statementRows, onBack, onSaved }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expenses, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity }) => {
   const [editing, setEditing] = useState(false);
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
@@ -146,7 +148,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
           {account.notes && <p className="truncate text-[11px] text-slate-500" title={account.notes}>{account.notes}</p>}
         </div>}
       </div>
-      {pixChargeOpen && account.pix_key && <WalletPixCharge pixKey={account.pix_key} onClose={()=>setPixChargeOpen(false)} />}
+      {pixChargeOpen && account.pix_key && <WalletPixCharge pixKey={account.pix_key} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} />}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}

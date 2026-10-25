@@ -9,6 +9,7 @@ import {
   Plus,
   Receipt,
   ReceiptText,
+  HandCoins,
   ShieldCheck,
   WalletCards,
   X,
@@ -23,6 +24,7 @@ import {
   PersonalWalletExpense,
   PersonalWalletExpenseInstallment,
   PersonalWalletInvoicePayment,
+  PersonalWalletPayable,
   WalletAccountOperation,
   WalletStatementRow,
 } from '../services/personalWallet.service';
@@ -34,6 +36,8 @@ import { BankLogo } from '../components/wallet/BankLogo';
 import { BANK_CATALOG } from '../utils/bankLogoRegistry';
 import { PayInvoiceModal } from '../components/wallet/PayInvoiceModal';
 import { getCardTheme } from '../components/wallet/VirtualCreditCard';
+import { BankStack } from '../components/wallet/BankStack';
+import { UserProfile } from '../types';
 
 type WalletData = {
   accounts: PersonalWalletAccount[];
@@ -43,10 +47,11 @@ type WalletData = {
   invoicePayments: PersonalWalletInvoicePayment[];
   accountOperations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
+  payables: PersonalWalletPayable[];
 };
 
-type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | null;
-type WalletTab = 'CARDS' | 'ACCOUNTS' | 'INVOICES' | 'EXPENSES';
+type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
+type WalletTab = 'CARDS' | 'ACCOUNTS' | 'INVOICES' | 'EXPENSES' | 'PAYABLES';
 
 export type InvoiceSummary = {
   key: string;
@@ -57,7 +62,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -96,7 +101,7 @@ const clearDraft = (mode: FormMode) => {
   } catch {}
 };
 
-export const PersonalWalletPage: React.FC = () => {
+export const PersonalWalletPage: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUser }) => {
   const [data, setData] = useState<WalletData>(emptyWallet);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -211,7 +216,9 @@ export const PersonalWalletPage: React.FC = () => {
       setForm(
         mode === 'EXPENSE'
           ? { expense_date: today(), status: 'PENDING', installment_count: '1', ...(initialOverrides || {}) }
-          : { ...(initialOverrides || {}) }
+          : mode === 'PAYABLE'
+            ? { creditor_type: 'PERSON', due_date: today(), ...(initialOverrides || {}) }
+            : { ...(initialOverrides || {}) }
       );
       setIsDraftRestored(false);
     }
@@ -286,7 +293,18 @@ export const PersonalWalletPage: React.FC = () => {
           closing_day: form.closing_day ? Number(form.closing_day) : null,
           due_day: form.due_day ? Number(form.due_day) : null,
           notes: JSON.stringify(cardMeta),
+          account_id: form.account_id || null,
         }, cardImage);
+      }
+      if (currentMode === 'PAYABLE') {
+        await personalWalletService.createPayable({
+          creditor_name: form.creditor_name || '',
+          creditor_type: (form.creditor_type || 'PERSON') as 'PERSON' | 'COMPANY',
+          description: form.description || '',
+          amount: Number(form.amount || 0),
+          due_date: form.due_date || null,
+          notes: form.notes || null,
+        });
       }
       if (currentMode === 'EXPENSE') {
         const [paymentType, paymentId] = String(form.payment_source || '').split(':');
@@ -381,6 +399,8 @@ export const PersonalWalletPage: React.FC = () => {
       accounts={data.accounts}
       accountOperations={data.accountOperations}
       statementRows={data.statementRows}
+      ownerName={activeUser?.fullName || activeUser?.name}
+      ownerCity={activeUser?.city}
       onBack={() => setSelectedAccountId(null)}
       onSaved={refresh}
     />;
@@ -443,6 +463,8 @@ export const PersonalWalletPage: React.FC = () => {
         </div>
       )}
 
+      <BankStack accounts={data.accounts} cards={data.cards} onAccount={openAccountDetails} onCard={setSelectedCardForDetail} />
+
       {/* Formulário Modal/Drawer Mobile-First com Rodapé Fixo */}
       {formMode && (
         <div
@@ -459,7 +481,7 @@ export const PersonalWalletPage: React.FC = () => {
             <div className="shrink-0 p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
               <div className="flex items-center gap-2">
                 <h2 className="text-xs font-black uppercase tracking-wider text-white">
-                  {formMode === 'ACCOUNT' ? 'Nova conta bancária' : formMode === 'CARD' ? 'Novo cartão de crédito' : 'Nova despesa'}
+                  {formMode === 'ACCOUNT' ? 'Nova conta bancária' : formMode === 'CARD' ? 'Novo cartão de crédito' : formMode === 'PAYABLE' ? 'Nova dívida a pagar' : 'Nova despesa'}
                 </h2>
                 {isDraftRestored && (
                   <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
@@ -510,6 +532,7 @@ export const PersonalWalletPage: React.FC = () => {
                     <label><span className={labelClass}>Limite total</span><input required type="number" min="0" step="0.01" value={form.credit_limit || ''} onChange={(e) => updateField('credit_limit', e.target.value)} className={fieldClass} placeholder="0,00" /></label>
                     <label><span className={labelClass}>Emissor / Banco</span><input value={form.issuer || ''} onChange={(e) => updateField('issuer', e.target.value)} className={fieldClass} placeholder="Ex: Nubank, Inter, Itaú, XP" /></label>
                     <label><span className={labelClass}>Bandeira</span><input value={form.brand || ''} onChange={(e) => updateField('brand', e.target.value)} className={fieldClass} placeholder="Ex: Mastercard, Visa, Elo" /></label>
+                    <label className="sm:col-span-2"><span className={labelClass}>Conta vinculada</span><select value={form.account_id || ''} onChange={(e) => updateField('account_id', e.target.value)} className={fieldClass}><option value="">Cartão independente (sem conta)</option>{data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname} · {account.bank_name || 'Conta'}</option>)}</select><small className="mt-1 block text-[9px] text-slate-500">Vincule quando débito e crédito pertencem à mesma conta.</small></label>
                     <label><span className={labelClass}>Número do cartão</span><input value={form.card_number || ''} maxLength={19} onChange={(e) => {
                       const v = e.target.value.replace(/\D/g, '').slice(0, 16);
                       const formatted = v.match(/.{1,4}/g)?.join(' ') || v;
@@ -572,6 +595,15 @@ export const PersonalWalletPage: React.FC = () => {
                     <label className={selectedPaymentType === 'account' ? '' : 'sm:col-span-2'}><span className={labelClass}>Observações</span><input value={form.notes || ''} onChange={(e) => updateField('notes', e.target.value)} className={fieldClass} placeholder="Opcional" /></label>
                   </>
                 )}
+
+                {formMode === 'PAYABLE' && (<>
+                  <label><span className={labelClass}>Credor</span><input required value={form.creditor_name || ''} onChange={e => updateField('creditor_name', e.target.value)} className={fieldClass} placeholder="Pessoa ou empresa" /></label>
+                  <label><span className={labelClass}>Tipo</span><select value={form.creditor_type || 'PERSON'} onChange={e => updateField('creditor_type', e.target.value)} className={fieldClass}><option value="PERSON">Pessoa</option><option value="COMPANY">Empresa</option></select></label>
+                  <label className="sm:col-span-2"><span className={labelClass}>Descrição</span><input required value={form.description || ''} onChange={e => updateField('description', e.target.value)} className={fieldClass} placeholder="Ex: empréstimo, fornecedor, serviço" /></label>
+                  <label><span className={labelClass}>Valor</span><input required type="number" min="0.01" step="0.01" value={form.amount || ''} onChange={e => updateField('amount', e.target.value)} className={fieldClass} /></label>
+                  <label><span className={labelClass}>Vencimento</span><input type="date" value={form.due_date || ''} onChange={e => updateField('due_date', e.target.value)} className={fieldClass} /></label>
+                  <label className="sm:col-span-2"><span className={labelClass}>Observações</span><input value={form.notes || ''} onChange={e => updateField('notes', e.target.value)} className={fieldClass} /></label>
+                </>)}
               </div>
             </div>
 
@@ -670,7 +702,7 @@ export const PersonalWalletPage: React.FC = () => {
       </div>
 
       {/* Navegação por Abas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1 rounded-xl border border-slate-800 bg-slate-950/80 p-1">
         <button
           type="button"
           onClick={() => setActiveTab('CARDS')}
@@ -741,6 +773,10 @@ export const PersonalWalletPage: React.FC = () => {
               {data.expenses.length}
             </span>
           )}
+        </button>
+
+        <button type="button" onClick={() => setActiveTab('PAYABLES')} className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${activeTab === 'PAYABLES' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+          <HandCoins size={13} /><span className="truncate">A pagar</span>{data.payables.filter(item => item.status === 'PENDING').length > 0 && <span className="rounded-full bg-rose-500/20 px-1.5 text-[10px] text-rose-300">{data.payables.filter(item => item.status === 'PENDING').length}</span>}
         </button>
       </div>
 
@@ -969,6 +1005,13 @@ export const PersonalWalletPage: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'PAYABLES' && (
+          <div className="space-y-2.5 animate-in fade-in">
+            <div className="flex items-center justify-between px-1"><h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400"><HandCoins size={14} className="text-rose-400" /> Dívidas com pessoas e empresas</h2><button type="button" onClick={() => openForm('PAYABLE')} className="flex items-center gap-1 text-[10px] font-bold text-rose-300"><Plus size={12} /> Registrar dívida</button></div>
+            {!data.payables.length ? <EmptyState text="Nenhuma dívida a pagar registrada." actionLabel="Registrar dívida" onAction={() => openForm('PAYABLE')} /> : <div className="space-y-2">{data.payables.map(item => <article key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 p-3"><div className="min-w-0"><div className="flex items-center gap-2"><strong className="truncate text-xs text-white">{item.creditor_name}</strong><StatusBadge status={item.status} /></div><p className="mt-1 truncate text-[10px] text-slate-400">{item.creditor_type === 'COMPANY' ? 'Empresa' : 'Pessoa'} · {item.description}{item.due_date ? ` · vence ${new Date(`${item.due_date}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}</p></div><div className="flex shrink-0 items-center gap-2"><strong className="text-sm text-rose-300">{formatMoney(item.amount)}</strong>{item.status === 'PENDING' && <button type="button" disabled={saving} onClick={() => runAction(() => personalWalletService.setPayableStatus(item.id, 'PAID'), 'Dívida marcada como paga.')} className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400" title="Marcar como paga"><CheckCircle2 size={15} /></button>}</div></article>)}</div>}
           </div>
         )}
 

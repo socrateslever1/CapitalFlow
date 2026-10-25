@@ -646,7 +646,7 @@ export const App: React.FC = () => {
 
               {activeTab === 'MY_WALLET' && isPlatformSuperAdmin && (
                 <motion.div key="wallet-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <PersonalWalletPage />
+                  <PersonalWalletPage activeUser={activeUser} />
                 </motion.div>
               )}
 

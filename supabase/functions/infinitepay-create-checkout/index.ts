@@ -12,23 +12,13 @@ const baseCorsHeaders = {
   "Vary": "Origin",
 };
 
-const allowedOrigins = new Set([
-  APP_ORIGIN.replace(/\/$/, ""),
-  "https://capflow.pages.dev",
-  "https://capitalflow.app",
-  "https://www.capitalflow.app",
-  "http://localhost:3003",
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost",
-  "https://localhost",
-]);
-
+// This endpoint is a public portal endpoint authenticated by portal credentials.
+// CORS is not an authorization mechanism. Never enable credentialed CORS here.
 function corsHeaders(req: Request) {
   const origin = req.headers.get("origin") || "";
   return {
     ...baseCorsHeaders,
-    "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : APP_ORIGIN,
+    "Access-Control-Allow-Origin": origin || APP_ORIGIN,
   };
 }
 

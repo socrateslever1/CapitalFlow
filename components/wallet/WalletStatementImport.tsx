@@ -20,6 +20,7 @@ export const WalletStatementImport: React.FC<Props> = ({ kind, targetId, targetN
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<number | null>(null);
   const selectedCount = rows.filter(row=>row.selected).length;
+  const selectedInvalid = rows.some(row=>row.selected && (!Number.isFinite(row.amount)||row.amount===0||Math.abs(row.amount*100-Math.round(row.amount*100))>0.0001||!row.date||!row.description.trim()));
 
   const parse = async () => {
     if (!source) return;
@@ -37,7 +38,7 @@ export const WalletStatementImport: React.FC<Props> = ({ kind, targetId, targetN
     setRows(current=>current.map((row,i)=>i===index?{...row,...change}:row));
 
   const save = async () => {
-    if (!result || !selectedCount) return;
+    if (!result || !selectedCount || selectedInvalid) {setError('Revise os valores, as datas e as descrições selecionadas.');return;}
     setBusy(true);setError('');
     let recorded=0;
     try {
@@ -102,8 +103,8 @@ export const WalletStatementImport: React.FC<Props> = ({ kind, targetId, targetN
                     <div className="grid min-w-0 gap-2 sm:grid-cols-[120px_1fr_130px]">
                       <input type="date" aria-label="Data do lançamento" value={row.date} disabled={busy} onChange={e=>revise(i,{date:e.target.value})} className="min-w-0 rounded bg-slate-800 p-1 text-xs text-white"/>
                       <input aria-label="Descrição do lançamento" value={row.description} disabled={busy} maxLength={240} onChange={e=>revise(i,{description:e.target.value})} className="min-w-0 rounded bg-slate-800 p-1 text-xs text-white"/>
-                      <div className="text-right"><strong className={row.amount<0?'text-rose-300':'text-emerald-300'}>{formatMoney(row.amount)}</strong>
-                        <p className="text-[10px] text-slate-400">{row.confidence==='REVIEW'?'Conferir valor e sentido':'Valor identificado'}</p>
+                      <div className="text-right"><input type="number" step="0.01" aria-label="Valor do lançamento; positivo entrada, negativo saída" className="w-full min-w-0 rounded bg-slate-800 p-1 text-right text-xs text-white" disabled={busy} value={row.amount} onChange={e=>revise(i,{amount:Number(e.target.value)})}/>
+                        <p className="text-[10px] text-slate-400">{row.confidence==='REVIEW'?'Conferir sinal (+ crédito / − débito)':'Valor identificado'}</p>
                       </div>
                       <select disabled={busy} className="min-w-0 rounded bg-slate-800 p-1 text-xs sm:col-span-3" value={row.category} onChange={e=>revise(i,{category:e.target.value})}>
                         {categories.map(c=><option key={c} value={c}>{c}</option>)}
@@ -119,7 +120,7 @@ export const WalletStatementImport: React.FC<Props> = ({ kind, targetId, targetN
           <span className="text-xs text-slate-400">{selectedCount} selecionado(s)</span>
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={onClose} className="rounded-lg border border-slate-700 px-3 py-2 text-xs">Fechar</button>
-            <button type="button" disabled={busy||!result||selectedCount===0} onClick={save}
+            <button type="button" disabled={busy||!result||selectedCount===0||selectedInvalid} onClick={save}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold disabled:opacity-40">{busy?'Registrando...':'Confirmar itens selecionados'}</button>
           </div>
         </footer>

@@ -290,13 +290,26 @@ for (const required of ['selectedInvoiceDueMonth', 'Pagar parte ou total', 'invo
   if (!personalWalletPage.includes(required)) failures.push(`PersonalWalletPage.tsx -> seÃ§Ã£o obrigatÃ³ria ausente: ${required}`);
 }
 const accountDetailsPage = read('components', 'wallet', 'AccountDetailsPage.tsx');
+const walletActivity = read('components', 'wallet', 'AccountActivityPanel.tsx');
+const walletStatementImporter = read('components', 'wallet', 'WalletStatementImport.tsx');
+const walletAccountMigration = read('supabase', 'migrations', '20261025081000_personal_wallet_account_ledger_and_statements.sql');
+for (const required of ["INCOME", "RECEIPT", "EXPENSE", "PAYMENT", "TRANSFER", "Extrato da conta", "Importar PDF"]) {
+  if (!walletActivity.includes(required)) failures.push(`Minha Carteira -> operacao ou extrato ausente: ${required}`);
+}
+for (const required of ["parseStatementPdf", "Confirmar itens selecionados", "recordStatementRow"]) {
+  if (!walletStatementImporter.includes(required)) failures.push(`Minha Carteira -> importacao do PDF ausente: ${required}`);
+}
+for (const required of ["personal_wallet_record_account_operation", "personal_wallet_record_statement_row", "pg_advisory_xact_lock", "enable row level security"]) {
+  if (!walletAccountMigration.includes(required)) failures.push(`Minha Carteira -> falta protecao transacional: ${required}`);
+}
+
 for (const tab of ['ACCOUNTS', 'EXPENSES', 'INVOICES', 'CARDS']) {
   if (!personalWalletPage.includes(`goToTab('${tab}')`)) failures.push(`Resumo da Carteira -> atalho de ${tab} ausente`);
 }
 for (const required of ['openAccountDetails(account.id)', 'AccountDetailsPage', 'selectedAccountId']) {
   if (!personalWalletPage.includes(required)) failures.push(`Minha Carteira -> navegacao da conta ausente: ${required}`);
 }
-for (const required of ['Editar conta', 'Movimentações registradas', 'updateAccount', 'onBack']) {
+for (const required of ['Editar conta', 'AccountActivityPanel', 'updateAccount', 'onBack']) {
   if (!accountDetailsPage.includes(required)) failures.push(`Detalhes de conta -> funcionalidade ausente: ${required}`);
 }
 const accountUpdateMethod = personalWalletService.split('async updateAccount(')[1]?.split('async createCard(')[0] || '';

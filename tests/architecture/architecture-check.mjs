@@ -289,6 +289,24 @@ for (const required of ['personal_wallet_create_expense', 'personal_wallet_set_e
 for (const required of ['selectedInvoiceDueMonth', 'Pagar parte ou total', 'invoicePayments', 'Despesas recentes']) {
   if (!personalWalletPage.includes(required)) failures.push(`PersonalWalletPage.tsx -> seÃ§Ã£o obrigatÃ³ria ausente: ${required}`);
 }
+const accountDetailsPage = read('components', 'wallet', 'AccountDetailsPage.tsx');
+for (const tab of ['ACCOUNTS', 'EXPENSES', 'INVOICES', 'CARDS']) {
+  if (!personalWalletPage.includes(`goToTab('${tab}')`)) failures.push(`Resumo da Carteira -> atalho de ${tab} ausente`);
+}
+for (const required of ['openAccountDetails(account.id)', 'AccountDetailsPage', 'selectedAccountId']) {
+  if (!personalWalletPage.includes(required)) failures.push(`Minha Carteira -> navegacao da conta ausente: ${required}`);
+}
+for (const required of ['Editar conta', 'Movimentações registradas', 'updateAccount', 'onBack']) {
+  if (!accountDetailsPage.includes(required)) failures.push(`Detalhes de conta -> funcionalidade ausente: ${required}`);
+}
+const accountUpdateMethod = personalWalletService.split('async updateAccount(')[1]?.split('async createCard(')[0] || '';
+if (!accountUpdateMethod || !accountUpdateMethod.includes(".eq('owner_user_id', ownerUserId)") || !accountUpdateMethod.includes("const changes =")) {
+  failures.push('Minha Carteira -> update da conta sem escopo de ownership');
+}
+const accountChanges = accountUpdateMethod.split('const changes =')[1]?.split('const { data, error }')[0] || '';
+if (!accountChanges || /\bbalance\s*:|\bused_limit\s*:|\bcurrent_bill\s*:/.test(accountChanges)) {
+  failures.push('Minha Carteira -> edicao cadastral nao pode alterar saldo ou limites');
+}
 const partialWalletMigration = read('supabase', 'migrations', '20261025064729_wallet_partial_invoice_payments.sql');
 const invoiceModal = read('components', 'wallet', 'PayInvoiceModal.tsx');
 for (const required of ['personal_wallet_pay_invoice_partial', 'personal_wallet_invoice_payments', 'request_id', 'paid_amount', 'is_platform_super_admin()']) {

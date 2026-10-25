@@ -36,7 +36,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const parsedAmount=Number(amount.trim().replace(',','.'));
 
-  const entries=useMemo(()=>([
+  const entries=useMemo(()=>[
     ...operations.filter(op=>op.from_account_id===account.id||op.to_account_id===account.id)
     .map(op=>{
       const incoming=op.to_account_id===account.id;

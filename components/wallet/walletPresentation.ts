@@ -4,8 +4,8 @@ const visuals: Record<string, { accent: string; secondary: string; monogram: str
   nubank: { accent: '#820ad1', secondary: '#b44cff', monogram: 'NU' },
   itau: { accent: '#ec7000', secondary: '#ffb000', monogram: 'IT' },
   inter: { accent: '#ff7a00', secondary: '#ffad4d', monogram: 'IN' },
-  mercadopago: { accent: '#009ee3', secondary: '#63c7ed', monogram: 'MP' },
-  picpay: { accent: '#21c25e', secondary: '#087c36', monogram: 'P' },
+  mercadopago: { accent: '#1F2229', secondary: '#434752', monogram: 'MP' },
+  picpay: { accent: '#11C76F', secondary: '#07864B', monogram: 'P' },
   bradesco: { accent: '#cc092f', secondary: '#f0526f', monogram: 'BR' },
   santander: { accent: '#ec0000', secondary: '#ff5a5a', monogram: 'ST' },
   bb: { accent: '#f9dd16', secondary: '#2754c5', monogram: 'BB' },
@@ -18,6 +18,7 @@ const visuals: Record<string, { accent: string; secondary: string; monogram: str
 
 const canonicalAliases: Record<string, string> = {
   nu: 'nubank',
+  bradescard: 'bradesco',
   'nu pagamentos': 'nubank',
   'nu pagamentos sa': 'nubank',
   'mercado pago': 'mercadopago',

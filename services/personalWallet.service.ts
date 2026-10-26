@@ -112,6 +112,10 @@ export type PersonalWalletExpense = {
   account_id?: string | null;
   card_id?: string | null;
   notes?: string | null;
+  entry_type?: 'PURCHASE' | 'INVOICE_OVERRIDE';
+  invoice_due_month?: string | null;
+  request_id?: string | null;
+  mutation_requests?: Record<string, unknown>;
 };
 
 export type PersonalWalletExpenseInstallment = {
@@ -126,6 +130,7 @@ export type PersonalWalletExpenseInstallment = {
 
 export type PersonalWalletInvoicePayment = {
   id: string;
+  request_id: string;
   card_id: string;
   due_month: string;
   account_id: string | null;
@@ -136,13 +141,19 @@ export type PersonalWalletInvoicePayment = {
 
 export type WalletAccountOperation = {
   id: string;
-  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER';
+  request_id: string;
+  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER'|'EXTERNAL_TRANSFER';
   from_account_id: string|null;
   to_account_id: string|null;
   amount: number;
   description: string;
   category: string;
   operation_date: string;
+  recipient_name?: string|null;
+  pix_key?: string|null;
+  external_identifier?: string|null;
+  occurred_at?: string|null;
+  charge_id?: string|null;
   created_at: string;
 };
 export type WalletStatementRow = {
@@ -156,8 +167,24 @@ export type WalletStatementRow = {
   amount: number;
   category: string;
 };
+export type PersonalWalletCharge = {
+  id: string;
+  owner_user_id: string;
+  account_id: string;
+  provider: 'STATIC_PIX';
+  status: 'PENDING'|'PAID';
+  amount: number;
+  currency: 'BRL';
+  description: string;
+  create_request_id: string;
+  settled_request_id?: string|null;
+  settled_amount?: number|null;
+  settlement_occurred_at?: string|null;
+  paid_at?: string|null;
+  created_at: string;
+};
 export type RecordWalletOperation = {
-  type: WalletAccountOperation['operation_type'];
+  type: Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER'>;
   fromAccountId: string|null;
   toAccountId: string|null;
   amount: number;
@@ -203,7 +230,7 @@ export const personalWalletService = {
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
       supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }),
-      supabase.from('personal_wallet_invoice_payments').select('id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }),
+      supabase.from('personal_wallet_invoice_payments').select('id,request_id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_account_operations').select('*').order('operation_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }),
@@ -252,6 +279,94 @@ export const personalWalletService = {
       p_description: input.description,
       p_category: input.category,
       p_operation_date: input.date,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  async recordExternalTransfer(input: {
+    accountId: string;
+    amount: number;
+    occurredAt: string;
+    recipientName: string;
+    pixKey?: string | null;
+    externalIdentifier?: string | null;
+    description: string;
+    requestId: string;
+  }) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_record_external_transfer', {
+      p_account_id: input.accountId,
+      p_amount: input.amount,
+      p_occurred_at: input.occurredAt,
+      p_recipient_name: input.recipientName.trim(),
+      p_pix_key: input.pixKey?.trim() || null,
+      p_external_identifier: input.externalIdentifier?.trim() || null,
+      p_description: input.description.trim(),
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  async initializeAccountOpening(input: {
+    accountId: string;
+    amount: number;
+    occurredAt: string;
+    requestId: string;
+  }) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe um saldo inicial positivo com até duas casas decimais.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_initialize_account_opening', {
+      p_account_id: input.accountId,
+      p_amount: input.amount,
+      p_occurred_at: input.occurredAt,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  async createWalletCharge(input: {
+    accountId: string;
+    amount: number;
+    description: string;
+    requestId: string;
+  }) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
+    }
+    const description = input.description.trim();
+    if (!description || description.length > 240) throw new Error('Informe uma descrição de até 240 caracteres.');
+    const { data, error } = await supabase.rpc('personal_wallet_create_charge', {
+      p_account_id: input.accountId,
+      p_amount: input.amount,
+      p_description: description,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  async settleWalletCharge(input: {
+    chargeId: string;
+    accountId: string;
+    amount: number;
+    occurredAt: string;
+    requestId: string;
+  }) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Valor de liquidação inválido.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_settle_charge', {
+      p_charge_id: input.chargeId,
+      p_account_id: input.accountId,
+      p_amount: input.amount,
+      p_occurred_at: input.occurredAt,
       p_request_id: input.requestId,
     });
     if (error) throw new Error(error.message);
@@ -418,7 +533,7 @@ export const personalWalletService = {
 
     const { data, error } = await supabase
       .from('personal_wallet_accounts')
-      .insert({ ...input, id: accountId, owner_user_id: ownerUserId, image_path: imagePath })
+      .insert({ ...input, balance: 0, id: accountId, owner_user_id: ownerUserId, image_path: imagePath })
       .select()
       .single();
     if (error) {
@@ -610,12 +725,32 @@ export const personalWalletService = {
     return String(data);
   },
 
-  async updateExpense(input: UpdatePersonalWalletExpense) {
+  async setMonthlyInvoiceOverride(input: {
+    cardId: string;
+    dueMonth: string;
+    amount: number;
+    requestId: string;
+  }) {
+    if (!input.cardId || !input.dueMonth || !input.requestId) throw new Error('Dados obrigatórios da fatura ausentes.');
+    if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe um valor positivo com até duas casas decimais.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_set_monthly_invoice_override', {
+      p_card_id: input.cardId,
+      p_due_month: input.dueMonth,
+      p_amount: input.amount,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; expense_id: string; due_month: string | null; current_invoice: number; future_commitments: number; committed_limit: number; free_limit: number; replayed: boolean };
+  },
+
+  async updateExpense(input: UpdatePersonalWalletExpense, requestId = generateUUID()) {
     if (!input.description.trim()) throw new Error('Informe a descrição do lançamento.');
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
       throw new Error('Informe um valor positivo com até duas casas decimais.');
     }
-    const { error } = await supabase.rpc('personal_wallet_update_expense', {
+    const { error } = await supabase.rpc('personal_wallet_update_expense_idempotent', {
       p_expense_id: input.expenseId,
       p_description: input.description.trim(),
       p_amount: input.amount,
@@ -623,6 +758,7 @@ export const personalWalletService = {
       p_expense_date: input.expenseDate,
       p_due_date: input.dueDate || null,
       p_notes: input.notes?.trim() || null,
+      p_request_id: requestId,
     });
     if (error) throw new Error(error.message);
   },
@@ -633,6 +769,16 @@ export const personalWalletService = {
       p_status: status,
     });
     if (error) throw new Error(error.message);
+  },
+
+  async cancelExpense(expenseId: string, requestId = generateUUID()) {
+    if (!expenseId || !requestId) throw new Error('Identificador do lançamento ausente.');
+    const { data, error } = await supabase.rpc('personal_wallet_cancel_expense_idempotent', {
+      p_expense_id: expenseId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; due_month: string | null; current_invoice: number; future_commitments: number; committed_limit: number; free_limit: number; replayed: boolean };
   },
 
   async payInvoicePartial(cardId: string, dueMonth: string, accountId: string | null, amount: number, requestId: string) {

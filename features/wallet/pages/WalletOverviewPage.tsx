@@ -14,6 +14,7 @@ import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
 import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
+import { getCardSummaryDestination } from '../cardSummaryNavigation';
 
 type Props = {
   activeUser?: UserProfile | null;
@@ -224,107 +225,126 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     className="mx-auto w-full max-w-7xl space-y-5 px-4 pb-24 sm:px-6 lg:pb-8">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h2 className="text-base font-black text-white sm:text-lg">Panorama financeiro</h2>
-        <p className="text-[11px] text-slate-400">Resumo das suas finanças</p>
+        <h2 className="text-xl font-bold text-white sm:text-2xl tracking-tight">Panorama financeiro</h2>
+        <p className="text-xs sm:text-sm text-slate-400">Resumo consolidado das suas finanças</p>
       </div>
       <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="rounded-xl border border-slate-700 p-2.5 text-slate-300 hover:text-white disabled:opacity-40">
-        <RefreshCw size={17} className={refreshing ? 'animate-spin' : ''}/>
+        disabled={refreshing} className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3.5 py-2 text-xs font-bold text-slate-300 hover:border-slate-700 hover:bg-slate-800 hover:text-white transition-all disabled:opacity-40 shadow-sm">
+        <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/>
+        <span className="hidden sm:inline">Atualizar</span>
       </button>
     </div>
     {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
 
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-      <article className="flex min-w-0 flex-col rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-300">
-          <Landmark size={17}/> Liquidez imediata
+    <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12 lg:gap-6">
+      {/* Coluna Esquerda: LIQUIDEZ IMEDIATA */}
+      <article className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6 shadow-lg shadow-black/20">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-300">
+            <Landmark size={17}/> Liquidez imediata
+          </div>
+          <strong className="mt-3 block text-3xl font-black tabular-nums text-emerald-300 sm:text-4xl">
+            {money(overview.accountBalance)}
+          </strong>
+          <p className="mt-1 text-xs text-slate-400">
+            {overview.institutionCount} {overview.institutionCount === 1 ? 'instituição' : 'instituições'}
+          </p>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {accounts.length ? accounts.slice(0, 2).map(account => {
+              const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
+              return <div key={account.id}
+                className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/75 p-3.5 min-h-[96px] hover:border-emerald-500/30 transition-all shadow-sm">
+                <div className="flex items-center gap-2">
+                  <BankLogo name={account.institution_key || account.bank_name} alternateName={account.nickname} size="sm"/>
+                  <span className="truncate text-xs font-bold text-slate-100">{visual.name}</span>
+                </div>
+                <div className="mt-2.5">
+                  <strong className="block text-sm font-black tabular-nums text-white">
+                    {money(Number(account.balance))}
+                  </strong>
+                  <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                    {walletAccountTypeLabel(account.account_type)}
+                  </p>
+                </div>
+              </div>;
+            }) : <p className="col-span-2 rounded-xl border border-dashed border-slate-700 p-5 text-xs text-slate-400">
+              Nenhuma conta cadastrada.
+            </p>}
+          </div>
         </div>
-        <strong className="mt-3 text-3xl font-black tabular-nums text-emerald-300 sm:text-4xl">
-          {money(overview.accountBalance)}
-        </strong>
-        <p className="mt-1 text-xs text-slate-400">
-          {overview.institutionCount} {overview.institutionCount === 1 ? 'instituição' : 'instituições'}
-        </p>
-        <div className="mt-4 flex snap-x gap-2 overflow-x-auto pb-2">
-          {accounts.length ? accounts.map(account => {
-            const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
-            return <div key={account.id}
-              className="min-w-[150px] max-w-[220px] flex-1 shrink-0 snap-start rounded-xl border border-white/10 bg-slate-950/75 p-3">
-              <div className="flex items-center gap-2">
-                <BankLogo name={account.institution_key || account.bank_name} alternateName={account.nickname} size="sm"/>
-                <span className="truncate text-xs font-bold text-slate-100">{visual.name}</span>
-              </div>
-              <strong className="mt-3 block text-sm font-black tabular-nums text-white">
-                {money(Number(account.balance))}
-              </strong>
-              <p className="mt-1 truncate text-[10px] text-slate-400">
-                {walletAccountTypeLabel(account.account_type)}
-              </p>
-            </div>;
-          }) : <p className="rounded-xl border border-dashed border-slate-700 p-5 text-xs text-slate-400">
-            Nenhuma conta cadastrada.
-          </p>}
-        </div>
+
         <button type="button" onClick={() => go('contas')}
-          className="mt-auto flex items-center justify-between border-t border-slate-700/70 pt-4 text-left text-xs font-bold text-emerald-300">
-          Ver contas <ArrowRight size={16}/>
+          className="mt-5 flex items-center justify-between border-t border-slate-800/80 pt-3.5 text-left text-xs font-bold text-emerald-300 hover:text-emerald-200 transition-colors">
+          <span>Ver detalhes das contas</span> <ArrowRight size={15}/>
         </button>
       </article>
 
-      <article className="flex min-w-0 flex-col rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6">
-        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-300">
-          <CreditCard size={17}/> Cartões
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-[11px] text-slate-400">Faturas do mês</p>
-            <strong className="mt-1 block text-xl font-black tabular-nums text-white sm:text-2xl">
-              {money(overview.currentInvoiceTotal)}
-            </strong>
+      {/* Coluna Direita: CARTÕES */}
+      <article className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6 shadow-lg shadow-black/20">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-300">
+            <CreditCard size={17}/> Cartões
           </div>
-          <div>
-            <p className="text-[11px] text-slate-400">Limite livre</p>
-            <strong className="mt-1 block text-xl font-black tabular-nums text-emerald-300 sm:text-2xl">
-              {money(credit.available)}
-            </strong>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] text-slate-400">Faturas do mês</p>
+              <strong className="mt-1 block text-xl font-black tabular-nums text-white sm:text-2xl">
+                {money(overview.currentInvoiceTotal)}
+              </strong>
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400">Limite livre</p>
+              <strong className="mt-1 block text-xl font-black tabular-nums text-emerald-300 sm:text-2xl">
+                {money(credit.available)}
+              </strong>
+            </div>
           </div>
-        </div>
-        <div className="mt-5">
-          <div className="mb-2 flex justify-between text-[11px] text-slate-400">
-            <span>Limite utilizado</span>
-            <strong className="text-slate-200">{Math.round(credit.percentage)}%</strong>
-          </div>
-          <div role="progressbar" aria-label="Uso do limite de crédito"
-            aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(credit.percentage)}
-            className="h-2.5 overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
-              style={{ width: credit.percentage + '%' }}/>
+          <div className="mt-5">
+            <div className="mb-2 flex justify-between text-[11px] text-slate-400">
+              <span>Limite utilizado</span>
+              <strong className="text-slate-200">{Math.round(credit.percentage)}%</strong>
+            </div>
+            <div role="progressbar" aria-label="Uso do limite de crédito"
+              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(credit.percentage)}
+              className="h-2.5 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500"
+                style={{ width: `${Math.min(100, Math.max(0, credit.percentage))}%` }}/>
+            </div>
           </div>
 
+          {/* Cartões com animação fluida, proporção e navegação */}
+          <div className="mt-4 flex snap-x gap-2.5 overflow-x-auto pb-3 scrollbar-hide" aria-label="Seus cartões">
+            {cards.length ? cards.map(card => {
+              const account = accounts.find(item => item.id === card.account_id);
+              const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
+              const visual = getBankVisual(institution);
+              return <button type="button" key={card.id}
+                onClick={() => onNavigate(getCardSummaryDestination(card.id))}
+                aria-label={`Abrir cartão ${card.nickname}`}
+                className="relative flex aspect-[1.586/1] min-w-[155px] max-w-[210px] flex-1 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-white/20 p-3 text-left text-white shadow-md transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-2 hover:shadow-2xl hover:border-white/40 active:scale-95 cursor-pointer"
+                style={{ background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})` }}>
+                <div className="flex min-w-0 items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
+                    <span className="truncate text-[11px] font-bold">{card.nickname}</span>
+                  </div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-white/80 bg-black/20 px-1.5 py-0.5 rounded">
+                    {card.brand || 'Crédito'}
+                  </span>
+                </div>
+                <div className="flex items-end justify-between gap-1 pt-1">
+                  <span className="text-[10px] tracking-wider text-white/90 font-mono">•••• {card.last_four || '----'}</span>
+                  <span className="text-[9px] font-medium text-white/70 hover:text-white transition-colors">Ver fatura →</span>
+                </div>
+              </button>;
+            }) : <p className="py-3 text-xs text-slate-400">Nenhum cartão cadastrado.</p>}
+          </div>
         </div>
-        <div className="mt-4 flex snap-x gap-2 overflow-x-auto pb-3" aria-label="Seus cartões">
-          {cards.length ? cards.map(card => {
-            const account = accounts.find(item => item.id === card.account_id);
-            const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
-            const visual = getBankVisual(institution);
-            return <button type="button" key={card.id} onClick={() => go('cartoes')}
-              aria-label={`Abrir cartão ${card.nickname}`}
-              className="relative flex aspect-[1.586/1] min-w-[152px] max-w-[206px] flex-1 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-white/20 p-3 text-left text-white shadow-md"
-              style={{ background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})` }}>
-              <div className="flex min-w-0 items-center gap-1.5">
-                <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
-                <span className="truncate text-[11px] font-bold">{card.nickname}</span>
-              </div>
-              <div className="flex items-end justify-between gap-1">
-                <span className="text-[10px] font-semibold uppercase text-white/80">{card.brand || 'Crédito'}</span>
-                <span className="text-[10px] tracking-wider text-white/90">•••• {card.last_four || '----'}</span>
-              </div>
-            </button>;
-          }) : <p className="py-3 text-xs text-slate-400">Nenhum cartão cadastrado.</p>}
-        </div>
+
         <button type="button" onClick={() => go('cartoes')}
-          className="mt-auto flex items-center justify-between border-t border-slate-700/70 pt-4 text-left text-xs font-bold text-blue-300">
-          Ver cartões e faturas <ArrowRight size={16}/>
+          className="mt-5 flex items-center justify-between border-t border-slate-800/80 pt-3.5 text-left text-xs font-bold text-blue-300 hover:text-blue-200 transition-colors">
+          <span>Ver cartões e faturas</span> <ArrowRight size={15}/>
         </button>
       </article>
     </div>
@@ -406,3 +426,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     </article>
   </section>;
 };
+
+export const OverviewPage = WalletOverviewPage;
+export default WalletOverviewPage;
+

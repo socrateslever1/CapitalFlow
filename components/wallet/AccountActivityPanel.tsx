@@ -1,9 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, ReceiptText, Search } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { WalletStatementImport } from './WalletStatementImport';
+import { buildAccountStatementEntries } from './accountStatementDomain';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -14,11 +15,12 @@ type Props = {
   invoicePayments: PersonalWalletInvoicePayment[];
   onSaved: () => Promise<void>;
 };
-type Action = WalletAccountOperation['operation_type'];
+type Action = Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER'>;
 const labels: Record<Action,string> = {
   INCOME:'Receita', RECEIPT:'Recebimento', EXPENSE:'Despesa', PAYMENT:'Pagamento', TRANSFER:'Transferência',
 };
 const fmtDate=(date:string)=>new Date(date.slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR');
+const localToday=()=>{const value=new Date();value.setMinutes(value.getMinutes()-value.getTimezoneOffset());return value.toISOString().slice(0,10);};
 const input='w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-emerald-500';
 export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
@@ -26,42 +28,25 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [description,setDescription]=useState('');
   const [category,setCategory]=useState('Outros');
   const [destination,setDestination]=useState('');
-  const [date,setDate]=useState(new Date().toISOString().slice(0,10));
+  const [date,setDate]=useState(localToday());
   const [importOpen,setImportOpen]=useState(false);
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const [success,setSuccess]=useState('');
   const [search,setSearch]=useState('');
-  const [showImported,setShowImported]=useState(false);
+  const [openingAmount,setOpeningAmount]=useState('');
+  const [openingDate,setOpeningDate]=useState(localToday());
+  const [openingSaving,setOpeningSaving]=useState(false);
   const transactionRef=useRef({signature:'',id:generateUUID()});
+  const openingRef=useRef({signature:'',id:generateUUID()});
   const parsedAmount=Number(amount.trim().replace(',','.'));
 
-  const entries=useMemo(()=>[
-    ...operations.filter(op=>op.from_account_id===account.id||op.to_account_id===account.id)
-    .map(op=>{
-      const incoming=op.to_account_id===account.id;
-      const otherId=incoming?op.from_account_id:op.to_account_id;
-      const other=accounts.find(a=>a.id===otherId);
-      return {
-        id:op.id,date:op.operation_date,
-        label:op.description,category:op.operation_type==='TRANSFER'
-          ? `Transferência ${incoming?'de':'para'} ${other?.nickname||'outra conta'}`
-          : labels[op.operation_type],
-        amount: incoming?Number(op.amount):-Number(op.amount),
-      };
-    }),
-    ...expenses.filter(expense=>expense.account_id===account.id && expense.status==='PAID').map(expense=>({
-      id:'legacy-expense-'+expense.id,date:expense.expense_date,label:expense.description,
-      category:'Despesa já registrada',amount:-Number(expense.amount||0),
-    })),
-    ...invoicePayments.filter(payment=>payment.account_id===account.id && payment.source==='ACCOUNT').map(payment=>({
-      id:'card-payment-'+payment.id,date:payment.created_at,
-      label:'Pagamento de fatura',category:'Cartão de crédito',amount:-Number(payment.amount||0),
-    })),
-  ].sort((a,b)=>b.date.localeCompare(a.date)),[account.id,accounts,operations,expenses,invoicePayments]);
-  const filtered=entries.filter(x=>(x.label+' '+x.category).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
-  const imported=statementRows.filter(row=>row.target_kind==='ACCOUNT'&&row.target_id===account.id);
+  const entries=useMemo(()=>buildAccountStatementEntries({
+    accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,
+  }),[account.id,accounts,operations,expenses,invoicePayments,statementRows]);
+  const filtered=entries.filter(x=>(x.label+' '+x.category+' '+x.tag).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const others=accounts.filter(a=>a.id!==account.id);
+  const canInitializeOpening=Number(account.balance)===0&&!operations.some(op=>op.from_account_id===account.id||op.to_account_id===account.id);
 
   const clear=()=>{setAction(null);setAmount('');setDescription('');setCategory('Outros');setDestination('');setError('');};
   const submit=async(e:React.FormEvent)=>{
@@ -86,6 +71,23 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     }catch(err:any){setError(err?.message||'Não foi possível registrar a operação.');}
     finally{setSaving(false);}
   };
+  const submitOpening=async(e:React.FormEvent)=>{
+    e.preventDefault();
+    const value=Number(openingAmount.trim().replace(',','.'));
+    if(openingSaving)return;
+    if(!Number.isFinite(value)||value<=0||Math.abs(value*100-Math.round(value*100))>0.00001){setError('Informe um saldo inicial válido.');return;}
+    const occurredAt=new Date(`${openingDate}T12:00:00`).toISOString();
+    const signature=[account.id,value.toFixed(2),occurredAt].join(':');
+    if(openingRef.current.signature!==signature)openingRef.current={signature,id:generateUUID()};
+    setOpeningSaving(true);setError('');setSuccess('');
+    try{
+      await personalWalletService.initializeAccountOpening({accountId:account.id,amount:value,occurredAt,requestId:openingRef.current.id});
+      await onSaved();
+      openingRef.current={signature:'',id:generateUUID()};setOpeningAmount('');
+      setSuccess('Saldo inicial registrado de forma auditável.');
+    }catch(err:any){setError(err?.message||'Não foi possível registrar o saldo inicial.');}
+    finally{setOpeningSaving(false);}
+  };
   const exportCsv=()=>{
     const records=[['Data','Movimentação','Categoria','Valor BRL'],...filtered.map(x=>[fmtDate(x.date),x.label,x.category,x.amount.toFixed(2)])];
     const csv='\uFEFF'+records.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n');
@@ -101,6 +103,12 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
           <FileUp size={15}/> Importar PDF
         </button>
       </div>
+      {canInitializeOpening&&<form onSubmit={submitOpening} className="mb-4 grid gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-4 sm:grid-cols-3">
+        <div className="sm:col-span-3"><h3 className="text-sm font-bold text-cyan-100">Saldo inicial auditável</h3><p className="text-xs text-cyan-300/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p></div>
+        <label className="text-xs text-slate-300">Valor (R$)<input required inputMode="decimal" className={input} value={openingAmount} onChange={e=>setOpeningAmount(e.target.value)} placeholder="0,00"/></label>
+        <label className="text-xs text-slate-300">Data<input required type="date" max={localToday()} className={input} value={openingDate} onChange={e=>setOpeningDate(e.target.value)}/></label>
+        <button type="submit" disabled={openingSaving} className="self-end rounded-lg bg-cyan-700 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{openingSaving?'Registrando...':'Registrar saldo inicial'}</button>
+      </form>}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {([
           ['INCOME',ArrowDownLeft,'Receita'],
@@ -126,7 +134,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
             <input required className={input} inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0,00"/>
           </label>
           <label className="text-xs text-slate-300">Data
-            <input required className={input} type="date" max={new Date().toISOString().slice(0,10)} value={date} onChange={e=>setDate(e.target.value)}/>
+            <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
           </label>
           {action==='TRANSFER' && <label className="text-xs text-slate-300 sm:col-span-2">Conta de destino
             <select required className={input} value={destination} onChange={e=>setDestination(e.target.value)}>
@@ -161,23 +169,13 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         <Search size={16} className="text-slate-500"/>
         <input aria-label="Buscar movimentações" className="w-full bg-transparent py-3 text-xs text-white outline-none" placeholder="Buscar descrição ou categoria" value={search} onChange={e=>setSearch(e.target.value)}/>
       </div>
-      {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">Ainda não há movimentações registradas por esta função. O saldo inicial foi cadastrado separadamente.</p>:
+      {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">Ainda não há movimentações operacionais ou importadas nesta conta.</p>:
       <div className="divide-y divide-slate-800">{filtered.map(m=>(
         <div key={m.id} className="flex items-center justify-between gap-3 py-3">
-          <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><p className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</p></div>
+          <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${m.tag==='PIX/TED enviado'?'border-amber-700/60 bg-amber-950/30 text-amber-200':m.tag==='Pagamento de fatura'?'border-violet-700/60 bg-violet-950/30 text-violet-200':m.tag==='Transferência interna'?'border-cyan-700/60 bg-cyan-950/30 text-cyan-200':m.tag==='Importado de PDF'?'border-slate-600 bg-slate-800 text-slate-300':'border-emerald-700/60 bg-emerald-950/30 text-emerald-200'}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>
           <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
         </div>
       ))}</div>}
-      <div className="mt-4 border-t border-slate-800 pt-4">
-        <button type="button" onClick={()=>setShowImported(x=>!x)} className="flex items-center gap-2 text-xs font-bold text-cyan-300">
-          <ReceiptText size={16}/>{showImported?'Ocultar':'Ver'} {imported.length} item(ns) de extratos PDF conferidos
-        </button>
-        {showImported && <div className="mt-3 divide-y divide-slate-800">{imported.length===0?<p className="text-xs text-slate-400">Nenhum PDF importado.</p>:
-          imported.map(row=><div key={row.id} className="flex items-center justify-between gap-3 py-3 text-xs">
-            <div className="min-w-0"><p className="truncate text-white">{row.description}</p><p className="text-slate-400">{fmtDate(row.entry_date)} · {row.category}</p></div>
-            <span className={row.amount>=0?'text-emerald-300':'text-rose-300'}>{formatMoney(Number(row.amount))}</span>
-          </div>)}</div>}
-      </div>
     </div>
     {importOpen && <WalletStatementImport kind="ACCOUNT" targetId={account.id} targetName={account.nickname}
       onClose={()=>setImportOpen(false)} onImported={onSaved}/>}

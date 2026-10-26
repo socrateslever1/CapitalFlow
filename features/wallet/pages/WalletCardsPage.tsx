@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import type { PersonalWalletCard } from '../../../services/personalWallet.service';
 import { personalWalletService } from '../../../services/personalWallet.service';
@@ -7,21 +8,27 @@ import { CardInvoiceStatement } from '../../../components/wallet/CardInvoiceStat
 import { CardEditModal } from '../../../components/wallet/CardEditModal';
 import { PayInvoiceModal } from '../../../components/wallet/PayInvoiceModal';
 import { WalletStatementImport } from '../../../components/wallet/WalletStatementImport';
-import { getCreditSummary } from '../../../components/wallet/walletPresentation';
+import { InvoiceOverrideModal } from '../../../components/wallet/InvoiceOverrideModal';
+import { getCardCreditPosition, getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from '../components/CardOpeningFields';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
+import { getCardsForDisplay } from '../cardSummaryNavigation';
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
+  const [searchParams] = useSearchParams();
+  const requestedCardId = searchParams.get('card');
   const { data, loading, error, refresh } = useWalletSnapshot();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(requestedCardId);
   const [editing, setEditing] = useState<PersonalWalletCard | null>(null);
   const [paying, setPaying] = useState<PersonalWalletCard | null>(null);
   const [importing, setImporting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
+  const [overriding, setOverriding] = useState(false);
+  const [statementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const requestId = useRef(generateUUID());
@@ -36,21 +43,23 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     description: '', amount: '', category: 'Compras', installment_count: '1',
   });
   const availableCards = useMemo(() => (data?.cards || []).filter(card => card.status !== 'CANCELED'), [data]);
-  const selected = availableCards.find(card => card.id === selectedId) || availableCards[0] || null;
-  const invoice = useMemo(() => {
-    if (!data || !selected) return null;
-    const expenses = new Map(data.expenses.map(expense => [expense.id, expense]));
-    const sums = new Map<string, number>();
-    data.installments.forEach(installment => {
-      if (installment.status !== 'PENDING') return;
-      if (expenses.get(installment.expense_id)?.card_id !== selected.id) return;
-      const outstanding = Math.max(0, Number(installment.amount || 0) - Number(installment.paid_amount || 0));
-      const month = String(installment.due_month).slice(0, 7) + '-01';
-      sums.set(month, (sums.get(month) || 0) + outstanding);
-    });
-    const months = [...sums.keys()].sort();
-    return months.length ? { month: months[0], amount: sums.get(months[0]) || 0 } : null;
-  }, [data, selected]);
+  const displayedCards = useMemo(
+    () => getCardsForDisplay(availableCards, requestedCardId),
+    [availableCards, requestedCardId],
+  );
+  const selected = availableCards.find(card => card.id === selectedId) || displayedCards[0] || null;
+  useEffect(() => {
+    setSelectedId(requestedCardId);
+  }, [requestedCardId]);
+  const invoiceCycles = useMemo(() => data && selected
+    ? getEffectiveInvoiceCycles(selected.id, data.expenses, data.installments)
+    : [], [data, selected]);
+  const creditPosition = useMemo(() => data && selected
+    ? getCardCreditPosition(selected, data.expenses, data.installments)
+    : null, [data, selected]);
+  useEffect(() => {
+    if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
+  }, [selected?.id, creditPosition?.dueMonth]);
   const mayInitializeExisting = Boolean(selected && data && Number(selected.used_limit) === 0
     && Number(selected.current_bill) === 0
     && !data.expenses.some(expense => expense.card_id === selected.id)
@@ -111,13 +120,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao lançar despesa.'); }
     finally { setSaving(false); }
   };
-  const credit = getCreditSummary(availableCards);
   return <WalletPageFrame title="Cartões e faturas" description="Cartões físicos, extrato editável e pagamentos autorizados."
     error={error || notice} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <>
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 lg:col-span-5">
-          <BankStack accounts={data.accounts} cards={availableCards}
+          <BankStack accounts={data.accounts} cards={displayedCards}
             onAccount={() => {}} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}
@@ -126,26 +134,38 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
         </div>
         <div className="min-w-0 space-y-4 lg:col-span-7">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs text-slate-400">Crédito utilizado</p>
-              <strong className="block text-xl font-black text-white">{formatMoney(credit.used)}</strong>
+              <p className="text-xs text-slate-400">Fatura do Mês</p>
+              <strong className="block text-xl font-black text-rose-200">{formatMoney(creditPosition?.currentInvoice || 0)}</strong>
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs text-slate-400">Limite disponível</p>
-              <strong className="block text-xl font-black text-emerald-300">{formatMoney(credit.available)}</strong>
+              <p className="text-xs text-slate-400">Parcelas Futuras</p>
+              <strong className="block text-xl font-black text-amber-200">{formatMoney(creditPosition?.futureCommitments || 0)}</strong>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:col-span-1">
+              <p className="text-xs text-slate-400">Limite Livre</p>
+              <strong className="block text-xl font-black text-emerald-300">{formatMoney(creditPosition?.freeLimit || 0)}</strong>
             </div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
-              {selected && <button type="button" onClick={() => setImporting(true)}
-                className="rounded-xl border border-cyan-700 px-3 py-2 text-xs text-cyan-200">Importar PDF</button>}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
+                {selected && <select aria-label="Ciclo da fatura" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
+                  className="mt-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200">
+                  {invoiceCycles.length ? invoiceCycles.map(cycle => <option key={cycle.dueMonth} value={cycle.dueMonth}>{cycle.dueMonth.slice(0, 7).split('-').reverse().join('/')}{cycle.hasOverride ? ' · consolidada' : ''}</option>) : <option value={statementMonth || ''}>{(statementMonth || '').slice(0, 7).split('-').reverse().join('/')}</option>}
+                </select>}
+              </div>
+              {selected && <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
+                <button type="button" onClick={() => setImporting(true)} className="rounded-xl border border-cyan-700 px-3 py-2 text-xs text-cyan-200">Importar PDF</button>
+              </div>}
             </div>
-            {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={invoice?.month}
+            {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               expenses={data.expenses} installments={data.installments}
               onEdit={async input => { await personalWalletService.updateExpense(input); await refresh(); }}
-              onDelete={async id => { await personalWalletService.setExpenseStatus(id, 'CANCELED'); await refresh(); }}
+              onDelete={async id => { await personalWalletService.cancelExpense(id); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
           </div>
@@ -218,12 +238,21 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         targetName={selected.nickname} onClose={() => setImporting(false)}
         onImported={async () => { await refresh(); setImporting(false); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
-        invoiceAmount={paying.id === selected?.id ? invoice?.amount || 0 : 0}
-        dueMonth={invoice?.month} onClose={() => setPaying(null)}
+        invoiceAmount={paying.id === selected?.id ? creditPosition?.currentInvoice || 0 : 0}
+        dueMonth={creditPosition?.dueMonth} onClose={() => setPaying(null)}
         onPay={async (cardId, month, accountId, amount, requestId) => {
           await personalWalletService.payInvoicePartial(cardId, month, accountId, amount, requestId);
           await refresh();
         }}/>}
+      {overriding && selected && <InvoiceOverrideModal card={selected}
+        initialDueMonth={statementMonth || creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01'}
+        initialAmount={invoiceCycles.find(cycle => cycle.dueMonth === statementMonth)?.amount || 0}
+        onClose={() => setOverriding(false)}
+        onSave={async (dueMonth, amount, overrideRequestId) => {
+          await personalWalletService.setMonthlyInvoiceOverride({ cardId: selected.id, dueMonth, amount, requestId: overrideRequestId });
+          await refresh();
+          setStatementMonth(dueMonth);
+        }}/>} 
     </>}
   </WalletPageFrame>;
 };

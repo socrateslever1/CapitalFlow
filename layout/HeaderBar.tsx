@@ -567,7 +567,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerMove={handlePointerMove}
-            className={`hidden md:flex w-full xl:w-auto xl:flex-1 order-3 xl:order-2 bg-slate-900/50 backdrop-blur-md p-1.5 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide xl:mx-4 mt-3 xl:mt-0 ${
+            className={`hidden md:flex w-full lg:w-auto lg:flex-1 order-3 lg:order-2 bg-slate-900/50 backdrop-blur-md p-1 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide lg:mx-2 mt-2 lg:mt-0 min-w-0 ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             }`}
             style={{ WebkitOverflowScrolling: 'touch' }}
@@ -580,7 +580,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     onClick={() => {
                       if (!hasDragged) setActiveTab(tab);
                     }}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'text-white shadow-xl shadow-blue-500/20'
                         : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
@@ -597,7 +597,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               })}
           </nav>
 
-          <div id="header-right-section" className="flex items-center gap-1.5 sm:gap-3 order-2 xl:order-3">
+          <div id="header-right-section" className="flex items-center gap-1.5 sm:gap-3 order-2 lg:order-3 shrink-0">
             <div id="mobile-actions" className="flex items-center gap-1.5 sm:gap-2 md:hidden">
               <div className="relative" ref={mobileNotificationRef}>
                 <button

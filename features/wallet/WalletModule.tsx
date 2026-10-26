@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { AlertTriangle, LockKeyhole, WalletCards } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useWalletAccess } from './hooks/useWalletAccess';
 import { useWalletRealtime } from './hooks/useWalletRealtime';
 import { getWalletRoute, WALLET_ROUTES, WalletRouteView } from './routes';
@@ -26,9 +27,22 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <header className="mx-auto mb-4 flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-      <div className="flex items-center gap-3"><span className="rounded-2xl bg-emerald-600/20 p-3 text-emerald-300"><WalletCards size={22}/></span><div><h1 className="text-lg font-black text-white">Minha Carteira</h1><p className="text-[10px] uppercase tracking-widest text-slate-500">Módulo independente · {realtimeStatus === 'connected' ? 'sincronizado' : 'sincronizando'}</p></div></div>
-    </header>
+    <div className="mx-auto mb-4 max-w-7xl px-4 sm:px-6">
+      <PageHeader
+        icon={<WalletCards size={22} />}
+        iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
+        title={<>Minha <span className="text-emerald-400">Carteira</span></>}
+        subtitle="Seus cartões e finanças em um único lugar"
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              {realtimeStatus === 'connected' ? 'Sincronizado' : 'Sincronizando'}
+            </span>
+          </div>
+        }
+      />
+    </div>
     <nav aria-label="Navegação da Carteira" className="sticky top-0 z-40 mx-auto mb-5 flex max-w-7xl gap-1 overflow-x-auto border-y border-slate-800 bg-slate-950/90 px-4 py-2 backdrop-blur-md sm:px-6 lg:top-2 lg:rounded-2xl lg:border">
       {WALLET_ROUTES.map(item => <button key={item.key} type="button" aria-current={route === item.key ? 'page' : undefined} onClick={() => go(item.key)} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${route === item.key ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}>{item.label}</button>)}
     </nav>

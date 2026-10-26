@@ -58,7 +58,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const mainRef = useRef<HTMLElement | null>(null);
   const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
-  const walletModuleRoute = location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
+  const walletModuleRoute = activeTab === 'MY_WALLET' || location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
   const totalUnread = unreadSupport;
   const isSupportOpen = activeModal?.type === 'SUPPORT_CHAT';
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ArrowLeftRight } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -6,11 +7,13 @@ import { formatMoney } from '../../../utils/formatters';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
+import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [movementOpen, setMovementOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '' });
@@ -35,8 +38,8 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
 
   return <WalletPageFrame title="Contas e PIX" description="Seus saldos, contas e movimentações reais."
     error={error || message} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
-    {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts}
-      expenses={data.expenses} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
+    {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards}
+      expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
       statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
       <div className="grid gap-4 lg:grid-cols-12">
@@ -54,6 +57,10 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           <button type="button" onClick={() => setCreating(value => !value)}
             className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300">
             {creating ? 'Cancelar cadastro' : 'Adicionar conta bancária'}
+          </button>
+          <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40">
+            <ArrowLeftRight size={18}/> Transferir / Movimentar
           </button>
         </div>
       </div>
@@ -85,6 +92,9 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           {saving ? 'Salvando...' : 'Cadastrar conta'}
         </button></div>
       </form>}
+      {movementOpen && <AccountMovementModal accounts={data.accounts} cards={data.cards}
+        expenses={data.expenses} installments={data.installments}
+        onClose={() => setMovementOpen(false)} onSaved={async () => { await refresh(); }}/>}
     </>)}
   </WalletPageFrame>;
 };

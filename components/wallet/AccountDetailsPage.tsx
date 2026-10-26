@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
+  PersonalWalletExpenseInstallment,
   PersonalWalletInvoicePayment,
+  PersonalWalletCard,
   WalletAccountOperation,
   WalletStatementRow,
   personalWalletService,
@@ -13,10 +15,13 @@ import { AccountActivityPanel } from './AccountActivityPanel';
 import { WalletPixCharge } from './WalletPixCharge';
 import { BankLogo } from './BankLogo';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
+import { AccountMovementModal } from './AccountMovementModal';
 
 type Props = {
   account: PersonalWalletAccount;
   expenses: PersonalWalletExpense[];
+  installments: PersonalWalletExpenseInstallment[];
+  cards: PersonalWalletCard[];
   invoicePayments: PersonalWalletInvoicePayment[];
   accounts: PersonalWalletAccount[];
   accountOperations: WalletAccountOperation[];
@@ -36,10 +41,11 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expenses, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity }) => {
   const [editing, setEditing] = useState(false);
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
+  const [movementOpen, setMovementOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -109,10 +115,16 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
           className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
           <ArrowLeft size={16} /> Voltar às contas
         </button>
-        {!editing && <button type="button" onClick={() => { setEditing(true); setError(''); setSuccess(''); }}
-          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">
-          <Pencil size={15} /> Editar conta
-        </button>}
+        {!editing && <div className="flex gap-2">
+          <button type="button" onClick={() => setMovementOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">
+            <ArrowLeftRight size={15}/> Movimentar
+          </button>
+          <button type="button" onClick={() => { setEditing(true); setError(''); setSuccess(''); }}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
+            <Pencil size={15} /> Editar conta
+          </button>
+        </div>}
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
@@ -148,7 +160,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, expense
           {account.notes && <p className="truncate text-[11px] text-slate-500" title={account.notes}>{account.notes}</p>}
         </div>}
       </div>
-      {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} />}
+      {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} onSaved={onSaved} />}
+      {movementOpen && <AccountMovementModal accounts={accounts} cards={cards} expenses={expenses} installments={installments}
+        initialAccountId={account.id} onClose={()=>setMovementOpen(false)} onSaved={onSaved}/>}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}

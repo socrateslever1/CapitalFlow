@@ -445,7 +445,9 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
     return <AccountDetailsPage
       key={selectedAccount.id}
       account={selectedAccount}
+      cards={data.cards}
       expenses={data.expenses}
+      installments={data.installments}
       invoicePayments={data.invoicePayments}
       accounts={data.accounts}
       accountOperations={data.accountOperations}

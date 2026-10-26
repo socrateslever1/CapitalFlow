@@ -28,7 +28,7 @@
     "test:load": "k6 run tests/load/app-smoke.js",
     "test:android-workflow": "node --test tests/architecture/android-workflow.test.mjs",
     "test:wallet-module": "node --test tests/architecture/wallet-module-hardening.test.mjs",
-    "test:wallet-overview": "node --test tests/architecture/wallet-overview.test.mjs",
+    "test:wallet-overview": "tsx --test tests/architecture/wallet-overview.test.mjs tests/wallet/card-summary-navigation.test.ts",
     "test:wallet-pages": "node --test tests/architecture/wallet-pages.test.mjs",
     "test:wallet-overview-localization": "node --test tests/architecture/wallet-overview-localization.test.mjs",
     "test:wallet-card-opening": "node --test tests/architecture/wallet-card-opening.test.mjs",

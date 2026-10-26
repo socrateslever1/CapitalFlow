@@ -1,3 +1,11 @@
+export type WalletCardOpeningPayload = {
+  used_limit: number;
+  invoice_amount: number;
+  future_amount: number;
+  future_months: number;
+  invoice_month: string;
+};
+
 export type WalletRecurringObligation={
  id:string;owner_user_id:string;kind:'EXPENSE'|'DEBT';description:string;creditor_name:string;
  creditor_type:'PERSON'|'COMPANY';category:string;amount:number;due_day:number;
@@ -316,6 +324,41 @@ export const personalWalletService = {
       p_id:id,p_active:active
     });
     if(error)throw new Error(error.message);
+  },
+
+  /** Creates card metadata and its documented opening position atomically in PostgreSQL. */
+  async createCardWithOpening(input: {
+    card: {
+      nickname: string; issuer: string; brand: string | null; last_four: string | null;
+      credit_limit: number; closing_day: number | null; due_day: number | null;
+      primary_color?: string | null;
+    };
+    existingAccountId: string | null;
+    opening: WalletCardOpeningPayload;
+    requestId: string;
+  }) {
+    const { data, error } = await supabase.rpc('personal_wallet_create_card_with_opening', {
+      p_card: input.card,
+      p_existing_account_id: input.existingAccountId,
+      p_opening: input.opening,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { account_id: string | null; card_id: string; replayed: boolean };
+  },
+
+  /** Imports balances only if the existing card has no financial history. */
+  async initializeCardOpening(cardId: string, opening: WalletCardOpeningPayload) {
+    const { data, error } = await supabase.rpc('personal_wallet_initialize_card_opening', {
+      p_card_id: cardId,
+      p_used_limit: opening.used_limit,
+      p_invoice_amount: opening.invoice_amount,
+      p_future_amount: opening.future_amount,
+      p_future_months: opening.future_months,
+      p_invoice_month: opening.invoice_month,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; used_limit: number; current_bill: number; available_limit: number };
   },
 
   async createHybridAssets(input: {

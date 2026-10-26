@@ -58,6 +58,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const mainRef = useRef<HTMLElement | null>(null);
   const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
+  const walletModuleRoute = location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
   const totalUnread = unreadSupport;
   const isSupportOpen = activeModal?.type === 'SUPPORT_CHAT';
 
@@ -209,7 +210,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
       </main>
 
-      {activeUser && !activeModal && !isSupportOpen && (
+      {activeUser && !activeModal && !isSupportOpen && !walletModuleRoute && (
         <div className="fab-action-container fixed bottom-22 md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col gap-2.5 items-center mb-safe">
           {/* Botão sutil para recolher/expandir botões flutuantes */}
           <button

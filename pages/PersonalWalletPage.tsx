@@ -160,6 +160,13 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       .finally(() => setLoading(false));
   }, [refresh]);
 
+  // Realtime refreshes only wallet data; preserve forms, scroll and component identity.
+  useEffect(() => {
+    const invalidate = () => { void refresh().catch(() => setError('Falha ao sincronizar a carteira.')); };
+    window.addEventListener('capitalflow:wallet-updated', invalidate);
+    return () => window.removeEventListener('capitalflow:wallet-updated', invalidate);
+  }, [refresh]);
+
   useEffect(() => () => {
     if (cardImagePreview) URL.revokeObjectURL(cardImagePreview);
   }, [cardImagePreview]);

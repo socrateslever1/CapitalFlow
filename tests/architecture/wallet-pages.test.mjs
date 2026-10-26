@@ -15,7 +15,7 @@ test('pages use canonical RPC service, not direct financial mutations',()=>{
  const card=read('features/wallet/pages/WalletCardsPage.tsx');
  const debt=read('features/wallet/pages/WalletPayablesPage.tsx');
  assert.match(card,/payInvoicePartial/);
- assert.match(card,/createHybridAssets/);
+ assert.match(card,/createCardWithOpening/);
  assert.match(debt,/payPayable/);
  for(const name of names) assert.doesNotMatch(read('features/wallet/pages/'+name+'.tsx'),/\.from\(['"]personal_wallet_/);
 });

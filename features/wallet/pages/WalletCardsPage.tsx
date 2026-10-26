@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import type { UserProfile } from '../../../types';
 import type { PersonalWalletCard } from '../../../services/personalWallet.service';
 import { personalWalletService } from '../../../services/personalWallet.service';
@@ -9,6 +9,8 @@ import { PayInvoiceModal } from '../../../components/wallet/PayInvoiceModal';
 import { WalletStatementImport } from '../../../components/wallet/WalletStatementImport';
 import { getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { formatMoney } from '../../../utils/formatters';
+import { generateUUID } from '../../../utils/generators';
+import { CardOpeningFields, freshCardOpening, validateCardOpening } from '../components/CardOpeningFields';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 
@@ -22,6 +24,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [newExpense, setNewExpense] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const requestId = useRef(generateUUID());
+  const [opening, setOpening] = useState(freshCardOpening);
+  const [initializing, setInitializing] = useState(false);
+  const [existingOpening, setExistingOpening] = useState(freshCardOpening);
   const [cardForm, setCardForm] = useState({
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '10',
     closing_day: '1', account_id: '',
@@ -45,10 +51,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     const months = [...sums.keys()].sort();
     return months.length ? { month: months[0], amount: sums.get(months[0]) || 0 } : null;
   }, [data, selected]);
+  const mayInitializeExisting = Boolean(selected && data && Number(selected.used_limit) === 0
+    && Number(selected.current_bill) === 0
+    && !data.expenses.some(expense => expense.card_id === selected.id)
+    && !data.invoicePayments.some(payment => payment.card_id === selected.id));
+
   const createCard = async (event: React.FormEvent) => {
     event.preventDefault(); if (saving) return; setSaving(true); setNotice('');
     try {
-      await personalWalletService.createHybridAssets({
+      const position = validateCardOpening(opening, Number(cardForm.credit_limit));
+      await personalWalletService.createCardWithOpening({
         card: {
           nickname: cardForm.nickname.trim(), issuer: cardForm.issuer.trim(),
           brand: cardForm.brand || null, last_four: cardForm.last_four || null,
@@ -56,14 +68,36 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           due_day: Number(cardForm.due_day), closing_day: Number(cardForm.closing_day),
         },
         existingAccountId: cardForm.account_id || null,
+        opening: position,
+        requestId: requestId.current,
       });
-      await refresh(); setCreating(false); setCardForm({
+      await refresh(); setCreating(false); setOpening(freshCardOpening());
+      requestId.current = generateUUID();
+      setCardForm({
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
         due_day: '10', closing_day: '1', account_id: '',
       });
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
     finally { setSaving(false); }
   };
+  const initializeExisting = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selected || !mayInitializeExisting || saving) return;
+    setSaving(true); setNotice('');
+    try {
+      const position = validateCardOpening(existingOpening, Number(selected.credit_limit));
+      if (position.used_limit === 0) {
+        throw new Error('Informe a dívida anterior do cartão ou cancele.');
+      }
+      await personalWalletService.initializeCardOpening(selected.id, position);
+      await refresh();
+      setInitializing(false);
+      setExistingOpening(freshCardOpening());
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Falha ao registrar a situação inicial.');
+    } finally { setSaving(false); }
+  };
+
   const createExpense = async (event: React.FormEvent) => {
     event.preventDefault(); if (!selected || saving) return; setSaving(true); setNotice('');
     try {
@@ -127,20 +161,43 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             <input required={field !== 'last_four'} type={['credit_limit','closing_day','due_day'].includes(field) ? 'number':'text'}
               min={field === 'credit_limit' ? 0 : field === 'closing_day' || field === 'due_day' ? 1 : undefined}
               max={field === 'closing_day' || field === 'due_day' ? 31 : undefined}
-              value={cardForm[field]} onChange={e => setCardForm(v => ({ ...v, [field]: e.target.value }))}
+              value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
         <label className="space-y-1 text-xs text-slate-300">Conta vinculada (opcional)
-          <select value={cardForm.account_id} onChange={e => setCardForm(v => ({ ...v, account_id: e.target.value }))}
+          <select value={cardForm.account_id} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, account_id: e.target.value })); }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
             <option value="">Cartão independente</option>
             {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
           </select>
         </label>
+        <div className="sm:col-span-2">
+          <CardOpeningFields value={opening} creditLimit={Number(cardForm.credit_limit) || 0}
+            onChange={value => { requestId.current = generateUUID(); setOpening(value); }}/>
+        </div>
         <div className="flex gap-2 sm:col-span-2">
           <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-white">Cancelar</button>
           <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">Salvar cartão</button>
         </div>
       </form>}
+      {mayInitializeExisting && !creating && !newExpense && selected && <section className="rounded-2xl border border-amber-700/25 bg-slate-900 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-white">Cartão já estava em uso?</h3>
+            <p className="mt-1 text-xs text-slate-400">Informe uma única vez a fatura e o limite já utilizados.</p>
+          </div>
+          <button type="button" onClick={() => setInitializing(value => !value)}
+            className="rounded-xl border border-amber-600/40 px-3 py-2 text-xs font-bold text-amber-200">
+            {initializing ? 'Fechar' : 'Informar saldo inicial'}
+          </button>
+        </div>
+        {initializing && <form onSubmit={event => { void initializeExisting(event); }} className="mt-4 space-y-3">
+          <CardOpeningFields creditLimit={Number(selected.credit_limit)} value={existingOpening} onChange={setExistingOpening}/>
+          <button type="submit" disabled={saving}
+            className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+            {saving ? 'Salvando...' : 'Registrar situação inicial'}
+          </button>
+        </form>}
+      </section>}
       {newExpense && selected && <form onSubmit={event => { void createExpense(event); }}
         className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2">
         <h3 className="sm:col-span-2 text-sm font-bold text-white">Nova despesa em {selected.nickname}</h3>

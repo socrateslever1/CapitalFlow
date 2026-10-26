@@ -12,7 +12,7 @@ export const WALLET_ROUTES: ReadonlyArray<{ key: WalletRouteKey; label: string }
   { key: 'visao-geral', label: 'Visão geral' },
   { key: 'cartoes', label: 'Cartões' },
   { key: 'contas', label: 'Contas & PIX' },
-  { key: 'dividas', label: 'Dívidas' },
+  { key: 'dividas', label: 'Compromissos' },
   { key: 'receitas', label: 'Receitas' },
   { key: 'cobranca', label: 'Cobrar' },
 ];

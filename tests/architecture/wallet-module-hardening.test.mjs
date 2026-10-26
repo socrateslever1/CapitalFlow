@@ -17,5 +17,6 @@ test('realtime refresh does not unmount open forms',()=>{
  assert.match(page,/addEventListener\('capitalflow:wallet-updated'/);
  assert.match(page,/removeEventListener\('capitalflow:wallet-updated'/);
  assert.match(realtime,/removeChannel\(channel\)/);
- assert.match(realtime,/owner_user_id=eq/);
+ assert.match(realtime,/'user_id' : 'owner_user_id'/);
+ assert.match(realtime,/=eq\.\$\{userId\}/);
 });

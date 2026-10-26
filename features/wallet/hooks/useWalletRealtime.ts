@@ -27,7 +27,7 @@ export const useWalletRealtime = (userId: string | null | undefined, onInvalidat
     };
     let channel = supabase.channel(`wallet:${userId}`);
     for (const table of TABLES) {
-      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `owner_user_id=eq.${userId}` }, scheduleRefresh);
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `${table === 'personal_wallet_recurring_incomes' || table === 'personal_wallet_recurring_receipts' ? 'user_id' : 'owner_user_id'}=eq.${userId}` }, scheduleRefresh);
     }
     channel.subscribe(connection => {
       if (connection === 'SUBSCRIBED') setStatus('connected');

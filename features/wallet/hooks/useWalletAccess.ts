@@ -14,7 +14,7 @@ export const useWalletAccess = (): WalletAccessState => {
   useEffect(() => {
     let mounted = true;
     setState({ status: 'loading', settings: {} });
-    supabase.auth.getUser()
+    const check = () => supabase.auth.getUser()
       .then(({ data, error }) => {
         if (error || !data.user?.id) throw new Error('Sessão autenticada não encontrada.');
         return Promise.all([data.user.id, walletRepository.getAccess(data.user.id)] as const);
@@ -25,7 +25,11 @@ export const useWalletAccess = (): WalletAccessState => {
       .catch(reason => {
         if (mounted) setState({ status: 'error', settings: {}, message: reason instanceof Error ? reason.message : 'Falha ao verificar o módulo.' });
       });
-    return () => { mounted = false; };
+    void check();
+    const onFocus = () => { void check(); };
+    window.addEventListener('focus', onFocus);
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => { void check(); });
+    return () => { mounted = false; window.removeEventListener('focus', onFocus); authListener.subscription.unsubscribe(); };
   }, []);
 
   return state;

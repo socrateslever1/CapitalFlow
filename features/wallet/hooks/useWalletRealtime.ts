@@ -18,7 +18,7 @@ export const useWalletRealtime = (userId: string | null | undefined, onInvalidat
   callbackRef.current = onInvalidate;
 
   useEffect(() => {
-    if (!userId || userId === 'DEMO') return;
+    if (!userId || userId === 'DEMO') { setStatus('idle'); return; }
     let timer: ReturnType<typeof setTimeout> | undefined;
     setStatus('connecting');
     const scheduleRefresh = () => {
@@ -27,7 +27,7 @@ export const useWalletRealtime = (userId: string | null | undefined, onInvalidat
     };
     let channel = supabase.channel(`wallet:${userId}`);
     for (const table of TABLES) {
-      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
+      channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `owner_user_id=eq.${userId}` }, scheduleRefresh);
     }
     channel.subscribe(connection => {
       if (connection === 'SUBSCRIBED') setStatus('connected');

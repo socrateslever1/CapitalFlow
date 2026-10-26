@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { AlertTriangle, LockKeyhole, WalletCards } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
@@ -16,8 +16,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   const location = useLocation();
   const navigate = useNavigate();
   const access = useWalletAccess();
-  const [revision, setRevision] = useState(0);
-  const invalidate = useCallback(() => setRevision(value => value + 1), []);
+  const invalidate = useCallback(() => window.dispatchEvent(new Event('capitalflow:wallet-updated')), []);
   const realtimeStatus = useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
   const route = getWalletRoute(location.pathname);
   const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
@@ -33,7 +32,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     <nav aria-label="Navegação da Carteira" className="sticky top-0 z-40 mx-auto mb-5 flex max-w-7xl gap-1 overflow-x-auto border-y border-slate-800 bg-slate-950/90 px-4 py-2 backdrop-blur-md sm:px-6 lg:top-2 lg:rounded-2xl lg:border">
       {WALLET_ROUTES.map(item => <button key={item.key} type="button" aria-current={route === item.key ? 'page' : undefined} onClick={() => go(item.key)} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${route === item.key ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}>{item.label}</button>)}
     </nav>
-    <WalletRouteView key={`${route}:${revision}`} route={route} activeUser={activeUser} onNavigate={go}/>
+    <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
   </main>;
 };
 

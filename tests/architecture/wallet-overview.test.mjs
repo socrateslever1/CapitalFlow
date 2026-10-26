@@ -10,7 +10,7 @@ test('overview uses independent summary and the canonical wallet snapshot',()=>{
   assert.match(overview,/getCreditSummary/);
   assert.match(overview,/lg:grid-cols-12/);
   assert.match(overview,/lg:col-span-6/);
-  for(const label of ['Liquidez imediata','Crédito e faturas abertas','Balanço geral consolidado','Compromissos próximos']) assert.ok(overview.includes(label),label);
+  for(const label of ['Liquidez imediata','Cartões','Balanço do mês','Compromissos próximos']) assert.ok(overview.includes(label),label);
   for(const route of ["go('contas')","go('cartoes')","go('dividas')"]) assert.ok(overview.includes(route),route);
   assert.doesNotMatch(overview,/<BankStack/);
   assert.doesNotMatch(overview,/<PersonalWalletPage/);

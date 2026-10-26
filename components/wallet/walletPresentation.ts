@@ -83,3 +83,14 @@ export function getCreditSummary(cards: Array<{ credit_limit: number; used_limit
     percentage: total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0,
   };
 }
+
+/** Rótulos de contas apresentados exclusivamente em português do Brasil. */
+export function walletAccountTypeLabel(value?: string | null): string {
+  const labels: Record<string, string> = {
+    CHECKING: 'Conta corrente', SAVINGS: 'Poupança', CASH: 'Dinheiro',
+    INVESTMENT: 'Investimento', PAYMENT: 'Conta de pagamento',
+    PAYMENT_ACCOUNT: 'Conta de pagamento', CURRENT: 'Conta corrente',
+  };
+  const key = String(value || '').toUpperCase().trim();
+  return labels[key] || (key ? 'Conta bancária' : 'Conta');
+}

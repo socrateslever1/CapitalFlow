@@ -12,7 +12,7 @@ import type {
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
-import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
+import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
 
 type Props = {
@@ -225,7 +225,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     <div className="flex items-center justify-between gap-3">
       <div>
         <h2 className="text-base font-black text-white sm:text-lg">Panorama financeiro</h2>
-        <p className="text-[11px] text-slate-400">Liquidez, crédito e compromissos em um só lugar.</p>
+        <p className="text-[11px] text-slate-400">Resumo das suas finanças</p>
       </div>
       <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
         disabled={refreshing} className="rounded-xl border border-slate-700 p-2.5 text-slate-300 hover:text-white disabled:opacity-40">
@@ -243,7 +243,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           {money(overview.accountBalance)}
         </strong>
         <p className="mt-1 text-xs text-slate-400">
-          Distribuído em {overview.institutionCount} {overview.institutionCount === 1 ? 'instituição ativa' : 'instituições ativas'}
+          {overview.institutionCount} {overview.institutionCount === 1 ? 'instituição' : 'instituições'}
         </p>
         <div className="mt-4 flex snap-x gap-2 overflow-x-auto pb-2">
           {accounts.length ? accounts.map(account => {
@@ -258,7 +258,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                 {money(Number(account.balance))}
               </strong>
               <p className="mt-1 truncate text-[10px] text-slate-400">
-                {account.account_type || 'Conta bancária'}
+                {walletAccountTypeLabel(account.account_type)}
               </p>
             </div>;
           }) : <p className="rounded-xl border border-dashed border-slate-700 p-5 text-xs text-slate-400">
@@ -267,23 +267,23 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <button type="button" onClick={() => go('contas')}
           className="mt-auto flex items-center justify-between border-t border-slate-700/70 pt-4 text-left text-xs font-bold text-emerald-300">
-          Ver detalhes das contas <ArrowRight size={16}/>
+          Ver contas <ArrowRight size={16}/>
         </button>
       </article>
 
       <article className="flex min-w-0 flex-col rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-300">
-          <CreditCard size={17}/> Crédito e faturas abertas
+          <CreditCard size={17}/> Cartões
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <div>
-            <p className="text-[11px] text-slate-400">Faturas do mês a pagar</p>
+            <p className="text-[11px] text-slate-400">Faturas do mês</p>
             <strong className="mt-1 block text-xl font-black tabular-nums text-white sm:text-2xl">
               {money(overview.currentInvoiceTotal)}
             </strong>
           </div>
           <div>
-            <p className="text-[11px] text-slate-400">Limite total livre</p>
+            <p className="text-[11px] text-slate-400">Limite livre</p>
             <strong className="mt-1 block text-xl font-black tabular-nums text-emerald-300 sm:text-2xl">
               {money(credit.available)}
             </strong>
@@ -291,7 +291,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="mt-5">
           <div className="mb-2 flex justify-between text-[11px] text-slate-400">
-            <span>Utilização do limite · {cards.length} {cards.length === 1 ? 'cartão' : 'cartões'}</span>
+            <span>Limite utilizado</span>
             <strong className="text-slate-200">{Math.round(credit.percentage)}%</strong>
           </div>
           <div role="progressbar" aria-label="Uso do limite de crédito"
@@ -300,13 +300,31 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
             <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all"
               style={{ width: credit.percentage + '%' }}/>
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">
-            {money(credit.used)} utilizados de {money(credit.total)}
-          </p>
+
+        </div>
+        <div className="mt-4 flex snap-x gap-2 overflow-x-auto pb-3" aria-label="Seus cartões">
+          {cards.length ? cards.map(card => {
+            const account = accounts.find(item => item.id === card.account_id);
+            const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
+            const visual = getBankVisual(institution);
+            return <button type="button" key={card.id} onClick={() => go('cartoes')}
+              aria-label={`Abrir cartão ${card.nickname}`}
+              className="relative flex aspect-[1.586/1] min-w-[152px] max-w-[206px] flex-1 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-white/20 p-3 text-left text-white shadow-md"
+              style={{ background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})` }}>
+              <div className="flex min-w-0 items-center gap-1.5">
+                <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
+                <span className="truncate text-[11px] font-bold">{card.nickname}</span>
+              </div>
+              <div className="flex items-end justify-between gap-1">
+                <span className="text-[10px] font-semibold uppercase text-white/80">{card.brand || 'Crédito'}</span>
+                <span className="text-[10px] tracking-wider text-white/90">•••• {card.last_four || '----'}</span>
+              </div>
+            </button>;
+          }) : <p className="py-3 text-xs text-slate-400">Nenhum cartão cadastrado.</p>}
         </div>
         <button type="button" onClick={() => go('cartoes')}
           className="mt-auto flex items-center justify-between border-t border-slate-700/70 pt-4 text-left text-xs font-bold text-blue-300">
-          Gerenciar faturas e cartões <ArrowRight size={16}/>
+          Ver cartões e faturas <ArrowRight size={16}/>
         </button>
       </article>
     </div>
@@ -315,9 +333,9 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-300">
-            <Scale size={17} className="text-violet-300"/> Balanço geral consolidado
+            <Scale size={17} className="text-violet-300"/> Balanço do mês
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">Recursos disponíveis e obrigações de {today.slice(5, 7)}/{today.slice(0, 4)}</p>
+          <p className="mt-1 text-[11px] text-slate-500">{today.slice(5, 7)}/{today.slice(0, 4)}</p>
         </div>
         <span className={'rounded-full border px-3 py-1 text-[10px] font-bold ' +
           (deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
@@ -347,7 +365,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         (deficit ? 'border-rose-500/20 bg-rose-950/20' : 'border-emerald-500/20 bg-emerald-950/20')}>
         <div>
           <p className="text-xs font-bold text-slate-300">Saldo projetado do mês</p>
-          <p className="text-[10px] text-slate-500">Recursos menos passivos</p>
+          <p className="text-[10px] text-slate-500">Saldo disponível menos valores a pagar</p>
         </div>
         <strong className={'text-xl font-black tabular-nums sm:text-2xl ' + (deficit ? 'text-rose-300' : 'text-emerald-300')}>
           {money(balance.projectedBalance)}
@@ -359,7 +377,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-sm font-black text-white"><CalendarClock size={18} className="text-amber-300"/> Compromissos próximos</h2>
-          <p className="mt-1 text-[11px] text-slate-400">Vencidos e próximos 45 dias · até 8 compromissos</p>
+          <p className="mt-1 text-[11px] text-slate-400">Vencidos e próximos 45 dias</p>
         </div>
         <button type="button" onClick={() => go('dividas')} className="flex items-center gap-1 text-xs font-bold text-blue-300">
           Ver contas a pagar <ArrowRight size={15}/>

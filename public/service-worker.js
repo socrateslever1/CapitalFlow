@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v12-launch-surface';
+const CACHE_NAME = 'capitalflow-v13-user-approved-updates';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/brand/capitalflow-mark-dark.svg', '/brand/capitalflow-loader.svg'];
 
 const isCacheableAsset = (href) => {
@@ -44,7 +44,7 @@ const cacheAppShell = async () => {
 };
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheAppShell().then(() => self.skipWaiting()));
+  event.waitUntil(cacheAppShell());
 });
 
 self.addEventListener('activate', (event) => {

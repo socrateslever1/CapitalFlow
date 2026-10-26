@@ -23,12 +23,13 @@
     "test:architecture": "node tests/architecture/architecture-check.mjs",
     "test:automation": "node --test automation/n8n/*.test.cjs",
     "test:ui-copy": "node tests/architecture/ui-copy-check.mjs",
-    "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation && npm run test:android-workflow && npm run test:wallet-module && npm run test:wallet-overview",
+    "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation && npm run test:android-workflow && npm run test:wallet-module && npm run test:wallet-overview && npm run test:wallet-pages",
     "test:db": "node tests/db/run-local-db-tests.mjs",
     "test:load": "k6 run tests/load/app-smoke.js",
     "test:android-workflow": "node --test tests/architecture/android-workflow.test.mjs",
     "test:wallet-module": "node --test tests/architecture/wallet-module-hardening.test.mjs",
-    "test:wallet-overview": "node --test tests/architecture/wallet-overview.test.mjs"
+    "test:wallet-overview": "node --test tests/architecture/wallet-overview.test.mjs",
+    "test:wallet-pages": "node --test tests/architecture/wallet-pages.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",

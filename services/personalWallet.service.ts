@@ -67,6 +67,7 @@ export type PersonalWalletCard = {
   institution_key?: string | null;
   primary_color?: string | null;
   available_limit?: number;
+  /** @deprecated Use initial_future_installments_balance. */
   opening_unallocated_amount?: number;
   initial_future_installments_balance?: number;
   initial_balance_occurred_at?: string | null;
@@ -483,6 +484,7 @@ export const personalWalletService = {
   },
 
   /** Imports balances only if the existing card has no financial history. */
+  /** @deprecated Use setCardInitialBalances; retained only for legacy server-side card creation. */
   async initializeCardOpening(cardId: string, opening: WalletCardOpeningPayload) {
     const { data, error } = await supabase.rpc('personal_wallet_initialize_card_opening', {
       p_card_id: cardId,

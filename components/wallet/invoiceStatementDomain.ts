@@ -56,7 +56,7 @@ export const getEffectiveInvoiceCycles = (
 };
 
 export const getCardCreditPosition = (
-  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'opening_unallocated_amount' | 'initial_future_installments_balance'>,
+  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'initial_future_installments_balance'>,
   expenses: PersonalWalletExpense[],
   installments: PersonalWalletExpenseInstallment[],
 ): CardCreditPosition => {
@@ -67,10 +67,7 @@ export const getCardCreditPosition = (
   const knownFutureCommitments = money(activeIndex >= 0
     ? cycles.slice(activeIndex + 1).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0);
-  const initialFuture = Math.max(
-    Number(card.initial_future_installments_balance || 0),
-    Number(card.opening_unallocated_amount || 0),
-  );
+  const initialFuture = Number(card.initial_future_installments_balance || 0);
   const futureCommitments = money(knownFutureCommitments + initialFuture);
   const committedLimit = money(currentInvoice + futureCommitments);
   return {

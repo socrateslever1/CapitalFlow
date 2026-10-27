@@ -155,8 +155,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <strong className="block text-xl font-black text-emerald-300">{formatMoney(creditPosition?.freeLimit || 0)}</strong>
             </div>
           </div>
-          {selected && Number(selected.opening_unallocated_amount || 0) > 0 && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-            {formatMoney(Number(selected.opening_unallocated_amount))} do comprometido futuro ainda não está detalhado em lançamentos. O valor será reduzido conforme as dívidas forem conferidas.
+          {selected && Number(selected.initial_future_installments_balance || 0) > 0 && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+            {formatMoney(Number(selected.initial_future_installments_balance))} do comprometido futuro ainda não está detalhado em lançamentos. O valor será reduzido conforme as dívidas forem conferidas.
           </p>}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

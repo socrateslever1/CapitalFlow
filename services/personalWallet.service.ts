@@ -730,6 +730,12 @@ export const personalWalletService = {
     if (input.capital_source_id !== undefined) await this.linkCapitalSource(accountId, input.capital_source_id || null);
   },
 
+  async ensureDefaultCashAccount() {
+    const { error } = await supabase.rpc('personal_wallet_ensure_default_cash_account');
+    // Mantém compatibilidade durante a janela entre o deploy do frontend e a aplicação da migration.
+    if (error && error.code !== 'PGRST202') throw new Error(error.message);
+  },
+
   async archiveAccount(accountId: string, requestId = generateUUID()) {
     if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitacao ausente.');
     const { error } = await supabase.rpc('personal_wallet_archive_account', {

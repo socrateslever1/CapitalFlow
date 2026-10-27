@@ -136,12 +136,12 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button type="button" onClick={onBack} disabled={saving}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
           <ArrowLeft size={16} /> Voltar às contas
         </button>
-        {!editing && <div className="flex gap-2">
+        {!editing && <div className="flex max-w-full flex-wrap justify-end gap-2">
           <button type="button" onClick={() => setExpenseOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20">
             Despesa

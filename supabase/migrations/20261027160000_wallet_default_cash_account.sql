@@ -1,0 +1,30 @@
+-- Garante uma carteira física inicial por usuário, sem duplicar contas existentes.
+create or replace function public.personal_wallet_ensure_default_cash_account()
+returns public.personal_wallet_accounts
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_owner uuid := auth.uid();
+  v_account public.personal_wallet_accounts%rowtype;
+begin
+  if v_owner is null then raise exception 'Sessao nao encontrada.'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('personal_wallet_cash:' || v_owner::text, 0));
+  select * into v_account
+  from public.personal_wallet_accounts
+  where owner_user_id = v_owner and account_type = 'CASH' and archived_at is null
+  order by created_at asc
+  limit 1
+  for update;
+  if not found then
+    insert into public.personal_wallet_accounts(owner_user_id, nickname, bank_name, account_type, balance)
+    values (v_owner, 'Carteira física', null, 'CASH', 0)
+    returning * into v_account;
+  end if;
+  return v_account;
+end;
+$$;
+
+revoke all on function public.personal_wallet_ensure_default_cash_account() from public, anon;
+grant execute on function public.personal_wallet_ensure_default_cash_account() to authenticated;

@@ -4,7 +4,10 @@ import { personalWalletService } from '../../../services/personalWallet.service'
 export type WalletSnapshot = Awaited<ReturnType<typeof personalWalletService.load>>;
 
 export const walletRepository = {
-  load: () => personalWalletService.load(),
+  async load() {
+    await personalWalletService.ensureDefaultCashAccount();
+    return personalWalletService.load();
+  },
   async getAccess(userId: string) {
     const { data, error } = await supabase
       .from('user_modulos')

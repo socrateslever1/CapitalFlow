@@ -64,6 +64,20 @@ const sourceAccount = (
   if (account) return account.nickname;
   return card ? 'Origem: ' + card.nickname : 'Conta de pagamento não definida';
 };
+const getOverviewAccounts = (accounts: PersonalWalletAccount[]) => {
+  const seen = new Set<string>();
+  return accounts.filter(account => {
+    const identity = [
+      account.account_type,
+      account.nickname.trim().toLocaleLowerCase('pt-BR'),
+      String(account.bank_name || '').trim().toLocaleLowerCase('pt-BR'),
+      Number(account.balance || 0).toFixed(2),
+    ].join('|');
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
+};
 const isOpenPayable = (payable: PersonalWalletPayable) =>
   !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
 
@@ -204,6 +218,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   }
 
   const { accounts, cards, balance, credit, upcoming } = overview;
+  const overviewAccounts = getOverviewAccounts(accounts);
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
@@ -233,7 +248,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {accounts.length ? accounts.slice(0, 2).map(account => {
+            {overviewAccounts.length ? overviewAccounts.slice(0, 2).map(account => {
               const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
               const visualStyles = visual as typeof visual & Partial<Record<'cardBg' | 'cardBorder' | 'cardGlow' | 'logoBg' | 'logoBorder' | 'badgeBg' | 'badgeBorder' | 'badgeText' | 'badgeDot' | 'badgeDotGlow', string>>;
               const cardBg = visualStyles.cardBg || `linear-gradient(145deg, color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9)) 0%, color-mix(in srgb, ${visual.accent} 4%, rgba(2, 6, 23, 0.95)) 100%)`;
@@ -282,7 +297,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                       />
                       <div className="min-w-0 flex-1">
                         <span className="block truncate text-xs font-bold text-white tracking-tight">{visual.name}</span>
-                        {account.nickname && account.nickname.toLowerCase() !== visual.name.toLowerCase() && (
+                        {account.nickname && account.account_type !== 'CASH' && account.nickname.toLowerCase() !== visual.name.toLowerCase() && (
                           <span className="block truncate text-[10px] text-slate-400 font-medium">{account.nickname}</span>
                         )}
                       </div>
@@ -370,7 +385,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           {/* Cartões com animação 3D de sobreposição (Apple Wallet style), expansão no hover e elevação */}
           <div className="relative mt-4 h-[126px] w-full" aria-label="Seus cartões">
             {cards.length ? (
-              <div className="flex -space-x-28 sm:-space-x-32 hover:-space-x-16 transition-all duration-300 py-1 items-center overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2 py-1 items-center overflow-x-auto scrollbar-hide touch-pan-x sm:-space-x-32 sm:gap-0 sm:hover:-space-x-16 transition-all duration-300">
                 {cards.map(card => {
                   const index = cards.indexOf(card);
                   const account = accounts.find(item => item.id === card.account_id);
@@ -384,7 +399,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                       zIndex: 30 - index * 5,
                       transform: `scale(${1 - index * 0.04}) translateY(${index * 2}px)`,
                     }}
-                    className="group relative flex aspect-[1.586/1] h-[108px] sm:h-[114px] shrink-0 flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer">
+                    className="group relative flex aspect-[1.586/1] h-[108px] shrink-0 touch-manipulation flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer sm:h-[114px]">
                     <div className="flex min-w-0 items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <BankLogo name={institution} alternateName={card.nickname} size="sm"/>

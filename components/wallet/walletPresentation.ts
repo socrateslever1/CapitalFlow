@@ -1,6 +1,7 @@
 import { findBankBrand, normalizeBankName } from '../../utils/bankLogoRegistry';
 
 const visuals: Record<string, { accent: string; secondary: string; monogram: string }> = {
+  cash: { accent: '#b7791f', secondary: '#7c4a03', monogram: 'C' },
   nubank: { accent: '#820ad1', secondary: '#b44cff', monogram: 'NU' },
   itau: { accent: '#ec7000', secondary: '#ffb000', monogram: 'IT' },
   inter: { accent: '#ff7a00', secondary: '#ffad4d', monogram: 'IN' },
@@ -31,6 +32,10 @@ const canonicalAliases: Record<string, string> = {
   recargapay: 'recargapay',
   'recargapay ip': 'recargapay',
   'recarga pay ip': 'recargapay',
+  'carteira fisica': 'cash',
+  'carteira manual': 'cash',
+  'dinheiro fisico': 'cash',
+  dinheiro: 'cash',
   'banco inter': 'inter',
   'itau unibanco': 'itau',
 };
@@ -46,7 +51,7 @@ export function getBankVisual(name?: string | null) {
   const aliasKey = canonicalAliases[normalized];
   const brand = findBankBrand(aliasKey || name);
   const key = aliasKey || brand?.id || normalized.replace(/\s/g, '-') || 'carteira';
-  const title = brand?.name || String(name || 'Carteira').trim();
+  const title = key === 'cash' ? 'Carteira física' : brand?.name || String(name || 'Carteira').trim();
   const monogram = title.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
   const base = visuals[key] || { accent: hashColor(key), secondary: '#334155', monogram: monogram || 'CF' };
   if (key === 'recargapay') {

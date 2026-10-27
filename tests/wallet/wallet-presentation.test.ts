@@ -20,6 +20,13 @@ test('normaliza aliases comerciais na mesma instituição', () => {
   assert.equal(groups.length, 1);
 });
 
+test('usa identidade neutra e legível para carteira física', () => {
+  const visual = getBankVisual('carteira-fisica');
+  assert.equal(visual.key, 'cash');
+  assert.equal(visual.name, 'Carteira física');
+  assert.equal(visual.accent, '#b7791f');
+});
+
 test('consolida limite utilizado e disponível sem percentuais inválidos', () => {
   assert.deepEqual(getCreditSummary([
     { credit_limit: 1000, used_limit: 250 },

@@ -13,8 +13,6 @@ import { calculateWalletBalance } from '../../../components/wallet/walletBalance
 import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
-import { getCardSummaryDestination } from '../cardSummaryNavigation';
-import QuickExpenseModal from '../components/QuickExpenseModal';
 
 type Props = {
   activeUser?: UserProfile | null;
@@ -158,7 +156,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => dayKey(new Date()));
-  const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await walletRepository.load();
@@ -219,6 +217,10 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
   const { accounts, cards, balance, credit, upcoming } = overview;
   const overviewAccounts = getOverviewAccounts(accounts);
+  const selectedOverviewCardId = cards.some(card => card.id === selectedCardId) ? selectedCardId : cards[0]?.id || null;
+  const orderedCards = selectedOverviewCardId
+    ? [cards.find(card => card.id === selectedOverviewCardId)!, ...cards.filter(card => card.id !== selectedOverviewCardId)]
+    : cards;
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
@@ -228,7 +230,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
         <p className="text-xs md:text-sm text-slate-400 mt-0.5">Resumo consolidado das suas finanças</p>
       </div>
-      <div className="flex items-center gap-2"><button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500">+ Lançamento</button><button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
+      <div className="flex items-center gap-2"><button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
         disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm"><RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/><span className="hidden sm:inline">Atualizar</span></button></div>
     </div>
     {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
@@ -386,28 +388,28 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           <div className="relative mt-4 h-[126px] w-full" aria-label="Seus cartões">
             {cards.length ? (
               <div className="flex gap-2 py-1 items-center overflow-x-auto scrollbar-hide touch-pan-x sm:-space-x-32 sm:gap-0 sm:hover:-space-x-16 transition-all duration-300">
-                {cards.map(card => {
-                  const index = cards.indexOf(card);
+                {orderedCards.map(card => {
+                  const index = orderedCards.indexOf(card);
                   const account = accounts.find(item => item.id === card.account_id);
                   const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
                   const visual = getBankVisual(institution);
+                  const isSelected = card.id === selectedOverviewCardId;
                   return <button type="button" key={card.id}
-                    onClick={() => onNavigate(getCardSummaryDestination(card.id))}
+                    onClick={() => setSelectedCardId(card.id)}
                     aria-label={`Abrir cartão ${card.nickname}`}
+                    aria-pressed={isSelected}
                     style={{
                       background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})`,
                       zIndex: 30 - index * 5,
                       transform: `scale(${1 - index * 0.04}) translateY(${index * 2}px)`,
                     }}
-                    className="group relative flex aspect-[1.586/1] h-[108px] shrink-0 touch-manipulation flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer sm:h-[114px]">
+                    className={`group relative flex aspect-[1.586/1] h-[108px] shrink-0 touch-manipulation flex-col justify-between rounded-xl border p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer sm:h-[114px] ${isSelected ? 'border-white/70 ring-2 ring-white/35' : 'border-white/25'}`}>
                     <div className="flex min-w-0 items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
                         <span className="truncate text-[11px] font-bold text-white drop-shadow-sm">{card.nickname}</span>
                       </div>
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 bg-black/25 px-1.5 py-0.5 rounded">
-                        {card.brand || 'Crédito'}
-                      </span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 bg-black/25 px-1.5 py-0.5 rounded">{isSelected ? 'Selecionado' : card.brand || 'Crédito'}</span>
                     </div>
                     <div className="flex items-end justify-between gap-1 pt-2">
                       <span className="text-[10px] font-mono tracking-widest text-white/90 drop-shadow-sm">•••• {card.last_four || '----'}</span>
@@ -524,7 +526,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </p>}
       </div>
     </article>
-    {quickExpenseOpen && <QuickExpenseModal accounts={accounts} cards={cards} onClose={() => setQuickExpenseOpen(false)} onSaved={async () => { await refresh(); window.dispatchEvent(new Event('capitalflow:wallet-updated')); }}/>}
   </section>;
 };
 

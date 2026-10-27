@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight, CalendarClock, CreditCard, Landmark, RefreshCw,
-  Scale, TrendingDown, TrendingUp, AlertCircle,
+  ArrowRight, CalendarClock, CreditCard, Landmark, Plus, RefreshCw,
+  Scale, SlidersHorizontal, TrendingDown, TrendingUp, Wallet, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import type {
@@ -13,6 +13,10 @@ import { calculateWalletBalance } from '../../../components/wallet/walletBalance
 import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
+import { getCardSummaryDestination } from '../cardSummaryNavigation';
+import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
+import { QuickExpenseModal } from '../components/QuickExpenseModal';
+import { CreateAccountModal } from '../components/CreateAccountModal';
 
 type Props = {
   activeUser?: UserProfile | null;
@@ -61,20 +65,6 @@ const sourceAccount = (
   const account = accounts.find(item => item.id === (accountId || card?.account_id));
   if (account) return account.nickname;
   return card ? 'Origem: ' + card.nickname : 'Conta de pagamento não definida';
-};
-const getOverviewAccounts = (accounts: PersonalWalletAccount[]) => {
-  const seen = new Set<string>();
-  return accounts.filter(account => {
-    const identity = [
-      account.account_type,
-      account.nickname.trim().toLocaleLowerCase('pt-BR'),
-      String(account.bank_name || '').trim().toLocaleLowerCase('pt-BR'),
-      Number(account.balance || 0).toFixed(2),
-    ].join('|');
-    if (seen.has(identity)) return false;
-    seen.add(identity);
-    return true;
-  });
 };
 const isOpenPayable = (payable: PersonalWalletPayable) =>
   !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
@@ -156,7 +146,11 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => dayKey(new Date()));
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [quickModal, setQuickModal] = useState<{
+    mode: QuickActionMode;
+    cardId?: string | null;
+    accountId?: string | null;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await walletRepository.load();
@@ -216,11 +210,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   }
 
   const { accounts, cards, balance, credit, upcoming } = overview;
-  const overviewAccounts = getOverviewAccounts(accounts);
-  const selectedOverviewCardId = cards.some(card => card.id === selectedCardId) ? selectedCardId : cards[0]?.id || null;
-  const orderedCards = selectedOverviewCardId
-    ? [cards.find(card => card.id === selectedOverviewCardId)!, ...cards.filter(card => card.id !== selectedOverviewCardId)]
-    : cards;
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
@@ -230,8 +219,11 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
         <p className="text-xs md:text-sm text-slate-400 mt-0.5">Resumo consolidado das suas finanças</p>
       </div>
-      <div className="flex items-center gap-2"><button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm"><RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/><span className="hidden sm:inline">Atualizar</span></button></div>
+      <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
+        disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm">
+        <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/>
+        <span className="hidden sm:inline">Atualizar</span>
+      </button>
     </div>
     {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
 
@@ -239,8 +231,26 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       {/* Coluna Esquerda: LIQUIDEZ IMEDIATA */}
       <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl backdrop-blur-xl before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-48 before:w-48 before:rounded-full before:bg-emerald-500/10 before:blur-3xl sm:p-5 lg:col-span-6 lg:p-6">
         <div className="relative z-10">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
-            <Landmark size={17}/> Liquidez imediata
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
+              <Landmark size={17}/> Liquidez imediata
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'CASH_WALLET' })}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-200 transition hover:bg-amber-500/20"
+              >
+                <Wallet size={12}/> + Carteira
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'EXPENSE', accountId: accounts[0]?.id || null })}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/35 bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-200 transition hover:bg-rose-500/25"
+              >
+                <Plus size={12}/> Despesa
+              </button>
+            </div>
           </div>
           <strong className="my-1 block text-3xl font-extrabold tracking-tight tabular-nums text-white lg:text-4xl">
             {money(overview.accountBalance)}
@@ -250,7 +260,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {overviewAccounts.length ? overviewAccounts.slice(0, 2).map(account => {
+            {accounts.length ? accounts.slice(0, 2).map(account => {
               const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
               const visualStyles = visual as typeof visual & Partial<Record<'cardBg' | 'cardBorder' | 'cardGlow' | 'logoBg' | 'logoBorder' | 'badgeBg' | 'badgeBorder' | 'badgeText' | 'badgeDot' | 'badgeDotGlow', string>>;
               const cardBg = visualStyles.cardBg || `linear-gradient(145deg, color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9)) 0%, color-mix(in srgb, ${visual.accent} 4%, rgba(2, 6, 23, 0.95)) 100%)`;
@@ -299,7 +309,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                       />
                       <div className="min-w-0 flex-1">
                         <span className="block truncate text-xs font-bold text-white tracking-tight">{visual.name}</span>
-                        {account.nickname && account.account_type !== 'CASH' && account.nickname.toLowerCase() !== visual.name.toLowerCase() && (
+                        {account.nickname && account.nickname.toLowerCase() !== visual.name.toLowerCase() && (
                           <span className="block truncate text-[10px] text-slate-400 font-medium">{account.nickname}</span>
                         )}
                       </div>
@@ -311,7 +321,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                     <strong className="block text-xl sm:text-2xl font-black tracking-tight tabular-nums text-white">
                       {money(Number(account.balance))}
                     </strong>
-                    <div className="mt-2.5 flex items-center">
+                    <div className="mt-2.5 flex items-center justify-between gap-2">
                       <span
                         className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide"
                         style={{
@@ -329,6 +339,16 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                         />
                         {walletAccountTypeLabel(account.account_type)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          setQuickModal({ mode: 'EXPENSE', accountId: account.id });
+                        }}
+                        className="rounded-lg border border-white/15 bg-black/30 px-2 py-0.5 text-[10px] font-bold text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-500/20"
+                      >
+                        - Despesa
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -354,8 +374,26 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       {/* Coluna Direita: CARTÕES */}
       <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 bg-gradient-to-br from-blue-950/30 via-slate-900/80 to-slate-950/80 p-4 shadow-2xl backdrop-blur-xl sm:p-5 lg:col-span-6 lg:p-6">
         <div className="relative z-10">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
-            <CreditCard size={17}/> Cartões
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
+              <CreditCard size={17}/> Cartões
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'CARD_OPENING', cardId: cards[0]?.id || null })}
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-500/35 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-200 transition hover:bg-blue-500/20"
+              >
+                <SlidersHorizontal size={12}/> Cartão em Uso
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'EXPENSE', cardId: cards[0]?.id || null })}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/35 bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-200 transition hover:bg-rose-500/25"
+              >
+                <Plus size={12}/> + Despesa
+              </button>
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div>
@@ -387,29 +425,29 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           {/* Cartões com animação 3D de sobreposição (Apple Wallet style), expansão no hover e elevação */}
           <div className="relative mt-4 h-[126px] w-full" aria-label="Seus cartões">
             {cards.length ? (
-              <div className="flex gap-2 py-1 items-center overflow-x-auto scrollbar-hide touch-pan-x sm:-space-x-32 sm:gap-0 sm:hover:-space-x-16 transition-all duration-300">
-                {orderedCards.map(card => {
-                  const index = orderedCards.indexOf(card);
+              <div className="flex -space-x-28 sm:-space-x-32 hover:-space-x-16 transition-all duration-300 py-1 items-center overflow-x-auto scrollbar-hide">
+                {cards.map(card => {
+                  const index = cards.indexOf(card);
                   const account = accounts.find(item => item.id === card.account_id);
                   const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
                   const visual = getBankVisual(institution);
-                  const isSelected = card.id === selectedOverviewCardId;
                   return <button type="button" key={card.id}
-                    onClick={() => setSelectedCardId(card.id)}
+                    onClick={() => onNavigate(getCardSummaryDestination(card.id))}
                     aria-label={`Abrir cartão ${card.nickname}`}
-                    aria-pressed={isSelected}
                     style={{
                       background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})`,
                       zIndex: 30 - index * 5,
                       transform: `scale(${1 - index * 0.04}) translateY(${index * 2}px)`,
                     }}
-                    className={`group relative flex aspect-[1.586/1] h-[108px] shrink-0 touch-manipulation flex-col justify-between rounded-xl border p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer sm:h-[114px] ${isSelected ? 'border-white/70 ring-2 ring-white/35' : 'border-white/25'}`}>
+                    className="group relative flex aspect-[1.586/1] h-[108px] sm:h-[114px] shrink-0 flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer">
                     <div className="flex min-w-0 items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
                         <span className="truncate text-[11px] font-bold text-white drop-shadow-sm">{card.nickname}</span>
                       </div>
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 bg-black/25 px-1.5 py-0.5 rounded">{isSelected ? 'Selecionado' : card.brand || 'Crédito'}</span>
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 bg-black/25 px-1.5 py-0.5 rounded">
+                        {card.brand || 'Crédito'}
+                      </span>
                     </div>
                     <div className="flex items-end justify-between gap-1 pt-2">
                       <span className="text-[10px] font-mono tracking-widest text-white/90 drop-shadow-sm">•••• {card.last_four || '----'}</span>
@@ -526,6 +564,46 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </p>}
       </div>
     </article>
+
+    {quickModal?.mode === 'EXPENSE' && (
+      <QuickExpenseModal
+        accounts={accounts}
+        cards={cards}
+        defaultMethod={quickModal.accountId ? 'ACCOUNT' : 'CARD'}
+        defaultAccountId={quickModal.accountId}
+        defaultCardId={quickModal.cardId}
+        onClose={() => setQuickModal(null)}
+        onSaved={async () => {
+          await refresh();
+        }}
+      />
+    )}
+
+    {quickModal?.mode === 'CASH_WALLET' && (
+      <CreateAccountModal
+        onClose={() => setQuickModal(null)}
+        onSaved={async () => {
+          await refresh();
+        }}
+      />
+    )}
+
+    {quickModal?.mode === 'CARD_OPENING' && (
+      <QuickWalletActionsModal
+        mode="CARD_OPENING"
+        accounts={accounts}
+        cards={cards}
+        expenses={snapshot?.expenses || []}
+        installments={snapshot?.installments || []}
+        invoicePayments={snapshot?.invoicePayments || []}
+        initialCardId={quickModal.cardId}
+        initialAccountId={quickModal.accountId}
+        onClose={() => setQuickModal(null)}
+        onSaved={async () => {
+          await refresh();
+        }}
+      />
+    )}
   </section>;
 };
 

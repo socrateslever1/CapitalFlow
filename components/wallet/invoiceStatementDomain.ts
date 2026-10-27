@@ -20,6 +20,49 @@ export type CardCreditPosition = {
   hasOverride: boolean;
 };
 
+export type InvoiceCycleState = 'OPEN' | 'CLOSED' | 'OVERDUE' | 'PAID';
+export type InvoiceCycleDates = { closingDate: string; dueDate: string };
+
+const manausToday = () => {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+const daysInMonth = (year: number, monthIndex: number) => new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+
+export const getInvoiceCycleDates = (dueMonth: string, closingDay: number | null, dueDay: number | null): InvoiceCycleDates => {
+  const [year, month] = dueMonth.slice(0, 7).split('-').map(Number);
+  const closing = Math.min(Math.max(Number(closingDay || 1), 1), daysInMonth(year, month - 1));
+  const due = Math.max(Number(dueDay || 1), 1);
+  const dueMonthOffset = due <= closing ? 1 : 0;
+  const dueYear = month - 1 + dueMonthOffset >= 12 ? year + 1 : year;
+  const dueMonthIndex = (month - 1 + dueMonthOffset) % 12;
+  const boundedDue = Math.min(due, daysInMonth(dueYear, dueMonthIndex));
+  return {
+    closingDate: `${year}-${String(month).padStart(2, '0')}-${String(closing).padStart(2, '0')}`,
+    dueDate: `${dueYear}-${String(dueMonthIndex + 1).padStart(2, '0')}-${String(boundedDue).padStart(2, '0')}`,
+  };
+};
+
+export const resolveInvoiceCycleState = (input: {
+  dueMonth: string;
+  closingDay: number | null;
+  dueDay: number | null;
+  outstanding: number;
+  hasCycle?: boolean;
+  paid?: boolean;
+  today?: string;
+}): InvoiceCycleState => {
+  if (input.paid) return 'PAID';
+  if (input.hasCycle === false) return 'OPEN';
+  const dates = getInvoiceCycleDates(input.dueMonth, input.closingDay, input.dueDay);
+  const today = input.today || manausToday();
+  if (input.outstanding <= 0) return 'PAID';
+  if (today <= dates.closingDate) return 'OPEN';
+  if (today <= dates.dueDate) return 'CLOSED';
+  return 'OVERDUE';
+};
+
 const money = (value: number) => Math.round(value * 100) / 100;
 const outstanding = (installment: PersonalWalletExpenseInstallment) =>
   Math.max(0, money(Number(installment.amount || 0) - Number(installment.paid_amount || 0)));

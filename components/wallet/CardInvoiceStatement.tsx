@@ -4,7 +4,7 @@ import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePer
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { ExpenseEditModal } from './ExpenseEditModal';
-import { getCardInvoiceEntries } from './invoiceStatementDomain';
+import { getCardInvoiceEntries, type InvoiceCycleDates, type InvoiceCycleState } from './invoiceStatementDomain';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../ui/Modal';
 
 type CardInvoiceStatementProps = {
@@ -15,10 +15,12 @@ type CardInvoiceStatementProps = {
   onEdit: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
   onDelete: (expenseId: string, requestId: string) => Promise<void>;
   headerAction?: React.ReactNode;
+  invoiceState?: InvoiceCycleState;
+  cycleDates?: InvoiceCycleDates;
   className?: string;
 };
 
-export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, headerAction, className = '' }) => {
+export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, headerAction, invoiceState, cycleDates, className = '' }) => {
   const [editing, setEditing] = useState<PersonalWalletExpense | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<PersonalWalletExpense | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -46,7 +48,10 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 id="invoice-statement-title" className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-slate-200"><ReceiptText size={15} className="text-cyan-400"/> Extrato da Fatura</h3>
-          <p className="mt-1 text-[10px] text-slate-500">{dueMonth ? `Vencimento ${dueMonth.split('-').reverse().join('/')}` : 'Nenhuma fatura em aberto'}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+            {dueMonth ? <span>{cycleDates ? `Fecha em ${cycleDates.closingDate.split('-').reverse().join('/')} • Vence em ${cycleDates.dueDate.split('-').reverse().join('/')}` : `Ciclo ${dueMonth.slice(0, 7).split('-').reverse().join('/')}`}</span> : <span>Nenhuma fatura em aberto</span>}
+            {invoiceState && <span className={`rounded-full border px-2 py-0.5 font-bold ${invoiceState === 'OPEN' ? 'border-sky-500/20 bg-sky-500/10 text-sky-400' : invoiceState === 'CLOSED' ? 'border-amber-500/20 bg-amber-500/10 text-amber-400' : invoiceState === 'OVERDUE' ? 'border-rose-500/20 bg-rose-500/10 text-rose-400' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'}`}>{invoiceState === 'OPEN' ? 'Aberta' : invoiceState === 'CLOSED' ? 'Fechada' : invoiceState === 'OVERDUE' ? 'Vencida' : 'Paga'}</span>}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
       </header>

@@ -9,7 +9,7 @@ import { CardEditModal } from '../../../components/wallet/CardEditModal';
 import { PayInvoiceModal } from '../../../components/wallet/PayInvoiceModal';
 import { WalletStatementImport } from '../../../components/wallet/WalletStatementImport';
 import { InvoiceOverrideModal } from '../../../components/wallet/InvoiceOverrideModal';
-import { getCardCreditPosition, getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getEffectiveInvoiceCycles, getInvoiceCycleDates, resolveInvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from '../components/CardOpeningFields';
@@ -57,6 +57,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const creditPosition = useMemo(() => data && selected
     ? getCardCreditPosition(selected, data.expenses, data.installments)
     : null, [data, selected]);
+  const selectedCycle = useMemo(() => invoiceCycles.find(cycle => cycle.dueMonth === statementMonth) || null, [invoiceCycles, statementMonth]);
+  const cycleDates = selected && statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day) : undefined;
+  const invoiceState = selected && statementMonth ? resolveInvoiceCycleState({
+    dueMonth: statementMonth,
+    closingDay: selected.closing_day,
+    dueDay: selected.due_day,
+    outstanding: selectedCycle?.amount || 0,
+    hasCycle: Boolean(selectedCycle),
+    paid: Boolean(data?.invoicePayments.some(payment => payment.card_id === selected.id && payment.due_month === statementMonth) && !selectedCycle),
+  }) : undefined;
   useEffect(() => {
     if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
   }, [selected?.id, creditPosition?.dueMonth]);
@@ -174,6 +184,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </div>
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               expenses={data.expenses} installments={data.installments}
+              invoiceState={invoiceState} cycleDates={cycleDates}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :

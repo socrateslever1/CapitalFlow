@@ -9,6 +9,7 @@ import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
+import CreateAccountModal from '../../../components/wallet/CreateAccountModal';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const { data, loading, error, refresh } = useWalletSnapshot();
@@ -16,6 +17,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [creating, setCreating] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '', capital_source_id: '' });
@@ -71,6 +73,10 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             <p className="mt-2 text-xs text-slate-500">{data.accounts.length} conta(s) registrada(s)</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => setCreateModalOpen(true)}
+              className="col-span-full w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500">
+              + Nova conta / carteira
+            </button>
             <button type="button" onClick={() => creating ? setCreating(false) : startCreate('CHECKING')}
               className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300">
               {creating ? 'Cancelar cadastro' : 'Adicionar conta bancária'}
@@ -101,7 +107,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         <label className="space-y-1 text-xs text-slate-300">Tipo
           <select value={form.account_type} onChange={e => setForm(v => ({ ...v, account_type: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option>
+            <option value="CHECKING">Conta corrente</option><option value="PAYMENT">Conta de pagamento</option><option value="SAVINGS">Poupança</option>
             <option value="CASH">Carteira física</option><option value="INVESTMENT">Investimentos</option>
           </select></label>
         {!isPhysicalWallet ? <>
@@ -135,6 +141,8 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         onClose={() => setMovementOpen(false)} onSaved={async () => { await refresh(); }}/>}
       {chargeOpen && <WalletPixCharge embedded accounts={data.accounts} recipient={activeUser?.fullName || activeUser?.name || ''}
         city={activeUser?.city} onClose={() => setChargeOpen(false)} onSaved={async () => { await refresh(); }}/>}
+      {createModalOpen && <CreateAccountModal capitalSources={data.capitalSources}
+        onClose={() => setCreateModalOpen(false)} onSaved={async () => { await refresh(); }}/>}
     </>)}
   </WalletPageFrame>;
 };

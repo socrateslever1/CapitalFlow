@@ -98,7 +98,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       if (position.used_limit === 0) {
         throw new Error('Informe a dívida anterior do cartão ou cancele.');
       }
-      await personalWalletService.initializeCardOpening(selected.id, position);
+      await personalWalletService.setCardInitialBalances({
+        cardId: selected.id,
+        creditLimit: Number(selected.credit_limit),
+        currentInvoice: position.invoice_amount,
+        futureCommitments: position.future_amount,
+        dueMonth: position.invoice_month,
+        requestId: generateUUID(),
+      });
       await refresh();
       setInitializing(false);
       setExistingOpening(freshCardOpening());

@@ -68,6 +68,9 @@ export type PersonalWalletCard = {
   primary_color?: string | null;
   available_limit?: number;
   opening_unallocated_amount?: number;
+  initial_future_installments_balance?: number;
+  initial_balance_occurred_at?: string | null;
+  initial_balance_requests?: Record<string, unknown>;
 };
 
 export type PersonalWalletPayable = {
@@ -210,6 +213,7 @@ export type CreatePersonalWalletExpense = {
   installment_count?: number;
   recurrence?: string | null;
   notes?: string | null;
+  request_id?: string | null;
 };
 
 export type UpdatePersonalWalletExpense = {
@@ -588,7 +592,7 @@ export const personalWalletService = {
     const nickname = String(input.nickname || '').trim();
     if (!nickname || nickname.length > 120) throw new Error('Informe um apelido válido de até 120 caracteres.');
     const accountType = String(input.account_type || '').trim().toUpperCase();
-    if (!['CHECKING', 'SAVINGS', 'CASH', 'INVESTMENT'].includes(accountType)) {
+    if (!['CHECKING', 'PAYMENT', 'SAVINGS', 'CASH', 'INVESTMENT'].includes(accountType)) {
       throw new Error('Tipo de conta inválido.');
     }
     const pixKeyType = String(input.pix_key_type || '').trim().toUpperCase();
@@ -741,6 +745,7 @@ export const personalWalletService = {
   },
 
   async createExpense(input: CreatePersonalWalletExpense) {
+    const requestId = input.request_id || generateUUID();
     const { data, error } = await supabase.rpc('personal_wallet_create_expense', {
       p_description: input.description,
       p_amount: input.amount,
@@ -753,9 +758,37 @@ export const personalWalletService = {
       p_installment_count: input.installment_count || 1,
       p_recurrence: input.recurrence || null,
       p_notes: input.notes || null,
+      p_request_id: requestId,
     });
     if (error) throw new Error(error.message);
     return String(data);
+  },
+
+  async setCardInitialBalances(input: {
+    cardId: string;
+    creditLimit: number;
+    currentInvoice: number;
+    futureCommitments: number;
+    dueMonth: string;
+    requestId: string;
+  }) {
+    const values = [input.creditLimit, input.currentInvoice, input.futureCommitments];
+    if (!input.cardId || !input.dueMonth || !input.requestId || values.some(value => !Number.isFinite(value) || value < 0 || Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)) {
+      throw new Error('Informe valores válidos para a carga inicial do cartão.');
+    }
+    if (Math.round((input.currentInvoice + input.futureCommitments) * 100) > Math.round(input.creditLimit * 100)) {
+      throw new Error('A fatura atual mais os compromissos futuros excedem o limite do cartão.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_set_card_initial_balances', {
+      p_card_id: input.cardId,
+      p_credit_limit: input.creditLimit,
+      p_current_invoice: input.currentInvoice,
+      p_future_commitments: input.futureCommitments,
+      p_due_month: input.dueMonth,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as Record<string, unknown>;
   },
 
   async setMonthlyInvoiceOverride(input: {

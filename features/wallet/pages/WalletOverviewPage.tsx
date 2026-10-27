@@ -14,6 +14,7 @@ import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceSta
 import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
 import { getCardSummaryDestination } from '../cardSummaryNavigation';
+import QuickExpenseModal from '../components/QuickExpenseModal';
 
 type Props = {
   activeUser?: UserProfile | null;
@@ -143,6 +144,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => dayKey(new Date()));
+  const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const result = await walletRepository.load();
@@ -211,11 +213,8 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
         <p className="text-xs md:text-sm text-slate-400 mt-0.5">Resumo consolidado das suas finanças</p>
       </div>
-      <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm">
-        <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/>
-        <span className="hidden sm:inline">Atualizar</span>
-      </button>
+      <div className="flex items-center gap-2"><button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500">+ Lançamento</button><button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
+        disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm"><RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/><span className="hidden sm:inline">Atualizar</span></button></div>
     </div>
     {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
 
@@ -510,6 +509,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </p>}
       </div>
     </article>
+    {quickExpenseOpen && <QuickExpenseModal accounts={accounts} cards={cards} onClose={() => setQuickExpenseOpen(false)} onSaved={async () => { await refresh(); window.dispatchEvent(new Event('capitalflow:wallet-updated')); }}/>}
   </section>;
 };
 

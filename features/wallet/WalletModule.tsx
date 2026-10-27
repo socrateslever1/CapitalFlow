@@ -7,6 +7,7 @@ import { useWalletAccess } from './hooks/useWalletAccess';
 import { useWalletRealtime } from './hooks/useWalletRealtime';
 import { getWalletRoute, WALLET_ROUTES, WalletRouteView } from './routes';
 import { walletRepository, type WalletSnapshot } from './services/walletRepository';
+import { WalletExpenseFab } from './components/WalletExpenseFab';
 import { QuickWalletActionsModal, type QuickActionMode } from './components/QuickWalletActionsModal';
 import { QuickExpenseModal } from './components/QuickExpenseModal';
 import { CreateAccountModal } from './components/CreateAccountModal';
@@ -26,10 +27,10 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   const route = getWalletRoute(location.pathname);
   const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
 
+  const [snapshot, setSnapshot] = useState<WalletSnapshot | null>(null);
   const [quickModal, setQuickModal] = useState<{ mode: QuickActionMode; target?: string; cardId?: string } | null>(null);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
   const [createAccountOpen, setCreateAccountOpen] = useState(false);
-  const [snapshot, setSnapshot] = useState<WalletSnapshot | null>(null);
   const [toastMsg, setToastMsg] = useState('');
 
   const loadSnapshot = useCallback(async () => {
@@ -59,29 +60,26 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     <div className="mx-auto mb-3 max-w-7xl px-4 sm:px-6">
       <PageHeader
         icon={<span className="relative block h-[22px] w-[22px]" aria-hidden="true"><Wallet size={22} strokeWidth={2.2}/><CreditCard size={10} strokeWidth={2.4} className="absolute -bottom-0.5 -right-1 rounded-sm bg-emerald-600"/></span>}
-        iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
+        iconClassName="border-slate-700 bg-slate-900 text-emerald-300 shadow-black/20"
         title={<>Minha <span className="text-emerald-400">Carteira</span></>}
         subtitle="Seus cartões e finanças em um único lugar"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setCreateAccountOpen(true)}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all cursor-pointer"
+              className="hidden"
             >
               <Plus size={14} /> + Nova Conta / Carteira
             </button>
             <button
               type="button"
-              onClick={() => setQuickExpenseOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/35 bg-rose-950/30 hover:bg-rose-900/40 px-3 py-2 text-xs font-black uppercase tracking-wider text-rose-200 transition-all cursor-pointer"
+              className="hidden"
             >
               <Plus size={14} /> Nova Despesa
             </button>
             <button
               type="button"
-              onClick={() => setQuickModal({ mode: 'CARD_OPENING' })}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 hover:bg-emerald-900/40 px-3 py-2 text-xs font-bold text-emerald-200 transition-all cursor-pointer"
+              className="hidden"
               title="Informar fatura atual, demais gastos e crédito livre de cartão já em uso"
             >
               <SlidersHorizontal size={14} className="text-emerald-400" /> Cartão em Uso
@@ -162,6 +160,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         }}
       />
     )}
+    <WalletExpenseFab />
   </main>;
 };
 

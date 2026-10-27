@@ -72,7 +72,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             type="button"
             onClick={() => setQuickExpenseOpen(true)}
             disabled={!data.accounts.length && !data.cards.length}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all disabled:opacity-40"
+            className="hidden"
           >
             <Receipt size={15} />
             <span>+ Lançar Despesa</span>
@@ -83,7 +83,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all shadow-md shadow-blue-950/40"
           >
             <Plus size={15} />
-            <span>+ Nova Conta / Carteira</span>
+            <span>Nova conta / carteira</span>
           </button>
         </div>
       </div>

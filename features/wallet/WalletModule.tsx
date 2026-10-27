@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { AlertTriangle, LockKeyhole, WalletCards } from 'lucide-react';
+import { AlertTriangle, CreditCard, LockKeyhole, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -29,7 +29,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   return <main className="w-full pb-28">
     <div className="mx-auto mb-3 max-w-7xl px-4 sm:px-6">
       <PageHeader
-        icon={<WalletCards size={22} />}
+        icon={<span className="relative block h-[22px] w-[22px]" aria-hidden="true"><Wallet size={22} strokeWidth={2.2}/><CreditCard size={10} strokeWidth={2.4} className="absolute -bottom-0.5 -right-1 rounded-sm bg-emerald-600"/></span>}
         iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
         title={<>Minha <span className="text-emerald-400">Carteira</span></>}
         subtitle="Seus cartões e finanças em um único lugar"
@@ -45,7 +45,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     </div>
     <div className="mx-auto mb-4 max-w-7xl px-4 sm:px-6">
       <nav aria-label="Navegação da Carteira" className="inline-flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/60 p-1.5 backdrop-blur-md scrollbar-hide">
-        {WALLET_ROUTES.map(item => (
+        {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => (
           <button
             key={item.key}
             type="button"

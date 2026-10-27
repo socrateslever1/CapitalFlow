@@ -8,12 +8,14 @@ import { personalWalletService } from '../../../services/personalWallet.service'
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
+import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [chargeOpen, setChargeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '', capital_source_id: '' });
@@ -82,6 +84,10 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40">
             <ArrowLeftRight size={18}/> Transferir / Movimentar
           </button>
+          <button type="button" onClick={() => setChargeOpen(true)} disabled={!data.accounts.some(account => account.pix_key?.trim())}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-950/30 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-950/50 disabled:opacity-40">
+            Gerar cobrança PIX
+          </button>
         </div>
       </div>
       {creating && <form onSubmit={event => { void create(event); }}
@@ -127,6 +133,8 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       {movementOpen && <AccountMovementModal accounts={data.accounts} cards={data.cards}
         expenses={data.expenses} installments={data.installments}
         onClose={() => setMovementOpen(false)} onSaved={async () => { await refresh(); }}/>}
+      {chargeOpen && <WalletPixCharge embedded accounts={data.accounts} recipient={activeUser?.fullName || activeUser?.name || ''}
+        city={activeUser?.city} onClose={() => setChargeOpen(false)} onSaved={async () => { await refresh(); }}/>}
     </>)}
   </WalletPageFrame>;
 };

@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {AlertTriangle,Save,X} from 'lucide-react';
+import {AlertTriangle,Archive,Save,X} from 'lucide-react';
 import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '../../services/personalWallet.service';
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
@@ -9,6 +9,7 @@ const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 tex
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
  const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
+ const [archiveConfirm,setArchiveConfirm]=useState(false);
  const [error,setError]=useState('');
  const change=(key:keyof typeof form,value:string)=>setForm(previous=>({...previous,[key]:value}));
  const submit=async(event:React.FormEvent)=>{
@@ -21,8 +22,15 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED',primary_color:form.primary_color
    });
    await onSaved();onClose();
-  }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
-  finally{setSaving(false);}
+ }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
+ finally{setSaving(false);}
+ };
+ const archive=async()=>{
+  if(saving)return;
+  setSaving(true);setError('');
+  try{await personalWalletService.archiveCard(card.id);await onSaved();onClose();}
+  catch(reason){setError(reason instanceof Error?reason.message:'NÃ£o foi possÃ­vel arquivar o cartÃ£o.');}
+  finally{setSaving(false);setArchiveConfirm(false);}
  };
  return <div role="dialog" aria-modal="true" aria-label="Editar cartão" className="fixed inset-0 z-[2500] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
   <form onSubmit={submit} className="flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 sm:rounded-3xl">
@@ -40,6 +48,9 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     <label className="text-xs text-slate-300 sm:col-span-2">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option><option value="CANCELED">Arquivar cartão</option></select></label>
     <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar exige saldo e faturas quitados. Bloqueio no CapitalFlow não bloqueia o cartão no banco; histórico financeiro não é apagado.</p>
     {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
+   </div>
+   <div className="flex items-center justify-between gap-2 border-t border-slate-800 px-4 pt-4 text-xs">
+    {archiveConfirm ? <><span className="text-rose-200">Arquivar sem apagar o histórico?</span><span className="flex gap-2"><button type="button" disabled={saving} onClick={()=>setArchiveConfirm(false)} className="rounded-lg border border-slate-700 px-3 py-2 text-slate-200">Cancelar</button><button type="button" disabled={saving} onClick={()=>{void archive();}} className="rounded-lg bg-rose-600 px-3 py-2 font-bold text-white">{saving?'Arquivando...':'Confirmar'}</button></span></> : <button type="button" disabled={saving} onClick={()=>setArchiveConfirm(true)} className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 px-3 py-2 font-bold text-rose-300 hover:bg-rose-950/30"><Archive size={14}/> Arquivar cartão</button>}
    </div>
    <footer className="flex justify-end gap-2 border-t border-slate-800 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"><button type="button" disabled={saving} onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-200">Cancelar</button><button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50"><Save size={15}/>{saving?'Salvando...':'Salvar alterações'}</button></footer>
   </form>

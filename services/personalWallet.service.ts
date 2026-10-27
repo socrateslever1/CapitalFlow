@@ -46,6 +46,7 @@ export type PersonalWalletAccount = {
   notes?: string | null;
   institution_key?: string | null;
   capital_source_id?: string | null;
+  archived_at?: string | null;
 };
 
 export type PersonalWalletCard = {
@@ -269,7 +270,8 @@ export const personalWalletService = {
       const signed = await supabase.storage.from(CARD_IMAGES_BUCKET).createSignedUrl(card.image_path, 3600);
       return { ...card, image_url: signed.data?.signedUrl || null };
     }));
-    const accountsWithImages = await Promise.all(((accounts.data || []) as PersonalWalletAccount[]).map(async (account) => {
+    const activeAccounts = ((accounts.data || []) as PersonalWalletAccount[]).filter(account => !account.archived_at);
+    const accountsWithImages = await Promise.all(activeAccounts.map(async (account) => {
       if (!account.image_path) return account;
       const signed = await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).createSignedUrl(account.image_path, 3600);
       return { ...account, image_url: signed.data?.signedUrl || null };
@@ -728,6 +730,15 @@ export const personalWalletService = {
     if (input.capital_source_id !== undefined) await this.linkCapitalSource(accountId, input.capital_source_id || null);
   },
 
+  async archiveAccount(accountId: string, requestId = generateUUID()) {
+    if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitacao ausente.');
+    const { error } = await supabase.rpc('personal_wallet_archive_account', {
+      p_account_id: accountId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+  },
+
   async createCard(
     input: Omit<PersonalWalletCard, 'id' | 'used_limit' | 'current_bill' | 'status' | 'image_url' | 'image_path'> & { used_limit?: number; current_bill?: number; status?: string },
     imageFile?: File | null,
@@ -758,6 +769,15 @@ export const personalWalletService = {
       throw new Error(error.message);
     }
     return data as PersonalWalletCard;
+  },
+
+  async archiveCard(cardId: string, requestId = generateUUID()) {
+    if (!cardId || !requestId) throw new Error('Cartao ou identificador da solicitacao ausente.');
+    const { error } = await supabase.rpc('personal_wallet_archive_card', {
+      p_card_id: cardId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
   },
 
   async createPayable(input: { creditor_name: string; creditor_type: 'PERSON' | 'COMPANY'; creditor_document?: string | null; description: string; category?:string; origin_type?:'ACCOUNT'|'CARD'|'CASH'; origin_account_id?:string|null; origin_card_id?:string|null; total_amount: number; due_date?: string | null; interest_rate?: number; fine_percent?: number; notes?: string | null }) {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, CalendarClock, CreditCard, Landmark, Plus, RefreshCw,
   Scale, SlidersHorizontal, TrendingDown, TrendingUp, Wallet, AlertCircle,
@@ -166,6 +166,9 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     cardId?: string | null;
     accountId?: string | null;
   } | null>(null);
+  const [cardDrag, setCardDrag] = useState<{ id: string; x: number } | null>(null);
+  const cardDragStart = useRef<{ id: string; x: number } | null>(null);
+  const draggedCard = useRef(false);
 
   const refresh = useCallback(async () => {
     const result = await walletRepository.load();
@@ -208,6 +211,33 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     } finally { setRefreshing(false); }
   };
   const go = (route: 'contas' | 'cartoes' | 'dividas') => onNavigate(route);
+  const handleCardPointerDown = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cardDragStart.current = { id, x: event.clientX };
+    draggedCard.current = false;
+    setCardDrag({ id, x: 0 });
+  };
+  const handleCardPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const start = cardDragStart.current;
+    if (!start) return;
+    const x = Math.max(-140, Math.min(140, event.clientX - start.x));
+    if (Math.abs(x) > 8) draggedCard.current = true;
+    setCardDrag({ id: start.id, x });
+  };
+  const handleCardPointerEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const start = cardDragStart.current;
+    if (!start) return;
+    const delta = cardDrag?.id === start.id ? cardDrag.x : 0;
+    if (Math.abs(delta) > 55) {
+      const index = cards.findIndex(card => card.id === start.id);
+      const target = cards[index + (delta < 0 ? 1 : -1)];
+      if (target) onNavigate(getCardSummaryDestination(target.id));
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    cardDragStart.current = null;
+    setCardDrag(null);
+  };
 
   if (!overview) {
     return <section className="mx-auto w-full max-w-7xl px-4 sm:px-6">
@@ -440,20 +470,28 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           {/* Cartões com animação 3D de sobreposição (Apple Wallet style), expansão no hover e elevação */}
           <div className="relative mt-4 h-[126px] w-full" aria-label="Seus cartões">
             {cards.length ? (
-              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto py-1 scrollbar-hide md:-space-x-32 md:gap-0 md:overflow-visible">
+              <div className="flex -space-x-28 py-1 select-none overflow-visible sm:-space-x-32" aria-label="Arraste para navegar entre os cartões">
                 {cards.map(card => {
                   const index = cards.indexOf(card);
                   const account = accounts.find(item => item.id === card.account_id);
                   const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
                   const visual = getBankVisual(institution);
                   return <button type="button" key={card.id}
-                    onClick={() => onNavigate(getCardSummaryDestination(card.id))}
+                    onPointerDown={event => handleCardPointerDown(event, card.id)}
+                    onPointerMove={handleCardPointerMove}
+                    onPointerUp={handleCardPointerEnd}
+                    onPointerCancel={handleCardPointerEnd}
+                    onClick={() => {
+                      if (draggedCard.current) { draggedCard.current = false; return; }
+                      onNavigate(getCardSummaryDestination(card.id));
+                    }}
                     aria-label={`Abrir cartão ${card.nickname}`}
                     style={{
                       background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})`,
-                      zIndex: 30 - index * 5,
+                      zIndex: cardDrag?.id === card.id ? 60 : 30 - index * 5,
+                      transform: `translateX(${cardDrag?.id === card.id ? cardDrag.x : 0}px) scale(${cardDrag?.id === card.id ? 1.03 : 1 - index * 0.04}) translateY(${index * 2}px)`,
                     }}
-                    className="group relative flex w-[min(86vw,280px)] snap-center aspect-[1.586/1] h-[108px] sm:h-[114px] shrink-0 flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer md:w-auto">
+                    className="group relative flex w-[min(78vw,280px)] aspect-[1.586/1] h-[108px] shrink-0 touch-none cursor-grab flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-transform duration-200 active:cursor-grabbing hover:shadow-2xl hover:border-white/50 sm:h-[114px] sm:w-auto">
                     <div className="flex min-w-0 items-center justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <BankLogo name={institution} alternateName={card.nickname} size="sm"/>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
+import { Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -54,6 +54,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [form, setForm] = useState({
@@ -116,6 +118,22 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     }
   };
 
+  const archive = async () => {
+    if (archiving) return;
+    setArchiving(true);
+    setError('');
+    try {
+      await personalWalletService.archiveAccount(account.id);
+      await onSaved();
+      onBack();
+    } catch (err: any) {
+      setError(err?.message || 'NÃ£o foi possÃ­vel arquivar a conta.');
+    } finally {
+      setArchiving(false);
+      setArchiveConfirm(false);
+    }
+  };
+
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
       <div className="flex items-center justify-between gap-3">
@@ -135,6 +153,10 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           <button type="button" onClick={() => { setEditing(true); setError(''); setSuccess(''); }}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
             <Pencil size={15} /> Editar conta
+          </button>
+          <button type="button" onClick={() => setArchiveConfirm(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
+            <Archive size={15} /> Arquivar conta
           </button>
         </div>}
       </div>
@@ -180,6 +202,14 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
+      {archiveConfirm && <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-100">
+        <p className="font-semibold">Arquivar esta conta?</p>
+        <p className="mt-1 text-xs text-rose-200/80">O histórico será preservado. A conta precisa estar com saldo zero e sem lançamentos ativos.</p>
+        <div className="mt-3 flex gap-2">
+          <button type="button" onClick={() => setArchiveConfirm(false)} disabled={archiving} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
+          <button type="button" onClick={() => { void archive(); }} disabled={archiving} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{archiving ? 'Arquivando...' : 'Confirmar arquivamento'}</button>
+        </div>
+      </div>}
 
       {editing && (
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">

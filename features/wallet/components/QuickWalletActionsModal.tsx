@@ -306,7 +306,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Wallet size={13} /> + Carteira
+              <Wallet size={13} /> Carteira
             </button>
             <button
               type="button"

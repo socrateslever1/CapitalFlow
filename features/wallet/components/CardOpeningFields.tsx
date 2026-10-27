@@ -160,17 +160,17 @@ export const CardOpeningFields: React.FC<Props> = ({ value, onChange, creditLimi
       </label>
 
       <label className="text-xs font-semibold text-blue-200">
-        2. Demais gastos / parcelados no limite (R$)
+        2. Parcelas futuras / demais gastos no limite (R$)
         <input className={field} type="number" min="0" step="0.01" inputMode="decimal"
           placeholder="Ex.: 8500"
           value={value.future !== undefined ? value.future : String(future)}
           onChange={event => handleFutureChange(event.target.value)}
           aria-describedby="card-opening-future-help"/>
-        <span className="mt-1 block text-[10px] font-normal text-slate-400">Gastos no cartão além da fatura atual</span>
+        <span className="mt-1 block text-[10px] font-normal text-slate-400">Ainda não faturado · gastos além da fatura atual</span>
       </label>
 
       <label className="text-xs font-semibold text-emerald-300">
-        3. Crédito livre para gastar hoje (R$)
+        3. Limite disponível / crédito livre para gastar hoje (R$)
         <input className={`${field} border-emerald-500/40 bg-emerald-950/20 font-bold text-emerald-200`}
           type="number" min="0" step="0.01" inputMode="decimal"
           placeholder="Ex.: 500"

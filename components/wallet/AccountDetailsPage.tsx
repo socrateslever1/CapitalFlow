@@ -126,7 +126,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         {!editing && <div className="flex gap-2">
           <button type="button" onClick={() => setExpenseOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20">
-            + Despesa
+            Despesa
           </button>
           <button type="button" onClick={() => setMovementOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">

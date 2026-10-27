@@ -38,6 +38,7 @@ import { MercadoPagoConfig } from '../features/profile/components/MercadoPagoCon
 import { AsaasConfig } from '../features/profile/components/AsaasConfig';
 import { InfinitePayConfig } from '../features/profile/components/InfinitePayConfig';
 import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
+import { ProfileExportReports } from '../features/profile/components/ProfileExportReports';
 
 interface ProfilePageProps {
   activeUser: UserProfile;
@@ -89,7 +90,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const { backupRestoreRef, auditLogs } = useProfilePageLogic(loans);
 
   const [activeSection, setActiveSection] = useState<
-    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
+    'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'EXPORT' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
   >('GENERAL');
 
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -359,6 +360,32 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             >
               <PaymentIcon size={18} />{' '}
               <span className="font-bold text-xs uppercase">Pagamentos Real</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('EXPORT')}
+              className={`w-full p-4 rounded-lg flex items-center justify-between transition-all ${
+                activeSection === 'EXPORT'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white border border-emerald-500/20'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Download
+                  size={18}
+                  className={activeSection === 'EXPORT' ? 'text-white' : 'text-emerald-400'}
+                />{' '}
+                <span className="font-bold text-xs uppercase">Exportar Relatórios</span>
+              </div>
+              <span
+                className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                  activeSection === 'EXPORT'
+                    ? 'bg-white/20 text-white border-white/30'
+                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                }`}
+              >
+                Excel / CSV
+              </span>
             </button>
 
             <button
@@ -900,6 +927,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
              </div>
           )}
 
+          {/* EXPORT / DOWNLOADS */}
+          {activeSection === 'EXPORT' && (
+            <ProfileExportReports
+              loans={loans}
+              sources={sources}
+              showToast={showToast}
+              onExportBackup={handleExportBackup}
+            />
+          )}
+
           {/* INTERFACE */}
           {activeSection === 'INTERFACE' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right">
@@ -1080,7 +1117,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           )}
 
           {/* SALVAR */}
-          {activeSection !== 'PAYMENTS' && activeSection !== 'DANGER' && (
+          {activeSection !== 'PAYMENTS' && activeSection !== 'DANGER' && activeSection !== 'EXPORT' && (
             <div className="pt-8 mt-8 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-2">
               <button
                 onClick={handleSaveProfile}

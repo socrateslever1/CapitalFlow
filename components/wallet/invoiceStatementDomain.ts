@@ -56,7 +56,7 @@ export const getEffectiveInvoiceCycles = (
 };
 
 export const getCardCreditPosition = (
-  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'opening_unallocated_amount'>,
+  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'opening_unallocated_amount' | 'initial_future_installments_balance'>,
   expenses: PersonalWalletExpense[],
   installments: PersonalWalletExpenseInstallment[],
 ): CardCreditPosition => {
@@ -67,7 +67,11 @@ export const getCardCreditPosition = (
   const knownFutureCommitments = money(activeIndex >= 0
     ? cycles.slice(activeIndex + 1).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0);
-  const futureCommitments = money(knownFutureCommitments + Number(card.opening_unallocated_amount || 0));
+  const initialFuture = Math.max(
+    Number(card.initial_future_installments_balance || 0),
+    Number(card.opening_unallocated_amount || 0),
+  );
+  const futureCommitments = money(knownFutureCommitments + initialFuture);
   const committedLimit = money(currentInvoice + futureCommitments);
   return {
     dueMonth: active?.dueMonth || null,
@@ -77,6 +81,22 @@ export const getCardCreditPosition = (
     freeLimit: Math.max(0, money(Number(card.credit_limit || 0) - committedLimit)),
     hasOverride: Boolean(active?.hasOverride),
   };
+};
+
+export const getCardAvailableLimit = (
+  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'used_limit' | 'opening_unallocated_amount' | 'initial_future_installments_balance'>,
+  expenses?: PersonalWalletExpense[],
+  installments?: PersonalWalletExpenseInstallment[],
+): number => {
+  if (expenses && installments) {
+    return getCardCreditPosition(card, expenses, installments).freeLimit;
+  }
+  const initialFuture = Math.max(
+    Number(card.initial_future_installments_balance || 0),
+    Number(card.opening_unallocated_amount || 0),
+  );
+  const used = Math.max(Number(card.used_limit || 0), initialFuture);
+  return Math.max(0, money(Number(card.credit_limit || 0) - used));
 };
 
 export const getCardInvoiceEntries = (

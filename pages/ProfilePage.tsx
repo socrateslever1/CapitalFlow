@@ -80,6 +80,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   handleRestoreBackup,
   handleImportExcel,
   loans,
+  sources = [],
   navOrder,
   hubOrder,
   saveNavConfig,
@@ -90,6 +91,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [activeSection, setActiveSection] = useState<
     'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
   >('GENERAL');
+
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (format: 'EXCEL' | 'CSV') => {
+    if (loans.length === 0) {
+      showToast('Não há contratos para exportar.', 'info');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      if (format === 'EXCEL') {
+        await exportLoansToExcel(loans, sources, 'Todos os Contratos');
+        showToast('Relatório Excel (.xlsx) exportado com sucesso!', 'success');
+      } else {
+        exportLoansToCSV(loans, sources, 'Todos os Contratos');
+        showToast('Arquivo CSV (.csv) exportado com sucesso!', 'success');
+      }
+      setIsExportOpen(false);
+    } catch (err: any) {
+      showToast(`Erro ao exportar: ${err?.message || 'Falha na geração'}`, 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getTabLabel = (tab: AppTab) => {
     switch (tab) {
@@ -162,6 +188,98 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
         title={<>Meu <span className="text-blue-500">Perfil</span></>}
         subtitle="Configurações e preferências"
+        actions={
+          <div className="flex items-center gap-2 relative">
+            {goBack && (
+              <button
+                onClick={goBack}
+                className="p-2.5 rounded-lg border bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold uppercase"
+                title="Voltar"
+              >
+                <ChevronLeft size={18} />
+                <span className="hidden sm:inline">Voltar</span>
+              </button>
+            )}
+
+            {/* Botão de Exportação Excel/CSV idêntico ao dashboard */}
+            <div className="relative">
+              <button
+                onClick={() => setIsExportOpen(!isExportOpen)}
+                disabled={isExporting}
+                className={`p-2.5 rounded-lg border transition-all ${
+                  isExportOpen
+                    ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/20'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-emerald-400'
+                }`}
+                title="Exportar contratos (Excel / CSV)"
+              >
+                {isExporting ? (
+                  <Loader2 size={18} className="animate-spin text-emerald-400" />
+                ) : (
+                  <Download size={18} className="text-emerald-400" />
+                )}
+              </button>
+
+              {isExportOpen && (
+                <div className="absolute right-0 top-full mt-2 bg-slate-900 border border-slate-800 p-2 rounded-xl flex flex-col gap-1.5 animate-in slide-in-from-top-2 duration-200 z-50 w-72 sm:w-80 shadow-2xl shadow-black/80">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 mb-1">
+                    <div className="flex items-center gap-2">
+                      <Download size={15} className="text-emerald-400" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-200">
+                        Exportar Relatório
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                      {loans.length} {loans.length === 1 ? 'contrato' : 'contratos'}
+                    </span>
+                  </div>
+
+                  <p className="px-3 text-[10px] text-slate-400 mb-1 leading-relaxed">
+                    Exporte todos os contratos e dados financeiros da sua carteira.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExport('EXCEL')}
+                    disabled={isExporting || loans.length === 0}
+                    className="w-full text-left p-3 rounded-lg border border-emerald-500/20 bg-emerald-950/20 hover:bg-emerald-900/40 text-white transition-all flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-600/30 group-hover:scale-105 transition-transform shrink-0">
+                        <FileSpreadsheet size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">
+                          Planilha Excel (.xlsx)
+                        </p>
+                        <p className="text-[9px] text-slate-400">Com formatação, moeda R$, cores e totais</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExport('CSV')}
+                    disabled={isExporting || loans.length === 0}
+                    className="w-full text-left p-3 rounded-lg border border-blue-500/20 bg-blue-950/20 hover:bg-blue-900/40 text-white transition-all flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-lg bg-blue-600 text-white shadow-md shadow-blue-600/30 group-hover:scale-105 transition-transform shrink-0">
+                        <FileText size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-blue-300">
+                          Arquivo CSV (.csv)
+                        </p>
+                        <p className="text-[9px] text-slate-400">Texto com UTF-8 BOM e ponto-e-vírgula</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -670,6 +788,40 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
 
               <div className="grid grid-cols-1 gap-4">
+                <div className="bg-slate-950 border border-emerald-500/30 p-5 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-emerald-500 transition-all bg-emerald-950/10">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
+                      <h4 className="text-white font-bold text-sm uppercase">
+                        Exportar Relatório Geral (Excel / CSV)
+                      </h4>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Gera uma planilha detalhada com todos os {loans.length} contratos, status, parcelas e totais formatados.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleExport('EXCEL')}
+                      disabled={isExporting || loans.length === 0}
+                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 text-xs font-black uppercase flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      title="Baixar planilha Excel (.xlsx)"
+                    >
+                      {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+                      <span>Excel (.xlsx)</span>
+                    </button>
+                    <button
+                      onClick={() => handleExport('CSV')}
+                      disabled={isExporting || loans.length === 0}
+                      className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-600/20 text-xs font-black uppercase flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      title="Baixar arquivo de dados (.csv)"
+                    >
+                      {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                      <span>CSV</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-blue-500 transition-all">
                   <div>
                     <h4 className="text-white font-bold text-sm uppercase">

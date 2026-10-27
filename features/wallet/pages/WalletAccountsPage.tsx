@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Plus, Receipt, Wallet } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -9,11 +9,15 @@ import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
+import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
+import { QuickExpenseModal } from '../../../components/wallet/QuickExpenseModal';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
+  const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -29,7 +33,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       pix_key_type: '',
       capital_source_id: '',
     });
-    setCreating(true);
+    setCreateModalType(accountType);
     setMessage('');
   };
   const selected = data?.accounts.find(account => account.id === selectedId);
@@ -58,6 +62,32 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
       statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Gestão de Contas e Carteiras</p>
+          <p className="text-[11px] text-slate-400">Cadastre contas bancárias, carteiras físicas com saldo inicial ou lance despesas diretas</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setQuickExpenseOpen(true)}
+            disabled={!data.accounts.length && !data.cards.length}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all disabled:opacity-40"
+          >
+            <Receipt size={15} />
+            <span>+ Lançar Despesa</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => startCreate('CHECKING')}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all shadow-md shadow-blue-950/40"
+          >
+            <Plus size={15} />
+            <span>+ Nova Conta / Carteira</span>
+          </button>
+        </div>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 lg:col-span-6">
           <AccountCardStack accounts={data.accounts} onOpen={account => setSelectedId(account.id)}/>
@@ -71,9 +101,9 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             <p className="mt-2 text-xs text-slate-500">{data.accounts.length} conta(s) registrada(s)</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => creating ? setCreating(false) : startCreate('CHECKING')}
-              className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300">
-              {creating ? 'Cancelar cadastro' : 'Adicionar conta bancária'}
+            <button type="button" onClick={() => startCreate('CHECKING')}
+              className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300 hover:bg-emerald-950/50">
+              Adicionar conta bancária
             </button>
             <button type="button" onClick={() => startCreate('CASH')}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm font-bold text-amber-200 hover:bg-amber-950/50">
@@ -101,7 +131,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         <label className="space-y-1 text-xs text-slate-300">Tipo
           <select value={form.account_type} onChange={e => setForm(v => ({ ...v, account_type: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option>
+            <option value="CHECKING">Conta corrente</option><option value="PAYMENT">Conta de pagamento</option><option value="SAVINGS">Poupança</option>
             <option value="CASH">Carteira física</option><option value="INVESTMENT">Investimentos</option>
           </select></label>
         {!isPhysicalWallet ? <>
@@ -130,6 +160,23 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           {saving ? 'Salvando...' : 'Cadastrar conta'}
         </button></div>
       </form>}
+      {createModalType && (
+        <CreateAccountModal
+          capitalSources={data.capitalSources || []}
+          initialAccountType={createModalType}
+          onClose={() => setCreateModalType(null)}
+          onSaved={async () => { await refresh(); }}
+        />
+      )}
+      {quickExpenseOpen && (
+        <QuickExpenseModal
+          accounts={data.accounts}
+          cards={data.cards}
+          initialMode="ACCOUNT"
+          onClose={() => setQuickExpenseOpen(false)}
+          onSaved={async () => { await refresh(); }}
+        />
+      )}
       {movementOpen && <AccountMovementModal accounts={data.accounts} cards={data.cards}
         expenses={data.expenses} installments={data.installments}
         onClose={() => setMovementOpen(false)} onSaved={async () => { await refresh(); }}/>}

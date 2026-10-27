@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight, CalendarClock, CreditCard, Landmark, RefreshCw,
-  Scale, TrendingDown, TrendingUp, AlertCircle,
+  ArrowRight, CalendarClock, CreditCard, Landmark, Plus, RefreshCw,
+  Scale, SlidersHorizontal, TrendingDown, TrendingUp, Wallet, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import type {
@@ -14,6 +14,9 @@ import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceSta
 import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
 import { getCardSummaryDestination } from '../cardSummaryNavigation';
+import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
+import { QuickExpenseModal } from '../components/QuickExpenseModal';
+import { CreateAccountModal } from '../components/CreateAccountModal';
 
 type Props = {
   activeUser?: UserProfile | null;
@@ -143,6 +146,11 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => dayKey(new Date()));
+  const [quickModal, setQuickModal] = useState<{
+    mode: QuickActionMode;
+    cardId?: string | null;
+    accountId?: string | null;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await walletRepository.load();
@@ -223,8 +231,26 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       {/* Coluna Esquerda: LIQUIDEZ IMEDIATA */}
       <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl backdrop-blur-xl before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-48 before:w-48 before:rounded-full before:bg-emerald-500/10 before:blur-3xl sm:p-5 lg:col-span-6 lg:p-6">
         <div className="relative z-10">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
-            <Landmark size={17}/> Liquidez imediata
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
+              <Landmark size={17}/> Liquidez imediata
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'CASH_WALLET' })}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-200 transition hover:bg-amber-500/20"
+              >
+                <Wallet size={12}/> + Carteira
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'EXPENSE', accountId: accounts[0]?.id || null })}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/35 bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-200 transition hover:bg-rose-500/25"
+              >
+                <Plus size={12}/> Despesa
+              </button>
+            </div>
           </div>
           <strong className="my-1 block text-3xl font-extrabold tracking-tight tabular-nums text-white lg:text-4xl">
             {money(overview.accountBalance)}
@@ -295,7 +321,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                     <strong className="block text-xl sm:text-2xl font-black tracking-tight tabular-nums text-white">
                       {money(Number(account.balance))}
                     </strong>
-                    <div className="mt-2.5 flex items-center">
+                    <div className="mt-2.5 flex items-center justify-between gap-2">
                       <span
                         className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide"
                         style={{
@@ -313,6 +339,16 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                         />
                         {walletAccountTypeLabel(account.account_type)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          setQuickModal({ mode: 'EXPENSE', accountId: account.id });
+                        }}
+                        className="rounded-lg border border-white/15 bg-black/30 px-2 py-0.5 text-[10px] font-bold text-rose-200 transition hover:border-rose-400/50 hover:bg-rose-500/20"
+                      >
+                        - Despesa
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -338,8 +374,26 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       {/* Coluna Direita: CARTÕES */}
       <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 bg-gradient-to-br from-blue-950/30 via-slate-900/80 to-slate-950/80 p-4 shadow-2xl backdrop-blur-xl sm:p-5 lg:col-span-6 lg:p-6">
         <div className="relative z-10">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
-            <CreditCard size={17}/> Cartões
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
+              <CreditCard size={17}/> Cartões
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'CARD_OPENING', cardId: cards[0]?.id || null })}
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-500/35 bg-blue-500/10 px-2.5 py-1 text-[11px] font-bold text-blue-200 transition hover:bg-blue-500/20"
+              >
+                <SlidersHorizontal size={12}/> Cartão em Uso
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickModal({ mode: 'EXPENSE', cardId: cards[0]?.id || null })}
+                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/35 bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-200 transition hover:bg-rose-500/25"
+              >
+                <Plus size={12}/> + Despesa
+              </button>
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div>
@@ -510,6 +564,46 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </p>}
       </div>
     </article>
+
+    {quickModal?.mode === 'EXPENSE' && (
+      <QuickExpenseModal
+        accounts={accounts}
+        cards={cards}
+        defaultMethod={quickModal.accountId ? 'ACCOUNT' : 'CARD'}
+        defaultAccountId={quickModal.accountId}
+        defaultCardId={quickModal.cardId}
+        onClose={() => setQuickModal(null)}
+        onSaved={async () => {
+          await refresh();
+        }}
+      />
+    )}
+
+    {quickModal?.mode === 'CASH_WALLET' && (
+      <CreateAccountModal
+        onClose={() => setQuickModal(null)}
+        onSaved={async () => {
+          await refresh();
+        }}
+      />
+    )}
+
+    {quickModal?.mode === 'CARD_OPENING' && (
+      <QuickWalletActionsModal
+        mode="CARD_OPENING"
+        accounts={accounts}
+        cards={cards}
+        expenses={snapshot?.expenses || []}
+        installments={snapshot?.installments || []}
+        invoicePayments={snapshot?.invoicePayments || []}
+        initialCardId={quickModal.cardId}
+        initialAccountId={quickModal.accountId}
+        onClose={() => setQuickModal(null)}
+        onSaved={async () => {
+          await refresh();
+        }}
+      />
+    )}
   </section>;
 };
 

@@ -16,6 +16,11 @@ import { CardOpeningFields, freshCardOpening, validateCardOpening } from '../com
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { getCardsForDisplay } from '../cardSummaryNavigation';
+import { CardInitialBalancesModal } from '../../../components/wallet/CardInitialBalancesModal';
+import { QuickExpenseModal } from '../components/QuickExpenseModal';
+
+const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
+const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const [searchParams] = useSearchParams();
@@ -27,7 +32,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [importing, setImporting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
+  const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
   const [overriding, setOverriding] = useState(false);
+  const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [statementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -148,8 +155,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <strong className="block text-xl font-black text-emerald-300">{formatMoney(creditPosition?.freeLimit || 0)}</strong>
             </div>
           </div>
-          {selected && Number(selected.opening_unallocated_amount || 0) > 0 && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-            {formatMoney(Number(selected.opening_unallocated_amount))} do comprometido futuro ainda não está detalhado em lançamentos. O valor será reduzido conforme as dívidas forem conferidas.
+          {selected && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+            {formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} em parcelamentos futuros preexistentes comprometem o limite deste cartão.
           </p>}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -161,6 +168,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 </select>}
               </div>
               {selected && <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">+ Lançamento Rápido</button>
+                <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">⚙️ Cartão em Uso (Fatura + Limite)</button>
                 <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
                 <button type="button" onClick={() => setImporting(true)} className="rounded-xl border border-cyan-700 px-3 py-2 text-xs text-cyan-200">Importar PDF</button>
               </div>}
@@ -231,6 +240,44 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               min={field === 'installment_count' ? 1 : undefined} step={field === 'amount' ? '0.01' : undefined}
               value={expenseForm[field]} onChange={e => setExpenseForm(v => ({ ...v, [field]: e.target.value }))}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
+        <div className="space-y-1.5 sm:col-span-2">
+          <span className="block text-[11px] font-semibold text-slate-400">Categorias rápidas</span>
+          <div className="flex flex-wrap gap-1.5">
+            {CARD_EXPENSE_CATEGORIES.map(category => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setExpenseForm(v => ({ ...v, category }))}
+                className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                  expenseForm.category === category
+                    ? 'border-blue-500 bg-blue-600/25 text-blue-100'
+                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-600'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <span className="block text-[11px] font-semibold text-slate-400">Parcelamento rápido</span>
+          <div className="flex flex-wrap gap-1.5">
+            {CARD_INSTALLMENT_OPTIONS.map(option => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setExpenseForm(v => ({ ...v, installment_count: option }))}
+                className={`rounded-lg border px-2.5 py-1 text-xs font-bold transition ${
+                  expenseForm.installment_count === option
+                    ? 'border-emerald-500 bg-emerald-600/25 text-emerald-100'
+                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-600'
+                }`}
+              >
+                {option === '1' ? 'À vista (1x)' : `${option}x`}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-2 sm:col-span-2">
           <button type="button" onClick={() => setNewExpense(false)} className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-white">Cancelar</button>
           <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">Registrar despesa</button>
@@ -255,7 +302,25 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           await personalWalletService.setMonthlyInvoiceOverride({ cardId: selected.id, dueMonth, amount, requestId: overrideRequestId });
           await refresh();
           setStatementMonth(dueMonth);
-        }}/>} 
+        }}/>}
+      {cardOpeningModalOpen && selected && <CardInitialBalancesModal
+        card={selected}
+        initialDueMonth={statementMonth || creditPosition?.dueMonth}
+        currentInvoiceAmount={creditPosition?.currentInvoice || 0}
+        nativeFutureCommitments={Math.max(
+          0,
+          (creditPosition?.futureCommitments || 0) -
+            Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)),
+        )}
+        onClose={() => setCardOpeningModalOpen(false)}
+        onSaved={async () => { await refresh(); }}/>}
+      {quickExpenseOpen && <QuickExpenseModal
+        accounts={data.accounts}
+        cards={availableCards}
+        defaultMethod="CARD"
+        defaultCardId={selected?.id || null}
+        onClose={() => setQuickExpenseOpen(false)}
+        onSaved={async () => { await refresh(); }}/>}
     </>}
   </WalletPageFrame>;
 };

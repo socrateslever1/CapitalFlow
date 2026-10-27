@@ -32,6 +32,7 @@
     "test:wallet-pages": "node --test tests/architecture/wallet-pages.test.mjs",
     "test:wallet-overview-localization": "node --test tests/architecture/wallet-overview-localization.test.mjs",
     "test:wallet-card-opening": "node --test tests/architecture/wallet-card-opening.test.mjs",
+    "test:wallet-invoice-cycle": "tsx --test tests/wallet/invoice-cycle-state.test.ts",
     "test:app-updates": "tsx --test tests/architecture/app-updates.test.ts"
   },
   "dependencies": {

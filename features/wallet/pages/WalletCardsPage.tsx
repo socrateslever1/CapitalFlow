@@ -67,6 +67,15 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     hasCycle: Boolean(selectedCycle),
     paid: Boolean(data?.invoicePayments.some(payment => payment.card_id === selected.id && payment.due_month === statementMonth) && !selectedCycle),
   }) : undefined;
+  const invoiceStateLabel: Record<NonNullable<typeof invoiceState>, string> = {
+    OPEN: 'Aberta', CLOSED: 'Fechada', OVERDUE: 'Vencida', PAID: 'Paga',
+  };
+  const invoiceStateClass: Record<NonNullable<typeof invoiceState>, string> = {
+    OPEN: 'border-sky-500/20 bg-sky-500/10 text-sky-400',
+    CLOSED: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
+    OVERDUE: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
+    PAID: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+  };
   useEffect(() => {
     if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
   }, [selected?.id, creditPosition?.dueMonth]);
@@ -153,8 +162,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         <div className="min-w-0 space-y-4 lg:col-span-7">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs text-slate-400">Fatura do Mês</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-400">Fatura do Mês</p>
+                {invoiceState && <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${invoiceStateClass[invoiceState]}`}>{invoiceStateLabel[invoiceState]}</span>}
+              </div>
               <strong className="block text-xl font-black text-rose-200">{formatMoney(creditPosition?.currentInvoice || 0)}</strong>
+              {cycleDates && <p className="mt-1 text-[10px] text-slate-500">Fecha em {cycleDates.closingDate.slice(8, 10)}/{cycleDates.closingDate.slice(5, 7)} · vence em {cycleDates.dueDate.slice(8, 10)}/{cycleDates.dueDate.slice(5, 7)}</p>}
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
               <p className="text-xs text-slate-400">Parcelas Futuras</p>

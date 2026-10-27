@@ -126,7 +126,7 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
               {cardVisual}
               {limitPanel}
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => { onClose(); onNewExpense(card.id); }} className="w-full py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-900/30"><Plus size={15}/> + Despesa no Cartão</button>
+                <button type="button" onClick={() => { onClose(); onNewExpense(card.id); }} className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20"><Plus size={15}/> + Despesa</button>
                 <button type="button" onClick={() => { onClose(); onPayInvoice(card.id); }} className="w-full py-2.5 px-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"><Receipt size={15} className="text-amber-400"/> Pagar Fatura</button>
               </div>
             </aside>

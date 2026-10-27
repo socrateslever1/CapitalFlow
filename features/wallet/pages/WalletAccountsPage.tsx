@@ -74,8 +74,8 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => setCreateModalOpen(true)}
-              className="col-span-full w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500">
-              + Nova conta / carteira
+              className="col-span-full inline-flex w-fit items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-500">
+              + Conta
             </button>
             <button type="button" onClick={() => creating ? setCreating(false) : startCreate('CHECKING')}
               className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300">

@@ -18,6 +18,7 @@ import { BankLogo } from './BankLogo';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { pixKeyTypeLabel } from './walletPresentation';
 import { AccountMovementModal } from './AccountMovementModal';
+import QuickExpenseModal from '../../features/wallet/components/QuickExpenseModal';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -49,6 +50,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -122,6 +124,10 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           <ArrowLeft size={16} /> Voltar às contas
         </button>
         {!editing && <div className="flex gap-2">
+          <button type="button" onClick={() => setExpenseOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20">
+            + Despesa
+          </button>
           <button type="button" onClick={() => setMovementOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">
             <ArrowLeftRight size={15}/> Movimentar
@@ -169,6 +175,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
       {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} onSaved={onSaved} />}
       {movementOpen && <AccountMovementModal accounts={accounts} cards={cards} expenses={expenses} installments={installments}
         initialAccountId={account.id} onClose={()=>setMovementOpen(false)} onSaved={onSaved}/>}
+      {expenseOpen && <QuickExpenseModal accounts={accounts} cards={cards} initialMode="ACCOUNT" initialAccountId={account.id}
+        onClose={() => setExpenseOpen(false)} onSaved={onSaved}/>}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}

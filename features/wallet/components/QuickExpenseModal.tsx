@@ -4,21 +4,21 @@ import { personalWalletService, PersonalWalletAccount, PersonalWalletCard } from
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 
-type Props = { accounts: PersonalWalletAccount[]; cards: PersonalWalletCard[]; onClose: () => void; onSaved: () => Promise<void> };
+type Props = { accounts: PersonalWalletAccount[]; cards: PersonalWalletCard[]; onClose: () => void; onSaved: () => Promise<void>; initialMode?: 'CARD'|'ACCOUNT'; initialAccountId?: string | null; initialCardId?: string | null };
 const categories = ['Alimentação','Transporte','Moradia','Serviços','Compras','Saúde','Lazer','Outros'];
 const today = () => new Date().toLocaleDateString('en-CA');
 const moneyInput = (raw: string) => { const digits = raw.replace(/\D/g,''); return digits ? (Number(digits)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''; };
 const moneyValue = (value: string) => Number(value.replace(/\./g,'').replace(',','.')) || 0;
 
-export default function QuickExpenseModal({ accounts, cards, onClose, onSaved }: Props) {
-  const [mode, setMode] = useState<'CARD'|'ACCOUNT'>('CARD');
+export default function QuickExpenseModal({ accounts, cards, onClose, onSaved, initialMode = 'CARD', initialAccountId, initialCardId }: Props) {
+  const [mode, setMode] = useState<'CARD'|'ACCOUNT'>(initialMode);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(today());
   const [category, setCategory] = useState('Outros');
-  const [accountId, setAccountId] = useState(accounts[0]?.id || '');
-  const [cardId, setCardId] = useState(cards[0]?.id || '');
-  const [installments, setInstallments] = useState(1);
+  const [accountId, setAccountId] = useState(initialAccountId || accounts[0]?.id || '');
+  const [cardId, setCardId] = useState(initialCardId || cards[0]?.id || '');
+  const [installments, setInstallments] = useState(initialMode === 'CARD' ? 2 : 1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const value = moneyValue(amount);

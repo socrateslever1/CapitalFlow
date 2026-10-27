@@ -236,27 +236,34 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {accounts.length ? accounts.slice(0, 2).map(account => {
               const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
-              const cardBg = visual.cardBg || `linear-gradient(145deg, color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9)) 0%, color-mix(in srgb, ${visual.accent} 4%, rgba(2, 6, 23, 0.95)) 100%)`;
-              const cardBorder = visual.cardBorder || `color-mix(in srgb, ${visual.accent} 45%, rgba(255, 255, 255, 0.12))`;
-              const cardGlow = visual.cardGlow || `0 10px 26px -6px color-mix(in srgb, ${visual.accent} 22%, rgba(0, 0, 0, 0.65))`;
-              const logoBg = visual.logoBg || `color-mix(in srgb, ${visual.accent} 15%, #0f172a)`;
-              const logoBorder = visual.logoBorder || `color-mix(in srgb, ${visual.accent} 50%, rgba(255, 255, 255, 0.2))`;
-              const badgeBg = visual.badgeBg || `color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9))`;
-              const badgeBorder = visual.badgeBorder || `color-mix(in srgb, ${visual.accent} 35%, rgba(255, 255, 255, 0.12))`;
-              const badgeText = visual.badgeText || `color-mix(in srgb, ${visual.accent} 35%, #ffffff)`;
-              const badgeDot = visual.badgeDot || visual.accent;
-              const badgeDotGlow = visual.badgeDotGlow || `0 0 6px ${visual.accent}`;
+              const visualStyles = visual as typeof visual & Partial<Record<'cardBg' | 'cardBorder' | 'cardGlow' | 'logoBg' | 'logoBorder' | 'badgeBg' | 'badgeBorder' | 'badgeText' | 'badgeDot' | 'badgeDotGlow', string>>;
+              const cardBg = visualStyles.cardBg || `linear-gradient(145deg, color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9)) 0%, color-mix(in srgb, ${visual.accent} 4%, rgba(2, 6, 23, 0.95)) 100%)`;
+              const cardBorder = visualStyles.cardBorder || `color-mix(in srgb, ${visual.accent} 45%, rgba(255, 255, 255, 0.12))`;
+              const cardGlow = visualStyles.cardGlow || `0 10px 26px -6px color-mix(in srgb, ${visual.accent} 22%, rgba(0, 0, 0, 0.65))`;
+              const logoBg = visualStyles.logoBg || `color-mix(in srgb, ${visual.accent} 15%, #0f172a)`;
+              const logoBorder = visualStyles.logoBorder || `color-mix(in srgb, ${visual.accent} 50%, rgba(255, 255, 255, 0.2))`;
+              const badgeBg = visualStyles.badgeBg || `color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9))`;
+              const badgeBorder = visualStyles.badgeBorder || `color-mix(in srgb, ${visual.accent} 35%, rgba(255, 255, 255, 0.12))`;
+              const badgeText = visualStyles.badgeText || `color-mix(in srgb, ${visual.accent} 35%, #ffffff)`;
+              const badgeDot = visualStyles.badgeDot || visual.accent;
+              const badgeDotGlow = visualStyles.badgeDotGlow || `0 0 6px ${visual.accent}`;
 
               return (
                 <div
                   key={account.id}
-                  className="group relative flex min-h-[108px] flex-col justify-between overflow-hidden rounded-2xl border p-4 shadow-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-xl"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Abrir detalhes da conta ${account.nickname}`}
+                  onClick={() => go('contas')}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); go('contas'); } }}
+                  className="group relative flex min-h-[122px] cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border p-4 shadow-lg outline-none transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-xl focus-visible:ring-2 focus-visible:ring-white/60 active:scale-[.99]"
                   style={{
                     borderColor: cardBorder,
                     background: cardBg,
                     boxShadow: cardGlow
                   }}
                 >
+                  <div className="pointer-events-none absolute inset-x-4 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${visual.accent}, transparent)` }} />
                   <div
                     className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-15 transition-opacity group-hover:opacity-30"
                     style={{ backgroundColor: visual.accent }}
@@ -281,6 +288,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                         )}
                       </div>
                     </div>
+                    <ArrowRight size={14} className="shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70" aria-hidden="true" />
                   </div>
 
                   <div className="relative z-10 mt-3">
@@ -289,7 +297,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
                     </strong>
                     <div className="mt-2.5 flex items-center">
                       <span
-                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold tracking-wide"
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide"
                         style={{
                           backgroundColor: badgeBg,
                           border: `1px solid ${badgeBorder}`,

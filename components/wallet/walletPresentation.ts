@@ -122,3 +122,11 @@ export function walletAccountTypeLabel(value?: string | null): string {
   const key = String(value || '').toUpperCase().trim();
   return labels[key] || (key ? 'Conta bancária' : 'Conta');
 }
+
+/** Rótulos de tipos técnicos de chave PIX apresentados em pt-BR. */
+export function pixKeyTypeLabel(value?: string | null): string {
+  const labels: Record<string, string> = {
+    CPF: 'CPF', CNPJ: 'CNPJ', PHONE: 'Celular', EMAIL: 'E-mail', RANDOM: 'Aleatória',
+  };
+  return labels[String(value || '').toUpperCase().trim()] || 'Chave PIX';
+}

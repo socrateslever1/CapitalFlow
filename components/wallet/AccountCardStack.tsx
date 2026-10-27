@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Copy, Landmark } from 'lucide-react';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { BankLogo } from './BankLogo';
-import { getBankVisual, walletAccountTypeLabel } from './walletPresentation';
+import { getBankVisual, pixKeyTypeLabel, walletAccountTypeLabel } from './walletPresentation';
 
 type Props = { accounts: PersonalWalletAccount[]; onOpen: (account: PersonalWalletAccount) => void };
 
@@ -29,7 +29,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen }) => {
           <span className="absolute -right-6 -top-10 text-[8rem] font-black text-white/10">{visual.monogram}</span>
           <span className="relative flex items-center justify-between"><span className="flex items-center gap-2"><span className="rounded-xl bg-white p-1"><BankLogo name={active.bank_name} alternateName={active.nickname} size="sm"/></span><strong>{active.nickname}</strong></span><Landmark size={20}/></span>
           <span className="relative"><small className="block text-[10px] uppercase tracking-wider text-white/70">Saldo disponível</small><strong className="text-2xl font-black">{formatMoney(active.balance)}</strong></span>
-          <span className="relative flex items-center justify-between text-[10px] text-white/75"><span>{walletAccountTypeLabel(active.account_type)}</span><span className="flex items-center gap-1"><Copy size={11}/> {active.pix_key ? `PIX ${active.pix_key_type || ''}` : 'PIX não cadastrado'}</span></span>
+          <span className="relative flex items-center justify-between text-[10px] text-white/75"><span>{walletAccountTypeLabel(active.account_type)}</span><span className="flex items-center gap-1"><Copy size={11}/> {active.pix_key ? `PIX ${pixKeyTypeLabel(active.pix_key_type)}` : 'PIX não cadastrado'}</span></span>
         </button>
       </div>
       <button type="button" aria-label="Próxima conta" disabled={accounts.length < 2} onClick={() => cycle(1)} className="rounded-full p-2 text-slate-300 disabled:opacity-30"><ArrowRight size={18}/></button>

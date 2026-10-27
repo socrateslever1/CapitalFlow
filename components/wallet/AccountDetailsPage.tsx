@@ -16,6 +16,7 @@ import { AccountActivityPanel } from './AccountActivityPanel';
 import { WalletPixCharge } from './WalletPixCharge';
 import { BankLogo } from './BankLogo';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
+import { pixKeyTypeLabel } from './walletPresentation';
 import { AccountMovementModal } from './AccountMovementModal';
 
 type Props = {
@@ -147,7 +148,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         </div>
         {!editing && <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-[10px] font-bold text-slate-400">PIX {account.pix_key_type || ''}</span>
+            <span className="shrink-0 text-[10px] font-bold text-slate-400">PIX {pixKeyTypeLabel(account.pix_key_type)}</span>
             <span className="min-w-0 flex-1 truncate text-xs text-slate-200">{account.pix_key || 'Chave não cadastrada'}</span>
           </div>
           <div className="grid grid-cols-2 gap-2">

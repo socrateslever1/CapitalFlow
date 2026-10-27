@@ -3,6 +3,7 @@ import { CheckCircle2, Copy, Landmark, Link2, Loader2, QrCode, Share2, X } from 
 import { QRCodeSVG } from 'qrcode.react';
 import { PersonalWalletAccount, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { pixKeyTypeLabel } from './walletPresentation';
 import { generateUUID } from '../../utils/generators';
 import { BankLogo } from './BankLogo';
 import { buildPersistedPixCharge, PersistedWalletChargePreview } from './walletChargeDomain';
@@ -137,7 +138,7 @@ export const WalletPixCharge: React.FC<Props> = ({
           {eligibleAccounts.map(item => <button key={item.id} type="button" disabled={generating || settling} onClick={() => changeAccount(item.id)}
             aria-pressed={accountId === item.id} className={`flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left ${accountId === item.id ? 'border-emerald-400 bg-emerald-950/30' : 'border-slate-700 bg-slate-950 hover:border-slate-500'}`}>
             <BankLogo name={item.bank_name} alternateName={item.nickname} customImage={item.image_url} size="sm"/>
-            <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white">{item.nickname}</strong><span className="block truncate text-[10px] text-slate-400">{item.bank_name || 'Instituição não informada'} · {formatMoney(Number(item.balance))}</span><span className="block truncate text-[10px] text-emerald-300">PIX {item.pix_key_type || ''}: {item.pix_key}</span></span>
+            <span className="min-w-0 flex-1"><strong className="block truncate text-xs text-white">{item.nickname}</strong><span className="block truncate text-[10px] text-slate-400">{item.bank_name || 'Instituição não informada'} · {formatMoney(Number(item.balance))}</span><span className="block truncate text-[10px] text-emerald-300">PIX {pixKeyTypeLabel(item.pix_key_type)}: {item.pix_key}</span></span>
           </button>)}
         </div> : <p role="alert" className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200">Cadastre uma chave PIX em uma conta para gerar cobranças.</p>}
       </div>

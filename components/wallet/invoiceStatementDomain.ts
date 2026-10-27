@@ -56,7 +56,7 @@ export const getEffectiveInvoiceCycles = (
 };
 
 export const getCardCreditPosition = (
-  card: Pick<PersonalWalletCard, 'id' | 'credit_limit'>,
+  card: Pick<PersonalWalletCard, 'id' | 'credit_limit' | 'opening_unallocated_amount'>,
   expenses: PersonalWalletExpense[],
   installments: PersonalWalletExpenseInstallment[],
 ): CardCreditPosition => {
@@ -64,9 +64,10 @@ export const getCardCreditPosition = (
   const activeIndex = cycles.findIndex(cycle => cycle.amount > 0);
   const active = activeIndex >= 0 ? cycles[activeIndex] : null;
   const currentInvoice = active?.amount || 0;
-  const futureCommitments = money(activeIndex >= 0
+  const knownFutureCommitments = money(activeIndex >= 0
     ? cycles.slice(activeIndex + 1).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0);
+  const futureCommitments = money(knownFutureCommitments + Number(card.opening_unallocated_amount || 0));
   const committedLimit = money(currentInvoice + futureCommitments);
   return {
     dueMonth: active?.dueMonth || null,
@@ -91,9 +92,12 @@ export const getCardInvoiceEntries = (
       .map(expense => [expense.id, expense]),
   );
   return installments
-    .filter(installment => installment.status === 'PENDING'
-      && String(installment.due_month).slice(0, 10) === dueMonth
-      && expensesById.has(installment.expense_id))
+    .filter(installment => {
+      const expense = expensesById.get(installment.expense_id);
+      return Boolean(expense)
+        && String(installment.due_month).slice(0, 10) === dueMonth
+        && (installment.status === 'PENDING' || expense?.entry_type === 'INVOICE_OVERRIDE');
+    })
     .map(installment => ({ expense: expensesById.get(installment.expense_id)!, installment }))
     .sort((left, right) => right.expense.expense_date.localeCompare(left.expense.expense_date));
 };

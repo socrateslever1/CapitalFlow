@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Loader2, Save, X } from 'lucide-react';
 import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
+import { generateUUID } from '../../utils/generators';
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
   compact?: boolean;
   onClose: () => void;
-  onSave: (input: UpdatePersonalWalletExpense) => Promise<void>;
+  onSave: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
 };
 
 export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, compact = false, onClose, onSave }) => {
+  const requestId = useRef(generateUUID());
   const [description, setDescription] = useState(expense.description);
   const [amount, setAmount] = useState(String(Number(expense.amount).toFixed(2)).replace('.', ','));
   const [category, setCategory] = useState(expense.category || 'Outros');
@@ -41,7 +43,7 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
         expenseDate,
         dueDate: dueDate || null,
         notes: notes.trim() || null,
-      });
+      }, requestId.current);
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o lançamento.');

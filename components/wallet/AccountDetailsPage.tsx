@@ -10,6 +10,7 @@ import {
   WalletStatementRow,
   personalWalletService,
 } from '../../services/personalWallet.service';
+import type { CapitalSource } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { AccountActivityPanel } from './AccountActivityPanel';
 import { WalletPixCharge } from './WalletPixCharge';
@@ -30,18 +31,19 @@ type Props = {
   onSaved: () => Promise<void>;
   ownerName?: string;
   ownerCity?: string;
+  capitalSources: CapitalSource[];
 };
 
 const typeLabels: Record<string, string> = {
   CHECKING: 'Conta corrente',
   SAVINGS: 'Poupança',
-  CASH: 'Dinheiro',
+  CASH: 'Carteira física',
   INVESTMENT: 'Investimento',
 };
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
   const [editing, setEditing] = useState(false);
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
@@ -58,6 +60,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     pix_key_type: account.pix_key_type || '',
     pix_key: account.pix_key || '',
     notes: account.notes || '',
+    capital_source_id: account.capital_source_id || '',
   });
 
   useEffect(() => () => {
@@ -72,6 +75,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
       pix_key_type: account.pix_key_type || '',
       pix_key: account.pix_key || '',
       notes: account.notes || '',
+      capital_source_id: account.capital_source_id || '',
     });
     setImage(null);
     setImagePreview('');
@@ -95,6 +99,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         pix_key_type: form.pix_key_type || null,
         pix_key: form.pix_key || null,
         notes: form.notes || null,
+        capital_source_id: form.capital_source_id || null,
       }, image);
       setImage(null);
       setImagePreview('');
@@ -131,9 +136,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         <div className="flex items-center gap-3">
           <BankLogo name={account.bank_name} alternateName={account.nickname} customImage={account.image_url} />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">Conta bancária</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-400">{account.account_type === 'CASH' ? 'Carteira física' : 'Conta bancária'}</p>
             <h1 className="truncate text-lg font-bold text-white">{account.nickname}</h1>
-            <p className="truncate text-xs text-slate-400">{account.bank_name || 'Banco não informado'} · {typeLabels[account.account_type] || account.account_type}</p>
+            <p className="truncate text-xs text-slate-400">{account.bank_name || (account.account_type === 'CASH' ? 'Dinheiro em espécie' : 'Banco não informado')} · {typeLabels[account.account_type] || account.account_type}</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400">Saldo</p>
@@ -186,7 +191,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>
                 <option value="CHECKING">Conta corrente</option>
                 <option value="SAVINGS">Poupança</option>
-                <option value="CASH">Dinheiro</option>
+                <option value="CASH">Carteira física</option>
                 <option value="INVESTMENT">Investimento</option>
               </select>
             </label>
@@ -218,6 +223,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </label>
             <label className={`${labelClass} sm:col-span-2`}>Observações
               <textarea className={inputClass} rows={3} maxLength={2000} value={form.notes} onChange={e => update('notes', e.target.value)} />
+            </label>
+            <label className={`${labelClass} sm:col-span-2`}>Fonte de capital vinculada (opcional)
+              <select className={inputClass} value={form.capital_source_id} onChange={e => update('capital_source_id', e.target.value)}>
+                <option value="">Nenhuma — manter fluxo legado</option>
+                {capitalSources.map(source => <option key={source.id} value={source.id}>{source.name} · {formatMoney(Number(source.balance || 0))}</option>)}
+              </select>
+              <span className="text-[11px] font-normal text-slate-500">Empréstimos e parcelas só afetam esta conta quando a integração estiver autorizada.</span>
             </label>
           </div>
           <div className="flex justify-end gap-2">

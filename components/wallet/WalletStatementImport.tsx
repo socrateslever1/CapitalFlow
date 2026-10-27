@@ -11,6 +11,7 @@ type Props = {
   onClose: () => void;
   onImported: () => Promise<void>;
 };
+const extraCategories = ['Compras'];
 const categories = ['Outros', 'Alimentação', 'Transporte', 'Saúde', 'Contas da casa', 'Salário', 'Transferências', 'Lazer', 'Educação', 'Serviços'];
 export const WalletStatementImport: React.FC<Props> = ({ kind, targetId, targetName, onClose, onImported }) => {
   const [source, setSource] = useState<File | null>(null);
@@ -107,7 +108,7 @@ export const WalletStatementImport: React.FC<Props> = ({ kind, targetId, targetN
                         <p className="text-[10px] text-slate-400">{row.confidence==='REVIEW'?'Conferir sinal (+ crédito / − débito)':'Valor identificado'}</p>
                       </div>
                       <select disabled={busy} className="min-w-0 rounded bg-slate-800 p-1 text-xs sm:col-span-3" value={row.category} onChange={e=>revise(i,{category:e.target.value})}>
-                        {categories.map(c=><option key={c} value={c}>{c}</option>)}
+                        {[...categories, ...extraCategories].map(c=><option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                   </div>

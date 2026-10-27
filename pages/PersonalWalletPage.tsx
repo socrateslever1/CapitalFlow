@@ -37,11 +37,12 @@ import { BankStack } from '../components/wallet/BankStack';
 import { CardEditModal } from '../components/wallet/CardEditModal';
 import { RecurringIncomePanel } from '../components/wallet/RecurringIncomePanel';
 import { RecurringObligationsPanel } from '../components/wallet/RecurringObligationsPanel';
-import { UserProfile } from '../types';
+import { UserProfile, CapitalSource } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
 import { getBankVisual } from '../components/wallet/walletPresentation';
 import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
 import { CardInvoiceStatement } from '../components/wallet/CardInvoiceStatement';
+import { getEffectiveInvoiceCycles } from '../components/wallet/invoiceStatementDomain';
 import { WalletStatementImport } from '../components/wallet/WalletStatementImport';
 import { AccountCardStack } from '../components/wallet/AccountCardStack';
 
@@ -58,6 +59,7 @@ type WalletData = {
   recurringIncomes: WalletRecurringIncome[];
   recurringReceipts: WalletRecurringReceipt[];
   recurringObligations: WalletRecurringObligation[];
+  capitalSources: CapitalSource[];
 };
 
 type FormMode = 'ACCOUNT' | 'CARD' | 'EXPENSE' | 'PAYABLE' | null;
@@ -72,7 +74,7 @@ export type InvoiceSummary = {
   installmentCount: number;
 };
 
-const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [], recurringIncomes: [], recurringReceipts: [], recurringObligations: [] };
+const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [], recurringIncomes: [], recurringReceipts: [], recurringObligations: [], capitalSources: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -391,32 +393,21 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
     () => new Map(data.expenses.map((expense) => [expense.id, expense])),
     [data.expenses],
   );
-  const cardsById = useMemo(() => new Map(data.cards.map((card) => [card.id, card])), [data.cards]);
-
   const invoices = useMemo(() => {
-    const grouped = new Map<string, InvoiceSummary>();
-    data.installments.forEach((installment) => {
-      if (installment.status !== 'PENDING') return;
-      const expense = expensesById.get(installment.expense_id);
-      if (!expense?.card_id) return;
-      const card = cardsById.get(expense.card_id);
-      if (!card) return;
-      const dueMonth = String(installment.due_month).slice(0, 10);
-      const key = `${card.id}:${dueMonth}`;
-      const current = grouped.get(key) || {
-        key,
+    return data.cards.flatMap(card => getEffectiveInvoiceCycles(card.id, data.expenses, data.installments)
+      .filter(cycle => cycle.amount > 0)
+      .map(cycle => ({
+        key: `${card.id}:${cycle.dueMonth}`,
         cardId: card.id,
         cardName: card.nickname,
-        dueMonth,
-        amount: 0,
-        installmentCount: 0,
-      };
-      current.amount += Math.max(0, Number(installment.amount || 0) - Number(installment.paid_amount || 0));
-      current.installmentCount += 1;
-      grouped.set(key, current);
-    });
-    return [...grouped.values()].sort((first, second) => first.dueMonth.localeCompare(second.dueMonth));
-  }, [cardsById, data.installments, expensesById]);
+        dueMonth: cycle.dueMonth,
+        amount: cycle.amount,
+        installmentCount: data.installments.filter(installment => {
+          const expense = expensesById.get(installment.expense_id);
+          return expense?.card_id === card.id && String(installment.due_month).slice(0, 10) === cycle.dueMonth;
+        }).length,
+      }))).sort((first, second) => first.dueMonth.localeCompare(second.dueMonth));
+  }, [data.cards, data.expenses, data.installments, expensesById]);
 
   const totals = useMemo(() => ({
     balance: data.accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0),
@@ -427,7 +418,8 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       .reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
       + data.accountOperations.filter(op => op.operation_type === 'EXPENSE' && String(op.operation_date).slice(0,7) === currentMonth())
         .reduce((sum, op) => sum + Number(op.amount || 0), 0),
-    openInvoices: invoices.reduce((sum, invoice) => sum + invoice.amount, 0),
+    openInvoices: invoices.filter(invoice => invoice.dueMonth.slice(0, 7) === currentMonth())
+      .reduce((sum, invoice) => sum + invoice.amount, 0),
   }), [data, invoices]);
   const receivedIncomeIdsThisMonth = useMemo(
     () => new Set(data.recurringReceipts.filter(receipt => receipt.reference_month === `${currentMonth()}-01`).map(receipt => receipt.income_id)),
@@ -445,6 +437,7 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
     return <AccountDetailsPage
       key={selectedAccount.id}
       account={selectedAccount}
+      capitalSources={data.capitalSources}
       cards={data.cards}
       expenses={data.expenses}
       installments={data.installments}
@@ -554,8 +547,8 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
               <CardInvoiceStatement cardId={activeStackCard.id}
                 dueMonth={invoices.find(invoice => invoice.cardId === activeStackCard.id)?.dueMonth || null}
                 expenses={data.expenses} installments={data.installments}
-                onEdit={async input => { await personalWalletService.updateExpense(input); await refresh(); setSuccess('Lançamento atualizado. Fatura e limite recalculados.'); }}
-                onDelete={async expenseId => { await personalWalletService.setExpenseStatus(expenseId, 'CANCELED'); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
+                onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); setSuccess('Lançamento atualizado. Fatura e limite recalculados.'); }}
+                onDelete={async (expenseId, mutationRequestId) => { await personalWalletService.cancelExpense(expenseId, mutationRequestId); await refresh(); setSuccess('Lançamento excluído. Fatura e limite recalculados.'); }}
                 className="m-0 border-0 bg-transparent p-0"
                 headerAction={<button type="button" onClick={() => setStatementImportOpen(true)} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-[10px] font-bold text-cyan-300">Importar PDF da fatura</button>}
               />
@@ -785,15 +778,15 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
           invoiceDueMonth={invoices.find(invoice => invoice.cardId === selectedCardForDetail.id)?.dueMonth || null}
           statementRows={data.statementRows.filter(row=>row.target_kind==='CARD'&&row.target_id===selectedCardForDetail.id)}
           onImported={refresh}
-          onEditExpense={async (input) => {
-            await personalWalletService.updateExpense(input);
+          onEditExpense={async (input, mutationRequestId) => {
+              await personalWalletService.updateExpense(input, mutationRequestId);
             const wallet = await personalWalletService.load();
             setData(wallet);
             setSelectedCardForDetail(wallet.cards.find(card => card.id === selectedCardForDetail.id) || null);
             setSuccess('Lançamento atualizado. Fatura e limite recalculados.');
           }}
-          onDeleteExpense={async (expenseId) => {
-            await personalWalletService.setExpenseStatus(expenseId, 'CANCELED');
+          onDeleteExpense={async (expenseId, mutationRequestId) => {
+              await personalWalletService.cancelExpense(expenseId, mutationRequestId);
             const wallet = await personalWalletService.load();
             setData(wallet);
             setSelectedCardForDetail(wallet.cards.find(card => card.id === selectedCardForDetail.id) || null);

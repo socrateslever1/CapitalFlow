@@ -26,3 +26,11 @@ test('both balance views consume effective invoice cycle math', () => {
   assert.match(legacy, /getEffectiveInvoiceCycles/);
 });
 
+test('expense mutations keep the same request id while the user retries the same action', () => {
+  const editModal = readFileSync('components/wallet/ExpenseEditModal.tsx', 'utf8');
+  const statement = readFileSync('components/wallet/CardInvoiceStatement.tsx', 'utf8');
+  assert.match(editModal, /useRef\(generateUUID\(\)\)/);
+  assert.match(editModal, /onSave\([\s\S]*requestId\.current/);
+  assert.match(statement, /deleteRequestIds/);
+  assert.match(statement, /onDelete\(expense\.id,\s*requestId\)/);
+});

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, Wallet } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -16,7 +16,20 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [movementOpen, setMovementOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [form, setForm] = useState({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '' });
+  const [form, setForm] = useState({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '', capital_source_id: '' });
+  const isPhysicalWallet = form.account_type === 'CASH';
+  const startCreate = (accountType: 'CHECKING' | 'CASH') => {
+    setForm({
+      nickname: accountType === 'CASH' ? 'Carteira física' : '',
+      bank_name: '',
+      account_type: accountType,
+      pix_key: '',
+      pix_key_type: '',
+      capital_source_id: '',
+    });
+    setCreating(true);
+    setMessage('');
+  };
   const selected = data?.accounts.find(account => account.id === selectedId);
   const create = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -24,21 +37,22 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     setSaving(true); setMessage('');
     try {
       await personalWalletService.createAccount({
-        nickname: form.nickname.trim(), bank_name: form.bank_name.trim(),
+        nickname: form.nickname.trim(), bank_name: isPhysicalWallet ? null : form.bank_name.trim(),
         account_type: form.account_type, balance: 0,
-        pix_key: form.pix_key.trim() || null,
-        pix_key_type: form.pix_key.trim() ? form.pix_key_type || null : null,
+        pix_key: isPhysicalWallet ? null : form.pix_key.trim() || null,
+        pix_key_type: isPhysicalWallet ? null : form.pix_key.trim() ? form.pix_key_type || null : null,
+        capital_source_id: form.capital_source_id || null,
       });
       await refresh();
       setCreating(false);
-      setForm({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '' });
+      setForm({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '', capital_source_id: '' });
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Falha ao cadastrar conta.'); }
     finally { setSaving(false); }
   };
 
   return <WalletPageFrame title="Contas e PIX" description="Seus saldos, contas e movimentações reais."
     error={error || message} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
-    {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards}
+    {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
       statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
@@ -54,10 +68,16 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             </strong>
             <p className="mt-2 text-xs text-slate-500">{data.accounts.length} conta(s) registrada(s)</p>
           </div>
-          <button type="button" onClick={() => setCreating(value => !value)}
-            className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300">
-            {creating ? 'Cancelar cadastro' : 'Adicionar conta bancária'}
-          </button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => creating ? setCreating(false) : startCreate('CHECKING')}
+              className="w-full rounded-xl border border-emerald-600/40 bg-emerald-950/30 px-4 py-3 text-sm font-bold text-emerald-300">
+              {creating ? 'Cancelar cadastro' : 'Adicionar conta bancária'}
+            </button>
+            <button type="button" onClick={() => startCreate('CASH')}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm font-bold text-amber-200 hover:bg-amber-950/50">
+              <Wallet size={17}/> Adicionar carteira física
+            </button>
+          </div>
           <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40">
             <ArrowLeftRight size={18}/> Transferir / Movimentar
@@ -69,24 +89,36 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         <label className="space-y-1 text-xs text-slate-300">Nome da conta
           <input required maxLength={120} value={form.nickname} onChange={e => setForm(v => ({ ...v, nickname: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Instituição
-          <input required value={form.bank_name} onChange={e => setForm(v => ({ ...v, bank_name: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
+        <label className="space-y-1 text-xs text-slate-300">Instituição {isPhysicalWallet && <span className="text-slate-500">(opcional)</span>}
+          <input required={!isPhysicalWallet} disabled={isPhysicalWallet} value={form.bank_name} placeholder={isPhysicalWallet ? 'Não se aplica à carteira física' : 'Ex.: Nubank'} onChange={e => setForm(v => ({ ...v, bank_name: e.target.value }))}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white disabled:cursor-not-allowed disabled:opacity-50"/></label>
         <label className="space-y-1 text-xs text-slate-300">Tipo
           <select value={form.account_type} onChange={e => setForm(v => ({ ...v, account_type: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
             <option value="CHECKING">Conta corrente</option><option value="SAVINGS">Poupança</option>
-            <option value="CASH">Dinheiro</option><option value="INVESTMENT">Investimentos</option>
+            <option value="CASH">Carteira física</option><option value="INVESTMENT">Investimentos</option>
           </select></label>
-        <label className="space-y-1 text-xs text-slate-300">Chave PIX (opcional)
-          <input value={form.pix_key} onChange={e => setForm(v => ({ ...v, pix_key: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Tipo da chave PIX
-          <select value={form.pix_key_type} onChange={e => setForm(v => ({ ...v, pix_key_type: e.target.value }))}
+        {!isPhysicalWallet ? <>
+          <label className="space-y-1 text-xs text-slate-300">Chave PIX (opcional)
+            <input value={form.pix_key} onChange={e => setForm(v => ({ ...v, pix_key: e.target.value }))}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
+          <label className="space-y-1 text-xs text-slate-300">Tipo da chave PIX
+            <select value={form.pix_key_type} onChange={e => setForm(v => ({ ...v, pix_key_type: e.target.value }))}
+              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+              <option value="">Não informado</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option>
+              <option value="PHONE">Celular</option><option value="EMAIL">E-mail</option><option value="RANDOM">Aleatória</option>
+            </select></label>
+        </> : <div className="flex items-center rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-100 sm:col-span-2">
+          Carteira física representa dinheiro em espécie e não precisa de instituição ou chave PIX.
+        </div>}
+        <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Fonte de capital vinculada (opcional)
+          <select value={form.capital_source_id} onChange={e => setForm(v => ({ ...v, capital_source_id: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="">Não informado</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option>
-            <option value="PHONE">Celular</option><option value="EMAIL">E-mail</option><option value="RANDOM">Aleatória</option>
-          </select></label>
+            <option value="">Nenhuma — manter fluxo legado</option>
+            {(data?.capitalSources || []).map(source => <option key={source.id} value={source.id}>{source.name} · {formatMoney(Number(source.balance || 0))}</option>)}
+          </select>
+          <span className="block text-[11px] text-slate-500">A vinculação ativa o débito de empréstimos e o crédito de parcelas nesta conta, somente quando a integração estiver autorizada.</span>
+        </label>
         <div className="flex items-end"><button type="submit" disabled={saving}
           className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
           {saving ? 'Salvando...' : 'Cadastrar conta'}

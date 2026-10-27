@@ -35,15 +35,52 @@ function normalizeDate(raw: string): string | null {
   return [year,String(month).padStart(2,'0'),String(day).padStart(2,'0')].join('-');
 }
 export function classifyStatementDescription(description: string): string {
-  const label = description.toLowerCase();
+  const label = description.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/salario|provento|remunera|folha|holerite/.test(label)) return 'Salário';
+  if (/pix|transfer|ted\b|doc\b|pagamento recebido|deposit/.test(label)) return 'Transferências';
+  if (/lanch|rappi|delivery|acougue|hortifruti/.test(label)) return 'Alimentação';
+  if (/etanol|pedagio|onibus|metro|mobilidade/.test(label)) return 'Transporte';
+  if (/drogaria|laborat|medic|odont|unimed|hapvida|amil/.test(label)) return 'Saúde';
+  if (/saneamento|enel|cemig|sabesp|vivo|claro|tim/.test(label)) return 'Contas da casa';
+  if (/cinema|teatro|parque|spotify|netflix|disney|prime video|steam|ingresso|bar\b|show|viagem|hotel|turismo/.test(label)) return 'Lazer';
+  if (/escola|faculdade|universidade|curso|udemy|livraria|educa|mensalidade escolar/.test(label)) return 'Educação';
+  if (/seguro|tarifa|taxa|assinatura|manutenc|oficina|contador|advoc|servico/.test(label)) return 'Serviços';
+  if (/amazon|mercado livre|magazine|kabum|shopping|loja|varejo|compra/.test(label)) return 'Compras';
   if (/mercad|supermerc|atacad|padaria|aliment|restaurante|ifood/.test(label)) return 'Alimentação';
   if (/uber|99\b|posto|combust|gasolina|estacionamento|transporte/.test(label)) return 'Transporte';
   if (/farmac|hospital|clinica|saude/.test(label)) return 'Saúde';
   if (/energia|internet|agua|telefone|aluguel|condomin/.test(label)) return 'Contas da casa';
   if (/salario|provento|remunera/.test(label)) return 'Salário';
   if (/pix|transfer/.test(label)) return 'Transferências';
+  if (/salario|provento|remunera|folha|holerite/.test(label)) return 'Salário';
+  if (/pix|transfer|ted\b|doc\b|pagamento recebido|deposit/.test(label)) return 'Transferências';
+  if (/lanch|rappi|delivery|acougue|hortifruti/.test(label)) return 'Alimentação';
+  if (/etanol|pedagio|onibus|metro|mobilidade/.test(label)) return 'Transporte';
+  if (/drogaria|laborat|medic|odont|unimed|hapvida|amil/.test(label)) return 'Saúde';
+  if (/saneamento|enel|cemig|sabesp|vivo|claro|tim/.test(label)) return 'Contas da casa';
+  if (/cinema|teatro|parque|spotify|netflix|disney|prime video|steam|ingresso|bar\b|show|viagem|hotel|turismo/.test(label)) return 'Lazer';
+  if (/escola|faculdade|universidade|curso|udemy|livraria|educa|mensalidade escolar/.test(label)) return 'Educação';
+  if (/seguro|tarifa|taxa|assinatura|manutenc|oficina|contador|advoc|servico/.test(label)) return 'Serviços';
+  if (/amazon|mercado livre|magazine|kabum|shopping|loja|varejo|compra/.test(label)) return 'Compras';
   return 'Outros';
 }
+function classifyStatementDescriptionEnhanced(description: string): string {
+  const label = description.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const rules: Array<[RegExp, string]> = [
+    [/salario|provento|remunera|folha|holerite/, 'Sal\u00e1rio'],
+    [/pix|transfer|ted\b|doc\b|pagamento recebido|deposit/, 'Transfer\u00eancias'],
+    [/supermerc|atacad|padaria|aliment|restaurante|lanch|ifood|rappi|delivery|acougue|hortifruti/, 'Alimenta\u00e7\u00e3o'],
+    [/uber|99\b|posto|combust|gasolina|etanol|estacionamento|pedagio|onibus|metro|transporte|mobilidade/, 'Transporte'],
+    [/farmac|drogaria|hospital|clinica|laborat|medic|odont|saude|unimed|hapvida|amil/, 'Sa\u00fade'],
+    [/energia|internet|agua|saneamento|telefone|aluguel|condomin|enel|cemig|sabesp|vivo|claro|tim/, 'Contas da casa'],
+    [/cinema|teatro|parque|spotify|netflix|disney|prime video|steam|ingresso|bar\b|show|viagem|hotel|turismo/, 'Lazer'],
+    [/escola|faculdade|universidade|curso|udemy|livraria|educa|mensalidade escolar/, 'Educa\u00e7\u00e3o'],
+    [/seguro|tarifa|taxa|assinatura|manutenc|oficina|contador|advoc|servico/, 'Servi\u00e7os'],
+    [/amazon|mercado livre|mercad livre|magazine|kabum|shopping|loja|varejo|compra/, 'Compras'],
+  ];
+  return rules.find(([pattern]) => pattern.test(label))?.[1] || 'Outros';
+}
+
 const moneyRx = /(?:-\s*)?(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s*[-+])?|(?:-\s*)?(?:R\$\s*)?\d{4,},\d{2}(?:\s*[-+])?/g;
 const dateRx = /(?:\b\d{2}\/\d{2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b)/;
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
@@ -70,11 +107,13 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     const outgoing = /pago|pagamento|compra|débito|debito|sa[ií]da|enviado|tarifa|saque/.test(context);
     const signed = /\-|\(/.test(last[0]) ? -Math.abs(value) : incoming && !outgoing ? Math.abs(value) : -Math.abs(value);
     // PDF lines containing multiple amounts / sign uncertainty must be explicitly reviewed.
-    const confidence: 'HIGH' | 'REVIEW' = valueMatches.length===1 && (kind==='CARD' || incoming!==outgoing) ? 'HIGH' : 'REVIEW';
+    const classified = classifyStatementDescriptionEnhanced(description);
+    const confidence: 'HIGH' | 'REVIEW' = valueMatches.length===1
+      && classified !== 'Outros' && (kind==='CARD' || incoming!==outgoing) ? 'HIGH' : 'REVIEW';
     rows.push({
       rowKey: line.key, date, description: description.slice(0,240),
       amount: Math.round(signed*100)/100,
-      category: classifyStatementDescription(description), confidence,
+      category: classified, confidence,
       selected: false,
     });
   }

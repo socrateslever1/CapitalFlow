@@ -6,13 +6,13 @@ import {generateUUID} from '../../utils/generators';
 import {derivePayableStatus,summarizePayables} from './payablesDomain';
 type Props={
  payables:PersonalWalletPayable[];accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];
- saving:boolean;onCreate:()=>void;onPay:(input:{
+ saving:boolean;onCreate?:()=>void;showCreateButton?:boolean;onPay:(input:{
  payableId:string;accountId:string|null;cardId:string|null;amount:number;receipt:File|null;requestId:string;
  })=>Promise<void>;
 };
 const labels={PENDING:'Pendente',PARTIAL:'Parcial',PAID:'Liquidado',OVERDUE:'Atrasado',CANCELED:'Cancelado'} as const;
 const badge={PENDING:'text-amber-300',PARTIAL:'text-blue-300',PAID:'text-emerald-300',OVERDUE:'text-rose-300',CANCELED:'text-slate-400'} as const;
-export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,onCreate,onPay})=>{
+export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,onCreate,showCreateButton=true,onPay})=>{
  const summary=useMemo(()=>summarizePayables(payables),[payables]);
  const [selected,setSelected]=useState<PersonalWalletPayable|null>(null);
  const [value,setValue]=useState('');
@@ -41,7 +41,7 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
   finally{setBusy(false);}
  };
  return <div className="space-y-4">
-  <header className="flex items-center justify-between"><div><h2 className="flex items-center gap-2 text-sm font-bold text-white"><HandCoins size={17} className="text-rose-300"/>Contas a pagar e dívidas</h2><p className="text-xs text-slate-400">Credores PF/PJ e origem do pagamento</p></div><button type="button" onClick={onCreate} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-rose-300"><Plus size={14}/>Nova</button></header>
+  <header className="flex items-center justify-between"><div><h2 className="flex items-center gap-2 text-sm font-bold text-white"><HandCoins size={17} className="text-rose-300"/>Contas a pagar</h2><p className="text-xs text-slate-400">Dívidas, parcelas e obrigações pontuais</p></div>{showCreateButton && <button type="button" onClick={onCreate} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-rose-300"><Plus size={14}/>Nova</button>}</header>
   <div className="grid grid-cols-3 gap-2">
    {[['Passivo aberto',summary.total],['Vencido',summary.overdue],['Próx. 30 dias',summary.next30Days]].map(([name,amount])=><div key={String(name)} className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-2.5"><span className="block text-[9px] text-slate-400">{name}</span><strong className="block truncate text-xs font-bold text-white">{formatMoney(Number(amount))}</strong></div>)}
   </div>

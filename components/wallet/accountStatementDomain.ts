@@ -3,7 +3,8 @@ export type AccountStatementEntry = {
   date: string;
   label: string;
   category: string;
-  tag: 'Transferência interna' | 'PIX/TED enviado' | 'Pagamento de fatura' | 'Cobrança recebida' | 'Saldo inicial' | 'Movimentação' | 'Importado de PDF';
+  // Operation badges are intentionally extensible as new ledger integrations are added.
+  tag: string;
   amount: number;
 };
 
@@ -15,6 +16,8 @@ type OperationLike = {
   operation_date: string; occurred_at?: string | null; recipient_name?: string | null;
   pix_key?: string | null; external_identifier?: string | null; created_at: string;
   charge_id?: string | null;
+  contract_id?: string | null;
+  installment_id?: string | null;
 };
 type ExpenseLike = {
   id: string; account_id?: string | null; status: string;
@@ -62,6 +65,12 @@ export function buildAccountStatementEntries(input: {
         tag = 'Pagamento de fatura';
       } else if (operation.operation_type === 'RECEIPT' && operation.charge_id) {
         tag = 'Cobrança recebida';
+      } else if (operation.operation_type === 'LOAN_DISBURSEMENT') {
+        tag = 'Empréstimo concedido';
+        category = 'Empréstimo concedido';
+      } else if (operation.operation_type === 'LOAN_REPAYMENT') {
+        tag = 'Parcela recebida';
+        category = operation.category || 'Parcela recebida';
       } else if (operation.operation_type === 'INCOME' && operation.category === 'Saldo inicial') {
         tag = 'Saldo inicial';
       }

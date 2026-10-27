@@ -27,7 +27,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <div className="mx-auto mb-4 max-w-7xl px-4 sm:px-6">
+    <div className="mx-auto mb-3 max-w-7xl px-4 sm:px-6">
       <PageHeader
         icon={<WalletCards size={22} />}
         iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-emerald-950/30"
@@ -43,9 +43,25 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         }
       />
     </div>
-    <nav aria-label="Navegação da Carteira" className="sticky top-0 z-40 mx-auto mb-5 flex max-w-7xl gap-1 overflow-x-auto border-y border-slate-800 bg-slate-950/90 px-4 py-2 backdrop-blur-md sm:px-6 lg:top-2 lg:rounded-2xl lg:border">
-      {WALLET_ROUTES.map(item => <button key={item.key} type="button" aria-current={route === item.key ? 'page' : undefined} onClick={() => go(item.key)} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors ${route === item.key ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-white'}`}>{item.label}</button>)}
-    </nav>
+    <div className="mx-auto mb-4 max-w-7xl px-4 sm:px-6">
+      <nav aria-label="Navegação da Carteira" className="inline-flex max-w-full items-center gap-1.5 overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/60 p-1.5 backdrop-blur-md scrollbar-hide">
+        {WALLET_ROUTES.map(item => (
+          <button
+            key={item.key}
+            type="button"
+            aria-current={route === item.key ? 'page' : undefined}
+            onClick={() => go(item.key)}
+            className={`shrink-0 px-4 py-2 text-xs md:text-sm font-medium rounded-xl transition-all ${
+              route === item.key
+                ? 'bg-blue-600 text-white shadow-md font-semibold'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+    </div>
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
   </main>;
 };

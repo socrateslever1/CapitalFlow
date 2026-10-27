@@ -148,6 +148,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <strong className="block text-xl font-black text-emerald-300">{formatMoney(creditPosition?.freeLimit || 0)}</strong>
             </div>
           </div>
+          {selected && Number(selected.opening_unallocated_amount || 0) > 0 && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+            {formatMoney(Number(selected.opening_unallocated_amount))} do comprometido futuro ainda não está detalhado em lançamentos. O valor será reduzido conforme as dívidas forem conferidas.
+          </p>}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -164,8 +167,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </div>
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               expenses={data.expenses} installments={data.installments}
-              onEdit={async input => { await personalWalletService.updateExpense(input); await refresh(); }}
-              onDelete={async id => { await personalWalletService.cancelExpense(id); await refresh(); }}
+              onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
+              onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
           </div>

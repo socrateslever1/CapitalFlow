@@ -17,11 +17,21 @@ type Props = {
 };
 type Action = Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER'>;
 const labels: Record<Action,string> = {
+  LOAN_DISBURSEMENT:'Empréstimo concedido', LOAN_REPAYMENT:'Parcela recebida',
   INCOME:'Receita', RECEIPT:'Recebimento', EXPENSE:'Despesa', PAYMENT:'Pagamento', TRANSFER:'Transferência',
 };
 const fmtDate=(date:string)=>new Date(date.slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR');
 const localToday=()=>{const value=new Date();value.setMinutes(value.getMinutes()-value.getTimezoneOffset());return value.toISOString().slice(0,10);};
 const input='w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-emerald-500';
+const tagClass = (tag: string) => {
+  if (tag === 'Empréstimo concedido') return 'border-rose-700/60 bg-rose-950/30 text-rose-200';
+  if (tag === 'Parcela recebida') return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
+  if (tag === 'PIX/TED enviado') return 'border-amber-700/60 bg-amber-950/30 text-amber-200';
+  if (tag === 'Pagamento de fatura') return 'border-violet-700/60 bg-violet-950/30 text-violet-200';
+  if (tag === 'Transferência interna') return 'border-cyan-700/60 bg-cyan-950/30 text-cyan-200';
+  if (tag === 'Importado de PDF') return 'border-slate-600 bg-slate-800 text-slate-300';
+  return 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200';
+};
 export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operations,statementRows,expenses,invoicePayments,onSaved}) => {
   const [action,setAction]=useState<Action|null>(null);
   const [amount,setAmount]=useState('');
@@ -172,7 +182,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">Ainda não há movimentações operacionais ou importadas nesta conta.</p>:
       <div className="divide-y divide-slate-800">{filtered.map(m=>(
         <div key={m.id} className="flex items-center justify-between gap-3 py-3">
-          <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${m.tag==='PIX/TED enviado'?'border-amber-700/60 bg-amber-950/30 text-amber-200':m.tag==='Pagamento de fatura'?'border-violet-700/60 bg-violet-950/30 text-violet-200':m.tag==='Transferência interna'?'border-cyan-700/60 bg-cyan-950/30 text-cyan-200':m.tag==='Importado de PDF'?'border-slate-600 bg-slate-800 text-slate-300':'border-emerald-700/60 bg-emerald-950/30 text-emerald-200'}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>
+          <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${tagClass(m.tag)}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>
           <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
         </div>
       ))}</div>}

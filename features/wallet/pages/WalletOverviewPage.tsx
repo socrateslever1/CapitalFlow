@@ -5,13 +5,12 @@ import {
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import type {
-  PersonalWalletAccount, PersonalWalletCard,
-  PersonalWalletPayable, PersonalWalletExpense,
-  PersonalWalletExpenseInstallment,
+  PersonalWalletAccount, PersonalWalletCard, PersonalWalletPayable,
 } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
+import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
 import { getCardSummaryDestination } from '../cardSummaryNavigation';
@@ -76,38 +75,22 @@ const deriveOverview = (snapshot: WalletSnapshot, today: string) => {
     getBankVisual(account.institution_key || account.bank_name || account.nickname).key,
   ));
   const credit = getCreditSummary(cards);
-  const expenseMap = new Map<string, PersonalWalletExpense>(
-    snapshot.expenses.map(expense => [expense.id, expense]),
+  const invoiceList: Commitment[] = cards.flatMap(card =>
+    getEffectiveInvoiceCycles(card.id, snapshot.expenses, snapshot.installments)
+      .filter(cycle => cycle.amount > 0)
+      .flatMap(cycle => {
+        const dueDate = dueDateForCard(cycle.dueMonth, card.due_day);
+        return dueDate ? [{
+          id: card.id + ':' + cycle.dueMonth,
+          title: 'Fatura ' + card.nickname,
+          institution: card.issuer || card.nickname,
+          dueDate,
+          amount: cycle.amount,
+          accountLabel: sourceAccount(accounts, cards, card.account_id),
+          category: 'CARD' as const,
+        }] : [];
+      }),
   );
-  const cardMap = new Map(cards.map(card => [card.id, card]));
-  const invoices = new Map<string, Commitment>();
-
-  snapshot.installments.forEach((installment: PersonalWalletExpenseInstallment) => {
-    if (installment.status !== 'PENDING') return;
-    const expense = expenseMap.get(installment.expense_id);
-    const card = expense?.card_id ? cardMap.get(expense.card_id) : null;
-    if (!card) return;
-    const outstanding = Math.max(
-      0, Number(installment.amount || 0) - Number(installment.paid_amount || 0),
-    );
-    if (outstanding <= 0) return;
-    const dueMonth = String(installment.due_month).slice(0, 7);
-    const dueDate = dueDateForCard(dueMonth, card.due_day);
-    if (!dueDate) return;
-    const key = card.id + ':' + dueMonth;
-    const old = invoices.get(key);
-    invoices.set(key, {
-      id: key,
-      title: 'Fatura ' + card.nickname,
-      institution: card.issuer || card.nickname,
-      dueDate,
-      amount: (old?.amount || 0) + outstanding,
-      accountLabel: sourceAccount(accounts, cards, card.account_id),
-      category: 'CARD',
-    });
-  });
-
-  const invoiceList = [...invoices.values()];
   // Only the current calendar month's invoices enter the monthly projection.
   const currentInvoiceTotal = sum(
     invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) === month),
@@ -222,68 +205,132 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
-    className="mx-auto w-full max-w-7xl space-y-5 px-4 pb-24 sm:px-6 lg:pb-8">
+    className="mx-auto w-full max-w-7xl space-y-4 px-4 pb-24 sm:px-6 lg:pb-8">
     <div className="flex items-center justify-between gap-3">
       <div>
-        <h2 className="text-xl font-bold text-white sm:text-2xl tracking-tight">Panorama financeiro</h2>
-        <p className="text-xs sm:text-sm text-slate-400">Resumo consolidado das suas finanças</p>
+        <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
+        <p className="text-xs md:text-sm text-slate-400 mt-0.5">Resumo consolidado das suas finanças</p>
       </div>
       <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3.5 py-2 text-xs font-bold text-slate-300 hover:border-slate-700 hover:bg-slate-800 hover:text-white transition-all disabled:opacity-40 shadow-sm">
+        disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm">
         <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/>
         <span className="hidden sm:inline">Atualizar</span>
       </button>
     </div>
     {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
 
-    <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12 lg:gap-6">
+    <div className="grid grid-cols-1 items-stretch gap-4 lg:grid lg:grid-cols-12 lg:gap-6">
       {/* Coluna Esquerda: LIQUIDEZ IMEDIATA */}
-      <article className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6 shadow-lg shadow-black/20">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-emerald-300">
+      <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl backdrop-blur-xl before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-48 before:w-48 before:rounded-full before:bg-emerald-500/10 before:blur-3xl sm:p-5 lg:col-span-6 lg:p-6">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
             <Landmark size={17}/> Liquidez imediata
           </div>
-          <strong className="mt-3 block text-3xl font-black tabular-nums text-emerald-300 sm:text-4xl">
+          <strong className="my-1 block text-3xl font-extrabold tracking-tight tabular-nums text-white lg:text-4xl">
             {money(overview.accountBalance)}
           </strong>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
             {overview.institutionCount} {overview.institutionCount === 1 ? 'instituição' : 'instituições'}
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {accounts.length ? accounts.slice(0, 2).map(account => {
               const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
-              return <div key={account.id}
-                className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/75 p-3.5 min-h-[96px] hover:border-emerald-500/30 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <BankLogo name={account.institution_key || account.bank_name} alternateName={account.nickname} size="sm"/>
-                  <span className="truncate text-xs font-bold text-slate-100">{visual.name}</span>
+              const cardBg = visual.cardBg || `linear-gradient(145deg, color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9)) 0%, color-mix(in srgb, ${visual.accent} 4%, rgba(2, 6, 23, 0.95)) 100%)`;
+              const cardBorder = visual.cardBorder || `color-mix(in srgb, ${visual.accent} 45%, rgba(255, 255, 255, 0.12))`;
+              const cardGlow = visual.cardGlow || `0 10px 26px -6px color-mix(in srgb, ${visual.accent} 22%, rgba(0, 0, 0, 0.65))`;
+              const logoBg = visual.logoBg || `color-mix(in srgb, ${visual.accent} 15%, #0f172a)`;
+              const logoBorder = visual.logoBorder || `color-mix(in srgb, ${visual.accent} 50%, rgba(255, 255, 255, 0.2))`;
+              const badgeBg = visual.badgeBg || `color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9))`;
+              const badgeBorder = visual.badgeBorder || `color-mix(in srgb, ${visual.accent} 35%, rgba(255, 255, 255, 0.12))`;
+              const badgeText = visual.badgeText || `color-mix(in srgb, ${visual.accent} 35%, #ffffff)`;
+              const badgeDot = visual.badgeDot || visual.accent;
+              const badgeDotGlow = visual.badgeDotGlow || `0 0 6px ${visual.accent}`;
+
+              return (
+                <div
+                  key={account.id}
+                  className="group relative flex min-h-[108px] flex-col justify-between overflow-hidden rounded-2xl border p-4 shadow-lg transition-all duration-300 hover:scale-[1.01] hover:shadow-xl"
+                  style={{
+                    borderColor: cardBorder,
+                    background: cardBg,
+                    boxShadow: cardGlow
+                  }}
+                >
+                  <div
+                    className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-15 transition-opacity group-hover:opacity-30"
+                    style={{ backgroundColor: visual.accent }}
+                  />
+
+                  <div className="relative z-10 flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <BankLogo
+                        name={account.institution_key || account.bank_name}
+                        alternateName={account.nickname}
+                        size="sm"
+                        className="shadow-sm transition-transform duration-200 group-hover:scale-105"
+                        style={{
+                          borderColor: logoBorder,
+                          backgroundColor: logoBg
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-bold text-white tracking-tight">{visual.name}</span>
+                        {account.nickname && account.nickname.toLowerCase() !== visual.name.toLowerCase() && (
+                          <span className="block truncate text-[10px] text-slate-400 font-medium">{account.nickname}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 mt-3">
+                    <strong className="block text-xl sm:text-2xl font-black tracking-tight tabular-nums text-white">
+                      {money(Number(account.balance))}
+                    </strong>
+                    <div className="mt-2.5 flex items-center">
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold tracking-wide"
+                        style={{
+                          backgroundColor: badgeBg,
+                          border: `1px solid ${badgeBorder}`,
+                          color: badgeText,
+                        }}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: badgeDot,
+                            boxShadow: badgeDotGlow
+                          }}
+                        />
+                        {walletAccountTypeLabel(account.account_type)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-2.5">
-                  <strong className="block text-sm font-black tabular-nums text-white">
-                    {money(Number(account.balance))}
-                  </strong>
-                  <p className="mt-0.5 truncate text-[10px] text-slate-400">
-                    {walletAccountTypeLabel(account.account_type)}
-                  </p>
-                </div>
-              </div>;
+              );
             }) : <p className="col-span-2 rounded-xl border border-dashed border-slate-700 p-5 text-xs text-slate-400">
               Nenhuma conta cadastrada.
             </p>}
           </div>
         </div>
 
-        <button type="button" onClick={() => go('contas')}
-          className="mt-5 flex items-center justify-between border-t border-slate-800/80 pt-3.5 text-left text-xs font-bold text-emerald-300 hover:text-emerald-200 transition-colors">
-          <span>Ver detalhes das contas</span> <ArrowRight size={15}/>
-        </button>
+        <div className="mt-6 border-t border-white/5 pt-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => go('contas')}
+            className="group inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 transition-colors hover:text-emerald-300 cursor-pointer"
+          >
+            <span>Ver detalhes das contas</span>
+            <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
       </article>
 
       {/* Coluna Direita: CARTÕES */}
-      <article className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-900 p-4 sm:p-5 lg:col-span-6 shadow-lg shadow-black/20">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-300">
+      <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 bg-gradient-to-br from-blue-950/30 via-slate-900/80 to-slate-950/80 p-4 shadow-2xl backdrop-blur-xl sm:p-5 lg:col-span-6 lg:p-6">
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
             <CreditCard size={17}/> Cartões
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -313,112 +360,143 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Cartões com animação fluida, proporção e navegação */}
-          <div className="mt-4 flex snap-x gap-2.5 overflow-x-auto pb-3 scrollbar-hide" aria-label="Seus cartões">
-            {cards.length ? cards.map(card => {
-              const account = accounts.find(item => item.id === card.account_id);
-              const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
-              const visual = getBankVisual(institution);
-              return <button type="button" key={card.id}
-                onClick={() => onNavigate(getCardSummaryDestination(card.id))}
-                aria-label={`Abrir cartão ${card.nickname}`}
-                className="relative flex aspect-[1.586/1] min-w-[155px] max-w-[210px] flex-1 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-white/20 p-3 text-left text-white shadow-md transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-2 hover:shadow-2xl hover:border-white/40 active:scale-95 cursor-pointer"
-                style={{ background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})` }}>
-                <div className="flex min-w-0 items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
-                    <span className="truncate text-[11px] font-bold">{card.nickname}</span>
-                  </div>
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-white/80 bg-black/20 px-1.5 py-0.5 rounded">
-                    {card.brand || 'Crédito'}
-                  </span>
-                </div>
-                <div className="flex items-end justify-between gap-1 pt-1">
-                  <span className="text-[10px] tracking-wider text-white/90 font-mono">•••• {card.last_four || '----'}</span>
-                  <span className="text-[9px] font-medium text-white/70 hover:text-white transition-colors">Ver fatura →</span>
-                </div>
-              </button>;
-            }) : <p className="py-3 text-xs text-slate-400">Nenhum cartão cadastrado.</p>}
+          {/* Cartões com animação 3D de sobreposição (Apple Wallet style), expansão no hover e elevação */}
+          <div className="relative mt-4 h-[126px] w-full" aria-label="Seus cartões">
+            {cards.length ? (
+              <div className="flex -space-x-28 sm:-space-x-32 hover:-space-x-16 transition-all duration-300 py-1 items-center overflow-x-auto scrollbar-hide">
+                {cards.map(card => {
+                  const index = cards.indexOf(card);
+                  const account = accounts.find(item => item.id === card.account_id);
+                  const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
+                  const visual = getBankVisual(institution);
+                  return <button type="button" key={card.id}
+                    onClick={() => onNavigate(getCardSummaryDestination(card.id))}
+                    aria-label={`Abrir cartão ${card.nickname}`}
+                    style={{
+                      background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})`,
+                      zIndex: 30 - index * 5,
+                      transform: `scale(${1 - index * 0.04}) translateY(${index * 2}px)`,
+                    }}
+                    className="group relative flex aspect-[1.586/1] h-[108px] sm:h-[114px] shrink-0 flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-all duration-300 hover:!-translate-y-2.5 hover:!scale-105 hover:!z-50 hover:shadow-2xl hover:border-white/50 cursor-pointer">
+                    <div className="flex min-w-0 items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
+                        <span className="truncate text-[11px] font-bold text-white drop-shadow-sm">{card.nickname}</span>
+                      </div>
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 bg-black/25 px-1.5 py-0.5 rounded">
+                        {card.brand || 'Crédito'}
+                      </span>
+                    </div>
+                    <div className="flex items-end justify-between gap-1 pt-2">
+                      <span className="text-[10px] font-mono tracking-widest text-white/90 drop-shadow-sm">•••• {card.last_four || '----'}</span>
+                      <span className="text-[9px] font-medium text-white/70 group-hover:text-white transition-colors">Ver fatura →</span>
+                    </div>
+                  </button>;
+                })}
+              </div>
+            ) : <p className="py-4 text-xs text-slate-400">Nenhum cartão cadastrado.</p>}
           </div>
         </div>
 
         <button type="button" onClick={() => go('cartoes')}
-          className="mt-5 flex items-center justify-between border-t border-slate-800/80 pt-3.5 text-left text-xs font-bold text-blue-300 hover:text-blue-200 transition-colors">
-          <span>Ver cartões e faturas</span> <ArrowRight size={15}/>
+          className="group relative z-10 mt-6 inline-flex w-full items-center justify-between gap-2 border-t border-white/5 pt-4 text-left text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200">
+          <span>Ver cartões e faturas</span> <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5"/>
         </button>
       </article>
     </div>
 
-    <article className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-5">
+    {/* 1. SEÇÃO BALANÇO DO MÊS */}
+    <article className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-5 lg:p-6 shadow-xl mb-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-300">
             <Scale size={17} className="text-violet-300"/> Balanço do mês
           </div>
-          <p className="mt-1 text-[11px] text-slate-500">{today.slice(5, 7)}/{today.slice(0, 4)}</p>
+          <p className="mt-1 text-xs text-slate-400">{today.slice(5, 7)}/{today.slice(0, 4)}</p>
         </div>
-        <span className={'rounded-full border px-3 py-1 text-[10px] font-bold ' +
+        <span className={'rounded-full border px-3 py-1 text-xs font-semibold ' +
           (deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
             'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>
           {deficit ? 'Déficit' : 'Superávit'}
         </span>
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-12">
-        <div className="rounded-xl border border-emerald-500/15 bg-emerald-950/10 p-4 lg:col-span-6">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-emerald-300"><TrendingUp size={16}/> Recursos</h3>
+      <div className="mt-4 grid gap-4 lg:grid-cols-12">
+        {/* Card de Recursos */}
+        <div className="bg-emerald-950/25 border border-emerald-500/20 rounded-xl p-4 lg:col-span-6">
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-emerald-400"><TrendingUp size={16} className="text-emerald-400"/> Recursos</h3>
           <div className="space-y-3 text-xs">
-            <div className="flex justify-between gap-3 text-slate-300"><span>Saldo em contas</span><strong>{money(balance.accountBalance)}</strong></div>
-            <div className="flex justify-between gap-3 text-slate-300"><span>Receitas a receber</span><strong>{money(balance.pendingRecurringIncome)}</strong></div>
-            <div className="flex justify-between gap-3 border-t border-slate-700 pt-3 font-bold text-emerald-300"><span>Total de recursos</span><strong>{money(balance.totalResources)}</strong></div>
+            <div className="flex justify-between gap-3 text-slate-300"><span>Saldo em contas</span><strong className="text-white font-semibold">{money(balance.accountBalance)}</strong></div>
+            <div className="flex justify-between gap-3 text-slate-300"><span>Receitas a receber</span><strong className="text-white font-semibold">{money(balance.pendingRecurringIncome)}</strong></div>
+            <div className="flex justify-between gap-3 border-t border-emerald-500/20 pt-3 font-bold text-emerald-300"><span>Total de recursos</span><strong className="text-emerald-300 font-bold">{money(balance.totalResources)}</strong></div>
           </div>
         </div>
-        <div className="rounded-xl border border-rose-500/15 bg-rose-950/10 p-4 lg:col-span-6">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-rose-300"><TrendingDown size={16}/> Passivos</h3>
+        {/* Card de Passivos */}
+        <div className="bg-rose-950/25 border border-rose-500/20 rounded-xl p-4 lg:col-span-6">
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-rose-400"><TrendingDown size={16} className="text-rose-400"/> Passivos</h3>
           <div className="space-y-3 text-xs">
-            <div className="flex justify-between gap-3 text-slate-300"><span>Faturas de cartão do mês</span><strong>{money(balance.openCardInvoices)}</strong></div>
-            <div className="flex justify-between gap-3 text-slate-300"><span>Dívidas e contas a pagar do mês</span><strong>{money(balance.monthPayables)}</strong></div>
-            <div className="flex justify-between gap-3 border-t border-slate-700 pt-3 font-bold text-rose-300"><span>Total de passivos</span><strong>{money(balance.totalLiabilities)}</strong></div>
+            <div className="flex justify-between gap-3 text-slate-300"><span>Faturas de cartão do mês</span><strong className="text-white font-semibold">{money(balance.openCardInvoices)}</strong></div>
+            <div className="flex justify-between gap-3 text-slate-300"><span>Dívidas e contas a pagar do mês</span><strong className="text-white font-semibold">{money(balance.monthPayables)}</strong></div>
+            <div className="flex justify-between gap-3 border-t border-rose-500/20 pt-3 font-bold text-rose-300"><span>Total de passivos</span><strong className="text-rose-300 font-bold">{money(balance.totalLiabilities)}</strong></div>
           </div>
         </div>
       </div>
-      <div className={'mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 ' +
-        (deficit ? 'border-rose-500/20 bg-rose-950/20' : 'border-emerald-500/20 bg-emerald-950/20')}>
+      {/* Faixa de Saldo Projetado */}
+      <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 mt-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-bold text-slate-300">Saldo projetado do mês</p>
-          <p className="text-[10px] text-slate-500">Saldo disponível menos valores a pagar</p>
+          <p className="text-xs text-slate-400 mt-0.5">Saldo disponível menos valores a pagar</p>
         </div>
-        <strong className={'text-xl font-black tabular-nums sm:text-2xl ' + (deficit ? 'text-rose-300' : 'text-emerald-300')}>
+        <strong className={'text-2xl lg:text-3xl font-extrabold tracking-tight tabular-nums ' + (deficit ? 'text-rose-400' : 'text-emerald-400')}>
           {money(balance.projectedBalance)}
         </strong>
       </div>
     </article>
 
-    <article className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-5">
+    {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
+    <article className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-5 lg:p-6 shadow-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-sm font-black text-white"><CalendarClock size={18} className="text-amber-300"/> Compromissos próximos</h2>
-          <p className="mt-1 text-[11px] text-slate-400">Vencidos e próximos 45 dias</p>
+          <h2 className="flex items-center gap-2 text-base font-bold text-white"><CalendarClock size={18} className="text-amber-300"/> Compromissos próximos</h2>
+          <p className="mt-1 text-xs text-slate-400">Vencidos e próximos 45 dias</p>
         </div>
-        <button type="button" onClick={() => go('dividas')} className="flex items-center gap-1 text-xs font-bold text-blue-300">
-          Ver contas a pagar <ArrowRight size={15}/>
+        <button type="button" onClick={() => go('dividas')} className="flex items-center gap-1.5 text-xs font-semibold text-blue-300 hover:text-blue-200 transition-colors">
+          <span>Ver contas a pagar</span> <ArrowRight size={15}/>
         </button>
       </div>
-      <div className="mt-4 space-y-2">
+      <div className="mt-5">
         {upcoming.length ? upcoming.map(item => {
           const overdue = item.dueDate < today;
-          return <div key={item.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/65 p-3 sm:grid-cols-[minmax(0,1fr)_140px_150px]">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-white">{item.title}</p>
-              <p className="mt-0.5 truncate text-[10px] text-slate-400">{item.institution} · {item.accountLabel}</p>
+          return (
+            <div
+              key={item.id}
+              className="bg-slate-950/40 hover:bg-slate-800/40 border border-white/5 hover:border-white/10 rounded-xl p-3.5 mb-2.5 transition-all flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
+            >
+              {/* Lado Esquerdo */}
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300">
+                  <BankLogo name={item.institution} alternateName={item.title} size="sm" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                  <p className="mt-0.5 truncate text-xs text-slate-400">{item.institution} · {item.accountLabel}</p>
+                </div>
+              </div>
+
+              {/* Centro & Lado Direito */}
+              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+                  overdue
+                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                    : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                }`}>
+                  {overdue ? 'Vencido · ' : ''}{dateLabel(item.dueDate)}
+                </span>
+                <strong className="text-base lg:text-lg font-bold text-white tracking-tight tabular-nums">
+                  {money(item.amount)}
+                </strong>
+              </div>
             </div>
-            <div className="text-right sm:text-left">
-              <p className={'text-[11px] font-bold ' + (overdue ? 'text-rose-300' : 'text-amber-300')}>
-                {overdue ? 'Vencido · ' : ''}{dateLabel(item.dueDate)}
-              </p>
-              <p className="text-[10px] text-slate-500">{item.category === 'CARD' ? 'Fatura de cartão' : 'Conta a pagar'}</p>
-            </div>
-            <strong className="col-span-2 text-right text-xs tabular-nums text-white sm:col-span-1">{money(item.amount)}</strong>
-          </div>;
+          );
         }) : <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-400">
           Nenhum compromisso com vencimento informado nos próximos 45 dias.
         </p>}

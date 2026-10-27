@@ -41,19 +41,17 @@ const cents = (raw: string, field: string): number => {
 export function validateCardOpening(values: CardOpeningFormValues, creditLimit: number): CardOpeningPayload {
   const used = cents(values.used, 'Limite já utilizado');
   const invoice = cents(values.invoice, 'Fatura inicial');
-  const future = cents(values.future, 'Parcelas futuras');
+  // O restante comprometido fica pendente de detalhamento; não criamos parcelas fictícias.
+  const future = used - invoice;
   if (!Number.isFinite(creditLimit) || creditLimit < 0 ||
     Math.abs(creditLimit * 100 - Math.round(creditLimit * 100)) > 0.000001) {
     throw new Error('Informe um limite de crédito válido.');
   }
   const limit = Math.round(creditLimit * 100);
   if (used > limit) throw new Error('O limite utilizado não pode superar o limite contratado.');
+  if (future < 0) throw new Error('A fatura inicial não pode superar o limite já utilizado.');
   if (invoice + future > used) {
     throw new Error('A soma da fatura atual com as parcelas futuras supera o limite utilizado.');
-  }
-  const count = future > 0 ? Number(values.futureCount) : 0;
-  if (future > 0 && (!Number.isInteger(count) || count < 1 || count > 120 || future < count)) {
-    throw new Error('Informe de 1 a 120 faturas futuras, com pelo menos R$ 0,01 por parcela.');
   }
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(values.invoiceMonth)) {
     throw new Error('Informe o mês de vencimento da fatura inicial.');
@@ -62,7 +60,7 @@ export function validateCardOpening(values: CardOpeningFormValues, creditLimit: 
   if (year < 2000 || year > 2100) throw new Error('Mês da fatura inicial fora do intervalo permitido.');
   return {
     used_limit: used / 100, invoice_amount: invoice / 100,
-    future_amount: future / 100, future_months: count,
+    future_amount: future / 100, future_months: 0,
     invoice_month: values.invoiceMonth + '-01',
   };
 }
@@ -78,8 +76,7 @@ export const CardOpeningFields: React.FC<Props> = ({ value, onChange, creditLimi
     onChange({ ...value, [name]: next });
   const used = Number(value.used || 0);
   const invoice = Number(value.invoice || 0);
-  const future = Number(value.future || 0);
-  const unbilled = Math.max(0, Math.round((used - invoice - future) * 100) / 100);
+  const future = Math.max(0, Math.round((used - invoice) * 100) / 100);
   const available = Math.max(0, Math.round((creditLimit - used) * 100) / 100);
   const invalid = used < 0 || invoice < 0 || future < 0 ||
     used > creditLimit || invoice + future > used;
@@ -98,14 +95,13 @@ export const CardOpeningFields: React.FC<Props> = ({ value, onChange, creditLimi
         <input className={field} type="number" min="0" step="0.01" inputMode="decimal"
           required value={value.invoice} onChange={event => update('invoice', event.target.value)}/>
       </label>
-      <label className="text-xs text-slate-300">Parcelas futuras — total (R$)
+      <label className="text-xs text-slate-300">Parcelas futuras não detalhadas (R$)
         <input className={field} type="number" min="0" step="0.01" inputMode="decimal"
-          required value={value.future} onChange={event => update('future', event.target.value)}/>
+          readOnly value={future.toFixed(2)} aria-describedby="card-opening-future-help"/>
       </label>
       <label className="text-xs text-slate-300">Quantidade de faturas futuras
         <input className={field} type="number" min="1" max="120" step="1"
-          disabled={!future || future <= 0} required={future > 0}
-          value={value.futureCount} onChange={event => update('futureCount', event.target.value)}/>
+          disabled value="" placeholder="Será detalhado depois" aria-describedby="card-opening-future-help"/>
       </label>
       <label className="text-xs text-slate-300">Mês de vencimento da fatura inicial
         <input className={field} type="month" min="2000-01" max="2100-12" required
@@ -121,16 +117,16 @@ export const CardOpeningFields: React.FC<Props> = ({ value, onChange, creditLimi
         <strong className="text-emerald-300">{formatMoney(available)}</strong>
       </div>
       <div className="rounded-xl bg-slate-900 p-3">
-        <span className="block text-slate-400">Ainda não faturado</span>
-        <strong className="text-white">{formatMoney(unbilled)}</strong>
+        <span className="block text-slate-400">Futuro não detalhado</span>
+        <strong className="text-white">{formatMoney(future)}</strong>
       </div>
       <div className="col-span-2 rounded-xl bg-slate-900 p-3 sm:col-span-1">
         <span className="block text-slate-400">Dívida inicial</span>
         <strong className="text-white">{formatMoney(Number.isFinite(used) ? used : 0)}</strong>
       </div>
     </div>
-    <p className="text-[11px] text-slate-400">
-      A diferença ainda não faturada entra no próximo mês. Não registre novamente
+    <p id="card-opening-future-help" className="text-[11px] text-slate-400">
+      Ainda não faturado: a diferença entra no próximo mês. Não registre novamente
       compras já incluídas no saldo inicial.
     </p>
   </fieldset>;

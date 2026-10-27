@@ -14,6 +14,7 @@ export type WalletRecurringObligation={
 };
 import { supabase } from '../lib/supabase';
 import { generateUUID } from '../utils/generators';
+import type { CapitalSource } from '../types';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
@@ -44,6 +45,7 @@ export type PersonalWalletAccount = {
   image_url?: string | null;
   notes?: string | null;
   institution_key?: string | null;
+  capital_source_id?: string | null;
 };
 
 export type PersonalWalletCard = {
@@ -65,6 +67,7 @@ export type PersonalWalletCard = {
   institution_key?: string | null;
   primary_color?: string | null;
   available_limit?: number;
+  opening_unallocated_amount?: number;
 };
 
 export type PersonalWalletPayable = {
@@ -142,7 +145,7 @@ export type PersonalWalletInvoicePayment = {
 export type WalletAccountOperation = {
   id: string;
   request_id: string;
-  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER'|'EXTERNAL_TRANSFER';
+  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER'|'EXTERNAL_TRANSFER'|'LOAN_DISBURSEMENT'|'LOAN_REPAYMENT';
   from_account_id: string|null;
   to_account_id: string|null;
   amount: number;
@@ -154,6 +157,8 @@ export type WalletAccountOperation = {
   external_identifier?: string|null;
   occurred_at?: string|null;
   charge_id?: string|null;
+  contract_id?: string|null;
+  installment_id?: string|null;
   created_at: string;
 };
 export type WalletStatementRow = {
@@ -225,7 +230,7 @@ export const personalWalletService = {
   },
 
   async load() {
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
       supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
@@ -238,8 +243,9 @@ export const personalWalletService = {
       supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day',{ascending:true}),
       supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month',{ascending:false}).limit(500),
       supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at',{ascending:false}),
+      supabase.from('fontes').select('id,profile_id,name,balance,type').is('archived_at', null).order('name', { ascending: true }),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error || recurringObligations.error;
+    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error || recurringObligations.error || capitalSources.error;
     if (error) throw new Error(error.message);
     const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (card) => {
       if (!card.image_path) return card;
@@ -264,6 +270,7 @@ export const personalWalletService = {
       recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
       recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
       recurringObligations: (recurringObligations.data || []) as WalletRecurringObligation[],
+      capitalSources: (capitalSources.data || []) as CapitalSource[],
     };
   },
 
@@ -310,6 +317,15 @@ export const personalWalletService = {
     });
     if (error) throw new Error(error.message);
     return String(data);
+  },
+
+  async linkCapitalSource(accountId: string, capitalSourceId: string | null) {
+    const { data, error } = await supabase.rpc('personal_wallet_link_capital_source', {
+      p_account_id: accountId,
+      p_capital_source_id: capitalSourceId || null,
+    });
+    if (error) throw new Error(error.message);
+    return Boolean(data);
   },
 
   async initializeAccountOpening(input: {
@@ -476,6 +492,14 @@ export const personalWalletService = {
     return data as { card_id: string; used_limit: number; current_bill: number; available_limit: number };
   },
 
+  async reconcileCardOpening(cardId: string, amount: number, requestId: string) {
+    const { data, error } = await supabase.rpc('personal_wallet_reconcile_card_opening', {
+      p_card_id: cardId, p_amount: amount, p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { replayed: boolean; remaining: number };
+  },
+
   async createHybridAssets(input: {
     account?: {nickname:string;bank_name:string;balance:number;account_type:string;pix_key:string|null;pix_key_type:string|null}|null;
     card?: {nickname:string;issuer:string;brand:string|null;last_four:string|null;credit_limit:number;closing_day:number|null;due_day:number|null;primary_color?:string|null}|null;
@@ -533,14 +557,22 @@ export const personalWalletService = {
 
     const { data, error } = await supabase
       .from('personal_wallet_accounts')
-      .insert({ ...input, balance: 0, id: accountId, owner_user_id: ownerUserId, image_path: imagePath })
+      .insert({
+        ...input,
+        capital_source_id: null,
+        balance: 0,
+        id: accountId,
+        owner_user_id: ownerUserId,
+        image_path: imagePath
+      })
       .select()
       .single();
     if (error) {
       if (imagePath) await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([imagePath]);
       throw new Error(error.message);
     }
-    return data as PersonalWalletAccount;
+    if (input.capital_source_id) await this.linkCapitalSource(accountId, input.capital_source_id);
+    return { ...(data as PersonalWalletAccount), capital_source_id: input.capital_source_id || null };
   },
 
   /**
@@ -549,7 +581,7 @@ export const personalWalletService = {
    */
   async updateAccount(
     accountId: string,
-    input: Pick<PersonalWalletAccount, 'nickname' | 'bank_name' | 'account_type' | 'pix_key' | 'pix_key_type' | 'notes'>,
+    input: Pick<PersonalWalletAccount, 'nickname' | 'bank_name' | 'account_type' | 'pix_key' | 'pix_key_type' | 'notes'> & { capital_source_id?: string | null },
     imageFile?: File | null,
   ) {
     const ownerUserId = await this.ownerId();
@@ -617,6 +649,7 @@ export const personalWalletService = {
     if (uploadedPath && current.image_path && current.image_path !== uploadedPath) {
       await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([current.image_path]).catch(() => {});
     }
+    if (input.capital_source_id !== undefined) await this.linkCapitalSource(accountId, input.capital_source_id || null);
   },
 
   async createCard(

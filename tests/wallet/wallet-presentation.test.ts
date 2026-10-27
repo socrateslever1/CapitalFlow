@@ -4,6 +4,7 @@ import { buildChargeLink, getBankVisual, getCreditSummary, groupWalletByBank } f
 
 test('usa identidade conhecida e fallback estável sem imagem externa', () => {
   assert.equal(getBankVisual('Nubank').accent, '#820ad1');
+  assert.equal(getBankVisual('RecargaPay').accent, '#0ea5e9');
   assert.equal(getBankVisual('Banco Inventado').accent, getBankVisual('Banco Inventado').accent);
   assert.match(getBankVisual('Banco Inventado').monogram, /^[A-Z]{1,2}$/);
 });
@@ -11,6 +12,7 @@ test('usa identidade conhecida e fallback estável sem imagem externa', () => {
 test('normaliza aliases comerciais na mesma instituição', () => {
   assert.equal(getBankVisual('Nu').key, 'nubank');
   assert.equal(getBankVisual('Nu Pagamentos').key, 'nubank');
+  assert.equal(getBankVisual('Recarga Pay').key, 'recargapay');
   const groups = groupWalletByBank(
     [{ id: 'a1', nickname: 'Principal', bank_name: 'Nubank', balance: 10 }],
     [{ id: 'c1', nickname: 'Roxo', issuer: 'Nu', account_id: null }],

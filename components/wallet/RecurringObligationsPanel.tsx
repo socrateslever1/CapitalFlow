@@ -3,10 +3,10 @@ import {Repeat,Plus,Check,X,CalendarDays,PauseCircle,PlayCircle} from 'lucide-re
 import {personalWalletService,PersonalWalletAccount,PersonalWalletCard,WalletRecurringObligation} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
 
-type Props={accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];items:WalletRecurringObligation[];onSaved:()=>Promise<void>};
+type Props={accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];items:WalletRecurringObligation[];onSaved:()=>Promise<void>;showCreateButton?:boolean;createRequest?:number};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white';
 const month=()=>new Date().toISOString().slice(0,7)+'-01';
-export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,onSaved})=>{
+export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,onSaved,showCreateButton=true,createRequest})=>{
  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const initialized=useRef(false);
  const [form,setForm]=useState({kind:'EXPENSE',description:'',creditor_name:'',creditor_type:'COMPANY',category:'Moradia',amount:'',due_day:'10',origin:''});
@@ -30,10 +30,11 @@ export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,on
      .then(n=>{if(n>0)onSaved().catch(()=>setError('Vencimentos criados; atualize a carteira para visualizar.'));})
      .catch(e=>setError(e instanceof Error?e.message:'Falha ao atualizar os vencimentos.'));
  },[items,onSaved]);
+ useEffect(()=>{if(createRequest!==undefined)setOpen(true);},[createRequest]);
  const active=items.filter(x=>x.active);
  const monthly=active.reduce((sum,x)=>sum+Number(x.amount),0);
  return <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 space-y-3">
-  <div className="flex items-center justify-between gap-2"><div><h3 className="flex items-center gap-2 text-sm font-bold text-white"><Repeat size={17} className="text-amber-300"/> Despesas e dívidas fixas</h3><p className="text-[11px] text-slate-400">Vencimentos recorrentes, sem débito automático</p></div><button type="button" onClick={()=>setOpen(true)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus size={13} className="inline"/> Nova</button></div>
+  <div className="flex items-center justify-between gap-2"><div><h3 className="flex items-center gap-2 text-sm font-bold text-white"><Repeat size={17} className="text-amber-300"/> Despesas recorrentes</h3><p className="text-[11px] text-slate-400">Vencimentos mensais sem débito automático</p></div>{showCreateButton && <button type="button" onClick={()=>setOpen(true)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"><Plus size={13} className="inline"/> Nova</button>}</div>
   <div className="flex items-center justify-between rounded-lg bg-slate-950 p-3 text-xs"><span className="text-slate-400">Compromissos mensais ativos</span><strong className="text-amber-300">{formatMoney(monthly)}</strong></div>
   <button type="button" disabled={busy||!active.length} onClick={()=>run(async()=>{await personalWalletService.generateRecurringObligations(month(),3);},'Vencimentos atualizados.')} className="w-full rounded-xl border border-blue-700 bg-blue-950/25 py-3 text-xs font-bold text-blue-200 disabled:opacity-40"><CalendarDays size={15} className="mr-1 inline"/> Gerar vencimentos dos próximos 3 meses</button>
   <p className="text-[11px] text-slate-500">A geração é idempotente: repetir a ação não duplica parcelas. A conta ou o cartão só será movimentado ao registrar o pagamento.</p>

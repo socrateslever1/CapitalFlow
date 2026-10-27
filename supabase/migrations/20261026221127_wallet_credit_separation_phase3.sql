@@ -451,13 +451,14 @@ create or replace function public.personal_wallet_pay_invoice(
   p_card_id uuid,p_due_month date,p_account_id uuid
 ) returns numeric
 language plpgsql
-security invoker
+security definer
 set search_path=public,pg_temp
 as $$
 declare
   v_amount numeric(14,2);
   v_month date:=date_trunc('month',p_due_month)::date;
 begin
+  if auth.uid() is null or not public.is_platform_super_admin() then raise exception 'Acesso nao autorizado.'; end if;
   v_amount:=private.wallet_effective_cycle_amount(auth.uid(),p_card_id,v_month);
   if v_amount<=0 then raise exception 'Nao existe fatura pendente para este periodo.'; end if;
   return public.personal_wallet_pay_invoice_partial(p_card_id,v_month,p_account_id,v_amount,gen_random_uuid());

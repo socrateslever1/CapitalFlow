@@ -4,16 +4,21 @@ const visuals: Record<string, { accent: string; secondary: string; monogram: str
   nubank: { accent: '#820ad1', secondary: '#b44cff', monogram: 'NU' },
   itau: { accent: '#ec7000', secondary: '#ffb000', monogram: 'IT' },
   inter: { accent: '#ff7a00', secondary: '#ffad4d', monogram: 'IN' },
-  mercadopago: { accent: '#1F2229', secondary: '#434752', monogram: 'MP' },
+  mercadopago: { accent: '#00a9e0', secondary: '#006699', monogram: 'MP' },
   picpay: { accent: '#11C76F', secondary: '#07864B', monogram: 'P' },
   bradesco: { accent: '#cc092f', secondary: '#f0526f', monogram: 'BR' },
   santander: { accent: '#ec0000', secondary: '#ff5a5a', monogram: 'ST' },
   bb: { accent: '#f9dd16', secondary: '#2754c5', monogram: 'BB' },
   caixa: { accent: '#1479bd', secondary: '#f5a623', monogram: 'CX' },
-  c6: { accent: '#242424', secondary: '#777777', monogram: 'C6' },
-  recargapay: { accent: '#6657d9', secondary: '#302a78', monogram: 'R' },
+  c6: { accent: '#e2e8f0', secondary: '#242424', monogram: 'C6' },
+  recargapay: { accent: '#0ea5e9', secondary: '#0a192f', monogram: 'RP' },
   pagbank: { accent: '#55c552', secondary: '#167d4a', monogram: 'P' },
   pan: { accent: '#08a7e8', secondary: '#03619a', monogram: 'PAN' },
+  neon: { accent: '#00e5ff', secondary: '#008fff', monogram: 'NE' },
+  stone: { accent: '#00d700', secondary: '#005f27', monogram: 'ST' },
+  btg: { accent: '#195ab4', secondary: '#0b2347', monogram: 'BTG' },
+  xp: { accent: '#ffb800', secondary: '#000000', monogram: 'XP' },
+  sicoob: { accent: '#00ae9d', secondary: '#7db61c', monogram: 'SC' },
 };
 
 const canonicalAliases: Record<string, string> = {
@@ -23,6 +28,9 @@ const canonicalAliases: Record<string, string> = {
   'nu pagamentos sa': 'nubank',
   'mercado pago': 'mercadopago',
   'recarga pay': 'recargapay',
+  recargapay: 'recargapay',
+  'recargapay ip': 'recargapay',
+  'recarga pay ip': 'recargapay',
   'banco inter': 'inter',
   'itau unibanco': 'itau',
 };
@@ -40,7 +48,27 @@ export function getBankVisual(name?: string | null) {
   const key = aliasKey || brand?.id || normalized.replace(/\s/g, '-') || 'carteira';
   const title = brand?.name || String(name || 'Carteira').trim();
   const monogram = title.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-  return { key, name: title, ...(visuals[key] || { accent: hashColor(key), secondary: '#334155', monogram: monogram || 'CF' }) };
+  const base = visuals[key] || { accent: hashColor(key), secondary: '#334155', monogram: monogram || 'CF' };
+  if (key === 'recargapay') {
+    return {
+      key,
+      name: title,
+      ...base,
+      accent: '#0ea5e9',
+      secondary: '#0a192f',
+      cardBg: 'linear-gradient(135deg, #0a192f 0%, #0d2238 50%, #07131f 100%)',
+      cardBorder: 'rgba(14, 165, 233, 0.3)',
+      cardGlow: '0 0 20px rgba(14, 165, 233, 0.15)',
+      logoBg: 'rgba(8, 47, 73, 0.6)',
+      logoBorder: 'rgba(56, 189, 248, 0.3)',
+      badgeDot: '#38bdf8',
+      badgeDotGlow: '0 0 8px rgba(56, 189, 248, 0.8)',
+      badgeText: '#7dd3fc',
+      badgeBg: 'rgba(8, 47, 73, 0.4)',
+      badgeBorder: 'rgba(14, 165, 233, 0.2)',
+    };
+  }
+  return { key, name: title, ...base };
 }
 
 type AccountLike = { id: string; nickname: string; bank_name?: string | null; balance?: number };
@@ -87,7 +115,7 @@ export function getCreditSummary(cards: Array<{ credit_limit: number; used_limit
 /** Rótulos de contas apresentados exclusivamente em português do Brasil. */
 export function walletAccountTypeLabel(value?: string | null): string {
   const labels: Record<string, string> = {
-    CHECKING: 'Conta corrente', SAVINGS: 'Poupança', CASH: 'Dinheiro',
+    CHECKING: 'Conta corrente', SAVINGS: 'Poupança', CASH: 'Carteira física',
     INVESTMENT: 'Investimento', PAYMENT: 'Conta de pagamento',
     PAYMENT_ACCOUNT: 'Conta de pagamento', CURRENT: 'Conta corrente',
   };

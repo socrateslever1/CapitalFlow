@@ -19,8 +19,8 @@ export interface CardDetailModalProps {
   onPayInvoice: (cardId: string) => void;
   statementRows?: WalletStatementRow[];
   onImported?: () => Promise<void>;
-  onEditExpense: (input: UpdatePersonalWalletExpense) => Promise<void>;
-  onDeleteExpense: (expenseId: string) => Promise<void>;
+  onEditExpense: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
+  onDeleteExpense: (expenseId: string, requestId: string) => Promise<void>;
 }
 
 export const CardDetailModal: React.FC<CardDetailModalProps> = ({

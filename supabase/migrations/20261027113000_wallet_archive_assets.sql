@@ -1,6 +1,6 @@
 -- Arquivamento seguro de contas e cartões da Carteira.
 -- O histórico financeiro é preservado; os ativos deixam de aparecer como ativos.
-alter table public.personal_wallet_accounts
+alter table public.personal_wallajuset_accounts
   add column if not exists archived_at timestamptz;
 
 create index if not exists personal_wallet_accounts_active_idx

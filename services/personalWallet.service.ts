@@ -57,6 +57,9 @@ export type PersonalWalletCard = {
   issuer: string | null;
   brand: string | null;
   last_four: string | null;
+  cardholder_name?: string | null;
+  expiry_month?: number | null;
+  expiry_year?: number | null;
   credit_limit: number;
   used_limit: number;
   closing_day: number | null;
@@ -465,6 +468,8 @@ export const personalWalletService = {
   async updateCardMetadata(cardId: string, input: {
     nickname: string; issuer: string; brand: string; account_id: string | null;
     credit_limit: number; closing_day: number | null; due_day: number | null;
+    last_four: string | null; cardholder_name: string | null;
+    expiry_month: number | null; expiry_year: number | null;
     status: 'ACTIVE' | 'BLOCKED' | 'CANCELED';
     primary_color?:string|null;
   }) {
@@ -474,6 +479,10 @@ export const personalWalletService = {
       p_limit: input.credit_limit, p_closing_day: input.closing_day,
       p_due_day: input.due_day, p_status: input.status,
       p_primary_color: input.primary_color || null,
+      p_last_four: input.last_four,
+      p_cardholder_name: input.cardholder_name,
+      p_expiry_month: input.expiry_month,
+      p_expiry_year: input.expiry_year,
     });
     if (error) throw new Error(error.message);
   },

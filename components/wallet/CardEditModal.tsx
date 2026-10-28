@@ -7,7 +7,7 @@ import {getBankVisual} from './walletPresentation';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
- const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
+ const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',last_four:card.last_four||'',cardholder_name:card.cardholder_name||'',expiry_month:card.expiry_month?String(card.expiry_month):'',expiry_year:card.expiry_year?String(card.expiry_year):'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
  const [deleteConfirm,setDeleteConfirm]=useState(false);
  const [archiveConfirm,setArchiveConfirm]=useState(false);
@@ -15,10 +15,14 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
  const change=(key:keyof typeof form,value:string)=>setForm(previous=>({...previous,[key]:value}));
  const submit=async(event:React.FormEvent)=>{
   event.preventDefault();if(saving)return;
+  if(form.last_four&&!/^\d{4}$/.test(form.last_four)){setError('Informe exatamente os quatro últimos dígitos.');return;}
+  if(Boolean(form.expiry_month)!==Boolean(form.expiry_year)){setError('Informe mês e ano da validade juntos.');return;}
   setSaving(true);setError('');
   try{
    await personalWalletService.updateCardMetadata(card.id,{
     nickname:form.nickname,issuer:form.issuer,brand:form.brand,account_id:form.account_id||null,
+    last_four:form.last_four||null,cardholder_name:form.cardholder_name.trim()||null,
+    expiry_month:form.expiry_month?Number(form.expiry_month):null,expiry_year:form.expiry_year?Number(form.expiry_year):null,
     credit_limit:Number(form.credit_limit),closing_day:form.closing_day?Number(form.closing_day):null,
     due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED',primary_color:form.primary_color
    });
@@ -48,6 +52,13 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     <label className="text-xs text-slate-300">Instituição<input required maxLength={120} list="wallet-edit-banks" className={field} value={form.issuer} onChange={e=>change('issuer',e.target.value)}/><datalist id="wallet-edit-banks">{BANK_CATALOG.map(b=><option key={b.id} value={b.name}/>)}</datalist></label>
     <label className="text-xs text-slate-300">Bandeira<select className={field} value={form.brand} onChange={e=>change('brand',e.target.value)}><option value="">Não informada</option>{['Mastercard','Visa','Elo','American Express','Hipercard'].map(name=><option key={name} value={name}>{name}</option>)}</select></label>
     <label className="text-xs text-slate-300">Tipo de cartão<select className={field} value={form.account_id} onChange={e=>change('account_id',e.target.value)}><option value="">Avulso — apenas crédito</option>{accounts.map(a=><option key={a.id} value={a.id}>Híbrido · {a.nickname}</option>)}</select></label>
+    <label className="text-xs text-slate-300 sm:col-span-2">Nome impresso no cartão<input maxLength={120} autoComplete="cc-name" className={field} value={form.cardholder_name} onChange={e=>change('cardholder_name',e.target.value)} placeholder="NOME DO TITULAR"/></label>
+    <label className="text-xs text-slate-300">Final do cartão<input inputMode="numeric" autoComplete="cc-number" pattern="[0-9]{4}" maxLength={4} className={field} value={form.last_four} onChange={e=>change('last_four',e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="0000"/><span className="text-[10px] text-slate-500">Somente os 4 últimos dígitos são armazenados.</span></label>
+    <div className="grid grid-cols-2 gap-2">
+     <label className="text-xs text-slate-300">Mês da validade<input type="number" min="1" max="12" autoComplete="cc-exp-month" className={field} value={form.expiry_month} onChange={e=>change('expiry_month',e.target.value)}/></label>
+     <label className="text-xs text-slate-300">Ano da validade<input type="number" min="2000" max="2200" autoComplete="cc-exp-year" className={field} value={form.expiry_year} onChange={e=>change('expiry_year',e.target.value)}/></label>
+    </div>
+    <label className="text-xs text-slate-300 sm:col-span-2">Código de segurança (CVC)<input readOnly aria-describedby="wallet-cvc-policy" className={field+' cursor-not-allowed opacity-70 tracking-[0.35em]'} value="•••"/><span id="wallet-cvc-policy" className="text-[10px] text-slate-500">O CVC não é armazenado no CapitalFlow por segurança.</span></label>
     <label className="text-xs text-slate-300">Limite total<input type="number" required min={card.used_limit} step="0.01" className={field} value={form.credit_limit} onChange={e=>change('credit_limit',e.target.value)}/></label>
     <label className="text-xs text-slate-300">Limite disponível<input readOnly className={field+' opacity-70'} value={formatMoney(Math.max(0,Number(form.credit_limit)-Number(card.used_limit)))}/><span className="text-[10px] text-slate-500">Calculado a partir do uso real</span></label>
     <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>

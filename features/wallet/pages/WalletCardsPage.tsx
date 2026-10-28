@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Sparkles, Copy, Check, Camera } from 'lucide-react';
+import { AlertTriangle, Sparkles, Copy, Check, Camera, CreditCard } from 'lucide-react';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import { copyCardDataToClipboard } from '../../../utils/cardClipboard';
 import type { UserProfile } from '../../../types';
@@ -28,8 +28,9 @@ const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transpo
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
+  const requestedAction = searchParams.get('acao');
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(requestedCardId);
   const [editing, setEditing] = useState<PersonalWalletCard | null>(null);
@@ -130,6 +131,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   useEffect(() => {
     setSelectedId(requestedCardId);
   }, [requestedCardId]);
+  useEffect(() => {
+    if (requestedAction !== 'novo-cartao') return;
+    setCreating(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('acao');
+    setSearchParams(next, { replace: true });
+  }, [requestedAction, searchParams, setSearchParams]);
   useEffect(() => {
     setSelectedStatementRows(new Set());
     setStatementDeletionFeedback(null);
@@ -355,8 +363,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </div>
         </div>
       </Modal>}
-      {creating && <form onSubmit={event => { void createCard(event); }}
-        className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2">
+      {creating && <Modal title="Novo cartão" subtitle="Cadastre o cartão e sua situação inicial" icon={<CreditCard size={17}/>} onClose={() => setCreating(false)} busy={saving}
+        footer={<><button type="button" disabled={saving} onClick={() => setCreating(false)} className={modalSecondaryActionClass}>Cancelar</button><button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button></>}>
+       <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white">Novo cartão</h3>
@@ -391,11 +400,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <CardOpeningFields value={opening} creditLimit={Number(cardForm.credit_limit) || 0}
             onChange={value => { requestId.current = generateUUID(); setOpening(value); }}/>
         </div>
-        <div className="flex gap-2 sm:col-span-2">
-          <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-white">Cancelar</button>
-          <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">Salvar cartão</button>
-        </div>
-      </form>}
+       </form>
+      </Modal>}
       {mayInitializeExisting && !creating && !newExpense && selected && <section className="rounded-2xl border border-amber-700/25 bg-slate-900 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>

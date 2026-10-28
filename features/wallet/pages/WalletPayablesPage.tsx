@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ClipboardList, Plus, Repeat } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { WalletPayablesPanel } from '../../../components/wallet/WalletPayablesPanel';
 import { RecurringObligationsPanel } from '../../../components/wallet/RecurringObligationsPanel';
@@ -9,6 +10,7 @@ import { WalletPageFrame } from '../components/WalletPageFrame';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
 
 export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [creating, setCreating] = useState(false);
   const [createChooserOpen, setCreateChooserOpen] = useState(false);
@@ -19,6 +21,13 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
     description: '', creditor_name: '', creditor_type: 'COMPANY' as 'COMPANY' | 'PERSON',
     category: 'Despesas', total_amount: '', due_date: '', origin: '',
   });
+  useEffect(() => {
+    if (searchParams.get('acao') !== 'novo-compromisso') return;
+    setCreateChooserOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('acao');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const create = async (event: React.FormEvent) => {
     event.preventDefault(); if (saving) return;
     setSaving(true); setNotice('');

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeftRight, Plus } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -12,6 +13,7 @@ import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -34,6 +36,13 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     setCreateModalType(accountType);
     setMessage('');
   };
+  useEffect(() => {
+    if (searchParams.get('acao') !== 'nova-conta') return;
+    startCreate('CHECKING');
+    const next = new URLSearchParams(searchParams);
+    next.delete('acao');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const selected = data?.accounts.find(account => account.id === selectedId);
   const create = async (event: React.FormEvent) => {
     event.preventDefault();

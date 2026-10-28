@@ -1,18 +1,53 @@
-import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
 
+const menuItemClass = 'flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-100 shadow-xl shadow-black/30 transition hover:border-blue-500/50 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+
 export const WalletExpenseFab: React.FC = () => {
+  const navigate = useNavigate();
   const { data, refresh } = useWalletSnapshot();
-  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [menuOpen]);
+
   if (!data) return null;
+
+  const goToAction = (path: string) => {
+    setMenuOpen(false);
+    navigate(path);
+  };
+
   return <>
-    {!open && <button type="button" aria-label="Adicionar despesa" title="Adicionar despesa"
-      onClick={() => setOpen(true)}
-      className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-xl shadow-rose-900/40 transition-all hover:scale-105 active:scale-95 sm:h-14 sm:w-14">
-      <Plus size={22} strokeWidth={2.5}/>
-    </button>}
-    {open && <QuickExpenseModal accounts={data.accounts} cards={data.cards} onClose={() => setOpen(false)} onSaved={async () => { await refresh(); window.dispatchEvent(new Event('capitalflow:wallet-updated')); }}/>} 
+    {menuOpen && <button type="button" aria-label="Fechar ações rápidas" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 cursor-default bg-slate-950/20 backdrop-blur-[1px]"/>}
+    <div className="fixed bottom-20 right-4 z-40 flex flex-col-reverse items-end gap-2 pb-[env(safe-area-inset-bottom)]">
+      <button
+        type="button"
+        aria-label={menuOpen ? 'Fechar ações rápidas' : 'Abrir ações rápidas'}
+        aria-expanded={menuOpen}
+        aria-controls="wallet-quick-actions"
+        onClick={() => setMenuOpen(value => !value)}
+        className={`flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white shadow-xl transition-all hover:scale-105 active:scale-95 sm:h-14 sm:w-14 ${menuOpen ? 'rotate-90 bg-slate-700 shadow-black/40' : 'bg-gradient-to-r from-blue-600 to-blue-500 shadow-blue-900/40'}`}
+      >
+        {menuOpen ? <X size={21}/> : <Plus size={22} strokeWidth={2.5}/>}
+      </button>
+      {menuOpen && <div id="wallet-quick-actions" role="menu" aria-label="Ações rápidas da Carteira" className="flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-150">
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/cartoes?acao=novo-cartao')} className={menuItemClass}><CreditCard size={16} className="text-violet-300"/>Adicionar cartão</button>
+        <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setExpenseOpen(true); }} className={menuItemClass}><ReceiptText size={16} className="text-rose-300"/>Adicionar despesa</button>
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/contas?acao=nova-conta')} className={menuItemClass}><Landmark size={16} className="text-emerald-300"/>Adicionar conta</button>
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/dividas?acao=novo-compromisso')} className={menuItemClass}><ClipboardList size={16} className="text-amber-300"/>Adicionar compromisso</button>
+      </div>}
+    </div>
+    {expenseOpen && <QuickExpenseModal accounts={data.accounts} cards={data.cards} onClose={() => setExpenseOpen(false)} onSaved={async () => { await refresh(); window.dispatchEvent(new Event('capitalflow:wallet-updated')); }}/>}
   </>;
 };

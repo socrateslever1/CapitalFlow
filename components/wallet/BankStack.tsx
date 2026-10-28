@@ -130,10 +130,13 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                     <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-xs">{front!.issuer}</strong></div><Network brand={selected.brand}/></div>
                     <div className="flex items-center justify-between"><Chip/><Wifi size={18} className="rotate-90 opacity-80"/></div>
                     <div className="flex items-end justify-between gap-2">
-                      <div className="min-w-0"><small className="block text-[9px] uppercase text-white/75">Disponível</small><strong className="block truncate text-base font-black sm:text-xl">{formatMoney(available)}</strong><small className="text-[9px] text-white/70">{selected.status === 'BLOCKED' ? 'Bloqueado' : selected.nickname}</small></div>
-                      <button type="button" onPointerDown={event => event.stopPropagation()} onClick={handleCopyDigits} title="Copiar o final do cartão" className="flex items-center gap-1 rounded-lg border border-white/20 bg-black/30 px-2 py-1 font-mono text-[10px] tracking-wide text-white transition hover:bg-black/50 sm:text-xs">
-                        <span>{maskedNumber}</span><Copy size={11}/>
-                      </button>
+                      <div className="min-w-0"><small className="block text-[9px] uppercase text-white/75">Disponível</small><strong className="block truncate text-base font-black sm:text-xl">{formatMoney(available)}</strong><small className="block max-w-36 truncate text-[9px] uppercase text-white/70">{selected.status === 'BLOCKED' ? 'Bloqueado' : selected.cardholder_name || selected.nickname}</small></div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <button type="button" onPointerDown={event => event.stopPropagation()} onClick={handleCopyDigits} title="Copiar o final do cartão" className="flex items-center gap-1 rounded-lg border border-white/20 bg-black/30 px-2 py-1 font-mono text-[10px] tracking-wide text-white transition hover:bg-black/50 sm:text-xs">
+                          <span>{maskedNumber}</span><Copy size={11}/>
+                        </button>
+                        <small className="text-[8px] font-semibold uppercase text-white/70">Validade {selected.expiry_month && selected.expiry_year ? `${String(selected.expiry_month).padStart(2,'0')}/${String(selected.expiry_year).slice(-2)}` : '—'}</small>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -146,7 +149,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                         <span>Código de segurança</span>
                       </div>
                       <div className="flex h-9 overflow-hidden rounded-sm border border-slate-400 bg-white shadow-inner sm:h-11">
-                        <div className="flex min-w-0 flex-1 items-center bg-[repeating-linear-gradient(0deg,#f8fafc_0px,#f8fafc_3px,#e2e8f0_4px)] px-3 font-serif text-xs italic text-slate-600 sm:text-sm">{selected.nickname}</div>
+                        <div className="flex min-w-0 flex-1 items-center bg-[repeating-linear-gradient(0deg,#f8fafc_0px,#f8fafc_3px,#e2e8f0_4px)] px-3 font-serif text-xs italic text-slate-600 sm:text-sm">{selected.cardholder_name || selected.nickname}</div>
                         <div className="flex w-14 shrink-0 items-center justify-center border-l border-slate-400 bg-white font-mono text-xs font-black tracking-widest sm:w-16">•••</div>
                       </div>
                     </div>

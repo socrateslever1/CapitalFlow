@@ -4,24 +4,48 @@ import test from 'node:test';
 
 const page = readFileSync('pages/PersonalWalletPage.tsx', 'utf8');
 const stack = readFileSync('components/wallet/BankStack.tsx', 'utf8');
+const accountStack = readFileSync('components/wallet/AccountCardStack.tsx', 'utf8');
+const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
 
 test('a página não mantém aba ou lista redundante de cartões', () => {
   assert.doesNotMatch(page, /activeTab === ['"]CARDS['"]/);
   assert.doesNotMatch(page, /type WalletTab = [^\n]*CARDS/);
 });
 
-test('a carteira usa uma pilha física absoluta e abre somente o bottom sheet', () => {
+test('a carteira usa uma pilha física absoluta e gira o cartão sem painel intermediário', () => {
   assert.match(stack, /absolute inset-x-0/);
-  assert.match(stack, /WalletCardsSheet/);
+  assert.match(stack, /isFlipped/);
+  assert.match(stack, /rotateY\(180deg\)/);
+  assert.match(stack, /backfaceVisibility/);
+  assert.match(stack, /•••• •••• ••••/);
+  assert.doesNotMatch(stack, /WalletCardsSheet/);
   assert.doesNotMatch(stack, /ChevronUp|ChevronDown|expanded|accordion/i);
 });
 
 test('a pilha preserva o alternador por setas e gesto horizontal sem cartão sintético CapitalFlow', () => {
   assert.match(stack, /aria-label="Cartão anterior"/);
   assert.match(stack, /aria-label="Próximo cartão"/);
-  assert.match(stack, /onTouchStart/);
-  assert.match(stack, /onTouchEnd/);
+  assert.match(stack, /onPointerDown/);
+  assert.match(stack, /onPointerUp/);
   assert.doesNotMatch(stack, />CapitalFlow</);
+});
+
+test('o verso usa elementos físicos de cartão em vez de uma grade técnica', () => {
+  assert.match(stack, /Assinatura autorizada/i);
+  assert.match(stack, /Código de segurança/i);
+  assert.match(stack, /bg-black\/90/);
+  assert.doesNotMatch(stack, /grid flex-1 grid-cols-2/);
+});
+
+test('as contas usam linhas compactas com a identidade visual da instituição', () => {
+  assert.match(accountStack, /linear-gradient\(105deg/);
+  assert.match(accountStack, /px-3 py-3/);
+  assert.match(accountStack, /walletAccountTypeLabel\(account\.account_type\)/);
+  assert.match(accountStack, /Saldo disponível/);
+});
+
+test('a visão geral preserva a mesma largura interna das demais páginas da carteira', () => {
+  assert.match(overview, /max-w-\[1500px\] space-y-4 px-4 pb-24 sm:px-6/);
 });
 
 test('a página da carteira possui somente pilha, balanço e base operacional por quatro abas', () => {

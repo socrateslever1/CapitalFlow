@@ -8,7 +8,7 @@ test('account type is localized throughout overview and bank stack',()=>{
  assert.match(helper,/CHECKING: 'Conta corrente'/);
  assert.match(helper,/PAYMENT: 'Conta de pagamento'/);
  assert.match(overview,/walletAccountTypeLabel\(account.account_type\)/);
- assert.match(stack,/walletAccountTypeLabel\(active.account_type\)/);
+ assert.match(stack,/walletAccountTypeLabel\(account.account_type\)/);
  assert.doesNotMatch(overview,/\{account.account_type \|\|/);
 });
 test('overview renders compact physical cards beside credit summary',()=>{

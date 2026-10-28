@@ -25,6 +25,8 @@ import { Tooltip } from '../components/ui/Tooltip';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { resolveNotificationTarget } from '../utils/notificationRouting';
+import { notificationService } from '../services/notification.service';
+import { pushSubscriptionService } from '../services/pushSubscription.service';
 
 interface HeaderBarProps {
   activeTab: string;
@@ -180,6 +182,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   clearAllNotifications,
   onNavigate,
   onOpenSupport,
+  addNotification,
 }) => {
   const scrollRef = useRef<HTMLElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -187,6 +190,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const handleTestPush = async () => {
+    const granted = await notificationService.requestPermission();
+    if (granted) {
+      if (activeUser?.id) {
+        await pushSubscriptionService.register(activeUser.id);
+      }
+      await notificationService.notify(
+        'CapitalFlow Notificações',
+        'Notificações push ativas! Você receberá alertas de faturas, pagamentos e cobranças.'
+      );
+      addNotification?.({
+        title: 'Notificações push ativas',
+        message: 'O alerta de teste foi emitido com sucesso para este dispositivo.',
+        type: 'success',
+      });
+    } else {
+      alert('Permissão de notificações não foi concedida no navegador. Ative as permissões nas configurações do site.');
+    }
+  };
   const mobileNotificationRef = useRef<HTMLDivElement>(null);
   const desktopNotificationRef = useRef<HTMLDivElement>(null);
 

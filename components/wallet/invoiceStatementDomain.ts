@@ -76,7 +76,14 @@ export const getEffectiveInvoiceCycles = (
     .filter(expense => expense.card_id === cardId && expense.status !== 'CANCELED')
     .map(expense => [expense.id, expense]));
   const overrides = new Map<string, number>();
+  const openingOverrides = new Map<string, string>();
   const ordinary = new Map<string, number>();
+
+  cardExpenses.forEach(expense => {
+    if (expense.entry_type === 'INVOICE_OVERRIDE' && expense.is_opening_summary && expense.invoice_due_month) {
+      openingOverrides.set(expense.invoice_due_month.slice(0, 7) + '-01', expense.id);
+    }
+  });
 
   installments.forEach(installment => {
     const expense = cardExpenses.get(installment.expense_id);
@@ -84,7 +91,7 @@ export const getEffectiveInvoiceCycles = (
     const dueMonth = String(expense.invoice_due_month || installment.due_month).slice(0, 7) + '-01';
     if (expense.entry_type === 'INVOICE_OVERRIDE') {
       overrides.set(dueMonth, outstanding(installment));
-    } else if (installment.status === 'PENDING') {
+    } else if (installment.status === 'PENDING' && (!openingOverrides.has(dueMonth) || installment.opening_invoice_id !== openingOverrides.get(dueMonth))) {
       ordinary.set(dueMonth, money((ordinary.get(dueMonth) || 0) + outstanding(installment)));
     }
   });
@@ -93,9 +100,24 @@ export const getEffectiveInvoiceCycles = (
     .sort()
     .map(dueMonth => ({
       dueMonth,
-      amount: money(overrides.has(dueMonth) ? overrides.get(dueMonth)! : ordinary.get(dueMonth) || 0),
+      amount: money(overrides.has(dueMonth)
+        ? overrides.get(dueMonth)! + (openingOverrides.has(dueMonth) ? ordinary.get(dueMonth) || 0 : 0)
+        : ordinary.get(dueMonth) || 0),
       hasOverride: overrides.has(dueMonth),
     }));
+};
+
+export const getSelectedInvoiceCycle = (
+  cardId: string,
+  dueMonth: string | null | undefined,
+  expenses: PersonalWalletExpense[],
+  installments: PersonalWalletExpenseInstallment[],
+): EffectiveInvoiceCycle => {
+  const normalizedMonth = dueMonth ? `${dueMonth.slice(0, 7)}-01` : '';
+  const selected = normalizedMonth
+    ? getEffectiveInvoiceCycles(cardId, expenses, installments).find(cycle => cycle.dueMonth === normalizedMonth)
+    : undefined;
+  return selected || { dueMonth: normalizedMonth, amount: 0, hasOverride: false };
 };
 
 export const getCardCreditPosition = (

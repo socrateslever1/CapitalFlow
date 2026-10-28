@@ -33,15 +33,14 @@ test('replay requests cannot create duplicate card or opening expenses', () => {
 });
 test('onboarding and empty existing cards share validated opening workflow', () => {
   assert.match(page, /createCardWithOpening/);
-  assert.match(page, /initializeCardOpening/);
+  assert.match(page, /setSimpleCardOpening/);
   assert.match(page, /mayInitializeExisting/);
   assert.match(page, /validateCardOpening/);
   assert.match(page, /CardOpeningFields/);
-  assert.match(ui, /Limite já utilizado/);
+  assert.match(ui, /Limite usado/);
   assert.match(ui, /Fatura inicial/);
-  assert.match(ui, /Parcelas futuras/);
-  assert.match(ui, /Ainda não faturado/);
-  assert.match(ui, /Limite disponível/);
+  assert.match(ui, /Situação da fatura/);
+  assert.match(ui, /Disponível para gastar/);
   assert.match(ui, /used > limit/);
   assert.match(ui, /invoice \+ future > used/);
   assert.match(service, /personal_wallet_create_card_with_opening/);

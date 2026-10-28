@@ -55,6 +55,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
     accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,
   }),[account.id,accounts,operations,expenses,invoicePayments,statementRows]);
   const filtered=entries.filter(x=>(x.label+' '+x.category+' '+x.tag).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const statementTotal=filtered.reduce((total, entry)=>total+Number(entry.amount||0),0);
   const others=accounts.filter(a=>a.id!==account.id);
   const canInitializeOpening=Number(account.balance)===0&&!operations.some(op=>op.from_account_id===account.id||op.to_account_id===account.id);
 
@@ -179,6 +180,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         <Search size={16} className="text-slate-500"/>
         <input aria-label="Buscar movimentações" className="w-full bg-transparent py-3 text-xs text-white outline-none" placeholder="Buscar descrição ou categoria" value={search} onChange={e=>setSearch(e.target.value)}/>
       </div>
+      <div className="mb-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><span className="text-slate-400">Total do extrato{search ? ' filtrado' : ''}</span><strong className={statementTotal>=0?'text-emerald-300':'text-rose-300'}>{statementTotal>=0?'+':'−'}{formatMoney(Math.abs(statementTotal))}</strong></div>
       {filtered.length===0?<p className="rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-400">Ainda não há movimentações operacionais ou importadas nesta conta.</p>:
       <div className="divide-y divide-slate-800">{filtered.map(m=>(
         <div key={m.id} className="flex items-center justify-between gap-3 py-3">

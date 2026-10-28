@@ -28,7 +28,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <div className="mx-auto mb-3 max-w-7xl px-0 sm:px-6">
+    <div className="mx-auto mb-3 w-full max-w-[1500px] px-4 sm:px-6">
       <PageHeader
         icon={<span className="relative block h-[22px] w-[22px]" aria-hidden="true"><Wallet size={22} strokeWidth={2.2}/><CreditCard size={10} strokeWidth={2.4} className="absolute -bottom-0.5 -right-1 rounded-sm bg-emerald-600"/></span>}
         iconClassName="border-slate-700 bg-slate-900 text-cyan-300 shadow-black/20"
@@ -44,7 +44,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         }
       />
     </div>
-    <div className="mx-auto mb-4 max-w-7xl px-0 sm:px-6">
+    <div className="mx-auto mb-4 w-full max-w-[1500px] px-4 sm:px-6">
       <nav aria-label="Navegação da Carteira" className="flex w-full min-w-0 items-center gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/60 p-1 backdrop-blur-md scrollbar-hide touch-pan-x">
         {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => (
           <button

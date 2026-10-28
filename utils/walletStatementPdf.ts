@@ -7,6 +7,8 @@ export type ParsedStatementRow = {
   category: string;
   confidence: 'HIGH' | 'REVIEW';
   selected: boolean;
+  installmentNumber: number | null;
+  installmentTotal: number | null;
 };
 export type StatementParseResult = {
   hash: string;
@@ -85,12 +87,45 @@ const moneyRx = /(?:-\s*)?(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s*[-+])?|(?:-\
 const dateRx = /(?:\b\d{2}\/\d{2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b)/;
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
 
+const historyStartRx = /hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
+const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|encargos|juros|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
+
+function normalizePdfLabel(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function extractInstallment(raw: string, dateToken: string): { number: number; total: number } | null {
+  const candidates = [
+    /\bparcela\s*(\d{1,2})\s*(?:de|\/)\s*(\d{1,2})\b/i,
+    /\b(\d{1,2})\s*[ªa]\s*(?:de|\/)\s*(\d{1,2})\b/i,
+    /\b(\d{1,2})\s+de\s+(\d{1,2})\b/i,
+  ];
+  for (const pattern of candidates) {
+    const match = raw.match(pattern);
+    if (!match) continue;
+    const number = Number(match[1]);
+    const total = Number(match[2]);
+    if (number >= 1 && total > 1 && number <= total) return { number, total };
+  }
+  const datePrefix = dateToken.slice(0, 5);
+  const compact = [...raw.matchAll(/\b(\d{1,2})\/(\d{1,2})\b/g)].find(match =>
+    match[0] !== dateToken && match[0] !== datePrefix && Number(match[1]) >= 1 && Number(match[2]) > 1 && Number(match[1]) <= Number(match[2]),
+  );
+  return compact ? { number: Number(compact[1]), total: Number(compact[2]) } : null;
+}
+
 /** Conservative extractor: ambiguous entries are left unselected for review. */
 export function parseStatementLines(lines: {key:string;text:string}[], kind: 'ACCOUNT' | 'CARD'): { rows: ParsedStatementRow[]; skipped: number } {
   const rows: ParsedStatementRow[] = [];
   let skipped = 0;
+  const hasHistoryMarker = lines.some(line => historyStartRx.test(normalizePdfLabel(line.text)));
+  let inHistory = !hasHistoryMarker;
   for (const line of lines) {
     const raw = line.text.replace(/\s+/g, ' ').trim();
+    const normalized = normalizePdfLabel(raw);
+    if (historyStartRx.test(normalized)) { inHistory = true; continue; }
+    if (hasHistoryMarker && inHistory && historyEndRx.test(normalized)) { inHistory = false; continue; }
+    if (!inHistory) continue;
     const matchedDate = raw.match(dateRx);
     if (!matchedDate) continue;
     const date = normalizeDate(matchedDate[0]);
@@ -108,6 +143,7 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     const signed = /\-|\(/.test(last[0]) ? -Math.abs(value) : incoming && !outgoing ? Math.abs(value) : -Math.abs(value);
     // PDF lines containing multiple amounts / sign uncertainty must be explicitly reviewed.
     const classified = classifyStatementDescriptionEnhanced(description);
+    const installment = extractInstallment(raw, matchedDate[0]);
     const confidence: 'HIGH' | 'REVIEW' = valueMatches.length===1
       && classified !== 'Outros' && (kind==='CARD' || incoming!==outgoing) ? 'HIGH' : 'REVIEW';
     rows.push({
@@ -115,6 +151,8 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
       amount: Math.round(signed*100)/100,
       category: classified, confidence,
       selected: false,
+      installmentNumber: installment?.number || null,
+      installmentTotal: installment?.total || null,
     });
   }
   return { rows, skipped };

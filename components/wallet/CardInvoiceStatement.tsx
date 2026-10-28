@@ -18,9 +18,10 @@ type CardInvoiceStatementProps = {
   invoiceState?: InvoiceCycleState;
   cycleDates?: InvoiceCycleDates;
   className?: string;
+  openingBalance?: number;
 };
 
-export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, headerAction, invoiceState, cycleDates, className = '' }) => {
+export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, headerAction, invoiceState, cycleDates, openingBalance = 0, className = '' }) => {
   const [editing, setEditing] = useState<PersonalWalletExpense | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<PersonalWalletExpense | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -56,7 +57,8 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
         <div className="flex flex-wrap items-center gap-2">{headerAction}<span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">{entries.length}</span></div>
       </header>
 
-      {hasOverride && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-100">O valor consolidado prevalece no total deste ciclo. As compras abaixo permanecem visíveis somente para rastreabilidade.</p>}
+      {hasOverride && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-100">A fatura inicial já inclui os gastos informados antes dela. Novos gastos entram conforme o ciclo do cartão.</p>}
+      {openingBalance > 0 && <article className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900 p-3 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-1 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200">{formatMoney(openingBalance)}</strong></article>}
 
       {!entries.length ? <p className="mt-3 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-500">Nenhum lançamento ativo nesta fatura.</p> : (
         <div className="mt-3 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-1 overscroll-contain lg:max-h-none">

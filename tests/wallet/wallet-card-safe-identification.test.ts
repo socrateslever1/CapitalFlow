@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import test from 'node:test';
+
+const editor = readFileSync('components/wallet/CardEditModal.tsx', 'utf8');
+const cardStack = readFileSync('components/wallet/BankStack.tsx', 'utf8');
+const service = readFileSync('services/personalWallet.service.ts', 'utf8');
+const migrations = readdirSync('supabase/migrations')
+  .filter(file => file.endsWith('.sql'))
+  .map(file => readFileSync(`supabase/migrations/${file}`, 'utf8'))
+  .join('\n');
+
+test('o editor persiste identificação segura do cartão no schema canônico', () => {
+  for (const field of ['last_four', 'cardholder_name', 'expiry_month', 'expiry_year']) {
+    assert.match(editor, new RegExp(field));
+    assert.match(service, new RegExp(field));
+  }
+  assert.match(service, /p_last_four/);
+  assert.match(service, /p_cardholder_name/);
+  assert.match(service, /p_expiry_month/);
+  assert.match(service, /p_expiry_year/);
+});
+
+test('a migration adiciona os dados seguros e não cria armazenamento de CVC', () => {
+  assert.match(migrations, /add column if not exists cardholder_name text/i);
+  assert.match(migrations, /add column if not exists expiry_month smallint/i);
+  assert.match(migrations, /add column if not exists expiry_year smallint/i);
+  assert.doesNotMatch(migrations, /add column if not exists (?:cvc|cvv)/i);
+});
+
+test('a visualização usa titular e validade persistidos e mantém o CVC mascarado', () => {
+  assert.match(cardStack, /selected\.cardholder_name/);
+  assert.match(cardStack, /selected\.expiry_month/);
+  assert.match(cardStack, /selected\.expiry_year/);
+  assert.match(editor, /CVC não é armazenado/i);
+  assert.doesNotMatch(service, /p_(?:cvc|cvv)/i);
+});

@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {AlertTriangle,Archive,Save,X} from 'lucide-react';
+import {AlertTriangle,Archive,Save,Trash2,X} from 'lucide-react';
 import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '../../services/personalWallet.service';
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
@@ -9,6 +9,7 @@ const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 tex
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
  const [form,setForm]=useState({nickname:card.nickname,issuer:card.issuer||'',brand:card.brand||'',account_id:card.account_id||'',credit_limit:String(card.credit_limit),closing_day:String(card.closing_day||''),due_day:String(card.due_day||''),status:card.status,primary_color:card.primary_color||getBankVisual(card.issuer||card.nickname).accent});
  const [saving,setSaving]=useState(false);
+ const [deleteConfirm,setDeleteConfirm]=useState(false);
  const [archiveConfirm,setArchiveConfirm]=useState(false);
  const [error,setError]=useState('');
  const change=(key:keyof typeof form,value:string)=>setForm(previous=>({...previous,[key]:value}));
@@ -25,11 +26,18 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
  }catch(reason){setError(reason instanceof Error?reason.message:'Erro ao salvar');}
  finally{setSaving(false);}
  };
+ const remove=async()=>{
+  if(saving)return;
+  setSaving(true);setError('');
+  try{await personalWalletService.deleteCard(card.id);await onSaved();onClose();}
+  catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível excluir o cartão.');}
+  finally{setSaving(false);setDeleteConfirm(false);}
+ };
  const archive=async()=>{
   if(saving)return;
   setSaving(true);setError('');
   try{await personalWalletService.archiveCard(card.id);await onSaved();onClose();}
-  catch(reason){setError(reason instanceof Error?reason.message:'NÃ£o foi possÃ­vel arquivar o cartÃ£o.');}
+  catch(reason){setError(reason instanceof Error?reason.message:'Não foi possível arquivar o cartão.');}
   finally{setSaving(false);setArchiveConfirm(false);}
  };
  return <div role="dialog" aria-modal="true" aria-label="Editar cartão" className="fixed inset-0 z-[2500] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">
@@ -45,12 +53,12 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
     <label className="text-xs text-slate-300">Vencimento (dia)<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
     <label className="text-xs text-slate-300">Cor principal<input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
-    <label className="text-xs text-slate-300 sm:col-span-2">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option><option value="CANCELED">Arquivar cartão</option></select></label>
-    <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar exige saldo e faturas quitados. Bloqueio no CapitalFlow não bloqueia o cartão no banco; histórico financeiro não é apagado.</p>
+    <label className="text-xs text-slate-300 sm:col-span-2">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option></select></label>
+    <p className="flex gap-2 rounded-xl border border-amber-700/40 bg-amber-950/20 p-3 text-xs text-amber-200 sm:col-span-2"><AlertTriangle size={17} className="shrink-0"/>Arquivar preserva o histórico e retira o cartão da carteira ativa. Excluir é permanente e só é permitido sem faturas, lançamentos ou limite utilizado. Bloquear no CapitalFlow não bloqueia o cartão no banco.</p>
     {error&&<p role="alert" className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
    </div>
-   <div className="flex items-center justify-between gap-2 border-t border-slate-800 px-4 pt-4 text-xs">
-    {archiveConfirm ? <><span className="text-rose-200">Arquivar sem apagar o histórico?</span><span className="flex gap-2"><button type="button" disabled={saving} onClick={()=>setArchiveConfirm(false)} className="rounded-lg border border-slate-700 px-3 py-2 text-slate-200">Cancelar</button><button type="button" disabled={saving} onClick={()=>{void archive();}} className="rounded-lg bg-rose-600 px-3 py-2 font-bold text-white">{saving?'Arquivando...':'Confirmar'}</button></span></> : <button type="button" disabled={saving} onClick={()=>setArchiveConfirm(true)} className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 px-3 py-2 font-bold text-rose-300 hover:bg-rose-950/30"><Archive size={14}/> Arquivar cartão</button>}
+   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-4 pt-4 text-xs">
+    {archiveConfirm ? <><span className="text-amber-200">Arquivar este cartão e preservar o histórico?</span><span className="flex gap-2"><button type="button" disabled={saving} onClick={()=>setArchiveConfirm(false)} className="rounded-lg border border-slate-700 px-3 py-2 text-slate-200">Cancelar</button><button type="button" disabled={saving} onClick={()=>{void archive();}} className="rounded-lg bg-amber-600 px-3 py-2 font-bold text-white">{saving?'Arquivando...':'Arquivar'}</button></span></> : deleteConfirm ? <><span className="text-rose-200">Excluir este cartão definitivamente?</span><span className="flex gap-2"><button type="button" disabled={saving} onClick={()=>setDeleteConfirm(false)} className="rounded-lg border border-slate-700 px-3 py-2 text-slate-200">Cancelar</button><button type="button" disabled={saving} onClick={()=>{void remove();}} className="rounded-lg bg-rose-600 px-3 py-2 font-bold text-white">{saving?'Excluindo...':'Excluir'}</button></span></> : <span className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={()=>{setArchiveConfirm(true);setDeleteConfirm(false);}} className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-2 font-bold text-amber-200 hover:bg-amber-950/30"><Archive size={14}/> Arquivar cartão</button><button type="button" disabled={saving} onClick={()=>{setDeleteConfirm(true);setArchiveConfirm(false);}} className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 px-3 py-2 font-bold text-rose-300 hover:bg-rose-950/30"><Trash2 size={14}/> Excluir cartão</button></span>}
    </div>
    <footer className="flex justify-end gap-2 border-t border-slate-800 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"><button type="button" disabled={saving} onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-200">Cancelar</button><button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50"><Save size={15}/>{saving?'Salvando...':'Salvar alterações'}</button></footer>
   </form>

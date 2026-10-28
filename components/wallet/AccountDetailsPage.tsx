@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, X } from 'lucide-react';
+import { Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, Trash2, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -54,6 +54,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [image, setImage] = useState<File | null>(null);
@@ -118,6 +120,22 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     }
   };
 
+  const remove = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setError('');
+    try {
+      await personalWalletService.deleteAccount(account.id);
+      await onSaved();
+      onBack();
+    } catch (err: any) {
+      setError(err?.message || 'Não foi possível excluir a conta.');
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  };
+
   const archive = async () => {
     if (archiving) return;
     setArchiving(true);
@@ -127,7 +145,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
       await onSaved();
       onBack();
     } catch (err: any) {
-      setError(err?.message || 'NÃ£o foi possÃ­vel arquivar a conta.');
+      setError(err?.message || 'Não foi possível arquivar a conta.');
     } finally {
       setArchiving(false);
       setArchiveConfirm(false);
@@ -154,9 +172,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
             <Pencil size={15} /> Editar conta
           </button>
-          <button type="button" onClick={() => setArchiveConfirm(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
+          <button type="button" onClick={() => { setArchiveConfirm(true); setDeleteConfirm(false); }}
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2.5 text-xs font-bold text-amber-200 hover:bg-amber-900/30">
             <Archive size={15} /> Arquivar conta
+          </button>
+          <button type="button" onClick={() => { setDeleteConfirm(true); setArchiveConfirm(false); }}
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
+            <Trash2 size={15} /> Excluir conta
           </button>
         </div>}
       </div>
@@ -202,12 +224,21 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}
-      {archiveConfirm && <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-100">
-        <p className="font-semibold">Arquivar esta conta?</p>
-        <p className="mt-1 text-xs text-rose-200/80">O histórico será preservado. A conta precisa estar com saldo zero e sem lançamentos ativos.</p>
+      {archiveConfirm && <div role="alertdialog" aria-label="Confirmar arquivamento da conta" className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100">
+        <strong>Arquivar {account.nickname}?</strong>
+        <p className="mt-1 text-xs text-amber-200/80">A conta sairá da carteira ativa, mas seu histórico será preservado. O saldo precisa estar zerado.</p>
         <div className="mt-3 flex gap-2">
           <button type="button" onClick={() => setArchiveConfirm(false)} disabled={archiving} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
-          <button type="button" onClick={() => { void archive(); }} disabled={archiving} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{archiving ? 'Arquivando...' : 'Confirmar arquivamento'}</button>
+          <button type="button" onClick={() => { void archive(); }} disabled={archiving} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{archiving ? 'Arquivando...' : 'Arquivar conta'}</button>
+        </div>
+      </div>}
+
+      {deleteConfirm && <div role="alertdialog" aria-label="Confirmar exclusão da conta" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-100">
+        <p className="font-semibold">Excluir esta conta?</p>
+        <p className="mt-1 text-xs text-rose-200/80">A exclusão é permanente e só será permitida se a conta estiver zerada e sem movimentações ou vínculos.</p>
+        <div className="mt-3 flex gap-2">
+          <button type="button" onClick={() => setDeleteConfirm(false)} disabled={deleting} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">Cancelar</button>
+          <button type="button" onClick={() => { void remove(); }} disabled={deleting} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{deleting ? 'Excluindo...' : 'Excluir definitivamente'}</button>
         </div>
       </div>}
 

@@ -311,10 +311,9 @@ for (const component of ['<BankStack', '<AccountCardStack', '<WalletPayablesPane
   if (!personalWalletPage.includes(component)) failures.push(`Carteira -> componente funcional ausente: ${component}`);
 }
 const bankStack = read('components', 'wallet', 'BankStack.tsx');
-const walletSheet = read('components', 'wallet', 'WalletCardsSheet.tsx');
 if (!personalWalletPage.includes('<BankStack') || personalWalletPage.includes("activeTab === 'CARDS'")) failures.push('Carteira -> pilha real obrigatória sem lista duplicada');
-if (!bankStack.includes('absolute inset-x-0 top-0') || !bankStack.includes('WalletCardsSheet')) failures.push('Carteira -> pilha sobreposta ou bottom sheet ausente');
-if (!walletSheet.includes('aria-modal="true"') || !walletSheet.includes('Você usou')) failures.push('Carteira -> bottom sheet sem resumo acessível');
+if (!bankStack.includes('absolute inset-x-0 top-0') || !bankStack.includes('rotateY(${isFlipped ? 180 : 0}deg)')) failures.push('Carteira -> pilha sobreposta ou verso giratorio ausente');
+if (bankStack.includes('WalletCardsSheet')) failures.push('Carteira -> painel intermediario de uso do credito ainda presente');
 for (const required of ['openAccountDetails(account.id)', 'AccountDetailsPage', 'selectedAccountId']) {
   if (!personalWalletPage.includes(required)) failures.push(`Minha Carteira -> navegacao da conta ausente: ${required}`);
 }

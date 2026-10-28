@@ -312,7 +312,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   };
 
   if (!overview) {
-    return <section className="mx-auto w-full max-w-7xl px-0 sm:px-6">
+    return <section className="mx-auto w-full max-w-[1500px] px-4 sm:px-6">
       {error ? <div role="alert" className="rounded-2xl border border-rose-500/30 bg-slate-900 p-6 text-sm text-rose-200">
         <AlertCircle className="mb-2" size={24}/> {error}
         <button type="button" onClick={() => void retry()}
@@ -330,7 +330,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
   const deficit = balance.projectedBalance < 0;
 
   return <section aria-label="Visão geral da carteira"
-    className="mx-auto w-full max-w-7xl space-y-4 px-0 pb-24 sm:px-6 lg:pb-8">
+    className="mx-auto w-full max-w-[1500px] space-y-4 px-4 pb-24 sm:px-6 lg:pb-8">
     <div className="flex items-center justify-between gap-3">
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>

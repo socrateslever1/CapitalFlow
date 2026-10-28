@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getCardCreditPosition, getEffectiveInvoiceCycles } from '../../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getEffectiveInvoiceCycles, getSelectedInvoiceCycle } from '../../components/wallet/invoiceStatementDomain';
 
 const card = { id: 'card-1', credit_limit: 2000 };
 const expenses = [
@@ -46,3 +46,15 @@ test('free limit never becomes negative', () => {
   assert.equal(position.committedLimit, 850);
 });
 
+test('selected invoice cycle never inherits the previous invoice amount', () => {
+  assert.deepEqual(getSelectedInvoiceCycle('card-1', '2026-11-01', expenses, installments), {
+    dueMonth: '2026-11-01',
+    amount: 300,
+    hasOverride: false,
+  });
+  assert.deepEqual(getSelectedInvoiceCycle('card-1', '2027-01-01', expenses, installments), {
+    dueMonth: '2027-01-01',
+    amount: 0,
+    hasOverride: false,
+  });
+});

@@ -8,7 +8,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Loan, Installment, LedgerEntry } from '../../types';
 import { loanEngine } from '../../domain/loanEngine';
-import { getLoanInterestReconciliationDelta, getLoanPrincipalReconciliationDelta } from '../../domain/finance/calculations';
+import {
+    getLoanInterestReconciliationDelta,
+    getLoanPrincipalReconciliationDelta,
+    hasActiveAgreement,
+    isAgreementInstallmentPaid,
+    calculateAgreementInstallmentLateFee,
+    isInstallmentPaid
+} from '../../domain/finance/calculations';
 import { usePaymentManagerState, ForgivenessMode, InterestHandling } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
@@ -25,9 +32,10 @@ interface UseContractDetailsStateProps {
         contextOverride?: { loan: Loan; inst: Installment; calculations: any },
         lateFeeForgiven?: number
     ) => Promise<void>;
+    onAgreementPayment?: (loan: Loan, agreement: any, inst: any, amount?: number, forgiveLateFee?: boolean) => void;
 }
 
-export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContractDetailsStateProps) => {
+export const useContractDetailsState = ({ loanId, loans, onPayment, onAgreementPayment }: UseContractDetailsStateProps) => {
     const loan = useMemo(() => loans.find(l => l.id === loanId), [loans, loanId]);
 
     const [avAmount, setAvAmount] = useState('');
@@ -35,9 +43,49 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     useEffect(() => { setLateFeeForgiven(0); }, [loanId]);
     const [paymentType, setPaymentType] = useState<any>('RENEW_AV');
 
+    const hasActiveAgr = loan ? hasActiveAgreement(loan) : false;
+    const activeAgreementInst = (hasActiveAgr && Array.isArray(loan?.activeAgreement?.installments))
+        ? (loan.activeAgreement.installments.find(i => !isAgreementInstallmentPaid(i, loan?.status)) || loan.activeAgreement.installments[0])
+        : null;
+
     const data = useMemo(() => {
         if (!loan) return null;
         const bal = loanEngine.computeRemainingBalance(loan);
+
+        if (hasActiveAgr && activeAgreementInst) {
+            const amount = Number(activeAgreementInst.amount || 0);
+            const paidAmount = Number(activeAgreementInst.paidAmount || 0);
+            const principalRemaining = Math.max(0, amount - paidAmount);
+            const lateFee = isAgreementInstallmentPaid(activeAgreementInst, loan.status) ? 0 : calculateAgreementInstallmentLateFee(activeAgreementInst);
+            const agrInst = {
+                id: activeAgreementInst.id,
+                agreementId: activeAgreementInst.agreementId,
+                loanId: loan.id,
+                number: activeAgreementInst.number,
+                dueDate: activeAgreementInst.dueDate,
+                amount: amount,
+                principalRemaining: principalRemaining,
+                scheduledPrincipal: amount,
+                interestRemaining: 0,
+                scheduledInterest: 0,
+                lateFeeAccrued: lateFee,
+                paidLateFee: 0,
+                status: activeAgreementInst.status,
+                paidAmount: paidAmount
+            } as unknown as Installment;
+
+            return {
+                loan,
+                inst: agrInst,
+                calculations: {
+                    total: bal.totalRemaining,
+                    principal: bal.principalRemaining,
+                    interest: bal.interestRemaining,
+                    lateFee: bal.lateFeeRemaining
+                }
+            };
+        }
+
         const principalDelta = getLoanPrincipalReconciliationDelta(loan);
         const interestDelta = getLoanInterestReconciliationDelta(loan);
         const baseInst = loan.installments.find(isInstallmentOpen) || loan.installments[0] || {} as Installment;
@@ -61,31 +109,44 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
                 lateFee: bal.lateFeeRemaining
             }
         };
-    }, [loan]);
+    }, [loan, hasActiveAgr, activeAgreementInst]);
 
     const delayDetails = useMemo(() => {
         if (!loan) return null;
         const today = todayDateOnlyUTC();
-        const installments = loan.installments || [];
-        const lateInstallments = installments.filter(inst => {
+        const installments = (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments))
+            ? loan.activeAgreement.installments
+            : (loan.installments || []);
+        const lateInstallments = installments.filter((inst: any) => {
             const due = parseDateOnlyUTC(inst.dueDate);
-            return isInstallmentOpen(inst) && due.getTime() < today.getTime();
-        }).sort((a, b) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
+            const isPaid = isInstallmentPaid(inst, loan.status);
+            return !isPaid && due.getTime() < today.getTime();
+        }).sort((a: any, b: any) => parseDateOnlyUTC(a.dueDate).getTime() - parseDateOnlyUTC(b.dueDate).getTime());
         if (lateInstallments.length === 0) return null;
-        const maxDaysLate = lateInstallments.reduce((max, inst) => {
+        const maxDaysLate = lateInstallments.reduce((max: number, inst: any) => {
             const daysLate = Math.max(0, Math.floor((today.getTime() - parseDateOnlyUTC(inst.dueDate).getTime()) / 86400000));
             return Math.max(max, daysLate);
         }, 0);
 
         return {
             totalDaysLate: maxDaysLate,
-            items: lateInstallments.map(inst => ({
-                number: inst.number || 0,
-                dueDate: inst.dueDate,
-                total: (inst.principalRemaining || inst.amount || 0) + (inst.lateFeeAccrued || 0) + (inst.interestRemaining || 0),
-                principal: inst.principalRemaining || inst.amount || 0,
-                interest: (inst.lateFeeAccrued || 0) + (inst.interestRemaining || 0)
-            }))
+            items: lateInstallments.map((inst: any) => {
+                const isAgr = !!(inst.agreementId || inst.acordo_id || hasActiveAgreement(loan));
+                const paidAmt = Number(inst.paidAmount ?? inst.paid_amount ?? 0);
+                const prin = isAgr
+                    ? Math.max(0, Number(inst.amount || 0) - paidAmt)
+                    : (inst.principalRemaining || inst.amount || 0);
+                const lateFee = isAgr
+                    ? calculateAgreementInstallmentLateFee(inst)
+                    : ((inst.lateFeeAccrued || 0) + (inst.interestRemaining || 0));
+                return {
+                    number: inst.number || 0,
+                    dueDate: inst.dueDate,
+                    total: prin + lateFee,
+                    principal: prin,
+                    interest: lateFee
+                };
+            })
         };
     }, [loan]);
 
@@ -134,6 +195,11 @@ export const useContractDetailsState = ({ loanId, loans, onPayment }: UseContrac
     const handleConfirm = () => {
         const val = safeParse(avAmount);
         if (val <= 0) return;
+        if (hasActiveAgr && loan?.activeAgreement && activeAgreementInst && onAgreementPayment) {
+            const forgiveLateFee = lateFeeForgiven > 0 || forgivenessMode === 'FINE_ONLY' || forgivenessMode === 'MORA_ONLY' || forgivenessMode === 'FINE_AND_MORA' || forgivenessMode === 'TOTAL_CHARGES' || forgivenessMode === 'BOTH';
+            onAgreementPayment(loan, loan.activeAgreement, activeAgreementInst, val, forgiveLateFee);
+            return;
+        }
         const nextDueDate = manualDateEdited && manualDateStr ? parseDateOnlyUTC(manualDateStr) : null;
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
         onPayment(forgivenessMode, nextDueDate, val, realPaymentDate, interestHandling, data || undefined, lateFeeForgiven);

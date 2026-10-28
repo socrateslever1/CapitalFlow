@@ -4,6 +4,7 @@ export type WalletCardOpeningPayload = {
   future_amount: number;
   future_months: number;
   invoice_month: string;
+  invoice_state?: 'OPEN' | 'CLOSED';
 };
 
 export type WalletRecurringObligation={
@@ -14,6 +15,7 @@ export type WalletRecurringObligation={
 };
 import { supabase } from '../lib/supabase';
 import { generateUUID } from '../utils/generators';
+import { getCardCreditPosition } from '../components/wallet/invoiceStatementDomain';
 import type { CapitalSource } from '../types';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
@@ -71,6 +73,8 @@ export type PersonalWalletCard = {
   opening_unallocated_amount?: number;
   initial_future_installments_balance?: number;
   initial_balance_occurred_at?: string | null;
+  opening_invoice_state?: 'OPEN' | 'CLOSED' | null;
+  opening_invoice_month?: string | null;
 };
 
 export type PersonalWalletPayable = {
@@ -122,6 +126,7 @@ export type PersonalWalletExpense = {
   invoice_due_month?: string | null;
   request_id?: string | null;
   mutation_requests?: Record<string, unknown>;
+  is_opening_summary?: boolean;
 };
 
 export type PersonalWalletExpenseInstallment = {
@@ -131,6 +136,7 @@ export type PersonalWalletExpenseInstallment = {
   due_month: string;
   amount: number;
   paid_amount?: number;
+  opening_invoice_id?: string | null;
   status: 'PENDING' | 'PAID' | 'CANCELED';
 };
 
@@ -166,6 +172,7 @@ export type WalletAccountOperation = {
 };
 export type WalletStatementRow = {
   id: string;
+  expense_id?: string | null;
   target_kind: 'ACCOUNT'|'CARD';
   target_id: string;
   document_hash: string;
@@ -257,7 +264,7 @@ export const personalWalletService = {
         Number(rawCard.initial_future_installments_balance || 0),
         Number(rawCard.opening_unallocated_amount || 0),
       );
-      const effectiveUsed = Math.max(Number(rawCard.used_limit || 0), initialFuture);
+      const effectiveUsed = getCardCreditPosition({ ...rawCard, initial_future_installments_balance: initialFuture }, loadedExpenses, loadedInstallments).committedLimit;
       const availableLimit = Math.max(0, Math.round((Number(rawCard.credit_limit || 0) - effectiveUsed) * 100) / 100);
       const card: PersonalWalletCard = {
         ...rawCard,
@@ -408,6 +415,13 @@ export const personalWalletService = {
     return String(data);
   },
 
+  async importCardStatementPurchase(rowId: string, dueMonth: string, included: boolean) {
+    const { error } = await supabase.rpc('personal_wallet_import_card_statement_purchase', {
+      p_row_id: rowId, p_due_month: dueMonth, p_included_in_opening: included, p_request_id: rowId,
+    });
+    if (error) throw new Error(error.message);
+  },
+
   async recordStatementRow(input: {
     targetKind: 'ACCOUNT'|'CARD';
     targetId: string;
@@ -417,6 +431,8 @@ export const personalWalletService = {
     description: string;
     amount: number;
     category: string;
+    installmentNumber?: number | null;
+    installmentTotal?: number | null;
   }) {
     const { data, error } = await supabase.rpc('personal_wallet_record_statement_row', {
       p_target_kind: input.targetKind,
@@ -427,9 +443,23 @@ export const personalWalletService = {
       p_description: input.description,
       p_amount: input.amount,
       p_category: input.category,
+      p_installment_number: input.installmentNumber ?? null,
+      p_installment_total: input.installmentTotal ?? null,
     });
     if (error) throw new Error(error.message);
     return String(data);
+  },
+
+  async deleteStatementRow(rowId: string) {
+    const { error } = await supabase.rpc('personal_wallet_delete_statement_row', { p_row_id: rowId });
+    if (error) throw new Error(error.message);
+  },
+
+  async deleteStatementRows(rowIds: string[]) {
+    if (!rowIds.length) return 0;
+    const { data, error } = await supabase.rpc('personal_wallet_delete_statement_rows', { p_row_ids: rowIds });
+    if (error) throw new Error(error.message);
+    return Number(data || 0);
   },
 
   async updateCardMetadata(cardId: string, input: {
@@ -517,6 +547,16 @@ export const personalWalletService = {
     });
     if (error) throw new Error(error.message);
     return data as { replayed: boolean; remaining: number };
+  },
+
+  async setSimpleCardOpening(input: { cardId: string; creditLimit: number; usedLimit: number; currentInvoice: number; dueMonth: string; invoiceState: 'OPEN' | 'CLOSED'; requestId: string }) {
+    const { data, error } = await supabase.rpc('personal_wallet_set_card_opening_summary', {
+      p_card_id: input.cardId, p_credit_limit: input.creditLimit, p_used_limit: input.usedLimit,
+      p_invoice_amount: input.currentInvoice, p_cycle_month: input.dueMonth,
+      p_invoice_state: input.invoiceState, p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   async setCardInitialBalances(input: {
@@ -737,12 +777,31 @@ export const personalWalletService = {
   },
 
   async archiveAccount(accountId: string, requestId = generateUUID()) {
-    if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitacao ausente.');
+    if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitação ausente.');
     const { error } = await supabase.rpc('personal_wallet_archive_account', {
       p_account_id: accountId,
       p_request_id: requestId,
     });
     if (error) throw new Error(error.message);
+  },
+
+  async deleteAccount(accountId: string, requestId = generateUUID()) {
+    if (!accountId || !requestId) throw new Error('Conta ou identificador da solicitacao ausente.');
+    const ownerUserId = await this.ownerId();
+    const { data: account } = await supabase
+      .from('personal_wallet_accounts')
+      .select('image_path')
+      .eq('id', accountId)
+      .eq('owner_user_id', ownerUserId)
+      .maybeSingle();
+    const { error } = await supabase.rpc('personal_wallet_delete_account', {
+      p_account_id: accountId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    if (account?.image_path) {
+      await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).remove([account.image_path]).catch(() => {});
+    }
   },
 
   async createCard(
@@ -778,12 +837,31 @@ export const personalWalletService = {
   },
 
   async archiveCard(cardId: string, requestId = generateUUID()) {
-    if (!cardId || !requestId) throw new Error('Cartao ou identificador da solicitacao ausente.');
+    if (!cardId || !requestId) throw new Error('Cartão ou identificador da solicitação ausente.');
     const { error } = await supabase.rpc('personal_wallet_archive_card', {
       p_card_id: cardId,
       p_request_id: requestId,
     });
     if (error) throw new Error(error.message);
+  },
+
+  async deleteCard(cardId: string, requestId = generateUUID()) {
+    if (!cardId || !requestId) throw new Error('Cartao ou identificador da solicitacao ausente.');
+    const ownerUserId = await this.ownerId();
+    const { data: card } = await supabase
+      .from('personal_wallet_cards')
+      .select('image_path')
+      .eq('id', cardId)
+      .eq('owner_user_id', ownerUserId)
+      .maybeSingle();
+    const { error } = await supabase.rpc('personal_wallet_delete_card', {
+      p_card_id: cardId,
+      p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    if (card?.image_path) {
+      await supabase.storage.from(CARD_IMAGES_BUCKET).remove([card.image_path]).catch(() => {});
+    }
   },
 
   async createPayable(input: { creditor_name: string; creditor_type: 'PERSON' | 'COMPANY'; creditor_document?: string | null; description: string; category?:string; origin_type?:'ACCOUNT'|'CARD'|'CASH'; origin_account_id?:string|null; origin_card_id?:string|null; total_amount: number; due_date?: string | null; interest_rate?: number; fine_percent?: number; notes?: string | null }) {

@@ -7,5 +7,7 @@ export const getCardsForDisplay = <T extends { id: string }>(
 ) => {
   if (!requestedCardId) return cards;
   const requestedCard = cards.find(card => card.id === requestedCardId);
-  return requestedCard ? [requestedCard] : cards;
+  return requestedCard
+    ? [requestedCard, ...cards.filter(card => card.id !== requestedCardId)]
+    : cards;
 };

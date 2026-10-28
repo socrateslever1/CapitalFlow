@@ -132,7 +132,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     {data && <>
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 lg:col-span-5">
-          <BankStack accounts={data.accounts} cards={displayedCards}
+          <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
             onAccount={() => {}} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}

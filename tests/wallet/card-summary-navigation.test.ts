@@ -12,12 +12,12 @@ test('summary card destination identifies the clicked card', () => {
   );
 });
 
-test('focused card view keeps only the requested card', () => {
+test('focused card view opens the requested card and keeps all others navigable', () => {
   const cards = [{ id: 'first' }, { id: 'second' }, { id: 'third' }];
 
   assert.deepEqual(
     getCardsForDisplay(cards, 'second').map(card => card.id),
-    ['second'],
+    ['second', 'first', 'third'],
   );
   assert.deepEqual(
     getCardsForDisplay(cards, null).map(card => card.id),

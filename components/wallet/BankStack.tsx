@@ -31,7 +31,8 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard,
   const availableCards = useMemo(() => cards.filter(card => card.status !== 'CANCELED'), [cards]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const startX = useRef<number | null>(null);
+  const drag = useRef<{ x: number; delta: number } | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const preventOpen = useRef(false);
   const selected = availableCards.find(card => card.id === selectedId) || availableCards[0] || null;
   const index = selected ? availableCards.findIndex(card => card.id === selected.id) : 0;
@@ -68,19 +69,38 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onAccount, onCard,
               return <button type="button" key={card.id} onClick={() => setSelectedId(card.id)} aria-label={`Selecionar ${card.nickname}`} className="absolute inset-x-0 top-0 mx-auto h-14 rounded-t-2xl border border-white/20 shadow-xl transition-all duration-300 ease-out" style={{ zIndex: rearIndex + 1, width: `${92 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 14}px)`, background: cardIdentity.accent }}><span className="absolute left-3 top-1.5 text-[10px] font-bold text-white">{card.nickname}</span></button>;
             })}
             <div
-              className="relative z-30 aspect-[1.586/1] w-full overflow-hidden rounded-2xl border border-white/25 shadow-2xl"
-              style={{ background: `linear-gradient(125deg,${front!.accent},${front!.visual.secondary})` }}
-              onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? null; }}
-              onTouchEnd={event => {
-                const distance = (event.changedTouches[0]?.clientX ?? 0) - (startX.current ?? 0);
-                startX.current = null;
-                if (Math.abs(distance) > 45) { preventOpen.current = true; cycle(distance < 0 ? 1 : -1); }
+              className="relative z-30 aspect-[1.586/1] w-full touch-pan-y select-none overflow-hidden rounded-2xl border border-white/25 shadow-2xl transition-transform duration-200 motion-reduce:transition-none"
+              style={{ background: `linear-gradient(125deg,${front!.accent},${front!.visual.secondary})`, transform: `translateX(${dragOffset}px)` }}
+              onPointerDown={event => {
+                if (!event.isPrimary || event.button !== 0) return;
+                drag.current = { x: event.clientX, delta: 0 };
+                preventOpen.current = false;
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={event => {
+                if (!drag.current) return;
+                drag.current.delta = event.clientX - drag.current.x;
+                if (Math.abs(drag.current.delta) > 8) preventOpen.current = true;
+                setDragOffset(Math.max(-65, Math.min(65, drag.current.delta)));
+              }}
+              onPointerUp={() => {
+                if (drag.current && Math.abs(drag.current.delta) > 45) cycle(drag.current.delta < 0 ? 1 : -1);
+                drag.current = null;
+                setDragOffset(0);
+              }}
+              onPointerCancel={() => {
+                drag.current = null;
+                setDragOffset(0);
+                preventOpen.current = true;
               }}
               onClick={() => { if (preventOpen.current) { preventOpen.current = false; return; } setSheetOpen(true); }}
               role="button"
               tabIndex={0}
               aria-label="Ver uso do limite dos cartões"
-              onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSheetOpen(true); } }}
+              onKeyDown={event => {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); cycle(event.key === 'ArrowRight' ? 1 : -1); }
+                if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSheetOpen(true); }
+              }}
             >
               <div aria-hidden className="absolute -right-7 -top-10 select-none text-[7rem] font-black text-white/10">{front!.visual.monogram}</div>
               <div className="relative flex h-full flex-col justify-between p-3.5 text-white sm:p-5">

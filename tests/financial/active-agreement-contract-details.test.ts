@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Loan, Agreement } from '../../types';
+import { Loan, Agreement, LoanStatus } from '../../types';
 import { calculateTotalDue, hasActiveAgreement, computeLoanRemainingBalance } from '../../domain/finance/calculations';
 
 test('contrato com acordo ativo calcula a parcela aberta do acordo e não juros antigos', () => {
@@ -52,30 +52,41 @@ test('contrato com acordo ativo calcula a parcela aberta do acordo e não juros 
 
     const loan: Loan = {
         id: 'loan-gracileide',
+        clientId: 'client-gracileide',
+        profile_id: 'profile-test',
         debtorName: 'GRACILEIDE VIEIRA DE CASTRO',
         debtorPhone: '(92) 99120-2666',
+        debtorDocument: '00000000000',
+        sourceId: 'source-test',
+        preferredPaymentMethod: 'PIX',
         principal: 8000,
         interestRate: 13, // antiga taxa que gerava R$ 130 de juros
         finePercent: 2,
         dailyInterestPercent: 0.33,
         billingCycle: 'MONTHLY',
         startDate: '2026-01-01',
-        status: 'OVERDUE',
+        status: LoanStatus.LATE,
         installments: [
             {
                 id: 'old-inst-1',
-                loanId: 'loan-gracileide',
                 number: 1,
                 dueDate: '2026-02-01',
                 amount: 1000,
                 principalRemaining: 0,
                 interestRemaining: 130, // resíduo antigo do contrato original
+                lateFeeAccrued: 0,
+                paidTotal: 0,
                 scheduledPrincipal: 1000,
                 scheduledInterest: 130,
+                paidPrincipal: 0,
+                paidInterest: 0,
                 paidLateFee: 0,
-                status: 'LATE'
+                status: LoanStatus.LATE
             }
         ],
+        totalToReceive: 9040,
+        ledger: [],
+        notes: '',
         activeAgreement: agreement
     };
 

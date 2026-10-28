@@ -14,6 +14,7 @@ import { formatMoney } from '../../utils/formatters';
 import { ForgivenessMode, InterestHandling } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { FlexibleDailyScreen } from '../../components/modals/payment/FlexibleDailyScreen';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
+import { hasActiveAgreement, isAgreementInstallmentPaid } from '../../domain/finance/calculations';
 
 interface PaymentRegistrationFormProps {
     loan: Loan;
@@ -123,7 +124,7 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
         setAvAmount(Math.max(0, totalInterestDue - lateFeeForgiven).toFixed(2));
     };
 
-    if (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM') {
+    if (!hasActiveAgreement(loan) && (resolvedBillingCycle === 'DAILY_FREE' || resolvedBillingCycle === 'DAILY_FIXED_TERM')) {
         return (
             <FlexibleDailyScreen
                 amount={avAmount}
@@ -175,18 +176,50 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                     />
                 </div>
 
-                <div className="flex gap-2 mb-8">
-                    <button
-                        onClick={toggleInterestAutoFill}
-                        className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
-                            autoFillMode === 'INTEREST'
-                                ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]'
-                                : 'border-orange-900/50 bg-orange-900/20 text-orange-400 hover:bg-orange-800 hover:text-white'
-                        }`}
-                    >
-                        <span>Somente Juros/Encargos</span>
-                    </button>
-                </div>
+                {hasActiveAgreement(loan) ? (
+                    <div className="flex gap-2 mb-8">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setAutoFillMode('TOTAL');
+                                setAvAmount(debtBreakdown.total - lateFeeForgiven > 0 ? (debtBreakdown.total - lateFeeForgiven).toFixed(2) : '');
+                            }}
+                            className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                autoFillMode === 'TOTAL'
+                                    ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'
+                                    : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <span>Total da Parcela ({formatMoney(Math.max(0, debtBreakdown.total - lateFeeForgiven), isStealthMode)})</span>
+                        </button>
+                        {totalInterestDue > 0 && (
+                            <button
+                                type="button"
+                                onClick={toggleInterestAutoFill}
+                                className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                    autoFillMode === 'INTEREST'
+                                        ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]'
+                                        : 'border-orange-900/50 bg-orange-900/20 text-orange-400 hover:bg-orange-800 hover:text-white'
+                                }`}
+                            >
+                                <span>Somente Atraso ({formatMoney(Math.max(0, totalInterestDue - lateFeeForgiven), isStealthMode)})</span>
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex gap-2 mb-8">
+                        <button
+                            onClick={toggleInterestAutoFill}
+                            className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                autoFillMode === 'INTEREST'
+                                    ? 'bg-orange-600 border-orange-500 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]'
+                                    : 'border-orange-900/50 bg-orange-900/20 text-orange-400 hover:bg-orange-800 hover:text-white'
+                            }`}
+                        >
+                            <span>Somente Juros/Encargos</span>
+                        </button>
+                    </div>
+                )}
 
                 {safeParse(avAmount) > 0 && (
                     <div className="bg-slate-950/50 border border-slate-800/50 p-6 rounded-lg space-y-4 animate-in zoom-in-95 duration-300 mb-8">
@@ -204,6 +237,19 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                                         if (isCapitalOnlyRecovery) {
                                             if (val >= debtBreakdown.principal - 0.05) return 'Quitação sem juros: recebe apenas o capital e encerra os encargos.';
                                             return `Recebimento sem juros: abate ${formatMoney(val, isStealthMode)} diretamente do capital.`;
+                                        }
+                                        if (hasActiveAgreement(loan)) {
+                                            const agreement = loan.activeAgreement;
+                                            const openCount = agreement?.installments?.filter((i: any) => !isAgreementInstallmentPaid(i, loan.status)).length || 0;
+                                            const isLastInstallment = openCount <= 1;
+                                            const instNum = installment?.number || (agreement?.installments?.length ? agreement.installments.length - openCount + 1 : 1);
+                                            if (val >= totalDue - 0.05) {
+                                                if (isLastInstallment) {
+                                                    return `Quitação do acordo: Recebimento da última parcela (${instNum}) e encerramento do contrato.`;
+                                                }
+                                                return `Recebimento da parcela ${instNum} do acordo. Restarão ${openCount - 1} parcela(s).`;
+                                            }
+                                            return `Recebimento parcial da parcela ${instNum} do acordo: abate ${formatMoney(val, isStealthMode)}.`;
                                         }
                                         if (val >= totalDue - 0.05) return 'Quitação total: O contrato será encerrado e arquivado.';
                                         if (val >= interestDue - 0.05) {
@@ -239,12 +285,20 @@ export const PaymentRegistrationForm: React.FC<PaymentRegistrationFormProps> = (
                         <input type="date" value={realPaymentDateStr} onChange={(e) => setRealPaymentDateStr(e.target.value)} className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer" />
                     </div>
                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Próximo Vencimento</label>
-                        <input type="date" value={manualDateStr || ''} onChange={(e) => setManualDateStr(e.target.value)} className="bg-transparent text-white font-bold text-sm outline-none w-full appearance-none cursor-pointer" />
+                        <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">
+                            {hasActiveAgreement(loan) ? 'Vencimento da Parcela' : 'Próximo Vencimento'}
+                        </label>
+                        <input
+                            type="date"
+                            value={manualDateStr || ''}
+                            onChange={(e) => setManualDateStr(e.target.value)}
+                            disabled={hasActiveAgreement(loan)}
+                            className={`bg-transparent text-white font-bold text-sm outline-none w-full appearance-none ${hasActiveAgreement(loan) ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}
+                        />
                     </div>
                 </div>
 
-                {showInterestDecision && (
+                {!hasActiveAgreement(loan) && showInterestDecision && (
                     <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-8 space-y-3">
                         <label className="text-[9px] font-black uppercase text-slate-500 block tracking-widest">Saldo de Juros Restante</label>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

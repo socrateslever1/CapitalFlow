@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Eye, EyeOff, RotateCw, Wifi } from 'lucide-react';
+import { Copy, Check, RotateCw, Wifi } from 'lucide-react';
 import { PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { resolveBankLogo } from '../../utils/bankLogoRegistry';
@@ -7,9 +7,6 @@ import { resolveBankLogo } from '../../utils/bankLogoRegistry';
 export interface VirtualCreditCardProps {
   card: PersonalWalletCard;
   holderName?: string;
-  cardNumber?: string;
-  expiration?: string;
-  cvv?: string;
   className?: string;
   interactive?: boolean;
 }
@@ -119,45 +116,22 @@ export function getCardTheme(nickname: string, issuer?: string | null) {
 export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
   card,
   holderName,
-  cardNumber,
-  expiration,
-  cvv,
   className = '',
   interactive = true,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
-  const [showFullNumber, setShowFullNumber] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   const theme = getCardTheme(card.nickname, card.issuer);
 
-  // Extrai metadados armazenados em notes caso existam
-  let parsedMeta: Record<string, string> = {};
-  if (card.notes) {
-    try {
-      if (card.notes.startsWith('{') && card.notes.endsWith('}')) {
-        parsedMeta = JSON.parse(card.notes);
-      }
-    } catch {}
-  }
-
-  const effectiveHolder = holderName || parsedMeta.holder_name || card.nickname.toUpperCase();
-  const rawNumber = cardNumber || parsedMeta.card_number || (card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• ----');
-  const effectiveExp = expiration || parsedMeta.expiration || (card.closing_day && card.due_day ? `${String(card.due_day).padStart(2, '0')}/28` : '12/29');
-  const effectiveCvv = cvv || parsedMeta.cvv || '•••';
+  const effectiveHolder = holderName || card.cardholder_name || card.nickname.toUpperCase();
+  const rawNumber = card.last_four ? `•••• •••• •••• ${card.last_four}` : '•••• •••• •••• ----';
+  const effectiveExp = card.expiry_month && card.expiry_year
+    ? `${String(card.expiry_month).padStart(2, '0')}/${String(card.expiry_year).slice(-2)}`
+    : '—';
+  const effectiveCvv = '•••';
   const effectiveBrand = card.brand || theme.brand;
-
-  // Formata o número em grupos de 4 dígitos
-  const formattedNumber = (() => {
-    const clean = rawNumber.replace(/\s+/g, '');
-    if (clean.length === 16 && !clean.includes('•')) {
-      if (!showFullNumber) {
-        return `•••• •••• •••• ${clean.slice(-4)}`;
-      }
-      return `${clean.slice(0, 4)} ${clean.slice(4, 8)} ${clean.slice(8, 12)} ${clean.slice(12, 16)}`;
-    }
-    return rawNumber;
-  })();
+  const formattedNumber = rawNumber;
 
   const handleCopy = (text: string, type: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -249,19 +223,6 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
 
                 {interactive && (
                   <div className="flex items-center gap-1">
-                    {rawNumber.length === 16 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowFullNumber(!showFullNumber);
-                        }}
-                        className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                        title={showFullNumber ? 'Ocultar números' : 'Ver número completo'}
-                      >
-                        {showFullNumber ? <EyeOff size={13} /> : <Eye size={13} />}
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={(e) => handleCopy(rawNumber, 'number', e)}
@@ -312,16 +273,6 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
                 <div className="h-8 bg-white rounded px-2.5 flex items-center justify-center font-mono font-black text-slate-950 text-xs shadow-inner">
                   {effectiveCvv}
                 </div>
-                {interactive && (
-                  <button
-                    type="button"
-                    onClick={(e) => handleCopy(effectiveCvv, 'cvv', e)}
-                    className="p-1.5 rounded bg-black/30 hover:bg-black/50 text-white/80 transition-colors shrink-0"
-                    title="Copiar CVV"
-                  >
-                    {copied === 'cvv' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                  </button>
-                )}
               </div>
               <p className="text-[8px] text-white/60 leading-tight">
                 Código de segurança (CVC/CVV) de 3 dígitos para transações online e verificações.

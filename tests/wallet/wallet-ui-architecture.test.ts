@@ -6,6 +6,7 @@ const page = readFileSync('pages/PersonalWalletPage.tsx', 'utf8');
 const stack = readFileSync('components/wallet/BankStack.tsx', 'utf8');
 const accountStack = readFileSync('components/wallet/AccountCardStack.tsx', 'utf8');
 const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
+const virtualCard = readFileSync('components/wallet/VirtualCreditCard.tsx', 'utf8');
 
 test('a página não mantém aba ou lista redundante de cartões', () => {
   assert.doesNotMatch(page, /activeTab === ['"]CARDS['"]/);
@@ -35,6 +36,18 @@ test('o verso usa elementos físicos de cartão em vez de uma grade técnica', (
   assert.match(stack, /Código de segurança/i);
   assert.match(stack, /bg-black\/90/);
   assert.doesNotMatch(stack, /grid flex-1 grid-cols-2/);
+});
+
+test('a frente reserva linhas próprias para número, titular e validade', () => {
+  assert.match(stack, /data-card-section="number"/);
+  assert.match(stack, /data-card-section="holder"/);
+  assert.match(stack, /data-card-section="expiry"/);
+  assert.match(stack, /Copiar dados do cartão/);
+});
+
+test('o cartão não recupera número completo nem CVC de anotações livres', () => {
+  assert.doesNotMatch(virtualCard, /parsedMeta\.card_number/);
+  assert.doesNotMatch(virtualCard, /parsedMeta\.(?:cvc|cvv)/);
 });
 
 test('as contas usam linhas compactas com a identidade visual da instituição', () => {

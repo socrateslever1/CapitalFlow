@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import test from 'node:test';
+import { formatCardSummaryForClipboard } from '../../utils/cardClipboard';
 
 const editor = readFileSync('components/wallet/CardEditModal.tsx', 'utf8');
 const cardStack = readFileSync('components/wallet/BankStack.tsx', 'utf8');
@@ -34,4 +35,19 @@ test('a visualização usa titular e validade persistidos e mantém o CVC mascar
   assert.match(cardStack, /selected\.expiry_year/);
   assert.match(editor, /CVC não é armazenado/i);
   assert.doesNotMatch(service, /p_(?:cvc|cvv)/i);
+});
+
+test('a cópia contém identificação do cartão e não inclui limite ou fatura', () => {
+  const summary = formatCardSummaryForClipboard({
+    nickname: 'PicPay', issuer: 'PicPay', brand: 'Mastercard', last_four: '4101',
+    cardholder_name: 'MANOEL SOCRATES', expiry_month: 2, expiry_year: 2031,
+    credit_limit: 8176, used_limit: 0, available_limit: 8176,
+    closing_day: 4, due_day: 10,
+  } as never);
+
+  assert.match(summary, /Número: •••• •••• •••• 4101/);
+  assert.match(summary, /Titular: MANOEL SOCRATES/);
+  assert.match(summary, /Validade: 02\/31/);
+  assert.doesNotMatch(summary, /Limite|Fatura|Fechamento|Vencimento/i);
+  assert.doesNotMatch(summary, /CVC|CVV/i);
 });

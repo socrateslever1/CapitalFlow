@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, Pencil, Plus, RotateCcw, Wifi } from 'lucide-react';
-import { copyCardDataToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
+import { copyCardDataToClipboard } from '../../utils/cardClipboard';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { BankLogo } from './BankLogo';
@@ -43,13 +43,6 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
     setTimeout(() => setCopyFeedback(null), 2500);
   };
 
-  const handleCopyDigits = async (event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (!selected) return;
-    const res = await copyCardLastFourToClipboard(selected.last_four);
-    setCopyFeedback(res.message);
-    setTimeout(() => setCopyFeedback(null), 2500);
-  };
   const preventOpen = useRef(false);
   const selected = availableCards.find(card => card.id === selectedId) || availableCards[0] || null;
   const index = selected ? availableCards.findIndex(card => card.id === selected.id) : 0;
@@ -75,6 +68,10 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const maskedNumber = selected?.last_four
     ? `•••• •••• •••• ${selected.last_four}`
     : '•••• •••• •••• ----';
+  const holderLabel = selected?.cardholder_name || selected?.nickname || 'NÃO INFORMADO';
+  const expiryLabel = selected?.expiry_month && selected?.expiry_year
+    ? `${String(selected.expiry_month).padStart(2, '0')}/${String(selected.expiry_year).slice(-2)}`
+    : '—';
 
   return <section aria-label="Carteira de cartões" className="w-full min-w-0">
     <header className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold text-white">Cartões de crédito</h2>{onCreateCard && <button onClick={onCreateCard} type="button" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-300">+ Cartão</button>}</header>
@@ -126,25 +123,31 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
               <div className="absolute inset-0 transition-transform duration-500 ease-out motion-reduce:transition-none" style={{ transformStyle: 'preserve-3d', transform: `rotateY(${isFlipped ? 180 : 0}deg)` }}>
                 <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/25 shadow-2xl" style={{ backfaceVisibility: 'hidden', background: `linear-gradient(125deg,${front!.accent},${front!.visual.secondary})` }}>
                   <div aria-hidden className="absolute -right-7 -top-10 select-none text-[7rem] font-black text-white/10">{front!.visual.monogram}</div>
-                  <div className="relative flex h-full flex-col justify-between p-3.5 text-white sm:p-5">
-                    <div className="flex items-start justify-between gap-2"><div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-xs">{front!.issuer}</strong></div><Network brand={selected.brand}/></div>
-                    <div className="flex items-center justify-between"><Chip/><Wifi size={18} className="rotate-90 opacity-80"/></div>
-                    <div className="flex items-end justify-between gap-2">
-                      <div className="min-w-0"><small className="block text-[9px] uppercase text-white/75">Disponível</small><strong className="block truncate text-base font-black sm:text-xl">{formatMoney(available)}</strong><small className="block max-w-36 truncate text-[9px] uppercase text-white/70">{selected.status === 'BLOCKED' ? 'Bloqueado' : selected.cardholder_name || selected.nickname}</small></div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <button type="button" onPointerDown={event => event.stopPropagation()} onClick={handleCopyDigits} title="Copiar o final do cartão" className="flex items-center gap-1 rounded-lg border border-white/20 bg-black/30 px-2 py-1 font-mono text-[10px] tracking-wide text-white transition hover:bg-black/50 sm:text-xs">
-                          <span>{maskedNumber}</span><Copy size={11}/>
-                        </button>
-                        <small className="text-[8px] font-semibold uppercase text-white/70">Validade {selected.expiry_month && selected.expiry_year ? `${String(selected.expiry_month).padStart(2,'0')}/${String(selected.expiry_year).slice(-2)}` : '—'}</small>
-                      </div>
+                  <div className="relative grid h-full grid-rows-[auto_auto_auto_1fr] gap-2.5 p-3.5 text-white sm:gap-3 sm:p-5">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2"><span className="rounded-lg bg-white p-0.5"><BankLogo size="sm" name={front!.issuer} alternateName={selected.nickname}/></span><strong className="truncate text-sm">{front!.issuer}</strong></div>
+                      <Network brand={selected.brand}/>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <Chip/>
+                      <div className="min-w-0 text-right"><small className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Limite disponível</small><strong className="block truncate text-sm font-black sm:text-base">{formatMoney(available)}</strong></div>
+                      <Wifi size={18} className="shrink-0 rotate-90 opacity-80"/>
+                    </div>
+                    <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={handleCopy} title="Copiar dados do cartão" className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/15 px-2.5 py-1.5 text-left transition hover:bg-black/25">
+                      <span className="min-w-0 whitespace-nowrap font-mono text-[clamp(0.68rem,3.1vw,0.95rem)] font-bold tracking-[0.11em] text-white">{maskedNumber}</span>
+                      <Copy size={12} className="shrink-0 text-white/65" aria-hidden/>
+                    </button>
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-t border-white/10 pt-1.5">
+                      <div data-card-section="holder" className="min-w-0"><small className="block text-[7px] font-bold uppercase tracking-wider text-white/55">Titular</small><strong className="block truncate font-mono text-[9px] uppercase tracking-wide text-white sm:text-[11px]">{holderLabel}</strong></div>
+                      <div data-card-section="expiry" className="shrink-0 text-right"><small className="block text-[7px] font-bold uppercase tracking-wider text-white/55">Validade</small><strong className="font-mono text-[10px] text-white sm:text-xs">{expiryLabel}</strong></div>
                     </div>
                   </div>
                 </div>
-                <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/20 bg-slate-200 text-slate-950 shadow-2xl" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                <div className="absolute inset-0 overflow-hidden rounded-2xl border border-white/20 text-white shadow-2xl" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', background: `linear-gradient(125deg,${front!.accent},${front!.visual.secondary})` }}>
                   <div className="absolute inset-x-0 top-5 h-10 bg-black/90 shadow-inner" aria-label="Faixa magnética"/>
                   <div className="relative flex h-full flex-col px-4 pb-3 pt-[4.35rem] sm:px-5">
                     <div>
-                      <div className="mb-1 flex items-end justify-between gap-2 text-[7px] font-bold uppercase tracking-wider text-slate-600 sm:text-[8px]">
+                      <div className="mb-1 flex items-end justify-between gap-2 text-[7px] font-bold uppercase tracking-wider text-white/65 sm:text-[8px]">
                         <span>Assinatura autorizada</span>
                         <span>Código de segurança</span>
                       </div>
@@ -153,17 +156,15 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                         <div className="flex w-14 shrink-0 items-center justify-center border-l border-slate-400 bg-white font-mono text-xs font-black tracking-widest sm:w-16">•••</div>
                       </div>
                     </div>
-                    <p className="mt-1.5 line-clamp-2 text-[7px] leading-tight text-slate-600 sm:text-[8px]">Este cartão é de uso pessoal. Em caso de perda ou roubo, contate imediatamente a instituição emissora.</p>
-                    <div className="mt-auto flex items-end justify-between gap-3 border-t border-slate-400/60 pt-2">
+                    <p className="mt-1.5 line-clamp-2 text-[7px] leading-tight text-white/60 sm:text-[8px]">Este cartão é de uso pessoal. Em caso de perda ou roubo, contate imediatamente a instituição emissora.</p>
+                    <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/15 pt-2">
                       <div className="min-w-0">
                         <strong className="block truncate text-[10px] sm:text-xs">{front!.issuer}</strong>
-                        <span className="block truncate font-mono text-[8px] text-slate-600 sm:text-[9px]">{maskedNumber}</span>
-                        <span className="block text-[7px] text-slate-500 sm:text-[8px]">Fecha {selected.closing_day ? `dia ${selected.closing_day}` : 'não informado'} · Vence {selected.due_day ? `dia ${selected.due_day}` : 'não informado'}</span>
+                        <span className="block truncate font-mono text-[8px] text-white/65 sm:text-[9px]">{maskedNumber}</span>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button type="button" title="Copiar resumo do cartão" aria-label="Copiar resumo do cartão" onPointerDown={event => event.stopPropagation()} onClick={handleCopy} className="rounded-md border border-slate-400 bg-white p-1.5 text-slate-800 transition hover:bg-slate-100"><Copy size={12}/></button>
-                        <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onCard(selected); }} className="rounded-md bg-slate-900 px-2 py-1.5 text-[8px] font-bold text-white sm:text-[9px]">Detalhes</button>
-                        <Network brand={selected.brand}/>
+                        <button type="button" title="Copiar dados do cartão" aria-label="Copiar dados do cartão" onPointerDown={event => event.stopPropagation()} onClick={handleCopy} className="flex items-center gap-1 rounded-md border border-white/20 bg-black/30 px-2 py-1.5 text-[8px] font-bold text-white transition hover:bg-black/45 sm:text-[9px]"><Copy size={11}/>Copiar dados</button>
+                        <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onCard(selected); }} className="rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-[8px] font-bold text-white sm:text-[9px]">Detalhes</button>
                       </div>
                     </div>
                   </div>

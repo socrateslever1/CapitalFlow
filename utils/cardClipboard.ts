@@ -1,18 +1,19 @@
 import type { PersonalWalletCard } from '../services/personalWallet.service';
-import { formatMoney } from './formatters';
 
 export function formatCardSummaryForClipboard(card: PersonalWalletCard): string {
+  const maskedNumber = card.last_four
+    ? `•••• •••• •••• ${card.last_four}`
+    : '•••• •••• •••• ----';
+  const expiry = card.expiry_month && card.expiry_year
+    ? `${String(card.expiry_month).padStart(2, '0')}/${String(card.expiry_year).slice(-2)}`
+    : null;
   const lines = [
-    `💳 Cartão: ${card.nickname}`,
-    card.issuer ? `🏛️ Emissor: ${card.issuer}` : null,
-    card.brand ? `🏷️ Bandeira: ${card.brand}` : null,
-    card.last_four ? `🔢 Final: •••• ${card.last_four}` : null,
-    card.closing_day ? `📅 Fechamento: Dia ${card.closing_day}` : null,
-    card.due_day ? `⏰ Vencimento: Dia ${card.due_day}` : null,
-    `💰 Limite Total: ${formatMoney(card.credit_limit)}`,
-    card.available_limit !== undefined
-      ? `🟢 Limite Disponível: ${formatMoney(card.available_limit)}`
-      : null,
+    `Cartão: ${card.nickname}`,
+    card.issuer ? `Emissor: ${card.issuer}` : null,
+    card.brand ? `Bandeira: ${card.brand}` : null,
+    `Número: ${maskedNumber}`,
+    card.cardholder_name ? `Titular: ${card.cardholder_name}` : null,
+    expiry ? `Validade: ${expiry}` : null,
   ].filter(Boolean);
 
   return lines.join('\n');
@@ -25,7 +26,7 @@ export async function copyCardDataToClipboard(
   try {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
-      return { success: true, message: 'Dados do cartão copiados com sucesso!' };
+      return { success: true, message: 'Dados do cartão copiados.' };
     }
     return { success: false, message: 'Área de transferência não disponível neste navegador.' };
   } catch {

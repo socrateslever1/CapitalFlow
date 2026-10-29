@@ -117,3 +117,15 @@ test('signed APK certificate parser supports Android v3 signer labels', () => {
   assert(publication.includes('prior_cert'), 'check the previous release');
   assert(publication.includes('new_cert'), 'check the current release');
 });
+
+test('Android CI injects real native Back callback and rebuilds when native sources change', () => {
+  const native = readFileSync('native/android/MainActivity.java', 'utf8');
+  const patch = readFileSync('scripts/android/apply-native-shell.py', 'utf8');
+  assert(yaml.includes('Install native Android navigation and system-bar policy'));
+  assert(yaml.includes('python3 scripts/android/apply-native-shell.py'));
+  assert(yaml.includes("'native/android/**'"));
+  assert(yaml.includes("'scripts/android/**'"));
+  assert(native.includes('getOnBackPressedDispatcher().addCallback'));
+  assert(native.includes('triggerWindowJSEvent("capitalflow:android-back")'));
+  assert(patch.includes('enableOnBackInvokedCallback'));
+});

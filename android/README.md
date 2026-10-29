@@ -62,6 +62,22 @@ permissao de fonte desconhecida ou politicas do dispositivo. A Samsung pode
 bloquear instalacoes de APK fora da loja pelo **Bloqueador automatico**.
 Nunca confundir assinatura valida com aprovacao da Play Store.
 
+## Opcao automatica para Linux ou WSL
+
+Com Java `keytool` e GitHub CLI `gh` instalados e autenticados, execute
+**localmente** a partir da raiz do repositorio:
+
+```bash
+bash scripts/setup-android-release-signing.sh
+```
+
+O script cria ou reutiliza uma keystore privada em
+`~/.config/capitalflow/android-signing/capitalflow-release.jks`, cadastra
+quatro Secrets via API do GitHub e aciona a compilacao do APK assinado.
+Nenhum material de chave e versionado no repositorio. Guarde backup offline.
+Para a primeira migracao de um APK debug, a assinatura antiga e incompatível;
+faca backup de dados locais antes de desinstalar.
+
 ## Preparar a assinatura PERMANENTE de producao (uma unica vez)
 
 O proprietario do repositorio deve gerar e conservar, fora do GitHub publico,

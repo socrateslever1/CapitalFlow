@@ -123,6 +123,11 @@ jobs:
           python3 scripts/android/apply-native-shell.py
           grep -q 'android:enableOnBackInvokedCallback="false"' android/app/src/main/AndroidManifest.xml
           grep -q 'getOnBackPressedDispatcher()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          # Android 15/16 edge-to-edge: native padding, zeroing before WebView.
+          grep -q 'configureSystemBarInsets()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'WindowCompat.setDecorFitsSystemWindows' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'WindowInsetsCompat.Type.displayCutout' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'Insets.NONE' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
       - name: Assemble Android debug APK
         working-directory: android
         run: bash gradlew assembleDebug --no-daemon

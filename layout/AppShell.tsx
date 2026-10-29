@@ -184,7 +184,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   return (
     <PageBackProvider>
-    <div className={`${isSupportOpen ? 'fixed inset-0 h-dvh' : 'relative h-screen h-dvh'} w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden`}>
+    <div className={`${isSupportOpen ? 'fixed inset-0 h-dvh' : 'relative'} cf-app-shell w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden`}>
       <HeaderBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}

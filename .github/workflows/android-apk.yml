@@ -99,6 +99,10 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
+      - name: Verify native Android back-button plugin installed
+        run: |
+          node -e "require.resolve('@capacitor/app')"
+          node -e "require.resolve('@capacitor/core')"
       - name: Generate and synchronize native Android project
         run: |
           # Em CI esta pasta so contem documentacao; o projeto nativo e gerado a cada build.
@@ -106,6 +110,8 @@ jobs:
           rm -rf android
           npx cap add android
           npx cap sync android
+          # Verify Capacitor includes the native App plugin that handles hardware back.
+          node -e "const plugins=require('./android/app/src/main/assets/capacitor.plugins.json'); if(!Array.isArray(plugins)||!plugins.some(p=>p.pkg==='@capacitor/app')) { console.error('Capacitor App plugin not registered on Android'); process.exit(1); }"
           test -s android/app/src/main/assets/public/index.html
           test -s android/app/src/main/assets/public/manifest.json
       - name: Assemble Android debug APK

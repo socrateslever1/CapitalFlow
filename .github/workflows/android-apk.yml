@@ -36,7 +36,7 @@ on:
       - 'vite.config.ts'
 
 permissions:
-  contents: read
+  contents: write  # Only main pushes may publish the public test release.
 
 concurrency:
   group: android-${{ github.ref }}
@@ -110,3 +110,41 @@ jobs:
             android/app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 30
+
+      # Public fixed URL: unlike Actions artifacts, this link does not expire after 30 days.
+      # Debug APK is a test build; a permanent release keystore remains a separate task.
+      - name: Publish stable test APK to GitHub Releases
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="android-preview"
+          mkdir -p /tmp/capitalflow-release
+          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/capitalflow-release/CapitalFlow-Android.apk
+          (
+            cd /tmp/capitalflow-release
+            sha256sum CapitalFlow-Android.apk > CapitalFlow-Android.apk.sha256
+          )
+          cat > /tmp/capitalflow-release-notes.md <<EOF
+          CapitalFlow para Android — versão de teste.
+
+          Compilado a partir do commit: ${GITHUB_SHA}
+
+          Aviso: pacote debug destinado a testes, sem assinatura permanente de distribuição.
+          Se o Android informar "App não instalado", verifique conflitos com uma instalação
+          anterior. Não utilize esta versão para operações financeiras críticas.
+          EOF
+
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "CapitalFlow Android — teste" --prerelease \
+              --notes-file /tmp/capitalflow-release-notes.md
+          fi
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+            /tmp/capitalflow-release/CapitalFlow-Android.apk \
+            /tmp/capitalflow-release/CapitalFlow-Android.apk.sha256
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+            --title "CapitalFlow Android — teste" --prerelease \
+            --notes-file /tmp/capitalflow-release-notes.md

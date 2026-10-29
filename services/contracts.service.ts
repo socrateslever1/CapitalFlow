@@ -291,6 +291,22 @@ export const contractsService = {
       throw new Error('A composição por várias fontes permanece temporariamente indisponível até a validação completa dos recebimentos e estornos.');
     }
 
+    // A origem vinculada a uma conta real usa uma RPC de criação atômica,
+    // para não deixar contrato criado sem o respectivo débito bancário.
+    let isWalletLinkedFunding = false;
+    if (!editingLoan && !options?.skipTransaction && safeUUID(loan.sourceId)) {
+      const { data: linkedAccount, error: linkLookupError } = await supabase
+        .from('personal_wallet_accounts')
+        .select('id')
+        .eq('capital_source_id', safeUUID(loan.sourceId))
+        .is('archived_at', null)
+        .maybeSingle();
+      if (linkLookupError) {
+        throw new Error('Não foi possível verificar a conta da Carteira: ' + linkLookupError.message);
+      }
+      isWalletLinkedFunding = !!linkedAccount;
+    }
+
     // ✅ contratos = owner_id
     const loanPayload: any = {
       id: loanId,
@@ -488,7 +504,10 @@ export const contractsService = {
         clearStableFinancialRequestKey(stableRequest.storageKey);
       }
 
-    } else if (multiSourceAllocations.length > 1) {
+    } else if (multiSourceAllocations.length > 1 || isWalletLinkedFunding) {
+      const atomicAllocations = isWalletLinkedFunding
+        ? [{ sourceId: safeUUID(loan.sourceId), amount: principal }]
+        : multiSourceAllocations;
       const instPayload = (loan.installments || []).map((inst, index) => ({
         id: ensureUUID(inst.id),
         number: (inst as any).number ?? (inst as any).numero_parcela ?? index + 1,
@@ -504,13 +523,13 @@ export const contractsService = {
         p_contract: {
           ...loanPayload,
           profile_id: ownerId,
-          source_id: safeUUID(multiSourceAllocations[0].sourceId),
+          source_id: safeUUID(atomicAllocations[0].sourceId),
           portal_token: loan.portalToken || generateUUID(),
           portal_shortcode: loan.portalShortcode || Math.floor(100000 + Math.random() * 900000).toString(),
           created_at: new Date().toISOString(),
         },
         p_installments: instPayload,
-        p_allocations: multiSourceAllocations,
+        p_allocations: atomicAllocations,
         p_profile_id: ownerId,
         p_operator_id: safeUUID(activeUser.id),
         p_debit_sources: true,

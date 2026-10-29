@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, CheckCircle2, Undo2, AlertTriangle, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { FileText, Undo2, AlertTriangle, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import type { LedgerEntry, Loan } from '../../../types';
 import { humanizeAuditLog } from '../../../utils/auditHelpers';
 import { formatMoney } from '../../../utils/formatters';

@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Sparkles, Copy, Check, Camera, CreditCard } from 'lucide-react';
+import { AlertTriangle, Sparkles, Check, Camera, CreditCard } from 'lucide-react';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
-import { copyCardDataToClipboard } from '../../../utils/cardClipboard';
 import type { UserProfile } from '../../../types';
 import type { PersonalWalletCard } from '../../../services/personalWallet.service';
 import { personalWalletService } from '../../../services/personalWallet.service';
@@ -275,21 +274,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
-                  {selected && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const res = await copyCardDataToClipboard(selected);
-                        setNotice(res.message);
-                        setTimeout(() => setNotice(''), 3000);
-                      }}
-                      title="Copiar dados completos do cartão para a área de transferência"
-                      className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:text-cyan-300 hover:border-cyan-600 transition"
-                    >
-                      <Copy size={11} />
-                      Copiar dados
-                    </button>
-                  )}
                 </div>
                 {selected && <select aria-label="Ciclo da fatura" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
                   className="mt-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200">

@@ -5,11 +5,11 @@ export const WalletPageFrame: React.FC<{
   title: string; description: string; error?: string; loading?: boolean;
   onRefresh?: () => void; actions?: React.ReactNode; children: React.ReactNode;
 }> = ({ title, description, error, loading, onRefresh, actions, children }) => (
-  <section className="mx-auto w-full max-w-[1500px] space-y-5 px-4 pb-24 sm:px-6 lg:pb-10">
+  <section className="mx-auto w-full max-w-[1500px] space-y-4 px-4 pb-24 sm:space-y-5 sm:px-6 lg:pb-10">
     <header className="flex items-start justify-between gap-3">
       <div>
         <h2 className="text-lg font-black text-white">{title}</h2>
-        <p className="mt-1 text-xs text-slate-400">{description}</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-slate-400 sm:mt-1 sm:text-xs">{description}</p>
       </div>
       <div className="flex items-center gap-2">
         {actions}

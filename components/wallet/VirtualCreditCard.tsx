@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Copy, Check, RotateCw, Wifi } from 'lucide-react';
 import { PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
 import { resolveBankLogo } from '../../utils/bankLogoRegistry';
 
 export interface VirtualCreditCardProps {
@@ -133,11 +134,17 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
   const effectiveBrand = card.brand || theme.brand;
   const formattedNumber = rawNumber;
 
-  const handleCopy = (text: string, type: string, e: React.MouseEvent) => {
+  const handleCopy = async (type: 'number' | 'holder' | 'expiry', e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text.replace(/\s+/g, ''));
-    setCopied(type);
-    setTimeout(() => setCopied(null), 2000);
+    const result = type === 'number'
+      ? await copyCardLastFourToClipboard(card.last_four)
+      : type === 'holder'
+        ? await copyCardFieldToClipboard('Titular', card.cardholder_name || '')
+        : await copyCardFieldToClipboard('Validade', effectiveExp === '—' ? '' : effectiveExp);
+    if (result.success) {
+      setCopied(type);
+      window.setTimeout(() => setCopied(null), 2000);
+    }
   };
 
   return (
@@ -225,9 +232,11 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(e) => handleCopy(rawNumber, 'number', e)}
+                      onClick={(e) => { void handleCopy('number', e); }}
                       className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                      title="Copiar número do cartão"
+                      disabled={!card.last_four}
+                      aria-label="Copiar apenas os quatro últimos dígitos do cartão"
+                      title="Copiar final do cartão"
                     >
                       {copied === 'number' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
                     </button>
@@ -237,23 +246,23 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
 
               {/* Linha inferior: Nome do Titular e Validade */}
               <div className="flex items-end justify-between mt-2 pt-1 border-t border-white/10">
-                <div className="min-w-0 pr-2">
+                <button type="button" disabled={!card.cardholder_name} aria-label="Copiar titular do cartão" onClick={e => { void handleCopy('holder', e); }} className="min-w-0 pr-2 text-left disabled:opacity-75">
                   <span className="block text-[8px] uppercase tracking-wider text-white/50 font-semibold">
-                    Titular do Cartão
+                    Titular · copiar
                   </span>
-                  <p className="font-mono text-xs sm:text-sm font-bold tracking-wider uppercase text-white truncate drop-shadow">
+                  <span className="block font-mono text-xs sm:text-sm font-bold tracking-wider uppercase text-white truncate drop-shadow">
                     {effectiveHolder}
-                  </p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="block text-[8px] uppercase tracking-wider text-white/50 font-semibold">
-                    Validade
                   </span>
-                  <p className="font-mono text-xs sm:text-sm font-bold tracking-wider text-white drop-shadow">
+                </button>
+
+                <button type="button" disabled={effectiveExp === '—'} aria-label="Copiar validade do cartão" onClick={e => { void handleCopy('expiry', e); }} className="text-right shrink-0 disabled:opacity-75">
+                  <span className="block text-[8px] uppercase tracking-wider text-white/50 font-semibold">
+                    Validade · copiar
+                  </span>
+                  <span className="block font-mono text-xs sm:text-sm font-bold tracking-wider text-white drop-shadow">
                     {effectiveExp}
-                  </p>
-                </div>
+                  </span>
+                </button>
               </div>
             </div>
           </div>

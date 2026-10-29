@@ -13,9 +13,17 @@ export function isLedgerReversal(entry: LedgerEntry): boolean {
 }
 
 export function isLedgerAudit(entry: LedgerEntry): boolean {
+  const type = String(entry.type || '').toUpperCase();
+  const information = new Set([
+    'RENEGOTIATION_CREATED', 'RENEGOTIATION_BROKEN',
+    'NORMAL_UNIFICATION_CREATED', 'AGREEMENT_SCHEDULE_UPDATED',
+    'AGREEMENT_SCHEDULE_REBUILT', 'AGREEMENT_SCHEDULE_RECONCILED',
+    'CAPITAL_ONLY_RECOVERY_ENABLED', 'CAPITAL_ONLY_RECOVERY_DISABLED',
+    'PARTIAL_RENEWAL', 'RECONCILIATION'
+  ]);
   return entry.category === 'AUDIT' || entry.category === 'SISTEMA'
-    || entry.type === 'SYSTEM' || entry.type === 'ADJUSTMENT'
-    || String(entry.notes || '').trimStart().startsWith('{');
+    || type === 'SYSTEM' || type === 'ADJUSTMENT'
+    || information.has(type) || String(entry.notes || '').trimStart().startsWith('{');
 }
 
 export function canReverseLedgerEntry(entry: LedgerEntry, reversedIds: Set<string>, reversedKeys: Set<string>): boolean {

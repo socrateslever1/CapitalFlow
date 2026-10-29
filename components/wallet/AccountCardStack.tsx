@@ -3,64 +3,82 @@ import { ArrowUpRight, Wallet } from 'lucide-react';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { BankLogo } from './BankLogo';
-import { walletAccountTypeLabel } from './walletPresentation';
+import { getBankVisual, walletAccountTypeLabel } from './walletPresentation';
 
-type Props = { accounts: PersonalWalletAccount[]; onOpen: (account: PersonalWalletAccount) => void; compact?: boolean };
+type Props = {
+  accounts: PersonalWalletAccount[];
+  onOpen: (account: PersonalWalletAccount) => void;
+  compact?: boolean;
+  headerActions?: React.ReactNode;
+};
 
 /** Uma superfície consistente por instituição, sem simular cartões de crédito. */
-export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = false }) => {
+export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = false, headerActions }) => {
   const total = useMemo(() => accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0), [accounts]);
-
-  if (!accounts.length) return (
-    <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-400">
-      Nenhuma conta cadastrada.
-    </div>
-  );
 
   return (
     <section aria-label="Contas e saldos" className="space-y-4">
-      {!compact && <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold text-white">Suas contas</h2>
-          <p className="mt-1 text-sm text-slate-400">Selecione uma conta para movimentar ou editar.</p>
+      {!compact && <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className="text-base sm:text-lg font-bold text-white">Suas contas</h2>
+            <span className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-xs font-medium text-slate-300">
+              {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}
+            </span>
+          </div>
+          <p className="mt-1 text-xs sm:text-sm text-slate-300">Toque em uma conta para consultar o extrato, movimentar ou editar.</p>
         </div>
-        <span className="rounded-lg border border-slate-700/70 bg-slate-950/60 px-2.5 py-1 text-[11px] text-slate-300">
-          {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}
-        </span>
+        {headerActions && <div className="flex flex-wrap items-center gap-2">{headerActions}</div>}
       </header>}
-      <div className="divide-y divide-slate-800">
-        {accounts.map(account => {
-          const isCash = account.account_type === 'CASH';
-          return (
-            <button key={account.id} type="button" onClick={() => onOpen(account)}
-              className="group flex min-h-24 w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-3 text-left transition-colors hover:bg-slate-800/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-              <span className="flex min-w-0 flex-1 items-center gap-3">
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900">
-                    {isCash ? <Wallet size={21} className="text-amber-300" /> : <BankLogo name={account.bank_name} alternateName={account.nickname} size="sm" />}
+      {!accounts.length ? (
+        <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-300">
+          Nenhuma conta cadastrada.
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-800">
+          {accounts.map(account => {
+            const isCash = account.account_type === 'CASH';
+            const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
+            const balanceValue = Number(account.balance || 0);
+            const bankSubtitle = !isCash && account.bank_name && account.bank_name.trim().toLowerCase() !== account.nickname.trim().toLowerCase()
+              ? `${account.bank_name} · ${walletAccountTypeLabel(account.account_type)}`
+              : walletAccountTypeLabel(account.account_type);
+            return (
+              <button key={account.id} type="button" onClick={() => onOpen(account)}
+                className={`group flex w-full min-w-0 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-800/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${compact ? 'min-h-14' : 'min-h-16'}`}>
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="h-8 w-1 shrink-0 rounded-full"
+                    style={{ backgroundColor: isCash ? '#f59e0b' : visual.accent }}
+                  />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950">
+                    {isCash ? <Wallet size={20} className="text-amber-300" /> : <BankLogo name={account.bank_name} alternateName={account.nickname} size="sm" />}
                   </span>
-                  <span className="min-w-0">
-                    <strong className="block truncate text-sm font-bold text-white">{account.nickname}</strong>
-                    <span className="mt-1 block truncate text-xs text-slate-400">
-                      {walletAccountTypeLabel(account.account_type)}
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm sm:text-base font-semibold text-white">{account.nickname}</strong>
+                    <span className="mt-0.5 block truncate text-xs sm:text-sm text-slate-300">
+                      {bankSubtitle}
                     </span>
                   </span>
                 </span>
-              </span>
-              <span className="ml-auto flex min-w-0 items-center gap-3 text-right">
-                <span className="min-w-0">
-                  <span className="mb-1 block text-xs text-slate-400">Saldo disponível</span>
-                  <strong className={`block break-words text-base font-semibold tabular-nums ${Number(account.balance)<0 ? 'text-rose-300' : 'text-white'}`}>{formatMoney(Number(account.balance || 0))}</strong>
+                <span className="ml-auto flex shrink-0 items-center gap-2.5 text-right">
+                  <span>
+                    <span className="block text-xs text-slate-300">Saldo disponível</span>
+                    <strong className={`mt-0.5 block text-base sm:text-lg font-bold tabular-nums ${balanceValue < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                      {formatMoney(balanceValue)}
+                    </strong>
+                  </span>
+                  <ArrowUpRight size={17} className="shrink-0 text-slate-400 transition-colors group-hover:text-blue-300" />
                 </span>
-                <ArrowUpRight size={17} className="hidden shrink-0 text-slate-500 group-hover:text-blue-300 sm:block" />
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {!compact && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-3 pt-4">
-        <span className="text-xs font-semibold text-slate-300">Saldo consolidado</span>
-        <strong className="text-lg font-extrabold tabular-nums text-emerald-300">{formatMoney(total)}</strong>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {!compact && accounts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-3 pt-4">
+        <span className="text-sm font-semibold text-slate-200">Saldo consolidado</span>
+        <strong className={`text-right text-lg sm:text-xl font-extrabold tabular-nums ${total < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>{formatMoney(total)}</strong>
       </div>}
     </section>
   );

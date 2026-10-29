@@ -230,65 +230,76 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
-        <p className="mt-1 text-sm text-slate-400">Resumo consolidado das suas finanças</p>
+        <p className="mt-1 text-sm text-slate-300">Resumo consolidado de contas, cartões e compromissos do mês</p>
       </div>
       <button type="button" onClick={() => setQuickModal({ mode: 'EXPENSE', accountId: accounts[0]?.id || null })}
-        className="ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/><span className="hidden sm:inline">Lançar despesa</span><span className="sm:hidden">Despesa</span></button>
+        className="ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/><span className="hidden sm:inline">Lançar despesa</span><span className="sm:hidden">Despesa</span></button>
       <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-        <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/>
+        disabled={refreshing} className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+        <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-300'}/>
         <span className="hidden sm:inline">Atualizar</span>
       </button>
     </div>
-    {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
+    {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>}
 
     <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
     <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-200">
-            <Scale size={17} className="text-violet-300"/> Balanço do mês
+          <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white">
+            <Scale size={18} className="text-blue-400"/> Balanço do mês ({today.slice(5, 7)}/{today.slice(0, 4)})
           </h3>
-          <p className="mt-1 text-xs text-slate-400">{today.slice(5, 7)}/{today.slice(0, 4)}</p>
+          <p className="mt-1 text-xs sm:text-sm text-slate-300">
+            Resultado calculado por: (Saldo em contas + Receitas fixas a receber) − (Faturas do mês + Dívidas do mês)
+          </p>
         </div>
-        <span className={'rounded-full border px-3 py-1 text-xs font-semibold ' +
+        <span className={'rounded-full border px-3.5 py-1 text-xs sm:text-sm font-bold ' +
           (deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
             'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>
-          {deficit ? 'Déficit' : 'Superávit'}
+          {deficit ? 'Déficit no mês' : 'Superávit no mês'}
         </span>
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-12">
+
+      {/* Resumo Direto: Entradas / Saídas / Resultado */}
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+          <dt className="text-xs sm:text-sm font-semibold text-slate-300">Entradas e recursos (A)</dt>
+          <dd className="mt-1 text-right text-xl sm:text-2xl font-extrabold tabular-nums text-emerald-300">{money(balance.totalResources)}</dd>
+        </div>
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+          <dt className="text-xs sm:text-sm font-semibold text-slate-300">Saídas do mês (B)</dt>
+          <dd className="mt-1 text-right text-xl sm:text-2xl font-extrabold tabular-nums text-rose-300">{money(balance.totalLiabilities)}</dd>
+        </div>
+        <div className={`rounded-xl border p-4 ${deficit ? 'border-rose-500/30 bg-rose-950/20' : 'border-emerald-500/30 bg-emerald-950/20'}`}>
+          <dt className="text-xs sm:text-sm font-semibold text-slate-200">Saldo projetado do mês (A − B)</dt>
+          <dd className={'mt-1 text-right text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ' + (deficit ? 'text-rose-300' : 'text-emerald-300')}>
+            {money(balance.projectedBalance)}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-5 grid gap-5 border-t border-slate-800 pt-5 lg:grid-cols-12">
         {/* Card de Recursos */}
-        <div className="min-w-0 py-2 lg:col-span-6 lg:pr-5">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-emerald-400"><TrendingUp size={16} className="text-emerald-400"/> Recursos</h3>
+        <div className="min-w-0 lg:col-span-6 lg:pr-5">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-300"><TrendingUp size={16} className="text-emerald-400"/> Composição dos recursos (Entradas)</h4>
           <div className="space-y-3 text-sm tabular-nums">
-            <div className="flex justify-between gap-3 text-slate-300"><span>Saldo em contas</span><strong className="text-white font-semibold">{money(balance.accountBalance)}</strong></div>
-            <div className="flex justify-between gap-3 text-slate-300"><span>Receitas a receber</span><strong className="text-white font-semibold">{money(balance.pendingRecurringIncome)}</strong></div>
-            <div className="flex justify-between gap-3 border-t border-emerald-500/20 pt-3 font-bold text-emerald-300"><span>Total de recursos</span><strong className="text-emerald-300 font-bold">{money(balance.totalResources)}</strong></div>
+            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Saldo disponível em contas</span><strong className="text-right font-semibold text-white">{money(balance.accountBalance)}</strong></div>
+            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Receitas fixas a receber neste mês</span><strong className="text-right font-semibold text-white">{money(balance.pendingRecurringIncome)}</strong></div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-3 font-bold text-emerald-300"><span>Total de recursos</span><strong className="text-right font-bold text-emerald-300">{money(balance.totalResources)}</strong></div>
           </div>
         </div>
         {/* Card de Passivos */}
-        <div className="min-w-0 border-t border-slate-800 py-4 lg:col-span-6 lg:border-l lg:border-t-0 lg:py-2 lg:pl-5">
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-rose-400"><TrendingDown size={16} className="text-rose-400"/> Passivos</h3>
+        <div className="min-w-0 border-t border-slate-800 pt-4 lg:col-span-6 lg:border-l lg:border-t-0 lg:pt-0 lg:pl-5">
+          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-rose-300"><TrendingDown size={16} className="text-rose-400"/> Composição das saídas (Passivos)</h4>
           <div className="space-y-3 text-sm tabular-nums">
-            <div className="flex justify-between gap-3 text-slate-300"><span>Faturas de cartão do mês</span><strong className="text-white font-semibold">{money(balance.openCardInvoices)}</strong></div>
-            <div className="flex justify-between gap-3 text-slate-300"><span>Dívidas e contas a pagar do mês</span><strong className="text-white font-semibold">{money(balance.monthPayables)}</strong></div>
-            <div className="flex justify-between gap-3 border-t border-rose-500/20 pt-3 font-bold text-rose-300"><span>Total de passivos</span><strong className="text-rose-300 font-bold">{money(balance.totalLiabilities)}</strong></div>
+            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Faturas de cartão com vencimento no mês</span><strong className="text-right font-semibold text-white">{money(balance.openCardInvoices)}</strong></div>
+            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Dívidas e contas a pagar no mês</span><strong className="text-right font-semibold text-white">{money(balance.monthPayables)}</strong></div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-3 font-bold text-rose-300"><span>Total de passivos</span><strong className="text-right font-bold text-rose-300">{money(balance.totalLiabilities)}</strong></div>
           </div>
         </div>
-      </div>
-      {/* Faixa de Saldo Projetado */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-slate-800 pt-5">
-        <div>
-          <p className="text-xs font-bold text-slate-300">Saldo projetado do mês</p>
-          <p className="text-xs text-slate-400 mt-0.5">Total de recursos menos total de passivos</p>
-        </div>
-        <strong className={'text-2xl lg:text-3xl font-extrabold tracking-tight tabular-nums ' + (deficit ? 'text-rose-400' : 'text-emerald-400')}>
-          {money(balance.projectedBalance)}
-        </strong>
       </div>
     </article>
 
@@ -296,48 +307,48 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-base font-bold text-white"><CalendarClock size={18} className="text-amber-300"/> Compromissos próximos</h2>
-          <p className="mt-1 text-xs text-slate-400">Vencidos e próximos 45 dias</p>
+          <h2 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white"><CalendarClock size={18} className="text-blue-400"/> Compromissos próximos</h2>
+          <p className="mt-1 text-xs sm:text-sm text-slate-300">Obrigações vencidas e com vencimento nos próximos 45 dias</p>
         </div>
-        <button type="button" onClick={() => go('dividas')} className="flex items-center gap-1.5 text-xs font-semibold text-blue-300 hover:text-blue-200 transition-colors">
-          <span>Ver contas a pagar</span> <ArrowRight size={15}/>
+        <button type="button" onClick={() => go('dividas')} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200">
+          <span>Ver contas a pagar</span> <ArrowRight size={16}/>
         </button>
       </div>
-      <div className="mt-5">
+      <div className="mt-4 divide-y divide-slate-800">
         {upcoming.length ? upcoming.map(item => {
           const overdue = item.dueDate < today;
           return (
             <div
               key={item.id}
-              className="bg-slate-950/40 hover:bg-slate-800/40 border border-white/5 hover:border-white/10 rounded-xl p-3.5 mb-2.5 transition-all flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2.5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
             >
               {/* Lado Esquerdo */}
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950 text-slate-200">
                   <BankLogo name={item.institution} alternateName={item.title} size="sm" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-400">{item.institution} · {item.accountLabel}</p>
+                  <p className="truncate text-sm sm:text-base font-semibold text-white">{item.title}</p>
+                  <p className="mt-0.5 truncate text-xs sm:text-sm text-slate-300">{item.institution} · {item.accountLabel}</p>
                 </div>
               </div>
 
               {/* Centro & Lado Direito */}
-              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${
+              <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0">
+                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                   overdue
-                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                    : 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                    : 'border-slate-700 bg-slate-950 text-slate-200'
                 }`}>
                   {overdue ? 'Vencido · ' : ''}{dateLabel(item.dueDate)}
                 </span>
-                <strong className="text-base lg:text-lg font-bold text-white tracking-tight tabular-nums">
+                <strong className="text-right text-base sm:text-lg font-bold text-white tracking-tight tabular-nums">
                   {money(item.amount)}
                 </strong>
               </div>
             </div>
           );
-        }) : <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-400">
+        }) : <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-300">
           Nenhum compromisso com vencimento informado nos próximos 45 dias.
         </p>}
       </div>
@@ -387,4 +398,3 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
 export const OverviewPage = WalletOverviewPage;
 export default WalletOverviewPage;
-

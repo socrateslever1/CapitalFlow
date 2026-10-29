@@ -24,18 +24,19 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
  const projected=active.reduce((sum,x)=>sum+Number(x.amount),0);
  const received=active.filter(x=>receivedIds.has(x.id)).reduce((sum,x)=>sum+Number(x.amount),0);
  return <section className="space-y-5">
-  <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-base font-semibold text-white"><Repeat size={18} className="text-slate-400"/>Receitas fixas</h2><p className="mt-1 text-sm text-slate-400">Projeção mensal, sem lançamento automático.</p></div><button type="button" onClick={()=>setOpen(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/>Nova receita</button></header>
+  <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-base font-semibold text-white"><Repeat size={18} className="text-blue-400"/>Receitas fixas</h2><p className="mt-1 text-sm text-slate-300">Projeção mensal, sem lançamento automático.</p></div><button type="button" onClick={()=>setOpen(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/>Nova receita</button></header>
   <WalletMetricStrip items={[
-    {label:'Previsto por mês',value:formatMoney(projected)},
+    {label:'Previsto/mês',value:formatMoney(projected)},
     {label:'Confirmado neste mês',value:formatMoney(received),tone:'positive'},
     {label:'A receber neste mês',value:formatMoney(projected-received)},
   ]}/>
-  {!active.length?<p className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-400">Cadastre salário, aluguel recebido ou outro rendimento recorrente.</p>:<div className="divide-y divide-slate-800">{active.map(x=><div key={x.id} className="flex items-center justify-between gap-2 py-3">
-   <div className="min-w-0"><strong className="block truncate text-sm text-white">{x.description}</strong><p className="text-xs text-slate-400">{x.category} · dia {x.receipt_day} · {accounts.find(a=>a.id===x.destination_account_id)?.nickname||'Conta'}</p><strong className="text-xs text-emerald-300">{formatMoney(x.amount)}</strong></div>
-   <div className="flex shrink-0 items-center gap-1">
+  {!active.length?<p className="rounded-xl border border-dashed border-slate-700 p-4 text-sm text-slate-300">Cadastre salário, aluguel recebido ou outro rendimento recorrente.</p>:<div className="divide-y divide-slate-800">{active.map(x=><div key={x.id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+   <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-semibold text-white">{x.description}</strong><p className="mt-0.5 text-xs sm:text-sm text-slate-300">{x.category} · dia {x.receipt_day} · {accounts.find(a=>a.id===x.destination_account_id)?.nickname||'Conta'}</p></div>
+   <div className="ml-auto flex shrink-0 items-center gap-3">
+    <strong className="text-right text-sm sm:text-base font-bold tabular-nums text-emerald-300">{formatMoney(x.amount)}</strong>
     <button type="button" disabled={busy||receivedIds.has(x.id)} onClick={()=>perform(()=>personalWalletService.postRecurringIncome(x.id,month,generateUUID()))}
-      className="flex items-center gap-1 rounded-lg border border-emerald-700/50 px-2 py-2 text-[11px] font-semibold text-emerald-300 disabled:opacity-50"><CheckCircle2 size={13}/>{receivedIds.has(x.id)?'Recebido':'Receber'}</button>
-    <button type="button" disabled={busy} onClick={()=>perform(()=>personalWalletService.deactivateRecurringIncome(x.id))} aria-label={'Desativar '+x.description} className="rounded-lg p-2 text-slate-400 hover:text-rose-300"><Trash2 size={15}/></button>
+      className="flex min-h-10 items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 disabled:opacity-50"><CheckCircle2 size={14}/>{receivedIds.has(x.id)?'Recebido':'Receber'}</button>
+    <button type="button" disabled={busy} onClick={()=>perform(()=>personalWalletService.deactivateRecurringIncome(x.id))} aria-label={'Desativar '+x.description} className="rounded-lg p-2 text-slate-400 hover:text-rose-300"><Trash2 size={16}/></button>
    </div>
   </div>)}</div>}
   {error&&<p role="alert" className="text-xs text-rose-300">{error}</p>}
@@ -48,7 +49,7 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
      <label className="text-xs text-slate-300">Valor mensal<input required min="0.01" step="0.01" type="number" value={form.amount} onChange={e=>update('amount',e.target.value)} className={field}/></label>
      <label className="text-xs text-slate-300">Dia de recebimento<input required type="number" min="1" max="31" value={form.receipt_day} onChange={e=>update('receipt_day',e.target.value)} className={field}/></label>
      <label className="text-xs text-slate-300">Conta de destino<select required value={form.destination_account_id} onChange={e=>update('destination_account_id',e.target.value)} className={field}><option value="">Selecione</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.nickname}</option>)}</select></label>
-     <p className="flex items-center gap-2 text-xs text-slate-400 sm:col-span-2"><CalendarDays size={15}/> O saldo será creditado somente ao tocar em Receber. O mesmo mês não é lançado duas vezes.</p>
+     <p className="flex items-center gap-2 text-xs text-slate-300 sm:col-span-2"><CalendarDays size={15}/> O saldo será creditado somente ao tocar em Receber. O mesmo mês não é lançado duas vezes.</p>
      {error&&<p className="text-xs text-rose-300 sm:col-span-2">{error}</p>}
     </div>
     <footer className="flex justify-end gap-2 border-t border-slate-800 p-4"><button type="button" onClick={()=>setOpen(false)} className="rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-300">Cancelar</button><button type="submit" disabled={busy} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white"><Save size={15}/>Salvar</button></footer>

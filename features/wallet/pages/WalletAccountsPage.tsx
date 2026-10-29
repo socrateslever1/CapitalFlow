@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeftRight, Plus } from 'lucide-react';
+import { ArrowLeftRight, Plus, QrCode, Wallet } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
@@ -64,50 +64,76 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     finally { setSaving(false); }
   };
 
+  const totalBalance = data?.accounts.reduce((total, account) => total + Number(account.balance || 0), 0) || 0;
+  const hasPixAccount = Boolean(data?.accounts.some(account => account.pix_key?.trim()));
+
   return <WalletPageFrame title="Contas e PIX" description="Consulte os saldos e organize os movimentos de cada instituição."
     error={error || message} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
       statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
-      <div className="mb-3 flex justify-end">
-        <div aria-hidden="true" />
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => startCreate('CASH')}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <Plus size={16}/>Adicionar carteira física
-          </button>
-          <button
-            type="button"
-            onClick={() => startCreate('CHECKING')}
-            className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          >
-            <Plus size={15} />
-            <span>Nova conta</span>
-          </button>
-        </div>
-      </div>
-
+      {/* Composição mobile-first (1: Resumo no topo, 2: Contas em lista, 3: Ações abaixo) e desktop 8/4 equilibrado */}
       <div className="grid items-start gap-5 lg:grid-cols-12">
-        <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 lg:col-span-8">
-          <AccountCardStack accounts={data.accounts} onOpen={account => setSelectedId(account.id)}/>
-        </div>
-        <div className="min-w-0 space-y-3 lg:col-span-4">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-            <p className="text-sm font-medium text-slate-400">Liquidez em contas</p>
-            <strong className="mt-3 block text-3xl font-extrabold tabular-nums tracking-tight text-white">
-              {formatMoney(data.accounts.reduce((total, account) => total + Number(account.balance || 0), 0))}
-            </strong>
-            <p className="mt-2 text-xs text-slate-400">{data.accounts.length} conta(s) registrada(s)</p>
+        {/* 1. Resumo no topo no celular / Lateral superior no desktop */}
+        <aside aria-label="Resumo e movimentações" className="order-1 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:order-2 lg:col-span-4">
+          <p className="text-sm font-semibold text-slate-300">Liquidez em contas</p>
+          <strong className={`mt-2 block text-3xl font-extrabold tabular-nums tracking-tight ${totalBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+            {formatMoney(totalBalance)}
+          </strong>
+          <p className="mt-1.5 text-xs sm:text-sm text-slate-300">
+            {data.accounts.length} {data.accounts.length === 1 ? 'conta registrada' : 'contas registradas'}
+          </p>
+
+          {/* No desktop, as ações ficam integradas ao card lateral de resumo para evitar botões soltos e espaço vazio */}
+          <div className="mt-5 hidden space-y-2.5 border-t border-slate-800 pt-4 lg:block">
+            <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <ArrowLeftRight size={17}/> Transferir / Movimentar
+            </button>
+            <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <QrCode size={16} className="text-blue-300"/> Gerar cobrança PIX
+            </button>
           </div>
-          <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-            <ArrowLeftRight size={18}/> Transferir / Movimentar
-          </button>
-          <button type="button" onClick={() => setChargeOpen(true)} disabled={!data.accounts.some(account => account.pix_key?.trim())}
-            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-            Gerar cobrança PIX
-          </button>
+        </aside>
+
+        {/* 2. Lista de contas (maior largura no desktop lg:col-span-8, meio no celular) com "Nova conta" junto ao título */}
+        <div className="order-2 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 lg:order-1 lg:col-span-8 lg:row-span-2">
+          <AccountCardStack
+            accounts={data.accounts}
+            onOpen={account => setSelectedId(account.id)}
+            headerActions={
+              <>
+                <button type="button" onClick={() => startCreate('CASH')}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                  <Wallet size={15} className="text-amber-300"/>Adicionar carteira física
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startCreate('CHECKING')}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                >
+                  <Plus size={16} />
+                  <span>Nova conta</span>
+                </button>
+              </>
+            }
+          />
+        </div>
+
+        {/* 3. Ações abaixo da lista no celular + Integração com Capital na coluna lateral */}
+        <div className="order-3 min-w-0 space-y-4 lg:order-3 lg:col-span-4">
+          <div className="grid gap-2.5 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:hidden">
+            <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <ArrowLeftRight size={18}/> Transferir / Movimentar
+            </button>
+            <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <QrCode size={17} className="text-blue-300"/> Gerar cobrança PIX
+            </button>
+          </div>
           <WalletCapitalLinks accounts={data.accounts} sources={data.capitalSources}/>
         </div>
       </div>

@@ -38,27 +38,26 @@ test('the native app does not start the SaaS service worker or development cache
   assert(!config.server?.url, 'production native code must be bundled, not remotely loaded via a development URL');
 });
 
-test('main workflow publishes a persistent download URL only after APK verification', () => {
-  const publish = yaml.indexOf('      - name: Publish stable test APK to GitHub Releases');
-  const verify = yaml.indexOf('      - name: Validate APK structure');
-  const artifact = yaml.indexOf('      - name: Publish verified APK and checksum');
-  assert(publish > artifact && artifact > verify, 'release must follow signed APK verification');
-  const section = yaml.slice(publish);
-  assert(section.includes("github.event_name == 'push'"), 'never publish from pull requests');
-  assert(section.includes("github.ref == 'refs/heads/main'"), 'publish only on main');
-  assert(section.includes('GH_TOKEN:'), 'use workflow-scoped GitHub token');
-  assert(section.includes('gh release upload'), 'upload installable APK as release asset');
-  assert(section.includes('CapitalFlow-Android.apk'), 'publish a stable APK filename');
-  assert(section.includes('sha256sum CapitalFlow-Android.apk'), 'provide the checksum of the renamed file');
-  assert(section.includes('android-preview'), 'keep a stable tag instead of a disposable action artifact');
-  assert(yaml.includes('contents: write'), 'publishing release requires write permission');
+test('public Android APK only comes from a permanent release signature', () => {
+  assert(!yaml.includes('Publish stable test APK to GitHub Releases'),
+    'a new debug signing key must never overwrite the public installer');
+  assert(yaml.includes('Publish update-compatible APK with immutable signing identity'));
+  assert(yaml.includes('gh release upload "$tag"'), 'publish permanently signed APK');
+  assert(yaml.includes('for tag in android-signed-beta android-preview'),
+    'existing link must be preserved after signing setup');
+  assert(yaml.includes('new_cert" != "$prior_cert"'),
+    'reject incompatible signatures from new release');
+  assert(yaml.includes('new_code <= prior_code'),
+    'reject Android version downgrades or unchanged versionCode');
+  assert(yaml.includes('com.socrateslever.capitalflow'), 'validate Android package identity');
+  assert(yaml.includes('contents: write'), 'publishing requires GitHub write permissions');
 });
- 
+
 test('Android production APK uses a permanent signing secret, monotonic code and release build', () => {
   const start = yaml.indexOf('      - name: Check permanent Android signing credentials');
   const build = yaml.indexOf('      - name: Compile Android release package');
   const sign = yaml.indexOf('      - name: Sign and verify Android release APK');
-  const publish = yaml.indexOf('      - name: Publish signed Android release at a stable GitHub URL');
+  const publish = yaml.indexOf('      - name: Publish update-compatible APK with immutable signing identity');
   assert(start > 0 && build > start && sign > build && publish > sign);
   const release = yaml.slice(start);
   for(const secret of ['ANDROID_RELEASE_KEYSTORE_BASE64', 'ANDROID_RELEASE_STORE_PASSWORD', 'ANDROID_RELEASE_KEY_ALIAS', 'ANDROID_RELEASE_KEY_PASSWORD'])
@@ -88,4 +87,16 @@ test('mobile APK CI watches actual auth, wallet and responsive style sources', (
     assert(prConfig.includes("'" + path + "'"), 'PR APK must rebuild on ' + path);
     assert(pushConfig.includes("'" + path + "'"), 'main APK must rebuild on ' + path);
   }
+});
+
+test('signing key is provisioned on the owner computer, not stored in source control', () => {
+  const setup = readFileSync('scripts/setup-android-release-signing.sh', 'utf8');
+  assert(setup.includes('keytool -genkeypair'), 'setup creates owner-controlled keystore');
+  assert(setup.includes('gh secret set ANDROID_RELEASE_KEYSTORE_BASE64'));
+  assert(setup.includes('gh secret set ANDROID_RELEASE_STORE_PASSWORD'));
+  assert(setup.includes('gh secret set ANDROID_RELEASE_KEY_ALIAS'));
+  assert(setup.includes('gh secret set ANDROID_RELEASE_KEY_PASSWORD'));
+  assert(setup.includes('gh workflow run android-apk.yml'), 'setup triggers signed build');
+  assert(setup.includes('if [[ ! -f "$keyfile" ]]'), 'must reuse existing signing key');
+  assert(!setup.includes('echo "$CF_SIGN_PASSWORD"'), 'never log password');
 });

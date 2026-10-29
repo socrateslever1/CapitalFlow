@@ -263,7 +263,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                       onChange={event => setWalletReceiptAccountId(event.target.value)}
                                       disabled={wallet.loading || isProcessing}
                                       className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white focus:border-emerald-500">
-                                      <option value="">Sem conta selecionada (capital avulso)</option>
+                                      <option value="">Usar a conta vinculada à origem, se houver</option>
                                       {wallet.accounts.map(account => (
                                         <option key={account.id} value={account.id}>
                                           {account.nickname} · {account.bank_name || 'Dinheiro em espécie'} · {formatMoney(Number(account.balance || 0))}

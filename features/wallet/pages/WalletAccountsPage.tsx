@@ -63,7 +63,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     finally { setSaving(false); }
   };
 
-  return <WalletPageFrame title="Contas e PIX" description="Seus saldos, contas e movimentações reais."
+  return <WalletPageFrame title="Contas e PIX" description="Consulte os saldos e organize os movimentos de cada instituição."
     error={error || message} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
@@ -83,17 +83,17 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 lg:col-span-6">
+      <div className="grid items-start gap-5 lg:grid-cols-12">
+        <div className="min-w-0 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-4 sm:p-5 lg:col-span-8">
           <AccountCardStack accounts={data.accounts} onOpen={account => setSelectedId(account.id)}/>
         </div>
-        <div className="min-w-0 space-y-4 lg:col-span-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <div className="min-w-0 space-y-3 lg:col-span-4">
+          <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-900 to-slate-950 p-5">
             <p className="text-xs font-semibold text-slate-400">Liquidez em contas</p>
-            <strong className="mt-2 block text-2xl font-black text-emerald-300">
+            <strong className="mt-3 block text-3xl font-extrabold tabular-nums tracking-tight text-white">
               {formatMoney(data.accounts.reduce((total, account) => total + Number(account.balance || 0), 0))}
             </strong>
-            <p className="mt-2 text-xs text-slate-500">{data.accounts.length} conta(s) registrada(s)</p>
+            <p className="mt-2 text-xs text-slate-400">{data.accounts.length} conta(s) registrada(s)</p>
           </div>
           <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40">

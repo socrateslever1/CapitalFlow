@@ -34,6 +34,7 @@ export const paymentsService = {
     partialAction?: FinancialOperationType;
     paymentMethod?: FinancialPaymentMethod;
     expectedPreview?: FinancialOperationResult | null;
+    walletReceiptAccountId?: string | null;
     paymentType?: string;
     avAmount?: string;
   }) {
@@ -144,6 +145,7 @@ export const paymentsService = {
       caixaLivreId: safeUUID(caixaLivreId),
       reason: operationType === 'SETTLE' ? 'Quitação por valor negociado confirmada pelo operador.' : null,
       expectedPreview: params.expectedPreview,
+      walletReceiptAccountId: params.walletReceiptAccountId,
     });
 
     const afterTotal = Number((result.after as any)?.total || 0);

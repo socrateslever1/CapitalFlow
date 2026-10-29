@@ -240,10 +240,10 @@ export const useLoanController = (
   };
 
   const openConfirmation = (config: any) => {
-    ui.setRefundChecked(true);
+    // No implicit movement of cash when archiving or deleting a contract.\n    ui.setRefundChecked(false);
 
     // Exibe estorno por padrão em DELETE/ARCHIVE
-    const shouldShowRefund = config.type === 'DELETE' || config.type === 'ARCHIVE';
+    const shouldShowRefund = config.type === 'DELETE';
 
     ui.setConfirmation({
       ...config,

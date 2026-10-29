@@ -19,6 +19,7 @@ import {
 import { usePaymentManagerState, ForgivenessMode, InterestHandling } from '../../components/modals/payment/hooks/usePaymentManagerState';
 import { formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../utils/dateHelpers';
 import { isInstallmentOpen, isPaidStatus } from '../../utils/loanStatus';
+import { getLedgerDisplayEvents } from '../../utils/ledgerPresentation';
 
 interface UseContractDetailsStateProps {
     loanId: string;
@@ -170,10 +171,11 @@ export const useContractDetailsState = ({ loanId, loans, onPayment, onAgreementP
     const groupedLedger: Record<string, LedgerEntry[]> = useMemo(() => {
         if (!loan || !loan.ledger) return {};
         const groups: Record<string, LedgerEntry[]> = {};
-        const sorted = [...loan.ledger].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // Consistent with the card: group only payments with the same persisted key.
+        // Preserve accounting date literally (UTC midnight must not become the previous day).
+        const sorted = getLedgerDisplayEvents(loan.ledger);
         sorted.forEach(entry => {
-            const date = new Date(entry.date);
-            const dateKey = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+            const dateKey = formatBRDate(entry.date);
             if (!groups[dateKey]) groups[dateKey] = [];
             groups[dateKey].push(entry);
         });

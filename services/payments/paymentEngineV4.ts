@@ -33,6 +33,7 @@ export type FinancialOperationInput = {
   caixaLivreId?: string | null;
   reason?: string | null;
   expectedPreview?: FinancialOperationResult | null;
+  walletReceiptAccountId?: string | null;
 };
 
 export type FinancialOperationResult = {
@@ -102,6 +103,7 @@ function requestSignature(input: FinancialOperationInput) {
     input.forgivenessMode || 'NONE',
     normalizeMoney(input.requestedLateFeeForgiven).toFixed(2),
     input.manualDueDate || '',
+    input.walletReceiptAccountId || '',
   ].join(':');
 }
 
@@ -206,6 +208,18 @@ export async function executeFinancialOperation(
 
   const { idempotencyKey, storageKey } = getStableFinancialRequestKey(signature);
   const request = (async () => {
+    // A reserva do destino precede a operação. Não movimenta dinheiro;
+    // o gatilho financeiro credita a conta uma única vez no commit do V4.
+    if (input.walletReceiptAccountId) {
+      const { error: destinationError } = await supabase.rpc('personal_wallet_set_receipt_destination', {
+        p_idempotency_key: idempotencyKey,
+        p_loan_id: safeUUID(input.loanId),
+        p_account_id: safeUUID(input.walletReceiptAccountId),
+      });
+      if (destinationError) throw new Error(
+        'Não foi possível confirmar a conta de destino: ' + destinationError.message
+      );
+    }
     const { data, error } = await supabase.rpc(isRecurringReceiptOperation(input.operationType) ? 'process_recurring_receipt_v4' : 'process_financial_operation_v4', {
       p_idempotency_key: idempotencyKey,
       ...(isRecurringReceiptOperation(input.operationType) ? recurringReceiptArgs(input) : rpcArgs(input)),

@@ -8,6 +8,7 @@ const read = (path: string) => readFileSync(path, 'utf8');
 test('hardware back prioritizes modal, nav hub, nested route, tab and final exit', () => {
   const base = { hasModal: false, hubOpen: false, pathname: '/', activeTab: 'DASHBOARD' };
   assert.equal(resolveBackTarget(base), 'exit-dialog');
+  assert.equal(resolveBackTarget({ ...base, canGoBackTab: true }), 'tab', 'home must go back through earlier tabs');
   assert.equal(resolveBackTarget({ ...base, activeTab: 'CLIENTS' }), 'tab');
   assert.equal(resolveBackTarget({ ...base, pathname: '/carteira/cartoes' }), 'route');
   assert.equal(resolveBackTarget({ ...base, hubOpen: true, activeTab: 'CLIENTS' }), 'hub');
@@ -85,4 +86,15 @@ test('Android 15+ system back is intercepted in native activity before default e
   assert.match(patch, /"false"/);
   assert.match(workflow, /python3 scripts\/android\/apply-native-shell\.py/);
   assert.match(workflow, /getOnBackPressedDispatcher/);
+});
+
+test('back from dashboard preserves earlier pages until tab history is exhausted', () => {
+  const stack = read('hooks/useNavigationStack.ts');
+  const app = read('App.tsx');
+  const hook = read('hooks/useExitGuard.ts');
+  assert.match(stack, /const canGoBackPage = stack\.length > 1/);
+  assert.match(stack, /if \(stack\.length <= 1\) return/);
+  assert.doesNotMatch(stack, /if \(activeTab === 'DASHBOARD'\) return/);
+  assert.match(app, /canGoBackTab: canGoBackPage/);
+  assert.match(hook, /canGoBackTab: options\.canGoBackTab/);
 });

@@ -495,62 +495,81 @@ const LoginView = ({
   handleDemoMode,
   handleGoogleLogin
 }: any) => (
-  <div className="space-y-6">
-    <div className="space-y-4 animate-in fade-in">
-      <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700 flex items-center gap-2 focus-within:border-blue-500 transition-colors">
-        <div className="p-3 bg-slate-800 rounded-lg">
-          <User className="text-slate-400 w-5 h-5" />
+  <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-3 animate-in fade-in">
+      <div className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 px-3 transition-colors focus-within:border-blue-500">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800">
+          <User className="h-5 w-5 text-slate-400" />
         </div>
         <input
           type="email"
-          className="bg-transparent w-full text-white outline-none text-sm font-bold"
+          aria-label="Seu e-mail"
+          autoComplete="email"
+          inputMode="email"
+          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-400"
           placeholder="Seu E-mail"
           value={loginUser || ''}
           onChange={(e) => setLoginUser(e.target.value)}
         />
       </div>
 
-      <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700 flex items-center gap-2 relative focus-within:border-blue-500 transition-colors">
-        <div className="p-3 bg-slate-800 rounded-lg">
-          <KeyRound className="text-slate-400 w-5 h-5" />
+      <div className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 px-3 transition-colors focus-within:border-blue-500">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800">
+          <KeyRound className="h-5 w-5 text-slate-400" />
         </div>
         <input
           type={showPassword ? 'text' : 'password'}
-          className="bg-transparent w-full text-white outline-none text-sm font-bold pr-10"
+          aria-label="Senha"
+          autoComplete="current-password"
+          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-400"
           placeholder="Senha"
           value={loginPassword || ''}
           onChange={(e) => setLoginPassword(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submitLogin()}
         />
-        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 text-slate-500">
+        <button
+          type="button"
+          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+          onClick={() => setShowPassword(!showPassword)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+        >
           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
       </div>
+    </div>
 
+    <div className="space-y-2.5">
       <button
+        type="button"
         onClick={submitLogin}
         disabled={isLoading}
-        className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-black uppercase text-white shadow-lg transition-all hover:bg-blue-500 active:scale-[0.99] disabled:opacity-60"
       >
         {isLoading ? <Loader2 className="animate-spin" /> : 'Entrar'}
       </button>
 
       <button
+        type="button"
         onClick={handleGoogleLogin}
         disabled={isLoading}
-        className="w-full py-4 bg-white hover:bg-slate-100 text-slate-900 rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95"
+        className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 text-xs font-black uppercase text-slate-900 shadow-lg transition-all hover:bg-slate-100 active:scale-[0.99] disabled:opacity-60"
       >
         <GoogleIcon /> Entrar com Google
       </button>
     </div>
 
-    <div className="flex gap-2 pt-2 border-t border-slate-800">
-      <button onClick={() => setIsCreatingProfile(true)} className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase">
+    <div className="grid grid-cols-2 gap-3 border-t border-slate-800 pt-4">
+      <button
+        type="button"
+        onClick={() => setIsCreatingProfile(true)}
+        className="min-h-11 rounded-xl bg-slate-800 px-2 py-2 text-[11px] font-black uppercase text-slate-300 transition-colors hover:bg-slate-700"
+      >
         Criar Conta
       </button>
       <button
+        type="button"
         onClick={() => setIsRecoveringPassword(true)}
-        className="flex-1 py-3 bg-slate-800 text-slate-400 rounded-lg text-[10px] font-black uppercase"
+        className="min-h-11 rounded-xl bg-slate-800 px-2 py-2 text-[11px] font-black uppercase text-slate-300 transition-colors hover:bg-slate-700"
       >
         Esqueci Senha
       </button>
@@ -589,7 +608,7 @@ const LoginView = ({
 
     <button
       onClick={handleDemoMode}
-      className="w-full py-3 border border-dashed border-emerald-600/50 text-emerald-500 hover:bg-emerald-600/10 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all"
+      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-600/50 px-3 text-[11px] font-black uppercase text-emerald-500 transition-all hover:bg-emerald-600/10"
     >
       <Beaker size={14} /> Modo Demonstração
     </button>
@@ -670,17 +689,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-slate-950 flex items-start sm:items-center justify-center p-4 md:p-6 relative overflow-y-auto py-8">
+    <div
+      className="relative flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-slate-950 px-4 py-5 sm:px-6 sm:py-8"
+      style={{ paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+    >
       {/* Toasts are now handled by sonner in App.tsx */}
 
-      <div className="absolute top-6 right-6 z-50">
-        <button onClick={() => setShowHelpModal(true)} className="p-3 bg-slate-800/50 rounded-full text-slate-400 hover:text-white transition-all">
-          <HelpCircle size={24} />
+      <div className="relative flex w-full max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">
+        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-blue-600/5 blur-3xl"></div>
+        <button
+          type="button"
+          aria-label="Abrir ajuda"
+          onClick={() => setShowHelpModal(true)}
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/60 text-slate-400 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 sm:right-4 sm:top-4"
+        >
+          <HelpCircle size={20} />
         </button>
-      </div>
-
-      <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-lg p-8 shadow-2xl relative flex flex-col justify-center animate-in zoom-in-95 duration-300">
-        <div className="absolute inset-0 bg-blue-600/5 blur-3xl rounded-full pointer-events-none"></div>
 
         {inviteToken && inviteData ? (
           <InviteActivationView
@@ -694,14 +718,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           />
         ) : (
           <>
-            <div className="relative z-10 text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 mb-4">
-                <TrendingUp className="text-white w-8 h-8" />
+            <div className="relative z-10 mb-6 flex flex-col items-center text-center sm:mb-7">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 sm:h-16 sm:w-16">
+                <TrendingUp className="h-7 w-7 text-white sm:h-8 sm:w-8" />
               </div>
-              <h1 className="text-2xl font-black text-white uppercase tracking-tighter mb-1">
+              <h1 className="mb-1 text-[26px] font-black uppercase leading-tight tracking-tight text-white sm:text-2xl">
                 Capital<span className="text-blue-500">Flow</span>
               </h1>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Acesso Restrito</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Acesso Restrito</p>
             </div>
 
             {!isCreatingProfile && !isRecoveringPassword && (

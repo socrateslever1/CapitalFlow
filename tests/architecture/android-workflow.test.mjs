@@ -141,3 +141,25 @@ test('CI rejects builds missing the Android 15+ system bar native inset policy',
   assert(workflow.includes("grep -q 'WindowInsetsCompat.Type.displayCutout'"));
   assert(workflow.includes("grep -q 'Insets.NONE'"));
 });
+
+test('official CapitalFlow CF icon is packaged into Android installer on every build', () => {
+  const mark = readFileSync('assets/branding/capitalflow-mark.webp');
+  assert(mark.length > 2000, 'the approved CF artwork must be present, not a placeholder');
+  assert.equal(mark.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(mark.toString('ascii', 8, 12), 'WEBP');
+  const script = readFileSync('scripts/android/install_launcher_icon.py', 'utf8');
+  assert(script.includes("'assets/branding/capitalflow-mark.webp'"));
+  for(const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'])
+    assert(script.includes("'" + density + "'"), 'missing launcher density ' + density);
+  for(const icon of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png', 'ic_launcher_monochrome.png'])
+    assert(script.includes(icon), 'missing legacy/adaptive themed icon ' + icon);
+  assert(script.includes('mipmap-anydpi-v26'), 'must publish adaptive icon on Android 8+');
+  assert(script.includes("('icon', '@mipmap/ic_launcher')"), 'installer must use the CF logo');
+  assert(script.includes("('roundIcon', '@mipmap/ic_launcher_round')"), 'round launcher icon');
+  const install = yaml.indexOf('      - name: Install official CapitalFlow icon into Android installer');
+  const assemble = yaml.indexOf('      - name: Assemble Android debug APK');
+  assert(install > 0 && install < assemble, 'regenerated native res must be changed before assembling debug/release');
+  assert(yaml.includes('Pillow==11.3.0'), 'pin reproducible icon generation version');
+  assert(yaml.includes('python" scripts/android/install_launcher_icon.py'));
+  assert(yaml.includes("'assets/branding/**'"), 'icon asset changes must trigger main APK release');
+});

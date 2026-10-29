@@ -20,6 +20,8 @@ on:
       - 'types.ts'
       - '.github/workflows/android-apk.yml'
       - 'android/**'
+      - 'native/android/**'
+      - 'scripts/android/**'
       - 'main.tsx'
       - 'index.html'
       - 'App.tsx'
@@ -48,6 +50,8 @@ on:
       - 'types.ts'
       - '.github/workflows/android-apk.yml'
       - 'android/**'
+      - 'native/android/**'
+      - 'scripts/android/**'
       - 'main.tsx'
       - 'index.html'
       - 'App.tsx'
@@ -114,6 +118,11 @@ jobs:
           node -e "const plugins=require('./android/app/src/main/assets/capacitor.plugins.json'); if(!Array.isArray(plugins)||!plugins.some(p=>p.pkg==='@capacitor/app')) { console.error('Capacitor App plugin not registered on Android'); process.exit(1); }"
           test -s android/app/src/main/assets/public/index.html
           test -s android/app/src/main/assets/public/manifest.json
+      - name: Install native Android navigation and system-bar policy
+        run: |
+          python3 scripts/android/apply-native-shell.py
+          grep -q 'android:enableOnBackInvokedCallback="false"' android/app/src/main/AndroidManifest.xml
+          grep -q 'getOnBackPressedDispatcher()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
       - name: Assemble Android debug APK
         working-directory: android
         run: bash gradlew assembleDebug --no-daemon

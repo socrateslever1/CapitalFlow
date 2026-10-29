@@ -26,7 +26,7 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
  return <section className="space-y-5">
   <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-base font-semibold text-white"><Repeat size={18} className="text-slate-400"/>Receitas fixas</h2><p className="mt-1 text-sm text-slate-400">Projeção mensal, sem lançamento automático.</p></div><button type="button" onClick={()=>setOpen(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/>Nova receita</button></header>
   <WalletMetricStrip items={[
-    {label:'Previsto por mês',value:formatMoney(projected)},
+    {label:'Previsto/mês',value:formatMoney(projected)},
     {label:'Confirmado neste mês',value:formatMoney(received),tone:'positive'},
     {label:'A receber neste mês',value:formatMoney(projected-received)},
   ]}/>

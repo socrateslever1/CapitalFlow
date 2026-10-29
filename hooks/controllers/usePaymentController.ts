@@ -47,7 +47,8 @@ export const usePaymentController = (
     contextOverride?: { loan: Loan, inst: any, calculations: any },
     lateFeeForgiven?: number,
     paymentMethod?: FinancialPaymentMethod,
-    expectedPreview?: FinancialOperationResult
+    expectedPreview?: FinancialOperationResult,
+    walletReceiptAccountId?: string | null
   ) => {
     const maybeContext = paymentTypeOverride as any;
     const inferredContext =
@@ -104,6 +105,7 @@ export const usePaymentController = (
         partialAction: interestHandling,
         paymentMethod,
         expectedPreview,
+        walletReceiptAccountId,
       });
 
       showToast('Pagamento realizado com sucesso!', 'success');

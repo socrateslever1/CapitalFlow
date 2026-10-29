@@ -46,3 +46,26 @@ test('accounts emphasize institution balances without misrepresenting credit', (
  assert.match(stack,/account\.id/);
  assert.doesNotMatch(stack,/Limite disponível/);
 });
+
+test('card clipboard copies each field separately without exposing a synthetic full number or CVC', () => {
+ const stack=read('components/wallet/BankStack.tsx');
+ const invoice=read('features/wallet/pages/WalletCardsPage.tsx');
+ assert.match(stack,/copyCardLastFourToClipboard/);
+ assert.match(stack,/copyCardFieldToClipboard\('Titular'/);
+ assert.match(stack,/copyCardFieldToClipboard\('Validade'/);
+ assert.match(stack,/aria-label="Copiar titular do cartão"/);
+ assert.match(stack,/aria-label="Copiar validade do cartão"/);
+ assert.doesNotMatch(stack,/copyCardDataToClipboard|Copiar dados do cartão/);
+ assert.doesNotMatch(invoice,/copyCardDataToClipboard|Copiar dados completos do cartão/);
+ const form=read('components/wallet/CardEditModal.tsx');
+ assert.match(form,/Somente os 4 últimos dígitos são armazenados/);
+ assert.match(form,/O CVC não é armazenado/);
+});
+
+test('wallet mobile navigation renders all five tabs without horizontal scrolling', () => {
+ const module=read('features/wallet/WalletModule.tsx');
+ assert.match(module,/grid-cols-5/);
+ assert.match(module,/sm:hidden/);
+ assert.doesNotMatch(module,/overflow-x-auto/);
+ assert.match(module,/Minha carteira/);
+});

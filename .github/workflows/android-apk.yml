@@ -148,3 +148,120 @@ jobs:
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
             --title "CapitalFlow Android — teste" --prerelease \
             --notes-file /tmp/capitalflow-release-notes.md
+
+      # Release signing MUST use the same owner-managed keystore for every version.
+      # GitHub-hosted runners generate a different debug certificate each time.
+      - name: Check permanent Android signing credentials
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        id: signing
+        shell: bash
+        env:
+          CF_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          CF_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          CF_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          CF_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$CF_KEYSTORE_B64" && -n "$CF_STORE_PASSWORD" && -n "$CF_KEY_ALIAS" && -n "$CF_KEY_PASSWORD" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            echo '::warning::Assinatura de producao nao configurada. Defina os 4 segredos ANDROID_RELEASE_*. Nenhum APK sera publicado como assinado.'
+          fi
+
+      - name: Set monotonic versionCode for Android release
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          path = pathlib.Path('android/app/build.gradle')
+          source = path.read_text(encoding='utf-8')
+          version_code = 100000 + int(os.environ['GITHUB_RUN_NUMBER'])
+          updated, count = re.subn(r'(?m)^(\s*)versionCode\s+\d+\s*$', lambda m: f'{m.group(1)}versionCode {version_code}', source)
+          if count != 1:
+              raise SystemExit('Expected exactly one Android versionCode in generated Gradle')
+          updated, count = re.subn(r'(?m)^(\s*)versionName\s+"[^"]*"\s*$', lambda m: f'{m.group(1)}versionName "1.0.{os.environ["GITHUB_RUN_NUMBER"]}"', updated)
+          if count != 1:
+              raise SystemExit('Expected exactly one Android versionName in generated Gradle')
+          path.write_text(updated, encoding='utf-8')
+          print(f'Android release versionCode = {version_code}')
+          PY
+
+      - name: Compile Android release package
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        working-directory: android
+        run: bash gradlew assembleRelease --no-daemon
+
+      - name: Sign and verify Android release APK with permanent certificate
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        shell: bash
+        env:
+          CF_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          CF_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          CF_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          CF_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          store="$RUNNER_TEMP/capitalflow-release.jks"
+          aligned="$RUNNER_TEMP/CapitalFlow-Android-aligned.apk"
+          unsigned="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          mkdir -p "$RUNNER_TEMP/capitalflow-signed"
+          signed="$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk"
+          trap 'rm -f "$store" "$aligned"' EXIT
+          printf '%s' "$CF_KEYSTORE_B64" | base64 --decode > "$store"
+          test -s "$unsigned"
+          keytool -list -keystore "$store" -storepass:env CF_STORE_PASSWORD -alias "$CF_KEY_ALIAS" >/dev/null
+
+          zipalign="$(find "${ANDROID_HOME:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$zipalign" && test -x "$apksigner"
+          "$zipalign" -p -f 4 "$unsigned" "$aligned"
+          "$apksigner" sign --ks "$store" --ks-key-alias "$CF_KEY_ALIAS" \
+            --ks-pass env:CF_STORE_PASSWORD --key-pass env:CF_KEY_PASSWORD \
+            --out "$signed" "$aligned"
+          "$apksigner" verify --verbose --print-certs "$signed"
+          if "$apksigner" verify --print-certs "$signed" | grep -qi 'CN=Android Debug'; then
+            echo '::error::Debug certificate cannot be used for production releases.'
+            exit 1
+          fi
+          "$zipalign" -c 4 "$signed"
+          unzip -t -q "$signed" >/dev/null
+          (
+            cd "$RUNNER_TEMP/capitalflow-signed"
+            sha256sum CapitalFlow-Android.apk > CapitalFlow-Android.apk.sha256
+          )
+          echo 'APK signed with the owner-managed keystore and verified by apksigner.'
+
+      - name: Publish signed Android release at a stable GitHub URL
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="android-signed-beta"
+          cat > "$RUNNER_TEMP/android-signed-notes.md" <<EOF
+          CapitalFlow Android — beta assinado com certificado permanente.
+
+          Origem: commit ${GITHUB_SHA}
+          Compilacao: ${GITHUB_RUN_NUMBER}
+
+          O APK possui assinatura criptografica de publicacao e verificacao SHA-256.
+          A assinatura nao significa aprovacao pela Play Store, Samsung ou Play Protect.
+          Aplicativos anteriores com assinatura DEBUG diferente nao podem ser
+          atualizados por cima. Faca backup antes de qualquer desinstalacao.
+          EOF
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "CapitalFlow Android — beta assinado" --prerelease \
+              --notes-file "$RUNNER_TEMP/android-signed-notes.md"
+          fi
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+            "$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk" \
+            "$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk.sha256"
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+            --title "CapitalFlow Android — beta assinado" --prerelease \
+            --notes-file "$RUNNER_TEMP/android-signed-notes.md"

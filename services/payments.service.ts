@@ -108,6 +108,16 @@ export const paymentsService = {
       if (isPartialOfferPayment && offerType !== 'SETTLEMENT') throw new Error('Renovação por juros exige o valor completo da condição.');
       const offerRpc = isPartialOfferPayment ? 'process_installment_payment_offer_partial'
         : offerType === 'INTEREST_RENEWAL' ? 'process_interest_renewal_payment_offer' : 'process_installment_payment_offer';
+      // Destino explícito: o histórico da oferta credita a Carteira no mesmo
+      // commit da condição especial. A reserva não altera saldos.
+      if (params.walletReceiptAccountId) {
+        const { error: destinationError } = await supabase.rpc('personal_wallet_set_receipt_destination', {
+          p_idempotency_key: idempotencyKey,
+          p_loan_id: loanId,
+          p_account_id: safeUUID(params.walletReceiptAccountId),
+        });
+        if (destinationError) throw new Error('Conta de destino inválida: ' + destinationError.message);
+      }
       const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_amount_paid: amountToPay, p_payment_date: paymentDateStr, p_source_id: sourceId, p_caixa_livre_id: safeUUID(offerCaixaLivreId) });
       if (offerError) throw new Error('Falha ao aplicar a condição especial: ' + offerError.message);
       return { amountToPay, paymentType: isPartialOfferPayment ? 'SPECIAL_OFFER_PARTIAL' : 'SPECIAL_OFFER', amortization: offerResult };

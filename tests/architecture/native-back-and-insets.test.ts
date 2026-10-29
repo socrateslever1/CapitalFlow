@@ -55,6 +55,7 @@ test('safe-area top space is owned by body once in web and APK', () => {
   const header = read('layout/HeaderBar.tsx');
   const shell = read('layout/AppShell.tsx');
   const css = read('index.css');
+  const main = read('main.tsx');
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /padding: env\(safe-area-inset-top\)/);
   assert.doesNotMatch(header, /border-b border-slate-800 pt-safe/);
@@ -62,5 +63,26 @@ test('safe-area top space is owned by body once in web and APK', () => {
   assert.match(css, /\.cf-app-shell\s*\{/);
   assert.match(css, /calc\(100dvh - env\(safe-area-inset-top/);
   assert.match(css, /orientation: landscape/);
+  assert.match(main, /document\.body\.dataset\.capacitorAndroid = 'true'/);
+  assert.match(css, /body\[data-capacitor-android="true"\]/);
+  assert.match(css, /padding: 0/);
+  assert.match(css, /height: 100dvh/);
   assert.match(css, /@media \(max-height: 560px\)/);
+});
+
+test('Android 15+ system back is intercepted in native activity before default exit', () => {
+  const activity = read('native/android/MainActivity.java');
+  const patch = read('scripts/android/apply-native-shell.py');
+  const hook = read('hooks/useExitGuard.ts');
+  const workflow = read('.github/workflows/android-apk.yml');
+  assert.match(activity, /extends BridgeActivity/);
+  assert.match(activity, /getOnBackPressedDispatcher\(\)\.addCallback/);
+  assert.match(activity, /new OnBackPressedCallback\(true\)/);
+  assert.match(activity, /triggerWindowJSEvent\("capitalflow:android-back"\)/);
+  assert.match(hook, /window\.addEventListener\('capitalflow:android-back'/);
+  assert.match(hook, /window\.removeEventListener\('capitalflow:android-back'/);
+  assert.match(patch, /android:enableOnBackInvokedCallback/);
+  assert.match(patch, /"false"/);
+  assert.match(workflow, /python3 scripts\/android\/apply-native-shell\.py/);
+  assert.match(workflow, /getOnBackPressedDispatcher/);
 });

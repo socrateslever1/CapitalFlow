@@ -763,7 +763,7 @@ export const App: React.FC = () => {
                     onArchive={(l) => loanCtrl.openConfirmation({
                         type: 'ARCHIVE',
                         target: l,
-                        showRefundOption: true,
+                        showRefundOption: false,
                         title: 'Arquivar Contrato?',
                         message: 'O contrato sairá da lista ativa, mas poderá ser restaurado depois.'
                     })}

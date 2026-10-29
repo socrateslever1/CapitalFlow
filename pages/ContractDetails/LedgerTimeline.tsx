@@ -9,55 +9,9 @@ import { Clock, FileText, Receipt, RefreshCcw } from 'lucide-react';
 import { Loan, LedgerEntry } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { translateTransactionType } from '../../utils/translationHelpers';
+import { canReverseLedgerEntry, formatLedgerTime, getLedgerReversalIndex, isLedgerAudit, isLedgerReversal } from '../../utils/ledgerPresentation';
 
 
-const mergeSplitReceipts = (entries: LedgerEntry[]): LedgerEntry[] => {
-    const consumed = new Set<string>();
-    return [...(entries || [])].reduce<LedgerEntry[]>((acc, entry, _idx, items) => {
-        if (consumed.has(entry.id)) return acc;
-        const notes = String(entry.notes || '').toLowerCase();
-        const isPrincipalReceipt =
-            String(entry.type || '').includes('PAYMENT') &&
-            Number(entry.amount || 0) > 0 &&
-            Number(entry.principalDelta || 0) > 0 &&
-            notes.includes('retorno de capital');
-
-        if (!isPrincipalReceipt) {
-            acc.push(entry);
-            return acc;
-        }
-
-        const sameDay = String(entry.date || '').slice(0, 10);
-        const profit = items.find((candidate) => {
-            if (candidate.id === entry.id || consumed.has(candidate.id)) return false;
-            const candidateNotes = String(candidate.notes || '').toLowerCase();
-            return (
-                String(candidate.type || '').includes('PAYMENT') &&
-                String(candidate.date || '').slice(0, 10) === sameDay &&
-                Number(candidate.amount || 0) > 0 &&
-                Number(candidate.principalDelta || 0) === 0 &&
-                (Number(candidate.interestDelta || 0) > 0 || Number(candidate.lateFeeDelta || 0) > 0) &&
-                (candidate.category === 'LUCRO' || candidateNotes.includes('lucro recebido'))
-            );
-        });
-
-        if (!profit) {
-            acc.push(entry);
-            return acc;
-        }
-
-        consumed.add(profit.id);
-        acc.push({
-            ...entry,
-            amount: Number(entry.amount || 0) + Number(profit.amount || 0),
-            interestDelta: Number(entry.interestDelta || 0) + Number(profit.interestDelta || 0),
-            lateFeeDelta: Number(entry.lateFeeDelta || 0) + Number(profit.lateFeeDelta || 0),
-            notes: 'Recebimento registrado (capital + lucro).',
-            category: 'RECEBIMENTO',
-        });
-        return acc;
-    }, []);
-};
 interface LedgerTimelineProps {
     loan: Loan;
     groupedLedger: Record<string, LedgerEntry[]>;
@@ -75,6 +29,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
     onReverseTransaction,
     onReverseNormalUnification
 }) => {
+    const reversalIndex = React.useMemo(() => getLedgerReversalIndex(loan.ledger || []), [loan.ledger]);
     const getTransactionIcon = (type: string) => {
         switch (type) {
             case 'PAYMENT':
@@ -133,7 +88,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                 <div className="h-[1px] flex-1 bg-slate-800/30"></div>
                             </div>
                             <div className="space-y-1">
-                                {mergeSplitReceipts(entries).map((entry) => (
+                                {entries.map((entry) => (
                                     <div
                                         key={entry.id}
                                         className="flex items-center justify-between p-2 rounded-lg bg-slate-950/30 border border-transparent hover:border-slate-800 hover:bg-slate-950/50 transition-all group"
@@ -144,34 +99,31 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-black text-white uppercase tracking-tight leading-none mb-1">
-                                                    {translateTransactionType(entry.type)}
+                                                    {isLedgerReversal(entry) ? 'Estorno de recebimento' : entry.type === 'AGREEMENT_PAYMENT' ? 'Recebimento do acordo' : translateTransactionType(entry.type)}
                                                 </span>
                                                 <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1">
                                                     ref: {entry.id.split('-')[0]} •{' '}
-                                                    {new Date(entry.date).toLocaleTimeString('pt-BR', {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
-                                                    })}
+                                                    {formatLedgerTime(entry) || 'data contábil'}
                                                 </span>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-3">
-                                            <div className="text-right">
+                                            {!isLedgerAudit(entry) && <div className="text-right">
                                                 <p
                                                     className={`text-[11px] font-black tabular-nums ${
-                                                        entry.amount >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                                        isLedgerReversal(entry) || entry.amount < 0 ? 'text-rose-400' : 'text-emerald-400'
                                                     }`}
                                                 >
-                                                    {entry.amount >= 0 ? '+' : ''}
-                                                    {formatMoney(entry.amount, isStealthMode)}
+                                                    {isLedgerReversal(entry) ? '− ' : entry.amount >= 0 ? '+ ' : ''}
+                                                    {formatMoney(isLedgerReversal(entry) ? Math.abs(entry.amount) : entry.amount, isStealthMode)}
                                                 </p>
                                                 {entry.type === 'NORMAL_UNIFICATION_CREATED' && entry.meta && (
                                                     <p className="text-[8px] font-bold text-slate-500 uppercase">
                                                         P {formatMoney(Number(entry.meta.principal || 0), isStealthMode)} | J {formatMoney(Number(entry.meta.interest || 0), isStealthMode)} | M {formatMoney(Number(entry.meta.late_fee || 0), isStealthMode)}
                                                     </p>
                                                 )}
-                                            </div>
+                                            </div>}
 
                                             {entry.type?.includes('PAYMENT') && Number(entry.amount || 0) > 0 && onOpenReceipt && (
                                                 <button
@@ -179,25 +131,21 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                                         e.stopPropagation();
                                                         onOpenReceipt(entry, loan);
                                                     }}
-                                                    className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-lg border border-emerald-500/20"
+                                                    className="min-h-8 min-w-8 rounded-md border border-emerald-500/20 bg-emerald-500/10 p-2 text-emerald-400 hover:bg-emerald-500/20" aria-label="Ver comprovante"
                                                     title="Reimprimir Comprovante"
                                                 >
                                                     <Receipt size={12} />
                                                 </button>
                                             )}
 
-                                            {/* Apenas transações reversíveis (não auditoria/sistema/acordo) */}
-                                            {entry.type !== 'ESTORNO' &&
-                                                entry.type !== 'SYSTEM' &&
-                                                entry.category !== 'AUDIT' &&
-                                                entry.type !== 'NORMAL_UNIFICATION_CREATED' &&
-                                                !entry.type?.includes('AGREEMENT') && (
+                                            {/* Reversão somente para operações com identificadores auditáveis. */}
+                                            {canReverseLedgerEntry(entry, reversalIndex.reversedIds, reversalIndex.reversedKeys) && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             onReverseTransaction(entry, loan);
                                                         }}
-                                                        className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-lg border border-rose-500/20"
+                                                        className="min-h-8 min-w-8 rounded-md border border-rose-500/20 bg-rose-500/10 p-2 text-rose-400 hover:bg-rose-500/20" aria-label="Estornar lançamento auditável"
                                                         title="Estornar Transação"
                                                     >
                                                         <RefreshCcw size={12} />

@@ -1,7 +1,7 @@
 // services/ledger/ledgerActions.ts
 import { supabase } from '../../lib/supabase';
 import { Loan, UserProfile, CapitalSource } from '../../types';
-import { getOwnerId, toNumber } from './ledgerHelpers';
+import { getOwnerId } from './ledgerHelpers';
 import { logArchive, logRestore } from './ledgerAudit';
 import { isUUID, safeUUID } from '../../utils/uuid';
 import { markDeletedContract } from '../deletedContracts.service';
@@ -44,25 +44,9 @@ export async function executeLedgerAction(params: {
   const ownerId = getOwnerId(activeUser);
   if (!isUUID(ownerId)) return 'Acao realizada (Demo/Invalido)';
 
-  if (refundChecked && loan && loan.sourceId && type === 'ARCHIVE') {
-    const remainingPrincipal = (loan.installments || []).reduce(
-      (sum: number, i: any) => sum + toNumber(i.principalRemaining),
-      0
-    );
-
-    if (remainingPrincipal > 0) {
-      const source = sources.find((s) => s.id === loan.sourceId);
-      if (source) {
-        const { syncService } = await import('../sync.service');
-        await syncService.enqueueOperation({
-          table: 'fontes',
-          operation: 'UPDATE',
-          data: { id: safeUUID(source.id), balance: toNumber(source.balance) + remainingPrincipal },
-          id: safeUUID(source.id)
-        });
-      }
-    }
-  }
+  // Archiving is a reversible visibility change, never a cash movement.
+  // A previous implementation credited remaining principal to the source on
+  // archive without a corresponding immutable payment event. Do not repeat it.
 
   if (type === 'DELETE') {
     const loanId = safeUUID(targetId);

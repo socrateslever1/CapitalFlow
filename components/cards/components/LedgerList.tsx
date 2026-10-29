@@ -1,12 +1,15 @@
-import { groupPaymentReceipts, getPaymentGroupKey } from '../../../utils/paymentGroups';
-import { formatBRDate } from '../../../utils/dateHelpers';
 import React from 'react';
-import { FileText, Settings, HandCoins, CheckCircle2, Undo2 } from 'lucide-react';
-import { LedgerEntry, Loan } from '../../../types';
+import { FileText, Undo2, AlertTriangle, History, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import type { LedgerEntry, Loan } from '../../../types';
 import { humanizeAuditLog } from '../../../utils/auditHelpers';
 import { formatMoney } from '../../../utils/formatters';
+import { formatBRDate } from '../../../utils/dateHelpers';
 import { translateTransactionType } from '../../../utils/translationHelpers';
-
+import {
+  canReverseLedgerEntry, formatLedgerTime, getLedgerDisplayEvents,
+  getLedgerReversalIndex, isLedgerAudit, isLedgerReversal
+} from '../../../utils/ledgerPresentation';
+import { getPaymentGroupKey } from '../../../utils/paymentGroups';
 
 interface LedgerListProps {
   ledger: LedgerEntry[];
@@ -16,144 +19,112 @@ interface LedgerListProps {
   isStealthMode?: boolean;
 }
 
-const LedgerItem: React.FC<{
-  t: LedgerEntry;
-  loan: Loan;
-  onReverse: (t: LedgerEntry, l: Loan) => void;
-  onOpenReceipt?: (t: LedgerEntry, l: Loan) => void;
-  isStealth: boolean;
-  reversed?: boolean;
-}> = ({ t, loan, onReverse, onOpenReceipt, isStealth, reversed }) => {
-  // Auditoria / edição manual
-  const isAudit = t.category === 'AUDIT' || t.notes?.startsWith('{') || t.type === 'ESTORNO' || t.category === 'SISTEMA';
-  const auditLines = isAudit ? humanizeAuditLog(t.notes || '') : null;
+export const LedgerList: React.FC<LedgerListProps> = ({
+  ledger = [], loan, onReverseTransaction, onOpenReceipt, isStealthMode
+}) => {
+  const entries = React.useMemo(() => getLedgerDisplayEvents(ledger || []), [ledger]);
+  const reversalIndex = React.useMemo(() => getLedgerReversalIndex(ledger || []), [ledger]);
 
-  // ✅ Reversível: pagamentos, empréstimos e novo aporte
-  const isReversible =
-    !isAudit && !reversed &&
-    (String(t.type || '').includes('PAYMENT') ||
-      t.type === 'LEND_MORE' ||
-      t.type === 'NOVO_APORTE');
-
-  const isAgreementPayment = t.type === 'AGREEMENT_PAYMENT';
-  const canReceipt = String(t.type || '').includes('PAYMENT') && Number(t.amount || 0) > 0;
-
-  // Ícone/Cor por tipo
-  const badgeClass =
-    t.type === 'ADJUSTMENT'
-      ? 'bg-indigo-500/10 text-indigo-400'
-      : (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE')
-      ? 'bg-rose-500/10 text-rose-500'
-      : 'bg-emerald-500/10 text-emerald-500';
-
-  const badgeIcon =
-    t.type === 'ADJUSTMENT'
-      ? <Settings size={12} />
-      : (t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE')
-      ? <HandCoins size={12} />
-      : <CheckCircle2 size={12} />;
-
-  // Sinal +/- no valor
-  const isOutflow = t.type === 'LEND_MORE' || t.type === 'NOVO_APORTE' || t.type === 'LOAN_INITIAL';
-
-  const titleText =
-    isAgreementPayment
-      ? 'Recebimento de Acordo'
-      : isAudit
-      ? 'Sistema / Auditoria'
-      : translateTransactionType(t.type);
+  if (entries.length === 0) {
+    return <p className="py-5 text-center text-xs text-slate-500">Nenhuma movimentação registrada.</p>;
+  }
 
   return (
-    <div className="flex flex-col border-b border-slate-800/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0 group">
-      <div className="table-row text-xs">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className={`p-1.5 rounded-lg shrink-0 ${badgeClass}`}>
-            {badgeIcon}
-          </div>
-          <div className="min-w-0">
-            <p className="text-white font-bold truncate">{titleText}</p>
-            <p className="text-[9px] text-slate-500 truncate">
-              {formatBRDate(t.date)}
-              {!/^\d{4}-\d{2}-\d{2}(?:[T ]00:00:00(?:\.0+)?(?:Z|\+00(?::00)?)?)?$/.test(t.date) && ` às ${new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-              {reversed && ' · Estornado'}
-            </p>
-          </div>
-        </div>
+    <div className="max-h-[380px] space-y-1 overflow-y-auto overscroll-contain pr-1 custom-scrollbar" aria-label="Extrato do contrato em ordem cronológica decrescente">
+      {entries.map((entry) => {
+        const reversal = isLedgerReversal(entry);
+        const audit = isLedgerAudit(entry) && !reversal;
+        const reversed = reversalIndex.reversedIds.has(entry.id)
+          || reversalIndex.reversedKeys.has(getPaymentGroupKey(entry));
+        const reversible = canReverseLedgerEntry(entry, reversalIndex.reversedIds, reversalIndex.reversedKeys);
+        const agreement = entry.type === 'AGREEMENT_PAYMENT';
+        const payment = String(entry.type || '').includes('PAYMENT') && !reversal;
+        const canReceipt = payment && Number(entry.amount) > 0 && !!onOpenReceipt;
+        const amount = Number(entry.amount || 0);
+        const outflow = reversal || ['LEND_MORE', 'NOVO_APORTE', 'LOAN_INITIAL'].includes(String(entry.type));
+        const clock = formatLedgerTime(entry);
+        const label = reversal ? 'Estorno de recebimento'
+          : agreement ? 'Recebimento do acordo'
+          : audit ? (entry.type === 'SYSTEM' || entry.type === 'ADJUSTMENT' ? 'Sistema / Auditoria' : translateTransactionType(entry.type))
+          : translateTransactionType(entry.type);
+        const details = audit ? humanizeAuditLog(entry.notes || '') : null;
+        const legacy = payment && amount > 0 && !reversible && !reversed
+          && !(reversalIndex.reversedKeys.has(getPaymentGroupKey(entry)));
 
-        <div className="text-right">
-          {!isAudit && (
-            <span className={`font-black whitespace-nowrap ${isOutflow ? 'text-rose-500' : 'text-emerald-500'}`}>
-              {isOutflow ? '-' : '+'} {formatMoney(t.amount, isStealth)}
-            </span>
-          )}
-        </div>
+        return (
+          <article key={entry.id} className="rounded-md border-b border-slate-800/70 px-1.5 py-3 last:border-b-0">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${reversal ? 'bg-rose-500/10 text-rose-400' : audit ? 'bg-slate-700/50 text-slate-400' : outflow ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                {reversal ? <Undo2 size={14}/> : audit ? <History size={14}/> : outflow ? <ArrowUpRight size={14}/> : <ArrowDownLeft size={14}/>}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <strong className="text-[11px] leading-4 text-slate-100">{label}</strong>
+                  {reversed && <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[9px] text-rose-300">Estornado</span>}
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {formatBRDate(entry.date)}{clock ? ` · ${clock}` : ''} · Ref. {entry.id.slice(0, 8)}
+                </p>
+              </div>
+              {!audit && (
+                <span className={`shrink-0 text-right text-[11px] font-bold tabular-nums ${outflow ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {outflow ? '−' : '+'} {formatMoney(Math.abs(amount), !!isStealthMode)}
+                </span>
+              )}
+            </div>
 
-        <div className="flex justify-end">
-          {canReceipt && onOpenReceipt && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenReceipt(t, loan);
-              }}
-              className="p-1.5 bg-slate-800 text-emerald-400 rounded-lg hover:bg-emerald-600 hover:text-white transition-all mr-1"
-              title="Reimprimir comprovante"
-            >
-              <FileText size={12} />
-            </button>
-          )}
-          {isReversible && !isAgreementPayment && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onReverse(t, loan);
-              }}
-              className="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500 hover:text-white transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-              title="Estornar lançamento"
-            >
-              <Undo2 size={12} />
-            </button>
-          )}
-        </div>
-      </div>
+            {payment && !audit && (
+              <p className="ml-9 mt-1 text-[10px] leading-4 text-slate-500">
+                Capital {formatMoney(Number(entry.principalDelta || 0), !!isStealthMode)}
+                {' · '}Juros {formatMoney(Number(entry.interestDelta || 0), !!isStealthMode)}
+                {' · '}Mora/multa {formatMoney(Number(entry.lateFeeDelta || 0), !!isStealthMode)}
+              </p>
+            )}
 
-      {canReceipt && <p className="mt-2 text-[10px] text-slate-400">
-        Capital {formatMoney(Number(t.principalDelta || 0), isStealth)}
-        {' · '}Juros {formatMoney(Number(t.interestDelta || 0), isStealth)}
-        {' · '}Mora/multa {formatMoney(Number(t.lateFeeDelta || 0), isStealth)}
-      </p>}
+            {details && details.length > 0 && (
+              <div className="ml-9 mt-1 space-y-0.5 border-l border-slate-800 pl-2">
+                {details.map((line, index) =>
+                  <p key={index} className="break-words text-[10px] leading-4 text-slate-400">{line}</p>
+                )}
+              </div>
+            )}
 
-      {auditLines && (
-        <div className="mt-2 ml-7 pl-2 border-l border-slate-800 space-y-1">
-          {auditLines.map((line, idx) => (
-            <p key={idx} className="text-[9px] text-slate-400 leading-tight italic">
-              • {line}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+            {legacy && (
+              <p className="ml-9 mt-1 flex items-center gap-1 text-[10px] text-amber-400/90">
+                <AlertTriangle size={11} className="shrink-0"/>
+                Estorno indisponível: verificar vínculo financeiro do lançamento
+              </p>
+            )}
 
-export const LedgerList: React.FC<LedgerListProps> = ({ ledger = [], loan, onReverseTransaction, onOpenReceipt, isStealthMode }) => {
-  const reversedGroups = new Set(ledger.filter(entry => entry.category === 'ESTORNO').map(entry => String(entry.meta?.reversal_of_idempotency_key || '')).filter(Boolean));
-  return (
-    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-      {ledger && ledger.length > 0 ? (
-        groupPaymentReceipts(ledger).map((t) => (
-          <LedgerItem
-            key={t.id}
-            t={t}
-            reversed={reversedGroups.has(getPaymentGroupKey(t))}
-            loan={loan}
-            onReverse={onReverseTransaction}
-            onOpenReceipt={onOpenReceipt}
-            isStealth={!!isStealthMode}
-          />
-        ))
-      ) : (
-        <p className="text-[10px] text-slate-500 text-center italic py-4">Nenhuma transação registrada.</p>
-      )}
+            {(canReceipt || reversible) && (
+              <div className="ml-9 mt-2 flex flex-wrap justify-end gap-2">
+                {canReceipt && (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); onOpenReceipt?.(entry, loan); }}
+                    className="inline-flex min-h-8 items-center gap-1 rounded-md border border-emerald-500/25 px-2 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-500/10"
+                    aria-label={`Comprovante do lançamento ${entry.id.slice(0, 8)}`}
+                    title="Ver comprovante"
+                  >
+                    <FileText size={12}/> Comprovante
+                  </button>
+                )}
+                {reversible && (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); onReverseTransaction(entry, loan); }}
+                    className="inline-flex min-h-8 items-center gap-1 rounded-md border border-rose-500/35 px-2 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10"
+                    aria-label={`Estornar lançamento ${entry.id.slice(0, 8)}`}
+                    title="Estornar este recebimento pela rotina auditável"
+                  >
+                    <Undo2 size={12}/> Estornar
+                  </button>
+                )}
+              </div>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 };

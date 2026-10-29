@@ -1,8 +1,7 @@
 import React, { useCallback } from 'react';
-import { AlertTriangle, CreditCard, LockKeyhole, Wallet } from 'lucide-react';
+import { AlertTriangle, LockKeyhole, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
-import { PageHeader } from '../../components/ui/PageHeader';
 import { useWalletAccess } from './hooks/useWalletAccess';
 import { useWalletRealtime } from './hooks/useWalletRealtime';
 import { getWalletRoute, WALLET_ROUTES, WalletRouteView } from './routes';
@@ -28,37 +27,34 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <div className="mx-auto mb-3 w-full max-w-[1500px] px-4 sm:px-6">
-      <PageHeader
-        icon={<span className="relative block h-[22px] w-[22px]" aria-hidden="true"><Wallet size={22} strokeWidth={2.2}/><CreditCard size={10} strokeWidth={2.4} className="absolute -bottom-0.5 -right-1 rounded-sm bg-emerald-600"/></span>}
-        iconClassName="border-slate-700 bg-slate-900 text-cyan-300 shadow-black/20"
-        title="Minha Carteira"
-        subtitle="Seus cartões e finanças em um único lugar"
-        actions={
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              {realtimeStatus === 'connected' ? 'Sincronizado' : 'Sincronizando'}
-            </span>
-          </div>
-        }
-      />
-    </div>
+    <header className="mx-auto mb-3 flex w-full max-w-[1500px] min-w-0 items-center gap-3 border-b border-slate-800/70 px-4 pb-3 sm:px-6">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-cyan-300" aria-hidden="true"><Wallet size={20} strokeWidth={2.1}/></span>
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-base font-extrabold text-white sm:text-xl">Minha carteira</h1>
+        <p className="hidden truncate text-xs text-slate-400 sm:block">Contas, cartões e compromissos</p>
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-400 sm:text-xs">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/>
+        {realtimeStatus === 'connected' ? 'Sincronizado' : 'Sincronizando'}
+      </span>
+    </header>
     <div className="mx-auto mb-4 w-full max-w-[1500px] px-4 sm:px-6">
-      <nav aria-label="Navegação da Carteira" className="flex w-full min-w-0 items-center gap-1 overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/60 p-1 backdrop-blur-md scrollbar-hide touch-pan-x">
+      <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-xl border border-white/5 bg-slate-900/60 p-1 sm:flex sm:rounded-2xl">
         {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => (
           <button
             key={item.key}
             type="button"
             aria-current={route === item.key ? 'page' : undefined}
             onClick={() => go(item.key)}
-            className={`shrink-0 rounded-lg px-3 py-2 text-[11px] font-medium transition-all sm:px-4 sm:text-xs md:text-sm ${
+            aria-label={item.label}
+            className={`min-w-0 rounded-lg px-1 py-2.5 text-[10px] font-medium transition-all sm:shrink-0 sm:px-4 sm:text-xs md:text-sm ${
               route === item.key
                 ? 'bg-blue-600 text-white shadow-md font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
-            {item.label}
+            <span className="sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.key === 'contas' ? 'Contas' : item.key === 'dividas' ? 'Dívidas' : item.label}</span>
+            <span className="hidden sm:inline">{item.label}</span>
           </button>
         ))}
       </nav>

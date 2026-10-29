@@ -57,6 +57,11 @@ test('card clipboard copies each field separately without exposing a synthetic f
  assert.match(stack,/aria-label="Copiar validade do cartão"/);
  assert.doesNotMatch(stack,/copyCardDataToClipboard|Copiar dados do cartão/);
  assert.doesNotMatch(invoice,/copyCardDataToClipboard|Copiar dados completos do cartão/);
+ const detail=read('components/wallet/VirtualCreditCard.tsx');
+ assert.match(detail,/copyCardLastFourToClipboard/);
+ assert.match(detail,/aria-label="Copiar titular do cartão"/);
+ assert.match(detail,/aria-label="Copiar validade do cartão"/);
+ assert.doesNotMatch(detail,/navigator\.clipboard\.writeText\(text\.replace/);
  const form=read('components/wallet/CardEditModal.tsx');
  assert.match(form,/Somente os 4 últimos dígitos são armazenados/);
  assert.match(form,/O CVC não é armazenado/);

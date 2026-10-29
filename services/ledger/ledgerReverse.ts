@@ -68,11 +68,39 @@ export async function reverseTransaction(
       throw new Error('Estorno de acordo exige internet para manter a operação atômica.');
     }
     const agreementInstallmentId = tx.installmentId || tx.meta?.agreement_installment_id;
-    const agreementId = tx.meta?.agreement_id;
+    const agreementId = tx.agreementId || tx.meta?.agreement_id;
+    const requestedKey = getPaymentGroupKey(rawTx);
+    const requestedGroup = String(tx.meta?.payment_group_id || '');
     if (!agreementInstallmentId || !isUUID(agreementInstallmentId)) {
       throw new Error('Parcela do acordo não identificada para estorno.');
     }
     if (!agreementId || !isUUID(agreementId)) throw new Error('Acordo não identificado para estorno.');
+    if (!isUUID(requestedGroup) || !isUUID(requestedKey)) {
+      throw new Error('Recebimento antigo sem grupo auditável. Faça conciliação antes do estorno.');
+    }
+
+    // The existing RPC reverses the LATEST active payment group on a given
+    // installment. Never let a click on a historical entry reverse a DIFFERENT
+    // group: preflight its exact key, group and installment under RLS.
+    const { data: latest, error: inspectError } = await supabase
+      .from('acordo_pagamentos')
+      .select('id, payment_group_id, idempotency_key')
+      .eq('acordo_id', agreementId)
+      .eq('parcela_id', agreementInstallmentId)
+      .is('reversed_at', null)
+      .not('payment_group_id', 'is', null)
+      .order('paid_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (inspectError) throw new Error('Não foi possível verificar o recebimento: ' + inspectError.message);
+    if (!latest
+      || String(latest.payment_group_id) !== requestedGroup
+      || getPaymentGroupKey({ idempotencyKey: String(latest.idempotency_key || '') }) !== requestedKey
+    ) {
+      throw new Error('Há outro pagamento posterior nesta parcela ou este lançamento já foi estornado. Confira o extrato e atualize os dados.');
+    }
+
     const { data, error } = await supabase.rpc('reverse_agreement_payment_atomic', {
       p_agreement_id: agreementId,
       p_installment_id: agreementInstallmentId,

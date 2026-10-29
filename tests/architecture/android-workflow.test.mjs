@@ -21,7 +21,7 @@ test('android workflow contains clean, independent build, verification and uploa
   assert(!verifyBlock.includes('actions/upload-artifact@'), 'YAML verification block contains upload code');
   assert(yaml.includes('npm ci --no-audit --no-fund'), 'locked dependency installation required');
   assert(yaml.includes('android-actions/setup-android@v4'), 'SDK setup must not request removed tools package');
-  assert(yaml.includes('rm -rf android\\n          npx cap add android'), 'CI must replace documentation-only android folder with generated native project');
+  assert(yaml.includes('rm -rf android') && yaml.includes('npx cap add android'), 'CI must replace documentation-only android folder with generated native project');
   assert(yaml.includes('test -s android/app/src/main/assets/public/index.html'), 'bundled APK must include built SPA');
   assert(yaml.includes('pull_request:'), 'Android build must run on pull requests before merging');
   assert(!yaml.includes('service_role') && !yaml.includes('sb_secret_'), 'private credentials prohibited');

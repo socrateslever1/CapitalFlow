@@ -30,3 +30,19 @@ test('module access remains admin-controlled',()=>{
  const sql=read('supabase/migrations/20261025201500_wallet_module_entitlements_hardening.sql');
  assert.match(sql,/REVOKE INSERT,UPDATE,DELETE ON public.user_modulos FROM authenticated/);
 });
+
+test('token refresh must not restart the full application bootstrap', () => {
+ const src = read('features/auth/useAuth.ts');
+ const eventCase = src.slice(src.indexOf("if (ev === 'SIGNED_IN' || ev === 'TOKEN_REFRESHED')"));
+ assert.ok(eventCase.includes("ev === 'SIGNED_IN' && session?.user && !readLocalProfileId()"));
+ assert.doesNotMatch(eventCase.slice(0,eventCase.indexOf("window.dispatchEvent(new Event('cm_auth_restored'))")),/if\s*\(session\?\.user\)\s*\{[\s\S]*?boot\(\)/);
+});
+
+test('accounts emphasize institution balances without misrepresenting credit', () => {
+ const stack = read('components/wallet/AccountCardStack.tsx');
+ assert.match(stack,/Saldo disponível/);
+ assert.match(stack,/Saldo consolidado/);
+ assert.match(stack,/BankLogo/);
+ assert.match(stack,/account\.id/);
+ assert.doesNotMatch(stack,/Limite disponível/);
+});

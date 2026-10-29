@@ -373,7 +373,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 onChange={(e) => setCapitalSourceId(e.target.value)}
                 className={inputClass}
               >
-                <option value="">Nenhuma — manter conta independente</option>
+                <option value="">Não vincular a uma fonte de empréstimos</option>
                 {capitalSources.map((source) => (
                   <option key={source.id} value={source.id}>
                     {source.name} · Saldo: {formatMoney(Number(source.balance || 0))}

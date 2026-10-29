@@ -296,7 +296,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             </label>
             <label className={`${labelClass} sm:col-span-2`}>Fonte de capital vinculada (opcional)
               <select className={inputClass} value={form.capital_source_id} onChange={e => update('capital_source_id', e.target.value)}>
-                <option value="">Nenhuma — manter fluxo legado</option>
+                <option value="">Nenhuma conta de origem vinculada</option>
                 {capitalSources.map(source => <option key={source.id} value={source.id}>{source.name} · {formatMoney(Number(source.balance || 0))}</option>)}
               </select>
               <span className="text-[11px] font-normal text-slate-500">Empréstimos e parcelas só afetam esta conta quando a integração estiver autorizada.</span>

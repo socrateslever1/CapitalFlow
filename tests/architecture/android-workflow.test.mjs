@@ -53,3 +53,26 @@ test('main workflow publishes a persistent download URL only after APK verificat
   assert(section.includes('android-preview'), 'keep a stable tag instead of a disposable action artifact');
   assert(yaml.includes('contents: write'), 'publishing release requires write permission');
 });
+ 
+test('Android production APK uses a permanent signing secret, monotonic code and release build', () => {
+  const start = yaml.indexOf('      - name: Check permanent Android signing credentials');
+  const build = yaml.indexOf('      - name: Compile Android release package');
+  const sign = yaml.indexOf('      - name: Sign and verify Android release APK');
+  const publish = yaml.indexOf('      - name: Publish signed Android release at a stable GitHub URL');
+  assert(start > 0 && build > start && sign > build && publish > sign);
+  const release = yaml.slice(start);
+  for(const secret of ['ANDROID_RELEASE_KEYSTORE_BASE64', 'ANDROID_RELEASE_STORE_PASSWORD', 'ANDROID_RELEASE_KEY_ALIAS', 'ANDROID_RELEASE_KEY_PASSWORD'])
+    assert(release.includes('secrets.' + secret), 'Secret must be provided via GitHub Actions, not source code: ' + secret);
+  assert.match(release, /enabled=false/);
+  assert.match(release, /steps.signing.outputs.enabled == 'true'/);
+  assert.match(release, /assembleRelease/);
+  assert.match(release, /versionCode/);
+  assert.match(release, /GITHUB_RUN_NUMBER/);
+  assert.match(release, /zipalign/);
+  assert.match(release, /apksigner/);
+  assert.match(release, /--ks-pass env:CF_STORE_PASSWORD/);
+  assert.match(release, /CN=Android Debug/);
+  assert.match(release, /android-signed-beta/);
+  assert.match(release, /sha256sum CapitalFlow-Android.apk/);
+  assert.doesNotMatch(release, /echo "\$CF_KEYSTORE_B64"|echo "\$CF_STORE_PASSWORD"/);
+});

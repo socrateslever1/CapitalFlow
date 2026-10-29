@@ -135,43 +135,9 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # Public fixed URL: unlike Actions artifacts, this link does not expire after 30 days.
-      # Debug APK is a test build; a permanent release keystore remains a separate task.
-      - name: Publish stable test APK to GitHub Releases
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="android-preview"
-          mkdir -p /tmp/capitalflow-release
-          cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/capitalflow-release/CapitalFlow-Android.apk
-          (
-            cd /tmp/capitalflow-release
-            sha256sum CapitalFlow-Android.apk > CapitalFlow-Android.apk.sha256
-          )
-          cat > /tmp/capitalflow-release-notes.md <<EOF
-          CapitalFlow para Android — versão de teste.
-
-          Compilado a partir do commit: ${GITHUB_SHA}
-
-          Aviso: pacote debug destinado a testes, sem assinatura permanente de distribuição.
-          Se o Android informar "App não instalado", verifique conflitos com uma instalação
-          anterior. Não utilize esta versão para operações financeiras críticas.
-          EOF
-
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "CapitalFlow Android — teste" --prerelease \
-              --notes-file /tmp/capitalflow-release-notes.md
-          fi
-          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
-            /tmp/capitalflow-release/CapitalFlow-Android.apk \
-            /tmp/capitalflow-release/CapitalFlow-Android.apk.sha256
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
-            --title "CapitalFlow Android — teste" --prerelease \
-            --notes-file /tmp/capitalflow-release-notes.md
+      # APKs debug sao exclusivos para diagnostico interno do Actions.
+      # NUNCA publicar no link de download: o certificado temporario muda por runner.
+      # O primeiro APK publico e gerado apenas apos configurar os quatro segredos de assinatura.
 
       # Release signing MUST use the same owner-managed keystore for every version.
       # GitHub-hosted runners generate a different debug certificate each time.
@@ -259,33 +225,89 @@ jobs:
           )
           echo 'APK signed with the owner-managed keystore and verified by apksigner.'
 
-      - name: Publish signed Android release at a stable GitHub URL
+      - name: Publish update-compatible APK with immutable signing identity
         if: ${{ steps.signing.outputs.enabled == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          tag="android-signed-beta"
+          signed="$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk"
+          checksum="$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk.sha256"
+          test -s "$signed" && test -s "$checksum"
+          apksigner="$(find "${ANDROID_HOME:?}/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$apksigner" && test -x "$aapt"
+
+          certificate() {
+            "$apksigner" verify --print-certs "$1" \
+              | awk -F': ' '/Signer #1 certificate SHA-256 digest:/ { print $2; exit }'
+          }
+          version_code() {
+            "$aapt" dump badging "$1" \
+              | sed -nE "s/.*versionCode='([0-9]+)'.*/\\1/p" | head -1
+          }
+          package_name() {
+            "$aapt" dump badging "$1" \
+              | sed -nE "s/^package: name='([^']+)'.*/\\1/p" | head -1
+          }
+          new_cert="$(certificate "$signed")"
+          new_code="$(version_code "$signed")"
+          new_package="$(package_name "$signed")"
+          test -n "$new_cert" && [[ "$new_code" =~ ^[0-9]+$ ]]
+          test "$new_package" = 'com.socrateslever.capitalflow'
+
+          # Preserve the public link already shared with users, but publish only
+          # signed release APKs at that URL. Compare against prior signed releases,
+          # never against old randomly-signed debug previews.
+          reference_tag="android-signed-beta"
+          if gh release view "$reference_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if gh release view "$reference_tag" --repo "$GITHUB_REPOSITORY" \
+                 --json assets -q '.assets[].name' | grep -Fxq 'CapitalFlow-Android.apk'; then
+              mkdir -p "$RUNNER_TEMP/capitalflow-prior-release"
+              gh release download "$reference_tag" --repo "$GITHUB_REPOSITORY" \
+                --pattern 'CapitalFlow-Android.apk' \
+                --dir "$RUNNER_TEMP/capitalflow-prior-release"
+              previous="$RUNNER_TEMP/capitalflow-prior-release/CapitalFlow-Android.apk"
+              prior_cert="$(certificate "$previous")"
+              prior_code="$(version_code "$previous")"
+              prior_package="$(package_name "$previous")"
+              test "$prior_package" = "$new_package"
+              if [[ -z "$prior_cert" || "$new_cert" != "$prior_cert" ]]; then
+                echo '::error::Certificado diferente da release anterior. Publicacao bloqueada para proteger atualizacoes instaladas.'
+                exit 1
+              fi
+              if ! [[ "$prior_code" =~ ^[0-9]+$ ]] || (( new_code <= prior_code )); then
+                echo '::error::versionCode deve ser maior que a versao publicada anteriormente.'
+                exit 1
+              fi
+            fi
+          fi
           cat > "$RUNNER_TEMP/android-signed-notes.md" <<EOF
-          CapitalFlow Android — beta assinado com certificado permanente.
+          CapitalFlow Android — APK assinado com certificado permanente.
 
           Origem: commit ${GITHUB_SHA}
-          Compilacao: ${GITHUB_RUN_NUMBER}
+          versionCode: ${new_code}
+          Pacote: ${new_package}
 
-          O APK possui assinatura criptografica de publicacao e verificacao SHA-256.
-          A assinatura nao significa aprovacao pela Play Store, Samsung ou Play Protect.
-          Aplicativos anteriores com assinatura DEBUG diferente nao podem ser
-          atualizados por cima. Faca backup antes de qualquer desinstalacao.
+          Instale a partir deste link para receber atualizacoes com o mesmo
+          certificado nas proximas versoes. A migracao de qualquer APK DEBUG
+          anterior exige desinstalacao unica apos conferir dados sincronizados
+          e backup local; certificados Android nao sao intercambiaveis.
+          A assinatura nao significa aprovacao pela Play Store ou Samsung.
           EOF
-          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "CapitalFlow Android — beta assinado" --prerelease \
-              --notes-file "$RUNNER_TEMP/android-signed-notes.md"
-          fi
-          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
-            "$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk" \
-            "$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk.sha256"
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
-            --title "CapitalFlow Android — beta assinado" --prerelease \
-            --notes-file "$RUNNER_TEMP/android-signed-notes.md"
+          # android-preview is the original public link; both tags now contain
+          # the exact same signed binary and SHA-256 checksum.
+          for tag in android-signed-beta android-preview; do
+            if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+                --target "$GITHUB_SHA" --title "CapitalFlow Android — beta assinada" \
+                --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"
+            fi
+            gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+              "$signed" "$checksum"
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title "CapitalFlow Android — beta assinada" \
+              --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"
+          done
+          echo "APK atualizado com certificado SHA-256 $new_cert e versionCode $new_code"

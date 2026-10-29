@@ -98,3 +98,25 @@ test('back from dashboard preserves earlier pages until tab history is exhausted
   assert.match(app, /canGoBackTab: canGoBackPage/);
   assert.match(hook, /canGoBackTab: options\.canGoBackTab/);
 });
+
+test('status/navigation bars and cutouts use native dynamic WindowInsets without double CSS padding', () => {
+  const activity = read('native/android/MainActivity.java');
+  const css = read('index.css');
+  const html = read('index.html');
+  assert.match(activity, /WindowCompat\.setDecorFitsSystemWindows\(getWindow\(\), false\)/);
+  assert.match(activity, /findViewById\(android\.R\.id\.content\)/);
+  assert.match(activity, /ViewCompat\.setOnApplyWindowInsetsListener\(content/);
+  assert.match(activity, /WindowInsetsCompat\.Type\.systemBars\(\)/);
+  assert.match(activity, /WindowInsetsCompat\.Type\.displayCutout\(\)/);
+  assert.match(activity, /view\.setPadding\(/);
+  assert.match(activity, /initialTop \+ bars\.top/);
+  assert.match(activity, /initialBottom \+ bars\.bottom/);
+  assert.match(activity, /initialLeft \+ bars\.left/);
+  assert.match(activity, /initialRight \+ bars\.right/);
+  assert.match(activity, /new WindowInsetsCompat\.Builder\(windowInsets\)/);
+  assert.match(activity, /setInsets\(insetTypes, Insets\.NONE\)/);
+  assert.match(activity, /ViewCompat\.requestApplyInsets\(content\)/);
+  assert.doesNotMatch(activity, /WindowInsetsCompat\.CONSUMED/, 'do not swallow IME/keyboard updates');
+  assert.match(css, /body\[data-capacitor-android="true"\]\s*\{\s*padding:\s*0/);
+  assert.match(html, /viewport-fit=cover/);
+});

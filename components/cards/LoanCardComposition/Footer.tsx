@@ -23,6 +23,12 @@ export const Footer: React.FC<FooterProps> = ({
     onNewAporte, onToggleCapitalOnly, onEdit, onRenegotiate, onActivate, onArchive, onRestore, onDelete
 }) => {
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
+    // Permanent deletion can destroy transactions, receipts, agreements and
+    // audit references. Offer recoverable archiving instead when history exists.
+    const hasFinancialHistory = (loan.ledger?.length || 0) > 0
+      || !!loan.activeAgreement || (loan.pastAgreements?.length || 0) > 0
+      || (loan.installments || []).some((i) => Number(i.paidAmount || 0) > 0);
+
 
     const handleCapitalOnlyToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
@@ -100,7 +106,7 @@ export const Footer: React.FC<FooterProps> = ({
                 {!loan.isArchived ? (
                     <button onClick={(e) => { e.stopPropagation(); onArchive(); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-amber-950/20 rounded-lg transition-all flex items-center gap-2" title="Arquivar">
                         <Archive size={14}/>
-                        <span className="section-title">Arquivar</span>
+                        <span className="section-title">Arquivar (recuperável)</span>
                     </button>
                 ) : (
                     <button onClick={(e) => { e.stopPropagation(); onRestore(); }} className="p-2 text-slate-500 hover:text-emerald-500 hover:bg-emerald-950/20 rounded-lg transition-all flex items-center gap-2" title="Restaurar">
@@ -108,10 +114,16 @@ export const Footer: React.FC<FooterProps> = ({
                         <span className="section-title">Restaurar</span>
                     </button>
                 )}
-                <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-950/20 rounded-lg transition-all flex items-center gap-2" title="Excluir">
-                    <Trash2 size={14}/>
-                    <span className="section-title">Excluir</span>
-                </button>
+                {!hasFinancialHistory ? (
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 text-rose-400 hover:bg-rose-950/20 rounded-lg transition-all flex items-center gap-2" title="Excluir contrato sem movimentações">
+                        <Trash2 size={14}/>
+                        <span className="section-title">Excluir contrato sem histórico</span>
+                    </button>
+                ) : (
+                    <span className="max-w-40 self-center text-right text-[9px] leading-3 text-slate-500" title="O histórico financeiro deve ser preservado. Arquive o contrato para poder restaurá-lo.">
+                        Exclusão definitiva bloqueada: contrato com histórico. Use Arquivar.
+                    </span>
+                )}
             </div>
         </div>
     );

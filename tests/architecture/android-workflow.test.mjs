@@ -129,3 +129,15 @@ test('Android CI injects real native Back callback and rebuilds when native sour
   assert(native.includes('triggerWindowJSEvent("capitalflow:android-back")'));
   assert(patch.includes('enableOnBackInvokedCallback'));
 });
+
+test('CI rejects builds missing the Android 15+ system bar native inset policy', () => {
+  const activity = readFileSync('native/android/MainActivity.java', 'utf8');
+  const workflow = yaml;
+  assert(activity.includes('WindowCompat.setDecorFitsSystemWindows(getWindow(), false)'));
+  assert(activity.includes('WindowInsetsCompat.Type.systemBars()'));
+  assert(activity.includes('WindowInsetsCompat.Type.displayCutout()'));
+  assert(activity.includes('setInsets(insetTypes, Insets.NONE)'));
+  assert(workflow.includes("grep -q 'WindowCompat.setDecorFitsSystemWindows'"));
+  assert(workflow.includes("grep -q 'WindowInsetsCompat.Type.displayCutout'"));
+  assert(workflow.includes("grep -q 'Insets.NONE'"));
+});

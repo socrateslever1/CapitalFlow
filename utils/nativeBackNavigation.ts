@@ -6,11 +6,12 @@ export function resolveBackTarget(input: {
   hubOpen: boolean;
   pathname: string;
   activeTab: string;
+  canGoBackTab?: boolean;
 }): BackTarget {
   if (input.hasModal) return 'modal';
   if (input.hubOpen) return 'hub';
   if (input.pathname !== '/') return 'route';
-  if (input.activeTab !== 'DASHBOARD') return 'tab';
+  if (input.activeTab !== 'DASHBOARD' || input.canGoBackTab) return 'tab';
   return 'exit-dialog';
 }
 

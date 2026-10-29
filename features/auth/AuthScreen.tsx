@@ -689,7 +689,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div className="cf-auth-viewport relative flex min-h-[100dvh] w-full items-center justify-center bg-slate-950">
+    <div className="cf-auth-viewport relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-slate-950">
       {/* Toasts are now handled by sonner in App.tsx */}
 
       <div className="cf-auth-panel relative my-auto flex w-full min-w-0 max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">

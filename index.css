@@ -98,10 +98,16 @@
 /* One owner for system insets: body in index.html. Never add pt-safe to the header.
    The app shell must use the content viewport, not overflow the padded body. */
 .cf-app-shell {
+  min-height: 0;
+}
+.cf-app-shell:not(.fixed) {
   height: 100vh;
   height: 100dvh;
   height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-  min-height: 0;
+}
+/* Support chat remains a fullscreen overlay; don't shrink its viewport. */
+.cf-app-shell.fixed {
+  height: 100dvh;
 }
 @media (max-height: 560px) and (orientation: landscape) {
   .cf-app-shell #app-header #header-container {

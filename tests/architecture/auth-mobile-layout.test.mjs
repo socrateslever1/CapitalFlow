@@ -6,7 +6,7 @@ const auth = readFileSync('features/auth/AuthScreen.tsx', 'utf8');
 const login = auth.slice(auth.indexOf('const LoginView ='), auth.indexOf('/**\n * 4. COMPONENTE PRINCIPAL'));
 
 test('mobile login is centered, scrollable and keeps system safe-area padding', () => {
-  assert(auth.includes('cf-auth-viewport relative flex min-h-[100dvh] w-full items-center justify-center'));
+  assert(auth.includes('cf-auth-viewport relative flex min-h-[100dvh] w-full flex-col items-center justify-center'));
   const css = readFileSync('index.css', 'utf8');
   assert(css.includes('100dvh - env(safe-area-inset-top'));
   assert(css.includes('env(safe-area-inset-bottom'));

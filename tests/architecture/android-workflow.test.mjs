@@ -37,3 +37,19 @@ test('the native app does not start the SaaS service worker or development cache
   assert.equal(config.server?.androidScheme, 'https');
   assert(!config.server?.url, 'production native code must be bundled, not remotely loaded via a development URL');
 });
+
+test('main workflow publishes a persistent download URL only after APK verification', () => {
+  const publish = yaml.indexOf('      - name: Publish stable test APK to GitHub Releases');
+  const verify = yaml.indexOf('      - name: Validate APK structure');
+  const artifact = yaml.indexOf('      - name: Publish verified APK and checksum');
+  assert(publish > artifact && artifact > verify, 'release must follow signed APK verification');
+  const section = yaml.slice(publish);
+  assert(section.includes("github.event_name == 'push'"), 'never publish from pull requests');
+  assert(section.includes("github.ref == 'refs/heads/main'"), 'publish only on main');
+  assert(section.includes('GH_TOKEN:'), 'use workflow-scoped GitHub token');
+  assert(section.includes('gh release upload'), 'upload installable APK as release asset');
+  assert(section.includes('CapitalFlow-Android.apk'), 'publish a stable APK filename');
+  assert(section.includes('sha256sum CapitalFlow-Android.apk'), 'provide the checksum of the renamed file');
+  assert(section.includes('android-preview'), 'keep a stable tag instead of a disposable action artifact');
+  assert(yaml.includes('contents: write'), 'publishing release requires write permission');
+});

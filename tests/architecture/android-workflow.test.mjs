@@ -76,3 +76,16 @@ test('Android production APK uses a permanent signing secret, monotonic code and
   assert.match(release, /sha256sum CapitalFlow-Android.apk/);
   assert.doesNotMatch(release, /echo "\$CF_KEYSTORE_B64"|echo "\$CF_STORE_PASSWORD"/);
 });
+
+test('mobile APK CI watches actual auth, wallet and responsive style sources', () => {
+  const filters = ['index.css', 'brand.css', 'features/**', 'containers/**', 'contexts/**', 'hooks/**', 'layout/**', 'services/**', 'utils/**', 'src/**', 'assets/**', 'types.ts'];
+  const dispatch = yaml.indexOf('  pull_request:');
+  const push = yaml.indexOf('  push:');
+  const permissions = yaml.indexOf('\npermissions:');
+  const prConfig = yaml.slice(dispatch, push);
+  const pushConfig = yaml.slice(push, permissions);
+  for (const path of filters) {
+    assert(prConfig.includes("'" + path + "'"), 'PR APK must rebuild on ' + path);
+    assert(pushConfig.includes("'" + path + "'"), 'main APK must rebuild on ' + path);
+  }
+});

@@ -58,6 +58,43 @@
   }
 }
 
+
+/* Login mobile / Android WebView: um layout fluido, sem travar altura ou zoom. */
+/* O body ja aplica safe-area; descontar os insets evita bordas duplicadas. */
+.cf-auth-viewport {
+  min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  padding-block: clamp(12px, 2.5dvh, 32px);
+  padding-inline: clamp(12px, 4vw, 24px);
+  /* Se formulario ou teclado exceder altura visivel, iniciar do topo sem cortá-lo. */
+  justify-content: safe center;
+}
+
+.cf-auth-panel {
+  min-width: 0;
+  margin-block: auto;
+}
+
+@media (max-width: 359px) {
+  .cf-auth-panel { padding: 1rem; }
+  .cf-auth-heading { margin-bottom: 1rem; }
+  .cf-auth-title { font-size: 1.35rem; }
+  .cf-auth-help { top: 0.5rem; right: 0.5rem; }
+}
+
+@media (max-height: 650px) and (orientation: landscape) {
+  .cf-auth-viewport { justify-content: flex-start; padding-block: 12px; }
+  .cf-auth-panel { margin-block: 0; }
+  .cf-auth-heading { margin-bottom: 0.75rem; }
+  .cf-auth-logo { width: 2.75rem; height: 2.75rem; margin-bottom: 0.5rem; }
+  .cf-auth-logo svg { width: 1.5rem; height: 1.5rem; }
+  .cf-auth-form { gap: 0.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-auth-panel { animation: none; }
+}
+
 @utility client-name {
   font-size: 1rem;
   white-space: nowrap;

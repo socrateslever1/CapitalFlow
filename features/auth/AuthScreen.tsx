@@ -495,8 +495,8 @@ const LoginView = ({
   handleDemoMode,
   handleGoogleLogin
 }: any) => (
-  <div className="space-y-5 sm:space-y-6">
-    <div className="space-y-3 animate-in fade-in">
+  <div className="cf-auth-form flex min-w-0 flex-col gap-5 sm:gap-6">
+    <div className="flex flex-col gap-3 animate-in fade-in">
       <div className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 px-3 transition-colors focus-within:border-blue-500">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800">
           <User className="h-5 w-5 text-slate-400" />
@@ -538,7 +538,7 @@ const LoginView = ({
       </div>
     </div>
 
-    <div className="space-y-2.5">
+    <div className="flex flex-col gap-2.5">
       <button
         type="button"
         onClick={submitLogin}
@@ -689,19 +689,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div
-      className="relative flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-slate-950 px-4 py-5 sm:px-6 sm:py-8"
-      style={{ paddingTop: 'max(20px, env(safe-area-inset-top))', paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
-    >
+    <div className="cf-auth-viewport relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-slate-950">
       {/* Toasts are now handled by sonner in App.tsx */}
 
-      <div className="relative flex w-full max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">
+      <div className="cf-auth-panel relative my-auto flex w-full min-w-0 max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">
         <div className="pointer-events-none absolute inset-0 rounded-2xl bg-blue-600/5 blur-3xl"></div>
         <button
           type="button"
           aria-label="Abrir ajuda"
           onClick={() => setShowHelpModal(true)}
-          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/60 text-slate-400 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 sm:right-4 sm:top-4"
+          className="cf-auth-help absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/60 text-slate-400 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 sm:right-4 sm:top-4"
         >
           <HelpCircle size={20} />
         </button>
@@ -718,11 +715,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           />
         ) : (
           <>
-            <div className="relative z-10 mb-6 flex flex-col items-center text-center sm:mb-7">
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 sm:h-16 sm:w-16">
+            <div className="cf-auth-heading relative z-10 mb-6 flex flex-col items-center text-center sm:mb-7">
+              <div className="cf-auth-logo mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 sm:h-16 sm:w-16">
                 <TrendingUp className="h-7 w-7 text-white sm:h-8 sm:w-8" />
               </div>
-              <h1 className="mb-1 text-[26px] font-black uppercase leading-tight tracking-tight text-white sm:text-2xl">
+              <h1 className="cf-auth-title mb-1 text-[26px] font-black uppercase leading-tight tracking-tight text-white sm:text-2xl">
                 Capital<span className="text-blue-500">Flow</span>
               </h1>
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Acesso Restrito</p>

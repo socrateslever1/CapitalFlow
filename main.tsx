@@ -5,6 +5,13 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
 import { AppUpdateBanner } from './components/system/AppUpdateBanner';
+import { Capacitor } from '@capacitor/core';
+
+// Android WebView is positioned below system bars by the native window.
+// CSS safe-area padding on the body would add a second blank top strip.
+if (typeof document !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+  document.body.dataset.capacitorAndroid = 'true';
+}
 
 console.log('CapitalFlow: Booting main.tsx...');
 if (typeof window !== 'undefined') {

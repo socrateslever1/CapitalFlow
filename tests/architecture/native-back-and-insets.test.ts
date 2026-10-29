@@ -8,6 +8,7 @@ const read = (path: string) => readFileSync(path, 'utf8');
 test('hardware back prioritizes modal, nav hub, nested route, tab and final exit', () => {
   const base = { hasModal: false, hubOpen: false, pathname: '/', activeTab: 'DASHBOARD' };
   assert.equal(resolveBackTarget(base), 'exit-dialog');
+  assert.equal(resolveBackTarget({ ...base, canGoBackTab: true }), 'tab', 'home must go back through earlier tabs');
   assert.equal(resolveBackTarget({ ...base, activeTab: 'CLIENTS' }), 'tab');
   assert.equal(resolveBackTarget({ ...base, pathname: '/carteira/cartoes' }), 'route');
   assert.equal(resolveBackTarget({ ...base, hubOpen: true, activeTab: 'CLIENTS' }), 'hub');
@@ -55,6 +56,7 @@ test('safe-area top space is owned by body once in web and APK', () => {
   const header = read('layout/HeaderBar.tsx');
   const shell = read('layout/AppShell.tsx');
   const css = read('index.css');
+  const main = read('main.tsx');
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /padding: env\(safe-area-inset-top\)/);
   assert.doesNotMatch(header, /border-b border-slate-800 pt-safe/);
@@ -62,5 +64,37 @@ test('safe-area top space is owned by body once in web and APK', () => {
   assert.match(css, /\.cf-app-shell\s*\{/);
   assert.match(css, /calc\(100dvh - env\(safe-area-inset-top/);
   assert.match(css, /orientation: landscape/);
+  assert.match(main, /document\.body\.dataset\.capacitorAndroid = 'true'/);
+  assert.match(css, /body\[data-capacitor-android="true"\]/);
+  assert.match(css, /padding: 0/);
+  assert.match(css, /height: 100dvh/);
   assert.match(css, /@media \(max-height: 560px\)/);
+});
+
+test('Android 15+ system back is intercepted in native activity before default exit', () => {
+  const activity = read('native/android/MainActivity.java');
+  const patch = read('scripts/android/apply-native-shell.py');
+  const hook = read('hooks/useExitGuard.ts');
+  const workflow = read('.github/workflows/android-apk.yml');
+  assert.match(activity, /extends BridgeActivity/);
+  assert.match(activity, /getOnBackPressedDispatcher\(\)\.addCallback/);
+  assert.match(activity, /new OnBackPressedCallback\(true\)/);
+  assert.match(activity, /triggerWindowJSEvent\("capitalflow:android-back"\)/);
+  assert.match(hook, /window\.addEventListener\('capitalflow:android-back'/);
+  assert.match(hook, /window\.removeEventListener\('capitalflow:android-back'/);
+  assert.match(patch, /android:enableOnBackInvokedCallback/);
+  assert.match(patch, /"false"/);
+  assert.match(workflow, /python3 scripts\/android\/apply-native-shell\.py/);
+  assert.match(workflow, /getOnBackPressedDispatcher/);
+});
+
+test('back from dashboard preserves earlier pages until tab history is exhausted', () => {
+  const stack = read('hooks/useNavigationStack.ts');
+  const app = read('App.tsx');
+  const hook = read('hooks/useExitGuard.ts');
+  assert.match(stack, /const canGoBackPage = stack\.length > 1/);
+  assert.match(stack, /if \(stack\.length <= 1\) return/);
+  assert.doesNotMatch(stack, /if \(activeTab === 'DASHBOARD'\) return/);
+  assert.match(app, /canGoBackTab: canGoBackPage/);
+  assert.match(hook, /canGoBackTab: options\.canGoBackTab/);
 });

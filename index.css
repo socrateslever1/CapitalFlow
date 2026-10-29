@@ -105,6 +105,19 @@
   height: 100dvh;
   height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
 }
+/* Native Android WebView already accounts for system-bar insets.
+   Avoid counting top and bottom status/navigation bars a second time.
+   SaaS browsers and iOS continue to use normal viewport-fit safe areas. */
+body[data-capacitor-android="true"] {
+  padding: 0;
+}
+body[data-capacitor-android="true"] .cf-app-shell:not(.fixed) {
+  height: 100dvh;
+}
+body[data-capacitor-android="true"] .cf-auth-viewport {
+  min-height: 100dvh;
+}
+
 /* Support chat remains a fullscreen overlay; don't shrink its viewport. */
 .cf-app-shell.fixed {
   height: 100dvh;

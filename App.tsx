@@ -142,7 +142,7 @@ export const App: React.FC = () => {
   }, [setActiveTab, routerNavigate]);
 
   const openNavHub = useCallback(() => ui.setShowNavHub(true), [ui.setShowNavHub]);
-  const { goBack: goBackLegacy, goBackPage, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
+  const { goBack: goBackLegacy, goBackPage, canGoBackPage, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   const goBack = isAppleMobile() || isNativeAndroid ? goBackPage : goBackLegacy;
 
@@ -307,7 +307,7 @@ export const App: React.FC = () => {
 
   const { showExitConfirm, cancelExit, confirmExit } = useExitGuard(
     activeUser, activeTab, handleSetActiveTab, isPublicView, showToast, ui,
-    { pathname: location.pathname, navigate: routerNavigate, goBackTab: goBackPage },
+    { pathname: location.pathname, navigate: routerNavigate, goBackTab: goBackPage, canGoBackTab: canGoBackPage },
   );
 
   // When React Router pops from a Wallet URL to the root, restore the tab

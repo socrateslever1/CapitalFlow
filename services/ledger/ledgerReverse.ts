@@ -68,7 +68,7 @@ export async function reverseTransaction(
       throw new Error('Estorno de acordo exige internet para manter a operação atômica.');
     }
     const agreementInstallmentId = tx.installmentId || tx.meta?.agreement_installment_id;
-    const agreementId = tx.agreementId || tx.meta?.agreement_id;
+    const agreementId = rawTx.agreementId || tx.meta?.agreement_id;
     const requestedKey = getPaymentGroupKey(rawTx);
     const requestedGroup = String(tx.meta?.payment_group_id || '');
     if (!agreementInstallmentId || !isUUID(agreementInstallmentId)) {

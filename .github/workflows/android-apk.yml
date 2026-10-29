@@ -246,8 +246,11 @@ jobs:
           test -x "$apksigner" && test -x "$aapt"
 
           certificate() {
-            "$apksigner" verify --print-certs "$1" \
-              | awk -F': ' '/Signer #1 certificate SHA-256 digest:/ { print $2; exit }'
+            # apksigner (Android SDK) may label the v3 certificate as "V3.0 Signer:"
+            # instead of "Signer #1". Compare the digest itself, not its label.
+            "$apksigner" verify --verbose --print-certs "$1" \
+              | sed -nE 's/^.*certificate SHA-256 digest: ([0-9a-fA-F]{64}).*/\1/p' \
+              | head -n 1 | tr '[:upper:]' '[:lower:]'
           }
           version_code() {
             "$aapt" dump badging "$1" \

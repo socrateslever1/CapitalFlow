@@ -100,3 +100,20 @@ test('signing key is provisioned on the owner computer, not stored in source con
   assert(setup.includes('if [[ ! -f "$keyfile" ]]'), 'must reuse existing signing key');
   assert(!setup.includes('echo "$CF_SIGN_PASSWORD"'), 'never log password');
 });
+
+test('signed APK certificate parser supports Android v3 signer labels', () => {
+  const labels = [
+    'Signer #1 certificate SHA-256 digest: D878990798BA77E325AC3385B571FA24FA589EED358CADA6705AB8AB5363AE5D',
+    'V3.0 Signer: certificate SHA-256 digest: d878990798ba77e325ac3385b571fa24fa589eed358cada6705ab8ab5363ae5d',
+  ];
+  const certificateDigest = line => line.match(/certificate SHA-256 digest: ([0-9a-fA-F]{64})/)?.[1]?.toLowerCase() || '';
+  assert.equal(certificateDigest(labels[0]), certificateDigest(labels[1]));
+  assert.equal(certificateDigest('no certificate'), '');
+  const publication = yaml.slice(yaml.indexOf('      - name: Publish update-compatible APK'));
+  assert(publication.includes('verify --verbose --print-certs'), 'inspect v3 signer when checking stable key');
+  assert(publication.includes('certificate SHA-256 digest:'), 'match the digest independent of signer label');
+  assert(!publication.includes('/Signer #1 certificate SHA-256 digest:/'),
+    'hard-coded signer labels produce false certificate mismatch for v3 APKs');
+  assert(publication.includes('prior_cert'), 'check the previous release');
+  assert(publication.includes('new_cert'), 'check the current release');
+});

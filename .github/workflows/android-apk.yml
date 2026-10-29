@@ -2,6 +2,22 @@ name: CapitalFlow Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'capacitor.config.json'
+      - '.github/workflows/android-apk.yml'
+      - 'android/**'
+      - 'main.tsx'
+      - 'index.html'
+      - 'App.tsx'
+      - 'lib/**'
+      - 'components/**'
+      - 'pages/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
   push:
     branches: [main]
     paths:
@@ -42,7 +58,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Configure Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
       - name: Install locked dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -61,8 +77,13 @@ jobs:
         run: npm run build
       - name: Generate and synchronize native Android project
         run: |
+          # Em CI esta pasta so contem documentacao; o projeto nativo e gerado a cada build.
+          # Nao apagar arquivos locais do desenvolvedor: este comando roda apenas no runner descartavel.
+          rm -rf android
           npx cap add android
           npx cap sync android
+          test -s android/app/src/main/assets/public/index.html
+          test -s android/app/src/main/assets/public/manifest.json
       - name: Assemble Android debug APK
         working-directory: android
         run: bash gradlew assembleDebug --no-daemon

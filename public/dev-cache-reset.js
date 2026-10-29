@@ -4,7 +4,11 @@
     location.hostname === '127.0.0.1' ||
     location.hostname === '0.0.0.0';
 
-  if (!isLocalDev) return;
+  // Aplicativos Android Capacitor tambem usam localhost, mas nao sao o servidor dev.
+  var isNativeCapacitor = !!(window.Capacitor &&
+    typeof window.Capacitor.isNativePlatform === 'function' &&
+    window.Capacitor.isNativePlatform());
+  if (!isLocalDev || isNativeCapacitor) return;
 
   var resetKey = 'capitalflow-dev-cache-reset-v5';
   if (sessionStorage.getItem(resetKey) === 'done') return;

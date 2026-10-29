@@ -95,6 +95,24 @@
   .cf-auth-panel { animation: none; }
 }
 
+/* One owner for system insets: body in index.html. Never add pt-safe to the header.
+   The app shell must use the content viewport, not overflow the padded body. */
+.cf-app-shell {
+  height: 100vh;
+  height: 100dvh;
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 0;
+}
+@media (max-height: 560px) and (orientation: landscape) {
+  .cf-app-shell #app-header #header-container {
+    min-height: 3rem;
+    padding-block: 0.25rem;
+  }
+  .cf-app-shell > main > div {
+    padding-block: 0.5rem;
+  }
+}
+
 @utility client-name {
   font-size: 1rem;
   white-space: nowrap;

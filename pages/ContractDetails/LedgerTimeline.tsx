@@ -9,7 +9,7 @@ import { Clock, FileText, Receipt, RefreshCcw } from 'lucide-react';
 import { Loan, LedgerEntry } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { translateTransactionType } from '../../utils/translationHelpers';
-import { canReverseLedgerEntry, formatLedgerTime, getLedgerReversalIndex, isLedgerReversal } from '../../utils/ledgerPresentation';
+import { canReverseLedgerEntry, formatLedgerTime, getLedgerReversalIndex, isLedgerAudit, isLedgerReversal } from '../../utils/ledgerPresentation';
 
 
 interface LedgerTimelineProps {
@@ -109,7 +109,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                         </div>
 
                                         <div className="flex items-center gap-3">
-                                            <div className="text-right">
+                                            {!isLedgerAudit(entry) && <div className="text-right">
                                                 <p
                                                     className={`text-[11px] font-black tabular-nums ${
                                                         isLedgerReversal(entry) || entry.amount < 0 ? 'text-rose-400' : 'text-emerald-400'
@@ -123,7 +123,7 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                                         P {formatMoney(Number(entry.meta.principal || 0), isStealthMode)} | J {formatMoney(Number(entry.meta.interest || 0), isStealthMode)} | M {formatMoney(Number(entry.meta.late_fee || 0), isStealthMode)}
                                                     </p>
                                                 )}
-                                            </div>
+                                            </div>}
 
                                             {entry.type?.includes('PAYMENT') && Number(entry.amount || 0) > 0 && onOpenReceipt && (
                                                 <button

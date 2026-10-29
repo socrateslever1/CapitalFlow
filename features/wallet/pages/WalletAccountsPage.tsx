@@ -135,7 +135,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Fonte de capital vinculada (opcional)
           <select value={form.capital_source_id} onChange={e => setForm(v => ({ ...v, capital_source_id: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="">Nenhuma — manter fluxo legado</option>
+            <option value="">Nenhuma conta de origem vinculada</option>
             {(data?.capitalSources || []).map(source => <option key={source.id} value={source.id}>{source.name} · {formatMoney(Number(source.balance || 0))}</option>)}
           </select>
           <span className="block text-[11px] text-slate-500">A vinculação ativa o débito de empréstimos e o crédito de parcelas nesta conta, somente quando a integração estiver autorizada.</span>

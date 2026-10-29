@@ -9,6 +9,7 @@ interface BackNavigationOptions {
   pathname: string;
   navigate: NavigateFunction;
   goBackTab: () => void;
+  canGoBackTab: boolean;
 }
 
 export const useExitGuard = (
@@ -59,6 +60,7 @@ export const useExitGuard = (
       hubOpen: !!ui?.showNavHub,
       pathname: options.pathname,
       activeTab,
+      canGoBackTab: options.canGoBackTab,
     });
 
     if (target === 'modal') {

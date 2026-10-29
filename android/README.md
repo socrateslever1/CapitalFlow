@@ -169,3 +169,26 @@ cada `npx cap sync android`, antes das builds. O `body` usa
 o navegador/PWA continua com safe areas CSS. **Nao duplicar** os
 insets no cabecalho, body ou outros wrappers. Validar em aparelho
 fisico com navegacao por gestos e por tres botoes.
+
+## Ícone oficial de instalação e inicialização
+
+O ícone do CapitalFlow usa o monograma **CF** branco e verde-água,
+sem marcas genéricas do Capacitor, sobre fundo azul-marinho. A origem
+revisável é `assets/branding/capitalflow-mark.webp`, derivada da
+arte minimalista oficial selecionada. O recurso não depende de IA em
+tempo de execução.
+
+Como o GitHub Actions recria completamente a pasta `android/`,
+a etapa **Install official CapitalFlow icon into Android installer**
+executa sempre depois de `npx cap sync android` e antes da compilação,
+com `scripts/android/install_launcher_icon.py`. Ela gera os recursos
+`mipmap-mdpi` a `mipmap-xxxhdpi` e ícones redondos, adaptativos,
+monocromáticos (Android 13+) e suas declarações de cores. O manifesto
+nativo aponta para `@mipmap/ic_launcher` e
+`@mipmap/ic_launcher_round`; estes são os recursos vistos na
+caixa de instalação **“Atualizar este app?”** e na tela inicial do
+Android. Sem mudar o `appId`, assinatura, dados ou backend.
+
+Em versões novas, o launcher Android pode manter o ícone anterior em
+cache por algum tempo; o instalador e o sistema utilizam os novos
+recursos do APK assinado.

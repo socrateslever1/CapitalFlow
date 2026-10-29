@@ -23,6 +23,7 @@
     "dist",
     "Backup",
     "CapitalFlowBackup",
+    "capitalflow/CapitalFlow",
     "main/backup",
     "scratch"
   ]

@@ -84,7 +84,12 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
   });
 }
 
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
+// O Capacitor serve o bundle de https://localhost; o SW da versao SaaS nao deve
+// interceptar rotas locais nem disputar o ciclo de atualizacao do APK.
+const isNativeCapacitor = typeof window !== 'undefined' &&
+  Boolean((window as any).Capacitor?.isNativePlatform?.());
+
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD && !isNativeCapacitor) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data?.type === 'PUSH_NAVIGATE' && typeof event.data?.url === 'string') {
       const target = new URL(event.data.url, window.location.origin);

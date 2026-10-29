@@ -1,0 +1,516 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-29T03:34:42.342Z",
+  "title": "Design System: CapitalFlow",
+  "extensions": {
+    "colorMeta": {
+      "capital": {
+        "role": "primary",
+        "displayName": "Azul Capital",
+        "canonical": "#0B3B6F",
+        "tonalRamp": [
+          "oklch(15% 0.0385 254.377)",
+          "oklch(26% 0.0667 254.377)",
+          "oklch(38% 0.0974 254.377)",
+          "oklch(50% 0.1026 254.377)",
+          "oklch(62% 0.1026 254.377)",
+          "oklch(74% 0.1026 254.377)",
+          "oklch(86% 0.0574 254.377)",
+          "oklch(95% 0.0205 254.377)"
+        ],
+        "tonalRampNote": "Rampa sintetizada apenas para a pr?via do painel; n?o ? paleta implementada nem token normativo."
+      },
+      "flow": {
+        "role": "secondary",
+        "displayName": "Verde Flow",
+        "canonical": "#22A06B",
+        "tonalRamp": [
+          "oklch(15% 0.0499 159.564)",
+          "oklch(26% 0.0865 159.564)",
+          "oklch(38% 0.1264 159.564)",
+          "oklch(50% 0.1330 159.564)",
+          "oklch(62% 0.1330 159.564)",
+          "oklch(74% 0.1330 159.564)",
+          "oklch(86% 0.0745 159.564)",
+          "oklch(95% 0.0266 159.564)"
+        ],
+        "tonalRampNote": "Rampa sintetizada apenas para a pr?via do painel; n?o ? paleta implementada nem token normativo."
+      },
+      "flow-soft": {
+        "role": "secondary",
+        "displayName": "Verde Flow suave",
+        "canonical": "#86EFAC",
+        "tonalRamp": [
+          "oklch(15% 0.0511 154.449)",
+          "oklch(26% 0.0886 154.449)",
+          "oklch(38% 0.1295 154.449)",
+          "oklch(50% 0.1363 154.449)",
+          "oklch(62% 0.1363 154.449)",
+          "oklch(74% 0.1363 154.449)",
+          "oklch(86% 0.0763 154.449)",
+          "oklch(95% 0.0273 154.449)"
+        ],
+        "tonalRampNote": "Rampa sintetizada apenas para a pr?via do painel; n?o ? paleta implementada nem token normativo."
+      },
+      "action": {
+        "role": "primary",
+        "displayName": "Azul de a??o",
+        "canonical": "oklch(54.6% 0.245 262.881)",
+        "tonalRamp": [
+          "oklch(28.2% 0.091 267.935)",
+          "oklch(37.9% 0.146 265.522)",
+          "oklch(42.4% 0.199 265.638)",
+          "oklch(48.8% 0.243 264.376)",
+          "oklch(62.3% 0.214 259.815)",
+          "oklch(80.9% 0.105 251.813)",
+          "oklch(93.2% 0.032 255.585)",
+          "oklch(97% 0.014 254.604)"
+        ]
+      },
+      "action-hover": {
+        "role": "primary",
+        "displayName": "action-hover",
+        "canonical": "oklch(48.8% 0.243 264.376)",
+        "tonalRamp": [
+          "oklch(28.2% 0.091 267.935)",
+          "oklch(37.9% 0.146 265.522)",
+          "oklch(42.4% 0.199 265.638)",
+          "oklch(48.8% 0.243 264.376)",
+          "oklch(62.3% 0.214 259.815)",
+          "oklch(80.9% 0.105 251.813)",
+          "oklch(93.2% 0.032 255.585)",
+          "oklch(97% 0.014 254.604)"
+        ]
+      },
+      "action-bright": {
+        "role": "primary",
+        "displayName": "action-bright",
+        "canonical": "oklch(62.3% 0.214 259.815)",
+        "tonalRamp": [
+          "oklch(28.2% 0.091 267.935)",
+          "oklch(37.9% 0.146 265.522)",
+          "oklch(42.4% 0.199 265.638)",
+          "oklch(48.8% 0.243 264.376)",
+          "oklch(62.3% 0.214 259.815)",
+          "oklch(80.9% 0.105 251.813)",
+          "oklch(93.2% 0.032 255.585)",
+          "oklch(97% 0.014 254.604)"
+        ]
+      },
+      "action-focus": {
+        "role": "primary",
+        "displayName": "action-focus",
+        "canonical": "oklch(70.7% 0.165 254.624)",
+        "tonalRamp": [
+          "oklch(28.2% 0.091 267.935)",
+          "oklch(37.9% 0.146 265.522)",
+          "oklch(42.4% 0.199 265.638)",
+          "oklch(48.8% 0.243 264.376)",
+          "oklch(62.3% 0.214 259.815)",
+          "oklch(80.9% 0.105 251.813)",
+          "oklch(93.2% 0.032 255.585)",
+          "oklch(97% 0.014 254.604)"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "success",
+        "canonical": "oklch(69.6% 0.17 162.48)",
+        "tonalRamp": [
+          "oklch(26.2% 0.051 172.552)",
+          "oklch(37.8% 0.077 168.94)",
+          "oklch(43.2% 0.095 166.913)",
+          "oklch(50.8% 0.118 165.612)",
+          "oklch(69.6% 0.17 162.48)",
+          "oklch(84.5% 0.143 164.978)",
+          "oklch(95% 0.052 163.051)",
+          "oklch(97.9% 0.021 166.113)"
+        ]
+      },
+      "success-text": {
+        "role": "tertiary",
+        "displayName": "success-text",
+        "canonical": "oklch(76.5% 0.177 163.223)",
+        "tonalRamp": [
+          "oklch(26.2% 0.051 172.552)",
+          "oklch(37.8% 0.077 168.94)",
+          "oklch(43.2% 0.095 166.913)",
+          "oklch(50.8% 0.118 165.612)",
+          "oklch(69.6% 0.17 162.48)",
+          "oklch(84.5% 0.143 164.978)",
+          "oklch(95% 0.052 163.051)",
+          "oklch(97.9% 0.021 166.113)"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "warning",
+        "canonical": "oklch(76.9% 0.188 70.08)",
+        "tonalRamp": [
+          "oklch(27.9% 0.077 45.635)",
+          "oklch(41.4% 0.112 45.904)",
+          "oklch(47.3% 0.137 46.201)",
+          "oklch(55.5% 0.163 48.998)",
+          "oklch(76.9% 0.188 70.08)",
+          "oklch(87.9% 0.169 91.605)",
+          "oklch(96.2% 0.059 95.617)",
+          "oklch(98.7% 0.022 95.277)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "danger",
+        "canonical": "oklch(64.5% 0.246 16.439)",
+        "tonalRamp": [
+          "oklch(27.1% 0.105 12.094)",
+          "oklch(41% 0.159 10.272)",
+          "oklch(45.5% 0.188 13.697)",
+          "oklch(51.4% 0.222 16.935)",
+          "oklch(64.5% 0.246 16.439)",
+          "oklch(81% 0.117 11.638)",
+          "oklch(94.1% 0.03 12.58)",
+          "oklch(96.9% 0.015 12.422)"
+        ]
+      },
+      "danger-text": {
+        "role": "tertiary",
+        "displayName": "danger-text",
+        "canonical": "oklch(71.2% 0.194 13.428)",
+        "tonalRamp": [
+          "oklch(27.1% 0.105 12.094)",
+          "oklch(41% 0.159 10.272)",
+          "oklch(45.5% 0.188 13.697)",
+          "oklch(51.4% 0.222 16.935)",
+          "oklch(64.5% 0.246 16.439)",
+          "oklch(81% 0.117 11.638)",
+          "oklch(94.1% 0.03 12.58)",
+          "oklch(96.9% 0.015 12.422)"
+        ]
+      },
+      "cyan": {
+        "role": "secondary",
+        "displayName": "cyan",
+        "canonical": "oklch(78.9% 0.154 211.53)",
+        "tonalRamp": [
+          "oklch(30.2% 0.056 229.695)",
+          "oklch(39.8% 0.07 227.392)",
+          "oklch(45% 0.085 224.283)",
+          "oklch(52% 0.105 223.128)",
+          "oklch(71.5% 0.143 215.221)",
+          "oklch(86.5% 0.127 207.078)",
+          "oklch(95.6% 0.045 203.388)",
+          "oklch(98.4% 0.019 200.873)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Ard?sia de fundo",
+        "canonical": "oklch(12.9% 0.042 264.695)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Ard?sia de superf?cie",
+        "canonical": "oklch(20.8% 0.042 265.755)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "surface-raised",
+        "canonical": "oklch(27.9% 0.041 260.031)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "border-strong",
+        "canonical": "oklch(37.2% 0.044 257.287)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "text-muted",
+        "canonical": "oklch(55.4% 0.046 257.417)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "text-secondary",
+        "canonical": "oklch(70.4% 0.04 256.788)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "text-soft": {
+        "role": "neutral",
+        "displayName": "text-soft",
+        "canonical": "oklch(86.9% 0.022 252.894)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "text",
+        "canonical": "oklch(98.4% 0.003 247.858)",
+        "tonalRamp": [
+          "oklch(12.9% 0.042 264.695)",
+          "oklch(20.8% 0.042 265.755)",
+          "oklch(27.9% 0.041 260.031)",
+          "oklch(37.2% 0.044 257.287)",
+          "oklch(55.4% 0.046 257.417)",
+          "oklch(86.9% 0.022 252.894)",
+          "oklch(96.8% 0.007 247.896)",
+          "oklch(98.4% 0.003 247.858)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "white",
+        "canonical": "#fff",
+        "tonalRamp": [
+          "oklch(15% 0.0000 0.000)",
+          "oklch(26% 0.0000 0.000)",
+          "oklch(38% 0.0000 0.000)",
+          "oklch(50% 0.0000 0.000)",
+          "oklch(62% 0.0000 0.000)",
+          "oklch(74% 0.0000 0.000)",
+          "oklch(86% 0.0000 0.000)",
+          "oklch(95% 0.0000 0.000)"
+        ],
+        "tonalRampNote": "Rampa sintetizada apenas para a pr?via do painel; n?o ? paleta implementada nem token normativo."
+      }
+    },
+    "typographyMeta": {
+      "page-title": {
+        "displayName": "T?tulo de p?gina",
+        "purpose": "PageHeader / page-header-title."
+      },
+      "stat-value": {
+        "displayName": "Valor de indicador",
+        "purpose": "StatCard padr?o; variante compacta difere."
+      }
+    },
+    "shadows": [
+      {
+        "name": "large",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "?cones e controles elevados."
+      },
+      {
+        "name": "overlay",
+        "value": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+        "purpose": "Modal compartilhado e login."
+      },
+      {
+        "name": "responsive-card-hover",
+        "value": "-5px 0 20px rgba(59, 130, 246, 0.13), 0 8px 28px rgba(0, 0, 0, 0.35)",
+        "purpose": "index.css; apenas hover:hover e pointer:fine."
+      },
+      {
+        "name": "expanded-client",
+        "value": "0 0 0 1px rgba(96,165,250,0.2),0 20px 45px rgba(2,6,23,0.65)",
+        "purpose": "ClientGroupCard expandido."
+      }
+    ],
+    "motion": [
+      {
+        "name": "transition-duration",
+        "value": "150ms",
+        "purpose": "Padr?o Tailwind; componentes podem sobrescrever."
+      },
+      {
+        "name": "transition-easing",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Padr?o Tailwind."
+      },
+      {
+        "name": "card-hover",
+        "value": "transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.22s ease, border-color 0.2s ease",
+        "purpose": "Cart?o responsivo; deslocamento horizontal de 4px com mouse."
+      },
+      {
+        "name": "card-reveal",
+        "value": "0.42s cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "cf-card-reveal em index.css."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "40rem"
+      },
+      {
+        "name": "md",
+        "value": "48rem"
+      },
+      {
+        "name": "lg",
+        "value": "64rem"
+      },
+      {
+        "name": "xl",
+        "value": "80rem"
+      },
+      {
+        "name": "2xl",
+        "value": "96rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bot?o prim?rio compartilhado",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "components/ui/Button.tsx; hover escurece. Foco ? o nativo do navegador, sem estilo dedicado no componente.",
+      "html": "<button type=\"button\" class=\"ds-btn-primary\">Consultar</button>",
+      "css": ".ds-btn-primary{font-family:Inter, ui-sans-serif, system-ui, sans-serif;font-size:12px;line-height:16px;font-weight:700;text-transform:uppercase;padding:8px 16px;border:0;border-radius:8px;cursor:pointer;transition:color 150ms cubic-bezier(0.4,0,0.2,1),background-color 150ms cubic-bezier(0.4,0,0.2,1);background:oklch(54.6% 0.245 262.881);color:#fff}.ds-btn-primary:hover{background:oklch(48.8% 0.243 264.376)}"
+    },
+    {
+      "name": "Bot?o secund?rio compartilhado",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "components/ui/Button.tsx; ramo n?o prim?rio, sem estilo dedicado de foco ou active.",
+      "html": "<button type=\"button\" class=\"ds-btn-secondary\">Voltar</button>",
+      "css": ".ds-btn-secondary{font-family:Inter, ui-sans-serif, system-ui, sans-serif;font-size:12px;line-height:16px;font-weight:700;text-transform:uppercase;padding:8px 16px;border:0;border-radius:8px;cursor:pointer;transition:color 150ms cubic-bezier(0.4,0,0.2,1),background-color 150ms cubic-bezier(0.4,0,0.2,1);background:oklch(27.9% 0.041 260.031);color:#fff}.ds-btn-secondary:hover{background:oklch(37.2% 0.044 257.287)}"
+    },
+    {
+      "name": "A??o prim?ria de modal",
+      "kind": "button",
+      "refersTo": "modal-primary",
+      "description": "modalPrimaryActionClass em components/ui/Modal.tsx; hover clareia, foco expl?cito, m?nimo de 44px e busy represent?vel por disabled.",
+      "html": "<button type=\"button\" class=\"ds-modal-primary\">Confirmar</button>",
+      "css": ".ds-modal-primary{font-family:Inter, ui-sans-serif, system-ui, sans-serif;font-size:12px;line-height:16px;font-weight:700;text-transform:uppercase;padding:8px 16px;border:0;border-radius:8px;cursor:pointer;transition:color 150ms cubic-bezier(0.4,0,0.2,1),background-color 150ms cubic-bezier(0.4,0,0.2,1);display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:44px;font-weight:900;background:oklch(54.6% 0.245 262.881);color:#fff}.ds-modal-primary:hover{background:oklch(62.3% 0.214 259.815)}.ds-modal-primary:focus-visible{outline:2px solid oklch(70.7% 0.165 254.624);}.ds-modal-primary:disabled{cursor:not-allowed;opacity:.5}"
+    },
+    {
+      "name": "Cart?o b?sico",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "components/ui/Card.tsx; n?o aplica padding, hover ou foco pr?prios.",
+      "html": "<div class=\"ds-card\"><span>Superf?cie do cart?o</span></div>",
+      "css": ".ds-card{font-family:Inter, ui-sans-serif, system-ui, sans-serif;background:oklch(20.8% 0.042 265.755);border:1px solid oklch(27.9% 0.041 260.031);border-radius:8px;color:oklch(98.4% 0.003 247.858)}"
+    },
+    {
+      "name": "Campo de login",
+      "kind": "input",
+      "refersTo": "login-field",
+      "description": "Wrapper e input de LoginView em features/auth/AuthScreen.tsx; ?cone simplificado para amostra. Borda reage a focus-within.",
+      "html": "<label class=\"ds-login-field\"><span class=\"ds-field-icon\">@</span><input class=\"ds-field-input\" type=\"email\" aria-label=\"E-mail\" placeholder=\"Seu E-mail\"/></label>",
+      "css": ".ds-login-field{display:flex;align-items:center;gap:8px;padding:8px;background:oklch(27.9% 0.041 260.031 / 50%);border:1px solid oklch(37.2% 0.044 257.287);border-radius:8px;transition:border-color 150ms cubic-bezier(0.4,0,0.2,1)}.ds-login-field:focus-within{border-color:oklch(62.3% 0.214 259.815)}.ds-field-icon{padding:12px;background:oklch(27.9% 0.041 260.031);color:oklch(70.4% 0.04 256.788);border-radius:8px}.ds-field-input{font-family:Inter, ui-sans-serif, system-ui, sans-serif;width:100%;min-width:0;background:transparent;border:0;outline:none;font-size:14px;font-weight:700;color:#fff}@media(max-width:640px){.ds-field-input{font-size:16px}}"
+    },
+    {
+      "name": "Status do cliente",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Badge de ClientGroupCard.tsx, estado positivo. Conte?do ilustrativo; sem intera??o nem estado de foco.",
+      "html": "<span class=\"ds-status\">Em dia</span>",
+      "css": ".ds-status{display:inline-block;font-family:Inter, ui-sans-serif, system-ui, sans-serif;font-size:7px;font-weight:900;text-transform:uppercase;white-space:nowrap;padding:2px 6px;border-radius:4px;border:1px solid currentColor;background:oklch(12.9% 0.042 264.695 / 50%);color:oklch(69.6% 0.17 162.48);opacity:.8}"
+    },
+    {
+      "name": "Item de navega??o m?vel ativo",
+      "kind": "nav",
+      "refersTo": "mobile-nav-item",
+      "description": "Item Painel de BottomNav.tsx; amostra isolada do estado ativo, com foco nativo. A barra real s? aparece abaixo de md.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Amostra de navega??o\"><button type=\"button\" class=\"ds-nav-item\" aria-current=\"page\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg><span>Painel</span></button></nav>",
+      "css": ".ds-nav{background:oklch(12.9% 0.042 264.695 / 90%);backdrop-filter:blur(24px);border-top:1px solid oklch(27.9% 0.041 260.031);padding:8px 16px;display:flex;gap:8px}.ds-nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;flex-shrink:0;padding:8px;border:0;border-radius:8px;background:oklch(20.8% 0.042 265.755 / 50%);color:#fff;font-family:Inter, ui-sans-serif, system-ui, sans-serif;cursor:pointer}.ds-nav-item svg{color:oklch(70.7% 0.165 254.624)}.ds-nav-item span{font-size:9px;font-weight:700;text-transform:uppercase;width:100%;text-align:center}"
+    },
+    {
+      "name": "Valor de indicador",
+      "kind": "custom",
+      "description": "Recorte do valor padr?o de StatCard e do utilit?rio stat-value; sem reproduzir a l?gica financeira nem inventar uma intera??o.",
+      "html": "<div class=\"ds-stat\"><p class=\"ds-stat-label\">Saldo</p><h3 class=\"ds-stat-value\">R$ 1.234,56</h3></div>",
+      "css": ".ds-stat{font-family:Inter, ui-sans-serif, system-ui, sans-serif;padding:20px;background:oklch(20.8% 0.042 265.755);border:1px solid oklch(27.9% 0.041 260.031);border-radius:8px}.ds-stat-label{font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.15em;color:oklch(55.4% 0.046 257.417);margin:0}.ds-stat-value{font-size:28px;font-weight:900;letter-spacing:0;color:#fff;margin:12px 0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "",
+    "overview": "Registro descritivo da implementação existente, extraído do código em 28/10/2026. A referência é o painel financeiro atual: superfícies escuras, cartões compactos, valores em destaque e ações delimitadas por cor e forma. Os nomes neste documento identificam papéis existentes; não estabelecem uma nova direção estética.\n\nA interface combina Inter, títulos frequentemente em caixa alta e pesos fortes, bordas discretas e acentos cromáticos por ação, módulo ou estado. A marca utiliza Capital azul e Flow verde; as ações principais continuam predominantemente azuis. A clareza dos valores e o uso no celular são prioridades confirmadas em `PRODUCT.md`.\n\nA extração foi feita em `index.css`, `index.html`, `brand.css`, `components/ui/`, `components/StatCard.tsx`, `components/cards/ClientGroupCard.tsx`, `features/auth/AuthScreen.tsx`, `layout/` e nas páginas de clientes e extrato. Os valores Tailwind vêm de `node_modules/tailwindcss/theme.css`, da versão instalada. O servidor local iniciou, mas o acesso ao navegador falhou; não houve inspeção renderizada ou amostragem de estilos computados. Este documento não certifica responsividade, contraste ou acessibilidade.",
+    "keyCharacteristics": [
+      "Fundo escuro com superfícies em camadas de ardósia.",
+      "Marca azul e verde; ações principais azuis.",
+      "Valores fortes, rótulos compactos e títulos em caixa alta.",
+      "Cartões com borda e cantos suavemente arredondados.",
+      "Navegação e modais com comportamento próprio para celular."
+    ],
+    "rules": [
+      {
+        "name": "The Contextual Color Rule",
+        "body": "Manter a distinção entre marca, ação, módulo e estado financeiro; reutilizar a cor do contexto existente com seu texto ou ícone de apoio.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "**Do** reutilizar os componentes e as variantes do contexto existente, respeitando diferenças entre botão básico, login e modal.",
+      "**Do** manter a hierarquia de valores, nomes e estados, com composição adequada a desktop e celular.",
+      "**Do** usar os valores normativos do frontmatter junto às fontes de implementação citadas; confirmar overrides locais antes de aplicar um token.",
+      "**Do** preservar as cores de estado com seus textos e ícones, além das permissões e bloqueios de operações financeiras.",
+      "**Do** manter corpo rolável, rodapé separado, safe areas e comportamento de foco ao reutilizar o modal compartilhado."
+    ],
+    "donts": [
+      "**Don't** transformar esta documentação em autorização para redesenhar, normalizar ou alterar a interface existente.",
+      "**Don't** confundir o verde da marca com uma regra para todas as ações principais.",
+      "**Don't** generalizar tamanhos minúsculos, animações ou overrides de uma tela como requisitos globais.",
+      "**Don't** substituir o símbolo oficial por um ícone genérico ou expandir a animação da splash para tarefas financeiras.",
+      "**Don't** apresentar esta extração do código como validação visual, auditoria de acessibilidade ou prova de comportamento em produção."
+    ]
+  }
+}

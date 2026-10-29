@@ -114,9 +114,14 @@ export const useExitGuard = (
       event.preventDefault();
       backRef.current();
     };
+    const onNativeBack = () => backRef.current();
+    // MainActivity intercepts Android 15+ gestures before the system can close
+    // the process. Keep Capacitor App listener as a secondary compatibility path.
+    window.addEventListener('capitalflow:android-back', onNativeBack);
     window.addEventListener('keydown', onEscape);
     return () => {
       disposed = true;
+      window.removeEventListener('capitalflow:android-back', onNativeBack);
       window.removeEventListener('keydown', onEscape);
       if (listener) void listener.remove();
     };

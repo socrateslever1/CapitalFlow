@@ -45,7 +45,7 @@ export const LedgerList: React.FC<LedgerListProps> = ({
         const clock = formatLedgerTime(entry);
         const label = reversal ? 'Estorno de recebimento'
           : agreement ? 'Recebimento do acordo'
-          : audit ? 'Sistema / Auditoria'
+          : audit ? (entry.type === 'SYSTEM' || entry.type === 'ADJUSTMENT' ? 'Sistema / Auditoria' : translateTransactionType(entry.type))
           : translateTransactionType(entry.type);
         const details = audit ? humanizeAuditLog(entry.notes || '') : null;
         const legacy = payment && amount > 0 && !reversible && !reversed

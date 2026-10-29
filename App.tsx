@@ -14,6 +14,8 @@ import { usePersistedTab } from './hooks/usePersistedTab';
 import { useControllers } from './hooks/useControllers';
 import { useAppNotifications } from './hooks/useAppNotifications';
 import { useExitGuard } from './hooks/useExitGuard';
+import { ExitConfirmDialog } from './components/system/ExitConfirmDialog';
+import { Capacitor } from '@capacitor/core';
 import { useNavigationStack } from './hooks/useNavigationStack';
 import { isAppleMobile } from './utils/appleMobile';
 import { Toaster } from 'sonner';
@@ -141,7 +143,8 @@ export const App: React.FC = () => {
 
   const openNavHub = useCallback(() => ui.setShowNavHub(true), [ui.setShowNavHub]);
   const { goBack: goBackLegacy, goBackPage, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
-  const goBack = isAppleMobile() ? goBackPage : goBackLegacy;
+  const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  const goBack = isAppleMobile() || isNativeAndroid ? goBackPage : goBackLegacy;
 
   // ✅ Prevenção de loop: evita que a página de contrato seja reaberta após fechar manual
   const processedPathRef = useRef('');
@@ -302,7 +305,23 @@ export const App: React.FC = () => {
     }, 3500);
   }, [activeUser, fetchFullData, showToast, ui?.extraDocUploadLoanId, ui?.promissoriaUploadLoanId]);
 
-  useExitGuard(activeUser, activeTab, setActiveTab, isPublicView, showToast, ui);
+  const { showExitConfirm, cancelExit, confirmExit } = useExitGuard(
+    activeUser, activeTab, handleSetActiveTab, isPublicView, showToast, ui,
+    { pathname: location.pathname, navigate: routerNavigate, goBackTab: goBackPage },
+  );
+
+  // When React Router pops from a Wallet URL to the root, restore the tab
+  // beneath the Wallet instead of showing a blank wallet on '/'.
+  const previousPathnameRef = useRef(location.pathname);
+  useEffect(() => {
+    const previousPathname = previousPathnameRef.current;
+    previousPathnameRef.current = location.pathname;
+    if (previousPathname.startsWith('/carteira') &&
+        location.pathname === '/' &&
+        activeTab === 'MY_WALLET') {
+      goBackPage();
+    }
+  }, [location.pathname, activeTab, goBackPage]);
 
   useEffect(() => {
     if (activeUser && !isPublicView) {
@@ -398,6 +417,7 @@ export const App: React.FC = () => {
         }}
         mobileOffset={{ bottom: '80px' }}
       />
+      <ExitConfirmDialog open={showExitConfirm} onCancel={cancelExit} onConfirm={confirmExit} />
       {isInvitePath ? (
         <>
           {window.location.pathname === '/invite' && <InvitePage />}

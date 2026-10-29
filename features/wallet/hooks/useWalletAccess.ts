@@ -13,8 +13,13 @@ export const useWalletAccess = (): WalletAccessState => {
 
   useEffect(() => {
     let mounted = true;
+    let pending: Promise<void> | null = null;
+    let authTimer: ReturnType<typeof setTimeout> | undefined;
     setState({ status: 'loading', settings: {} });
-    const check = () => supabase.auth.getUser()
+    const check = () => {
+      if (!mounted) return Promise.resolve();
+      if (pending) return pending;
+      pending = supabase.auth.getUser()
       .then(({ data, error }) => {
         if (error || !data.user?.id) throw new Error('Sessão autenticada não encontrada.');
         return Promise.all([data.user.id, walletRepository.getAccess(data.user.id)] as const);
@@ -24,12 +29,24 @@ export const useWalletAccess = (): WalletAccessState => {
       })
       .catch(reason => {
         if (mounted) setState({ status: 'error', settings: {}, message: reason instanceof Error ? reason.message : 'Falha ao verificar o módulo.' });
-      });
+      }).finally(() => { pending = null; });
+      return pending;
+    };
     void check();
     const onFocus = () => { void check(); };
     window.addEventListener('focus', onFocus);
-    const { data: authListener } = supabase.auth.onAuthStateChange(() => { void check(); });
-    return () => { mounted = false; window.removeEventListener('focus', onFocus); authListener.subscription.unsubscribe(); };
+    // Supabase auth callbacks run under the auth lock. Defer API calls until
+    // that callback has returned, otherwise getUser can wait on its own lock.
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => {
+      if (authTimer) clearTimeout(authTimer);
+      authTimer = setTimeout(() => { void check(); }, 0);
+    });
+    return () => {
+      mounted = false;
+      if (authTimer) clearTimeout(authTimer);
+      window.removeEventListener('focus', onFocus);
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   return state;

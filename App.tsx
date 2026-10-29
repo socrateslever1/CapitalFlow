@@ -482,6 +482,7 @@ export const App: React.FC = () => {
             onCloseSupport={ui.closeModal}
             clients={clients}
           >
+            <Suspense fallback={<div role="status" className="p-6 text-sm text-slate-400">Carregando página…</div>}>
             {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
             <div
               key="dashboard-view"
@@ -834,12 +835,15 @@ export const App: React.FC = () => {
               )}
             </>
 
+            </Suspense>
             <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={visibleHubOrder} />
           </AppShell>
         </AppGate>
 
         <div className="relative z-[9999]">
-          <ModalHost />
+          <Suspense fallback={<div role="status" className="fixed bottom-4 right-4 rounded-lg bg-slate-900 p-3 text-sm text-white">Carregando…</div>}>
+            <ModalHost />
+          </Suspense>
 
             {operatorUploadStatus.state !== 'IDLE' && (
               <div className={`fixed bottom-5 left-1/2 z-[10000] flex -translate-x-1/2 items-center gap-2 rounded-lg border px-4 py-3 text-xs font-black uppercase shadow-2xl ${

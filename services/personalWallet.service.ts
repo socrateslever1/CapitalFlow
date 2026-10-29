@@ -262,7 +262,7 @@ export const personalWalletService = {
     if (error) throw new Error(error.message);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
-    const cardsWithImages = await Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (rawCard) => {
+    const cardsWithImagesPromise = Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (rawCard) => {
       const initialFuture = Math.max(
         Number(rawCard.initial_future_installments_balance || 0),
         Number(rawCard.opening_unallocated_amount || 0),
@@ -281,11 +281,12 @@ export const personalWalletService = {
       return { ...card, image_url: signed.data?.signedUrl || null };
     }));
     const activeAccounts = ((accounts.data || []) as PersonalWalletAccount[]).filter(account => !account.archived_at);
-    const accountsWithImages = await Promise.all(activeAccounts.map(async (account) => {
+    const accountsWithImagesPromise = Promise.all(activeAccounts.map(async (account) => {
       if (!account.image_path) return account;
       const signed = await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).createSignedUrl(account.image_path, 3600);
       return { ...account, image_url: signed.data?.signedUrl || null };
     }));
+    const [cardsWithImages, accountsWithImages] = await Promise.all([cardsWithImagesPromise, accountsWithImagesPromise]);
     return {
       accounts: accountsWithImages,
       cards: cardsWithImages,

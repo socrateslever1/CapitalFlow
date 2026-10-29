@@ -1,7 +1,12 @@
 package com.socrateslever.capitalflow;
 
 import android.os.Bundle;
+import android.view.View;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 /**
@@ -15,6 +20,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        configureSystemBarInsets();
+
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -24,4 +31,44 @@ public class MainActivity extends BridgeActivity {
             }
         });
     }
+    /**
+     * The activity is edge-to-edge on Android 15+ (and in desktop windowing).
+     * Apply real system bar/cutout insets to the NATIVE container, not a fixed
+     * CSS spacer. This adapts to status-bar height, 3-button/gesture navigation,
+     * landscape camera cutouts, foldables and resizable Android desktop windows.
+     *
+     * After applying padding natively, zero these inset types for the WebView
+     * to prevent the ghost/double padding documented by Android. IME/keyboard
+     * insets are left intact, so keyboard viewport resizing still works.
+     */
+    private void configureSystemBarInsets() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        final View content = findViewById(android.R.id.content);
+        if (content == null) return;
+
+        final int initialLeft = content.getPaddingLeft();
+        final int initialTop = content.getPaddingTop();
+        final int initialRight = content.getPaddingRight();
+        final int initialBottom = content.getPaddingBottom();
+
+        ViewCompat.setOnApplyWindowInsetsListener(content, (view, windowInsets) -> {
+            final int insetTypes = WindowInsetsCompat.Type.systemBars()
+                    | WindowInsetsCompat.Type.displayCutout();
+            final Insets bars = windowInsets.getInsets(insetTypes);
+
+            view.setPadding(
+                    initialLeft + bars.left,
+                    initialTop + bars.top,
+                    initialRight + bars.right,
+                    initialBottom + bars.bottom
+            );
+
+            return new WindowInsetsCompat.Builder(windowInsets)
+                    .setInsets(insetTypes, Insets.NONE)
+                    .build();
+        });
+        ViewCompat.requestApplyInsets(content);
+    }
+
 }

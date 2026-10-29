@@ -149,3 +149,46 @@ sideload e via Play Store/Galaxy Store, sujeita aos processos de revisao da
 loja. O Bloqueador automatico do Samsung so deve ser desligado
 temporariamente pelo proprietario, se ele confiar no APK oficial, e religado
 apos instalar. Nao desabilitar Play Protect.
+
+## Barra de status e navegacao do Android (15/16, tablets e modo janela)
+
+O Android 15+ aplica desenho *edge-to-edge*. O CapitalFlow nao deve
+usar altura fixa para a barra de status nem aplicar simultaneamente
+padding no WebView e na Activity. A `native/android/MainActivity.java`
+usa `WindowInsetsCompat.Type.systemBars() | Type.displayCutout()`
+para calcular os recuos de cima/baixo/laterais no container nativo.
+Em seguida zera esses tipos de inset para os filhos usando
+`new WindowInsetsCompat.Builder(...).setInsets(types, Insets.NONE)`,
+preservando o inset de teclado/IME. Assim o cabeçalho nao fica atras do
+relogio/notificacoes e o rodape nao fica sob os controles do Android,
+inclusive em modo paisagem, tablets, recortes e janelas redimensionaveis.
+
+O script `scripts/android/apply-native-shell.py` injeta a Activity a
+cada `npx cap sync android`, antes das builds. O `body` usa
+`data-capacitor-android` para remover padding CSS so no app nativo;
+o navegador/PWA continua com safe areas CSS. **Nao duplicar** os
+insets no cabecalho, body ou outros wrappers. Validar em aparelho
+fisico com navegacao por gestos e por tres botoes.
+
+## Ícone oficial de instalação e inicialização
+
+O ícone do CapitalFlow usa o monograma **CF** branco e verde-água,
+sem marcas genéricas do Capacitor, sobre fundo azul-marinho. A origem
+revisável é `assets/branding/capitalflow-mark.webp`, derivada da
+arte minimalista oficial selecionada. O recurso não depende de IA em
+tempo de execução.
+
+Como o GitHub Actions recria completamente a pasta `android/`,
+a etapa **Install official CapitalFlow icon into Android installer**
+executa sempre depois de `npx cap sync android` e antes da compilação,
+com `scripts/android/install_launcher_icon.py`. Ela gera os recursos
+`mipmap-mdpi` a `mipmap-xxxhdpi` e ícones redondos, adaptativos,
+monocromáticos (Android 13+) e suas declarações de cores. O manifesto
+nativo aponta para `@mipmap/ic_launcher` e
+`@mipmap/ic_launcher_round`; estes são os recursos vistos na
+caixa de instalação **“Atualizar este app?”** e na tela inicial do
+Android. Sem mudar o `appId`, assinatura, dados ou backend.
+
+Em versões novas, o launcher Android pode manter o ícone anterior em
+cache por algum tempo; o instalador e o sistema utilizam os novos
+recursos do APK assinado.

@@ -42,6 +42,16 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
     handleSubmit
   } = useLoanForm({ ...props, sources: effectiveSources });
 
+  const sourceChoiceInitialized = React.useRef(false);
+  React.useEffect(() => {
+    if (!wallet.isMaster || props.initialData || sourceChoiceInitialized.current) return;
+    sourceChoiceInitialized.current = true;
+    // Para novos contratos da conta master, exige uma escolha explícita.
+    setFormData((current: any) => ({
+      ...current, sourceId: '', fundingAllocations: [{ sourceId: '', amount: '' }],
+    }));
+  }, [wallet.isMaster, props.initialData?.id, setFormData]);
+
   const selectWalletAccount = async (accountId: string) => {
     const account = wallet.accounts.find(item => item.id === accountId);
     if (!account || linkingAccount) return;

@@ -62,6 +62,37 @@ permissao de fonte desconhecida ou politicas do dispositivo. A Samsung pode
 bloquear instalacoes de APK fora da loja pelo **Bloqueador automatico**.
 Nunca confundir assinatura valida com aprovacao da Play Store.
 
+## Configurar com um comando (WSL/Linux, uma vez)
+
+O APK atualmente instalado com certificado temporario **nao pode ser
+atualizado sem reinstalacao**. Primeiro confirme que dados importantes
+estao sincronizados com o Supabase e faca backup dos dados locais.
+
+Num computador com WSL/Linux, Java (`keytool`) e GitHub CLI (`gh`)
+autenticado, execute a partir do clone do repositorio:
+
+```bash
+bash scripts/setup-android-release-signing.sh
+```
+
+Este script gera uma unica keystore em
+`~/.config/capitalflow/android-signing/capitalflow-release.jks`
+(ou reutiliza a existente), pergunta sua senha localmente (sem ecoar),
+grava os quatro GitHub Actions Secrets via `gh secret set` e dispara
+um workflow de assinatura. **Mantenha backup offline da chave e senha**.
+Nunca cole senha, chave PKCS12/JKS ou valor Base64 nesta conversa.
+
+Depois da compilacao, baixe a versao de assinatura permanente em
+https://github.com/socrateslever1/CapitalFlow/releases/download/android-preview/CapitalFlow-Android.apk
+e instale apos remover a antiga versao debug, preservando antes os
+dados locais. **A partir dessa primeira instalacao assinada**, futuras
+versoes com o mesmo certificado e `versionCode` crescente podem ser
+atualizadas por cima do aplicativo.
+
+A distribuicao publica nunca mais troca silenciosamente o certificado
+pelo debug da maquina virtual de compilacao. Se a keystore mudar, o
+workflow rejeita o APK comparando certificados da release anterior.
+
 ## Preparar a assinatura PERMANENTE de producao (uma unica vez)
 
 O proprietario do repositorio deve gerar e conservar, fora do GitHub publico,
@@ -99,7 +130,8 @@ Com os quatro segredos, um push em `main` passa a:
    com `apksigner` usando a keystore estavel.
 4. Verificar a assinatura, rejeitar certificados Android Debug, calcular
    SHA-256 e publicar a beta assinada em
-   https://github.com/socrateslever1/CapitalFlow/releases/tag/android-signed-beta.
+   https://github.com/socrateslever1/CapitalFlow/releases/tag/android-signed-beta
+   (tambem em `android-preview`, o endereco de download anterior).
 
 Se faltar qualquer segredo, a publicacao **assinada e ignorada** com aviso
 visivel no GitHub Actions; a CI nao gera uma chave substituta descartavel

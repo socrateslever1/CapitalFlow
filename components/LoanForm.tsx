@@ -9,6 +9,7 @@ import { LoanFormClientSection } from './forms/LoanFormClientSection';
 import { LoanFormFinancialSection } from './forms/LoanFormFinancialSection';
 import { LoanFormDocumentsSection } from './forms/LoanFormDocumentsSection';
 import { LoanFormActions } from './forms/LoanFormActions';
+import { useMasterWalletAccounts } from '../features/wallet/hooks/useMasterWalletAccounts';
 
 interface LoanFormProps {
   onAdd: (loan: Loan) => void;
@@ -21,6 +22,13 @@ interface LoanFormProps {
 
 export const LoanForm: React.FC<LoanFormProps> = (props) => {
   const formId = React.useId();
+  const wallet = useMasterWalletAccounts();
+  const [linkedSources, setLinkedSources] = React.useState<CapitalSource[]>([]);
+  const [linkingAccount, setLinkingAccount] = React.useState(false);
+  const effectiveSources = React.useMemo(() => [
+    ...props.sources,
+    ...linkedSources.filter(source => !props.sources.some(existing => existing.id === source.id)),
+  ], [props.sources, linkedSources]);
   const {
     formData, setFormData,
     fixedDuration, setFixedDuration,
@@ -32,7 +40,46 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
     handleClientSelect, handlePickContact,
     handleFileUpload, toggleDocVisibility, removeDoc,
     handleSubmit
-  } = useLoanForm(props);
+  } = useLoanForm({ ...props, sources: effectiveSources });
+
+  const sourceChoiceInitialized = React.useRef(false);
+  React.useEffect(() => {
+    if (!wallet.isMaster || props.initialData || sourceChoiceInitialized.current) return;
+    sourceChoiceInitialized.current = true;
+    // Para novos contratos da conta master, exige uma escolha explícita.
+    setFormData((current: any) => ({
+      ...current, sourceId: '', fundingAllocations: [{ sourceId: '', amount: '' }],
+    }));
+  }, [wallet.isMaster, props.initialData?.id, setFormData]);
+
+  const selectWalletAccount = async (accountId: string) => {
+    const account = wallet.accounts.find(item => item.id === accountId);
+    if (!account || linkingAccount) return;
+    setLinkingAccount(true);
+    setFormNotice(null);
+    try {
+      const sourceId = await wallet.ensureCapitalSource(account.id);
+      setLinkedSources(current => [
+        ...current.filter(source => source.id !== sourceId),
+        {
+          id: sourceId,
+          profile_id: props.userProfile?.id || '',
+          name: account.nickname,
+          balance: Number(account.balance || 0),
+          type: 'PROPRIO' as const,
+        },
+      ]);
+      setFormData((current: any) => ({
+        ...current,
+        sourceId,
+        fundingAllocations: [{ sourceId, amount: '' }],
+      }));
+    } catch (cause: any) {
+      setFormNotice({ type: 'error', message: cause?.message || 'Não foi possível vincular esta conta.' });
+    } finally {
+      setLinkingAccount(false);
+    }
+  };
 
   return (
     <>
@@ -81,7 +128,11 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
 
                 <div className="space-y-6">
                     <LoanFormFinancialSection
-                        sources={props.sources}
+                        sources={effectiveSources}
+                        masterWalletAccounts={wallet.isMaster ? wallet.accounts : undefined}
+                        onSelectWalletAccount={selectWalletAccount}
+                        walletAccountsLoading={wallet.loading || linkingAccount}
+                        walletAccountsError={wallet.error}
                         formData={formData}
                         setFormData={setFormData}
                         isDailyModality={isDailyModality}

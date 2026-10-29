@@ -9,6 +9,7 @@ import { filesService } from '../services/files.service';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
 import { PageHeader } from '../components/ui/PageHeader';
+import { useMasterWalletAccounts } from '../features/wallet/hooks/useMasterWalletAccounts';
 
 interface SourcesPageProps {
   sources: CapitalSource[];
@@ -38,6 +39,11 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   const [logoUrlInput, setLogoUrlInput] = useState('');
   const [logoUrlError, setLogoUrlError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const wallet = useMasterWalletAccounts();
+  const linkedSources = wallet.isMaster
+    ? new Set(wallet.accounts.map(account => account.capital_source_id).filter(Boolean))
+    : new Set<string>();
+  const standaloneSources = sources.filter(source => !linkedSources.has(source.id));
 
   useEffect(() => {
     let cancelled = false;
@@ -157,8 +163,11 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         </button>}
       />
 
+      {wallet.isMaster && <p className="text-sm text-slate-400">
+        Esta tela mostra apenas o capital avulso. As contas vinculadas e seus saldos reais são administrados em Minha Carteira.
+      </p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-        {sources.map(source => (
+        {standaloneSources.map(source => (
           <SourceCard
             key={source.id}
             source={source}

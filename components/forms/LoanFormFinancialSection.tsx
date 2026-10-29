@@ -2,6 +2,7 @@ import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCo
 import React, { useMemo } from 'react';
 import { Wallet, CalendarX, Clock, CreditCard, Landmark, AlertTriangle, CalendarDays, ChevronDown, ArrowDownRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
+import type { MasterWalletAccount } from '../../features/wallet/hooks/useMasterWalletAccounts';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
 import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
@@ -57,10 +58,15 @@ interface LoanFormFinancialSectionProps {
   manualFirstDueDate: string;
   setManualFirstDueDate: (v: string) => void;
   isEditing?: boolean;
+  masterWalletAccounts?: MasterWalletAccount[];
+  onSelectWalletAccount?: (id: string) => void | Promise<void>;
+  walletAccountsLoading?: boolean;
+  walletAccountsError?: string;
 }
 
 export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> = ({
-  sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, isEditing
+  sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, isEditing,
+  masterWalletAccounts, onSelectWalletAccount, walletAccountsLoading, walletAccountsError
 }) => {
   const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
   const strongInputClass = `${inputClass} font-bold`;
@@ -364,6 +370,57 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             </div>
         </div>
 
+        {masterWalletAccounts ? (
+          <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <div>
+              <label className="text-xs font-bold text-white">Origem do dinheiro</label>
+              <p className="mt-1 text-[11px] text-slate-400">Escolha a conta real da Carteira ou um capital avulso. O vínculo não altera saldos.</p>
+            </div>
+            <label className="block space-y-1 text-xs font-semibold text-slate-300">
+              Conta da Carteira
+              <select
+                disabled={walletAccountsLoading}
+                value={masterWalletAccounts.find(account => account.capital_source_id === formData.sourceId)?.id || ''}
+                onChange={event => {
+                  if (event.target.value && onSelectWalletAccount) void onSelectWalletAccount(event.target.value);
+                }}
+                className="w-full rounded-lg border border-emerald-500/30 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-emerald-400 disabled:opacity-50"
+              >
+                <option value="">Selecione uma conta</option>
+                {masterWalletAccounts.map(account => (
+                  <option key={account.id} value={account.id}>
+                    {account.nickname} · {account.bank_name || 'Dinheiro em espécie'} · {formatMoney(Number(account.balance || 0))}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1 text-xs font-semibold text-slate-300">
+              Capital avulso (sem conta vinculada)
+              <select
+                value={masterWalletAccounts.some(account => account.capital_source_id === formData.sourceId)
+                  ? '' : formData.sourceId || ''}
+                onChange={event => {
+                  const sourceId = event.target.value;
+                  setFormData((current: any) => ({
+                    ...current, sourceId, fundingAllocations: [{ sourceId, amount: '' }],
+                  }));
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+              >
+                <option value="">Selecione um capital avulso</option>
+                {sources.filter(source => !masterWalletAccounts.some(account => account.capital_source_id === source.id))
+                  .map(source => (
+                    <option key={source.id} value={source.id}>
+                      {source.name} · {formatMoney(Number(source.balance || 0))}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {walletAccountsLoading && <p className="text-[11px] text-slate-400">Preparando contas da Carteira...</p>}
+            {walletAccountsError && <p role="alert" className="text-xs text-rose-300">{walletAccountsError}</p>}
+            <p className="text-[11px] text-slate-400">A conta da Carteira representa o dinheiro disponível. Capital avulso não é somado às contas bancárias.</p>
+          </div>
+        ) : (
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
             <div className="space-y-2">
@@ -376,6 +433,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             {!hasMultipleSources && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
             {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
         </div>
+
+        )}
 
         {isInstallmentFixed && (
             <div className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/45 p-3">

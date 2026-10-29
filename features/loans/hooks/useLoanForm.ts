@@ -89,7 +89,9 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
       });
       setManualFirstDueDate(toISODateOnlyUTC(addDaysUTC(today, 30)));
     }
-  }, [initialData, sources]);
+  // Não reinicializar o formulário após habilitar uma conta da Carteira.
+  // A atualização de sources durante a edição não pode apagar os campos preenchidos.
+  }, [initialData]);
 
   const isDailyModality = ['DAILY_FREE', 'DAILY_FIXED_TERM'].includes(formData.billingCycle);
 

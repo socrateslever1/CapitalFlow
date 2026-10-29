@@ -62,8 +62,9 @@ begin
     return new;
   end if;
 
-  if new.operation_type not in ('KEEP_PENDING','RENEW_KEEP_PENDING','CAPITALIZE','SETTLE','CAPITALIZE_RENEWAL','DISCOUNT_RENEWAL')
-    or coalesce(new.amount_received,0) <= 0 then
+  -- Abrange modalidades atuais e futuras do motor V4: somente operações
+  -- com valor fisicamente recebido criam crédito bancário.
+  if coalesce(new.amount_received,0) <= 0 then
     return new;
   end if;
 

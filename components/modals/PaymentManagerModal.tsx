@@ -13,6 +13,7 @@ import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../servic
 import { ReceiptRemainderDecision } from './payment/ReceiptRemainderDecision';
 import { useModal } from '../../contexts/ModalContext';
 import { InstallmentPixCopyBox } from './payment/InstallmentPixCopyBox';
+import { useMasterWalletAccounts } from '../../features/wallet/hooks/useMasterWalletAccounts';
 
 interface PaymentManagerModalProps {
     data: {loan: Loan, inst: Installment, calculations: any} | null;
@@ -33,7 +34,8 @@ interface PaymentManagerModalProps {
         contextOverride?: { loan: Loan; inst: Installment; calculations: any },
         lateFeeForgiven?: number,
         paymentMethod?: FinancialPaymentMethod,
-        expectedPreview?: FinancialOperationResult
+        expectedPreview?: FinancialOperationResult,
+        walletReceiptAccountId?: string | null
     ) => void;
     onOpenMessage: (loan: Loan) => void;
 }
@@ -53,6 +55,8 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     const [autoFillMode, setAutoFillMode] = useState<'NONE' | 'TOTAL' | 'INTEREST'>('TOTAL');
     const [paymentMethod, setPaymentMethod] = useState<FinancialPaymentMethod>('OTHER');
+    const wallet = useMasterWalletAccounts();
+    const [walletReceiptAccountId, setWalletReceiptAccountId] = useState('');
     const [backendPreview, setBackendPreview] = useState<FinancialOperationResult | null>(null);
     const [previewError, setPreviewError] = useState('');
     const [isPreviewing, setIsPreviewing] = useState(false);
@@ -64,6 +68,11 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     useEffect(() => { setLateFeeForgiven(0); }, [data?.loan?.id, data?.inst?.id]);
     useEffect(() => {
+        if (!wallet.isMaster) return;
+        const linked = wallet.accounts.find(account => account.capital_source_id === data?.loan?.sourceId);
+        setWalletReceiptAccountId(linked?.id || '');
+    }, [wallet.isMaster, wallet.accounts, data?.loan?.id, data?.loan?.sourceId, data?.inst?.id]);
+    useEffect(() => {
         const preferred = String(data?.loan?.preferredPaymentMethod || 'OTHER').toUpperCase();
         const supported = ['PIX', 'CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'BOLETO', 'OTHER'];
         setPaymentMethod((supported.includes(preferred) ? preferred : 'OTHER') as FinancialPaymentMethod);
@@ -71,7 +80,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     useEffect(() => {
         setBackendPreview(null);
         setPreviewError('');
-    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, lateFeeForgiven, paymentMethod, businessAction]);
+    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, lateFeeForgiven, paymentMethod, businessAction, walletReceiptAccountId]);
 
     useEffect(() => {
         if (autoFillMode === 'TOTAL') setAvAmount(payableTotal > 0 ? payableTotal.toFixed(2) : '');
@@ -161,7 +170,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             }
             return;
         }
-        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview);
+        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview, wallet.isMaster ? walletReceiptAccountId || null : null);
     };
 
     const toggleInterestAutoFill = () => {
@@ -243,6 +252,30 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                         <option value="PIX">PIX</option><option value="CASH">Dinheiro</option><option value="BANK_TRANSFER">Transferência</option><option value="CREDIT_CARD">Cartão</option><option value="BOLETO">Boleto</option><option value="OTHER">Outro</option>
                                     </select>
                                 </div>
+
+                                {wallet.isMaster && (
+                                  <div className="space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-950/10 p-4">
+                                    <label className="block text-xs font-bold text-emerald-200" htmlFor="wallet-payment-destination">
+                                      Conta onde o dinheiro entrou
+                                    </label>
+                                    <select id="wallet-payment-destination"
+                                      value={walletReceiptAccountId}
+                                      onChange={event => setWalletReceiptAccountId(event.target.value)}
+                                      disabled={wallet.loading || isProcessing}
+                                      className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-white focus:border-emerald-500">
+                                      <option value="">Sem conta selecionada (capital avulso)</option>
+                                      {wallet.accounts.map(account => (
+                                        <option key={account.id} value={account.id}>
+                                          {account.nickname} · {account.bank_name || 'Dinheiro em espécie'} · {formatMoney(Number(account.balance || 0))}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <p className="text-[11px] text-slate-400">
+                                      O valor total efetivamente recebido será lançado uma vez nesta conta, mesmo quando inclui capital, juros e mora.
+                                    </p>
+                                    {wallet.error && <p role="alert" className="text-xs text-rose-300">{wallet.error}</p>}
+                                  </div>
+                                )}
 
                                 <InstallmentPixCopyBox
                                     loan={loan}

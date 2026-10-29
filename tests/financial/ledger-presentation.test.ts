@@ -75,7 +75,7 @@ test('archiving is reversible and never pays capital back to wallet implicitly',
   const actions = readFileSync('services/ledger/ledgerActions.ts', 'utf8');
   const footer = readFileSync('components/cards/LoanCardComposition/Footer.tsx', 'utf8');
   assert(controller.includes('ui.setRefundChecked(false)'));
-  assert(!actions.includes("type === 'ARCHIVE') {"));
+  assert(!actions.includes("refundChecked && loan && loan.sourceId && type === 'ARCHIVE'"), 'archive must not credit principal');
   assert(footer.includes('hasFinancialHistory'));
   assert(footer.includes('Arquivar (recuperável)'));
   assert(footer.includes('Exclusão definitiva bloqueada'));

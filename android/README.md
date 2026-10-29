@@ -149,3 +149,23 @@ sideload e via Play Store/Galaxy Store, sujeita aos processos de revisao da
 loja. O Bloqueador automatico do Samsung so deve ser desligado
 temporariamente pelo proprietario, se ele confiar no APK oficial, e religado
 apos instalar. Nao desabilitar Play Protect.
+
+## Barra de status e navegacao do Android (15/16, tablets e modo janela)
+
+O Android 15+ aplica desenho *edge-to-edge*. O CapitalFlow nao deve
+usar altura fixa para a barra de status nem aplicar simultaneamente
+padding no WebView e na Activity. A `native/android/MainActivity.java`
+usa `WindowInsetsCompat.Type.systemBars() | Type.displayCutout()`
+para calcular os recuos de cima/baixo/laterais no container nativo.
+Em seguida zera esses tipos de inset para os filhos usando
+`new WindowInsetsCompat.Builder(...).setInsets(types, Insets.NONE)`,
+preservando o inset de teclado/IME. Assim o cabeçalho nao fica atras do
+relogio/notificacoes e o rodape nao fica sob os controles do Android,
+inclusive em modo paisagem, tablets, recortes e janelas redimensionaveis.
+
+O script `scripts/android/apply-native-shell.py` injeta a Activity a
+cada `npx cap sync android`, antes das builds. O `body` usa
+`data-capacitor-android` para remover padding CSS so no app nativo;
+o navegador/PWA continua com safe areas CSS. **Nao duplicar** os
+insets no cabecalho, body ou outros wrappers. Validar em aparelho
+fisico com navegacao por gestos e por tres botoes.

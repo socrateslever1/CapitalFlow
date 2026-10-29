@@ -111,7 +111,7 @@ jobs:
           npx cap add android
           npx cap sync android
           # Verify Capacitor includes the native App plugin that handles hardware back.
-          grep -rq '"classpath".*"@capacitor/app"\|"pkg".*"@capacitor/app"\|"@capacitor/app"' android/app/src/main/assets/capacitor.plugins.json
+          node -e "const plugins=require('./android/app/src/main/assets/capacitor.plugins.json'); if(!Array.isArray(plugins)||!plugins.some(p=>p.pkg==='@capacitor/app')) { console.error('Capacitor App plugin not registered on Android'); process.exit(1); }"
           test -s android/app/src/main/assets/public/index.html
           test -s android/app/src/main/assets/public/manifest.json
       - name: Assemble Android debug APK

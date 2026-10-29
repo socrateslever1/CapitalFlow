@@ -49,7 +49,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
   };
   return <WalletPageFrame title="Compromissos" description="Contas a pagar e despesas recorrentes."
     actions={<button type="button" onClick={() => setCreateChooserOpen(true)}
-      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-blue-500"><Plus size={15}/> Novo compromisso</button>}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/> Novo compromisso</button>}
     loading={loading} error={error || notice} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <div className="space-y-5">
       <div className="grid gap-5 lg:grid-cols-12">
@@ -67,7 +67,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
               } finally { setSaving(false); }
             }}/>
         </div>
-        <div className="min-w-0 lg:col-span-5">
+        <div className="min-w-0 border-t border-slate-800 pt-5 lg:col-span-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
           <RecurringObligationsPanel accounts={data.accounts} cards={data.cards}
             items={data.recurringObligations} showCreateButton={false} createRequest={recurringCreateRequest}
             onSaved={async () => { await refresh(); }}/>

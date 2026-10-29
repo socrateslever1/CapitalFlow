@@ -11,6 +11,7 @@ import { WalletPageFrame } from '../components/WalletPageFrame';
 import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
+import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,10 +73,14 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       <div className="mb-3 flex justify-end">
         <div aria-hidden="true" />
         <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => startCreate('CASH')}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+            <Plus size={16}/>Adicionar carteira física
+          </button>
           <button
             type="button"
             onClick={() => startCreate('CHECKING')}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 text-xs transition-all shadow-md shadow-blue-950/40"
+            className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
           >
             <Plus size={15} />
             <span>Nova conta</span>
@@ -84,25 +89,26 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-12">
-        <div className="min-w-0 rounded-2xl border border-slate-800/80 bg-slate-900/50 p-4 sm:p-5 lg:col-span-8">
+        <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 lg:col-span-8">
           <AccountCardStack accounts={data.accounts} onOpen={account => setSelectedId(account.id)}/>
         </div>
         <div className="min-w-0 space-y-3 lg:col-span-4">
-          <div className="rounded-2xl border border-slate-800/80 bg-gradient-to-br from-slate-900 to-slate-950 p-5">
-            <p className="text-xs font-semibold text-slate-400">Liquidez em contas</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+            <p className="text-sm font-medium text-slate-400">Liquidez em contas</p>
             <strong className="mt-3 block text-3xl font-extrabold tabular-nums tracking-tight text-white">
               {formatMoney(data.accounts.reduce((total, account) => total + Number(account.balance || 0), 0))}
             </strong>
             <p className="mt-2 text-xs text-slate-400">{data.accounts.length} conta(s) registrada(s)</p>
           </div>
           <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40">
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
             <ArrowLeftRight size={18}/> Transferir / Movimentar
           </button>
           <button type="button" onClick={() => setChargeOpen(true)} disabled={!data.accounts.some(account => account.pix_key?.trim())}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-950/30 px-4 py-3 text-sm font-bold text-cyan-200 hover:bg-cyan-950/50 disabled:opacity-40">
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
             Gerar cobrança PIX
           </button>
+          <WalletCapitalLinks accounts={data.accounts} sources={data.capitalSources}/>
         </div>
       </div>
       {creating && <form onSubmit={event => { void create(event); }}

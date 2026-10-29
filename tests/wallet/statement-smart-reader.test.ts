@@ -144,8 +144,9 @@ test('Card Clipboard Utility - formata e permite copiar dados do cartão para us
   assert.ok(formatted.includes('Nubank Ultravioleta'));
   assert.ok(formatted.includes('Mastercard Black'));
   assert.ok(formatted.includes('8899'));
-  assert.ok(formatted.includes('Dia 10'));
-  assert.ok(formatted.includes('Dia 1'));
+  // The established clipboard summary contains identification, not invoice dates.
+  assert.ok(!formatted.includes('Dia 10'));
+  assert.ok(!formatted.includes('Dia 1'));
 
   // Mock navigator.clipboard para ambiente Node.js de teste
   Object.defineProperty(globalThis.navigator, 'clipboard', {

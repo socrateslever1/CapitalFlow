@@ -42,7 +42,8 @@ test('a frente reserva linhas próprias para número, titular e validade', () =>
   assert.match(stack, /data-card-section="number"/);
   assert.match(stack, /data-card-section="holder"/);
   assert.match(stack, /data-card-section="expiry"/);
-  assert.match(stack, /Copiar dados do cartão/);
+  assert.match(stack, /aria-label="Copiar titular do cartão"/);
+  assert.match(stack, /aria-label="Copiar validade do cartão"/);
 });
 
 test('o cartão não recupera número completo nem CVC de anotações livres', () => {
@@ -51,7 +52,8 @@ test('o cartão não recupera número completo nem CVC de anotações livres', (
 });
 
 test('as contas usam linhas compactas com a identidade visual da instituição', () => {
-  assert.match(accountStack, /linear-gradient\(105deg/);
+  assert.match(accountStack, /BankLogo/);
+  assert.match(accountStack, /divide-y divide-slate-800/);
   assert.match(accountStack, /px-3 py-3/);
   assert.match(accountStack, /walletAccountTypeLabel\(account\.account_type\)/);
   assert.match(accountStack, /Saldo disponível/);

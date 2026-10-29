@@ -71,6 +71,8 @@ export function buildAccountStatementEntries(input: {
       } else if (operation.operation_type === 'LOAN_REPAYMENT') {
         tag = 'Parcela recebida';
         category = operation.category || 'Parcela recebida';
+      } else if (operation.operation_type === 'CAPITAL_SYNC') {
+        tag = operation.category === 'Estorno de Capital' ? 'Estorno de Capital' : 'Movimentação de Capital';
       } else if (operation.operation_type === 'INCOME' && operation.category === 'Saldo inicial') {
         tag = 'Saldo inicial';
       }

@@ -4,6 +4,7 @@ import {PersonalWalletAccount,PersonalWalletCard,PersonalWalletPayable} from '..
 import {formatMoney} from '../../utils/formatters';
 import {generateUUID} from '../../utils/generators';
 import {derivePayableStatus,summarizePayables} from './payablesDomain';
+import {WalletMetricStrip} from './WalletMetricStrip';
 type Props={
  payables:PersonalWalletPayable[];accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];
  saving:boolean;onCreate?:()=>void;showCreateButton?:boolean;onPay:(input:{
@@ -42,16 +43,18 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
  };
  return <div className="space-y-4">
   <header className="flex items-center justify-between"><div><h2 className="flex items-center gap-2 text-sm font-bold text-white"><HandCoins size={17} className="text-rose-300"/>Contas a pagar</h2><p className="text-xs text-slate-400">Dívidas, parcelas e obrigações pontuais</p></div>{showCreateButton && <button type="button" onClick={onCreate} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-rose-300"><Plus size={14}/>Nova</button>}</header>
-  <div className="grid grid-cols-3 gap-2">
-   {[['Passivo aberto',summary.total],['Vencido',summary.overdue],['Próx. 30 dias',summary.next30Days]].map(([name,amount])=><div key={String(name)} className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-2.5"><span className="block text-[9px] text-slate-400">{name}</span><strong className="block truncate text-xs font-bold text-white">{formatMoney(Number(amount))}</strong></div>)}
-  </div>
+  <WalletMetricStrip items={[
+    {label:'Passivo aberto',value:formatMoney(summary.total)},
+    {label:'Vencido',value:formatMoney(summary.overdue),tone:summary.overdue>0?'negative':undefined},
+    {label:'Próximos 30 dias',value:formatMoney(summary.next30Days)},
+  ]}/>
   {!payables.length?<p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-400">Nenhuma dívida contraída cadastrada.</p>:<div className="grid gap-2 sm:grid-cols-2">{payables.map(p=>{
    const status=derivePayableStatus(p);return <article key={p.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
     <div className="flex items-start justify-between gap-2">
-     <div className="flex min-w-0 items-center gap-2">{p.creditor_type==='COMPANY'?<Building2 size={18} className="shrink-0 text-slate-300"/>:<UserRound size={18} className="shrink-0 text-slate-300"/>}<div className="min-w-0"><strong className="block truncate text-sm text-white">{p.creditor_name}</strong><span className="block truncate text-[11px] text-slate-400">{p.description}</span></div></div>
+     <div className="flex min-w-0 items-center gap-2">{p.creditor_type==='COMPANY'?<Building2 size={18} className="shrink-0 text-slate-300"/>:<UserRound size={18} className="shrink-0 text-slate-300"/>}<div className="min-w-0"><strong className="block truncate text-sm text-white">{p.creditor_name}</strong><span className="block truncate text-xs text-slate-400">{p.description}</span></div></div>
      <span className={'text-[10px] font-bold '+badge[status]}>{labels[status]}</span>
     </div>
-    <div className="mt-3 flex items-end justify-between gap-2"><div><span className="block text-[10px] text-slate-400">Saldo devedor</span><strong className="text-base text-rose-300">{formatMoney(p.outstanding_balance)}</strong></div><div className="text-right text-[10px] text-slate-400">Total {formatMoney(p.total_amount)}<br/>Venc. {p.due_date||'não informado'}</div></div>
+    <div className="mt-3 flex items-end justify-between gap-2"><div><span className="block text-xs text-slate-400">Saldo devedor</span><strong className="text-base text-rose-300">{formatMoney(p.outstanding_balance)}</strong></div><div className="text-right text-xs text-slate-400">Total {formatMoney(p.total_amount)}<br/>Venc. {p.due_date||'não informado'}</div></div>
     {!['PAID','CANCELED'].includes(status)&&<button type="button" onClick={()=>start(p)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white">Pagar dívida</button>}
    </article>;
   })}</div>}

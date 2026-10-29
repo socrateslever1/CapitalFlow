@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 const yaml = readFileSync('.github/workflows/android-apk.yml', 'utf8');
 test('android workflow contains clean, independent build, verification and upload steps', () => {
-  const names = [...yaml.matchAll(/^      - name: ([^\n]+)/gm)].map(m => m[1]);
+  const names = [...yaml.matchAll(/^      - name: ([^\r\n]+)/gm)].map(m => m[1].trim());
   for (const step of [
     'Install locked dependencies',
     'Validate architecture and financial invariants',

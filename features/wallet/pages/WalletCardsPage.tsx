@@ -22,6 +22,7 @@ import { getCardsForDisplay } from '../cardSummaryNavigation';
 import { CardInitialBalancesModal } from '../../../components/wallet/CardInitialBalancesModal';
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
+import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
@@ -238,11 +239,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao lançar despesa.'); }
     finally { setSaving(false); }
   };
-  return <WalletPageFrame title="Cartões e faturas" description="Cartões físicos, extrato editável e pagamentos autorizados."
+  return <WalletPageFrame title="Cartões e faturas" description="Acompanhe o limite, confira cada ciclo e organize seus pagamentos."
     error={error || notice} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <>
       <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 lg:col-span-5">
+        <div className="min-w-0 self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
             onAccount={() => {}} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
@@ -252,20 +253,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
         </div>
         <div className="min-w-0 space-y-4 lg:col-span-7">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-               <p className="text-xs text-slate-400">Fatura selecionada</p>
-               <strong className="block text-xl font-black text-rose-200">{formatMoney(selectedCycle?.amount || 0)}</strong>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
-               <p className="text-xs text-slate-400">Faturas posteriores</p>
-               <strong className="block text-xl font-black text-amber-200">{formatMoney(selectedFutureCommitments)}</strong>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:col-span-1">
-              <p className="text-xs text-slate-400">Limite Livre</p>
-              <strong className="block text-xl font-black text-emerald-300">{formatMoney(creditPosition?.freeLimit || 0)}</strong>
-            </div>
-          </div>
+          <WalletMetricStrip items={[
+            { label: 'Fatura selecionada', value: formatMoney(selectedCycle?.amount || 0) },
+            { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
+            { label: 'Limite disponível', value: formatMoney(creditPosition?.freeLimit || 0), tone: 'positive' },
+          ]}/>
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
             {formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
           </p>}

@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, CalendarClock, CreditCard, Landmark, Plus, RefreshCw,
-  Scale, SlidersHorizontal, TrendingDown, TrendingUp, Wallet, AlertCircle,
+  ArrowRight, CalendarClock, Plus, RefreshCw,
+  Scale, TrendingDown, TrendingUp, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import type {
@@ -11,9 +11,9 @@ import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
 import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
-import { getBankVisual, getCreditSummary, walletAccountTypeLabel } from '../../../components/wallet/walletPresentation';
+import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
-import { getCardSummaryDestination } from '../cardSummaryNavigation';
+import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
 import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { CreateAccountModal } from '../components/CreateAccountModal';
@@ -68,78 +68,6 @@ const sourceAccount = (
 };
 const isOpenPayable = (payable: PersonalWalletPayable) =>
   !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
-
-const OverviewAccountStack: React.FC<{ accounts: PersonalWalletAccount[]; onOpen: () => void }> = ({ accounts, onOpen }) => {
-  const [activeId, setActiveId] = useState<string | null>(accounts[0]?.id || null);
-  const startX = useRef<number | null>(null);
-  const active = accounts.find(account => account.id === activeId) || accounts[0] || null;
-  const index = active ? accounts.findIndex(account => account.id === active.id) : 0;
-  const rear = accounts.filter(account => account.id !== active?.id).slice(0, 3);
-  const cycle = (step: number) => accounts.length > 1 && setActiveId(accounts[(index + step + accounts.length) % accounts.length].id);
-  const visual = active ? getBankVisual(active.institution_key || active.bank_name || active.nickname) : null;
-
-  if (!active || !visual) return <p className="rounded-xl border border-dashed border-slate-700 p-5 text-xs text-slate-400">Nenhuma conta cadastrada.</p>;
-
-  return <div className="mt-4">
-    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-2">
-      <button type="button" aria-label="Conta anterior" disabled={accounts.length < 2} onClick={() => cycle(-1)} className="rounded-full p-1.5 text-slate-300 transition hover:bg-white/5 disabled:opacity-25"><ArrowLeft size={18}/></button>
-      <div className="relative mx-auto w-full max-w-[360px]" style={{ paddingTop: rear.length * 15 }}>
-        {rear.map((account, rearIndex) => {
-          const itemVisual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
-          return <button key={account.id} type="button" aria-label={`Selecionar ${account.nickname}`} onClick={() => setActiveId(account.id)}
-            className="absolute inset-x-0 top-0 mx-auto h-16 rounded-t-2xl border border-white/20 shadow-xl transition-transform duration-300"
-            style={{ zIndex: rearIndex + 1, width: `${91 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 15}px)`, background: `linear-gradient(135deg, ${itemVisual.accent}, ${itemVisual.secondary})` }} />;
-        })}
-        <button type="button" onClick={onOpen} className="group relative z-20 flex aspect-[1.8/1] w-full flex-col justify-between overflow-hidden rounded-2xl border border-white/25 p-4 text-left text-white shadow-2xl transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-          style={{ background: `linear-gradient(135deg, ${visual.accent}, ${visual.secondary})` }}
-          onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? null; }}
-          onTouchEnd={event => { const distance = (event.changedTouches[0]?.clientX ?? 0) - (startX.current ?? 0); startX.current = null; if (Math.abs(distance) > 45) cycle(distance < 0 ? 1 : -1); }}>
-          <span className="pointer-events-none absolute -right-5 -top-8 text-[8rem] font-black leading-none text-white/10">{visual.monogram}</span>
-          <span className="relative flex items-center justify-between gap-2"><span className="flex min-w-0 items-center gap-2"><span className="rounded-xl bg-white p-1"><BankLogo name={active.bank_name} alternateName={active.nickname} size="sm"/></span><strong className="truncate text-xs">{active.nickname}</strong></span><Landmark size={18} className="opacity-80"/></span>
-          <span className="relative"><small className="block text-[9px] uppercase tracking-wider text-white/70">Saldo disponível</small><strong className="block text-2xl font-black tabular-nums">{money(Number(active.balance))}</strong></span>
-          <span className="relative flex items-center justify-between gap-2 text-[10px] font-semibold text-white/75"><span>{walletAccountTypeLabel(active.account_type)}</span><ArrowRight size={14} className="transition-transform group-hover:translate-x-1"/></span>
-        </button>
-      </div>
-      <button type="button" aria-label="Próxima conta" disabled={accounts.length < 2} onClick={() => cycle(1)} className="rounded-full p-1.5 text-slate-300 transition hover:bg-white/5 disabled:opacity-25"><ArrowRight size={18}/></button>
-    </div>
-    <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400"><span>Saldo total em {accounts.length} conta(s)</span><strong className="text-emerald-300">{money(accounts.reduce((total, account) => total + Number(account.balance || 0), 0))}</strong></div>
-    {accounts.length > 1 && <p className="mt-1 text-center text-[10px] text-slate-500">{index + 1} de {accounts.length} · toque ou deslize para trocar</p>}
-  </div>;
-};
-
-const OverviewCardStack: React.FC<{ cards: PersonalWalletCard[]; accounts: PersonalWalletAccount[]; onOpen: (id: string) => void }> = ({ cards, accounts, onOpen }) => {
-  const [activeId, setActiveId] = useState<string | null>(cards[0]?.id || null);
-  const startX = useRef<number | null>(null);
-  const active = cards.find(card => card.id === activeId) || cards[0] || null;
-  const index = active ? cards.findIndex(card => card.id === active.id) : 0;
-  const rear = cards.filter(card => card.id !== active?.id).slice(0, 3);
-  const cycle = (step: number) => cards.length > 1 && setActiveId(cards[(index + step + cards.length) % cards.length].id);
-  if (!active) return <p className="py-4 text-xs text-slate-400">Nenhum cartão cadastrado.</p>;
-  const account = accounts.find(item => item.id === active.account_id);
-  const institution = active.institution_key || account?.institution_key || active.issuer || active.nickname;
-  const visual = getBankVisual(institution);
-  const accent = active.primary_color || visual.accent;
-  return <div className="mt-4">
-    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-2">
-      <button type="button" aria-label="Cartão anterior" disabled={cards.length < 2} onClick={() => cycle(-1)} className="rounded-full p-1.5 text-slate-300 transition hover:bg-white/5 disabled:opacity-25"><ArrowLeft size={18}/></button>
-      <div className="relative mx-auto w-full max-w-[360px]" style={{ paddingTop: rear.length * 15 }}>
-        {rear.map((card, rearIndex) => {
-          const rearAccount = accounts.find(item => item.id === card.account_id);
-          const rearVisual = getBankVisual(card.institution_key || rearAccount?.institution_key || card.issuer || card.nickname);
-          return <button key={card.id} type="button" aria-label={`Selecionar ${card.nickname}`} onClick={() => setActiveId(card.id)} className="absolute inset-x-0 top-0 mx-auto h-16 rounded-t-2xl border border-white/20 shadow-xl transition-transform duration-300" style={{ zIndex: rearIndex + 1, width: `${91 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 15}px)`, background: `linear-gradient(135deg, ${card.primary_color || rearVisual.accent}, ${rearVisual.secondary})` }} />;
-        })}
-        <button type="button" onClick={() => onOpen(active.id)} className="group relative z-20 flex aspect-[1.586/1] w-full flex-col justify-between overflow-hidden rounded-2xl border border-white/25 p-4 text-left text-white shadow-2xl transition-transform duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" style={{ background: `linear-gradient(135deg, ${accent}, ${visual.secondary})` }} onTouchStart={event => { startX.current = event.touches[0]?.clientX ?? null; }} onTouchEnd={event => { const distance = (event.changedTouches[0]?.clientX ?? 0) - (startX.current ?? 0); startX.current = null; if (Math.abs(distance) > 45) cycle(distance < 0 ? 1 : -1); }}>
-          <span className="pointer-events-none absolute -right-5 -top-8 text-[8rem] font-black leading-none text-white/10">{visual.monogram}</span>
-          <span className="relative flex items-center justify-between gap-2"><span className="flex min-w-0 items-center gap-2"><span className="rounded-xl bg-white p-1"><BankLogo name={institution} alternateName={active.nickname} size="sm"/></span><strong className="truncate text-xs">{active.nickname}</strong></span><span className="rounded bg-white px-1.5 py-0.5 text-[9px] font-black italic text-blue-900">{active.brand || 'CRÉDITO'}</span></span>
-          <span className="relative"><small className="block text-[9px] uppercase tracking-wider text-white/70">Limite disponível</small><strong className="block text-2xl font-black tabular-nums">{money(Math.max(0, Number(active.credit_limit) - Number(active.used_limit)))}</strong></span>
-          <span className="relative flex items-center justify-between gap-2 text-[10px] font-semibold text-white/75"><span>•••• {active.last_four || '----'}</span><ArrowRight size={14} className="transition-transform group-hover:translate-x-1"/></span>
-        </button>
-      </div>
-      <button type="button" aria-label="Próximo cartão" disabled={cards.length < 2} onClick={() => cycle(1)} className="rounded-full p-1.5 text-slate-300 transition hover:bg-white/5 disabled:opacity-25"><ArrowRight size={18}/></button>
-    </div>
-    {cards.length > 1 && <p className="mt-2 text-center text-[10px] text-slate-500">{index + 1} de {cards.length} · toque ou deslize para trocar</p>}
-  </div>;
-};
 
 const dedupePresentationAccounts = (accounts: PersonalWalletAccount[]) => {
   const seen = new Set<string>();
@@ -238,10 +166,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     cardId?: string | null;
     accountId?: string | null;
   } | null>(null);
-  const [cardDrag, setCardDrag] = useState<{ id: string; x: number } | null>(null);
-  const cardDragStart = useRef<{ id: string; x: number } | null>(null);
-  const draggedCard = useRef(false);
-
   const refresh = useCallback(async () => {
     const result = await walletRepository.load();
     setSnapshot(result);
@@ -283,34 +207,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     } finally { setRefreshing(false); }
   };
   const go = (route: 'contas' | 'cartoes' | 'dividas') => onNavigate(route);
-  const handleCardPointerDown = (event: React.PointerEvent<HTMLButtonElement>, id: string) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    cardDragStart.current = { id, x: event.clientX };
-    draggedCard.current = false;
-    setCardDrag({ id, x: 0 });
-  };
-  const handleCardPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const start = cardDragStart.current;
-    if (!start) return;
-    const x = Math.max(-140, Math.min(140, event.clientX - start.x));
-    if (Math.abs(x) > 8) draggedCard.current = true;
-    setCardDrag({ id: start.id, x });
-  };
-  const handleCardPointerEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const start = cardDragStart.current;
-    if (!start) return;
-    const delta = cardDrag?.id === start.id ? cardDrag.x : 0;
-    if (Math.abs(delta) > 55) {
-      const index = cards.findIndex(card => card.id === start.id);
-      const target = cards[index + (delta < 0 ? 1 : -1)];
-      if (target) onNavigate(getCardSummaryDestination(target.id));
-    }
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    cardDragStart.current = null;
-    setCardDrag(null);
-  };
-
   if (!overview) {
     return <section className="mx-auto w-full max-w-[1500px] px-4 sm:px-6">
       {error ? <div role="alert" className="rounded-2xl border border-rose-500/30 bg-slate-900 p-6 text-sm text-rose-200">
@@ -331,275 +227,31 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
   return <section aria-label="Visão geral da carteira"
     className="mx-auto w-full max-w-[1500px] space-y-4 px-4 pb-24 sm:px-6 lg:pb-8">
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
-        <p className="text-xs md:text-sm text-slate-400 mt-0.5">Resumo consolidado das suas finanças</p>
+        <p className="mt-1 text-sm text-slate-400">Resumo consolidado das suas finanças</p>
       </div>
+      <button type="button" onClick={() => setQuickModal({ mode: 'EXPENSE', accountId: accounts[0]?.id || null })}
+        className="ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/><span className="hidden sm:inline">Lançar despesa</span><span className="sm:hidden">Despesa</span></button>
       <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-all disabled:opacity-40 shadow-sm">
+        disabled={refreshing} className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
         <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-400'}/>
         <span className="hidden sm:inline">Atualizar</span>
       </button>
     </div>
     {error && <div role="alert" className="rounded-xl border border-amber-600/30 bg-amber-950/20 p-3 text-xs text-amber-200">{error}</div>}
 
-    <div className="grid grid-cols-1 items-stretch gap-4 lg:grid lg:grid-cols-12 lg:gap-6">
-      {/* Coluna Esquerda: LIQUIDEZ IMEDIATA */}
-      <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl backdrop-blur-xl before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-48 before:w-48 before:rounded-full before:bg-emerald-500/10 before:blur-3xl sm:p-5 lg:col-span-6 lg:p-6">
-        <div className="relative z-10">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
-              <Landmark size={17}/> Liquidez imediata
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setQuickModal({ mode: 'CASH_WALLET' })}
-                className="hidden"
-              >
-                <Wallet size={12}/> + Carteira
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickModal({ mode: 'EXPENSE', accountId: accounts[0]?.id || null })}
-                className="hidden"
-              >
-                <Plus size={12}/> Despesa
-              </button>
-            </div>
-          </div>
-          <strong className="my-1 block text-3xl font-extrabold tracking-tight tabular-nums text-white lg:text-4xl">
-            {money(overview.accountBalance)}
-          </strong>
-          <p className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-            {overview.institutionCount} {overview.institutionCount === 1 ? 'instituição' : 'instituições'}
-          </p>
-
-          <OverviewAccountStack accounts={accounts} onOpen={() => go('contas')} />
-          <div className="hidden">
-            {accounts.length ? accounts.slice(0, 2).map(account => {
-              const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
-              const visualStyles = visual as typeof visual & Partial<Record<'cardBg' | 'cardBorder' | 'cardGlow' | 'logoBg' | 'logoBorder' | 'badgeBg' | 'badgeBorder' | 'badgeText' | 'badgeDot' | 'badgeDotGlow', string>>;
-              const cardBg = visualStyles.cardBg || `linear-gradient(145deg, color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9)) 0%, color-mix(in srgb, ${visual.accent} 4%, rgba(2, 6, 23, 0.95)) 100%)`;
-              const cardBorder = visualStyles.cardBorder || `color-mix(in srgb, ${visual.accent} 45%, rgba(255, 255, 255, 0.12))`;
-              const cardGlow = visualStyles.cardGlow || `0 10px 26px -6px color-mix(in srgb, ${visual.accent} 22%, rgba(0, 0, 0, 0.65))`;
-              const logoBg = visualStyles.logoBg || `color-mix(in srgb, ${visual.accent} 15%, #0f172a)`;
-              const logoBorder = visualStyles.logoBorder || `color-mix(in srgb, ${visual.accent} 50%, rgba(255, 255, 255, 0.2))`;
-              const badgeBg = visualStyles.badgeBg || `color-mix(in srgb, ${visual.accent} 16%, rgba(15, 23, 42, 0.9))`;
-              const badgeBorder = visualStyles.badgeBorder || `color-mix(in srgb, ${visual.accent} 35%, rgba(255, 255, 255, 0.12))`;
-              const badgeText = visualStyles.badgeText || `color-mix(in srgb, ${visual.accent} 35%, #ffffff)`;
-              const badgeDot = visualStyles.badgeDot || visual.accent;
-              const badgeDotGlow = visualStyles.badgeDotGlow || `0 0 6px ${visual.accent}`;
-
-              return (
-                <div
-                  key={account.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Abrir detalhes da conta ${account.nickname}`}
-                  onClick={() => go('contas')}
-                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); go('contas'); } }}
-                  className="group relative flex min-h-[122px] cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border p-4 shadow-lg outline-none transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-xl focus-visible:ring-2 focus-visible:ring-white/60 active:scale-[.99]"
-                  style={{
-                    borderColor: cardBorder,
-                    background: cardBg,
-                    boxShadow: cardGlow
-                  }}
-                >
-                  <div className="pointer-events-none absolute inset-x-4 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${visual.accent}, transparent)` }} />
-                  <div
-                    className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-15 transition-opacity group-hover:opacity-30"
-                    style={{ backgroundColor: visual.accent }}
-                  />
-
-                  <div className="relative z-10 flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <BankLogo
-                        name={account.institution_key || account.bank_name}
-                        alternateName={account.nickname}
-                        size="sm"
-                        className="shadow-sm transition-transform duration-200 group-hover:scale-105"
-                        style={{
-                          borderColor: logoBorder,
-                          backgroundColor: logoBg
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <span className="block truncate text-xs font-bold text-white tracking-tight">{visual.name}</span>
-                        {account.nickname && account.nickname.toLowerCase() !== visual.name.toLowerCase() && (
-                          <span className="block truncate text-[10px] text-slate-400 font-medium">{account.nickname}</span>
-                        )}
-                      </div>
-                    </div>
-                    <ArrowRight size={14} className="shrink-0 text-white/35 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70" aria-hidden="true" />
-                  </div>
-
-                  <div className="relative z-10 mt-3">
-                    <strong className="block text-xl sm:text-2xl font-black tracking-tight tabular-nums text-white">
-                      {money(Number(account.balance))}
-                    </strong>
-                    <div className="mt-2.5 flex items-center justify-between gap-2">
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide"
-                        style={{
-                          backgroundColor: badgeBg,
-                          border: `1px solid ${badgeBorder}`,
-                          color: badgeText,
-                        }}
-                      >
-                        <span
-                          className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{
-                            backgroundColor: badgeDot,
-                            boxShadow: badgeDotGlow
-                          }}
-                        />
-                        {walletAccountTypeLabel(account.account_type)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={event => {
-                          event.stopPropagation();
-                          setQuickModal({ mode: 'EXPENSE', accountId: account.id });
-                        }}
-                        className="hidden"
-                      >
-                        - Despesa
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            }) : <p className="col-span-2 rounded-xl border border-dashed border-slate-700 p-5 text-xs text-slate-400">
-              Nenhuma conta cadastrada.
-            </p>}
-          </div>
-        </div>
-
-        <div className="mt-6 border-t border-white/5 pt-4 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => go('contas')}
-            className="group inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 transition-colors hover:text-emerald-300 cursor-pointer"
-          >
-            <span>Ver detalhes das contas</span>
-            <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-          </button>
-        </div>
-      </article>
-
-      {/* Coluna Direita: CARTÕES */}
-      <article className="relative flex h-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 bg-gradient-to-br from-blue-950/30 via-slate-900/80 to-slate-950/80 p-4 shadow-2xl backdrop-blur-xl sm:p-5 lg:col-span-6 lg:p-6">
-        <div className="relative z-10">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
-              <CreditCard size={17}/> Cartões
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setQuickModal({ mode: 'CARD_OPENING', cardId: cards[0]?.id || null })}
-                className="hidden"
-              >
-                <SlidersHorizontal size={12}/> Cartão em Uso
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuickModal({ mode: 'EXPENSE', cardId: cards[0]?.id || null })}
-                className="hidden"
-              >
-                <Plus size={12}/> + Despesa
-              </button>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[11px] text-slate-400">Faturas do mês</p>
-              <strong className="mt-1 block text-xl font-black tabular-nums text-white sm:text-2xl">
-                {money(overview.currentInvoiceTotal)}
-              </strong>
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-400">Limite livre</p>
-              <strong className="mt-1 block text-xl font-black tabular-nums text-emerald-300 sm:text-2xl">
-                {money(credit.available)}
-              </strong>
-            </div>
-          </div>
-          <div className="mt-5">
-            <div className="mb-2 flex justify-between text-[11px] text-slate-400">
-              <span>Limite utilizado</span>
-              <strong className="text-slate-200">{Math.round(credit.percentage)}%</strong>
-            </div>
-            <div role="progressbar" aria-label="Uso do limite de crédito"
-              aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(credit.percentage)}
-              className="h-2.5 overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(0, credit.percentage))}%` }}/>
-            </div>
-          </div>
-
-          {/* Cartões com animação 3D de sobreposição (Apple Wallet style), expansão no hover e elevação */}
-          <OverviewCardStack cards={cards} accounts={accounts} onOpen={id => onNavigate(getCardSummaryDestination(id))} />
-          <div className="hidden" aria-label="Seus cartões">
-            {cards.length ? (
-              <div className="flex -space-x-28 py-1 select-none overflow-visible sm:-space-x-32" aria-label="Arraste para navegar entre os cartões">
-                {cards.map(card => {
-                  const index = cards.indexOf(card);
-                  const account = accounts.find(item => item.id === card.account_id);
-                  const institution = card.institution_key || account?.institution_key || card.issuer || card.nickname;
-                  const visual = getBankVisual(institution);
-                  return <button type="button" key={card.id}
-                    onPointerDown={event => handleCardPointerDown(event, card.id)}
-                    onPointerMove={handleCardPointerMove}
-                    onPointerUp={handleCardPointerEnd}
-                    onPointerCancel={handleCardPointerEnd}
-                    onClick={() => {
-                      if (draggedCard.current) { draggedCard.current = false; return; }
-                      onNavigate(getCardSummaryDestination(card.id));
-                    }}
-                    aria-label={`Abrir cartão ${card.nickname}`}
-                    style={{
-                      background: `linear-gradient(135deg, ${card.primary_color || visual.accent}, ${visual.secondary})`,
-                      zIndex: cardDrag?.id === card.id ? 60 : 30 - index * 5,
-                      transform: `translateX(${cardDrag?.id === card.id ? cardDrag.x : 0}px) scale(${cardDrag?.id === card.id ? 1.03 : 1 - index * 0.04}) translateY(${index * 2}px)`,
-                    }}
-                    className="group relative flex w-[min(78vw,280px)] aspect-[1.586/1] h-[108px] shrink-0 touch-none cursor-grab flex-col justify-between rounded-xl border border-white/25 p-3 text-left text-white shadow-xl shadow-black/40 transition-transform duration-200 active:cursor-grabbing hover:shadow-2xl hover:border-white/50 sm:h-[114px] sm:w-auto">
-                    <div className="flex min-w-0 items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <BankLogo name={institution} alternateName={card.nickname} size="sm"/>
-                        <span className="truncate text-[11px] font-bold text-white drop-shadow-sm">{card.nickname}</span>
-                      </div>
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-white/80 bg-black/25 px-1.5 py-0.5 rounded">
-                        {card.brand || 'Crédito'}
-                      </span>
-                    </div>
-                    <div className="flex items-end justify-between gap-1 pt-2">
-                      <span className="text-[10px] font-mono tracking-widest text-white/90 drop-shadow-sm">•••• {card.last_four || '----'}</span>
-                      <span className="text-[9px] font-medium text-white/70 group-hover:text-white transition-colors">Ver fatura →</span>
-                    </div>
-                  </button>;
-                })}
-              </div>
-            ) : <p className="py-4 text-xs text-slate-400">Nenhum cartão cadastrado.</p>}
-          </div>
-        </div>
-
-        <button type="button" onClick={() => go('cartoes')}
-          className="group relative z-10 mt-6 inline-flex w-full items-center justify-between gap-2 border-t border-white/5 pt-4 text-left text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200">
-          <span>Ver cartões e faturas</span> <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5"/>
-        </button>
-      </article>
-    </div>
+    <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}
+      currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
-    <article className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-5 lg:p-6 shadow-xl mb-6">
+    <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-300">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-slate-200">
             <Scale size={17} className="text-violet-300"/> Balanço do mês
-          </div>
+          </h3>
           <p className="mt-1 text-xs text-slate-400">{today.slice(5, 7)}/{today.slice(0, 4)}</p>
         </div>
         <span className={'rounded-full border px-3 py-1 text-xs font-semibold ' +
@@ -610,18 +262,18 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-12">
         {/* Card de Recursos */}
-        <div className="bg-emerald-950/25 border border-emerald-500/20 rounded-xl p-4 lg:col-span-6">
+        <div className="min-w-0 py-2 lg:col-span-6 lg:pr-5">
           <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-emerald-400"><TrendingUp size={16} className="text-emerald-400"/> Recursos</h3>
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3 text-sm tabular-nums">
             <div className="flex justify-between gap-3 text-slate-300"><span>Saldo em contas</span><strong className="text-white font-semibold">{money(balance.accountBalance)}</strong></div>
             <div className="flex justify-between gap-3 text-slate-300"><span>Receitas a receber</span><strong className="text-white font-semibold">{money(balance.pendingRecurringIncome)}</strong></div>
             <div className="flex justify-between gap-3 border-t border-emerald-500/20 pt-3 font-bold text-emerald-300"><span>Total de recursos</span><strong className="text-emerald-300 font-bold">{money(balance.totalResources)}</strong></div>
           </div>
         </div>
         {/* Card de Passivos */}
-        <div className="bg-rose-950/25 border border-rose-500/20 rounded-xl p-4 lg:col-span-6">
+        <div className="min-w-0 border-t border-slate-800 py-4 lg:col-span-6 lg:border-l lg:border-t-0 lg:py-2 lg:pl-5">
           <h3 className="mb-3 flex items-center gap-2 text-xs font-bold text-rose-400"><TrendingDown size={16} className="text-rose-400"/> Passivos</h3>
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3 text-sm tabular-nums">
             <div className="flex justify-between gap-3 text-slate-300"><span>Faturas de cartão do mês</span><strong className="text-white font-semibold">{money(balance.openCardInvoices)}</strong></div>
             <div className="flex justify-between gap-3 text-slate-300"><span>Dívidas e contas a pagar do mês</span><strong className="text-white font-semibold">{money(balance.monthPayables)}</strong></div>
             <div className="flex justify-between gap-3 border-t border-rose-500/20 pt-3 font-bold text-rose-300"><span>Total de passivos</span><strong className="text-rose-300 font-bold">{money(balance.totalLiabilities)}</strong></div>
@@ -629,10 +281,10 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </div>
       {/* Faixa de Saldo Projetado */}
-      <div className="bg-slate-950/60 border border-white/5 rounded-xl p-4 mt-4 flex items-center justify-between">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-slate-800 pt-5">
         <div>
           <p className="text-xs font-bold text-slate-300">Saldo projetado do mês</p>
-          <p className="text-xs text-slate-400 mt-0.5">Saldo disponível menos valores a pagar</p>
+          <p className="text-xs text-slate-400 mt-0.5">Total de recursos menos total de passivos</p>
         </div>
         <strong className={'text-2xl lg:text-3xl font-extrabold tracking-tight tabular-nums ' + (deficit ? 'text-rose-400' : 'text-emerald-400')}>
           {money(balance.projectedBalance)}
@@ -641,7 +293,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     </article>
 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
-    <article className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-5 lg:p-6 shadow-xl">
+    <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-base font-bold text-white"><CalendarClock size={18} className="text-amber-300"/> Compromissos próximos</h2>

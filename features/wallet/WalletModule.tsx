@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { AlertTriangle, LockKeyhole, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 import { useWalletAccess } from './hooks/useWalletAccess';
@@ -12,6 +12,8 @@ const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string }> = ({ 
   <h1 className="text-xl font-black">{kind === 'inactive' ? 'Módulo Carteira não está ativo' : 'Carteira temporariamente indisponível'}</h1>
   <p className="mt-2 text-sm text-slate-400">{message}</p>
 </section>;
+
+const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark };
 
 const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUser }) => {
   const location = useLocation();
@@ -33,30 +35,33 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         <h1 className="truncate text-base font-extrabold text-white sm:text-xl">Minha carteira</h1>
         <p className="hidden truncate text-xs text-slate-400 sm:block">Contas, cartões e compromissos</p>
       </div>
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-400 sm:text-xs">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"/>
-        {realtimeStatus === 'connected' ? 'Sincronizado' : 'Sincronizando'}
+      <span role="status" className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium ${realtimeStatus === 'connected' ? 'text-emerald-300' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'text-amber-200' : 'text-slate-400'}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${realtimeStatus === 'connected' ? 'bg-emerald-400' : 'bg-current'}`}/>
+        {realtimeStatus === 'connected' ? 'Sincronizado' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'Sem conexão ao vivo' : 'Conectando'}
       </span>
     </header>
     <div className="mx-auto mb-4 w-full max-w-[1500px] px-4 sm:px-6">
-      <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-xl border border-white/5 bg-slate-900/60 p-1 sm:flex sm:rounded-2xl">
-        {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => (
+      <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-2xl border border-slate-800 bg-slate-900 p-1.5 sm:flex">
+        {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
+          const Icon = navigationIcons[item.key];
+          return (
           <button
             key={item.key}
             type="button"
             aria-current={route === item.key ? 'page' : undefined}
             onClick={() => go(item.key)}
             aria-label={item.label}
-            className={`min-w-0 rounded-lg px-1 py-2.5 text-[10px] font-medium transition-all sm:shrink-0 sm:px-4 sm:text-xs md:text-sm ${
+            className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${
               route === item.key
-                ? 'bg-blue-600 text-white shadow-md font-semibold'
+                ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
+            <Icon size={17} aria-hidden="true"/>
             <span className="sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.key === 'contas' ? 'Contas' : item.key === 'dividas' ? 'Dívidas' : item.label}</span>
             <span className="hidden sm:inline">{item.label}</span>
           </button>
-        ))}
+        ); })}
       </nav>
     </div>
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>

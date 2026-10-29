@@ -3,6 +3,7 @@ import {CalendarDays,CheckCircle2,Plus,Repeat,Save,Trash2,X} from 'lucide-react'
 import {PersonalWalletAccount,WalletRecurringIncome,personalWalletService} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
 import {generateUUID} from '../../utils/generators';
+import {WalletMetricStrip} from './WalletMetricStrip';
 type Props={accounts:PersonalWalletAccount[];incomes:WalletRecurringIncome[];receivedIds:Set<string>;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
 const month=new Date().toISOString().slice(0,7)+'-01';
@@ -22,14 +23,15 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
  const active=incomes.filter(x=>x.active);
  const projected=active.reduce((sum,x)=>sum+Number(x.amount),0);
  const received=active.filter(x=>receivedIds.has(x.id)).reduce((sum,x)=>sum+Number(x.amount),0);
- return <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-  <header className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-sm font-bold text-white"><Repeat size={18} className="text-emerald-300"/>Receitas fixas</h2><p className="text-[11px] text-slate-400">Projeção mensal, sem lançamento automático.</p></div><button type="button" onClick={()=>setOpen(true)} className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"><Plus size={15}/>Nova</button></header>
-  <div className="grid grid-cols-2 gap-2">
-   <div className="rounded-xl bg-slate-950 p-3"><span className="text-[10px] text-slate-400">Previsto/mês</span><strong className="block text-sm text-emerald-200">{formatMoney(projected)}</strong></div>
-   <div className="rounded-xl bg-slate-950 p-3"><span className="text-[10px] text-slate-400">Confirmado neste mês</span><strong className="block text-sm text-white">{formatMoney(received)}</strong></div>
-  </div>
+ return <section className="space-y-5">
+  <header className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-base font-semibold text-white"><Repeat size={18} className="text-slate-400"/>Receitas fixas</h2><p className="mt-1 text-sm text-slate-400">Projeção mensal, sem lançamento automático.</p></div><button type="button" onClick={()=>setOpen(true)} className="flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/>Nova receita</button></header>
+  <WalletMetricStrip items={[
+    {label:'Previsto por mês',value:formatMoney(projected)},
+    {label:'Confirmado neste mês',value:formatMoney(received),tone:'positive'},
+    {label:'A receber neste mês',value:formatMoney(projected-received)},
+  ]}/>
   {!active.length?<p className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-400">Cadastre salário, aluguel recebido ou outro rendimento recorrente.</p>:<div className="divide-y divide-slate-800">{active.map(x=><div key={x.id} className="flex items-center justify-between gap-2 py-3">
-   <div className="min-w-0"><strong className="block truncate text-xs text-white">{x.description}</strong><p className="text-[11px] text-slate-400">{x.category} · dia {x.receipt_day} · {accounts.find(a=>a.id===x.destination_account_id)?.nickname||'Conta'}</p><strong className="text-xs text-emerald-300">{formatMoney(x.amount)}</strong></div>
+   <div className="min-w-0"><strong className="block truncate text-sm text-white">{x.description}</strong><p className="text-xs text-slate-400">{x.category} · dia {x.receipt_day} · {accounts.find(a=>a.id===x.destination_account_id)?.nickname||'Conta'}</p><strong className="text-xs text-emerald-300">{formatMoney(x.amount)}</strong></div>
    <div className="flex shrink-0 items-center gap-1">
     <button type="button" disabled={busy||receivedIds.has(x.id)} onClick={()=>perform(()=>personalWalletService.postRecurringIncome(x.id,month,generateUUID()))}
       className="flex items-center gap-1 rounded-lg border border-emerald-700/50 px-2 py-2 text-[11px] font-semibold text-emerald-300 disabled:opacity-50"><CheckCircle2 size={13}/>{receivedIds.has(x.id)?'Recebido':'Receber'}</button>

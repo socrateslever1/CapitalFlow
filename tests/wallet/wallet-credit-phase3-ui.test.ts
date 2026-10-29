@@ -4,9 +4,9 @@ import test from 'node:test';
 
 test('cards page exposes the three credit magnitudes and the manual override action', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert.match(page, /Fatura do Mês/);
-  assert.match(page, /Parcelas Futuras/);
-  assert.match(page, /Limite Livre/);
+  assert.match(page, /Fatura selecionada/);
+  assert.match(page, /Faturas posteriores/);
+  assert.match(page, /Limite disponível/);
   assert.match(page, /Definir Valor da Fatura/);
   assert.match(page, /InvoiceOverrideModal/);
 });

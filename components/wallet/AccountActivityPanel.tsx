@@ -15,7 +15,7 @@ type Props = {
   invoicePayments: PersonalWalletInvoicePayment[];
   onSaved: () => Promise<void>;
 };
-type Action = Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER'>;
+type Action = Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER' | 'CAPITAL_SYNC'>;
 const labels: Record<Action,string> = {
   LOAN_DISBURSEMENT:'Empréstimo concedido', LOAN_REPAYMENT:'Parcela recebida',
   INCOME:'Receita', RECEIPT:'Recebimento', EXPENSE:'Despesa', PAYMENT:'Pagamento', TRANSFER:'Transferência',

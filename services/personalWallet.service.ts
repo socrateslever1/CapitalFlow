@@ -157,7 +157,7 @@ export type PersonalWalletInvoicePayment = {
 export type WalletAccountOperation = {
   id: string;
   request_id: string;
-  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER'|'EXTERNAL_TRANSFER'|'LOAN_DISBURSEMENT'|'LOAN_REPAYMENT';
+  operation_type: 'INCOME'|'RECEIPT'|'EXPENSE'|'PAYMENT'|'TRANSFER'|'EXTERNAL_TRANSFER'|'LOAN_DISBURSEMENT'|'LOAN_REPAYMENT'|'CAPITAL_SYNC';
   from_account_id: string|null;
   to_account_id: string|null;
   amount: number;
@@ -202,7 +202,7 @@ export type PersonalWalletCharge = {
   created_at: string;
 };
 export type RecordWalletOperation = {
-  type: Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER'>;
+  type: Exclude<WalletAccountOperation['operation_type'], 'EXTERNAL_TRANSFER' | 'CAPITAL_SYNC'>;
   fromAccountId: string|null;
   toAccountId: string|null;
   amount: number;

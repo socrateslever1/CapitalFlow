@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, Pencil, Plus, RotateCcw, Wifi } from 'lucide-react';
-import { copyCardDataToClipboard } from '../../utils/cardClipboard';
+import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { BankLogo } from './BankLogo';
@@ -35,12 +35,20 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   const [dragOffset, setDragOffset] = useState(0);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
-  const handleCopy = async (event: React.MouseEvent) => {
+  // Apenas campos efetivamente disponíveis; nunca copiar um resumo ou fingir número/CVC completos.
+  const handleCopyField = async (field: 'number' | 'holder' | 'expiry', event: React.MouseEvent) => {
     event.stopPropagation();
     if (!selected) return;
-    const res = await copyCardDataToClipboard(selected);
+    const expiry = selected.expiry_month && selected.expiry_year
+      ? `${String(selected.expiry_month).padStart(2, '0')}/${String(selected.expiry_year).slice(-2)}`
+      : '';
+    const res = field === 'number'
+      ? await copyCardLastFourToClipboard(selected.last_four)
+      : field === 'holder'
+        ? await copyCardFieldToClipboard('Titular', selected.cardholder_name || '')
+        : await copyCardFieldToClipboard('Validade', expiry);
     setCopyFeedback(res.message);
-    setTimeout(() => setCopyFeedback(null), 2500);
+    window.setTimeout(() => setCopyFeedback(null), 2500);
   };
 
   const preventOpen = useRef(false);
@@ -133,13 +141,13 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                       <div className="min-w-0 text-right"><small className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Limite disponível</small><strong className="block truncate text-sm font-black sm:text-base">{formatMoney(available)}</strong></div>
                       <Wifi size={18} className="shrink-0 rotate-90 opacity-80"/>
                     </div>
-                    <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={handleCopy} title="Copiar dados do cartão" className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/15 px-2.5 py-1.5 text-left transition hover:bg-black/25">
+                    <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('number', event); }} disabled={!selected.last_four} aria-label="Copiar apenas os quatro últimos dígitos do cartão" title="Copiar final do cartão" className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/15 px-2.5 py-1.5 text-left transition hover:bg-black/25">
                       <span className="min-w-0 whitespace-nowrap font-mono text-[clamp(0.68rem,3.1vw,0.95rem)] font-bold tracking-[0.11em] text-white">{maskedNumber}</span>
                       <Copy size={12} className="shrink-0 text-white/65" aria-hidden/>
                     </button>
                     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-t border-white/10 pt-1.5">
-                      <div data-card-section="holder" className="min-w-0"><small className="block text-[7px] font-bold uppercase tracking-wider text-white/55">Titular</small><strong className="block truncate font-mono text-[9px] uppercase tracking-wide text-white sm:text-[11px]">{holderLabel}</strong></div>
-                      <div data-card-section="expiry" className="shrink-0 text-right"><small className="block text-[7px] font-bold uppercase tracking-wider text-white/55">Validade</small><strong className="font-mono text-[10px] text-white sm:text-xs">{expiryLabel}</strong></div>
+                      <button type="button" data-card-section="holder" aria-label="Copiar titular do cartão" disabled={!selected.cardholder_name} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('holder', event); }} className="min-w-0 text-left disabled:opacity-70"><small className="block text-[7px] font-bold uppercase tracking-wider text-white/55">Titular · copiar</small><strong className="block truncate font-mono text-[9px] uppercase tracking-wide text-white sm:text-[11px]">{holderLabel}</strong></button>
+                      <button type="button" data-card-section="expiry" aria-label="Copiar validade do cartão" disabled={expiryLabel === '—'} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('expiry', event); }} className="shrink-0 text-right disabled:opacity-70"><small className="block text-[7px] font-bold uppercase tracking-wider text-white/55">Validade · copiar</small><strong className="block font-mono text-[10px] text-white sm:text-xs">{expiryLabel}</strong></button>
                     </div>
                   </div>
                 </div>
@@ -163,7 +171,8 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                         <span className="block truncate font-mono text-[8px] text-white/65 sm:text-[9px]">{maskedNumber}</span>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <button type="button" title="Copiar dados do cartão" aria-label="Copiar dados do cartão" onPointerDown={event => event.stopPropagation()} onClick={handleCopy} className="flex items-center gap-1 rounded-md border border-white/20 bg-black/30 px-2 py-1.5 text-[8px] font-bold text-white transition hover:bg-black/45 sm:text-[9px]"><Copy size={11}/>Copiar dados</button>
+                        <button type="button" aria-label="Copiar titular do cartão" title="Copiar titular" disabled={!selected.cardholder_name} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('holder', event); }} className="flex items-center gap-1 rounded-md border border-white/20 bg-black/30 px-1.5 py-1.5 text-[8px] font-bold text-white disabled:opacity-50"><Copy size={10}/>Titular</button>
+                          <button type="button" aria-label="Copiar validade do cartão" title="Copiar validade" disabled={expiryLabel === '—'} onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('expiry', event); }} className="flex items-center gap-1 rounded-md border border-white/20 bg-black/30 px-1.5 py-1.5 text-[8px] font-bold text-white disabled:opacity-50"><Copy size={10}/>Validade</button>
                         <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); onCard(selected); }} className="rounded-md border border-white/20 bg-white/10 px-2 py-1.5 text-[8px] font-bold text-white sm:text-[9px]">Detalhes</button>
                       </div>
                     </div>
@@ -181,7 +190,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
         <button type="button" onClick={() => onEditCard(selected)} className="flex min-w-0 items-center justify-center gap-1 rounded-xl border border-slate-700 px-2 py-2.5 text-[10px] font-bold text-slate-200 sm:text-xs"><Pencil size={14}/> Editar cartão</button>
       </div>
       {copyFeedback && <p role="status" className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-emerald-300"><Check size={12}/>{copyFeedback}</p>}
-      <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-slate-500"><RotateCcw size={11}/>{index + 1} de {availableCards.length} · Toque para virar · Deslize ou use as setas para trocar</p>
+      <p className="mt-2 flex items-center justify-center gap-1 text-center text-[10px] text-slate-500"><RotateCcw size={11}/>{index + 1} de {availableCards.length} · Toque para virar · Deslize para trocar</p>
     </>}
   </section>;
 };

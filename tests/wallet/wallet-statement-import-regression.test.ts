@@ -68,3 +68,15 @@ test('PDF cloud reading is never automatic and requires visible user consent', (
     assert(ui.includes('Ler PDF com IA'));
   }
 });
+
+
+test('OFX distinguishes invoice PIX settlement from Pix no Crédito charge',async()=>{
+  const file=makeFile([
+    '<OFX><CCSTMTRS><BANKTRANLIST>',
+    '<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261030000000<TRNAMT>-350.00<FITID>p1<NAME>PAGAMENTO PIX</STMTTRN>',
+    '<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261030000000<TRNAMT>-58.50<FITID>p2<NAME>PIX NO CRÉDITO</STMTTRN>',
+    '</BANKTRANLIST></CCSTMTRS></OFX>',
+  ].join(''),'card.ofx');
+  const result=await parseStatementOfx(file,'CARD');
+  assert.deepEqual(result.rows.map(x=>x.amount),[-350,58.5]);
+});

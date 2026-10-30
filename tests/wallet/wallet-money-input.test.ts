@@ -35,7 +35,7 @@ test('mobile browser offers the signed APK directly, native app never prompts it
   const proxy = readFileSync('functions/api/android/apk.ts','utf8');
   assert(proxy.includes('/releases/download/android-signed-beta/CapitalFlow-Android.apk'));
   assert(proxy.includes("'Content-Disposition': 'attachment; filename=\"CapitalFlow-Android.apk\"'"));
-  assert(proxy.includes("new Response(upstream.body"));
+  assert(proxy.includes("new Response(bounded"));
   assert(proxy.includes("final.hostname.endsWith('.githubusercontent.com')"));
   assert(source.includes('isNativePlatform'));
   assert(source.includes('sessionStorage'));

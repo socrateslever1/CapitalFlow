@@ -16,6 +16,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
+import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import {
@@ -27,6 +28,7 @@ type Props = {
   kind: 'ACCOUNT' | 'CARD';
   targetId: string;
   targetName: string;
+  targetIssuer?: string | null;
   initialDueMonth?: string | null;
   hasOpening?: boolean;
   onClose: () => void;
@@ -51,6 +53,7 @@ export const WalletStatementImport: React.FC<Props> = ({
   kind,
   targetId,
   targetName,
+  targetIssuer,
   initialDueMonth,
   hasOpening = false,
   onClose,
@@ -70,6 +73,10 @@ export const WalletStatementImport: React.FC<Props> = ({
   const [finished, setFinished] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
+  const declaredBank = result?.invoiceSummary?.institution;
+  const bankMismatch = Boolean(kind === 'CARD' && targetIssuer && declaredBank
+    && !targetIssuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(
+      declaredBank.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -120,6 +127,7 @@ export const WalletStatementImport: React.FC<Props> = ({
     );
 
   const save = async () => {
+    if (bankMismatch) { setError('Esta fatura é de outra instituição. Selecione o cartão correto antes de importar.'); return; }
     if (!result || !selectedCount || selectedInvalid) {
       setError('Revise os valores, as datas e as descrições selecionadas.');
       return;
@@ -269,6 +277,9 @@ export const WalletStatementImport: React.FC<Props> = ({
               </label>
             </div>
           )}
+
+          {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview summary={result.invoiceSummary} />}
+          {bankMismatch && <p role="alert" className="text-xs text-rose-300">Banco da fatura diferente do cartão selecionado. Não é seguro alocar automaticamente.</p>}
 
           {/* Upload Area */}
           <div className="space-y-2">

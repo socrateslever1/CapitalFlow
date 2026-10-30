@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight, CalendarClock, ChevronDown, Plus, RefreshCw,
+  ArrowRight, CalendarClock, ChevronDown,
   Scale, TrendingDown, TrendingUp, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
@@ -17,7 +17,6 @@ import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
 import { WalletSpendingGuide } from '../components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../domain/walletSpendingInsights';
 import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
-import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { CreateAccountModal } from '../components/CreateAccountModal';
 
 type Props = {
@@ -230,19 +229,10 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
   return <section aria-label="Visão geral da carteira"
     className="w-full min-w-0 space-y-4 pb-24 lg:pb-8">
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">Panorama financeiro</h2>
-        <p className="mt-1 text-sm text-slate-300">Resumo consolidado de contas, cartões e compromissos do mês</p>
-      </div>
-      <button type="button" onClick={() => setQuickModal({ mode: 'EXPENSE', accountId: accounts[0]?.id || null })}
-        className="ml-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/><span className="hidden sm:inline">Lançar despesa</span><span className="sm:hidden">Despesa</span></button>
-      <button aria-label="Atualizar indicadores da carteira" type="button" onClick={() => void retry()}
-        disabled={refreshing} className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-3 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-        <RefreshCw size={14} className={refreshing ? 'animate-spin text-blue-400' : 'text-slate-300'}/>
-        <span className="hidden sm:inline">Atualizar</span>
-      </button>
-    </div>
+    <header className="min-w-0 pb-1">
+      <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">Panorama financeiro</h2>
+      <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">Contas, cartões e compromissos do mês.</p>
+    </header>
     {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>}
 
     <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}
@@ -357,20 +347,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </p>}
       </div>
     </article>
-
-    {quickModal?.mode === 'EXPENSE' && (
-      <QuickExpenseModal
-        accounts={accounts}
-        cards={cards}
-        defaultMethod={quickModal.accountId ? 'ACCOUNT' : 'CARD'}
-        defaultAccountId={quickModal.accountId}
-        defaultCardId={quickModal.cardId}
-        onClose={() => setQuickModal(null)}
-        onSaved={async () => {
-          await refresh();
-        }}
-      />
-    )}
 
     {quickModal?.mode === 'CASH_WALLET' && (
       <CreateAccountModal

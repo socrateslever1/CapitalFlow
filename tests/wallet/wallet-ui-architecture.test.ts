@@ -54,7 +54,8 @@ test('o cartão não recupera número completo nem CVC de anotações livres', (
 test('as contas usam linhas compactas com a identidade visual da instituição', () => {
   assert.match(accountStack, /BankLogo/);
   assert.match(accountStack, /divide-y divide-slate-800/);
-  assert.match(accountStack, /px-3 py-3/);
+  assert.match(accountStack, /px-2.5 py-2.5/);
+  assert.match(accountStack, /min-h-12 items-center justify-between/);
   assert.match(accountStack, /walletAccountTypeLabel\(account\.account_type\)/);
   assert.match(accountStack, /Saldo disponível/);
 });

@@ -19,15 +19,14 @@ export const WalletOverviewSummary: React.FC<{
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Landmark size={18} className="text-blue-400"/>Liquidez imediata</h3>
         <span className="text-xs font-medium text-slate-300">{accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}</span>
       </header>
-      <div className="mt-3 rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
-        <p className="text-sm font-semibold text-slate-300">Saldo disponível</p>
-        <p className={`mt-1.5 break-words text-xl font-bold tracking-tight tabular-nums sm:text-2xl ${accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+      <div className="mt-3 border-b border-slate-800 pb-3">
+        <p className="text-xs font-medium text-slate-300">Saldo disponível nas contas</p>
+        <p className={`mt-1 break-words text-xl font-bold tracking-tight tabular-nums sm:text-2xl ${accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
           {formatMoney(accountBalance)}
         </p>
-        <p className="mt-1 text-xs sm:text-sm text-slate-300">Total livre para movimentação nas suas instituições</p>
       </div>
-      <div className="mt-4"><AccountCardStack compact accounts={accounts.slice(0,4)} onOpen={() => onNavigate('contas')}/></div>
-      <button type="button" onClick={() => onNavigate('contas')} className="mt-4 flex min-h-11 w-full items-center justify-between gap-2 border-t border-slate-800 pt-4 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+      <div className="mt-1"><AccountCardStack compact accounts={accounts.slice(0,4)} onOpen={() => onNavigate('contas')}/></div>
+      <button type="button" onClick={() => onNavigate('contas')} className="mt-2 flex min-h-10 w-full items-center justify-between gap-2 border-t border-slate-800 pt-2 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
         <span>Ver detalhes das contas</span> <ArrowRight size={17}/>
       </button>
     </article>

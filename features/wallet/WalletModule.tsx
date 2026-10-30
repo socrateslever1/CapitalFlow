@@ -21,7 +21,8 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   const navigate = useNavigate();
   const access = useWalletAccess();
   const invalidate = useCallback(() => window.dispatchEvent(new Event('capitalflow:wallet-updated')), []);
-  const realtimeStatus = useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
+  // Sincronização permanece automática; o status não ocupa espaço no cabeçalho.
+  useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
   const route = getWalletRoute(location.pathname);
   const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
 
@@ -30,41 +31,32 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <div className="mb-2 w-full">
-      <PageHeader className="pb-1" stackActionsUntilLg icon={<CreditCard size={22}/>}
-        iconClassName="border-fuchsia-500/30 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-fuchsia-950/30"
-        title={<>Minha <span className="text-blue-500">Carteira</span></>}
-        subtitle="Contas, cartões e compromissos"
-        actions={
-      <span role="status" className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium ${realtimeStatus === 'connected' ? 'text-emerald-300' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'text-amber-200' : 'text-slate-400'}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${realtimeStatus === 'connected' ? 'bg-emerald-400' : 'bg-current'}`}/>
-        {realtimeStatus === 'connected' ? 'Sincronizado' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'Sem conexão ao vivo' : 'Conectando'}
-      </span>}/>
-    </div>
     <div className="mb-3 w-full">
-      <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1 sm:flex">
-        {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
-          const Icon = navigationIcons[item.key];
-          return (
-          <button
-            key={item.key}
-            type="button"
-            aria-current={route === item.key ? 'page' : undefined}
-            onClick={() => go(item.key)}
-            aria-label={item.label}
-            className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${
-              route === item.key
-                ? 'bg-blue-600 text-white font-semibold'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
+      <PageHeader className="border-b-0 pb-0" icon={<CreditCard size={22}/>}
+        iconClassName="border-blue-500/30 bg-blue-600 text-white shadow-blue-950/30"
+        title={<>Minha <span className="text-blue-500">Carteira</span></>}
+        subtitle="Contas, cartões e compromissos"/>
+    </div>
+    <nav aria-label="Navegação da Carteira" className="mb-4 grid w-full min-w-0 grid-cols-5 border-b border-slate-800/80 sm:flex sm:gap-1">
+      {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
+        const Icon = navigationIcons[item.key];
+        const active = route === item.key;
+        return (
+          <button key={item.key} type="button"
+            aria-current={active ? 'page' : undefined}
+            onClick={() => go(item.key)} aria-label={item.label}
+            className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 border-b-2 px-0.5 py-2 text-[11px] font-medium transition-colors sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+              active
+                ? 'border-blue-500 bg-blue-500/10 font-semibold text-white'
+                : 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-100'
+            }`}>
             <Icon size={17} aria-hidden="true"/>
-            <span className="sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.key === 'contas' ? 'Contas' : item.key === 'dividas' ? 'Dívidas' : item.label}</span>
+            <span className="sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.label}</span>
             <span className="hidden sm:inline">{item.label}</span>
           </button>
-        ); })}
-      </nav>
-    </div>
+        );
+      })}
+    </nav>
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
 
     {route !== 'cartoes' && <WalletExpenseFab />}

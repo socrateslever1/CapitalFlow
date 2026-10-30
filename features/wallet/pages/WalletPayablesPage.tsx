@@ -65,7 +65,14 @@ export const WalletPayablesPage:React.FC<Props>=({activeUser,onNavigate})=>{
     if(item.kind==='CARD_INVOICE'){
       onNavigate('cartoes?card='+encodeURIComponent(item.cardId || '')+'&fatura='+encodeURIComponent(item.dueMonth || '')+
         (pay?'&acao=pagar-fatura':''));
-    }else setManaging(true);
+    }else {
+      setManaging(true);
+      const params=new URLSearchParams(searchParams);
+      params.set('gerenciar','1');
+      if(pay && item.payableId)params.set('pagar',item.payableId);
+      else params.delete('pagar');
+      setSearchParams(params,{replace:true});
+    }
   };
   const manage=()=>{
     setManaging(true);
@@ -76,7 +83,7 @@ export const WalletPayablesPage:React.FC<Props>=({activeUser,onNavigate})=>{
   const back=()=>{
     setManaging(false);
     const next=new URLSearchParams(searchParams);
-    next.delete('gerenciar');next.delete('acao');
+    next.delete('gerenciar');next.delete('acao');next.delete('pagar');
     setSearchParams(next,{replace:true});
     void load(true).catch(()=>setError('Falha ao atualizar compromissos.'));
   };

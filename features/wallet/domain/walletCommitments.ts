@@ -79,7 +79,7 @@ export function deriveWalletCommitments(data: Data, today: string): WalletCommit
           status:(partial?'PARTIAL':dueDate<today?'OVERDUE':'DUE') as WalletCommitmentStatus,
           source:exact?'ISSUER' as const:'CALCULATED' as const,
         }];
-      })));
+      }));
   const recurringPayableIds=new Set((data.recurringIssues || [])
     .map(issue=>issue.payable_id).filter((id):id is string=>Boolean(id)));
   const payables:WalletCommitment[]=data.payables

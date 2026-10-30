@@ -4,7 +4,9 @@ import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
 import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
-import type { PersonalWalletCard } from '../../../services/personalWallet.service';
+import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../services/personalWallet.service';
+import type { CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
+import { CardInvoiceSummaryPreview } from '../../../components/wallet/CardInvoiceSummaryPreview';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import { BankStack } from '../../../components/wallet/BankStack';
 import { CardInvoiceStatement } from '../../../components/wallet/CardInvoiceStatement';
@@ -58,6 +60,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [statementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
+  const [invoiceFactsError, setInvoiceFactsError] = useState('');
+  const [invoiceFactsModalOpen, setInvoiceFactsModalOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [createError,setCreateError]=useState('');
   const [vaultCard,setVaultCard]=useState<PersonalWalletCard|null>(null);
@@ -88,6 +93,23 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     [availableCards, requestedCardId],
   );
   const selected = availableCards.find(card => card.id === selectedId) || displayedCards[0] || null;
+  useEffect(() => {
+    const cardId = selected?.id;
+    if (!cardId) { setInvoiceFacts([]); return; }
+    let active = true;
+    setInvoiceFactsError('');
+    personalWalletService.loadCardInvoiceFacts(cardId).then(items => {
+      if (active) setInvoiceFacts(items);
+    }).catch(error => {
+      if (active) {setInvoiceFacts([]);setInvoiceFactsError(error instanceof Error ? error.message : 'Não foi possível consultar os dados bancários.');}
+    });
+    return () => { active = false; };
+  }, [selected?.id]);
+  const refreshInvoiceFacts = async () => {
+    if (!selected) return;
+    setInvoiceFacts(await personalWalletService.loadCardInvoiceFacts(selected.id));
+    setInvoiceFactsError('');
+  };
   const importedStatementRows = selected
     ? data?.statementRows.filter(row => {
       if (row.target_kind !== 'CARD' || row.target_id !== selected.id) return false;
@@ -178,6 +200,35 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   useEffect(() => {
     if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
   }, [selected?.id, creditPosition?.dueMonth]);
+  const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0,7) === statementMonth?.slice(0,7)) || null;
+  const editableInvoiceSummary: CardInvoiceSummary = {
+    institution: (['Nubank','Mercado Pago','Itaú','C6 Bank','RecargaPay'] as const).find(
+      name => name === savedInvoiceFacts?.issuer) || null,
+    cardLastFour: selected?.last_four || null,
+    multipleCards: false,
+    invoiceTotal: savedInvoiceFacts?.invoice_total ?? null,
+    minimumPayment: savedInvoiceFacts?.minimum_payment ?? null,
+    creditLimit: savedInvoiceFacts?.credit_limit ?? null,
+    usedLimit: savedInvoiceFacts?.used_limit ?? null,
+    availableLimit: savedInvoiceFacts?.available_limit ?? null,
+    futureInstallments: savedInvoiceFacts?.future_installments ?? null,
+    dueDate: savedInvoiceFacts?.due_date ?? null,
+    warnings: [],
+  };
+  const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
+    if (!selected || !statementMonth) throw new Error('Selecione o cartão e o mês.');
+    await personalWalletService.saveCardInvoiceFacts({
+      cardId:selected.id,
+      dueMonth:(summary.dueDate || statementMonth).slice(0,7)+'-01',
+      dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
+      invoiceTotal:summary.invoiceTotal, minimumPayment:summary.minimumPayment,
+      creditLimit:summary.creditLimit, usedLimit:summary.usedLimit,
+      availableLimit:summary.availableLimit, futureInstallments:summary.futureInstallments,
+      sourceHash:null, sourceType:'MANUAL',
+    });
+    await refreshInvoiceFacts();
+    setInvoiceFactsModalOpen(false);
+  };
   const selectedCycle = selected && data
     ? getSelectedInvoiceCycle(selected.id, statementMonth, data.expenses, data.installments)
     : null;
@@ -285,6 +336,23 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
         </div>
         <div className="min-w-0 space-y-4 lg:col-span-7">
+          {selected && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5">
+            <div className="min-w-0">
+              <strong className="block text-xs text-white">Valores informados pelo banco</strong>
+              <p className="mt-1 text-[11px] text-slate-400">
+                {savedInvoiceFacts
+                  ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
+                    ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
+                    ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
+                  : 'Ainda não conferidos neste ciclo'}
+              </p>
+              {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
+            </div>
+            <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
+              className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
+              {savedInvoiceFacts?'Corrigir valores':'Informar valores'}
+            </button>
+          </div>}
           <WalletMetricStrip items={[
             { label: 'Fatura selecionada', value: formatMoney(selectedCycle?.amount || 0) },
             { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
@@ -324,6 +392,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   targetName={selected.nickname}
                   targetIssuer={selected.issuer} targetLastFour={selected.last_four}
                   existingRows={data.statementRows}
+                  onSummarySaved={refreshInvoiceFacts}
                   initialDueMonth={statementMonth}
                   hasOpening={Boolean(selected.initial_balance_occurred_at)}
                   isFlat={true}
@@ -547,11 +616,17 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">Registrar despesa</button>
         </div>
       </form>}
+      {invoiceFactsModalOpen && selected && <Modal title="Valores reais da fatura"
+        subtitle={selected.nickname + ' · ' + (statementMonth || '').slice(0,7)}
+        onClose={()=>setInvoiceFactsModalOpen(false)}>
+        <CardInvoiceSummaryPreview key={selected.id + ':' + statementMonth + ':' + (savedInvoiceFacts?.updated_at || '')}
+          summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>
+      </Modal>}
       {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }}/>}
       {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
         initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
-        targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four} existingRows={data.statementRows} onClose={() => setImporting(false)}
+        targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four} existingRows={data.statementRows} onSummarySaved={refreshInvoiceFacts} onClose={() => setImporting(false)}
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}

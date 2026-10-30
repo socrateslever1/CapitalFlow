@@ -35,7 +35,7 @@ test('Mercado Pago fixture is consistent without inventing additional credit or 
   assert.equal('2026-11-04'.slice(0, 7) + '-01', '2026-11-01');
   assert.match(sql, /abs\(v_used-v_invoice-v_future\) <= 0\.01/);
   assert.match(sql, /v_used >= v_invoice/);
-  assert.match(sql, /v_card\.initial_future_installments_balance,0\)=0/);
+  assert.match(sql, /v_card\.used_limit,0\)=coalesce\(v_card\.initial_future_installments_balance,0\)/);
 });
 
 test('bank facts navigate real due-month cycles while preserving distinct financial ledger values', () => {

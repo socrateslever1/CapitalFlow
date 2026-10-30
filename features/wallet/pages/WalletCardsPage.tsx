@@ -29,7 +29,7 @@ import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../..
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
-import { BANK_CATALOG } from '../../../utils/bankLogoRegistry';
+import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
 
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
@@ -478,7 +478,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         }} busy={saving}
         footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
        <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
-        <datalist id="wallet-new-card-banks">{BANK_CATALOG.map(b => <option key={b.id} value={b.name}/>)}</datalist>
+
         <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white">Identificação do cartão</h3>
@@ -493,13 +493,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             Escanear com a câmera (IA)
           </button>
         </div>
-        <label className="space-y-1 text-xs font-medium text-slate-200 sm:col-span-2">
-          Banco ou instituição
-          <input required maxLength={120} list="wallet-new-card-banks" autoComplete="off"
-            placeholder="Ex.: Nubank, Itaú, C6, RecargaPay"
-            value={cardForm.issuer} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:e.target.value}));}}
-            className="w-full rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-white"/>
-        </label>
+        <WalletBankCombobox value={cardForm.issuer} disabled={saving}
+          onChange={value=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:value}));}}/>
         <label className="space-y-1 text-xs text-slate-300">
           Apelido (opcional)
           <input maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
@@ -545,9 +540,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             )}
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
               <select value={cardForm.account_id} onChange={e=>{
-                const matched=data.accounts.find(a=>a.id===e.target.value);
                 requestId.current=generateUUID();
-                setCardForm(v=>({...v,account_id:e.target.value,issuer:v.issuer||matched?.bank_name||matched?.nickname||''}));
+                setCardForm(v=>({...v,account_id:e.target.value}));
               }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
                 <option value="">Sem vínculo bancário</option>
                 {data.accounts.map(account=><option key={account.id} value={account.id}>{account.nickname}</option>)}
@@ -561,7 +555,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 }}/>Cartão de outra pessoa
             </label>
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
-              <input maxLength={120} autoComplete="cc-name" placeholder="Nome do titular"
+              <input maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
                 value={cardForm.cardholder_name}
                 onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:e.target.value}));}}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>

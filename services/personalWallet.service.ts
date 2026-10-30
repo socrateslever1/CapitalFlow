@@ -18,7 +18,7 @@ import { generateUUID } from '../utils/generators';
 import { getCardCreditPosition } from '../components/wallet/invoiceStatementDomain';
 import type { CapitalSource } from '../types';
 import type { BankAccountDetails } from '../features/wallet/domain/bankAccountDetails';
-import type { CardVaultEnvelope } from '../features/wallet/domain/cardVault';
+import type { AnyCardVaultEnvelope, WrappedWalletMasterKey } from '../features/wallet/domain/cardVault';
 import { CardRegistrationError, type CompleteCardRegistration } from '../features/wallet/domain/cardRegistration';
 import { signWalletImagePaths } from '../features/wallet/services/walletImageSigning';
 
@@ -698,14 +698,27 @@ export const personalWalletService = {
     return (data || []) as WalletCardInvoiceFacts[];
   },
 
+  async getWalletPinProfile():Promise<{ownerId:string;profile:WrappedWalletMasterKey|null}> {
+    const ownerId=await this.ownerId();
+    const {data,error}=await supabase.rpc('personal_wallet_get_pin_profile');
+    if(error)throw new Error(error.message);
+    return {ownerId,profile:data as WrappedWalletMasterKey|null};
+  },
+
+  async createWalletPinProfile(profile:WrappedWalletMasterKey):Promise<void> {
+    const {data,error}=await supabase.rpc('personal_wallet_set_pin_profile',{p_wrapped_key:profile});
+    if(error)throw new Error(error.message);
+    if(data!==true)throw new Error('O PIN da Carteira já foi configurado. Atualize os dados e desbloqueie.');
+  },
+
   async getCardVault(cardId:string) {
     const ownerId=await this.ownerId();
     const {data,error}=await supabase.rpc('personal_wallet_get_card_vault',{p_card_id:cardId});
     if(error)throw new Error(error.code==='PGRST202'?'O cofre precisa da atualização do banco.':error.message);
-    return {ownerId,envelope:data as CardVaultEnvelope|null};
+    return {ownerId,envelope:data as AnyCardVaultEnvelope|null};
   },
 
-  async saveCardVault(cardId:string,envelope:CardVaultEnvelope,lastFour:string) {
+  async saveCardVault(cardId:string,envelope:AnyCardVaultEnvelope,lastFour:string) {
     const {error}=await supabase.rpc('personal_wallet_save_card_vault',{p_card_id:cardId,p_envelope:envelope,p_last_four:lastFour});
     if(error)throw new Error(error.message);
   },

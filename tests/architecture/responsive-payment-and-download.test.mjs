@@ -41,6 +41,6 @@ test('Cloudflare binary proxy enforces official immutable URL, HTTPS, max size, 
   assert.match(proxy,/contentLength > MAX_APK_BYTES/);
   assert.match(proxy,/protocol !== 'https:'/);
   assert.match(proxy,/Content-Disposition/);
-  assert.match(proxy,/new Response\(upstream\.body/);
+  assert.match(proxy,/new Response\(bounded/);
   assert.doesNotMatch(proxy,/302|status:\s*3\d\d/);
 });

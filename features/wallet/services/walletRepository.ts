@@ -4,8 +4,10 @@ import { personalWalletService } from '../../../services/personalWallet.service'
 import { WalletSnapshotCache } from './walletSnapshotCache';
 
 export type WalletSnapshot = Awaited<ReturnType<typeof personalWalletService.load>>;
+export type WalletOverviewSnapshot = Awaited<ReturnType<typeof personalWalletService.loadOverview>>;
 
 const snapshotCache = new WalletSnapshotCache<WalletSnapshot>(25_000);
+const overviewCache = new WalletSnapshotCache<WalletOverviewSnapshot>(25_000);
 let initializedUser: string | null = null;
 let initialization: Promise<void> | null = null;
 
@@ -25,7 +27,10 @@ function ensureWalletInitialized(userId: string): Promise<void> {
 
 // Every write/realtime event invalidates the cache before mounted pages refresh.
 if (typeof window !== 'undefined') {
-  window.addEventListener('capitalflow:wallet-updated', () => snapshotCache.invalidate());
+  window.addEventListener('capitalflow:wallet-updated', () => {
+    snapshotCache.invalidate();
+    overviewCache.invalidate();
+  });
 }
 
 export const walletRepository = {
@@ -42,6 +47,21 @@ export const walletRepository = {
     return snapshotCache.load(userId, async () => {
       await ensureWalletInitialized(userId);
       return personalWalletService.load();
+    }, options.force === true);
+  },
+  async loadOverview(options: { force?: boolean } = {}): Promise<WalletOverviewSnapshot> {
+    const { data, error } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (error || !userId) {
+      overviewCache.invalidate();
+      snapshotCache.invalidate();
+      initializedUser = null;
+      initialization = null;
+      throw new Error('Sessão não encontrada. Entre novamente para abrir a Carteira.');
+    }
+    return overviewCache.load(userId, async () => {
+      await ensureWalletInitialized(userId);
+      return personalWalletService.loadOverview();
     }, options.force === true);
   },
   async getAccess(userId: string) {

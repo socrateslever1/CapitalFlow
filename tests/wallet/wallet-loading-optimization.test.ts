@@ -69,7 +69,7 @@ test('overview has no redundant heading; initial page load uses short cache and 
   assert(!overview.includes('Panorama financeiro'));
   assert(!overview.includes('Contas, cartões e compromissos do mês.'));
   assert(overview.includes('<WalletOverviewSummary'));
-  assert(overview.includes("walletRepository.load({ force: true })"));
+  assert(overview.includes("walletRepository.loadOverview({ force: true })"));
   assert(repository.includes('supabase.auth.getSession()'));
   assert(repository.includes("capitalflow:wallet-updated"));
   assert(repository.includes('WalletSnapshotCache'));

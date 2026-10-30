@@ -248,6 +248,61 @@ export const personalWalletService = {
     return data.user.id;
   },
 
+  /**
+   * Fast path for the wallet overview. It retrieves every purchase and
+   * installment necessary to calculate card cycles accurately, but does
+   * not fetch unrelated statement/operation/history tables or sign images.
+   * Financial writes remain in the existing canonical RPCs.
+   */
+  async loadOverview() {
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts] =
+      await Promise.all([
+        supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
+        supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
+        supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
+        supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }),
+        supabase.from('personal_wallet_invoice_payments')
+          .select('id,request_id,card_id,due_month,account_id,amount,source,created_at')
+          .order('created_at', { ascending: false }),
+        supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }),
+        supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }),
+        supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id')
+          .order('reference_month', { ascending: false }).limit(500),
+      ]);
+    const error = accounts.error || cards.error || expenses.error || installments.error ||
+      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error;
+    if (error) throw new Error(error.message);
+    const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
+    const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
+    const calculatedCards = ((cards.data || []) as PersonalWalletCard[]).map(card => {
+      const initialFuture = Math.max(
+        Number(card.initial_future_installments_balance || 0),
+        Number(card.opening_unallocated_amount || 0),
+      );
+      const usedLimit = getCardCreditPosition(
+        { ...card, initial_future_installments_balance: initialFuture },
+        loadedExpenses, loadedInstallments,
+      ).committedLimit;
+      return {
+        ...card,
+        initial_future_installments_balance: initialFuture,
+        opening_unallocated_amount: initialFuture,
+        used_limit: usedLimit,
+        available_limit: Math.max(0, Math.round((Number(card.credit_limit || 0) - usedLimit) * 100) / 100),
+      };
+    });
+    return {
+      accounts: ((accounts.data || []) as PersonalWalletAccount[]).filter(account => !account.archived_at),
+      cards: calculatedCards,
+      expenses: loadedExpenses,
+      installments: loadedInstallments,
+      invoicePayments: (invoicePayments.data || []) as PersonalWalletInvoicePayment[],
+      payables: (payables.data || []) as PersonalWalletPayable[],
+      recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
+      recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
+    };
+  },
+
   async load() {
     const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
       supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),

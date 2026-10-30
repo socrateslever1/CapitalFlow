@@ -12,7 +12,7 @@ import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
 import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
-import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
+import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
 import { WalletSpendingGuide } from '../components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../domain/walletSpendingInsights';
@@ -85,7 +85,7 @@ const dedupePresentationAccounts = (accounts: PersonalWalletAccount[]) => {
   });
 };
 
-const deriveOverview = (snapshot: WalletSnapshot, today: string) => {
+const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   const month = today.slice(0, 7);
   const accounts = dedupePresentationAccounts(snapshot.accounts);
   const cards = snapshot.cards.filter(card => card.status !== 'CANCELED');
@@ -145,21 +145,26 @@ const deriveOverview = (snapshot: WalletSnapshot, today: string) => {
   const limit = new Date(today + 'T12:00:00');
   limit.setDate(limit.getDate() + 45);
   const limitDate = dayKey(limit);
-  const upcoming = [...invoiceList, ...openPayables]
+  const allUpcoming = [...invoiceList, ...openPayables]
     .filter(item => item.dueDate <= limitDate)
     .sort((first, second) =>
       first.dueDate.localeCompare(second.dueDate) || first.title.localeCompare(second.title),
-    )
-    .slice(0, 8);
+    );
+  const overdueCount = allUpcoming.filter(item => item.dueDate < today).length;
+  const weekEnd = new Date(today + 'T12:00:00');
+  weekEnd.setDate(weekEnd.getDate() + 7);
+  const weekLimit = dayKey(weekEnd);
+  const dueSoonCount = allUpcoming.filter(item => item.dueDate >= today && item.dueDate <= weekLimit).length;
+  const upcoming = allUpcoming.slice(0, 8);
 
   return {
     accounts, cards, accountBalance, institutionCount: institutionKeys.size,
-    credit, currentInvoiceTotal, balance, upcoming, spending,
+    credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, dueSoonCount,
   };
 };
 
 export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
-  const [snapshot, setSnapshot] = useState<WalletSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => dayKey(new Date()));
@@ -169,7 +174,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     accountId?: string | null;
   } | null>(null);
   const refresh = useCallback(async () => {
-    const result = await walletRepository.load({ force: true });
+    const result = await walletRepository.loadOverview({ force: true });
     setSnapshot(result);
     setToday(dayKey(new Date()));
     setError('');
@@ -177,7 +182,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
   useEffect(() => {
     let mounted = true;
-    walletRepository.load()
+    walletRepository.loadOverview()
       .then(result => { if (mounted) { setSnapshot(result); setToday(dayKey(new Date())); } })
       .catch(reason => {
         if (mounted) setError(
@@ -235,7 +240,9 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
     <WalletSpendingGuide projectedBalance={balance.projectedBalance} creditPercent={credit.percentage}
-      cardCount={cards.length} pendingCount={upcoming.length} spending={overview.spending} onNavigate={onNavigate}/>
+      cardCount={cards.length} pendingCount={upcoming.length}
+      overdueCount={overview.overdueCount} dueSoonCount={overview.dueSoonCount}
+      pendingIncome={balance.pendingRecurringIncome} spending={overview.spending} onNavigate={onNavigate}/>
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
     <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">

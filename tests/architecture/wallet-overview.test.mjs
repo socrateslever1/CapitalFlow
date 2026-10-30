@@ -6,7 +6,7 @@ const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','ut
 const summary = readFileSync('features/wallet/components/WalletOverviewSummary.tsx','utf8');
 const shell = readFileSync('layout/AppShell.tsx','utf8');
 test('overview uses independent summary and the canonical wallet snapshot',()=>{
-  assert.match(overview,/walletRepository\.load\(\)/);
+  assert.match(overview,/walletRepository\.loadOverview\(\)/);
   assert.match(overview,/calculateWalletBalance/);
   assert.match(overview,/getCreditSummary/);
   assert.match(overview,/lg:grid-cols-12/);

@@ -68,3 +68,33 @@ test('PDF cloud reading is never automatic and requires visible user consent', (
     assert(ui.includes('Ler PDF com IA'));
   }
 });
+
+
+test('OFX distinguishes invoice PIX settlement from Pix no Crédito charge',async()=>{
+  const file=makeFile([
+    '<OFX><CCSTMTRS><BANKTRANLIST>',
+    '<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261030000000<TRNAMT>-350.00<FITID>p1<NAME>PAGAMENTO PIX</STMTTRN>',
+    '<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261030000000<TRNAMT>-58.50<FITID>p2<NAME>PIX NO CRÉDITO</STMTTRN>',
+    '</BANKTRANLIST></CCSTMTRS></OFX>',
+  ].join(''),'card.ofx');
+  const result=await parseStatementOfx(file,'CARD');
+  assert.deepEqual(result.rows.map(x=>x.amount),[-350,58.5]);
+});
+
+
+test('encrypted PDF requires local password and never persists document secrets', () => {
+  const parser = readFileSync('utils/walletStatementPdf.ts', 'utf8');
+  const dispatcher = readFileSync('utils/statementSmartReader.ts', 'utf8');
+  const panels = [
+    readFileSync('components/wallet/FlatSmartStatementReader.tsx','utf8'),
+    readFileSync('components/wallet/WalletStatementImport.tsx','utf8'),
+  ];
+  assert(parser.includes('StatementPdfPasswordError'));
+  assert(parser.includes('PDF_PASSWORD_REQUIRED'));
+  assert(parser.includes('PDF_PASSWORD_INCORRECT'));
+  assert(parser.includes('...(password ? {password} : {})'));
+  assert(dispatcher.includes('pdfPassword?: string') && dispatcher.includes('options?.pdfPassword'));
+  assert(panels.every(panel => panel.includes('type="password"')));
+  assert(panels.every(panel => panel.includes("setPdfPassword('')")));
+  assert(panels.every(panel => panel.includes('onSave={saveSummary}')));
+});

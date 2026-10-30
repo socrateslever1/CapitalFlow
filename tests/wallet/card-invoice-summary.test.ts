@@ -1,0 +1,121 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { parseCardInvoiceSummary, reconcileCardInvoice } from '../../utils/cardInvoiceSummary';
+
+test('Mercado Pago: distinguish invoice, minimum, commitments and available limit', () => {
+  const result = parseCardInvoiceSummary([
+    'Cartão de crédito Mercado Pago',
+    'Total a pagar R$ 450,00',
+    'Pagamento mínimo R$ 70,00',
+    'Limite total R$ 2.800,00',
+    'Limite utilizado R$ 1.700,00',
+    'Limite disponível R$ 1.100,00',
+    'Compras parceladas R$ 1.250,00',
+    'Vencimento: 04/11/2026',
+  ]);
+  assert.equal(result.institution, 'Mercado Pago');
+  assert.equal(result.invoiceTotal, 450);
+  assert.equal(result.minimumPayment, 70);
+  assert.equal(result.futureInstallments, 1250);
+  assert.equal(result.availableLimit, 1100);
+  assert.equal(result.dueDate, '2026-11-04');
+  assert.deepEqual(result.warnings, []);
+});
+test('Itaú: residual does not become a purchase or an installment', () => {
+  const result = parseCardInvoiceSummary([
+    'Banco Itaú',
+    'Total desta fatura 2.123,00',
+    'Pagamento mínimo: R$ 220,00',
+    'Limite total de crédito 3.221,00',
+    'Limite total utilizado 2.321,00',
+    'Limite disponível 900,00',
+    'Total para próximas faturas 162,00',
+  ]);
+  assert.equal(result.futureInstallments, 162);
+  assert(result.warnings.some(w => /diferença/.test(w)));
+});
+test('Nubank: suspicious columns stay declared and issue reconciliation warning', () => {
+  const result = parseCardInvoiceSummary([
+    'Nubank',
+    'Total a pagar R$ 3.500,00',
+    'Limite total do cartão de crédito R$ 6.000,00',
+    'Limites disponíveis',
+    'Utilizado Disponível',
+    'Limite total R$ 5.500,00 R$ 6.000,00',
+    'Saldo em aberto total R$ 2.000,00',
+  ]);
+  assert.equal(result.usedLimit, 5500);
+  assert.equal(result.availableLimit, 6000);
+  assert(result.warnings.some(w => /subtração simples/.test(w)));
+});
+test('payments are not inferred from a PDF and cannot double-count', () => {
+  assert.equal(reconcileCardInvoice({invoiceTotal:410, paymentsConfirmed:null, creditLimit:2800, usedLimit:1650, availableLimit:1150}).remaining, null);
+  assert.deepEqual(reconcileCardInvoice({invoiceTotal:410, paymentsConfirmed:100, creditLimit:2800, usedLimit:1650, availableLimit:1150}),
+    {remaining:310,available:1150,availableIsDeclared:true,overpaid:0});
+  assert.equal(reconcileCardInvoice({invoiceTotal:410, paymentsConfirmed:600,creditLimit:null, usedLimit:null,availableLimit:null}).overpaid, 190);
+});
+
+
+test('masked suffix is read only when unique; multiple cards require review',()=>{
+  const one = parseCardInvoiceSummary(['Nubank','Total a pagar R$ 200,00','03 OUT •••• 8981 Compra R$ 200,00']);
+  assert.equal(one.cardLastFour,'8981');
+  const many = parseCardInvoiceSummary([
+    'Nubank', 'Total a pagar R$ 200,00',
+    '03 OUT •••• 8981 Compra R$ 100,00',
+    '04 OUT •••• 6294 Compra R$ 100,00',
+  ]);
+  assert.equal(many.cardLastFour,null);
+  assert.equal(many.multipleCards,true);
+});
+test('four digit amounts and written due dates must parse without truncation',()=>{
+  const result = parseCardInvoiceSummary([
+    'Nubank', 'Total a pagar R$ 3.642,09',
+    'Data de vencimento: 06 NOV 2026',
+    'Limite total do cartão de crédito: R$ 6.991,30',
+  ]);
+  assert.equal(result.invoiceTotal,3642.09);
+  assert.equal(result.creditLimit,6991.3);
+  assert.equal(result.dueDate,'2026-11-06');
+});
+
+
+test('C6: card limits must not be confused with the cash-advance limit or future commitments', () => {
+  const result = parseCardInvoiceSummary([
+    'Cartão C6 Bank',
+    'Vencimento: 05 de Novembro',
+    'Valor da fatura: R$ 3.050,00',
+    'Pagamento mínimo R$ 750,00',
+    'Compras e pagamentos feitos até o fechamento desta fatura em 29/10/26.',
+    'Saldo obrigações futuras R$ 6.100,00',
+    'Limite de cartão',
+    'Valores atualizados na data de fechamento da fatura',
+    'Total Utilizado Disponível Total Utilizado Disponível',
+    'R$ 8.000,00 R$ 6.100,00 R$ 1.900,00 R$ 800,00 R$ 0,00 R$ 800,00',
+  ]);
+  assert.equal(result.institution, 'C6 Bank');
+  assert.equal(result.invoiceTotal, 3050);
+  assert.equal(result.minimumPayment, 750);
+  assert.equal(result.creditLimit, 8000);
+  assert.equal(result.usedLimit, 6100);
+  assert.equal(result.availableLimit, 1900);
+  assert.equal(result.futureInstallments, null, 'C6 future obligations are not installment schedule');
+  assert.equal(result.dueDate, '2026-11-05');
+});
+test('RecargaPay: columnar minimum payment and credit limit remain distinct', () => {
+  const result = parseCardInvoiceSummary([
+    'RecargaPay',
+    'Fatura Limite de crédito: R$ 800,00 | Limite utilizado: R$ 630,00',
+    'Total da fatura Pagamento mínimo Data de vencimento',
+    'R$ 630,00 R$ 94,50 06/11/2026',
+    'Compras no App',
+    'Total da fatura R$ 630,00',
+    'Total de compras parceladas R$ 0,00',
+  ]);
+  assert.equal(result.institution, 'RecargaPay');
+  assert.equal(result.invoiceTotal, 630);
+  assert.equal(result.minimumPayment, 94.5);
+  assert.equal(result.creditLimit, 800);
+  assert.equal(result.usedLimit, 630);
+  assert.equal(result.dueDate, '2026-11-06');
+  assert.equal(result.futureInstallments, 0);
+});

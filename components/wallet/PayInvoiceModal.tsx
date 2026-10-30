@@ -16,7 +16,7 @@ export interface PayInvoiceModalProps {
 export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
   card, accounts, invoiceAmount = 0, dueMonth, onClose, onPay,
 }) => {
-  const remaining = Math.max(0, Math.round(Number(invoiceAmount || card.current_bill || 0) * 100) / 100);
+  const remaining = Math.max(0, Math.round(Number(invoiceAmount ?? card.current_bill ?? 0) * 100) / 100);
   const [accountId, setAccountId] = useState<string>(accounts[0]?.id || 'MANUAL');
   const [paymentText, setPaymentText] = useState('');
   const [loading, setLoading] = useState(false);

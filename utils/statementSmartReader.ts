@@ -72,7 +72,8 @@ function ofxAmount(raw: string): number {
 function isCardCredit(type: string, description: string): boolean {
   // Bank-issued refunds and invoice payments must never become purchases.
   return /^(CREDIT|DEP|DIRECTDEP|DIV|INT)$/.test(type)
-    || /\b(estorno|reembolso|devolu[cç][aã]o|cashback|pagamento\s+(?:da\s+)?fatura|cr[eé]dito\s+na\s+fatura)\b/i.test(description);
+    || /\b(estorno|reembolso|devolu[cç][aã]o|cashback|pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|cr[eé]dito\s+na\s+fatura)\b/i.test(description)
+      && !/\b(?:pagamento\s+de\s+boleto\s+no\s+cr[eé]dito|pix\s+no\s+cr[eé]dito)\b/i.test(description);
 }
 
 /**
@@ -313,7 +314,7 @@ Regras Cruciais:
 export async function parseSmartFinancialDocument(
   file: File,
   kind: 'ACCOUNT' | 'CARD',
-  options?: { forceAi?: boolean }
+  options?: { forceAi?: boolean; pdfPassword?: string }
 ): Promise<SmartStatementParseResult> {
   const fileName = file.name.toLowerCase();
   const fileType = file.type.toLowerCase();
@@ -346,7 +347,7 @@ export async function parseSmartFinancialDocument(
       return {...cloud, sourceType: 'PDF_AI', previewUrl: undefined,
         costLabel: 'IA Gemini (consulte os custos da API)'};
     }
-    const nativeResult = await parseStatementPdf(file, kind);
+    const nativeResult = await parseStatementPdf(file, kind, options?.pdfPassword);
     return {
       ...nativeResult,
       sourceType: 'PDF_NATIVE',

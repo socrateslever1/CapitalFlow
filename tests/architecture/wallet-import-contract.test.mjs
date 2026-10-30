@@ -32,7 +32,9 @@ test('document reader keeps local PDF and OFX parsing and explicit cloud opt-in'
   const reader=read('utils/statementSmartReader.ts');
   const importer=read('components/wallet/FlatSmartStatementReader.tsx');
   assert(reader.includes('parseStatementOfx(file, kind)'));
-  assert(reader.includes('parseStatementPdf(file, kind)'));
+  assert(reader.includes('parseStatementPdf(file, kind, options?.pdfPassword)'));
+  assert(reader.includes('if (options?.forceAi)'));
+  assert(importer.includes('type="password"'));
   assert(reader.includes('if (options?.forceAi)'));
   assert(importer.includes('window.confirm('));
   assert(importer.includes('Ler PDF com IA'));

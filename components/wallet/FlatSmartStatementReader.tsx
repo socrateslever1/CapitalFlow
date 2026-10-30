@@ -14,6 +14,10 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
+import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
+import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
+import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
+import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import {
@@ -25,11 +29,15 @@ type Props = {
   kind: 'ACCOUNT' | 'CARD';
   targetId: string;
   targetName: string;
+  targetIssuer?: string | null;
+  targetLastFour?: string | null;
+  existingRows?: WalletStatementRow[];
   initialFile?: File;
   initialDueMonth?: string | null;
   hasOpening?: boolean;
   onClose?: () => void;
   onImported: () => Promise<void>;
+  onSummarySaved?: () => Promise<void>;
   isFlat?: boolean; // Se true, renderiza inline / plano sem fundo de modal fixo
 };
 
@@ -51,11 +59,15 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   kind,
   targetId,
   targetName,
+  targetIssuer,
+  targetLastFour,
+  existingRows = [],
   initialFile,
   initialDueMonth,
   hasOpening = false,
   onClose,
   onImported,
+  onSummarySaved,
   isFlat = true,
 }) => {
   const [mode, setMode] = useState<'NEW' | 'INCLUDED' | 'DOCUMENT'>(
@@ -70,8 +82,38 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<number | null>(null);
+  const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  const declaredBank = result?.invoiceSummary?.institution;
+  const bankMismatch = kind === 'CARD' && !issuerMatchesBank(targetIssuer, declaredBank || null);
+  const duplicateKeys = detectPreviouslyImported(rows, existingRows, kind, targetId);
+  const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
+  const cardMismatch = Boolean(kind === 'CARD' && targetLastFour
+    && result?.invoiceSummary?.cardLastFour
+    && result.invoiceSummary.cardLastFour !== targetLastFour);
+  const destinationMismatch = bankMismatch || cardMismatch;
+  const saveSummary = async (summary: CardInvoiceSummary): Promise<void> => {
+    if (!result || kind !== 'CARD') throw new Error('Fatura não carregada.');
+    if (!issuerMatchesBank(targetIssuer, summary.institution) ||
+      (targetLastFour && summary.cardLastFour && targetLastFour !== summary.cardLastFour))
+      throw new Error('A fatura não corresponde à instituição ou ao cartão selecionado.');
+    const referenceMonth = (summary.dueDate || dueMonth + '-01').slice(0,7);
+    await personalWalletService.saveCardInvoiceFacts({
+      cardId:targetId, dueMonth:referenceMonth+'-01', dueDate:summary.dueDate,
+      issuer:summary.institution, invoiceTotal:summary.invoiceTotal,
+      minimumPayment:summary.minimumPayment, creditLimit:summary.creditLimit,
+      usedLimit:summary.usedLimit, availableLimit:summary.availableLimit,
+      futureInstallments:summary.futureInstallments, sourceHash:result.hash,
+      sourceType:result.sourceType === 'OFX' ? 'OFX' :
+        result.sourceType === 'PDF_NATIVE' || result.sourceType === 'PDF_AI' ? 'PDF' : 'MANUAL',
+    });
+    setDueMonth(referenceMonth);
+    await onSummarySaved?.();
+  };
 
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
@@ -88,19 +130,24 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         !row.description.trim())
   );
 
-  const handleFileProcess = async (fileToProcess: File, forceAi = false) => {
+  const handleFileProcess = async (fileToProcess: File, forceAi = false, password?: string) => {
     setSource(fileToProcess);
     setResult(null);
     setRows([]);
     setError('');
+    setPdfPasswordRequired(false);
     setFinished(null);
     setShowPreview(false);
     setBusy(true);
 
     try {
-      const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi });
+      const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi, pdfPassword: password });
+      setPdfPassword('');
+      if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) setDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
       setResult(parsed);
-      setRows(parsed.rows);
+      setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
+        ? { ...row, selected: false } : row));
+      setAllowDuplicates(false);
 
       if (!parsed.rows.length) {
         setError(
@@ -114,6 +161,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     } catch (reason: any) {
       setResult(null);
       setRows([]);
+      if (reason?.code === 'PDF_PASSWORD_REQUIRED' || reason?.code === 'PDF_PASSWORD_INCORRECT') setPdfPasswordRequired(true);
       setError(reason?.message || 'Não foi possível ler o documento.');
     } finally {
       setBusy(false);
@@ -134,6 +182,11 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     );
 
   const save = async () => {
+    if (destinationMismatch) { setError('Esta fatura pertence a outra instituição ou final de cartão. Selecione o cartão correto.'); return; }
+    if (selectedDuplicates.length && !allowDuplicates) {
+      setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
+      return;
+    }
     if (!result || !selectedCount || selectedInvalid) {
       setError('Revise os valores, as datas e as descrições selecionadas.');
       return;
@@ -274,6 +327,13 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
+      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview key={result.hash} summary={result.invoiceSummary} onSave={saveSummary} />}
+      {destinationMismatch && <p role="alert" className="text-xs text-rose-300">O banco identificado nesta fatura é diferente do cartão de destino. Selecione o cartão correto.</p>}
+
+      {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">
+        <input type="checkbox" checked={allowDuplicates} onChange={event => setAllowDuplicates(event.target.checked)}/>
+        {duplicateKeys.size} possível(is) repetição(ões) já importada(s). Repetir somente após conferência.
+      </label>}
       {/* Área Plana de Drag & Drop */}
       <div
         onDragOver={(e) => {
@@ -285,7 +345,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           e.preventDefault();
           setIsDragging(false);
           const f = e.dataTransfer.files?.[0];
-          if (f) void handleFileProcess(f);
+          if (f) { setPdfPassword(''); void handleFileProcess(f); }
         }}
         className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center transition ${
           isDragging
@@ -315,7 +375,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             disabled={busy}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void handleFileProcess(f);
+              if (f) { setPdfPassword(''); void handleFileProcess(f); }
             }}
           />
         </label>
@@ -369,6 +429,18 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
+      {pdfPasswordRequired && source && <form className="space-y-2 rounded-xl border border-amber-600/30 bg-slate-950 p-3"
+        onSubmit={event => { event.preventDefault(); if (pdfPassword && !busy) void handleFileProcess(source, false, pdfPassword); }}>
+        <label className="block text-xs text-slate-200" htmlFor="flat-wallet-pdf-password">Senha do PDF (somente neste dispositivo)</label>
+        <div className="flex gap-2">
+          <input id="flat-wallet-pdf-password" type="password" autoComplete="off" maxLength={256}
+            value={pdfPassword} onChange={event => setPdfPassword(event.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
+            placeholder="Informe a senha"/>
+          <button type="submit" disabled={busy || !pdfPassword} className="rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Desbloquear e ler</button>
+        </div>
+        <p className="text-[11px] text-slate-400">A senha não é salva nem transmitida ao servidor.</p>
+      </form>}
       {/* Lista Plana de Lançamentos Extraídos */}
       {result && result.rows.length > 0 && (
         <div className="space-y-3 pt-2">
@@ -394,7 +466,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                 disabled={busy}
                 onClick={() =>
                   setRows((current) =>
-                    current.map((x) => ({ ...x, selected: true }))
+                    current.map((x) => ({ ...x, selected: kind !== 'CARD' || x.amount > 0 }))
                   )
                 }
               >

@@ -53,3 +53,58 @@ test('PDF parser accepts merchant before the date, dotted dates, and multiline a
   assert.match(result.rows[1].description, /corrida madrugada/);
   assert(result.rows.every(row => row.selected === false));
 });
+
+
+test('Nubank-style payment without C suffix is a credit, never a purchase', () => {
+  const result = parseStatementLines([
+    {key:'header',text:'TRANSAÇÕES DE 29 SET A 30 OUT'},
+    {key:'purchase',text:'03 OUT Recargapay *Loja R$ 2.807,73'},
+    {key:'payment',text:'30 SET Pagamento em 30 SET -R$ 2.698,59'},
+    {key:'creditPix',text:'06 OUT Pix no Crédito - Pagamento de boleto R$ 58,50'},
+  ], 'CARD');
+  assert.equal(result.rows[0].amount, 2807.73);
+  assert.equal(result.rows[1].amount, -2698.59);
+  assert.equal(result.rows[2].amount, 58.50);
+  assert(result.rows.every(row => !row.selected));
+});
+
+test('Mercado Pago details of consumption delimit statements, not payment simulations', () => {
+  const result = parseStatementLines([
+    {key:'summary',text:'Total a pagar R$ 450,00'},
+    {key:'marker',text:'Detalhes de consumo'},
+    {key:'purchase',text:'14/03 Mercado Livre Parcela 8 de 21 R$ 85,61'},
+    {key:'footer',text:'Total R$ 450,00'},
+    {key:'simulated',text:'1 + 15x R$ 46,46'},
+  ], 'CARD');
+  assert.equal(result.rows.length, 1);
+  assert.equal(result.rows[0].amount, 85.61);
+  assert.equal(result.rows[0].installmentNumber, 8);
+  assert.equal(result.rows[0].installmentTotal, 21);
+});
+
+
+test('RecargaPay: negative purchases and subsequent same-day rows are positive card charges', () => {
+  const result = parseStatementLines([
+    {key:'header', text:'Compras no App'},
+    {key:'p1', text:'23/10/2026 RecargaPay Assinatura - R$ 4,10'},
+    {key:'p2', text:'RecargaPay Assinatura - R$ 4,10'},
+    {key:'p3', text:'11/10/2026 RecargaPay Loja - R$ 8,20'},
+    {key:'other', text:'Outros lançamentos'},
+    {key:'pay', text:'30/09/2026 Pagamento Da Fatura + R$ 470,00'},
+    {key:'footer', text:'Total da fatura R$ 450,00'},
+  ], 'CARD');
+  assert.deepEqual(result.rows.map(x=>x.amount),[4.1,4.1,8.2,-470]);
+  assert.deepEqual(result.rows.slice(0,3).map(x=>x.date),['2026-10-23','2026-10-23','2026-10-11']);
+  assert(result.rows.every(x=>!x.selected));
+});
+test('C6: inclusion of payment is a credit; interest and IOF are charges', () => {
+  const result = parseStatementLines([
+    {key:'mark',text:'Transações do cartão principal'},
+    {key:'a',text:'20 mar Loja Exemplo - Parcela 8/12 80,06'},
+    {key:'b',text:'02 out Inclusao de Pagamento 704,91'},
+    {key:'c',text:'29 out Encargos 250,46'},
+    {key:'d',text:'29 out IOF Rotativo 18,27'},
+  ], 'CARD');
+  assert.deepEqual(result.rows.map(row=>row.amount),[80.06,-704.91,250.46,18.27]);
+  assert.deepEqual(result.rows[0] && [result.rows[0].installmentNumber,result.rows[0].installmentTotal],[8,12]);
+});

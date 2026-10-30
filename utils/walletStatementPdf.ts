@@ -1,3 +1,5 @@
+import { parseCardInvoiceSummary, type CardInvoiceSummary } from './cardInvoiceSummary';
+
 // PDF statements are extracted locally in the browser; never send full PDFs to servers.
 export type ParsedStatementRow = {
   rowKey: string;
@@ -15,6 +17,7 @@ export type StatementParseResult = {
   rows: ParsedStatementRow[];
   skipped: number;
   pages: number;
+  invoiceSummary?: CardInvoiceSummary;
 };
 
 function brlAmount(raw: string): number {
@@ -109,8 +112,8 @@ function findMoneyTokens(raw: string): RegExpMatchArray[] {
 }
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
 
-const historyStartRx = /(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
-const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|encargos|juros|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
+const historyStartRx = /compras\s+no\s+app|outros\s+lan[cç]amentos|transa[cç][oõ]es\s+do\s+cart[aã]o\s+principal|detalhes?\s+de\s+consumo|(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
+const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
 
 function normalizePdfLabel(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -141,6 +144,7 @@ function extractInstallment(raw: string, dateToken: string): { number: number; t
 export function parseStatementLines(lines: {key:string;text:string}[], kind: 'ACCOUNT' | 'CARD'): { rows: ParsedStatementRow[]; skipped: number } {
   const rows: ParsedStatementRow[] = [];
   let skipped = 0;
+  const recargaPayLayout = lines.some(line => /compras\s+no\s+app/i.test(line.text));
   // Some PDF renderers split amounts into a separate line. Join only if
   // that continuation has no date and is not a summary/footer.
   const combined = lines.map((line, index) => {
@@ -158,13 +162,22 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
   });
   const hasHistoryMarker = combined.some(line => historyStartRx.test(normalizePdfLabel(line.text)));
   let inHistory = !hasHistoryMarker;
+  let lastCardDate: string | null = null;
   for (const line of combined) {
-    const raw = line.text.replace(/\s+/g, ' ').trim();
+    let raw = line.text.replace(/\s+/g, ' ').trim();
     const normalized = normalizePdfLabel(raw);
-    if (historyStartRx.test(normalized)) { inHistory = true; continue; }
-    if (hasHistoryMarker && inHistory && historyEndRx.test(normalized)) { inHistory = false; continue; }
+    if (historyStartRx.test(normalized)) { inHistory = true; lastCardDate = null; continue; }
+    if (hasHistoryMarker && inHistory && historyEndRx.test(normalized)) { inHistory = false; lastCardDate = null; continue; }
     if (!inHistory || notTransactionRx.test(raw)) continue;
-    const matchedDate = raw.match(dateRx);
+    let matchedDate = raw.match(dateRx);
+    // RecargaPay prints a date only on the first line of several purchases.
+    // Its following same-date rows must keep their own amount, including repeated merchants.
+    if (kind === 'CARD' && recargaPayLayout && !matchedDate && lastCardDate &&
+        /recargapay\s+/i.test(raw) && findMoneyTokens(raw).length === 1) {
+      raw = lastCardDate + ' ' + raw;
+      matchedDate = raw.match(dateRx);
+    }
+    if (kind === 'CARD' && recargaPayLayout && matchedDate) lastCardDate = matchedDate[0];
     if (!matchedDate) continue;
     const date = normalizeDate(matchedDate[0]);
     if (!date) { skipped++; continue; }
@@ -186,9 +199,14 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     // the opposite sign convention for expenses.
     const markedDebit = /D$/i.test(last[0].trim());
     const markedCredit = /C$/i.test(last[0].trim());
+    // Invoice settlement is a credit even if the bank prints it without a
+    // trailing "C". Do not confuse it with "Pix no Crédito" (a card charge).
+    const invoicePayment = /\b(?:inclusao\s+de\s+pagamento|pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|pagamentos?\s+efetuados?|credito\s+na\s+fatura|estorno|reembolso|devolucao|cashback)\b/.test(context)
+      && !/\b(?:no\s+credito|com\s+cartao)\b/.test(context);
     const signed = kind === 'CARD'
-      ? (markedCredit || (incoming && !outgoing) ? -Math.abs(value)
-          : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
+      ? (invoicePayment || markedCredit || (incoming && !outgoing) ? -Math.abs(value)
+          : recargaPayLayout ? Math.abs(value)
+            : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
       : (markedCredit || (incoming && !outgoing) ? Math.abs(value) : -Math.abs(value));
     const category = classifyStatementDescriptionEnhanced(description);
     const installment = extractInstallment(raw, matchedDate[0]);
@@ -205,7 +223,17 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
   }
   return {rows,skipped};
 }
-export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): Promise<StatementParseResult> {
+export class StatementPdfPasswordError extends Error {
+  readonly code: 'PDF_PASSWORD_REQUIRED' | 'PDF_PASSWORD_INCORRECT';
+  constructor(code: 'PDF_PASSWORD_REQUIRED' | 'PDF_PASSWORD_INCORRECT') {
+    super(code === 'PDF_PASSWORD_REQUIRED'
+      ? 'O PDF está protegido. Informe a senha para leitura local.'
+      : 'Senha do PDF incorreta. Confira a senha e tente novamente.');
+    this.name = 'StatementPdfPasswordError';
+    this.code = code;
+  }
+}
+export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD', password?: string): Promise<StatementParseResult> {
   if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     throw new Error('Selecione um arquivo PDF.');
   }
@@ -216,7 +244,7 @@ export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): P
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const worker = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-  const loading = pdfjs.getDocument({data:new Uint8Array(buffer)});
+  const loading = pdfjs.getDocument({data:new Uint8Array(buffer), ...(password ? {password} : {})});
   let document: Awaited<typeof loading.promise> | null = null;
   try {
     document = await loading.promise;
@@ -242,11 +270,16 @@ export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): P
     }
     if (!lines.length) throw new Error('PDF sem texto selecionável. Para faturas digitalizadas, use a opção Ler PDF com IA.');
     const {rows,skipped}=parseStatementLines(lines,kind);
-    return {hash,rows,skipped,pages:document.numPages};
-  } catch (error:any) {
-    throw new Error(error?.message?.includes('password') ? 'PDF protegido por senha. Exporte uma versão desbloqueada.' :
-      error?.message||'Não foi possível ler o PDF. PDFs digitalizados sem texto não são reconhecidos.');
+    return {hash,rows,skipped,pages:document.numPages,
+      invoiceSummary: kind === 'CARD' ? parseCardInvoiceSummary(lines.map(line => line.text)) : undefined};
+  } catch (error: unknown) {
+    const failure = error as {name?:string;code?:number;message?:string} | null;
+    if (failure?.name === 'PasswordException' || failure?.code === 1 || failure?.code === 2) {
+      throw new StatementPdfPasswordError(password ? 'PDF_PASSWORD_INCORRECT' : 'PDF_PASSWORD_REQUIRED');
+    }
+    throw new Error(failure?.message || 'Não foi possível ler o PDF. PDFs digitalizados sem texto precisam de leitura especial.');
   } finally {
-    await document?.destroy();
+    if (document) await document.destroy();
+    else await loading.destroy();
   }
 }

@@ -31,6 +31,7 @@ type Props = {
   targetId: string;
   targetName: string;
   targetIssuer?: string | null;
+  targetLastFour?: string | null;
   existingRows?: WalletStatementRow[];
   initialDueMonth?: string | null;
   hasOpening?: boolean;
@@ -57,6 +58,7 @@ export const WalletStatementImport: React.FC<Props> = ({
   targetId,
   targetName,
   targetIssuer,
+  targetLastFour,
   existingRows = [],
   initialDueMonth,
   hasOpening = false,
@@ -84,6 +86,10 @@ export const WalletStatementImport: React.FC<Props> = ({
       declaredBank.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
   const duplicateKeys = detectPreviouslyImported(rows, existingRows, kind, targetId);
   const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
+  const cardMismatch = Boolean(kind === 'CARD' && targetLastFour
+    && result?.invoiceSummary?.cardLastFour
+    && result.invoiceSummary.cardLastFour !== targetLastFour);
+  const destinationMismatch = bankMismatch || cardMismatch;
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -136,7 +142,7 @@ export const WalletStatementImport: React.FC<Props> = ({
     );
 
   const save = async () => {
-    if (bankMismatch) { setError('Esta fatura é de outra instituição. Selecione o cartão correto antes de importar.'); return; }
+    if (destinationMismatch) { setError('Esta fatura pertence a outra instituição ou final de cartão. Selecione o cartão correto.'); return; }
     if (selectedDuplicates.length && !allowDuplicates) {
       setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
       return;
@@ -292,7 +298,7 @@ export const WalletStatementImport: React.FC<Props> = ({
           )}
 
           {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview summary={result.invoiceSummary} />}
-          {bankMismatch && <p role="alert" className="text-xs text-rose-300">Banco da fatura diferente do cartão selecionado. Não é seguro alocar automaticamente.</p>}
+          {destinationMismatch && <p role="alert" className="text-xs text-rose-300">Banco da fatura diferente do cartão selecionado. Não é seguro alocar automaticamente.</p>}
 
           {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">
             <input type="checkbox" checked={allowDuplicates} onChange={event => setAllowDuplicates(event.target.checked)}/>

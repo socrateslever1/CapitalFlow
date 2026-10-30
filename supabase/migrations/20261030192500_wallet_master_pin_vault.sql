@@ -36,22 +36,6 @@ CREATE POLICY wallet_pin_profile_owner ON public.personal_wallet_pin_profiles
   WITH CHECK (owner_user_id=(SELECT auth.uid()) AND public.is_platform_super_admin());
 
 CREATE OR REPLACE FUNCTION public.personal_wallet_get_pin_profile()
-RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp
-AS $$
-DECLARE v_owner uuid := auth.uid(); v_profile jsonb;
-BEGIN
-  IF v_owner IS NULL OR NOT public.is_platform_super_admin() THEN
-    RAISE EXCEPTION 'Sem permissão para acessar o PIN da Carteira.';
-  END IF;
-  -- RLS applies to invoker. Direct table read is revoked from authenticated.
-  SELECT wrapped_key INTO v_profile FROM public.personal_wallet_pin_profiles
-    WHERE owner_user_id=v_owner;
-  RETURN v_profile;
-END $$;
--- SECURITY INVOKER requires SELECT grant; the table remains inaccessible via
--- public Data API since no grant is given. Use DEFINER below with strict owner
--- verification for access through RPC.
-CREATE OR REPLACE FUNCTION public.personal_wallet_get_pin_profile()
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp
 AS $$
 DECLARE v_owner uuid := auth.uid(); v_profile jsonb;

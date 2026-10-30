@@ -134,7 +134,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/capitalflow-icon-venv"
-          "$RUNNER_TEMP/capitalflow-icon-venv/bin/pip" install --disable-pip-version-check --no-cache-dir Pillow==11.3.0
+          "$RUNNER_TEMP/capitalflow-icon-venv/bin/pip" install --disable-pip-version-check --no-cache-dir Pillow==11.3.0 CairoSVG==2.8.2
           "$RUNNER_TEMP/capitalflow-icon-venv/bin/python" scripts/android/install_launcher_icon.py
           # Android Package Manager reads the launcher manifest resource directly.
           grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml

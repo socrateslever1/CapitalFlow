@@ -15,25 +15,16 @@ export function useStableExpandedCardFocus<T extends HTMLElement>(
     forceTopAlignment = false
   ) => {
     const element = ref.current;
-    if (!element) return;
+    if (!element || element.closest('[data-card-focus-modal="true"]')) return;
 
     const rect = element.getBoundingClientRect();
     const bottomLimit = window.innerHeight - BOTTOM_GUARD_PX;
     const topIsVisible = rect.top >= TOP_GUARD_PX && rect.top <= bottomLimit;
 
-    if (forceTopAlignment) {
-      window.scrollTo({
-        top: Math.max(0, window.scrollY + rect.top - TOP_GUARD_PX),
-        behavior,
-      });
-      return;
-    }
-
-    if (topIsVisible) return;
-
+    if (!forceTopAlignment && topIsVisible) return;
     element.scrollIntoView({
       behavior,
-      block: rect.top < TOP_GUARD_PX ? 'start' : 'nearest',
+      block: rect.height <= window.innerHeight - TOP_GUARD_PX - BOTTOM_GUARD_PX ? 'center' : 'start',
       inline: 'nearest',
     });
   }, []);

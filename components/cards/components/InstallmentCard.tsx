@@ -77,7 +77,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     }
 
     return (
-        <div id={originalInst.id} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+        <div id={originalInst.id} className={`flex flex-col gap-3 px-3 py-2.5 rounded-lg border transition-all ${
             isRenegotiated ? 'bg-slate-900/80 border-slate-700/50 opacity-60' :
             isPaid || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' :
             isLateInst ? 'bg-rose-500/5 border-rose-500/20' :
@@ -133,7 +133,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                 </div>
             </div>
 
-            <div className="w-full sm:w-auto flex items-center justify-end gap-2 shrink-0">
+            <div className="w-full min-w-0 flex items-center justify-stretch gap-2">
                 <InstallmentCardAction
                     isDisabled={isActionDisabled}
                     isFullyFinalized={isFullyFinalized}

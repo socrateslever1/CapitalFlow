@@ -1,5 +1,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BarChart3, Banknote, CheckCircle2, Briefcase, PieChart as PieIcon, TrendingUp, Users, Calendar, Percent, RefreshCw, ShieldAlert, Skull } from 'lucide-react';
 import { Loan, CapitalSource, LedgerEntry, Agreement, AgreementInstallment, SortOption, UserProfile, Installment } from '../types';
 import { LoanCard } from '../components/cards/LoanCard';
@@ -17,7 +18,7 @@ import type { InstallmentPaymentHandler } from '../components/cards/components/I
 const getDashboardColumnCount = () => {
   if (typeof window === 'undefined') return 1;
   if (window.matchMedia('(min-width: 1536px)').matches) return 3;
-  if (window.matchMedia('(min-width: 1280px)').matches) return 2;
+  if (window.matchMedia('(min-width: 1024px)').matches) return 2;
   return 1;
 };
 
@@ -78,7 +79,7 @@ const ContractCardSkeleton: React.FC<{ index: number }> = ({ index }) => (
 );
 
 const ContractCardsSkeleton: React.FC = () => (
-  <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 2xl:grid-cols-3" aria-label="Carregando contratos">
+  <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3" aria-label="Carregando contratos">
     {Array.from({ length: 9 }).map((_, index) => (
       <ContractCardSkeleton key={index} index={index} />
     ))}
@@ -156,6 +157,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     return columns;
   }, [dashboardColumnCount, groupedLoans]);
   const isInitialContractsLoading = isLoadingData && loans.length === 0 && groupedLoans.length === 0;
+  // A expansão em coluna fragmentava a grade no tablet.
+  const [wideCardFocus, setWideCardFocus] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  );
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 768px)');
+    const update = () => setWideCardFocus(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const focusedGroup = useMemo(() => {
+    if (!selectedLoanId) return null;
+    return groupedLoans.find((group) =>
+      selectedLoanId === `GROUP_${group.id}` ||
+      group.loans.some((loan) => loan.id === selectedLoanId)
+    ) ?? null;
+  }, [groupedLoans, selectedLoanId]);
+  const showCenteredCard = wideCardFocus && !!focusedGroup;
+  useEffect(() => {
+    if (!showCenteredCard) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedLoanId(null);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showCenteredCard, setSelectedLoanId]);
 
   // Objeto com todas as props necessárias para o LoanCard (para passar via drill-down)
   const loanCardProps = {
@@ -180,7 +208,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
+      <div className="flex flex-col 2xl:flex-row gap-6 sm:gap-8">
           <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
               <DashboardAlerts loans={loans} sources={sources} />
               <DashboardControls
@@ -198,7 +226,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
-                  <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2 2xl:grid-cols-3 cf-cards-flash">
+                  <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2 2xl:grid-cols-3 cf-cards-flash">
                       {groupedLoanColumns.map((column, columnIndex) => (
                           <div key={columnIndex} className="flex min-w-0 flex-col gap-3">
                               {column.map((group) => {
@@ -210,7 +238,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                                       >
                                           <ClientGroupCard
                                               group={group}
-                                              passThroughProps={loanCardProps}
+                                              passThroughProps={showCenteredCard ? { ...loanCardProps, selectedLoanId: null } : loanCardProps}
                                               isStealthMode={isStealthMode}
                                               onOpenClient={onOpenClient}
                                           />
@@ -235,7 +263,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               )}
           </div>
 
-          <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
+          <aside className={`w-full 2xl:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
               <div className="flex items-center justify-between px-2">
                   <h2 className="text-[10px] font-black uppercase text-slate-500">Indicadores</h2>
                   <button
@@ -248,7 +276,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-1 gap-3">
 
                   {/* CARD CAPITAL NA RUA */}
                   <StatCard
@@ -366,6 +394,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
           </aside>
       </div>
+      {showCenteredCard && focusedGroup && typeof document !== 'undefined' && createPortal(
+        <div role="dialog" aria-modal="true" aria-label={`Contrato de ${focusedGroup.clientName}`}
+          data-card-focus-modal="true"
+          className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:p-6"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedLoanId(null); }}>
+          <div className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[820px] flex-col overflow-hidden rounded-xl border border-slate-600/80 bg-slate-950 shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700/70 bg-slate-900 px-4 py-3">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-200">Detalhes do contrato</span>
+              <button type="button" aria-label="Fechar detalhes do contrato"
+                onClick={() => setSelectedLoanId(null)}
+                className="min-h-10 rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800">Fechar</button>
+            </div>
+            <div className="min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain p-2 sm:p-4">
+              <ClientGroupCard group={focusedGroup} passThroughProps={loanCardProps}
+                isStealthMode={isStealthMode} onOpenClient={onOpenClient} />
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

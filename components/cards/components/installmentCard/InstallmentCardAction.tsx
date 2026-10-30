@@ -49,14 +49,14 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
 
         if (inlinePaymentEnabled && onPayInstallment) {
             return (
-                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                <div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
                     {onOpenPix && (
                         <button
                             onClick={(event) => {
                                 event.stopPropagation();
                                 onOpenPix(loan, originalInst, debt);
                             }}
-                            className="flex items-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
+                            className="flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
                             title="Gerar QR Code Pix desta parcela"
                         >
                             <QrCode size={12} /> Pix
@@ -68,7 +68,7 @@ export const InstallmentCardAction: React.FC<InstallmentCardActionProps> = ({
                                 event.stopPropagation();
                                 onPaymentOffer(loan, originalInst);
                             }}
-                            className="flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-amber-400 hover:bg-amber-500 hover:text-slate-950"
+                            className="flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[9px] font-black uppercase text-amber-400 hover:bg-amber-500 hover:text-slate-950"
                             title="Criar ou alterar condição especial de pagamento"
                         >
                             <CalendarClock size={12} /> Condição

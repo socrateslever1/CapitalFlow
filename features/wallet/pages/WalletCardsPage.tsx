@@ -354,9 +354,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </button>
           </div>}
           <WalletMetricStrip items={[
-            { label: 'Fatura selecionada', value: formatMoney(selectedCycle?.amount || 0) },
+            { label: 'Saldo de fatura registrado', value: formatMoney(selectedCycle?.amount || 0) },
             { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
-            { label: 'Limite disponível', value: formatMoney(creditPosition?.freeLimit || 0), tone: 'positive' },
+            { label: savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível informado pelo banco', value: formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit)), tone: 'positive' },
           ]}/>
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
             {formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.

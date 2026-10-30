@@ -52,6 +52,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     });
   };
   const [creating, setCreating] = useState(false);
+  const [addProtectedAfterCreate, setAddProtectedAfterCreate] = useState(true);
   const [thirdPartyCard, setThirdPartyCard] = useState(false);
   const ownerDefaults = useWalletOwnerDefaults(activeUser, creating);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -284,8 +285,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         identity:{cardholder_name:cardForm.cardholder_name.trim()||null,expiry_month:cardForm.expiry_month?Number(cardForm.expiry_month):null,expiry_year:cardForm.expiry_year?Number(cardForm.expiry_year):null},
         envelope: null,
       };
+      let createdCardId:string|null=null;
       try {
-        await personalWalletService.createCompleteCard(cardRegistrationAttempt.current.begin(candidate));
+        const saved=await personalWalletService.createCompleteCard(cardRegistrationAttempt.current.begin(candidate));
+        createdCardId=saved.card_id;
         cardRegistrationAttempt.current.confirmed();
       } catch (cause) {
         cardRegistrationAttempt.current.failed(cause);
@@ -297,6 +300,15 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       try { await refresh(); }
       catch { setNotice('Cartão salvo no banco, mas a lista não foi atualizada. Toque em atualizar.'); }
       setCreating(false); setThirdPartyCard(false); setOpening(freshCardOpening());
+      if(addProtectedAfterCreate && createdCardId) {
+        setVaultCard({
+          id:createdCardId,nickname:candidate.card.nickname,issuer:candidate.card.issuer,
+          brand:candidate.card.brand,last_four:candidate.card.last_four,
+          credit_limit:candidate.card.credit_limit,used_limit:position.used_limit,
+          current_bill:position.invoice_amount,closing_day:candidate.card.closing_day,
+          due_day:candidate.card.due_day,status:'ACTIVE',
+        });
+      }
       requestId.current = generateUUID();
       setCardForm({
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
@@ -566,6 +578,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </label>
           </div>
         </details>
+        <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
+          <input type="checkbox" checked={addProtectedAfterCreate}
+            onChange={e=>setAddProtectedAfterCreate(e.target.checked)}
+            className="h-4 w-4 accent-blue-600"/>
+          Depois de salvar, adicionar o número completo para acesso rápido (opcional)
+        </label>
         {createError&&<p role="alert" className="text-sm text-rose-300 sm:col-span-2">{createError}</p>}
         <div className="sm:col-span-2">
           <CardOpeningFields collapsible value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}

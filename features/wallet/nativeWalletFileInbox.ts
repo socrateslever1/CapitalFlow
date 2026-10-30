@@ -36,7 +36,7 @@ const aliases: Array<[RegExp, string]> = [
   [/banco\s*do\s*brasil|bancodobrasil/i, 'bancodobrasil'],
   [/itau/i, 'itau'], [/santander/i, 'santander'], [/picpay/i,'picpay'],
   [/inter/i,'inter'], [/caixaeconomica|caixaeconomica/i,'caixaeconomica'],
-  [/mercadopago/i,'mercadopago'], [/c6bank/i,'c6bank'],
+  [/mercadopago/i,'mercadopago'], [/c6bank|^c6$/i,'c6bank'],
 ];
 function institutionToken(value: string) {
   const normalized = clean(value);

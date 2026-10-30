@@ -61,7 +61,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [overriding, setOverriding] = useState(false);
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [clearingInvoice, setClearingInvoice] = useState(false);
-  const [clearInvoiceConfirm, setClearInvoiceConfirm] = useState<string | null>(null);
+  const [clearInvoiceConfirm, setClearInvoiceConfirm] = useState<{ cardId: string; month: string; nickname: string } | null>(null);
+  const [clearInvoiceError, setClearInvoiceError] = useState('');
   const clearInvoiceRequest = useRef({ signature: '', id: generateUUID() });
   const [statementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -257,22 +258,22 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       })
     : undefined;
   const clearUnpaidInvoice = async () => {
-    if (!selected || !clearInvoiceConfirm || clearingInvoice) return;
-    const signature = selected.id + ':' + clearInvoiceConfirm;
+    if (!clearInvoiceConfirm || clearingInvoice) return;
+    const signature = clearInvoiceConfirm.cardId + ':' + clearInvoiceConfirm.month;
     if (clearInvoiceRequest.current.signature !== signature) {
       clearInvoiceRequest.current = { signature, id: generateUUID() };
     }
     setClearingInvoice(true);
-    setNotice('');
+    setClearInvoiceError('');
     try {
       await personalWalletService.cancelUnpaidInvoiceCycle(
-        selected.id, clearInvoiceConfirm, clearInvoiceRequest.current.id,
+        clearInvoiceConfirm.cardId, clearInvoiceConfirm.month, clearInvoiceRequest.current.id,
       );
+      clearInvoiceRequest.current = { signature: '', id: generateUUID() };
       await refresh();
       setClearInvoiceConfirm(null);
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'Não foi possível cancelar a fatura.');
-      setClearInvoiceConfirm(null);
+      setClearInvoiceError(cause instanceof Error ? cause.message : 'Não foi possível cancelar a fatura.');
     } finally { setClearingInvoice(false); }
   };
   const mayInitializeExisting = Boolean(selected && data && Number(selected.used_limit) === 0
@@ -425,7 +426,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">Lançamento rápido</button>
                 <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">Situação inicial</button>
                 <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
-                {statementMonth && (selectedCycle?.amount || 0) > 0 && <button type="button" onClick={() => setClearInvoiceConfirm(statementMonth)} className="min-h-11 rounded-xl border border-rose-600/50 px-3 py-2 text-xs font-semibold text-rose-200">Excluir fatura não paga</button>}
+                {statementMonth && (selectedCycle?.amount || 0) > 0 && <button type="button" onClick={() => {setClearInvoiceError('');setClearInvoiceConfirm({cardId:selected.id,month:statementMonth,nickname:selected.nickname});}} className="min-h-11 rounded-xl border border-rose-600/50 px-3 py-2 text-xs font-semibold text-rose-200">Excluir fatura não paga</button>}
                 <button type="button" onClick={() => setFlatReaderOpen(v => !v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${flatReaderOpen ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'border border-cyan-500/50 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40'}`}>
                   <Sparkles size={13} className={flatReaderOpen ? '' : 'text-cyan-400'} />
                   {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
@@ -692,9 +693,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         <CardInvoiceSummaryPreview key={selected.id + ':' + statementMonth + ':' + (savedInvoiceFacts?.updated_at || '')}
           summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>
       </Modal>}
-      {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={(selected?.nickname || 'Cartão') + ' · ' + clearInvoiceConfirm.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}
+      {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={clearInvoiceConfirm.nickname + ' · ' + clearInvoiceConfirm.month.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}
         footer={<button type="button" disabled={clearingInvoice} onClick={() => {void clearUnpaidInvoice();}} className={modalPrimaryActionClass}>Confirmar exclusão da fatura</button>}>
         <p className="text-xs leading-relaxed text-slate-300">Os lançamentos financeiros não pagos que pertencem exclusivamente a esta fatura serão cancelados e mantidos no histórico. A operação será bloqueada se houver pagamento ou parcelas de outros meses. Não há estorno automático.</p>
+        {clearInvoiceError && <p role="alert" className="mt-3 text-xs text-rose-300">{clearInvoiceError}</p>}
       </Modal>}
       {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }}/>}
       {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}

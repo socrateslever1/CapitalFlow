@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Sparkles,
   Zap,
@@ -25,6 +25,7 @@ type Props = {
   kind: 'ACCOUNT' | 'CARD';
   targetId: string;
   targetName: string;
+  initialFile?: File;
   initialDueMonth?: string | null;
   hasOpening?: boolean;
   onClose?: () => void;
@@ -50,6 +51,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   kind,
   targetId,
   targetName,
+  initialFile,
   initialDueMonth,
   hasOpening = false,
   onClose,
@@ -117,6 +119,14 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       setBusy(false);
     }
   };
+
+  const importedFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    if (!initialFile || importedFileRef.current === initialFile) return;
+    importedFileRef.current = initialFile;
+    void handleFileProcess(initialFile);
+    // Intent data is a stable File reference for the lifetime of this reader.
+  }, [initialFile]);
 
   const revise = (index: number, change: Partial<ParsedStatementRow>) =>
     setRows((current) =>

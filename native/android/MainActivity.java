@@ -1,6 +1,7 @@
 package com.socrateslever.capitalflow;
 
 import android.os.Bundle;
+import android.content.Intent;
 import android.view.View;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.graphics.Insets;
@@ -18,6 +19,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(WalletFileInboxPlugin.class);
         super.onCreate(savedInstanceState);
 
         configureSystemBarInsets();
@@ -31,6 +33,15 @@ public class MainActivity extends BridgeActivity {
             }
         });
     }
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (getBridge() != null) {
+            getBridge().triggerWindowJSEvent("capitalflow:file-arrived");
+        }
+    }
+
     /**
      * The activity is edge-to-edge on Android 15+ (and in desktop windowing).
      * Apply real system bar/cutout insets to the NATIVE container, not a fixed

@@ -6,12 +6,13 @@ import { useWalletAccess } from './hooks/useWalletAccess';
 import { useWalletRealtime } from './hooks/useWalletRealtime';
 import { getWalletRoute, WALLET_ROUTES, WalletRouteView } from './routes';
 import { WalletExpenseFab } from './components/WalletExpenseFab';
+import { NativeWalletFileInbox } from './NativeWalletFileInbox';
 import { PageHeader } from '../../components/ui/PageHeader';
 
-const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string }> = ({ kind, message }) => <section className="mx-auto mt-10 max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center text-white shadow-2xl">
+const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry?: () => void }> = ({ kind, message, onRetry }) => <section className="mx-auto mt-10 max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center text-white shadow-2xl">
   {kind === 'inactive' ? <LockKeyhole className="mx-auto mb-4 text-amber-300" size={34}/> : <AlertTriangle className="mx-auto mb-4 text-rose-300" size={34}/>}
   <h1 className="text-xl font-black">{kind === 'inactive' ? 'Módulo Carteira não está ativo' : 'Carteira temporariamente indisponível'}</h1>
-  <p className="mt-2 text-sm text-slate-400">{message}</p>
+  <p className="mt-2 text-sm text-slate-400">{message}</p>\n  {onRetry && <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Tentar novamente</button>}
 </section>;
 
 const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark };
@@ -28,7 +29,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
 
   if (access.status === 'loading') return <div aria-label="Carregando módulo Carteira" className="mx-auto mt-8 h-72 max-w-5xl animate-pulse rounded-3xl bg-slate-900"/>;
   if (access.status === 'inactive') return <StateCard kind="inactive" message="Ative a Carteira no seu plano para acessar contas, cartões, dívidas e cobranças PIX."/>;
-  if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
+  if (access.status === 'error') return <StateCard kind="error" message={access.message} onRetry={access.retry}/>;
 
   return <main className="w-full pb-28">
     <div className="mb-3 w-full">
@@ -60,6 +61,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
 
     <WalletExpenseFab />
+    <NativeWalletFileInbox />
   </main>;
 };
 

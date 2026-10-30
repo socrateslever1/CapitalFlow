@@ -29,5 +29,40 @@ else:
     )
 manifest.write_text(text, encoding="utf-8")
 target.parent.mkdir(parents=True, exist_ok=True)
+# Add Android intent targets only to the activity; avoid granting file access to other components.
+activity_tag = "<activity"
+if text.count(activity_tag) != 1:
+    raise SystemExit("Expected exactly one Capacitor activity")
+intent_filters = """
+        <!-- User-controlled bank statements opened from Gmail/file managers. -->
+        <intent-filter android:label="Abrir fatura no CapitalFlow">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="content" />
+            <data android:mimeType="application/pdf" />
+            <data android:mimeType="application/x-ofx" />
+            <data android:mimeType="application/ofx" />
+            <data android:mimeType="application/vnd.intu.qfx" />
+            <data android:mimeType="application/octet-stream" />
+        </intent-filter>
+        <intent-filter android:label="Compartilhar fatura com CapitalFlow">
+            <action android:name="android.intent.action.SEND" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="application/pdf" />
+            <data android:mimeType="application/x-ofx" />
+            <data android:mimeType="application/ofx" />
+            <data android:mimeType="application/vnd.intu.qfx" />
+            <data android:mimeType="application/octet-stream" />
+        </intent-filter>
+"""
+end = text.find("</activity>")
+if end < 0:
+    raise SystemExit("Missing closing activity tag")
+if 'Abrir fatura no CapitalFlow' not in text:
+    text = text[:end] + intent_filters + text[end:]
+manifest.write_text(text, encoding="utf-8")
+target.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(source, target)
-print("Native navigation bridge and Android predictive-back compatibility installed")
+shutil.copyfile(root / "native/android/WalletFileInboxPlugin.java", target.with_name("WalletFileInboxPlugin.java"))
+print("Native wallet document inbox, navigation bridge and intent filters installed")

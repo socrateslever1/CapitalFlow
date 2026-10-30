@@ -35,6 +35,10 @@ const PRESET_INSTITUTIONS = [
   'PicPay',
   'Dinheiro Físico / Carteira Manual',
 ];
+const INSTITUTION_OPTIONS = [...new Set([
+  ...PRESET_INSTITUTIONS.filter(name => !/dinheiro físico/i.test(name)),
+  ...BANK_CATALOG.map(bank => bank.name),
+])];
 
 export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   capitalSources: providedCapitalSources,
@@ -67,6 +71,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     initialAccountType === 'CASH' ? 'Carteira física' : '',
   );
   const [bankName, setBankName] = useState<string>('');
+  const [customBank, setCustomBank] = useState(false);
   const [initialBalance, setInitialBalance] = useState<string>('0');
   const [pixKeyType, setPixKeyType] = useState<string>('');
   const [pixKey, setPixKey] = useState<string>('');
@@ -192,14 +197,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       onClose={onClose} busy={saving} footer={<button type="submit" form="create-wallet-account-form" disabled={saving} className={modalPrimaryActionClass}>
         {saving?<Loader2 size={16} className="animate-spin"/>:<CheckCircle2 size={16}/>} {saving?'Criando...':'Salvar conta / carteira'}
       </button>}>
-      <datalist id="create-account-institutions">
-        {PRESET_INSTITUTIONS.map((item) => (
-          <option key={item} value={item} />
-        ))}
-        {BANK_CATALOG.map((bank) => (
-          <option key={bank.id} value={bank.name} />
-        ))}
-      </datalist>
+
 
       <form
         id="create-wallet-account-form"
@@ -274,15 +272,27 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className={labelClass}>
               Instituição / Banco {isPhysicalWallet && <span className="text-slate-500">(opcional)</span>}
-              <input
-                list="create-account-institutions"
-                required={!isPhysicalWallet}
+              <select
                 disabled={isPhysicalWallet}
-                value={bankName}
-                onChange={(e) => handleBankChange(e.target.value)}
-                placeholder={isPhysicalWallet ? 'Dinheiro em espécie' : 'Ex: Nubank, Itaú, Inter, RecargaPay'}
+                value={customBank || (bankName && !INSTITUTION_OPTIONS.includes(bankName)) ? '__other__' : bankName}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setCustomBank(value === '__other__');
+                  handleBankChange(value === '__other__' ? '' : value);
+                }}
                 className={inputClass}
-              />
+                aria-label="Selecionar instituição bancária"
+              >
+                <option value="">Selecione seu banco</option>
+                {INSTITUTION_OPTIONS.map(item => <option key={item} value={item}>{item}</option>)}
+                <option value="__other__">Outro banco ou instituição</option>
+              </select>
+              {customBank && !isPhysicalWallet && <input
+                type="text" autoComplete="off" maxLength={120}
+                required value={bankName} onChange={event => handleBankChange(event.target.value)}
+                placeholder="Nome da instituição"
+                aria-label="Nome de outro banco" className={inputClass}/>}
+
             </label>
 
             <label className={labelClass}>

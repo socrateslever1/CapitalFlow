@@ -1,11 +1,34 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { App } from './App';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
 import { AppUpdateBanner } from './components/system/AppUpdateBanner';
 import { Capacitor } from '@capacitor/core';
+import { hasIncomingWalletFile } from './features/wallet/nativeWalletFileInbox';
+
+/** Opening a Gmail attachment starts the relevant wallet route, including cold launch. */
+const NativeWalletImportRouter: React.FC = () => {
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+    let active = true;
+    const check = async () => {
+      try {
+        if (active && await hasIncomingWalletFile()) {
+          navigate('/carteira/cartoes', { replace: false });
+        }
+      } catch { /* The inbox displays its own read error after wallet opens. */ }
+    };
+    void check();
+    window.addEventListener('capitalflow:file-arrived', check);
+    window.addEventListener('focus', check);
+    return () => { active = false; window.removeEventListener('capitalflow:file-arrived', check);
+      window.removeEventListener('focus', check); };
+  }, [navigate]);
+  return null;
+};
 
 // Android WebView is positioned below system bars by the native window.
 // CSS safe-area padding on the body would add a second blank top strip.
@@ -70,6 +93,7 @@ if (isDevCacheResetting) {
     <React.StrictMode>
       <AppErrorBoundary>
         <BrowserRouter>
+          <NativeWalletImportRouter />
           <App />
           <AppUpdateBanner />
         </BrowserRouter>

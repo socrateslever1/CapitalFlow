@@ -130,3 +130,22 @@ test('APK launcher draws the provided white/turquoise CF from the same vector as
   assert(generator.includes('cf_launcher_foreground.png'));
   assert(generator.includes('cf_launcher_round.png'));
 });
+
+
+test('desktop sidebar indicators begin at the same grid row as contract cards', () => {
+  // Two aligned CSS-grid rows replace unrelated flex-column spacing.
+  // This remains aligned when staff controls, a low-balance alert, or search expands.
+  assert.match(dashboard, /lg:grid-cols-\\[minmax\\(0,1fr\\)_20rem\\]/);
+  assert.match(dashboard, /lg:gap-x-8 lg:gap-y-8/);
+  assert.match(dashboard, /data-dashboard-filters[^>]*lg:col-start-1 lg:row-start-1/);
+  assert.match(dashboard, /data-dashboard-indicator-heading[^>]*lg:col-start-2 lg:row-start-1/);
+  assert.match(dashboard, /data-dashboard-contracts[^>]*lg:col-start-1 lg:row-start-2/);
+  assert.match(dashboard, /data-dashboard-indicators[^>]*lg:col-start-2 lg:row-start-2/);
+  assert.equal((dashboard.match(/lg:contents lg:space-y-0/g) || []).length, 2);
+  // Keep existing tablet/mobile tabs and stat layout intact.
+  assert.match(dashboard, /mobileDashboardTab === 'CONTRACTS' \\? 'hidden md:block'/);
+  assert.match(dashboard, /mobileDashboardTab === 'BALANCE' \\? 'hidden md:block'/);
+  assert.match(dashboard, /sm:grid-cols-2 lg:grid-cols-1 gap-3/);
+  const parsed = ts.createSourceFile('DashboardPage.tsx', dashboard, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  assert.equal(parsed.parseDiagnostics.length, 0, 'Dashboard JSX must remain syntactically valid');
+});

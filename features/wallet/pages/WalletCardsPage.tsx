@@ -498,7 +498,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           Final do cartão (opcional)
           <input inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
             value={cardForm.last_four}
-            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,last_four:e.target.value.replace(/\\D/g,'').slice(0,4)}));}}
+            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,last_four:e.target.value.replace(/\D/g,'').slice(0,4)}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
         <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">

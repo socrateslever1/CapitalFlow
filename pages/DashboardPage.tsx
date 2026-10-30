@@ -17,7 +17,7 @@ import type { InstallmentPaymentHandler } from '../components/cards/components/I
 
 const getDashboardColumnCount = () => {
   if (typeof window === 'undefined') return 1;
-  if (window.matchMedia('(min-width: 1536px)').matches) return 3;
+  if (window.matchMedia('(min-width: 1920px)').matches) return 3;
   if (window.matchMedia('(min-width: 1024px)').matches) return 2;
   return 1;
 };
@@ -79,7 +79,7 @@ const ContractCardSkeleton: React.FC<{ index: number }> = ({ index }) => (
 );
 
 const ContractCardsSkeleton: React.FC = () => (
-  <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3" aria-label="Carregando contratos">
+  <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 min-[1920px]:grid-cols-3" aria-label="Carregando contratos">
     {Array.from({ length: 9 }).map((_, index) => (
       <ContractCardSkeleton key={index} index={index} />
     ))}
@@ -208,7 +208,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </button>
       </div>
 
-      <div className="flex flex-col 2xl:flex-row gap-6 sm:gap-8">
+      <div className="flex flex-col min-[1800px]:flex-row gap-6 sm:gap-8">
           <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
               <DashboardAlerts loans={loans} sources={sources} />
               <DashboardControls
@@ -226,7 +226,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
-                  <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2 2xl:grid-cols-3 cf-cards-flash">
+                  <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2 min-[1920px]:grid-cols-3 cf-cards-flash">
                       {groupedLoanColumns.map((column, columnIndex) => (
                           <div key={columnIndex} className="flex min-w-0 flex-col gap-3">
                               {column.map((group) => {
@@ -263,7 +263,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               )}
           </div>
 
-          <aside className={`w-full 2xl:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
+          <aside className={`w-full min-[1800px]:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
               <div className="flex items-center justify-between px-2">
                   <h2 className="text-[10px] font-black uppercase text-slate-500">Indicadores</h2>
                   <button
@@ -276,7 +276,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 min-[1800px]:grid-cols-1 gap-3">
 
                   {/* CARD CAPITAL NA RUA */}
                   <StatCard

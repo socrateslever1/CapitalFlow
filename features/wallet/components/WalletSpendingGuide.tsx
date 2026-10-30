@@ -23,18 +23,16 @@ export const WalletSpendingGuide: React.FC<{
     ? Math.round((spending.total - spending.previousTotal) / spending.previousTotal * 100)
     : null;
   const urgent = overdueCount > 0 || projectedBalance < 0 || (cardCount > 0 && usage >= 80);
-  return <section aria-label="Ajuda para controlar gastos" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-    <header className="flex flex-wrap items-start justify-between gap-2">
-      <div>
-        <h3 className="flex items-center gap-2 text-base font-semibold text-white"><Lightbulb size={18} className="text-cyan-300"/>Saúde financeira</h3>
-        <p className="mt-1 text-xs text-slate-300">Acompanhe despesas, vencimentos e receitas previstas.</p>
-      </div>
-      <span className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${urgent
-        ? 'border-amber-700/60 bg-amber-950/30 text-amber-200'
-        : 'border-slate-700 bg-slate-950/40 text-slate-300'}`}>
-        {urgent ? 'Exige atenção' : 'Acompanhamento'}
+  return <details aria-label="Análise de gastos" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4">
+    <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2">
+      <span className="inline-flex items-center gap-2 text-sm font-semibold text-white">
+        <Lightbulb size={18} className="text-cyan-300"/>Gastos e alertas
       </span>
-    </header>
+      <span className="flex items-center gap-3 text-xs text-slate-300">
+        {urgent&&<span className="text-amber-300">Exige atenção</span>}
+        <strong className="tabular-nums text-white">{formatMoney(spending.total)}</strong>
+      </span>
+    </summary>
     <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-12">
       <div className="order-2 min-w-0 lg:order-1 lg:col-span-7">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -135,5 +133,5 @@ export const WalletSpendingGuide: React.FC<{
         </button>
       </aside>
     </div>
-  </section>;
+  </details>;
 };

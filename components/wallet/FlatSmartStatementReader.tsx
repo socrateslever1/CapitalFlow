@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
-import { issuerMatchesBank } from '../../utils/cardInvoiceSummary';
+import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
@@ -37,6 +37,7 @@ type Props = {
   hasOpening?: boolean;
   onClose?: () => void;
   onImported: () => Promise<void>;
+  onSummarySaved?: () => Promise<void>;
   isFlat?: boolean; // Se true, renderiza inline / plano sem fundo de modal fixo
 };
 
@@ -66,6 +67,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   hasOpening = false,
   onClose,
   onImported,
+  onSummarySaved,
   isFlat = true,
 }) => {
   const [mode, setMode] = useState<'NEW' | 'INCLUDED' | 'DOCUMENT'>(
@@ -94,6 +96,25 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     && result?.invoiceSummary?.cardLastFour
     && result.invoiceSummary.cardLastFour !== targetLastFour);
   const destinationMismatch = bankMismatch || cardMismatch;
+  const saveSummary = async (summary: CardInvoiceSummary): Promise<void> => {
+    if (!result || kind !== 'CARD') throw new Error('Fatura não carregada.');
+    if (!issuerMatchesBank(targetIssuer, summary.institution) ||
+      (targetLastFour && summary.cardLastFour && targetLastFour !== summary.cardLastFour))
+      throw new Error('A fatura não corresponde à instituição ou ao cartão selecionado.');
+    const referenceMonth = (summary.dueDate || dueMonth + '-01').slice(0,7);
+    await personalWalletService.saveCardInvoiceFacts({
+      cardId:targetId, dueMonth:referenceMonth+'-01', dueDate:summary.dueDate,
+      issuer:summary.institution, invoiceTotal:summary.invoiceTotal,
+      minimumPayment:summary.minimumPayment, creditLimit:summary.creditLimit,
+      usedLimit:summary.usedLimit, availableLimit:summary.availableLimit,
+      futureInstallments:summary.futureInstallments, sourceHash:result.hash,
+      sourceType:result.sourceType === 'OFX' ? 'OFX' :
+        result.sourceType === 'PDF_NATIVE' || result.sourceType === 'PDF_AI' ? 'PDF' : 'MANUAL',
+    });
+    setDueMonth(referenceMonth);
+    await onSummarySaved?.();
+  };
+
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -122,6 +143,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     try {
       const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi, pdfPassword: password });
       setPdfPassword('');
+      if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) setDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
       setResult(parsed);
       setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
         ? { ...row, selected: false } : row));
@@ -305,7 +327,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
-      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview summary={result.invoiceSummary} />}
+      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview key={result.hash} summary={result.invoiceSummary} onSave={saveSummary} />}
       {destinationMismatch && <p role="alert" className="text-xs text-rose-300">O banco identificado nesta fatura é diferente do cartão de destino. Selecione o cartão correto.</p>}
 
       {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">

@@ -133,7 +133,14 @@ jobs:
           # The signed installer must be handled inside Capacitor, never an external browser.
           grep -q 'registerPlugin(CapitalFlowApkInstallerPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
           test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowInstallStatusReceiver.java
+          grep -q 'android:name=".CapitalFlowInstallStatusReceiver"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:exported="false"' android/app/src/main/AndroidManifest.xml
+          grep -q 'session.commit(pending.getIntentSender())' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          grep -q 'STATUS_PENDING_USER_ACTION' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowInstallStatusReceiver.java
           grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION' android/app/src/main/AndroidManifest.xml
+          grep -q 'USER_ACTION_NOT_REQUIRED' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
           grep -q 'capitalflowapk' android/app/src/main/AndroidManifest.xml
           test -s android/app/src/main/res/xml/capitalflow_apk_file_paths.xml
           grep -q 'verifyPackageAndCertificate' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java

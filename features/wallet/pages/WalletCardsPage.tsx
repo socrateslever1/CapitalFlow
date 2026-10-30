@@ -69,6 +69,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
   const [invoiceFactsModalOpen, setInvoiceFactsModalOpen] = useState(false);
+  const [applyingIssuerFacts, setApplyingIssuerFacts] = useState(false);
+  const [issuerCommitFeedback, setIssuerCommitFeedback] = useState('');
+  const issuerCommitRequest = useRef({ signature: '', id: generateUUID() });
   const [notice, setNotice] = useState('');
   const [createError,setCreateError]=useState('');
   const [vaultCard,setVaultCard]=useState<PersonalWalletCard|null>(null);
@@ -243,6 +246,42 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const selectedCycle = selected && data
     ? getSelectedInvoiceCycle(selected.id, statementMonth, data.expenses, data.installments)
     : null;
+  const mayApplySavedIssuerFacts = Boolean(
+    selected && savedInvoiceFacts && (selectedCycle?.amount || 0) === 0 &&
+    Number(selected.current_bill || 0) === 0 && Number(selected.used_limit || 0) === 0 &&
+    savedInvoiceFacts.invoice_total != null && Number(savedInvoiceFacts.invoice_total) > 0 &&
+    savedInvoiceFacts.used_limit != null && savedInvoiceFacts.credit_limit != null &&
+    (!data || !data.expenses.some(expense => expense.card_id === selected.id && expense.status !== 'CANCELED'))
+  );
+  const applySavedIssuerFacts = async () => {
+    if (!selected || !savedInvoiceFacts || applyingIssuerFacts || !mayApplySavedIssuerFacts) return;
+    const signature = selected.id + ':' + savedInvoiceFacts.due_month + ':' + savedInvoiceFacts.updated_at;
+    if (issuerCommitRequest.current.signature !== signature)
+      issuerCommitRequest.current = { signature, id: generateUUID() };
+    setApplyingIssuerFacts(true);
+    setIssuerCommitFeedback('');
+    try {
+      const result = await personalWalletService.saveCardInvoiceFacts({
+        cardId: selected.id, dueMonth: savedInvoiceFacts.due_month,
+        dueDate: savedInvoiceFacts.due_date, issuer: savedInvoiceFacts.issuer,
+        invoiceTotal: savedInvoiceFacts.invoice_total,
+        minimumPayment: savedInvoiceFacts.minimum_payment,
+        creditLimit: savedInvoiceFacts.credit_limit,
+        usedLimit: savedInvoiceFacts.used_limit,
+        availableLimit: savedInvoiceFacts.available_limit,
+        futureInstallments: savedInvoiceFacts.future_installments,
+        sourceHash: savedInvoiceFacts.source_hash,
+        sourceType: savedInvoiceFacts.source_type,
+      }, issuerCommitRequest.current.id);
+      await Promise.all([refreshInvoiceFacts(), refresh()]);
+      setStatementMonth(result.due_month);
+      setIssuerCommitFeedback(result.note);
+    } catch (error) {
+      setIssuerCommitFeedback(error instanceof Error ? error.message : 'Falha ao confirmar a fatura.');
+    } finally {
+      setApplyingIssuerFacts(false);
+    }
+  };
   const selectedFutureCommitments = statementMonth
     ? invoiceCycles.filter(cycle => cycle.dueMonth > statementMonth).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0;
@@ -406,6 +445,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
             </button>
           </div>}
+          {mayApplySavedIssuerFacts && <button type="button" disabled={applyingIssuerFacts}
+            onClick={() => { void applySavedIssuerFacts(); }}
+            className="min-h-11 rounded-xl border border-cyan-600/60 bg-cyan-950/30 px-4 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-50">
+            {applyingIssuerFacts ? 'Conferindo e aplicando…' : 'Aplicar valores já salvos à posição do cartão'}
+          </button>}
+          {issuerCommitFeedback && <p role="status" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{issuerCommitFeedback}</p>}
           <WalletMetricStrip items={[
             { label: 'Saldo de fatura registrado', value: formatMoney(selectedCycle?.amount || 0) },
             { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },

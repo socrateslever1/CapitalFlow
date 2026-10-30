@@ -31,11 +31,11 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
         {headerActions && <div className="flex flex-wrap items-center gap-2">{headerActions}</div>}
       </header>}
       {!accounts.length ? (
-        <div className="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-sm text-slate-300">
+        <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-300">
           Nenhuma conta cadastrada.
         </div>
       ) : (
-        <div className="divide-y divide-slate-800">
+        <div className={compact ? 'divide-y divide-slate-800' : 'grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-3'}>
           {accounts.map(account => {
             const isCash = account.account_type === 'CASH';
             const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
@@ -45,11 +45,11 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
               : walletAccountTypeLabel(account.account_type);
             return (
               <button key={account.id} type="button" onClick={() => onOpen(account)}
-                className={`group flex w-full min-w-0 items-center justify-between gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-800/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${compact ? 'min-h-14' : 'min-h-16'}`}>
+                className={`group flex w-full min-w-0 gap-3 px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${compact ? 'min-h-14 items-center justify-between rounded-lg hover:bg-slate-800/60' : 'min-h-[132px] flex-col items-stretch justify-between rounded-xl border border-slate-700/80 bg-slate-950/70 p-4 hover:border-slate-600 hover:bg-slate-950'}`}>
                 <span className="flex min-w-0 flex-1 items-center gap-3">
                   <span
                     aria-hidden="true"
-                    className="h-8 w-1 shrink-0 rounded-full"
+                    className="h-7 w-1 shrink-0 rounded-full"
                     style={{ backgroundColor: isCash ? '#f59e0b' : visual.accent }}
                   />
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950">
@@ -62,14 +62,14 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
                     </span>
                   </span>
                 </span>
-                <span className="ml-auto flex shrink-0 items-center gap-2.5 text-right">
-                  <span>
+                <span className={`${compact ? 'ml-auto shrink-0' : 'w-full border-t border-slate-800 pt-3'} flex min-w-0 items-center justify-between gap-2.5 text-right`}>
+                  <span className={compact ? '' : 'min-w-0 text-left'}>
                     <span className="block text-xs text-slate-300">Saldo disponível</span>
-                    <strong className={`mt-0.5 block text-base sm:text-lg font-bold tabular-nums ${balanceValue < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                    <strong className={`mt-0.5 block break-words text-base sm:text-lg font-bold tabular-nums ${balanceValue < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
                       {formatMoney(balanceValue)}
                     </strong>
                   </span>
-                  <ArrowUpRight size={17} className="shrink-0 text-slate-400 transition-colors group-hover:text-blue-300" />
+                  <ArrowUpRight size={17} aria-hidden="true" className="shrink-0 text-slate-400 transition-colors group-hover:text-blue-300" />
                 </span>
               </button>
             );

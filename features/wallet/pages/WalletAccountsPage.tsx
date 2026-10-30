@@ -74,11 +74,11 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
       {/* Composição mobile-first (1: Resumo no topo, 2: Contas em lista, 3: Ações abaixo) e desktop 8/4 equilibrado */}
-      <div className="grid items-start gap-5 lg:grid-cols-12">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-12">
         {/* 1. Resumo no topo no celular / Lateral superior no desktop */}
-        <aside aria-label="Resumo e movimentações" className="order-1 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:order-2 lg:col-span-4">
+        <aside aria-label="Resumo e movimentações" className="order-1 min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 lg:order-2 lg:col-span-4">
           <p className="text-sm font-semibold text-slate-300">Liquidez em contas</p>
-          <strong className={`mt-2 block text-3xl font-extrabold tabular-nums tracking-tight ${totalBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+          <strong className={`mt-2 block break-words text-2xl font-bold tabular-nums tracking-tight ${totalBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
             {formatMoney(totalBalance)}
           </strong>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-300">
@@ -99,7 +99,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         </aside>
 
         {/* 2. Lista de contas (maior largura no desktop lg:col-span-8, meio no celular) com "Nova conta" junto ao título */}
-        <div className="order-2 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 lg:order-1 lg:col-span-8 lg:row-span-2">
+        <div className="order-2 min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 lg:order-1 lg:col-span-8 lg:row-span-2">
           <AccountCardStack
             accounts={data.accounts}
             onOpen={account => setSelectedId(account.id)}
@@ -124,7 +124,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
 
         {/* 3. Ações abaixo da lista no celular + Integração com Capital na coluna lateral */}
         <div className="order-3 min-w-0 space-y-4 lg:order-3 lg:col-span-4">
-          <div className="grid gap-2.5 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:hidden">
+          <div className="grid gap-2.5 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:hidden">
             <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <ArrowLeftRight size={18}/> Transferir / Movimentar

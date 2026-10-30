@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ArrowRight, CalendarClock, Plus, RefreshCw,
+  ArrowRight, CalendarClock, ChevronDown, Plus, RefreshCw,
   Scale, TrendingDown, TrendingUp, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
@@ -15,6 +15,7 @@ import { getBankVisual, getCreditSummary } from '../../../components/wallet/wall
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
 import { WalletSpendingGuide } from '../components/WalletSpendingGuide';
+import { getWalletSpendingOverview } from '../domain/walletSpendingInsights';
 import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { CreateAccountModal } from '../components/CreateAccountModal';
@@ -94,6 +95,7 @@ const deriveOverview = (snapshot: WalletSnapshot, today: string) => {
     getBankVisual(account.institution_key || account.bank_name || account.nickname).key,
   ));
   const credit = getCreditSummary(cards);
+  const spending = getWalletSpendingOverview(snapshot.expenses, month);
   const invoiceList: Commitment[] = cards.flatMap(card =>
     getEffectiveInvoiceCycles(card.id, snapshot.expenses, snapshot.installments)
       .filter(cycle => cycle.amount > 0)
@@ -153,7 +155,7 @@ const deriveOverview = (snapshot: WalletSnapshot, today: string) => {
 
   return {
     accounts, cards, accountBalance, institutionCount: institutionKeys.size,
-    credit, currentInvoiceTotal, balance, upcoming,
+    credit, currentInvoiceTotal, balance, upcoming, spending,
   };
 };
 
@@ -247,7 +249,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
     <WalletSpendingGuide projectedBalance={balance.projectedBalance} creditPercent={credit.percentage}
-      pendingCount={upcoming.length} onNavigate={onNavigate}/>
+      cardCount={cards.length} pendingCount={upcoming.length} spending={overview.spending} onNavigate={onNavigate}/>
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
     <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
@@ -267,52 +269,50 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
         </span>
       </div>
 
-      {/* Resumo Direto: Entradas / Saídas / Resultado */}
-      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:p-4">
-          <dt className="text-xs sm:text-sm font-semibold text-slate-300">Entradas e recursos (A)</dt>
-          <dd className="mt-1 text-right text-lg sm:text-xl font-bold tabular-nums text-emerald-300">{money(balance.totalResources)}</dd>
+      {/* Resumo compacto: valores do domínio sem nova lógica financeira. */}
+      <dl className="mt-4 grid min-w-0 grid-cols-2 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 sm:grid-cols-3">
+        <div className="min-w-0 border-r border-slate-800 p-3 sm:p-4">
+          <dt className="text-xs font-medium text-slate-300">Recursos</dt>
+          <dd className="mt-1 break-words text-base font-bold tabular-nums text-emerald-300 sm:text-lg">{money(balance.totalResources)}</dd>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:p-4">
-          <dt className="text-xs sm:text-sm font-semibold text-slate-300">Saídas do mês (B)</dt>
-          <dd className="mt-1 text-right text-lg sm:text-xl font-bold tabular-nums text-rose-300">{money(balance.totalLiabilities)}</dd>
+        <div className="min-w-0 p-3 sm:border-r sm:border-slate-800 sm:p-4">
+          <dt className="text-xs font-medium text-slate-300">Compromissos</dt>
+          <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg">{money(balance.totalLiabilities)}</dd>
         </div>
-        <div className={`col-span-2 rounded-xl border p-3 sm:col-span-1 sm:p-4 ${deficit ? 'border-rose-500/30 bg-rose-950/20' : 'border-emerald-500/30 bg-emerald-950/20'}`}>
-          <dt className="text-xs sm:text-sm font-semibold text-slate-200">Saldo projetado do mês (A − B)</dt>
-          <dd className={'mt-1 text-right text-lg sm:text-xl font-bold tracking-tight tabular-nums ' + (deficit ? 'text-rose-300' : 'text-emerald-300')}>
-            {money(balance.projectedBalance)}
-          </dd>
+        <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
+          <dt className="text-xs font-semibold text-white">Projeção após compromissos</dt>
+          <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}>{money(balance.projectedBalance)}</dd>
         </div>
       </dl>
-
-      <div className="mt-5 grid gap-5 border-t border-slate-800 pt-5 lg:grid-cols-12">
-        {/* Card de Recursos */}
-        <div className="min-w-0 lg:col-span-6 lg:pr-5">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-300"><TrendingUp size={16} className="text-emerald-400"/> Composição dos recursos (Entradas)</h4>
-          <div className="space-y-3 text-sm tabular-nums">
-            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Saldo disponível em contas</span><strong className="text-right font-semibold text-white">{money(balance.accountBalance)}</strong></div>
-            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Receitas fixas a receber neste mês</span><strong className="text-right font-semibold text-white">{money(balance.pendingRecurringIncome)}</strong></div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-3 font-bold text-emerald-300"><span>Total de recursos</span><strong className="text-right font-bold text-emerald-300">{money(balance.totalResources)}</strong></div>
+      <details className="group mt-3 border-t border-slate-800 pt-3">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-blue-300 hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+          Ver composição do balanço <ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180"/>
+        </summary>
+        <div className="grid gap-4 pt-3 lg:grid-cols-12">
+          <div className="min-w-0 lg:col-span-6">
+            <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><TrendingUp size={15}/> Origem dos recursos</h4>
+            <dl className="space-y-2 text-sm tabular-nums">
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Saldos em conta</dt><dd className="font-semibold text-white">{money(balance.accountBalance)}</dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Receitas a receber no mês</dt><dd className="font-semibold text-white">{money(balance.pendingRecurringIncome)}</dd></div>
+            </dl>
+          </div>
+          <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-6 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+            <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-rose-300"><TrendingDown size={15}/> Origem dos compromissos</h4>
+            <dl className="space-y-2 text-sm tabular-nums">
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Faturas com vencimento no mês</dt><dd className="font-semibold text-white">{money(balance.openCardInvoices)}</dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Dívidas e contas do mês</dt><dd className="font-semibold text-white">{money(balance.monthPayables)}</dd></div>
+            </dl>
           </div>
         </div>
-        {/* Card de Passivos */}
-        <div className="min-w-0 border-t border-slate-800 pt-4 lg:col-span-6 lg:border-l lg:border-t-0 lg:pt-0 lg:pl-5">
-          <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-rose-300"><TrendingDown size={16} className="text-rose-400"/> Composição das saídas (Passivos)</h4>
-          <div className="space-y-3 text-sm tabular-nums">
-            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Faturas de cartão com vencimento no mês</span><strong className="text-right font-semibold text-white">{money(balance.openCardInvoices)}</strong></div>
-            <div className="flex items-center justify-between gap-3 text-slate-200"><span>Dívidas e contas a pagar no mês</span><strong className="text-right font-semibold text-white">{money(balance.monthPayables)}</strong></div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-3 font-bold text-rose-300"><span>Total de passivos</span><strong className="text-right font-bold text-rose-300">{money(balance.totalLiabilities)}</strong></div>
-          </div>
-        </div>
-      </div>
+      </details>
     </article>
 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
-    <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+    <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white"><CalendarClock size={18} className="text-blue-400"/> Compromissos próximos</h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-300">Obrigações vencidas e com vencimento nos próximos 45 dias</p>
+          <p className="mt-1 text-xs sm:text-sm text-slate-300">Até 8 obrigações vencidas ou com vencimento nos próximos 45 dias</p>
         </div>
         <button type="button" onClick={() => go('dividas')} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200">
           <span>Ver contas a pagar</span> <ArrowRight size={16}/>
@@ -324,7 +324,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
           return (
             <div
               key={item.id}
-              className="flex flex-col gap-2.5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-lg px-1 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               {/* Lado Esquerdo */}
               <div className="flex min-w-0 items-center gap-3">

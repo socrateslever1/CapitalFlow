@@ -1,0 +1,54 @@
+name: Wallet security dependency remediation
+on:
+  push:
+    branches:
+      - feat/wallet-invoice-intelligence-20261030
+    paths:
+      - .github/workflows/wallet-security-dependency-remediation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wallet-security-remediation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  patch-and-verify:
+    if: github.repository == 'socrateslever1/CapitalFlow' && github.ref == 'refs/heads/feat/wallet-invoice-intelligence-20261030'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install exact baseline dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Apply npm-supported non-breaking security fixes
+        run: npm audit fix --no-fund
+      - name: Require zero high/critical production advisories
+        run: npm audit --omit=dev --audit-level=high
+      - name: Ensure clean locked reinstall
+        run: npm ci --no-audit --no-fund
+      - name: Run full quality suite on remediated dependencies
+        run: npm run test:quality
+      - name: Commit only reviewed manifest and lockfile changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo 'Dependencies already satisfy the security gate; no changes needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(security): patch vulnerable dependencies without forced major upgrades'
+          git push origin HEAD:refs/heads/feat/wallet-invoice-intelligence-20261030

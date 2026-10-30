@@ -54,7 +54,7 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
 test('both PDF entry points use the same canonical confirmation, refresh and protect card identity', () => {
   for (const reader of readers) {
     assert.match(reader, /issuerMatchesBank\(targetIssuer, summary\.institution\)/);
-    assert.match(reader, /summary\.cardLastFour !== targetLastFour/);
+    assert.match(reader, /(?:summary|result\.invoiceSummary)\.cardLastFour !== targetLastFour/);
     assert.match(reader, /const confirmation = await personalWalletService\.saveCardInvoiceFacts/);
     assert.match(reader, /await onSummarySaved\?\.\(referenceMonth\+'-01'\)/);
     assert.match(reader, /return confirmation/);

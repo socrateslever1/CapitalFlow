@@ -81,6 +81,8 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const [finished, setFinished] = useState<number | null>(null);
   const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   const declaredBank = result?.invoiceSummary?.institution;
@@ -108,17 +110,19 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         !row.description.trim())
   );
 
-  const handleFileProcess = async (fileToProcess: File, forceAi = false) => {
+  const handleFileProcess = async (fileToProcess: File, forceAi = false, password?: string) => {
     setSource(fileToProcess);
     setResult(null);
     setRows([]);
     setError('');
+    setPdfPasswordRequired(false);
     setFinished(null);
     setShowPreview(false);
     setBusy(true);
 
     try {
-      const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi });
+      const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi, pdfPassword: password });
+      setPdfPassword('');
       setResult(parsed);
       setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
         ? { ...row, selected: false } : row));
@@ -136,6 +140,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     } catch (reason: any) {
       setResult(null);
       setRows([]);
+      if (reason?.code === 'PDF_PASSWORD_REQUIRED' || reason?.code === 'PDF_PASSWORD_INCORRECT') setPdfPasswordRequired(true);
       setError(reason?.message || 'Não foi possível ler o documento.');
     } finally {
       setBusy(false);
@@ -319,7 +324,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           e.preventDefault();
           setIsDragging(false);
           const f = e.dataTransfer.files?.[0];
-          if (f) void handleFileProcess(f);
+          if (f) { setPdfPassword(''); void handleFileProcess(f); }
         }}
         className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center transition ${
           isDragging
@@ -349,7 +354,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             disabled={busy}
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void handleFileProcess(f);
+              if (f) { setPdfPassword(''); void handleFileProcess(f); }
             }}
           />
         </label>
@@ -403,6 +408,18 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
+      {pdfPasswordRequired && source && <form className="space-y-2 rounded-xl border border-amber-600/30 bg-slate-950 p-3"
+        onSubmit={event => { event.preventDefault(); if (pdfPassword && !busy) void handleFileProcess(source, false, pdfPassword); }}>
+        <label className="block text-xs text-slate-200" htmlFor="flat-wallet-pdf-password">Senha do PDF (somente neste dispositivo)</label>
+        <div className="flex gap-2">
+          <input id="flat-wallet-pdf-password" type="password" autoComplete="off" maxLength={256}
+            value={pdfPassword} onChange={event => setPdfPassword(event.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
+            placeholder="Informe a senha"/>
+          <button type="submit" disabled={busy || !pdfPassword} className="rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Desbloquear e ler</button>
+        </div>
+        <p className="text-[11px] text-slate-400">A senha não é salva nem transmitida ao servidor.</p>
+      </form>}
       {/* Lista Plana de Lançamentos Extraídos */}
       {result && result.rows.length > 0 && (
         <div className="space-y-3 pt-2">

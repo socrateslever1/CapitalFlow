@@ -143,12 +143,11 @@ test('CI rejects builds missing the Android 15+ system bar native inset policy',
 });
 
 test('official CapitalFlow CF icon is packaged into Android installer on every build', () => {
-  const mark = readFileSync('assets/branding/capitalflow-mark.webp');
-  assert(mark.length > 2000, 'the approved CF artwork must be present, not a placeholder');
-  assert.equal(mark.toString('ascii', 0, 4), 'RIFF');
-  assert.equal(mark.toString('ascii', 8, 12), 'WEBP');
+  const mark = readFileSync('public/brand/capitalflow-app-icon.svg', 'utf8');
+  assert(mark.includes('viewBox="0 0 512 512"'), 'approved high-resolution vector must exist');
+  assert(mark.includes('fill="url(#flow)"'), 'official CF turquoise element must be present');
   const script = readFileSync('scripts/android/install_launcher_icon.py', 'utf8');
-  assert(script.includes("'assets/branding/capitalflow-mark.webp'"));
+  assert(script.includes("'public/brand/capitalflow-app-icon.svg'"));
   for(const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'])
     assert(script.includes("'" + density + "'"), 'missing launcher density ' + density);
   for(const icon of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png', 'ic_launcher_monochrome.png'])
@@ -160,6 +159,7 @@ test('official CapitalFlow CF icon is packaged into Android installer on every b
   const assemble = yaml.indexOf('      - name: Assemble Android debug APK');
   assert(install > 0 && install < assemble, 'regenerated native res must be changed before assembling debug/release');
   assert(yaml.includes('Pillow==11.3.0'), 'pin reproducible icon generation version');
+  assert(yaml.includes('CairoSVG==2.8.2'), 'pin vector renderer for consistent high resolution');
   assert(yaml.includes('python" scripts/android/install_launcher_icon.py'));
-  assert(yaml.includes("'assets/branding/**'"), 'icon asset changes must trigger main APK release');
+  assert(yaml.includes("'public/**'"), 'icon asset changes must trigger main APK release');
 });

@@ -79,6 +79,8 @@ export const WalletStatementImport: React.FC<Props> = ({
   const [finished, setFinished] = useState<number | null>(null);
   const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
 
   const declaredBank = result?.invoiceSummary?.institution;
   const bankMismatch = Boolean(kind === 'CARD' && targetIssuer && declaredBank
@@ -105,14 +107,16 @@ export const WalletStatementImport: React.FC<Props> = ({
         !row.description.trim())
   );
 
-  const parse = async (forceAi = false) => {
+  const parse = async (forceAi = false, password?: string) => {
     if (!source) return;
     setBusy(true);
     setError('');
+    setPdfPasswordRequired(false);
     setFinished(null);
     try {
       // Processa com o leitor inteligente universal (OFX / PDF / Imagem com IA)
-      const parsed = await parseSmartFinancialDocument(source, kind, { forceAi });
+      const parsed = await parseSmartFinancialDocument(source, kind, { forceAi, pdfPassword: password });
+      setPdfPassword('');
       setResult(parsed);
       setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
         ? { ...row, selected: false } : row));
@@ -130,6 +134,7 @@ export const WalletStatementImport: React.FC<Props> = ({
     } catch (reason: any) {
       setResult(null);
       setRows([]);
+      if (reason?.code === 'PDF_PASSWORD_REQUIRED' || reason?.code === 'PDF_PASSWORD_INCORRECT') setPdfPasswordRequired(true);
       setError(reason?.message || 'Não foi possível ler o documento.');
     } finally {
       setBusy(false);
@@ -304,6 +309,18 @@ export const WalletStatementImport: React.FC<Props> = ({
             <input type="checkbox" checked={allowDuplicates} onChange={event => setAllowDuplicates(event.target.checked)}/>
             {duplicateKeys.size} possível(is) repetição(ões) já importada(s). Permitir novamente somente após conferir.
           </label>}
+          {pdfPasswordRequired && source && <form className="space-y-2 rounded-xl border border-amber-600/30 bg-slate-950 p-3"
+            onSubmit={event => { event.preventDefault(); if (pdfPassword && !busy) void parse(false, pdfPassword); }}>
+            <label className="block text-xs text-slate-200" htmlFor="modal-wallet-pdf-password">Senha do PDF (leitura local)</label>
+            <div className="flex gap-2">
+              <input id="modal-wallet-pdf-password" type="password" autoComplete="off" maxLength={256}
+                value={pdfPassword} onChange={event => setPdfPassword(event.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
+                placeholder="Senha do arquivo"/>
+              <button type="submit" disabled={busy || !pdfPassword} className="rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white disabled:opacity-40">Desbloquear e ler</button>
+            </div>
+            <p className="text-[11px] text-slate-400">A senha não é salva nem transmitida ao servidor.</p>
+          </form>}
           {/* Upload Area */}
           <div className="space-y-2">
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/80 p-6 text-center hover:border-cyan-500/70 hover:bg-slate-950 transition">
@@ -335,6 +352,8 @@ export const WalletStatementImport: React.FC<Props> = ({
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
                   setSource(f);
+                  setPdfPassword('');
+                  setPdfPasswordRequired(false);
                   setResult(null);
                   setRows([]);
                   setError('');

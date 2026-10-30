@@ -141,11 +141,18 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
           <fieldset disabled={busy} className="min-w-0 border-0 p-0 m-0 pb-16 sm:pb-6">{children}</fieldset>
         </div>
 
-        <footer className={`flex min-w-0 shrink-0 flex-col gap-2 border-t border-slate-800/80 bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-md sm:px-6 sm:py-4 [padding-bottom:max(0.875rem,env(safe-area-inset-bottom))] ${footer && footerMode === 'default' ? 'sm:flex-row-reverse' : ''}`}>
-          {footer}
+        <footer className={`grid min-w-0 shrink-0 grid-cols-1 gap-2 border-t border-slate-800/80 bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-md sm:px-6 sm:py-4 [padding-bottom:max(0.875rem,env(safe-area-inset-bottom))] ${footer && footerMode === 'default' ? 'sm:grid-cols-2' : ''}`}>
+          {footer && (
+            <div
+              data-modal-footer-actions
+              className={`min-w-0 w-full max-w-full [&>*]:min-w-0 [&>*]:max-w-full ${footerMode === 'default' ? 'sm:col-start-2 sm:row-start-1' : ''}`}
+            >
+              {footer}
+            </div>
+          )}
           {footerMode === 'default' && <button
             type="button" onClick={close} disabled={busy}
-            className={`flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 px-4 text-[11px] font-bold uppercase text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'w-full sm:flex-1' : 'w-full sm:w-auto sm:self-center sm:px-8'}`}
+            className={`flex min-h-11 min-w-0 w-full items-center justify-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 text-[11px] font-bold uppercase text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'sm:col-start-1 sm:row-start-1' : 'sm:w-auto sm:justify-self-center sm:px-8'}`}
           >
             <XCircle size={13} /> {cancelLabel}
           </button>}

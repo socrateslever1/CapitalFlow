@@ -25,9 +25,7 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
-import { CardProtectedFields, emptyProtectedCard } from '../../../components/wallet/CardProtectedFields';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
-import { encryptCardData, validateCardNumber, type CardVaultEnvelope } from '../domain/cardVault';
 import { BANK_CATALOG } from '../../../utils/bankLogoRegistry';
 
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
@@ -62,9 +60,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [createError,setCreateError]=useState('');
-  const [protectedDraft,setProtectedDraft]=useState(emptyProtectedCard);
   const [vaultCard,setVaultCard]=useState<PersonalWalletCard|null>(null);
-  const encryptedDraft=useRef<{requestId:string;envelope:CardVaultEnvelope}|null>(null);
   const requestId = useRef(generateUUID());
   const [opening, setOpening] = useState(freshCardOpening);
   const [initializing, setInitializing] = useState(false);
@@ -216,23 +212,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       if (thirdPartyCard && !cardForm.cardholder_name.trim()) {
         throw new Error('Informe o nome do titular do cartão de terceiros.');
       }
-      const creditLimit = parseWalletMoney(cardForm.credit_limit, 'limite de crédito');
+      const creditLimit = parseWalletMoney(cardForm.credit_limit.trim() || '0', 'limite de crédito');
       const position = validateCardOpening(opening, creditLimit);
       if(Boolean(cardForm.expiry_month)!==Boolean(cardForm.expiry_year))throw new Error('Informe mês e ano da validade juntos.');
-      let envelope:CardVaultEnvelope|null=null;
-      let lastFour=cardForm.last_four||null;
-      if(protectedDraft.number||protectedDraft.securityCode){
-        const number=validateCardNumber(protectedDraft.number);
-        lastFour=number.slice(-4);
-        if(protectedDraft.password||protectedDraft.confirmation||protectedDraft.securityCode){
-          if(protectedDraft.password!==protectedDraft.confirmation)throw new Error('As senhas do cofre não coincidem.');
-          if(encryptedDraft.current?.requestId===requestId.current)envelope=encryptedDraft.current.envelope;
-          else {
-            envelope=await encryptCardData({number,securityCode:protectedDraft.securityCode},protectedDraft.password,await personalWalletService.ownerId(),requestId.current);
-            encryptedDraft.current={requestId:requestId.current,envelope};
-          }
-        }
-      }
+      const lastFour = cardForm.last_four.trim() || null;
+      if (lastFour && !/^\d{4}$/.test(lastFour)) throw new Error('Informe apenas os quatro últimos dígitos.');
       await personalWalletService.createCompleteCard({
         card: {
           nickname: (cardForm.nickname.trim() || cardForm.issuer.trim()), issuer: cardForm.issuer.trim(),
@@ -244,7 +228,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         opening: position,
         requestId: requestId.current,
         identity:{cardholder_name:cardForm.cardholder_name.trim()||null,expiry_month:cardForm.expiry_month?Number(cardForm.expiry_month):null,expiry_year:cardForm.expiry_year?Number(cardForm.expiry_year):null},
-        envelope,
+        envelope: null,
       });
       await refresh(); setCreating(false); setThirdPartyCard(false); setOpening(freshCardOpening());
       requestId.current = generateUUID();
@@ -252,7 +236,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
         due_day: '10', closing_day: '1', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
       });
-      setProtectedDraft(emptyProtectedCard());encryptedDraft.current=null;
     } catch (cause) { setCreateError(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
     finally { setSaving(false); }
   };
@@ -339,6 +322,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   kind="CARD"
                   targetId={selected.id}
                   targetName={selected.nickname}
+                  targetIssuer={selected.issuer}
                   initialDueMonth={statementMonth}
                   hasOpening={Boolean(selected.initial_balance_occurred_at)}
                   isFlat={true}
@@ -389,12 +373,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </div>
         </div>
       </Modal>}
-      {creating && <Modal title="Novo cartão" subtitle="Identificação, numeração completa e situação inicial" icon={<CreditCard size={17}/>} onClose={() => {
+      {creating && <Modal title="Novo cartão" subtitle="Identificação e valores opcionais" icon={<CreditCard size={17}/>} onClose={() => {
           setCreating(false);
           setThirdPartyCard(false);
           setCardForm(value => ({ ...value, cardholder_name: ownerDefaults.name }));
-          setProtectedDraft(emptyProtectedCard());
-          encryptedDraft.current=null;
           setCreateError('');
         }} busy={saving}
         footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
@@ -418,10 +400,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <label key={field} className="space-y-1 text-xs text-slate-300">
             {({issuer:'Instituição / Banco',nickname:'Apelido (opcional)',
               credit_limit:'Limite de crédito',closing_day:'Dia de fechamento',due_day:'Dia do vencimento'} as const)[field]}
-            <input required={field !== 'nickname'} list={field === 'issuer' ? 'wallet-new-card-banks' : undefined} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
+            <input required={field !== 'nickname' && field !== 'credit_limit'} list={field === 'issuer' ? 'wallet-new-card-banks' : undefined} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
               min={field === 'closing_day' || field === 'due_day' ? 1 : undefined}
               inputMode={field === 'credit_limit' ? 'decimal' : field === 'closing_day' || field === 'due_day' ? 'numeric' : undefined}
-              placeholder={field === 'credit_limit' ? 'Ex.: 495,61' : field === 'nickname' ? 'Usa o nome do banco se vazio' : field === 'issuer' ? 'Ex.: Nubank, Itaú, Inter' : undefined}
+              placeholder={field === 'credit_limit' ? 'Opcional — informar depois' : field === 'nickname' ? 'Usa o nome do banco se vazio' : field === 'issuer' ? 'Ex.: Nubank, Itaú, Inter' : undefined}
               max={field === 'closing_day' || field === 'due_day' ? 31 : undefined}
               value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
@@ -475,7 +457,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <label className="space-y-1 text-xs text-slate-300">Mês da validade<input type="number" min={1} max={12} autoComplete="cc-exp-month" value={cardForm.expiry_month} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,expiry_month:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="MM"/></label>
           <label className="space-y-1 text-xs text-slate-300">Ano da validade<input type="number" min={2000} max={2200} autoComplete="cc-exp-year" value={cardForm.expiry_year} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,expiry_year:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="AAAA"/></label>
         </div>
-        <CardProtectedFields value={protectedDraft} onChange={value=>{requestId.current=generateUUID();encryptedDraft.current=null;setProtectedDraft(value);}}/>
+        <label className="space-y-1 text-xs text-slate-300">Últimos 4 dígitos (opcional)
+          <input inputMode="numeric" maxLength={4} pattern="[0-9]{4}"
+            placeholder="Ex.: 1234" value={cardForm.last_four}
+            onChange={event => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, last_four: event.target.value.replace(/\D/g, '').slice(0, 4) })); }}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+        </label>
+        <p className="self-end text-xs leading-relaxed text-slate-400">
+          Cadastro sem senha adicional. Número completo e CVC não são solicitados aqui; a proteção
+          desses dados será integrada à autenticação segura do aplicativo.
+        </p>
         {createError&&<p role="alert" className="text-sm text-rose-300 sm:col-span-2">{createError}</p>}
         <div className="sm:col-span-2">
           <CardOpeningFields collapsible value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}
@@ -559,7 +550,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
         initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
-        targetName={selected.nickname} onClose={() => setImporting(false)}
+        targetName={selected.nickname} targetIssuer={selected.issuer} onClose={() => setImporting(false)}
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}

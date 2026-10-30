@@ -36,3 +36,20 @@ test('PDF parser reads only the history section when the document has summaries'
 
   assert.deepEqual(result.rows.map(row => row.description), ['Mercado Central']);
 });
+
+test('PDF parser accepts merchant before the date, dotted dates, and multiline amounts', () => {
+  const result = parseStatementLines([
+    { key: 'header', text: 'Resumo do cartão 5.500,00' },
+    { key: 'a', text: 'SUPERMERCADO CENTRAL 15.10.2026 1.234,56' },
+    { key: 'b', text: '16/10/2026 UBER TRIP' },
+    { key: 'c', text: 'corrida madrugada' },
+    { key: 'd', text: 'R$ 39,90' },
+    { key: 'e', text: '17/10/2026 PAGAMENTO DA FATURA 499,00 C' },
+    { key: 'footer', text: 'Total da fatura R$ 775,46' },
+  ], 'CARD');
+  assert.deepEqual(result.rows.map(row => row.date), ['2026-10-15','2026-10-16','2026-10-17']);
+  assert.deepEqual(result.rows.map(row => row.amount), [1234.56,39.9,-499]);
+  assert.match(result.rows[0].description, /SUPERMERCADO CENTRAL/);
+  assert.match(result.rows[1].description, /corrida madrugada/);
+  assert(result.rows.every(row => row.selected === false));
+});

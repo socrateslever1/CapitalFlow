@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, Pencil, Plus, RotateCcw, Wifi } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, FileUp, Pencil, Plus, RotateCcw, Wifi } from 'lucide-react';
 import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -13,6 +13,7 @@ type Props = {
   onCard: (card: PersonalWalletCard) => void;
   onEditCard: (card: PersonalWalletCard) => void;
   onCreateCard?: () => void;
+  onImportStatement?: () => void;
   onSelectionChange?: (card: PersonalWalletCard | null) => void;
   onNewExpense?: (card: PersonalWalletCard) => void;
   onPayInvoice?: (card: PersonalWalletCard) => void;
@@ -27,7 +28,7 @@ const Network = ({ brand }: { brand: string | null }) => {
   return <span className="text-xs font-bold">{brand || 'CRÉDITO'}</span>;
 };
 
-export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard, onCreateCard, onSelectionChange, onNewExpense, onPayInvoice }) => {
+export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard, onCreateCard, onImportStatement, onSelectionChange, onNewExpense, onPayInvoice }) => {
   const availableCards = useMemo(() => cards.filter(card => card.status !== 'CANCELED'), [cards]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -82,7 +83,16 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
     : '—';
 
   return <section aria-label="Carteira de cartões" className="w-full min-w-0">
-    <header className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold text-white">Cartões de crédito</h2>{onCreateCard && <button onClick={onCreateCard} type="button" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-300">+ Cartão</button>}</header>
+    <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <h2 className="text-sm font-semibold text-white sm:text-base">Cartões de crédito</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        {onImportStatement && <button onClick={onImportStatement} type="button" disabled={!selected}
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
+          <FileUp size={15}/> Importar fatura
+        </button>}
+        {onCreateCard && <button onClick={onCreateCard} type="button" className="min-h-10 rounded-lg border border-blue-500/50 px-3 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-950/30">+ Cartão</button>}
+      </div>
+    </header>
     {!selected ? <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div> : <>
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-3">
         <button type="button" disabled={availableCards.length < 2} onClick={() => cycle(-1)} aria-label="Cartão anterior" className="rounded-full p-1 text-slate-300 disabled:opacity-30"><ArrowLeft size={19}/></button>

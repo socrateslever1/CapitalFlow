@@ -30,8 +30,8 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <div className="mb-4 w-full">
-      <PageHeader className="pb-3" stackActionsUntilLg icon={<CreditCard size={22}/>}
+    <div className="mb-2 w-full">
+      <PageHeader className="pb-1" stackActionsUntilLg icon={<CreditCard size={22}/>}
         iconClassName="border-fuchsia-500/30 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-fuchsia-950/30"
         title={<>Minha <span className="text-blue-500">Carteira</span></>}
         subtitle="Contas, cartões e compromissos"
@@ -41,8 +41,8 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         {realtimeStatus === 'connected' ? 'Sincronizado' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'Sem conexão ao vivo' : 'Conectando'}
       </span>}/>
     </div>
-    <div className="mb-4 w-full">
-      <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-2xl border border-slate-800 bg-slate-900 p-1.5 sm:flex">
+    <div className="mb-3 w-full">
+      <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 p-1 sm:flex">
         {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
           const Icon = navigationIcons[item.key];
           return (
@@ -52,7 +52,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
             aria-current={route === item.key ? 'page' : undefined}
             onClick={() => go(item.key)}
             aria-label={item.label}
-            className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${
+            className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${
               route === item.key
                 ? 'bg-blue-600 text-white font-semibold'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -67,7 +67,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     </div>
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
 
-    <WalletExpenseFab />
+    {route !== 'cartoes' && <WalletExpenseFab />}
   </main>;
 };
 

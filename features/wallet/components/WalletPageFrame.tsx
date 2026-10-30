@@ -6,12 +6,12 @@ export const WalletPageFrame: React.FC<{
   onRefresh?: () => void; actions?: React.ReactNode; children: React.ReactNode;
 }> = ({ title, description, error, loading, onRefresh, actions, children }) => (
   <section className="w-full min-w-0 space-y-4 pb-24 sm:space-y-5 lg:pb-10">
-    <header className="flex flex-wrap items-start justify-between gap-4 pb-1">
+    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-2 pb-1 sm:items-center">
       <div className="min-w-0">
-        <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">{title}</h2>
-        <p className="mt-1 text-sm leading-relaxed text-slate-400">{description}</p>
+        <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">{title}</h2>
+        <p className="mt-1 max-w-[62ch] text-xs leading-snug text-slate-400 sm:text-sm">{description}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center justify-end gap-2 self-start sm:self-center">
         {actions}
         {onRefresh && <button type="button" aria-label="Atualizar página" onClick={onRefresh}
           className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-slate-700 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">

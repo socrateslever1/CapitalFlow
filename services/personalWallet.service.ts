@@ -452,8 +452,6 @@ export const personalWalletService = {
       p_description: input.description,
       p_amount: input.amount,
       p_category: input.category,
-      p_installment_number: input.installmentNumber ?? null,
-      p_installment_total: input.installmentTotal ?? null,
     });
     if (error) throw new Error(error.message);
     return String(data);

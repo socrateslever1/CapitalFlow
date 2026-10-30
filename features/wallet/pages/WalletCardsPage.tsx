@@ -42,6 +42,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [paying, setPaying] = useState<PersonalWalletCard | null>(null);
   const [importing, setImporting] = useState(false);
   const [flatReaderOpen, setFlatReaderOpen] = useState(false);
+  const readerRef = useRef<HTMLDivElement | null>(null);
+  const openReader = () => {
+    setFlatReaderOpen(true);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => readerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    });
+  };
   const [creating, setCreating] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
@@ -272,12 +279,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     error={error || notice} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <>
       <div className="grid gap-4 lg:grid-cols-12">
-        <div className="min-w-0 self-start rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:sticky lg:top-6 lg:col-span-5">
+        <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 lg:sticky lg:top-6 lg:col-span-5">
           <BankStack key={requestedCardId || 'all'} accounts={data.accounts} cards={displayedCards}
             onAccount={() => {}} onCard={card => setSelectedId(card.id)}
             onEditCard={card => setEditing(card)}
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}
             onCreateCard={() => setCreating(true)}
+            onImportStatement={openReader}
             onNewExpense={card => { setSelectedId(card.id); setNewExpense(true); }}
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
         </div>
@@ -308,13 +316,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
                 <button type="button" onClick={() => setFlatReaderOpen(v => !v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${flatReaderOpen ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'border border-cyan-500/50 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40'}`}>
                   <Sparkles size={13} className={flatReaderOpen ? '' : 'text-cyan-400'} />
-                  {flatReaderOpen ? 'Fechar Leitor' : '⚡ Leitor Inteligente (OFX/Print/PDF)'}
+                  {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
                 </button>
 
               </div>}
             </div>
             {flatReaderOpen && selected && (
-              <div className="mb-4">
+              <div ref={readerRef} className="mb-4 scroll-mt-24">
                 <FlatSmartStatementReader
                   kind="CARD"
                   targetId={selected.id}

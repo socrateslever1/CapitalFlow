@@ -39,7 +39,7 @@ function normalizeDate(raw: string): string | null {
     if (named) {
       day = Number(named[1]); month = months[named[2].toLowerCase()]; year = named[3] ? Number(named[3]) : new Date().getFullYear();
     } else {
-      const parts = raw.split(/[/-]/);
+      const parts = raw.split(/[./-]/);
       if (parts.length < 2) return null;
       day = Number(parts[0]); month = Number(parts[1]);
       year = parts.length === 3 ? Number(parts[2]) : new Date().getFullYear();
@@ -100,7 +100,13 @@ function classifyStatementDescriptionEnhanced(description: string): string {
 // Common Brazilian invoices use comma decimals, including a trailing D/C marker.
 // Dot decimals are also encountered in digital bank exports.
 const moneyRx = /(?:-\s*)?(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}(?:\s*[-+CD])?|(?:-\s*)?(?:R\$\s*)?\d+\.\d{2}(?:\s*[-+CD])?/gi;
-const dateRx = /(?:\b\d{2}\/\d{2}(?:\/\d{2,4})?\b|\b\d{2}-\d{2}(?:-\d{4})?\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?:\s+\d{4})?\b)/i;
+const dateRx = /(?:\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|\b\d{1,2}\s+(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?:\s+\d{4})?\b)/i;
+/** Mask transaction dates before matching dot-decimal amounts. Date 15.10.2026 is never R$ 15,10. */
+function findMoneyTokens(raw: string): RegExpMatchArray[] {
+  const date = dateRx.exec(raw);
+  const masked = date ? raw.slice(0, date.index) + ' '.repeat(date[0].length) + raw.slice(date.index + date[0].length) : raw;
+  return [...masked.matchAll(moneyRx)];
+}
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
 
 const historyStartRx = /(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
@@ -140,10 +146,13 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
   const combined = lines.map((line, index) => {
     const here = line.text.replace(/\s+/g, ' ').trim();
     const next = (lines[index + 1]?.text || '').replace(/\s+/g, ' ').trim();
-    if (dateRx.test(here) && ![...here.matchAll(moneyRx)].length && next
-      && !dateRx.test(next) && [...next.matchAll(moneyRx)].length > 0
-      && !historyEndRx.test(normalizePdfLabel(next)) && !notTransactionRx.test(next)) {
-      return {key:line.key, text:here + ' ' + next};
+    const afterNext = (lines[index + 2]?.text || '').replace(/\s+/g, ' ').trim();
+    const safeContinuation = (part: string) => Boolean(part) && !dateRx.test(part)
+      && !historyEndRx.test(normalizePdfLabel(part)) && !notTransactionRx.test(part);
+    if (dateRx.test(here) && !findMoneyTokens(here).length && safeContinuation(next)) {
+      if (findMoneyTokens(next).length > 0) return {key:line.key, text:here + ' ' + next};
+      if (safeContinuation(afterNext) && findMoneyTokens(afterNext).length > 0)
+        return {key:line.key, text:here + ' ' + next + ' ' + afterNext};
     }
     return line;
   });
@@ -159,12 +168,15 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     if (!matchedDate) continue;
     const date = normalizeDate(matchedDate[0]);
     if (!date) { skipped++; continue; }
-    const valueMatches = [...raw.matchAll(moneyRx)];
+    const valueMatches = findMoneyTokens(raw);
     if (valueMatches.length === 0) { skipped++; continue; }
     const last = valueMatches[valueMatches.length - 1];
     const value = brlAmount(last[0]);
-    const description = raw.slice(matchedDate.index! + matchedDate[0].length, last.index)
+    // Brazilian issuers vary the order of merchant, date and amount.
+    const beforeDate = raw.slice(0, matchedDate.index).replace(/^[\s:;|\-–]+|[\s:;|\-–]+$/g, '').trim();
+    const afterDate = raw.slice(matchedDate.index! + matchedDate[0].length, last.index)
       .replace(/^[\s:;|\-–]+|[\s:;|\-–]+$/g, '').trim();
+    const description = [beforeDate, afterDate].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
     if (!description || notTransactionRx.test(description) || !Number.isFinite(value) || value === 0) { skipped++; continue; }
     const context = normalizePdfLabel(description);
     const incoming = /recebid|entrada|credito|deposit|salario|estorno|reembols|devolu[cç]/.test(context) || /C$/i.test(last[0].trim());
@@ -228,6 +240,7 @@ export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): P
       }));
       page.cleanup();
     }
+    if (!lines.length) throw new Error('PDF sem texto selecionável. Para faturas digitalizadas, use a opção Ler PDF com IA.');
     const {rows,skipped}=parseStatementLines(lines,kind);
     return {hash,rows,skipped,pages:document.numPages};
   } catch (error:any) {

@@ -131,7 +131,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
               className={field} />
           </label>
           <label className="text-xs text-slate-300">
-            Mês da fatura
+            Mês de pagamento (vencimento)
             <input required type="month" min="2000-01" max="2100-12"
               value={month} onChange={(e) => { changed(); setMonth(e.target.value); }}
               className={field} />

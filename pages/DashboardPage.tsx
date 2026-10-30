@@ -180,8 +180,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
-          <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
+      <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-8 lg:gap-y-8">
+          <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 lg:contents lg:space-y-0 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
+              <div data-dashboard-filters className="min-w-0 space-y-6 sm:space-y-8 lg:col-start-1 lg:row-start-1">
               <DashboardAlerts loans={loans} sources={sources} />
               <DashboardControls
                 statusFilter={statusFilter} setStatusFilter={setStatusFilter}
@@ -195,7 +196,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 filteredLoans={filteredLoans}
                 sources={sources}
               />
+              </div>
 
+              <div data-dashboard-contracts className="min-w-0 lg:col-start-1 lg:row-start-2">
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
                   <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2 2xl:grid-cols-3 cf-cards-flash">
@@ -233,10 +236,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </p>
                   </div>
               )}
+              </div>
           </div>
 
-          <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
-              <div className="flex items-center justify-between px-2">
+          <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 lg:contents lg:space-y-0 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
+              <div data-dashboard-indicator-heading className="flex items-center justify-between px-2 lg:col-start-2 lg:row-start-1 lg:self-start">
                   <h2 className="text-[10px] font-black uppercase text-slate-500">Indicadores</h2>
                   <button
                     onClick={loanCtrl.handleRecalculateAll}
@@ -248,6 +252,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </button>
               </div>
 
+              <div data-dashboard-indicators className="min-w-0 space-y-5 sm:space-y-6 lg:col-start-2 lg:row-start-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
 
                   {/* CARD CAPITAL NA RUA */}
@@ -364,6 +369,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
 
               <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
+              </div>
           </aside>
       </div>
     </div>

@@ -161,8 +161,8 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
         break;
       }
     }
-    if (futureInstallments === null)
-      futureInstallments = matchValue(documentLines, /\bsaldo\s+em\s+aberto\s+total\b/);
+    // Saldo em aberto total não equivale necessariamente a parcelas futuras.
+    // Preserve o campo como desconhecido até haver detalhamento explícito.
   }
   if (institution === 'Itaú' && futureInstallments === null)
     futureInstallments = matchValue(documentLines, /\btotal\s+para\s+proximas\s+faturas\b/);

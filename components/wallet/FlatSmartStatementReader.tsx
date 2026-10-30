@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
+import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
+import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import {
@@ -27,6 +29,7 @@ type Props = {
   targetId: string;
   targetName: string;
   targetIssuer?: string | null;
+  existingRows?: WalletStatementRow[];
   initialFile?: File;
   initialDueMonth?: string | null;
   hasOpening?: boolean;
@@ -54,6 +57,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   targetId,
   targetName,
   targetIssuer,
+  existingRows = [],
   initialFile,
   initialDueMonth,
   hasOpening = false,
@@ -73,6 +77,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<number | null>(null);
+  const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -80,6 +85,8 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const bankMismatch = Boolean(kind === 'CARD' && targetIssuer && declaredBank
     && !targetIssuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(
       declaredBank.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
+  const duplicateKeys = detectPreviouslyImported(rows, existingRows, kind, targetId);
+  const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -107,7 +114,9 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     try {
       const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi });
       setResult(parsed);
-      setRows(parsed.rows);
+      setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
+        ? { ...row, selected: false } : row));
+      setAllowDuplicates(false);
 
       if (!parsed.rows.length) {
         setError(
@@ -142,6 +151,10 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
 
   const save = async () => {
     if (bankMismatch) { setError('Esta fatura é de outra instituição. Selecione o cartão correto antes de importar.'); return; }
+    if (selectedDuplicates.length && !allowDuplicates) {
+      setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
+      return;
+    }
     if (!result || !selectedCount || selectedInvalid) {
       setError('Revise os valores, as datas e as descrições selecionadas.');
       return;
@@ -285,6 +298,10 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview summary={result.invoiceSummary} />}
       {bankMismatch && <p role="alert" className="text-xs text-rose-300">O banco identificado nesta fatura é diferente do cartão de destino. Selecione o cartão correto.</p>}
 
+      {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">
+        <input type="checkbox" checked={allowDuplicates} onChange={event => setAllowDuplicates(event.target.checked)}/>
+        {duplicateKeys.size} possível(is) repetição(ões) já importada(s). Repetir somente após conferência.
+      </label>}
       {/* Área Plana de Drag & Drop */}
       <div
         onDragOver={(e) => {

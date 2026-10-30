@@ -36,7 +36,8 @@ test('APK update can only use the canonical GitHub signed release asset', () => 
   assert(!native.includes('Intent.ACTION_VIEW'));
   assert(native.includes('consumeInstallStatus'));
   assert(readFileSync('native/android/CapitalFlowInstallStatusReceiver.java','utf8').includes('STATUS_PENDING_USER_ACTION'));
-  assert(native.includes('FLAG_GRANT_READ_URI_PERMISSION'));
+  assert(!native.includes('FLAG_GRANT_READ_URI_PERMISSION'));
+  assert(native.includes('params.setRequireUserAction('));
   assert(native.includes('ACTION_MANAGE_UNKNOWN_APP_SOURCES'));
   assert(nativeShellScript.includes('CapitalFlowApkInstallerPlugin.java'));
   assert(nativeShellScript.includes('android.permission.REQUEST_INSTALL_PACKAGES'));

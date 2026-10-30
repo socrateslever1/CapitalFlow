@@ -1,3 +1,5 @@
+import { parseCardInvoiceSummary, type CardInvoiceSummary } from './cardInvoiceSummary';
+
 // PDF statements are extracted locally in the browser; never send full PDFs to servers.
 export type ParsedStatementRow = {
   rowKey: string;
@@ -15,6 +17,7 @@ export type StatementParseResult = {
   rows: ParsedStatementRow[];
   skipped: number;
   pages: number;
+  invoiceSummary?: CardInvoiceSummary;
 };
 
 function brlAmount(raw: string): number {
@@ -109,7 +112,7 @@ function findMoneyTokens(raw: string): RegExpMatchArray[] {
 }
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
 
-const historyStartRx = /(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
+const historyStartRx = /detalhes?\s+de\s+consumo|(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
 const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|encargos|juros|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
 
 function normalizePdfLabel(value: string): string {
@@ -186,8 +189,12 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     // the opposite sign convention for expenses.
     const markedDebit = /D$/i.test(last[0].trim());
     const markedCredit = /C$/i.test(last[0].trim());
+    // Invoice settlement is a credit even if the bank prints it without a
+    // trailing "C". Do not confuse it with "Pix no Crédito" (a card charge).
+    const invoicePayment = /\b(?:pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|pagamentos?\s+efetuados?|credito\s+na\s+fatura|estorno|reembolso|devolucao|cashback)\b/.test(context)
+      && !/\b(?:no\s+credito|com\s+cartao)\b/.test(context);
     const signed = kind === 'CARD'
-      ? (markedCredit || (incoming && !outgoing) ? -Math.abs(value)
+      ? (markedCredit || invoicePayment || (incoming && !outgoing) ? -Math.abs(value)
           : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
       : (markedCredit || (incoming && !outgoing) ? Math.abs(value) : -Math.abs(value));
     const category = classifyStatementDescriptionEnhanced(description);
@@ -242,7 +249,8 @@ export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): P
     }
     if (!lines.length) throw new Error('PDF sem texto selecionável. Para faturas digitalizadas, use a opção Ler PDF com IA.');
     const {rows,skipped}=parseStatementLines(lines,kind);
-    return {hash,rows,skipped,pages:document.numPages};
+    return {hash,rows,skipped,pages:document.numPages,
+      invoiceSummary: kind === 'CARD' ? parseCardInvoiceSummary(lines.map(line => line.text)) : undefined};
   } catch (error:any) {
     throw new Error(error?.message?.includes('password') ? 'PDF protegido por senha. Exporte uma versão desbloqueada.' :
       error?.message||'Não foi possível ler o PDF. PDFs digitalizados sem texto não são reconhecidos.');

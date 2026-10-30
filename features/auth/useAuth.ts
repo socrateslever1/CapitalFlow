@@ -389,6 +389,7 @@ export const useAuth = () => {
         if (isDev) console.log('[AUTH EVENT]', ev, 'session?', !!session);
 
         if (ev === 'TOKEN_REFRESH_FAILED') {
+          clearWalletVaultSession();
           const localProfileId = readLocalProfileId();
           if (localProfileId) {
             setActiveProfileId(localProfileId);
@@ -401,6 +402,7 @@ export const useAuth = () => {
         }
 
         if (ev === 'SIGNED_OUT') {
+          clearWalletVaultSession();
           const localProfileId = readLocalProfileId();
           if (localProfileId) {
             setActiveProfileId(localProfileId);

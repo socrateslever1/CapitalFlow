@@ -19,6 +19,7 @@ import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvo
 import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
+import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import {
   parseSmartFinancialDocument,
@@ -37,7 +38,7 @@ type Props = {
   hasOpening?: boolean;
   onClose?: () => void;
   onImported: () => Promise<void>;
-  onSummarySaved?: () => Promise<void>;
+  onSummarySaved?: (dueMonth: string) => Promise<void>;
   isFlat?: boolean; // Se true, renderiza inline / plano sem fundo de modal fixo
 };
 
@@ -96,13 +97,13 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     && result?.invoiceSummary?.cardLastFour
     && result.invoiceSummary.cardLastFour !== targetLastFour);
   const destinationMismatch = bankMismatch || cardMismatch;
-  const saveSummary = async (summary: CardInvoiceSummary): Promise<void> => {
+  const saveSummary = async (summary: CardInvoiceSummary): Promise<WalletIssuerInvoiceCommit> => {
     if (!result || kind !== 'CARD') throw new Error('Fatura não carregada.');
     if (!issuerMatchesBank(targetIssuer, summary.institution) ||
       (targetLastFour && summary.cardLastFour && targetLastFour !== summary.cardLastFour))
       throw new Error('A fatura não corresponde à instituição ou ao cartão selecionado.');
     const referenceMonth = (summary.dueDate || dueMonth + '-01').slice(0,7);
-    await personalWalletService.saveCardInvoiceFacts({
+    const confirmation = await personalWalletService.saveCardInvoiceFacts({
       cardId:targetId, dueMonth:referenceMonth+'-01', dueDate:summary.dueDate,
       issuer:summary.institution, invoiceTotal:summary.invoiceTotal,
       minimumPayment:summary.minimumPayment, creditLimit:summary.creditLimit,
@@ -112,7 +113,8 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         result.sourceType === 'PDF_NATIVE' || result.sourceType === 'PDF_AI' ? 'PDF' : 'MANUAL',
     });
     setDueMonth(referenceMonth);
-    await onSummarySaved?.();
+    await onSummarySaved?.(referenceMonth+'-01');
+    return confirmation;
   };
 
   const selectedCount = rows.filter((row) => row.selected).length;

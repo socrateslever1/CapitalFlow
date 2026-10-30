@@ -8,6 +8,7 @@ import { personalWalletService } from '../../../services/personalWallet.service'
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
+import { parseWalletMoney } from '../utils/parseWalletMoney';
 
 export const WalletPayablesManagement: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,7 +37,7 @@ export const WalletPayablesManagement: React.FC<{ activeUser?: UserProfile | nul
       await personalWalletService.createPayable({
         description: form.description, creditor_name: form.creditor_name,
         creditor_type: form.creditor_type, category: form.category,
-        total_amount: Number(form.total_amount), due_date: form.due_date || null,
+        total_amount: parseWalletMoney(form.total_amount,'valor da conta'), due_date: form.due_date || null,
         origin_type: source === 'ACCOUNT' || source === 'CARD' ? source : 'CASH',
         origin_account_id: source === 'ACCOUNT' ? id : null,
         origin_card_id: source === 'CARD' ? id : null,
@@ -105,7 +106,7 @@ export const WalletPayablesManagement: React.FC<{ activeUser?: UserProfile | nul
           <input required value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
         <label className="space-y-1 text-xs text-slate-300">Valor
-          <input required type="number" min="0.01" step="0.01" value={form.total_amount}
+          <input required name="wallet-payable-amount" type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={form.total_amount}
             onChange={e => setForm(v => ({ ...v, total_amount: e.target.value }))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
         <label className="space-y-1 text-xs text-slate-300">Vencimento

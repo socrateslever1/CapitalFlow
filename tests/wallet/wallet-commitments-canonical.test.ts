@@ -36,7 +36,7 @@ test('no accounts or invoices: no invented obligations',()=>{
 });
 test('only invoices appear in the commitments list with the same balance as overview',()=>{
  const data=empty();
- data.cards.push(card('Bradesco',3,21) as WalletOverviewSnapshot['cards'][number]);
+ data.cards.push(card('Bradesco',3,21) as unknown as WalletOverviewSnapshot['cards'][number]);
  addCycle(data,'Bradesco','2026-11-01',2517.55);
  const actual=deriveWalletCommitments(data,today);
  assert.equal(actual.length,1);
@@ -47,7 +47,7 @@ test('only invoices appear in the commitments list with the same balance as over
 });
 test('overdue invoices, partial payments and paid cycles are not counted twice',()=>{
  const data=empty();
- data.cards.push(card('RecargaPay',6,30) as WalletOverviewSnapshot['cards'][number]);
+ data.cards.push(card('RecargaPay',6,30) as unknown as WalletOverviewSnapshot['cards'][number]);
  addCycle(data,'RecargaPay','2026-10-01',490.24);
  addCycle(data,'RecargaPay','2026-11-01',200,50);
  addCycle(data,'RecargaPay','2026-12-01',150,150,'PAID');
@@ -61,8 +61,8 @@ test('overdue invoices, partial payments and paid cycles are not counted twice',
 });
 test('only payables and generated recurrence issues share one entry and reflect partial payment',()=>{
  const data=empty();
- data.payables.push(pay('bill','2026-10-20',90) as WalletOverviewSnapshot['payables'][number]);
- data.payables.push({...pay('recurring','2026-11-03',100),total_amount:150,status:'PARTIAL'} as WalletOverviewSnapshot['payables'][number]);
+ data.payables.push(pay('bill','2026-10-20',90) as unknown as WalletOverviewSnapshot['payables'][number]);
+ data.payables.push({...pay('recurring','2026-11-03',100),total_amount:150,status:'PARTIAL'} as unknown as WalletOverviewSnapshot['payables'][number]);
  data.recurringIssues.push({payable_id:'recurring',obligation_id:'template-1'});
  const items=deriveWalletCommitments(data,today);
  assert.equal(items.length,2);
@@ -72,17 +72,17 @@ test('only payables and generated recurrence issues share one entry and reflect 
 });
 test('paid and cancelled payables are excluded, debt is classified but not duplicated',()=>{
  const data=empty();
- data.payables.push(pay('paid','2026-10-01',0,'PAID') as WalletOverviewSnapshot['payables'][number]);
- data.payables.push(pay('cancel','2026-10-01',100,'CANCELED') as WalletOverviewSnapshot['payables'][number]);
- data.payables.push({...pay('loan','2026-11-03',80),category:'Dívidas'} as WalletOverviewSnapshot['payables'][number]);
+ data.payables.push(pay('paid','2026-10-01',0,'PAID') as unknown as WalletOverviewSnapshot['payables'][number]);
+ data.payables.push(pay('cancel','2026-10-01',100,'CANCELED') as unknown as WalletOverviewSnapshot['payables'][number]);
+ data.payables.push({...pay('loan','2026-11-03',80),category:'Dívidas'} as unknown as WalletOverviewSnapshot['payables'][number]);
  const items=deriveWalletCommitments(data,today);
  assert.equal(items.length,1);
  assert.equal(items[0].kind,'DEBT');
 });
 test('several cards and issuer exact dates still match one commitment for each cycle',()=>{
  const data=empty();
- data.cards.push(card('A',3,21) as WalletOverviewSnapshot['cards'][number]);
- data.cards.push(card('B',6,30) as WalletOverviewSnapshot['cards'][number]);
+ data.cards.push(card('A',3,21) as unknown as WalletOverviewSnapshot['cards'][number]);
+ data.cards.push(card('B',6,30) as unknown as WalletOverviewSnapshot['cards'][number]);
  addCycle(data,'A','2026-11-01',100);
  addCycle(data,'B','2026-11-01',200);
  data.cardInvoiceDates.push({card_id:'B',due_month:'2026-11-01',due_date:'2026-11-11'});
@@ -94,9 +94,9 @@ test('several cards and issuer exact dates still match one commitment for each c
 });
 test('monthly forecast uses exactly the invoice amount, not its purchases or credit limit',()=>{
  const data=empty();
- data.cards.push(card('A',3,21) as WalletOverviewSnapshot['cards'][number]);
+ data.cards.push(card('A',3,21) as unknown as WalletOverviewSnapshot['cards'][number]);
  addCycle(data,'A','2026-11-01',410.55);
- data.payables.push(pay('electric','2026-11-10',90) as WalletOverviewSnapshot['payables'][number]);
+ data.payables.push(pay('electric','2026-11-10',90) as unknown as WalletOverviewSnapshot['payables'][number]);
  const items=deriveWalletCommitments(data,today);
  const invoices=getMonthlyDueAmount(items,'2026-11','CARD_INVOICE');
  assert.equal(invoices,410.55);

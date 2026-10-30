@@ -98,6 +98,9 @@ if 'android:name=".CapitalFlowInstallStatusReceiver"' not in text:
 if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
     text = text.replace('<application',
         '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)
+if 'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION' not in text:
+    text = text.replace('<application',
+        '<uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"/>\n    <application', 1)
 manifest.write_text(text, encoding="utf-8")
 xml_directory = root / "android/app/src/main/res/xml"
 xml_directory.mkdir(parents=True, exist_ok=True)

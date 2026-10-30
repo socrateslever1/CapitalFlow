@@ -46,7 +46,7 @@ public final class CapitalFlowInstallStatusReceiver extends BroadcastReceiver {
             try {
                 consent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(consent);
-            } catch (SecurityException | IllegalStateException error) {
+            } catch (RuntimeException error) {
                 record(context, "ERROR",
                     "Não foi possível apresentar a confirmação do Android: " + error.getClass().getSimpleName());
             }

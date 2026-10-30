@@ -74,6 +74,9 @@ self.addEventListener('fetch', (event) => {
   const isNavigate = request.mode === 'navigate';
   const url = new URL(request.url);
   const isSameOrigin = url.origin === self.location.origin;
+  // APK is a binary download, never an app navigation or an offline shell.
+  // Bypass the service worker so Cloudflare streams it straight to the browser.
+  if (isSameOrigin && url.pathname === '/api/android/apk') return;
   const isDevAsset =
     url.pathname.startsWith('/node_modules/') ||
     url.pathname.startsWith('/@vite') ||

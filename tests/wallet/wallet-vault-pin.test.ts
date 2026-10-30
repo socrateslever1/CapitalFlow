@@ -65,3 +65,15 @@ test('RPC uses owner checks, RLS, no plain card data and does not allow anonymou
   assert.ok(!modal.includes('encryptCardData('),'new card must use the master key');
   assert.ok(modal.includes('decryptCardData('),'old card must remain decryptable');
 });
+
+
+test('basic card creation remains passwordless and offers encrypted details afterward',()=>{
+  const page=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  const basic=page.slice(page.indexOf('{creating && <Modal'),page.indexOf('{mayInitializeExisting &&'));
+  assert.ok(basic.includes('Depois de salvar, adicionar o número completo'));
+  assert.ok(basic.includes('Apenas o banco é obrigatório'));
+  assert.ok(!basic.includes('CardProtectedFields'));
+  assert.ok(page.includes('if(addProtectedAfterCreate && createdCardId)'));
+  assert.ok(page.includes('setVaultCard({'));
+  assert.ok(page.includes('setCreating(false)'));
+});

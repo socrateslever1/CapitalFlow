@@ -10,6 +10,8 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const interactingWithOption = useRef(false);
+  const touchStart = useRef<{x:number;y:number}|null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [height, setHeight] = useState(0);
@@ -65,6 +67,7 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
   }, [open, active, height]);
 
   const select = (name: string): void => {
+    interactingWithOption.current = false;
     onChange(name);
     setOpen(false);
     setActive(0);
@@ -87,7 +90,10 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
     }
   };
 
-  return <div ref={rootRef} className="min-w-0 space-y-1 sm:col-span-2">
+  return <div ref={rootRef} className="min-w-0 space-y-1 sm:col-span-2"
+    onPointerDownCapture={event=>{
+      interactingWithOption.current = event.target instanceof Element && !!event.target.closest('[role="option"]');
+    }}>
     <label htmlFor={id} className="block text-xs font-medium text-slate-200">Banco ou instituição</label>
     <input ref={inputRef} id={id} name="wallet-card-issuer" type="text" required maxLength={120}
       autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} disabled={disabled}
@@ -104,7 +110,7 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
       onKeyDown={handleKeyDown}
       onBlur={event => {
         const next = event.relatedTarget;
-        if (!(next instanceof Node) || !rootRef.current?.contains(next)) setOpen(false);
+        if (!interactingWithOption.current && (!(next instanceof Node) || !rootRef.current?.contains(next))) setOpen(false);
       }}
       className="w-full rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-white"/>
     {open && !disabled && height > 0 && banks.length > 0 &&
@@ -115,6 +121,17 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
           <li key={bank.id} id={id+'-option-'+index} role="option" aria-selected={index===active}>
             <button type="button" tabIndex={-1}
               onMouseDown={event => event.preventDefault()}
+              onPointerDown={event=>{
+                if(event.pointerType==='touch')touchStart.current={x:event.clientX,y:event.clientY};
+              }}
+              onPointerCancel={()=>{interactingWithOption.current=false;touchStart.current=null;}}
+              onPointerUp={event=>{
+                if(event.pointerType!=='touch')return;
+                const start=touchStart.current;
+                touchStart.current=null;
+                if(start && Math.hypot(event.clientX-start.x,event.clientY-start.y)<12) select(bank.name);
+                else interactingWithOption.current=false;
+              }}
               onClick={() => select(bank.name)}
               className={`flex min-h-11 w-full items-center px-3 text-left text-sm text-slate-100 hover:bg-slate-800 ${index===active?'bg-blue-900/40':''}`}>
               {bank.name}

@@ -36,7 +36,9 @@ import java.util.regex.Pattern;
  * Downloads the official *signed* APK within CapitalFlow (no external browser).
  * Revalidates SHA-256, package identity, versionCode and signing certificate.
  * Installation is staged using PackageInstaller.Session and still requires
- * explicit Android confirmation. A status receiver reports real install errors.
+ * Android can install a self-update without another confirmation on eligible
+ * devices. If it requires a system confirmation, the receiver presents it.
+ * All outcomes are reported instead of assuming that launch means success.
  */
 @CapacitorPlugin(name = "CapitalFlowApkInstaller")
 public final class CapitalFlowApkInstallerPlugin extends Plugin {
@@ -122,7 +124,7 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                 try {
                     stageAndCommit(verified);
                     JSObject response = new JSObject();
-                    response.put("stage", "AWAITING_CONFIRMATION");
+                    response.put("stage", "INSTALLING");
                     call.resolve(response);
                 } finally {
                     // The PackageInstaller session has its own sealed copy.
@@ -154,8 +156,11 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
         params.setAppPackageName(getContext().getPackageName());
         params.setSize(verified.length());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // User already requested this self-update. Android may install it
+            // without another prompt if OS/target/install ownership allows.
+            // Otherwise STATUS_PENDING_USER_ACTION triggers standard consent.
             params.setRequireUserAction(
-                PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+                PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED);
         }
         int sessionId = installer.createSession(params);
         boolean committed = false;
@@ -183,8 +188,8 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                 }
                 PendingIntent pending = PendingIntent.getBroadcast(
                     getContext(), sessionId, callback, flags);
-                recordStatus("AWAITING_CONFIRMATION",
-                    "Confirme a atualização quando o Android solicitar.");
+                recordStatus("INSTALLING",
+                    "Atualização enviada ao Android; confirme apenas se solicitado.");
                 session.commit(pending.getIntentSender());
                 committed = true;
             }

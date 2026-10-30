@@ -4,6 +4,8 @@
  */
 export type CardInvoiceSummary = {
   institution: 'Nubank' | 'Mercado Pago' | 'Itaú' | null;
+  cardLastFour: string | null;
+  multipleCards: boolean;
   invoiceTotal: number | null;
   minimumPayment: number | null;
   creditLimit: number | null;
@@ -71,6 +73,18 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
     : /\bnubank\b|\bnucel\b/.test(body) ? 'Nubank'
       : /\bitau\b/.test(body) ? 'Itaú' : null;
   const documentLines = [...lines];
+  const cardNumbers = new Set<string>();
+  for (const line of documentLines) {
+    const label = normalize(line);
+    const masked = line.match(/(?:[•*xX]{4,}|(?:\d{4}\.)[xX]{4}\.[xX]{4}\.)\s*(\d{4})\b/g);
+    for (const candidate of masked || []) {
+      const lastFour = candidate.match(/(\d{4})$/)?.[1];
+      if (lastFour && (/cartao|visa|mastercard/.test(label) || /[•*]{4}/.test(candidate)))
+        cardNumbers.add(lastFour);
+    }
+  }
+  const multipleCards = cardNumbers.size > 1;
+  const cardLastFour = cardNumbers.size === 1 ? [...cardNumbers][0] : null;
   const invoiceTotal = matchValue(documentLines, /\btotal\s+(?:a\s+pagar|desta\s+fatura)\b/)
     ?? (institution === 'Mercado Pago' ? matchValue(documentLines, /^total\s*(?=r\$|\d)/) : null);
   const minimumPayment = matchValue(documentLines, /\bpagamento\s+minimo\b(?:\s*:)?/);
@@ -111,9 +125,10 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
     if (Math.abs(residual) > 0.01)
       warnings.push('Há diferença entre limite usado, fatura e compromissos futuros; ela não será transformada em compra.');
   }
+  if (multipleCards) warnings.push('A fatura apresenta vários finais de cartão; revise cada compra e selecione o cartão correto.');
   if (!institution) warnings.push('Instituição não identificada com confiança. Confirme o cartão de destino antes de importar.');
   if (invoiceTotal === null) warnings.push('Total da fatura não identificado; confira o valor diretamente no banco.');
-  return { institution, invoiceTotal, minimumPayment, creditLimit, usedLimit,
+  return { institution, cardLastFour, multipleCards, invoiceTotal, minimumPayment, creditLimit, usedLimit,
     availableLimit, futureInstallments, dueDate, warnings };
 }
 

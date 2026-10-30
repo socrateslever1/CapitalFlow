@@ -39,3 +39,14 @@ test('dívida anterior excedida não impede correção neutra de compra pendente
  assert.match(sql,/v_expense\.status<>'PENDING'/);
  assert.match(sql,/paid_amount>0/);
 });
+
+test('exclusão de fatura inteira é auditável e bloqueia parcelas cruzadas e pagamentos',()=>{
+ assert.match(sql,/personal_wallet_cancel_unpaid_invoice_cycle/);
+ assert.match(sql,/invoice_cancel_requests/);
+ assert.match(sql,/status='PAID'/);
+ assert.match(sql,/i\.due_month<>v_month/);
+ assert.match(sql,/v_card\.invoice_cancel_requests \? p_request_id::text/);
+ assert.match(page,/Excluir fatura não paga/);
+ assert.match(page,/cancelUnpaidInvoiceCycle/);
+ assert.match(service,/supabase\.rpc\('personal_wallet_cancel_unpaid_invoice_cycle'/);
+});

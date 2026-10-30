@@ -54,3 +54,26 @@ test('payments are not inferred from a PDF and cannot double-count', () => {
     {remaining:310,available:1150,availableIsDeclared:true,overpaid:0});
   assert.equal(reconcileCardInvoice({invoiceTotal:410, paymentsConfirmed:600,creditLimit:null, usedLimit:null,availableLimit:null}).overpaid, 190);
 });
+
+
+test('masked suffix is read only when unique; multiple cards require review',()=>{
+  const one = parseCardInvoiceSummary(['Nubank','Total a pagar R$ 200,00','03 OUT •••• 8981 Compra R$ 200,00']);
+  assert.equal(one.cardLastFour,'8981');
+  const many = parseCardInvoiceSummary([
+    'Nubank', 'Total a pagar R$ 200,00',
+    '03 OUT •••• 8981 Compra R$ 100,00',
+    '04 OUT •••• 6294 Compra R$ 100,00',
+  ]);
+  assert.equal(many.cardLastFour,null);
+  assert.equal(many.multipleCards,true);
+});
+test('four digit amounts and written due dates must parse without truncation',()=>{
+  const result = parseCardInvoiceSummary([
+    'Nubank', 'Total a pagar R$ 3.642,09',
+    'Data de vencimento: 06 NOV 2026',
+    'Limite total do cartão de crédito: R$ 6.991,30',
+  ]);
+  assert.equal(result.invoiceTotal,3642.09);
+  assert.equal(result.creditLimit,6991.3);
+  assert.equal(result.dueDate,'2026-11-06');
+});

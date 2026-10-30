@@ -35,7 +35,7 @@ export const CardVaultModal: React.FC<{
     setError('');setFeedback('');setPin('');setConfirmPin('');setLegacyPassword('');
     Promise.all([personalWalletService.getCardVault(card.id),personalWalletService.getWalletPinProfile()])
       .then(([vault,pinProfile])=>{
-        if(operation.current!==generation || document.hidden) return;
+        if(operation.current!==generation) return;
         if(vault.ownerId!==pinProfile.ownerId) throw new Error('Sessão do proprietário inconsistente.');
         setOwner(vault.ownerId);setEnvelope(vault.envelope);setProfile(pinProfile.profile);
         setLoaded(true);
@@ -52,7 +52,10 @@ export const CardVaultModal: React.FC<{
         }
       })
       .catch(reason=>{
-        if(operation.current===generation)setError(reason instanceof Error?reason.message:'Não foi possível carregar o cofre.');
+        if(operation.current===generation){
+          setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o cofre.');
+          setLoaded(false);
+        }
       });
     return()=>{operation.current++;};
   },[card.id,retry]);
@@ -157,7 +160,7 @@ export const CardVaultModal: React.FC<{
       {loaded&&<>
         {isLegacy&&<label className="block text-xs font-medium text-slate-300">
           Senha antiga deste cartão (somente para migração)
-          <input type="password" autoComplete="off" maxLength={256} value={legacyPassword}
+          <input type="password" name="wallet-legacy-vault-secret" autoComplete="off" maxLength={256} value={legacyPassword}
             onChange={e=>setLegacyPassword(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>}
@@ -167,14 +170,14 @@ export const CardVaultModal: React.FC<{
           </p>
           <label className="block text-xs text-slate-300">
             {needsConfirmation?'Novo PIN (8 a 12 dígitos)':'Informe seu PIN'}
-            <input type="password" inputMode="numeric" autoComplete="off"
+            <input type="password" name="wallet-vault-pin" inputMode="numeric" autoComplete="off"
               minLength={8} maxLength={12} pattern="[0-9]{8,12}"
               value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,12))}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" required/>
           </label>
           {needsConfirmation&&<label className="block text-xs text-slate-300">
             Confirmar PIN
-            <input type="password" inputMode="numeric" autoComplete="off"
+            <input type="password" name="wallet-vault-pin-confirmation" inputMode="numeric" autoComplete="off"
               minLength={8} maxLength={12} pattern="[0-9]{8,12}"
               value={confirmPin} onChange={e=>setConfirmPin(e.target.value.replace(/\D/g,'').slice(0,12))}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" required/>

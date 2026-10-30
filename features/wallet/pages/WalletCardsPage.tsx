@@ -244,16 +244,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       : creditPosition?.dueMonth === statementMonth
   ));
   const selectedInvoiceState = selected && statementMonth
-    ? (selected.opening_invoice_month?.slice(0, 7) === statementMonth.slice(0, 7) && selected.opening_invoice_state
-      ? selected.opening_invoice_state
-      : resolveInvoiceCycleState({
+    ? resolveInvoiceCycleState({
         dueMonth: statementMonth,
         closingDay: selected.closing_day,
         dueDay: selected.due_day,
         outstanding: selectedCycle?.amount || 0,
         hasCycle: Boolean(selectedCycle?.amount),
         exactDueDate: savedInvoiceFacts?.due_date,
-      }))
+      })
     : undefined;
   const mayInitializeExisting = Boolean(selected && data && Number(selected.used_limit) === 0
     && Number(selected.current_bill) === 0
@@ -378,7 +376,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </div>
             <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
               className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
-              {savedInvoiceFacts?'Corrigir valores e vencimento':'Informar vencimento e valores'}
+              {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
             </button>
           </div>}
           <WalletMetricStrip items={[

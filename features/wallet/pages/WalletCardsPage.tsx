@@ -420,7 +420,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 <button type="button" onClick={()=>setVaultCard(selected)} className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">Dados completos do cartão</button>
                 <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">Lançamento rápido</button>
                 <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">Situação inicial</button>
-                <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
+                <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Corrigir valor, mês e vencimento</button>
                 {statementMonth && (selectedCycle?.amount || 0) > 0 && <button type="button" onClick={() => {setClearInvoiceError('');setClearInvoiceConfirm({cardId:selected.id,month:statementMonth,nickname:selected.nickname});}} className="min-h-11 rounded-xl border border-rose-600/50 px-3 py-2 text-xs font-semibold text-rose-200">Excluir fatura não paga</button>}
                 <button type="button" onClick={() => setFlatReaderOpen(v => !v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${flatReaderOpen ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'border border-cyan-500/50 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40'}`}>
                   <Sparkles size={13} className={flatReaderOpen ? '' : 'text-cyan-400'} />
@@ -706,11 +706,18 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         }}/>}
       {overriding && selected && <InvoiceOverrideModal card={selected}
         initialDueMonth={statementMonth || creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01'}
+        initialDueDate={savedInvoiceFacts?.due_date}
         initialAmount={invoiceCycles.find(cycle => cycle.dueMonth === statementMonth)?.amount || 0}
+        hasExistingConsolidation={Boolean(selectedCycle?.hasOverride)}
         onClose={() => setOverriding(false)}
-        onSave={async (dueMonth, amount, overrideRequestId) => {
-          await personalWalletService.setMonthlyInvoiceOverride({ cardId: selected.id, dueMonth, amount, requestId: overrideRequestId });
+        onSave={async (dueMonth, amount, dueDate, overrideRequestId) => {
+          await personalWalletService.correctInvoiceOverride({
+            cardId:selected.id,
+            previousDueMonth:selectedCycle?.hasOverride ? statementMonth : null,
+            dueMonth,dueDate,amount,requestId:overrideRequestId,
+          });
           await refresh();
+          await refreshInvoiceFacts();
           setStatementMonth(dueMonth);
         }}/>}
       {cardOpeningModalOpen && selected && <CardInitialBalancesModal

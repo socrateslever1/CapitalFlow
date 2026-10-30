@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import { isNewPublishedVersion, parsePublishedVersion } from '../../utils/appVersion';
 
 declare const __CAPITALFLOW_BUILD_ID__: string;
@@ -14,7 +15,7 @@ export const AppUpdateBanner: React.FC = () => {
 
   useEffect(() => {
     // Never poll a Cloudflare deployment from development or native-app localhost.
-    if (!import.meta.env.PROD ||
+    if (Capacitor.isNativePlatform() || !import.meta.env.PROD ||
       !['http:', 'https:'].includes(window.location.protocol) ||
       ['localhost', '127.0.0.1'].includes(window.location.hostname)) return;
 
@@ -92,7 +93,7 @@ export const AppUpdateBanner: React.FC = () => {
     }
   }, [applying]);
 
-  if (!import.meta.env.PROD || !availableBuild || availableBuild === dismissedBuild) return null;
+  if (Capacitor.isNativePlatform() || !import.meta.env.PROD || !availableBuild || availableBuild === dismissedBuild) return null;
 
   return <aside role="status" aria-live="polite" aria-label="Atualização do CapitalFlow"
     className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-[1800] mx-auto max-w-sm rounded-2xl border border-blue-400/40 bg-slate-900 p-4 text-white shadow-2xl shadow-black/60 sm:bottom-6 sm:left-auto sm:right-6">

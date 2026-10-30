@@ -230,7 +230,7 @@ export const CardOpeningFields: React.FC<Props> = ({
               </select>
             </label>
             <label className="text-xs text-slate-300">
-              Mês da fatura
+              Mês de pagamento (vencimento)
               <input
                 required
                 type="month"

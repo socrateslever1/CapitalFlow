@@ -248,7 +248,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     : null;
   const mayApplySavedIssuerFacts = Boolean(
     selected && savedInvoiceFacts && (selectedCycle?.amount || 0) === 0 &&
-    Number(selected.current_bill || 0) === 0 && Number(selected.used_limit || 0) === 0 &&
+    Number(selected.current_bill || 0) === 0 &&
+    Math.round(Number(selected.used_limit || 0) * 100) ===
+      Math.round(Number(selected.initial_future_installments_balance || 0) * 100) &&
     savedInvoiceFacts.invoice_total != null && Number(savedInvoiceFacts.invoice_total) > 0 &&
     savedInvoiceFacts.used_limit != null && savedInvoiceFacts.credit_limit != null &&
     (!data || !data.expenses.some(expense => expense.card_id === selected.id && expense.status !== 'CANCELED'))
@@ -445,6 +447,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
             </button>
           </div>}
+          {mayApplySavedIssuerFacts && <p className="text-xs text-amber-200">
+            O banco informou uma posição diferente da abertura provisória. Aplicar os valores confirmados
+            atualizará a fatura e os compromissos iniciais, sem criar compras individuais.
+          </p>}
           {mayApplySavedIssuerFacts && <button type="button" disabled={applyingIssuerFacts}
             onClick={() => { void applySavedIssuerFacts(); }}
             className="min-h-11 rounded-xl border border-cyan-600/60 bg-cyan-950/30 px-4 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-50">

@@ -19,6 +19,8 @@ import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { pixKeyTypeLabel } from './walletPresentation';
 import { AccountMovementModal } from './AccountMovementModal';
 import QuickExpenseModal from '../../features/wallet/components/QuickExpenseModal';
+import { BankAccountDetailsFields, BankAccountDetailsSummary } from './BankAccountDetailsFields';
+import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -47,6 +49,7 @@ const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
 export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
   const [editing, setEditing] = useState(false);
+  const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft(account.bank_details));
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
@@ -75,6 +78,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   }, [imagePreview]);
 
   const reset = () => {
+    setBankDetails(bankDetailsDraft(account.bank_details));
     setForm({
       nickname: account.nickname,
       bank_name: account.bank_name || '',
@@ -107,6 +111,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         pix_key: form.pix_key || null,
         notes: form.notes || null,
         capital_source_id: form.capital_source_id || null,
+        bank_details:normalizeBankDetails(bankDetails),
       }, image);
       setImage(null);
       setImagePreview('');
@@ -242,6 +247,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         </div>
       </div>}
 
+      {!editing&&account.account_type!=='CASH'&&<BankAccountDetailsSummary details={account.bank_details||{}} linkedCards={cards.filter(card=>card.account_id===account.id&&card.status!=='CANCELED').length}/>}
       {editing && (
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
           <h2 className="text-sm font-bold text-white">Editar dados da conta</h2>
@@ -302,6 +308,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               <span className="text-[11px] font-normal text-slate-500">Empréstimos e parcelas só afetam esta conta quando a integração estiver autorizada.</span>
             </label>
           </div>
+          {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}
           <div className="flex justify-end gap-2">
             <button type="button" disabled={saving} onClick={reset} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-xs text-slate-200"><X size={14} /> Cancelar</button>
             <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Save size={14} />{saving ? 'Salvando...' : 'Salvar alterações'}</button>

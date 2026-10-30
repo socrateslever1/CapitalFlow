@@ -60,7 +60,10 @@ test('as contas usam linhas compactas com a identidade visual da instituição',
 });
 
 test('a visão geral preserva a mesma largura interna das demais páginas da carteira', () => {
-  assert.match(overview, /max-w-\[1500px\] space-y-4 px-4 pb-24 sm:px-6/);
+  assert.match(overview, /w-full min-w-0 space-y-4 pb-24/);
+  assert.doesNotMatch(overview, /max-w-\[1500px\].*px-/);
+  const frame=readFileSync('features/wallet/components/WalletPageFrame.tsx','utf8');
+  assert.match(frame,/w-full min-w-0 space-y-4 pb-24/);
 });
 
 test('a página da carteira possui somente pilha, balanço e base operacional por quatro abas', () => {

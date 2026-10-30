@@ -29,11 +29,12 @@ test('a migration adiciona os dados seguros e não cria armazenamento de CVC', (
   assert.doesNotMatch(migrations, /add column if not exists (?:cvc|cvv)/i);
 });
 
-test('a visualização usa titular e validade persistidos e mantém o CVC mascarado', () => {
+test('a visualização usa titular e validade persistidos e abre dados completos somente pelo cofre', () => {
   assert.match(cardStack, /selected\.cardholder_name/);
   assert.match(cardStack, /selected\.expiry_month/);
   assert.match(cardStack, /selected\.expiry_year/);
-  assert.match(editor, /CVC não é armazenado/i);
+  assert.match(editor, /CardVaultModal/);
+  assert.match(editor, /Número e CVC são guardados criptografados/);
   assert.doesNotMatch(service, /p_(?:cvc|cvv)/i);
 });
 

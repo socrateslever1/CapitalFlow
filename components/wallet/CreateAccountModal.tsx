@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Landmark, Loader2, QrCode, Wallet, X } from 'lucide-react';
+import { CheckCircle2, Landmark, Loader2, QrCode, Wallet } from 'lucide-react';
 import type { CapitalSource } from '../../types';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
@@ -7,6 +7,9 @@ import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { BankLogo } from './BankLogo';
 import { getBankVisual, walletAccountTypeLabel } from './walletPresentation';
+import { Modal, modalPrimaryActionClass } from '../ui/Modal';
+import { BankAccountDetailsFields } from './BankAccountDetailsFields';
+import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
 
 export interface CreateAccountModalProps {
   capitalSources?: CapitalSource[];
@@ -65,10 +68,12 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const [pixKey, setPixKey] = useState<string>('');
   const [capitalSourceId, setCapitalSourceId] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft());
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
   const openingRequestIdRef = useRef<string>(generateUUID());
+  const createdAccountRef=useRef<{id:string;signature:string}|null>(null);
   const isPhysicalWallet = accountType === 'CASH';
 
   const visual = useMemo(
@@ -117,7 +122,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     setError('');
     try {
       // 1. Cria a conta zerada para aplicar o saldo inicial auditado via RPC
-      const created = await personalWalletService.createAccount({
+      const accountInput = {
         nickname: cleanNickname,
         bank_name: isPhysicalWallet ? null : bankName.trim(),
         institution_key: visual.key,
@@ -127,7 +132,12 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         pix_key_type: isPhysicalWallet ? null : cleanPixKey ? cleanPixType || null : null,
         notes: notes.trim() || null,
         capital_source_id: null,
-      });
+        bank_details:isPhysicalWallet?{}:normalizeBankDetails(bankDetails),
+      };
+      const signature=JSON.stringify([accountInput,parsedBalance,capitalSourceId]);
+      if(createdAccountRef.current&&createdAccountRef.current.signature!==signature)throw new Error('A conta já foi criada nesta tentativa. Feche o cadastro e use Editar para alterar os dados.');
+      const created=createdAccountRef.current||await personalWalletService.createAccount(accountInput);
+      createdAccountRef.current={id:created.id,signature};
 
       // 2. Se houver saldo inicial > 0, invoca a RPC canônica personal_wallet_initialize_account_opening
       if (parsedBalance > 0) {
@@ -159,12 +169,10 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const labelClass = 'block text-xs font-bold text-slate-300';
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-account-modal-title"
-      className="fixed inset-0 z-[2400] flex items-end justify-center bg-slate-950/85 backdrop-blur-sm sm:items-center sm:p-4 animate-in fade-in"
-    >
+    <Modal title="Nova conta / carteira" subtitle="Dados bancários e produtos opcionais" icon={isPhysicalWallet?<Wallet size={18}/>:<Landmark size={18}/>}
+      onClose={onClose} busy={saving} footer={<button type="submit" form="create-wallet-account-form" disabled={saving} className={modalPrimaryActionClass}>
+        {saving?<Loader2 size={16} className="animate-spin"/>:<CheckCircle2 size={16}/>} {saving?'Criando...':'Salvar conta / carteira'}
+      </button>}>
       <datalist id="create-account-institutions">
         {PRESET_INSTITUTIONS.map((item) => (
           <option key={item} value={item} />
@@ -175,35 +183,11 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       </datalist>
 
       <form
+        id="create-wallet-account-form"
         onSubmit={handleSubmit}
-        className="flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 shadow-2xl sm:rounded-3xl"
+        className="space-y-4"
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-800 p-4 sm:px-5">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-              {isPhysicalWallet ? <Wallet size={18} /> : <Landmark size={18} />}
-            </span>
-            <div>
-              <h2 id="create-account-modal-title" className="text-sm font-black uppercase tracking-wider text-white">
-                Nova Conta / Carteira
-              </h2>
-              <p className="text-[11px] text-slate-400">
-                Conta bancária, conta digital de pagamento ou carteira em espécie
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onClose}
-            aria-label="Fechar"
-            className="rounded-full bg-slate-800 p-2 text-slate-400 hover:text-white"
-          >
-            <X size={16} />
-          </button>
-        </header>
-
-        <div className="flex-1 min-h-0 space-y-4 overflow-y-auto p-4 sm:p-5 overscroll-contain touch-pan-y [-webkit-overflow-scrolling:touch]">
+        <div className="space-y-4">
           {/* Preview Visual Automático */}
           <div
             className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 p-3.5 text-white shadow-lg"
@@ -386,6 +370,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             </label>
           </div>
 
+          {!isPhysicalWallet&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}
           {error && (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
               {error}
@@ -393,26 +378,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           )}
         </div>
 
-        <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-800 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onClose}
-            className="rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-950/40 hover:bg-blue-500 disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-            {saving ? 'Criando...' : 'Salvar Conta / Carteira'}
-          </button>
-        </footer>
       </form>
-    </div>
+    </Modal>
   );
 };
 

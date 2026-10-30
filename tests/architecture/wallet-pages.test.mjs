@@ -15,7 +15,7 @@ test('pages use canonical RPC service, not direct financial mutations',()=>{
  const card=read('features/wallet/pages/WalletCardsPage.tsx');
  const debt=read('features/wallet/pages/WalletPayablesPage.tsx');
  assert.match(card,/payInvoicePartial/);
- assert.match(card,/createCardWithOpening/);
+ assert.match(card,/createCompleteCard/);
  assert.match(debt,/payPayable/);
  for(const name of names) assert.doesNotMatch(read('features/wallet/pages/'+name+'.tsx'),/\.from\(['"]personal_wallet_/);
 });
@@ -63,8 +63,8 @@ test('card clipboard copies each field separately without exposing a synthetic f
  assert.match(detail,/aria-label="Copiar validade do cartão"/);
  assert.doesNotMatch(detail,/navigator\.clipboard\.writeText\(text\.replace/);
  const form=read('components/wallet/CardEditModal.tsx');
- assert.match(form,/Somente os 4 últimos dígitos são armazenados/);
- assert.match(form,/O CVC não é armazenado/);
+ assert.match(form,/CardVaultModal/);
+ assert.match(form,/Número completo e código de segurança/);
 });
 
 test('wallet mobile navigation renders all five tabs without horizontal scrolling', () => {
@@ -72,5 +72,6 @@ test('wallet mobile navigation renders all five tabs without horizontal scrollin
  assert.match(module,/grid-cols-5/);
  assert.match(module,/sm:hidden/);
  assert.doesNotMatch(module,/overflow-x-auto/);
- assert.match(module,/Minha carteira/);
+ assert.match(module,/PageHeader/);
+ assert.match(module,/Minha <span/);
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Sparkles, Check, Camera, CreditCard } from 'lucide-react';
+import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
 import type { PersonalWalletCard } from '../../../services/personalWallet.service';
@@ -24,6 +24,10 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
+import { CardProtectedFields, emptyProtectedCard } from '../../../components/wallet/CardProtectedFields';
+import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
+import { encryptCardData, validateCardNumber, type CardVaultEnvelope } from '../domain/cardVault';
+import { BANK_CATALOG } from '../../../utils/bankLogoRegistry';
 
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
@@ -47,6 +51,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [statementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const [createError,setCreateError]=useState('');
+  const [protectedDraft,setProtectedDraft]=useState(emptyProtectedCard);
+  const [vaultCard,setVaultCard]=useState<PersonalWalletCard|null>(null);
+  const encryptedDraft=useRef<{requestId:string;envelope:CardVaultEnvelope}|null>(null);
   const requestId = useRef(generateUUID());
   const [opening, setOpening] = useState(freshCardOpening);
   const [initializing, setInitializing] = useState(false);
@@ -57,7 +65,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [existingOpening, setExistingOpening] = useState(freshCardOpening);
   const [cardForm, setCardForm] = useState({
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '10',
-    closing_day: '1', account_id: '',
+    closing_day: '1', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
   const [expenseForm, setExpenseForm] = useState({
     description: '', amount: '', category: 'Compras', installment_count: '1',
@@ -187,27 +195,46 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
 
   const createCard = async (event: React.FormEvent) => {
     event.preventDefault(); if (saving) return; setSaving(true); setNotice('');
+    setCreateError('');
     try {
       const creditLimit = parseWalletMoney(cardForm.credit_limit, 'limite de crédito');
       const position = validateCardOpening(opening, creditLimit);
-      await personalWalletService.createCardWithOpening({
+      if(Boolean(cardForm.expiry_month)!==Boolean(cardForm.expiry_year))throw new Error('Informe mês e ano da validade juntos.');
+      let envelope:CardVaultEnvelope|null=null;
+      let lastFour=cardForm.last_four||null;
+      if(protectedDraft.number||protectedDraft.securityCode){
+        const number=validateCardNumber(protectedDraft.number);
+        lastFour=number.slice(-4);
+        if(protectedDraft.password||protectedDraft.confirmation||protectedDraft.securityCode){
+          if(protectedDraft.password!==protectedDraft.confirmation)throw new Error('As senhas do cofre não coincidem.');
+          if(encryptedDraft.current?.requestId===requestId.current)envelope=encryptedDraft.current.envelope;
+          else {
+            envelope=await encryptCardData({number,securityCode:protectedDraft.securityCode},protectedDraft.password,await personalWalletService.ownerId(),requestId.current);
+            encryptedDraft.current={requestId:requestId.current,envelope};
+          }
+        }
+      }
+      await personalWalletService.createCompleteCard({
         card: {
-          nickname: cardForm.nickname.trim(), issuer: cardForm.issuer.trim(),
-          brand: cardForm.brand || null, last_four: cardForm.last_four || null,
+          nickname: (cardForm.nickname.trim() || cardForm.issuer.trim()), issuer: cardForm.issuer.trim(),
+          brand: cardForm.brand || null, last_four: lastFour,
           credit_limit: creditLimit,
           due_day: Number(cardForm.due_day), closing_day: Number(cardForm.closing_day),
         },
         existingAccountId: cardForm.account_id || null,
         opening: position,
         requestId: requestId.current,
+        identity:{cardholder_name:cardForm.cardholder_name.trim()||null,expiry_month:cardForm.expiry_month?Number(cardForm.expiry_month):null,expiry_year:cardForm.expiry_year?Number(cardForm.expiry_year):null},
+        envelope,
       });
       await refresh(); setCreating(false); setOpening(freshCardOpening());
       requestId.current = generateUUID();
       setCardForm({
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
-        due_day: '10', closing_day: '1', account_id: '',
+        due_day: '10', closing_day: '1', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
       });
-    } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
+      setProtectedDraft(emptyProtectedCard());encryptedDraft.current=null;
+    } catch (cause) { setCreateError(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
     finally { setSaving(false); }
   };
   const initializeExisting = async (event: React.FormEvent) => {
@@ -275,6 +302,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 </select>}
               </div>
               {selected && <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={()=>setVaultCard(selected)} className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">Dados completos do cartão</button>
                 <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">Lançamento rápido</button>
                 <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">Situação inicial</button>
                 <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
@@ -341,12 +369,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </div>
         </div>
       </Modal>}
-      {creating && <Modal title="Novo cartão" subtitle="Cadastre o cartão e sua situação inicial" icon={<CreditCard size={17}/>} onClose={() => setCreating(false)} busy={saving}
-        footer={<><button type="button" disabled={saving} onClick={() => setCreating(false)} className={modalSecondaryActionClass}>Cancelar</button><button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button></>}>
+      {creating && <Modal title="Novo cartão" subtitle="Identificação, numeração completa e situação inicial" icon={<CreditCard size={17}/>} onClose={() => {setCreating(false);setProtectedDraft(emptyProtectedCard());encryptedDraft.current=null;setCreateError('');}} busy={saving}
+        footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
        <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
+        <datalist id="wallet-new-card-banks">{BANK_CATALOG.map(b => <option key={b.id} value={b.name}/>)}</datalist>
         <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
-            <h3 className="text-sm font-bold text-white">Novo cartão</h3>
+            <h3 className="text-sm font-bold text-white">Identificação do cartão</h3>
             <p className="text-[11px] text-slate-400">Preencha os dados ou aponte a câmera para o cartão físico</p>
           </div>
           <button
@@ -355,29 +384,53 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             className="flex items-center gap-1.5 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-3.5 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/50 hover:border-cyan-400 transition shadow-lg shadow-cyan-950/30"
           >
             <Camera size={15} className="text-cyan-400" />
-            📸 Escanear com a Câmera (IA)
+            Escanear com a câmera (IA)
           </button>
         </div>
-        {(['nickname', 'issuer', 'brand', 'last_four', 'credit_limit', 'closing_day', 'due_day'] as const).map(field =>
+        {(['issuer', 'nickname', 'credit_limit', 'closing_day', 'due_day'] as const).map(field =>
           <label key={field} className="space-y-1 text-xs text-slate-300">
-            {({nickname:'Apelido',issuer:'Instituição',brand:'Bandeira',last_four:'Últimos 4 dígitos',
+            {({issuer:'Instituição / Banco',nickname:'Apelido (opcional)',
               credit_limit:'Limite de crédito',closing_day:'Dia de fechamento',due_day:'Dia do vencimento'} as const)[field]}
-            <input required={field !== 'last_four'} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
+            <input required={field !== 'nickname'} list={field === 'issuer' ? 'wallet-new-card-banks' : undefined} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
               min={field === 'closing_day' || field === 'due_day' ? 1 : undefined}
               inputMode={field === 'credit_limit' ? 'decimal' : field === 'closing_day' || field === 'due_day' ? 'numeric' : undefined}
-              placeholder={field === 'credit_limit' ? 'Ex.: 495,61' : undefined}
+              placeholder={field === 'credit_limit' ? 'Ex.: 495,61' : field === 'nickname' ? 'Usa o nome do banco se vazio' : field === 'issuer' ? 'Ex.: Nubank, Itaú, Inter' : undefined}
               max={field === 'closing_day' || field === 'due_day' ? 31 : undefined}
               value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
-        <label className="space-y-1 text-xs text-slate-300">Conta vinculada (opcional)
-          <select value={cardForm.account_id} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, account_id: e.target.value })); }}
+        <label className="space-y-1 text-xs text-slate-300">Bandeira
+          <select value={cardForm.brand} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, brand: e.target.value })); }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="">Cartão independente</option>
+            {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
+          <select value={cardForm.account_id} onChange={e => {
+            const nextAccountId = e.target.value;
+            const matched = data.accounts.find(a => a.id === nextAccountId);
+            requestId.current = generateUUID();
+            setCardForm(v => ({
+              ...v,
+              account_id: nextAccountId,
+              issuer: v.issuer || matched?.bank_name || matched?.nickname || '',
+            }));
+          }}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+            <option value="">Cartão independente (sem conta vinculada)</option>
             {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
           </select>
         </label>
+        <label className="space-y-1 text-xs text-slate-300">Nome impresso no cartão
+          <input maxLength={120} autoComplete="cc-name" value={cardForm.cardholder_name} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,cardholder_name:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="NOME DO TITULAR"/>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1 text-xs text-slate-300">Mês da validade<input type="number" min={1} max={12} autoComplete="cc-exp-month" value={cardForm.expiry_month} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,expiry_month:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="MM"/></label>
+          <label className="space-y-1 text-xs text-slate-300">Ano da validade<input type="number" min={2000} max={2200} autoComplete="cc-exp-year" value={cardForm.expiry_year} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,expiry_year:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="AAAA"/></label>
+        </div>
+        <CardProtectedFields value={protectedDraft} onChange={value=>{requestId.current=generateUUID();encryptedDraft.current=null;setProtectedDraft(value);}}/>
+        {createError&&<p role="alert" className="text-sm text-rose-300 sm:col-span-2">{createError}</p>}
         <div className="sm:col-span-2">
-          <CardOpeningFields value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}
+          <CardOpeningFields collapsible value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}
             onChange={value => { requestId.current = generateUUID(); setOpening(value); }}/>
         </div>
        </form>
@@ -455,6 +508,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         </div>
       </form>}
       {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }}/>}
+      {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
         initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
         targetName={selected.nickname} onClose={() => setImporting(false)}

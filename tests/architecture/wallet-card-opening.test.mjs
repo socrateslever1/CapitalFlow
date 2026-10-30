@@ -32,7 +32,8 @@ test('replay requests cannot create duplicate card or opening expenses', () => {
   assert.match(sql, /O cartão já possui histórico/);
 });
 test('onboarding and empty existing cards share validated opening workflow', () => {
-  assert.match(page, /createCardWithOpening/);
+  assert.match(page, /createCompleteCard/);
+  assert.match(readFileSync('supabase/migrations/20261030030321_wallet_complete_registration.sql','utf8'),/public.personal_wallet_create_card_with_opening\(p_card,p_existing_account_id,p_opening,p_request_id\)/);
   assert.match(page, /setSimpleCardOpening/);
   assert.match(page, /mayInitializeExisting/);
   assert.match(page, /validateCardOpening/);

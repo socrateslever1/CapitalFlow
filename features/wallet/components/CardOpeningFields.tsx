@@ -109,15 +109,20 @@ type Props = {
   value: CardOpeningFormValues;
   onChange: (value: CardOpeningFormValues) => void;
   creditLimit: number;
+  collapsible?: boolean;
 };
 
 export const CardOpeningFields: React.FC<Props> = ({
   value,
   onChange,
   creditLimit,
+  collapsible = false,
 }) => {
   const used = Number(value.used || 0),
     invoice = Number(value.invoice || 0);
+  const [expanded, setExpanded] = React.useState(
+    () => !collapsible || used > 0 || invoice > 0,
+  );
   const available = Math.round((creditLimit - used) * 100) / 100;
   const field =
     'mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
@@ -132,109 +137,124 @@ export const CardOpeningFields: React.FC<Props> = ({
     });
   return (
     <fieldset className="space-y-3 rounded-2xl border border-slate-800 p-4">
-      <legend className="px-2 text-sm font-semibold text-slate-200">
-        Situação inicial (opcional)
-      </legend>
-      <p className="text-xs text-slate-400">
-        Informe os totais do banco ou deixe zerado para cadastrar os gastos um a
-        um ou importar o PDF.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs text-slate-300">
-          Fatura atual (R$)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={value.invoice}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                invoice: e.target.value,
-                future: String(
-                  Math.max(
-                    0,
-                    Math.round((used - Number(e.target.value)) * 100) / 100,
-                  ),
-                ),
-              })
-            }
-            className={field}
-          />
-        </label>
-        <label className="text-xs text-slate-300">
-          Limite usado, incluindo a fatura (R$)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={value.used}
-            onChange={(e) => changeUsed(e.target.value)}
-            className={field}
-          />
-        </label>
-        <label className="text-xs text-slate-300">
-          Disponível para gastar (R$)
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            disabled={creditLimit <= 0}
-            value={available}
-            onChange={(e) =>
-              changeUsed(
-                String(
-                  Math.round((creditLimit - Number(e.target.value)) * 100) /
-                    100,
-                ),
-              )
-            }
-            className={field}
-          />
-        </label>
-        <label className="text-xs text-slate-300">
-          Situação da fatura
-          <select
-            value={value.invoiceState || 'OPEN'}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                invoiceState: e.target.value as 'OPEN' | 'CLOSED',
-              })
-            }
-            className={field}
-          >
-            <option value="OPEN">Aberta</option>
-            <option value="CLOSED">Fechada</option>
-          </select>
-        </label>
-        <label className="text-xs text-slate-300">
-          Mês da fatura
-          <input
-            required
-            type="month"
-            min="2000-01"
-            max="2100-12"
-            value={value.invoiceMonth}
-            onChange={(e) =>
-              onChange({ ...value, invoiceMonth: e.target.value })
-            }
-            className={field}
-          />
-        </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <legend className="px-1 text-sm font-semibold text-slate-200">
+          Situação inicial (opcional)
+        </legend>
+        {collapsible && (
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-blue-300">
+            <input
+              type="checkbox"
+              checked={expanded}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setExpanded(next);
+                if (!next) {
+                  onChange({
+                    ...value,
+                    used: '0',
+                    invoice: '0',
+                    future: '0',
+                    futureCount: '0',
+                  });
+                }
+              }}
+              className="h-4 w-4 accent-blue-500"
+            />
+            Cartão já possui fatura ou limite usado
+          </label>
+        )}
       </div>
-      <p className="text-xs text-slate-400">
-        Limite total: {formatMoney(creditLimit)} · Disponível:{' '}
-        {formatMoney(available)}
-      </p>
-      {(used > creditLimit || invoice > used || available < 0) && (
-        <p role="alert" className="text-xs text-rose-300">
-          O limite usado deve incluir a fatura e não pode superar o limite
-          total.
+      {!expanded ? (
+        <p className="text-xs text-slate-400">
+          Cartão iniciará zerado (Disponível para gastar:{' '}
+          <strong className="text-emerald-300">{formatMoney(available)}</strong>
+          ). Marque a opção acima se já houver fatura ou limite comprometido.
         </p>
+      ) : (
+        <>
+          <p className="text-xs text-slate-400">
+            Informe os totais do banco ou deixe zerado para cadastrar os gastos
+            um a um ou importar o PDF.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-xs text-slate-300">
+              Fatura atual (R$)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={value.invoice}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    invoice: e.target.value,
+                    future: String(
+                      Math.max(
+                        0,
+                        Math.round((used - Number(e.target.value)) * 100) / 100,
+                      ),
+                    ),
+                  })
+                }
+                className={field}
+              />
+            </label>
+            <label className="text-xs text-slate-300">
+              Limite usado, incluindo a fatura (R$)
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={value.used}
+                onChange={(e) => changeUsed(e.target.value)}
+                className={field}
+              />
+            </label>
+            <label className="text-xs text-slate-300">
+              Situação da fatura
+              <select
+                value={value.invoiceState || 'OPEN'}
+                onChange={(e) =>
+                  onChange({
+                    ...value,
+                    invoiceState: e.target.value as 'OPEN' | 'CLOSED',
+                  })
+                }
+                className={field}
+              >
+                <option value="OPEN">Aberta</option>
+                <option value="CLOSED">Fechada</option>
+              </select>
+            </label>
+            <label className="text-xs text-slate-300">
+              Mês da fatura
+              <input
+                required
+                type="month"
+                min="2000-01"
+                max="2100-12"
+                value={value.invoiceMonth}
+                onChange={(e) =>
+                  onChange({ ...value, invoiceMonth: e.target.value })
+                }
+                className={field}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-slate-400">
+            Limite total: {formatMoney(creditLimit)} · Disponível para gastar:{' '}
+            <strong className="text-emerald-300">{formatMoney(available)}</strong>
+          </p>
+          {(used > creditLimit || invoice > used || available < 0) && (
+            <p role="alert" className="text-xs text-rose-300">
+              O limite usado deve incluir a fatura e não pode superar o limite
+              total.
+            </p>
+          )}
+        </>
       )}
     </fieldset>
   );

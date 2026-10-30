@@ -15,7 +15,7 @@ export function useStableExpandedCardFocus<T extends HTMLElement>(
     forceTopAlignment = false
   ) => {
     const element = ref.current;
-    if (!element || element.closest('[data-card-focus-modal="true"]')) return;
+    if (!element) return;
 
     const rect = element.getBoundingClientRect();
     const bottomLimit = window.innerHeight - BOTTOM_GUARD_PX;

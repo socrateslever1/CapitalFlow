@@ -1,11 +1,12 @@
 import React, { useCallback } from 'react';
-import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 import { useWalletAccess } from './hooks/useWalletAccess';
 import { useWalletRealtime } from './hooks/useWalletRealtime';
 import { getWalletRoute, WALLET_ROUTES, WalletRouteView } from './routes';
 import { WalletExpenseFab } from './components/WalletExpenseFab';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string }> = ({ kind, message }) => <section className="mx-auto mt-10 max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center text-white shadow-2xl">
   {kind === 'inactive' ? <LockKeyhole className="mx-auto mb-4 text-amber-300" size={34}/> : <AlertTriangle className="mx-auto mb-4 text-rose-300" size={34}/>}
@@ -29,18 +30,18 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <header className="mx-auto mb-3 flex w-full max-w-[1500px] min-w-0 items-center gap-3 border-b border-slate-800/70 px-3 pb-3 sm:px-6">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-cyan-300" aria-hidden="true"><Wallet size={20} strokeWidth={2.1}/></span>
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-base font-extrabold text-white sm:text-xl">Minha carteira</h1>
-        <p className="hidden truncate text-xs text-slate-400 sm:block">Contas, cartões e compromissos</p>
-      </div>
+    <div className="mb-4 w-full">
+      <PageHeader className="pb-3" stackActionsUntilLg icon={<CreditCard size={22}/>}
+        iconClassName="border-fuchsia-500/30 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-fuchsia-950/30"
+        title={<>Minha <span className="text-blue-500">Carteira</span></>}
+        subtitle="Contas, cartões e compromissos"
+        actions={
       <span role="status" className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium ${realtimeStatus === 'connected' ? 'text-emerald-300' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'text-amber-200' : 'text-slate-400'}`}>
         <span className={`h-1.5 w-1.5 rounded-full ${realtimeStatus === 'connected' ? 'bg-emerald-400' : 'bg-current'}`}/>
         {realtimeStatus === 'connected' ? 'Sincronizado' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'Sem conexão ao vivo' : 'Conectando'}
-      </span>
-    </header>
-    <div className="mx-auto mb-4 w-full max-w-[1500px] px-3 sm:px-6">
+      </span>}/>
+    </div>
+    <div className="mb-4 w-full">
       <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-2xl border border-slate-800 bg-slate-900 p-1.5 sm:flex">
         {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
           const Icon = navigationIcons[item.key];

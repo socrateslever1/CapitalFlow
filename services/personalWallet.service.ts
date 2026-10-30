@@ -17,6 +17,9 @@ import { supabase } from '../lib/supabase';
 import { generateUUID } from '../utils/generators';
 import { getCardCreditPosition } from '../components/wallet/invoiceStatementDomain';
 import type { CapitalSource } from '../types';
+import type { BankAccountDetails } from '../features/wallet/domain/bankAccountDetails';
+import type { CardVaultEnvelope } from '../features/wallet/domain/cardVault';
+import { CardRegistrationError, type CompleteCardRegistration } from '../features/wallet/domain/cardRegistration';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
@@ -49,10 +52,12 @@ export type PersonalWalletAccount = {
   institution_key?: string | null;
   capital_source_id?: string | null;
   archived_at?: string | null;
+  bank_details?: BankAccountDetails;
 };
 
 export type PersonalWalletCard = {
   id: string;
+  has_protected_data?: boolean;
   nickname: string;
   issuer: string | null;
   brand: string | null;
@@ -537,6 +542,30 @@ export const personalWalletService = {
     return data as { account_id: string | null; card_id: string; replayed: boolean };
   },
 
+  async createCompleteCard(input: CompleteCardRegistration) {
+    const {data,error}=await supabase.rpc('personal_wallet_create_complete_card',{
+      p_card:input.card,p_existing_account_id:input.existingAccountId,p_opening:input.opening,p_request_id:input.requestId,
+      p_identity:input.identity,p_envelope:input.envelope,
+    });
+    if(error){
+      const definitive=error.code==='PGRST202'||(/^[0-9A-Z]{5}$/.test(error.code||'')&&!error.code.startsWith('08')&&error.code!=='40003');
+      throw new CardRegistrationError(error.code==='PGRST202'?'O cadastro completo precisa da atualização do banco. Nenhum cartão foi criado.':error.message,definitive);
+    }
+    return data as {card_id:string;account_id:string|null;replayed:boolean};
+  },
+
+  async getCardVault(cardId:string) {
+    const ownerId=await this.ownerId();
+    const {data,error}=await supabase.rpc('personal_wallet_get_card_vault',{p_card_id:cardId});
+    if(error)throw new Error(error.code==='PGRST202'?'O cofre precisa da atualização do banco.':error.message);
+    return {ownerId,envelope:data as CardVaultEnvelope|null};
+  },
+
+  async saveCardVault(cardId:string,envelope:CardVaultEnvelope,lastFour:string) {
+    const {error}=await supabase.rpc('personal_wallet_save_card_vault',{p_card_id:cardId,p_envelope:envelope,p_last_four:lastFour});
+    if(error)throw new Error(error.message);
+  },
+
   /** Imports balances only if the existing card has no financial history. */
   async initializeCardOpening(cardId: string, opening: WalletCardOpeningPayload) {
     const { data, error } = await supabase.rpc('personal_wallet_initialize_card_opening', {
@@ -709,7 +738,7 @@ export const personalWalletService = {
    */
   async updateAccount(
     accountId: string,
-    input: Pick<PersonalWalletAccount, 'nickname' | 'bank_name' | 'account_type' | 'pix_key' | 'pix_key_type' | 'notes'> & { capital_source_id?: string | null },
+    input: Pick<PersonalWalletAccount, 'nickname' | 'bank_name' | 'account_type' | 'pix_key' | 'pix_key_type' | 'notes'> & { capital_source_id?: string | null; bank_details?: BankAccountDetails },
     imageFile?: File | null,
   ) {
     const ownerUserId = await this.ownerId();
@@ -758,6 +787,7 @@ export const personalWalletService = {
       pix_key_type: pixKeyType || null,
       pix_key: pixKey || null,
       notes: notes || null,
+      ...(input.bank_details !== undefined ? { bank_details: input.bank_details } : {}),
       updated_at: new Date().toISOString(),
       ...(uploadedPath ? { image_path: uploadedPath } : {}),
     };

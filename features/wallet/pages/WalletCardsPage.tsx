@@ -8,6 +8,7 @@ import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../servic
 import type { CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
 import { CardInvoiceSummaryPreview } from '../../../components/wallet/CardInvoiceSummaryPreview';
 import { personalWalletService } from '../../../services/personalWallet.service';
+import { CardRegistrationAttempt } from '../domain/cardRegistration';
 import { BankStack } from '../../../components/wallet/BankStack';
 import { CardInvoiceStatement } from '../../../components/wallet/CardInvoiceStatement';
 import { CardEditModal } from '../../../components/wallet/CardEditModal';
@@ -67,6 +68,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [createError,setCreateError]=useState('');
   const [vaultCard,setVaultCard]=useState<PersonalWalletCard|null>(null);
   const requestId = useRef(generateUUID());
+  const cardRegistrationAttempt = useRef(new CardRegistrationAttempt());
   const [opening, setOpening] = useState(freshCardOpening);
   const [initializing, setInitializing] = useState(false);
   const [pendingStatementDeletion, setPendingStatementDeletion] = useState<{ ids: string[]; count: number } | null>(null);
@@ -75,8 +77,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [statementDeletionFeedback, setStatementDeletionFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [existingOpening, setExistingOpening] = useState(freshCardOpening);
   const [cardForm, setCardForm] = useState({
-    nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '10',
-    closing_day: '1', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
+    nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '',
+    closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
   useEffect(() => {
     if (!creating || thirdPartyCard || !ownerDefaults.name) return;
@@ -268,24 +270,37 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       if(Boolean(cardForm.expiry_month)!==Boolean(cardForm.expiry_year))throw new Error('Informe mês e ano da validade juntos.');
       const lastFour = cardForm.last_four.trim() || null;
       if (lastFour && !/^\d{4}$/.test(lastFour)) throw new Error('Informe apenas os quatro últimos dígitos.');
-      await personalWalletService.createCompleteCard({
+      const candidate = {
         card: {
           nickname: (cardForm.nickname.trim() || cardForm.issuer.trim()), issuer: cardForm.issuer.trim(),
           brand: cardForm.brand || null, last_four: lastFour,
           credit_limit: creditLimit,
-          due_day: Number(cardForm.due_day), closing_day: Number(cardForm.closing_day),
+          due_day: cardForm.due_day ? Number(cardForm.due_day) : null,
+          closing_day: cardForm.closing_day ? Number(cardForm.closing_day) : null,
         },
         existingAccountId: cardForm.account_id || null,
         opening: position,
         requestId: requestId.current,
         identity:{cardholder_name:cardForm.cardholder_name.trim()||null,expiry_month:cardForm.expiry_month?Number(cardForm.expiry_month):null,expiry_year:cardForm.expiry_year?Number(cardForm.expiry_year):null},
         envelope: null,
-      });
-      await refresh(); setCreating(false); setThirdPartyCard(false); setOpening(freshCardOpening());
+      };
+      try {
+        await personalWalletService.createCompleteCard(cardRegistrationAttempt.current.begin(candidate));
+        cardRegistrationAttempt.current.confirmed();
+      } catch (cause) {
+        cardRegistrationAttempt.current.failed(cause);
+        if (cardRegistrationAttempt.current.pending) {
+          throw new Error('A resposta do banco não foi confirmada. Tente salvar novamente; o sistema reutilizará a mesma solicitação para não duplicar o cartão.');
+        }
+        throw cause;
+      }
+      try { await refresh(); }
+      catch { setNotice('Cartão salvo no banco, mas a lista não foi atualizada. Toque em atualizar.'); }
+      setCreating(false); setThirdPartyCard(false); setOpening(freshCardOpening());
       requestId.current = generateUUID();
       setCardForm({
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
-        due_day: '10', closing_day: '1', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
+        due_day: '', closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
       });
     } catch (cause) { setCreateError(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
     finally { setSaving(false); }
@@ -466,77 +481,91 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             Escanear com a câmera (IA)
           </button>
         </div>
-        {(['issuer', 'nickname', 'credit_limit', 'closing_day', 'due_day'] as const).map(field =>
-          <label key={field} className="space-y-1 text-xs text-slate-300">
-            {({issuer:'Instituição / Banco',nickname:'Apelido (opcional)',
-              credit_limit:'Limite de crédito',closing_day:'Dia de fechamento',due_day:'Dia do vencimento'} as const)[field]}
-            <input required={field !== 'nickname' && field !== 'credit_limit'} list={field === 'issuer' ? 'wallet-new-card-banks' : undefined} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
-              min={field === 'closing_day' || field === 'due_day' ? 1 : undefined}
-              inputMode={field === 'credit_limit' ? 'decimal' : field === 'closing_day' || field === 'due_day' ? 'numeric' : undefined}
-              placeholder={field === 'credit_limit' ? 'Opcional — informar depois' : field === 'nickname' ? 'Usa o nome do banco se vazio' : field === 'issuer' ? 'Ex.: Nubank, Itaú, Inter' : undefined}
-              max={field === 'closing_day' || field === 'due_day' ? 31 : undefined}
-              value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
-        <label className="space-y-1 text-xs text-slate-300">Bandeira
-          <select value={cardForm.brand} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, brand: e.target.value })); }}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            {['Mastercard', 'Visa', 'Elo', 'American Express', 'Hipercard'].map(brand => <option key={brand} value={brand}>{brand}</option>)}
-          </select>
+        <label className="space-y-1 text-xs font-medium text-slate-200 sm:col-span-2">
+          Banco ou instituição
+          <input required maxLength={120} list="wallet-new-card-banks" autoComplete="off"
+            placeholder="Ex.: Nubank, Itaú, C6, RecargaPay"
+            value={cardForm.issuer} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:e.target.value}));}}
+            className="w-full rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-white"/>
         </label>
-        <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
-          <select value={cardForm.account_id} onChange={e => {
-            const nextAccountId = e.target.value;
-            const matched = data.accounts.find(a => a.id === nextAccountId);
-            requestId.current = generateUUID();
-            setCardForm(v => ({
-              ...v,
-              account_id: nextAccountId,
-              issuer: v.issuer || matched?.bank_name || matched?.nickname || '',
-            }));
-          }}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="">Cartão independente (sem conta vinculada)</option>
-            {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
-          </select>
-        </label>
-        <div className="sm:col-span-2 rounded-lg border border-slate-700/70 bg-slate-950/60 p-3">
-          <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-slate-200">
-            <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
-              onChange={event => {
-                const thirdParty = event.target.checked;
-                setThirdPartyCard(thirdParty);
-                requestId.current = generateUUID();
-                setCardForm(value => ({...value,
-                  cardholder_name: thirdParty ? '' : ownerDefaults.name || value.cardholder_name,
-                }));
-              }}/>
-            Cartão de outra pessoa
-          </label>
-          <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            {thirdPartyCard
-              ? 'Informe o nome do titular autorizado deste cartão.'
-              : ownerDefaults.name
-                ? 'Titular preenchido pelo seu perfil CapitalFlow. Você pode editar o nome impresso.'
-                : 'Informe o titular ou complete seu perfil CapitalFlow para preenchimento automático.'}
-          </p>
-        </div>
-        <label className="space-y-1 text-xs text-slate-300">Nome impresso no cartão
-          <input maxLength={120} autoComplete="cc-name" value={cardForm.cardholder_name} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,cardholder_name:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="NOME DO TITULAR"/>
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="space-y-1 text-xs text-slate-300">Mês da validade<input type="number" min={1} max={12} autoComplete="cc-exp-month" value={cardForm.expiry_month} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,expiry_month:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="MM"/></label>
-          <label className="space-y-1 text-xs text-slate-300">Ano da validade<input type="number" min={2000} max={2200} autoComplete="cc-exp-year" value={cardForm.expiry_year} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,expiry_year:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="AAAA"/></label>
-        </div>
-        <label className="space-y-1 text-xs text-slate-300">Últimos 4 dígitos (opcional)
-          <input inputMode="numeric" maxLength={4} pattern="[0-9]{4}"
-            placeholder="Ex.: 1234" value={cardForm.last_four}
-            onChange={event => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, last_four: event.target.value.replace(/\D/g, '').slice(0, 4) })); }}
+        <label className="space-y-1 text-xs text-slate-300">
+          Apelido (opcional)
+          <input maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
+            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,nickname:e.target.value}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
-        <p className="self-end text-xs leading-relaxed text-slate-400">
-          Cadastro sem senha adicional. Número completo e CVC não são solicitados aqui; a proteção
-          desses dados será integrada à autenticação segura do aplicativo.
+        <label className="space-y-1 text-xs text-slate-300">
+          Final do cartão (opcional)
+          <input inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
+            value={cardForm.last_four}
+            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,last_four:e.target.value.replace(/\D/g,'').slice(0,4)}));}}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+        </label>
+        <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">
+          Limite total (R$, opcional)
+          <input inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
+            value={cardForm.credit_limit}
+            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,credit_limit:e.target.value}));}}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+        </label>
+        <p className="sm:col-span-2 text-xs leading-relaxed text-slate-400">
+          Apenas o banco é obrigatório. Sem senha extra, número completo ou CVC.
+          Os valores podem ser ajustados depois pela fatura.
         </p>
+        <details className="sm:col-span-2 rounded-xl border border-slate-800 bg-slate-950/50">
+          <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-blue-200">
+            Mais informações (opcional): datas, bandeira, titular e vínculo
+          </summary>
+          <div className="grid gap-3 border-t border-slate-800 p-3 sm:grid-cols-2">
+            <label className="space-y-1 text-xs text-slate-300">Bandeira
+              <select value={cardForm.brand} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,brand:e.target.value}));}}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+                {['Mastercard','Visa','Elo','American Express','Hipercard'].map(brand=><option key={brand} value={brand}>{brand}</option>)}
+              </select>
+            </label>
+            {(['closing_day','due_day'] as const).map(field=>
+              <label key={field} className="space-y-1 text-xs text-slate-300">
+                {field==='closing_day'?'Dia do fechamento':'Dia do vencimento'}
+                <input type="number" min={1} max={31} inputMode="numeric" placeholder="Não informado"
+                  value={cardForm[field]} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,[field]:e.target.value}));}}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+              </label>
+            )}
+            <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
+              <select value={cardForm.account_id} onChange={e=>{
+                const matched=data.accounts.find(a=>a.id===e.target.value);
+                requestId.current=generateUUID();
+                setCardForm(v=>({...v,account_id:e.target.value,issuer:v.issuer||matched?.bank_name||matched?.nickname||''}));
+              }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
+                <option value="">Sem vínculo bancário</option>
+                {data.accounts.map(account=><option key={account.id} value={account.id}>{account.nickname}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
+              <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
+                onChange={e=>{
+                  setThirdPartyCard(e.target.checked);requestId.current=generateUUID();
+                  setCardForm(v=>({...v,cardholder_name:e.target.checked?'':ownerDefaults.name||v.cardholder_name}));
+                }}/>Cartão de outra pessoa
+            </label>
+            <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
+              <input maxLength={120} autoComplete="cc-name" placeholder="Nome do titular"
+                value={cardForm.cardholder_name}
+                onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:e.target.value}));}}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+            </label>
+            <label className="space-y-1 text-xs text-slate-300">Validade — mês
+              <input type="number" min={1} max={12} placeholder="MM" value={cardForm.expiry_month}
+                onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,expiry_month:e.target.value}));}}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+            </label>
+            <label className="space-y-1 text-xs text-slate-300">Validade — ano
+              <input type="number" min={2000} max={2200} placeholder="AAAA" value={cardForm.expiry_year}
+                onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,expiry_year:e.target.value}));}}
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
+            </label>
+          </div>
+        </details>
         {createError&&<p role="alert" className="text-sm text-rose-300 sm:col-span-2">{createError}</p>}
         <div className="sm:col-span-2">
           <CardOpeningFields collapsible value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}

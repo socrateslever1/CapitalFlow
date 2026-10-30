@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read = (path) => readFileSync(path,'utf8');
-const sql = read('supabase/migrations/20261030214000_wallet_confirm_issuer_invoice.sql');
+const sql = read('supabase/migrations/20261030215000_wallet_confirm_issuer_invoice.sql');
 const service = read('services/personalWallet.service.ts');
 const preview = read('components/wallet/CardInvoiceSummaryPreview.tsx');
 const page = read('features/wallet/pages/WalletCardsPage.tsx');

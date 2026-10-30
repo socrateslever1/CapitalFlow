@@ -14,7 +14,7 @@ export type CardInvoiceSummary = {
   warnings: string[];
 };
 
-const moneyPattern = String.raw`(?:R\$\s*)?-?\d{1,3}(?:\.\d{3})*,\d{2}|(?:R\$\s*)?-?\d+,\d{2}`;
+const moneyPattern = String.raw`(?:R\$\s*)?-?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}`;
 const moneyRx = new RegExp(moneyPattern, 'gi');
 const amount = (token: string): number | null => {
   const stripped = token.replace(/R\$\s*/gi, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
@@ -56,6 +56,11 @@ function matchDate(lines: string[], pattern: RegExp): string | null {
     if (!pattern.test(plain)) continue;
     const matched = (plain + ' ' + (lines[i + 1] || '')).match(/\b\d{2}[\/.]\d{2}[\/.]\d{4}\b/);
     if (matched) return isoDate(matched[0]);
+    const named = (plain + ' ' + (lines[i + 1] || '')).match(/\b(\d{1,2})\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\s+(\d{4})\b/i);
+    if (named) {
+      const months: Record<string, number> = { jan:1, fev:2, mar:3, abr:4, mai:5, jun:6, jul:7, ago:8, set:9, out:10, nov:11, dez:12 };
+      return isoDate(String(named[1]).padStart(2,'0') + '/' + String(months[named[2].toLowerCase()]).padStart(2,'0') + '/' + named[3]);
+    }
   }
   return null;
 }
@@ -66,14 +71,19 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
     : /\bnubank\b|\bnucel\b/.test(body) ? 'Nubank'
       : /\bitau\b/.test(body) ? 'Itaú' : null;
   const documentLines = [...lines];
-  const invoiceTotal = matchValue(documentLines, /\btotal\s+(?:a\s+pagar|desta\s+fatura)\b/);
+  const invoiceTotal = matchValue(documentLines, /\btotal\s+(?:a\s+pagar|desta\s+fatura)\b/)
+    ?? (institution === 'Mercado Pago' ? matchValue(documentLines, /^total\s*(?=r\$|\d)/) : null);
   const minimumPayment = matchValue(documentLines, /\bpagamento\s+minimo\b(?:\s*:)?/);
-  const creditLimit = matchValue(documentLines, /\blimite\s+total(?:\s+de\s+credito|\s+do\s+cartao\s+de\s+credito)?\b(?=\s|:)/);
+  let creditLimit = matchValue(documentLines, /\blimite\s+total(?:\s+de\s+credito|\s+do\s+cartao\s+de\s+credito)?\b(?!\s+utilizado)(?=\s|:)/);
   let usedLimit = matchValue(documentLines, /\blimite\s+(?:total\s+)?utilizado\b/);
   let availableLimit = matchValue(documentLines, /\blimite\s+disponivel\b/);
   let futureInstallments = matchValue(documentLines, /\b(?:compras\s+parceladas|total\s+para\s+proximas\s+faturas)\b/);
   const dueDate = matchDate(documentLines, /\b(?:vencimento|vence\s+em)\b/);
   const warnings: string[] = [];
+  if (creditLimit === null && institution === 'Mercado Pago' && usedLimit !== null && availableLimit !== null) {
+    creditLimit = Math.round((usedLimit + availableLimit) * 100) / 100;
+    warnings.push('Limite total inferido da soma utilizado + disponível; confirme no aplicativo bancário.');
+  }
   // In some Nubank layouts "Limite total" contains two table columns:
   // "Utilizado" and "Disponível". Never interpret the second as a fresh limit.
   if (institution === 'Nubank') {

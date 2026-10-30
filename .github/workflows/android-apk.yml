@@ -377,10 +377,48 @@ jobs:
                 --target "$GITHUB_SHA" --title "CapitalFlow Android — beta assinada" \
                 --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"
             fi
-            gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
-              "$signed" "$checksum"
-            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
-              --title "CapitalFlow Android — beta assinada" \
-              --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"
+            # GitHub API may return transient HTTP 500 after updating only one
+            # asset, leaving APK/checksum inconsistent. Retry the complete
+            # upload, then verify remote bytes *before* updating release notes.
+            uploaded=false
+            for attempt in 1 2 3 4 5; do
+              if gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+                "$signed" "$checksum"; then
+                uploaded=true
+                break
+              fi
+              echo "::warning::Tentativa $attempt/5 de upload para $tag falhou."
+              sleep $((attempt * 3))
+            done
+            if [[ "$uploaded" != true ]]; then
+              echo "::error::Upload da release falhou apos cinco tentativas."
+              exit 1
+            fi
+            verify_dir="$RUNNER_TEMP/verify-release-$tag"
+            mkdir -p "$verify_dir"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern 'CapitalFlow-Android.apk*' --dir "$verify_dir" --clobber
+            cmp "$checksum" "$verify_dir/CapitalFlow-Android.apk.sha256"
+            expected_sha="$(sha256sum "$signed" | cut -d ' ' -f 1)"
+            actual_sha="$(sha256sum "$verify_dir/CapitalFlow-Android.apk" | cut -d ' ' -f 1)"
+            if [[ "$actual_sha" != "$expected_sha" ]]; then
+              echo "::error::Arquivo publicado difere da release assinada localmente."
+              exit 1
+            fi
+            edited=false
+            for attempt in 1 2 3 4 5; do
+              if gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+                --title "CapitalFlow Android — beta assinada" \
+                --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"; then
+                edited=true
+                break
+              fi
+              echo "::warning::Falha temporaria ao atualizar notas ($attempt/5)."
+              sleep $((attempt * 3))
+            done
+            if [[ "$edited" != true ]]; then
+              echo "::error::Falha ao atualizar metadados da release."
+              exit 1
+            fi
           done
           echo "APK atualizado com certificado SHA-256 $new_cert e versionCode $new_code"

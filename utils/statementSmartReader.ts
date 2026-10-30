@@ -314,7 +314,7 @@ Regras Cruciais:
 export async function parseSmartFinancialDocument(
   file: File,
   kind: 'ACCOUNT' | 'CARD',
-  options?: { forceAi?: boolean }
+  options?: { forceAi?: boolean; pdfPassword?: string }
 ): Promise<SmartStatementParseResult> {
   const fileName = file.name.toLowerCase();
   const fileType = file.type.toLowerCase();
@@ -347,7 +347,7 @@ export async function parseSmartFinancialDocument(
       return {...cloud, sourceType: 'PDF_AI', previewUrl: undefined,
         costLabel: 'IA Gemini (consulte os custos da API)'};
     }
-    const nativeResult = await parseStatementPdf(file, kind);
+    const nativeResult = await parseStatementPdf(file, kind, options?.pdfPassword);
     return {
       ...nativeResult,
       sourceType: 'PDF_NATIVE',

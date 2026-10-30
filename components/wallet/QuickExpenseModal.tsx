@@ -108,7 +108,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   }, [paymentMode, conditionMode, installmentCount]);
 
   const installmentPreview = useMemo(() => {
-    if (paymentMode !== 'CARD' || amountValue <= 0) return null;
+    if (paymentMode !== 'CARD' || !Number.isFinite(amountValue) || amountValue <= 0) return null;
     const perInstallment = Math.round((amountValue / effectiveInstallments) * 100) / 100;
     const cycle = resolveFirstInstallmentMonthLabel(expenseDate, selectedCard?.closing_day);
     return {

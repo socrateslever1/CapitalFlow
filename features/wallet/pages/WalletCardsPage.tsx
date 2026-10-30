@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
-import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../services/personalWallet.service';
 import type { CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
 import { CardInvoiceSummaryPreview } from '../../../components/wallet/CardInvoiceSummaryPreview';
@@ -34,7 +33,7 @@ import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobo
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
 
-export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
+export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
   const requestedAction = searchParams.get('acao');
@@ -54,7 +53,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [creating, setCreating] = useState(false);
   const [addProtectedAfterCreate, setAddProtectedAfterCreate] = useState(true);
   const [thirdPartyCard, setThirdPartyCard] = useState(false);
-  const ownerDefaults = useWalletOwnerDefaults(activeUser, creating);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
@@ -81,11 +79,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '',
     closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
-  useEffect(() => {
-    if (!creating || thirdPartyCard || !ownerDefaults.name) return;
-    setCardForm(value => value.cardholder_name.trim()
-      ? value : { ...value, cardholder_name: ownerDefaults.name });
-  }, [creating, thirdPartyCard, ownerDefaults.name]);
 
   const [expenseForm, setExpenseForm] = useState({
     description: '', amount: '', category: 'Compras', installment_count: '1',
@@ -473,7 +466,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {creating && <Modal title="Novo cartão" subtitle="Identificação e valores opcionais" icon={<CreditCard size={17}/>} onClose={() => {
           setCreating(false);
           setThirdPartyCard(false);
-          setCardForm(value => ({ ...value, cardholder_name: ownerDefaults.name }));
           setCreateError('');
         }} busy={saving}
         footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
@@ -497,20 +489,20 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           onChange={value=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:value}));}}/>
         <label className="space-y-1 text-xs text-slate-300">
           Apelido (opcional)
-          <input maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
+          <input name="wallet-card-nickname" type="text" autoComplete="off" maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
             onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,nickname:e.target.value}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
         <label className="space-y-1 text-xs text-slate-300">
           Final do cartão (opcional)
-          <input inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
+          <input name="wallet-card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
             value={cardForm.last_four}
             onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,last_four:e.target.value.replace(/\D/g,'').slice(0,4)}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
         <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">
           Limite total (R$, opcional)
-          <input inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
+          <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
             value={cardForm.credit_limit}
             onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,credit_limit:e.target.value}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
@@ -525,7 +517,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </summary>
           <div className="grid gap-3 border-t border-slate-800 p-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs text-slate-300">Bandeira
-              <select value={cardForm.brand} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,brand:e.target.value}));}}
+              <select name="wallet-card-brand" autoComplete="off" value={cardForm.brand} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,brand:e.target.value}));}}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
                 {['Mastercard','Visa','Elo','American Express','Hipercard'].map(brand=><option key={brand} value={brand}>{brand}</option>)}
               </select>
@@ -539,7 +531,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               </label>
             )}
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
-              <select value={cardForm.account_id} onChange={e=>{
+              <select name="wallet-card-linked-account" value={cardForm.account_id} onChange={e=>{
                 requestId.current=generateUUID();
                 setCardForm(v=>({...v,account_id:e.target.value}));
               }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
@@ -549,13 +541,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </label>
             <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
               <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
-                onChange={e=>{
-                  setThirdPartyCard(e.target.checked);requestId.current=generateUUID();
-                  setCardForm(v=>({...v,cardholder_name:e.target.checked?'':ownerDefaults.name||v.cardholder_name}));
-                }}/>Cartão de outra pessoa
+                onChange={e=>{setThirdPartyCard(e.target.checked);requestId.current=generateUUID();}}/>Cartão de outra pessoa
             </label>
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
-              <input maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
+              <input type="text" maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
                 value={cardForm.cardholder_name}
                 onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:e.target.value}));}}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>

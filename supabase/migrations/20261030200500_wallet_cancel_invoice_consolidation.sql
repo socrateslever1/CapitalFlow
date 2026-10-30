@@ -147,5 +147,92 @@ begin
   return v_position||jsonb_build_object('replayed',false);
 end;
 $;
+
+-- Excluir a fatura não paga equivale a cancelar seus lançamentos contábeis
+-- ainda pendentes. O banco nunca perde trilha de auditoria ou pagamentos.
+alter table public.personal_wallet_cards
+  add column if not exists invoice_cancel_requests jsonb not null default '{}'::jsonb;
+
+create or replace function public.personal_wallet_cancel_unpaid_invoice_cycle(
+  p_card_id uuid, p_due_month date, p_request_id uuid
+) returns jsonb
+language plpgsql security definer set search_path=public,pg_temp
+as $
+declare
+  v_owner uuid := auth.uid();
+  v_card public.personal_wallet_cards%rowtype;
+  v_ids uuid[];
+  v_month date;
+  v_payload jsonb;
+begin
+  if v_owner is null or not public.is_platform_super_admin()
+    or not exists(select 1 from public.user_modulos m where m.user_id=v_owner
+      and m.modulo_chave='carteira' and m.ativo)
+  then raise exception 'Acesso não autorizado à Carteira.'; end if;
+  if p_card_id is null or p_due_month is null or p_request_id is null
+    or date_trunc('month',p_due_month)::date<>p_due_month
+  then raise exception 'Identificadores ou mês da fatura inválidos.'; end if;
+  v_month:=p_due_month;
+  v_payload:=jsonb_build_object('operation','CANCEL_UNPAID_INVOICE',
+    'card_id',p_card_id,'due_month',v_month);
+  -- Serializa com consolidação e pagamento do cartão; impede corrida de escrita.
+  perform pg_advisory_xact_lock(hashtextextended(
+    v_owner::text||':invoice-override:'||p_card_id::text||':'||v_month::text,0
+  ));
+  select * into v_card from public.personal_wallet_cards
+    where owner_user_id=v_owner and id=p_card_id and status='ACTIVE' for update;
+  if not found then raise exception 'Cartão ativo não encontrado.'; end if;
+  if v_card.invoice_cancel_requests ? p_request_id::text then
+    if v_card.invoice_cancel_requests->p_request_id::text<>v_payload then
+      raise exception 'Identificador reutilizado com parâmetros diferentes.';
+    end if;
+    return private.wallet_recalculate_card_position(v_owner,p_card_id,v_month)
+      ||jsonb_build_object('replayed',true);
+  end if;
+  -- Não excluir qualquer ciclo com histórico de pagamento bancário/manual.
+  if exists(select 1 from public.personal_wallet_invoice_payments
+    where owner_user_id=v_owner and card_id=p_card_id and due_month=v_month)
+  then raise exception 'Esta fatura já recebeu pagamento. É necessário ajuste auditado do pagamento antes de excluir.'; end if;
+
+  select array_agg(distinct e.id) into v_ids
+  from public.personal_wallet_expenses e
+  join public.personal_wallet_expense_installments i on i.expense_id=e.id
+  where e.owner_user_id=v_owner and e.card_id=p_card_id and e.status<>'CANCELED'
+    and i.owner_user_id=v_owner and i.due_month=v_month
+    and i.status<>'CANCELED';
+
+  if coalesce(array_length(v_ids,1),0)=0 then
+    raise exception 'Não existem lançamentos ativos nesta fatura.'; end if;
+  -- Uma compra parcelada pertence a vários meses. Exigir cancelamento da
+  -- compra individual evita apagar parcelas de outras faturas inadvertidamente.
+  if exists(select 1 from public.personal_wallet_expenses e
+    where e.id=any(v_ids) and e.entry_type not in ('PURCHASE','INVOICE_OVERRIDE'))
+  then raise exception 'Este ciclo contém movimentos não editáveis. Revise os itens individualmente.'; end if;
+  if exists(select 1 from public.personal_wallet_expense_installments i
+    where i.expense_id=any(v_ids)
+      and (i.status='PAID' or coalesce(i.paid_amount,0)>0))
+  then raise exception 'Existem parcelas pagas. Não é permitido excluir a fatura.'; end if;
+  if exists(select 1 from public.personal_wallet_expense_installments i
+    where i.expense_id=any(v_ids) and i.due_month<>v_month
+      and i.status<>'CANCELED')
+  then raise exception 'A fatura contém compras parceladas em outros meses. Cancele cada compra individualmente.'; end if;
+
+  update public.personal_wallet_expenses
+    set status='CANCELED',updated_at=now() where id=any(v_ids);
+  update public.personal_wallet_expense_installments
+    set status='CANCELED' where expense_id=any(v_ids) and status<>'PAID';
+  update public.personal_wallet_cards set
+    invoice_cancel_requests=invoice_cancel_requests||jsonb_build_object(p_request_id::text,v_payload),
+    updated_at=now()
+    where id=p_card_id and owner_user_id=v_owner;
+  return private.wallet_recalculate_card_position(v_owner,p_card_id,v_month)
+    ||jsonb_build_object('replayed',false,'canceled_expenses',array_length(v_ids,1));
+end;
+$;
+revoke all on function public.personal_wallet_cancel_unpaid_invoice_cycle(uuid,date,uuid)
+  from public,anon;
+grant execute on function public.personal_wallet_cancel_unpaid_invoice_cycle(uuid,date,uuid)
+  to authenticated;
+
 notify pgrst,'reload schema';
 commit;

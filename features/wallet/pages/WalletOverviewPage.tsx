@@ -10,7 +10,7 @@ import type {
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
-import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceStatementDomain';
+import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
@@ -40,15 +40,6 @@ const dayKey = (date: Date) => {
   const year = date.getFullYear();
   return year + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' +
     String(date.getDate()).padStart(2, '0');
-};
-const dueDateForCard = (month: string, dueDay: number | null) => {
-  const match = /^(\d{4})-(\d{2})/.exec(month);
-  if (!match || !dueDay) return null;
-  const year = Number(match[1]);
-  const index = Number(match[2]) - 1;
-  if (index < 0 || index > 11 || dueDay < 1 || dueDay > 31) return null;
-  const last = new Date(year, index + 1, 0).getDate();
-  return dayKey(new Date(year, index, Math.min(dueDay, last)));
 };
 const dateLabel = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);
@@ -95,20 +86,27 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   ));
   const credit = getCreditSummary(cards);
   const spending = getWalletSpendingOverview(snapshot.expenses, month);
+  const exactDueDates = new Map((snapshot.cardInvoiceDates || [])
+    .map(item => [item.card_id + ':' + item.due_month.slice(0, 7), item.due_date] as const));
   const invoiceList: Commitment[] = cards.flatMap(card =>
     getEffectiveInvoiceCycles(card.id, snapshot.expenses, snapshot.installments)
       .filter(cycle => cycle.amount > 0)
       .flatMap(cycle => {
-        const dueDate = dueDateForCard(cycle.dueMonth, card.due_day);
-        return dueDate ? [{
+        const explicitDate=exactDueDates.get(card.id + ':' + cycle.dueMonth.slice(0, 7));
+        if (!card.due_day && !explicitDate) return [];
+        const { closingDate, dueDate } = getInvoiceCycleDates(
+          cycle.dueMonth, card.closing_day, card.due_day, explicitDate,
+        );
+        const competence = closingDate.slice(5,7) + '/' + closingDate.slice(0,4);
+        return [{
           id: card.id + ':' + cycle.dueMonth,
-          title: 'Fatura ' + card.nickname,
+          title: 'Fatura ' + card.nickname + ' · competência ' + competence,
           institution: card.issuer || card.nickname,
           dueDate,
           amount: cycle.amount,
           accountLabel: sourceAccount(accounts, cards, card.account_id),
           category: 'CARD' as const,
-        }] : [];
+        }];
       }),
   );
   // Only the current calendar month's invoices enter the monthly projection.

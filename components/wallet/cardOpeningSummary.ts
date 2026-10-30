@@ -20,14 +20,13 @@ export function calculateCardOpening(
   const [total, committed, bill, future] = values.map((value) =>
     Math.round(value * 100),
   );
-  if (committed > total)
-    throw new Error('O limite usado não pode superar o limite total.');
   if (bill + future > committed)
     throw new Error(
       'O limite usado precisa incluir a fatura e os gastos futuros já cadastrados.',
     );
   return {
-    available: (total - committed) / 100,
+    available: Math.max(0, total - committed) / 100,
+    overLimit: Math.max(0, committed - total) / 100,
     other: (committed - bill) / 100,
     unallocated: (committed - bill - future) / 100,
   };

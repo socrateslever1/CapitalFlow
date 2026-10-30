@@ -9,12 +9,13 @@ export interface PayInvoiceModalProps {
   accounts: PersonalWalletAccount[];
   invoiceAmount?: number;
   dueMonth?: string;
+  dueDate?: string | null;
   onClose: () => void;
   onPay: (cardId: string, dueMonth: string, accountId: string | null, amount: number, requestId: string) => Promise<void>;
 }
 
 export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
-  card, accounts, invoiceAmount = 0, dueMonth, onClose, onPay,
+  card, accounts, invoiceAmount = 0, dueMonth, dueDate, onClose, onPay,
 }) => {
   const remaining = Math.max(0, Math.round(Number(invoiceAmount ?? card.current_bill ?? 0) * 100) / 100);
   const [accountId, setAccountId] = useState<string>(accounts[0]?.id || 'MANUAL');
@@ -71,7 +72,7 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
           <div className="text-center rounded-xl border border-slate-800 bg-slate-950 p-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saldo da fatura ainda em aberto</p>
             <strong className="block text-2xl font-black text-emerald-400">{formatMoney(remaining)}</strong>
-            <p className="text-xs text-slate-500 mt-1">Ciclo de vencimento: dia {card.due_day || '05'}</p>
+            <p className="text-xs text-slate-500 mt-1">Vencimento: {dueDate ? dueDate.split('-').reverse().join('/') : 'Não informado'}</p>
           </div>
           <label className="block space-y-1.5">
             <span className="block text-[11px] font-bold uppercase text-slate-300">Quanto foi pago?</span>

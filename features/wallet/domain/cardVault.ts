@@ -118,7 +118,8 @@ export async function encryptCardWithMaster(
   data:ProtectedCardData,key:CryptoKey,owner:string,context:string
 ):Promise<CardVaultV2Envelope> {
   if(!globalThis.crypto?.subtle) throw new Error('Criptografia indisponível.');
-  const value=normalized(data);
+  // CVC is sensitive authentication data and must never be stored, even encrypted.
+  const value=normalized({...data,securityCode:''});
   if(!/^[a-f0-9-]{36}$/i.test(context)) throw new Error('Identificador do cartão inválido.');
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const ciphertext=await crypto.subtle.encrypt(

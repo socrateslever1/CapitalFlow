@@ -290,7 +290,7 @@ export const personalWalletService = {
    * Financial writes remain in the existing canonical RPCs.
    */
   async loadOverview() {
-    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts] =
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates] =
       await Promise.all([
         supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
         supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
@@ -303,9 +303,13 @@ export const personalWalletService = {
         supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }),
         supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id')
           .order('reference_month', { ascending: false }).limit(500),
+        // Lightweight invoice metadata: exact issuer due dates may differ from
+        // the generic day configured for the card. No PAN or sensitive fields.
+        supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
+          .order('due_month',{ascending:false}).limit(500),
       ]);
     const error = accounts.error || cards.error || expenses.error || installments.error ||
-      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error;
+      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error || cardInvoiceDates.error;
     if (error) throw new Error(error.message);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
@@ -335,6 +339,7 @@ export const personalWalletService = {
       payables: (payables.data || []) as PersonalWalletPayable[],
       recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
       recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
+      cardInvoiceDates: (cardInvoiceDates.data || []) as Array<{card_id:string;due_month:string;due_date:string|null}>,
     };
   },
 
@@ -1135,6 +1140,35 @@ export const personalWalletService = {
     return String(data);
   },
 
+  /** One atomic correction: payment month, exact due date and consolidated amount.
+   * Moving an existing invoice never creates a second liability. The RPC rejects
+   * paid cycles or divergent destination invoices and is request-idempotent.
+   */
+  async correctInvoiceOverride(input: {
+    cardId: string; previousDueMonth: string | null;
+    dueMonth: string; dueDate: string; amount: number; requestId: string;
+  }) {
+    const monthPattern=/^\d{4}-(0[1-9]|1[0-2])-01$/;
+    if (!input.cardId || !input.requestId || !monthPattern.test(input.dueMonth)
+      || (input.previousDueMonth !== null && !monthPattern.test(input.previousDueMonth)))
+      throw new Error('Selecione o cartão e um mês de vencimento válido.');
+    const timestamp=new Date(input.dueDate+'T00:00:00Z');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) ||
+      Number.isNaN(timestamp.getTime()) || timestamp.toISOString().slice(0,10)!==input.dueDate ||
+      input.dueDate.slice(0,7)!==input.dueMonth.slice(0,7))
+      throw new Error('Informe uma data de pagamento válida dentro do mês escolhido.');
+    if (!Number.isFinite(input.amount) || input.amount<=0 || input.amount>9999999999.99 ||
+      Math.abs(input.amount*100-Math.round(input.amount*100))>0.000001)
+      throw new Error('Informe o valor da fatura com até duas casas decimais.');
+    const { data,error }=await supabase.rpc('personal_wallet_correct_invoice_override',{
+      p_card_id:input.cardId,p_previous_due_month:input.previousDueMonth,
+      p_new_due_month:input.dueMonth,p_due_date:input.dueDate,
+      p_amount:input.amount,p_request_id:input.requestId,
+    });
+    if(error)throw new Error(error.message);
+    return data as {card_id:string;expense_id:string;due_month:string|null;replayed:boolean;merged_duplicate?:boolean};
+  },
+
   async setMonthlyInvoiceOverride(input: {
     cardId: string;
     dueMonth: string;
@@ -1153,6 +1187,28 @@ export const personalWalletService = {
     });
     if (error) throw new Error(error.message);
     return data as { card_id: string; expense_id: string; due_month: string | null; current_invoice: number; future_commitments: number; committed_limit: number; free_limit: number; replayed: boolean };
+  },
+
+  async cancelUnpaidInvoiceCycle(cardId: string, dueMonth: string, requestId: string) {
+    if (!cardId || !requestId || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
+      throw new Error('Identificação ou mês da fatura inválido.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_cancel_unpaid_invoice_cycle', {
+      p_card_id: cardId, p_due_month: dueMonth, p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; replayed: boolean; canceled_expenses: number };
+  },
+
+  async cancelInvoiceConsolidation(cardId: string, dueMonth: string, requestId: string) {
+    if (!cardId || !requestId || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
+      throw new Error('Identificação ou mês da fatura inválido.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_cancel_invoice_consolidation', {
+      p_card_id: cardId, p_due_month: dueMonth, p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; replayed: boolean };
   },
 
   async updateExpense(input: UpdatePersonalWalletExpense, requestId = generateUUID()) {

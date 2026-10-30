@@ -73,7 +73,7 @@ export const CardInvoiceSummaryPreview: React.FC<{
             </label>
           ))}
           <label className="rounded-lg bg-slate-900 px-2.5 py-2 text-[11px] text-slate-400">
-            Data de vencimento
+            Data exata de vencimento da fatura
             <input type="date" value={form.dueDate} disabled={saving}
               onChange={event=>{setSaved(false);setForm(v=>({...v,dueDate:event.target.value}));}}
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white"/>
@@ -81,7 +81,7 @@ export const CardInvoiceSummaryPreview: React.FC<{
         </div>
         {summary.warnings.map((warning,index)=><p className="text-xs text-amber-200" key={index}>{warning}</p>)}
         <p className="text-[11px] leading-relaxed text-slate-400">
-          Estes dados são uma fotografia da fatura, não pagamentos confirmados.
+          A data de vencimento refere-se somente ao mês selecionado; para alterar o dia habitual de todas as faturas, edite o cartão. Estes dados são uma fotografia da fatura, não pagamentos confirmados.
           Corrigir os valores não modifica compras, limite bancário ou saldo contábil.
         </p>
         {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
+import {normalizeBankSearch,bankSuggestionHeight} from '../../components/wallet/walletBankComboboxDomain';
+import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {
   createWalletMasterPin, unlockWalletMasterPin,
   encryptCardWithMaster, decryptCardWithMaster,
@@ -25,10 +27,10 @@ test('one PIN wraps a random AES-256 master key; no PAN/PIN/CVC leaks in stored 
   assert.equal(envelope.version,2);
   assert.ok(!JSON.stringify(envelope).includes(data.number));
   assert.ok(!JSON.stringify(envelope).includes(data.securityCode));
-  assert.deepEqual(await decryptCardWithMaster(envelope,key,owner),data);
+  assert.deepEqual(await decryptCardWithMaster(envelope,key,owner),{...data,securityCode:''});
   const restored=await unlockWalletMasterPin(profile,pin);
   assert.equal(restored.extractable,false);
-  assert.deepEqual(await decryptCardWithMaster(envelope,restored,owner),data);
+  assert.deepEqual(await decryptCardWithMaster(envelope,restored,owner),{...data,securityCode:''});
   await assert.rejects(unlockWalletMasterPin(profile,'87654321'),/PIN incorreto/);
   await assert.rejects(decryptCardWithMaster(envelope,restored,'another-owner'),/Não foi possível/);
   await assert.rejects(decryptCardWithMaster({...envelope,context_id:'30000000-0000-4000-8000-000000000001'},restored,owner),/Não foi possível/);
@@ -76,4 +78,41 @@ test('basic card creation remains passwordless and offers encrypted details afte
   assert.ok(page.includes('if(addProtectedAfterCreate && createdCardId)'));
   assert.ok(page.includes('setVaultCard({'));
   assert.ok(page.includes('setCreating(false)'));
+});
+
+test('bank lookup ignores case and accents while preserving typed text',()=>{
+  assert.equal(normalizeBankSearch(' ITAÚ '), 'itau');
+  const results=BANK_CATALOG.filter(bank=>normalizeBankSearch(bank.name).includes(normalizeBankSearch('nUbAnK')));
+  assert.ok(results.length>0,'Nubank should be searchable');
+  assert.ok(results.some(bank=>normalizeBankSearch(bank.name).includes('nubank')));
+  assert.equal(normalizeBankSearch('Mercado PÁGO'), 'mercado pago');
+});
+test('suggestions stay above the Android keyboard and inside the modal scroll body',()=>{
+  assert.equal(bankSuggestionHeight(320,800,500),168,'limited by modal body, not physical screen');
+  assert.equal(bankSuggestionHeight(320,400,700),68,'limited by visible keyboard viewport');
+  assert.equal(bankSuggestionHeight(320,350,800),0,'do not overlay keyboard when no room');
+  assert.equal(bankSuggestionHeight(100,900,900),224,'bound list height');
+  assert.equal(bankSuggestionHeight(NaN,800,800),0,'invalid geometry closes suggestions');
+});
+test('card form and vault are isolated from account autofill and global credential prompts',()=>{
+  const page=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  const combobox=readFileSync('components/wallet/WalletBankCombobox.tsx','utf8');
+  const protectedFields=readFileSync('components/wallet/CardProtectedFields.tsx','utf8');
+  const modal=readFileSync('components/wallet/CardVaultModal.tsx','utf8');
+  const form=page.slice(page.indexOf('{creating && <Modal'),page.indexOf('{mayInitializeExisting &&'));
+  assert.ok(form.includes('<WalletBankCombobox'));
+  assert.ok(!form.includes('<datalist'));
+  assert.ok(!form.includes('issuer:v.issuer||matched'),'linked account cannot override issuer');
+  assert.ok(!page.includes('cardholder_name: ownerDefaults.name'),'printed name is user-controlled');
+  assert.ok(combobox.includes('window.visualViewport'));
+  assert.ok(combobox.includes("closest('[data-dialog-body]')"));
+  assert.ok(combobox.includes('role="combobox"'));
+  assert.ok(combobox.includes('role="listbox"'));
+  assert.ok(combobox.includes('onBlur='));
+  assert.ok(combobox.includes("event.key === 'Escape'"));
+  assert.ok(protectedFields.includes('não é solicitado nem armazenado'));
+  assert.ok(!protectedFields.includes('value={value.securityCode}'));
+  assert.ok(!modal.includes("['CVC',draft.securityCode]"));
+  assert.ok(modal.includes('setRetry(value=>value+1)'),'reload vault after Android backgrounding');
+  assert.ok(modal.includes('A sessão mudou ou não tem autorização'));
 });

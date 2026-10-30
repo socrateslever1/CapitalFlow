@@ -72,7 +72,8 @@ export function suggestWalletDestination(
     const candidates = cards.filter(card => card.status !== 'CANCELED' &&
       (matchesBank(card.issuer || '') || matchesBank(card.nickname)));
     const exact = digits ? candidates.filter(card => card.last_four === digits) : [];
-    const selected = exact.length === 1 ? exact[0] : !digits && candidates.length === 1 ? candidates[0] : null;
+    const selected = exact.length === 1 ? exact[0]
+      : candidates.length === 1 && (!digits || !candidates[0].last_four) ? candidates[0] : null;
     if (!selected) return null;
     return { kind:'CARD',targetId:selected.id,label:selected.nickname,reason: exact.length === 1
       ? 'Banco e final do cartão identificados no documento'
@@ -82,7 +83,9 @@ export function suggestWalletDestination(
     (matchesBank(account.bank_name || '') || matchesBank(account.nickname)));
   const exact = accountId ? candidates.filter(account =>
     clean(String(account.bank_details?.account_number || '')) === accountId) : [];
-  const selected = exact.length === 1 ? exact[0] : !accountId && candidates.length === 1 ? candidates[0] : null;
+  const selected = exact.length === 1 ? exact[0]
+    : candidates.length === 1 && (!accountId || !candidates[0].bank_details?.account_number)
+      ? candidates[0] : null;
   if (!selected) return null;
   return {kind:'ACCOUNT',targetId:selected.id,label:selected.nickname,reason:exact.length === 1
     ? 'Instituição e número da conta identificados no documento'

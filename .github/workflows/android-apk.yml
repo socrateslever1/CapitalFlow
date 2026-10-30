@@ -124,6 +124,12 @@ jobs:
         run: |
           python3 scripts/android/apply-native-shell.py
           grep -q 'android:enableOnBackInvokedCallback="false"' android/app/src/main/AndroidManifest.xml
+          # Gmail and Android Files must be able to open OFX/PDF with the signed APK.
+          grep -q 'Abrir fatura no CapitalFlow' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.SEND' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletFileInboxPlugin.java
+          grep -q 'registerPlugin(WalletFileInboxPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
           grep -q 'getOnBackPressedDispatcher()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
           # Android 15/16 edge-to-edge: native padding, zeroing before WebView.
           grep -q 'configureSystemBarInsets()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java

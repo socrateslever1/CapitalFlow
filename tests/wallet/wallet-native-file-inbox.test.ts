@@ -26,6 +26,10 @@ test('one account for known bank is preselected, two similar accounts require ma
   const header='<OFX><STMTRS><ORG>Nubank';
   assert.equal(suggestWalletDestination('extrato.ofx',header,[account('a')],[])?.targetId,'a');
   assert.equal(suggestWalletDestination('extrato.ofx',header,[account('a'),account('b')],[]),null);
+  // An OFX may contain account number while the user has not saved that optional field.
+  assert.equal(suggestWalletDestination('extrato.ofx',header+'<ACCTID>00123456', [account('a')],[])?.targetId,'a');
+  const different = {...account('a'),bank_details:{account_number:'00999999'}};
+  assert.equal(suggestWalletDestination('extrato.ofx',header+'<ACCTID>00123456', [different],[]),null);
 });
 
 test('received Android files require review before financial writes', () => {

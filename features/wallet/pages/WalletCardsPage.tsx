@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
+import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
 import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../services/personalWallet.service';
@@ -33,7 +34,7 @@ import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobo
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
 
-export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
+export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
   const requestedAction = searchParams.get('acao');
@@ -53,6 +54,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [creating, setCreating] = useState(false);
   const [addProtectedAfterCreate, setAddProtectedAfterCreate] = useState(true);
   const [thirdPartyCard, setThirdPartyCard] = useState(false);
+  const ownerDefaults = useWalletOwnerDefaults(activeUser, creating);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
@@ -543,6 +545,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
                 onChange={e=>{setThirdPartyCard(e.target.checked);requestId.current=generateUUID();}}/>Cartão de outra pessoa
             </label>
+            <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-slate-300">O nome impresso é independente do perfil</span>
+              {!thirdPartyCard && ownerDefaults.name && <button type="button"
+                onClick={()=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:ownerDefaults.name}));}}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-200">
+                Usar nome do perfil
+              </button>}
+            </div>
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
               <input type="text" maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
                 value={cardForm.cardholder_name}

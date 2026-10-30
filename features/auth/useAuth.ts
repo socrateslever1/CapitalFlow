@@ -7,6 +7,7 @@ import { playNotificationSound } from '../../utils/notificationSound';
 import { onlyDigits } from '../../utils/formatters';
 import { isDev } from '../../utils/isDev';
 import { isUUID, safeUUID } from '../../utils/uuid';
+import { clearWalletVaultSession } from '../wallet/domain/walletVaultSession';
 
 type SavedProfile = {
   id: string;
@@ -616,6 +617,7 @@ export const useAuth = () => {
   };
 
   const handleLogout = useCallback(async () => {
+    clearWalletVaultSession();
     if (isDev) console.log('[AUTH] Executando logout...');
     setActiveProfileId(null);
     setBootFinished(true);

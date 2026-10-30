@@ -20,6 +20,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WalletFileInboxPlugin.class);
+        registerPlugin(CapitalFlowApkInstallerPlugin.class);
         super.onCreate(savedInstanceState);
 
         configureSystemBarInsets();

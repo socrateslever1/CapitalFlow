@@ -130,6 +130,13 @@ jobs:
           grep -q 'android.intent.action.SEND' android/app/src/main/AndroidManifest.xml
           test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletFileInboxPlugin.java
           grep -q 'registerPlugin(WalletFileInboxPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          # The signed installer must be handled inside Capacitor, never an external browser.
+          grep -q 'registerPlugin(CapitalFlowApkInstallerPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q 'capitalflowapk' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/xml/capitalflow_apk_file_paths.xml
+          grep -q 'verifyPackageAndCertificate' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
           grep -q 'getOnBackPressedDispatcher()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
           # Android 15/16 edge-to-edge: native padding, zeroing before WebView.
           grep -q 'configureSystemBarInsets()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java

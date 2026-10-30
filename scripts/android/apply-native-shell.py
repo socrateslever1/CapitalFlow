@@ -65,4 +65,36 @@ manifest.write_text(text, encoding="utf-8")
 target.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(source, target)
 shutil.copyfile(root / "native/android/WalletFileInboxPlugin.java", target.with_name("WalletFileInboxPlugin.java"))
-print("Native wallet document inbox, navigation bridge and intent filters installed")
+shutil.copyfile(root / "native/android/CapitalFlowApkInstallerPlugin.java", target.with_name("CapitalFlowApkInstallerPlugin.java"))
+
+# Android's system package installer requires an app-owned content:// URI,
+# not a file:// URI or a browser. Only the verified cached APK is shared.
+application_close = "</application>"
+if text.count(application_close) != 1:
+    raise SystemExit("Unexpected AndroidManifest: application close tag missing")
+provider = '''
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.capitalflowapk"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/capitalflow_apk_file_paths"/>
+        </provider>
+'''
+if 'android:authorities="${applicationId}.capitalflowapk"' not in text:
+    text = text.replace(application_close, provider + application_close, 1)
+if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
+    text = text.replace('<application',
+        '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)
+manifest.write_text(text, encoding="utf-8")
+xml_directory = root / "android/app/src/main/res/xml"
+xml_directory.mkdir(parents=True, exist_ok=True)
+(xml_directory / "capitalflow_apk_file_paths.xml").write_text(
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<paths xmlns:android="http://schemas.android.com/apk/res/android">'
+    '<cache-path name="verified_signed_apks" path="capitalflow-apk/"/>'
+    '</paths>\n', encoding="utf-8")
+
+print("Native wallet inbox, APK installer, secure FileProvider and insets installed")

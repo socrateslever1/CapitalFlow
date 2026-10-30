@@ -19,13 +19,15 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   busy?: boolean;
   cancelLabel?: string;
+  /** Custom action area owns all buttons, including Cancel. Avoids crowded footers. */
+  footerMode?: 'default' | 'custom';
 }
-const widths = { sm: 'max-w-[320px]', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' };
+const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' };
 let openDialogs = 0;
 let previousOverflow = '';
 let previousOverscroll = '';
 
-export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar' }) => {
+export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default' }) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -98,14 +100,14 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
       aria-labelledby={titleId}
       aria-busy={busy}
       data-modal-open="true"
-      className="fixed inset-0 z-[2000] flex flex-col justify-end sm:justify-center sm:items-center bg-slate-950/85 sm:p-4 backdrop-blur-sm overflow-hidden"
+      className="fixed inset-0 z-[2000] flex min-h-0 flex-col justify-end overflow-hidden bg-slate-950/85 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4 motion-reduce:transition-none"
       style={viewport ? { top: viewport.top, height: viewport.height, bottom: 'auto' } : undefined}
       onClick={event => event.stopPropagation()}
     >
       <div
         ref={panelRef}
         data-dialog-panel
-        className={`group flex h-full sm:h-auto max-h-[100dvh] sm:max-h-[90dvh] min-h-0 w-full flex-col overflow-hidden sm:rounded-2xl border-0 sm:border border-slate-800 bg-slate-900 shadow-2xl ${widths[size]}`}
+        className={`group flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-0 border-slate-800 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150 motion-reduce:animate-none ${widths[size]}`}
       >
         <header className="relative flex shrink-0 flex-col items-start gap-2 overflow-hidden border-b border-slate-800/80 bg-gradient-to-r from-blue-950/50 via-slate-900 to-emerald-950/30 px-4 sm:px-6 py-3.5 sm:py-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
@@ -114,8 +116,8 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
             <div className="flex items-center gap-3 min-w-0">
               {icon && <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-blue-400/20 bg-blue-500/10 text-blue-300 shadow-lg shadow-blue-950/30">{icon}</div>}
               <div className="min-w-0 text-left">
-                <h2 ref={titleRef} id={titleId} className="break-words bg-gradient-to-r from-blue-300 via-white to-emerald-300 bg-clip-text text-sm sm:text-base font-black uppercase tracking-wide text-transparent outline-none truncate">{title}</h2>
-                {subtitle && <p className="mt-0.5 text-[10px] font-medium text-slate-400 truncate">{subtitle}</p>}
+                <h2 ref={titleRef} id={titleId} className="break-words text-balance bg-gradient-to-r from-blue-300 via-white to-emerald-300 bg-clip-text text-sm font-black uppercase leading-snug tracking-wide text-transparent outline-none sm:text-base">{title}</h2>
+                {subtitle && <p className="mt-0.5 line-clamp-2 text-[11px] font-medium text-slate-400">{subtitle}</p>}
               </div>
             </div>
             <button
@@ -139,16 +141,14 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
           <fieldset disabled={busy} className="min-w-0 border-0 p-0 m-0 pb-16 sm:pb-6">{children}</fieldset>
         </div>
 
-        <footer className={`flex shrink-0 flex-col gap-2 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md px-4 sm:px-6 py-3.5 sm:py-4 pb-[max(0.875rem,env(safe-area-inset-bottom))] shadow-2xl ${footer ? 'sm:flex-row-reverse' : ''}`}>
+        <footer className={`flex min-w-0 shrink-0 flex-col gap-2 border-t border-slate-800/80 bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-md sm:px-6 sm:py-4 [padding-bottom:max(0.875rem,env(safe-area-inset-bottom))] ${footer && footerMode === 'default' ? 'sm:flex-row-reverse' : ''}`}>
           {footer}
-          <button
-            type="button"
-            onClick={close}
-            disabled={busy}
-            className={`flex min-h-11 items-center justify-center gap-1 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-800/60 px-4 text-[10px] font-black uppercase text-slate-400 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'w-full sm:flex-1' : 'w-full sm:w-auto sm:self-center sm:px-8'}`}
+          {footerMode === 'default' && <button
+            type="button" onClick={close} disabled={busy}
+            className={`flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 px-4 text-[11px] font-bold uppercase text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 ${footer ? 'w-full sm:flex-1' : 'w-full sm:w-auto sm:self-center sm:px-8'}`}
           >
             <XCircle size={13} /> {cancelLabel}
-          </button>
+          </button>}
         </footer>
       </div>
     </div>

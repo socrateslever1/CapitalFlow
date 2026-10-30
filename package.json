@@ -42,7 +42,7 @@
     "test:ledger-presentation": "tsx --test tests/financial/ledger-presentation.test.ts",
     "test:tablet-layout": "node --test tests/architecture/tablet-card-focus-icon.test.mjs",
     "test:wallet-money-apk": "tsx --test tests/wallet/wallet-money-input.test.ts",
-    "test:native-apk-update": "node --test tests/architecture/android-native-update.test.mjs",
+    "test:native-apk-update": "node --test tests/architecture/android-native-update.test.mjs tests/architecture/responsive-payment-and-download.test.mjs",
     "test:wallet-visual": "node --test tests/architecture/wallet-visual-guard.test.mjs",
     "test:wallet-statement-import": "tsx --test tests/wallet/statement-smart-reader.test.ts tests/wallet/wallet-statement-pdf-categories.test.ts tests/wallet/wallet-statement-import-regression.test.ts tests/wallet/card-invoice-summary.test.ts tests/wallet/wallet-statement-duplicates.test.ts",
     "test:wallet-visual-next": "tsx --test tests/wallet/wallet-spending-insights.test.ts tests/wallet/wallet-summary-render.test.tsx tests/wallet/wallet-ui-architecture.test.ts",

@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Download, Smartphone, X } from 'lucide-react';
 
-// O alias da release sempre contém o último APK assinado (não o debug).
-export const ANDROID_APK_DOWNLOAD_URL =
-  'https://github.com/socrateslever1/CapitalFlow/releases/download/android-signed-beta/CapitalFlow-Android.apk';
+// Download on the CapitalFlow origin. Cloudflare Pages streams the official signed APK.
+export const ANDROID_APK_DOWNLOAD_URL = '/api/android/apk';
 
 export function isAndroidSaaSBrowser(): boolean {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
@@ -27,9 +26,9 @@ export const AndroidApkNotice: React.FC<{ placement: 'banner' | 'notifications' 
     return <div className="mx-2 mb-2 rounded-xl border border-cyan-500/25 bg-cyan-950/20 p-3">
       <div className="flex items-center gap-2 text-xs font-bold text-cyan-200"><Smartphone size={16}/> CapitalFlow para Android</div>
       <p className="mt-1 text-xs leading-relaxed text-slate-300">Existe um aplicativo oficial para instalar no celular.</p>
-      <a href={ANDROID_APK_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
+      <a href={ANDROID_APK_DOWNLOAD_URL} download="CapitalFlow-Android.apk"
         className="mt-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
-        <Download size={15}/> Baixar APK diretamente
+        <Download size={15}/> Baixar sem sair do CapitalFlow
       </a>
     </div>;
   }
@@ -43,9 +42,9 @@ export const AndroidApkNotice: React.FC<{ placement: 'banner' | 'notifications' 
     <button type="button" onClick={dismiss} aria-label="Dispensar aviso de APK"
       className="absolute right-2 top-2 rounded-lg p-1.5 text-slate-400 hover:text-white"><X size={17}/></button>
     <div className="flex items-center gap-2 pr-7 text-sm font-semibold"><Smartphone size={17} className="text-cyan-300"/> Aplicativo para Android</div>
-    <p className="mt-1 text-xs text-slate-300">Baixe e instale o CapitalFlow no dispositivo. O link também ficará na Central de Alertas.</p>
+    <p className="mt-1 text-xs text-slate-300">Baixe e instale o CapitalFlow no dispositivo. O arquivo será baixado pelo próprio site, sem abrir outra página.</p>
     <div className="mt-3 flex items-center gap-3">
-      <a href={ANDROID_APK_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
+      <a href={ANDROID_APK_DOWNLOAD_URL} download="CapitalFlow-Android.apk"
         className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
         <Download size={15}/> Baixar APK
       </a>

@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
+import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
+import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import {
@@ -29,6 +31,7 @@ type Props = {
   targetId: string;
   targetName: string;
   targetIssuer?: string | null;
+  existingRows?: WalletStatementRow[];
   initialDueMonth?: string | null;
   hasOpening?: boolean;
   onClose: () => void;
@@ -54,6 +57,7 @@ export const WalletStatementImport: React.FC<Props> = ({
   targetId,
   targetName,
   targetIssuer,
+  existingRows = [],
   initialDueMonth,
   hasOpening = false,
   onClose,
@@ -71,12 +75,15 @@ export const WalletStatementImport: React.FC<Props> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [finished, setFinished] = useState<number | null>(null);
+  const [allowDuplicates, setAllowDuplicates] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
   const declaredBank = result?.invoiceSummary?.institution;
   const bankMismatch = Boolean(kind === 'CARD' && targetIssuer && declaredBank
     && !targetIssuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(
       declaredBank.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
+  const duplicateKeys = detectPreviouslyImported(rows, existingRows, kind, targetId);
+  const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -101,7 +108,9 @@ export const WalletStatementImport: React.FC<Props> = ({
       // Processa com o leitor inteligente universal (OFX / PDF / Imagem com IA)
       const parsed = await parseSmartFinancialDocument(source, kind, { forceAi });
       setResult(parsed);
-      setRows(parsed.rows);
+      setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
+        ? { ...row, selected: false } : row));
+      setAllowDuplicates(false);
 
       if (!parsed.rows.length) {
         setError(
@@ -128,6 +137,10 @@ export const WalletStatementImport: React.FC<Props> = ({
 
   const save = async () => {
     if (bankMismatch) { setError('Esta fatura é de outra instituição. Selecione o cartão correto antes de importar.'); return; }
+    if (selectedDuplicates.length && !allowDuplicates) {
+      setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
+      return;
+    }
     if (!result || !selectedCount || selectedInvalid) {
       setError('Revise os valores, as datas e as descrições selecionadas.');
       return;
@@ -281,6 +294,10 @@ export const WalletStatementImport: React.FC<Props> = ({
           {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview summary={result.invoiceSummary} />}
           {bankMismatch && <p role="alert" className="text-xs text-rose-300">Banco da fatura diferente do cartão selecionado. Não é seguro alocar automaticamente.</p>}
 
+          {duplicateKeys.size > 0 && <label className="flex items-start gap-2 text-xs text-amber-200">
+            <input type="checkbox" checked={allowDuplicates} onChange={event => setAllowDuplicates(event.target.checked)}/>
+            {duplicateKeys.size} possível(is) repetição(ões) já importada(s). Permitir novamente somente após conferir.
+          </label>}
           {/* Upload Area */}
           <div className="space-y-2">
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/80 p-6 text-center hover:border-cyan-500/70 hover:bg-slate-950 transition">

@@ -66,9 +66,10 @@ target.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile(source, target)
 shutil.copyfile(root / "native/android/WalletFileInboxPlugin.java", target.with_name("WalletFileInboxPlugin.java"))
 shutil.copyfile(root / "native/android/CapitalFlowApkInstallerPlugin.java", target.with_name("CapitalFlowApkInstallerPlugin.java"))
+shutil.copyfile(root / "native/android/CapitalFlowInstallStatusReceiver.java", target.with_name("CapitalFlowInstallStatusReceiver.java"))
 
-# Android's system package installer requires an app-owned content:// URI,
-# not a file:// URI or a browser. Only the verified cached APK is shared.
+# Retain the old constrained FileProvider for compatibility with previous
+# native shells. The updater now stages through PackageInstaller.Session.
 application_close = "</application>"
 if text.count(application_close) != 1:
     raise SystemExit("Unexpected AndroidManifest: application close tag missing")
@@ -85,9 +86,21 @@ provider = '''
 '''
 if 'android:authorities="${applicationId}.capitalflowapk"' not in text:
     text = text.replace(application_close, provider + application_close, 1)
+# Explicit system-install callback. Not exported to other Android apps.
+receiver = '''
+        <receiver
+            android:name=".CapitalFlowInstallStatusReceiver"
+            android:enabled="true"
+            android:exported="false"/>
+'''
+if 'android:name=".CapitalFlowInstallStatusReceiver"' not in text:
+    text = text.replace(application_close, receiver + application_close, 1)
 if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
     text = text.replace('<application',
         '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)
+if 'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION' not in text:
+    text = text.replace('<application',
+        '<uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION"/>\n    <application', 1)
 manifest.write_text(text, encoding="utf-8")
 xml_directory = root / "android/app/src/main/res/xml"
 xml_directory.mkdir(parents=True, exist_ok=True)
@@ -97,4 +110,4 @@ xml_directory.mkdir(parents=True, exist_ok=True)
     '<cache-path name="verified_signed_apks" path="capitalflow-apk/"/>'
     '</paths>\n', encoding="utf-8")
 
-print("Native wallet inbox, APK installer, secure FileProvider and insets installed")
+print("Native wallet inbox, session installer, private status receiver and system-bar insets installed")

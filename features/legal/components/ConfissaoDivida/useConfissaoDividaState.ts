@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { buildPublicAppUrl } from '../../../../utils/publicAppUrl';
 import { Loan, UserProfile, LegalWitness, LegalDocumentRecord, LegalDocumentParams } from '../../../../types';
 import { safeUUID } from '../../../../utils/uuid';
 import { DocumentTemplates } from '../../templates/DocumentTemplates';
@@ -107,12 +108,11 @@ export const useConfissaoDividaState = ({ loans, initialLoanId, activeUser, show
     }, [normalizeDocumentStatus]);
 
     const buildSigningLinks = useCallback((token: string) => {
-        const baseUrl = `${window.location.origin}/?legal_sign=${token}`;
         return {
-            debtor: `${baseUrl}&role=DEBTOR`,
-            creditor: `${baseUrl}&role=CREDITOR`,
-            witness1: `${baseUrl}&role=WITNESS&idx=0`,
-            witness2: `${baseUrl}&role=WITNESS&idx=1`
+            debtor: buildPublicAppUrl('/', { legal_sign: token, role: 'DEBTOR' }),
+            creditor: buildPublicAppUrl('/', { legal_sign: token, role: 'CREDITOR' }),
+            witness1: buildPublicAppUrl('/', { legal_sign: token, role: 'WITNESS', idx: 0 }),
+            witness2: buildPublicAppUrl('/', { legal_sign: token, role: 'WITNESS', idx: 1 }),
         };
     }, []);
 

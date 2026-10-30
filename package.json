@@ -23,7 +23,7 @@
     "test:architecture": "node tests/architecture/architecture-check.mjs",
     "test:automation": "node --test automation/n8n/*.test.cjs",
     "test:ui-copy": "node tests/architecture/ui-copy-check.mjs",
-    "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation && npm run test:android-workflow && npm run test:wallet-module && npm run test:wallet-overview && npm run test:wallet-pages && npm run test:wallet-overview-localization && npm run test:wallet-card-opening && npm run test:wallet-pin && npm run test:app-updates && npm run test:auth-mobile-layout && npm run test:native-navigation && npm run test:ledger-presentation && npm run test:tablet-layout && npm run test:wallet-money-apk && npm run test:native-apk-update && npm run test:wallet-visual && npm run test:wallet-statement-import && npm run test:wallet-visual-next && npm run test:wallet-import-contract && npm run test:wallet-visual-simplification && npm run test:wallet-loading && npm run test:wallet-fast-path && npm run test:wallet-onboarding-schema && npm run test:wallet-native-inbox && npm run test:wallet-receipts && npm run test:android-release-resilience",
+    "test:quality": "npm run build && npm run test:financial && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation && npm run test:android-workflow && npm run test:wallet-module && npm run test:wallet-overview && npm run test:wallet-pages && npm run test:wallet-overview-localization && npm run test:wallet-card-opening && npm run test:wallet-pin && npm run test:app-updates && npm run test:auth-mobile-layout && npm run test:native-navigation && npm run test:ledger-presentation && npm run test:tablet-layout && npm run test:wallet-money-apk && npm run test:native-apk-update && npm run test:wallet-visual && npm run test:wallet-statement-import && npm run test:wallet-visual-next && npm run test:wallet-import-contract && npm run test:wallet-visual-simplification && npm run test:wallet-loading && npm run test:wallet-fast-path && npm run test:wallet-onboarding-schema && npm run test:wallet-native-inbox && npm run test:wallet-receipts && npm run test:android-release-resilience && npm run test:public-app-links",
     "test:db": "node tests/db/run-local-db-tests.mjs",
     "test:load": "k6 run tests/load/app-smoke.js",
     "test:android-workflow": "node --test tests/architecture/android-workflow.test.mjs",
@@ -53,7 +53,8 @@
     "test:wallet-onboarding-schema": "tsx --test tests/wallet/wallet-onboarding-schema.test.ts",
     "test:wallet-native-inbox": "tsx --test tests/wallet/wallet-native-file-inbox.test.ts",
     "test:wallet-receipts": "tsx --test tests/wallet/wallet-quick-receipts.test.ts",
-    "test:android-release-resilience": "node --test tests/architecture/android-release-resilience.test.mjs"
+    "test:android-release-resilience": "node --test tests/architecture/android-release-resilience.test.mjs",
+    "test:public-app-links": "tsx --test tests/portal/public-app-url.test.ts"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.0",

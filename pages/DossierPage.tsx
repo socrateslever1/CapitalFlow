@@ -22,6 +22,7 @@ import { Client, Loan, UserProfile } from '../types';
 import { loanEngine } from '../domain/loanEngine';
 import { formatDate } from '../utils/loanCalculator';
 import { formatMoney, maskPhone } from '../utils/formatters';
+import { buildPublicAppUrl } from '../utils/publicAppUrl';
 import { getInstallmentOpenAmount, isInstallmentOpen } from '../utils/loanStatus';
 import { buildWhatsAppLink } from '../utils/whatsapp';
 import { LegalDocumentSummary, legalOperationsService } from '../services/legalOperations.service';
@@ -628,7 +629,7 @@ export const DossierPage: React.FC<DossierPageProps> = ({
                     <p className="text-[10px] font-black uppercase text-white">{doc.type}</p>
                     <p className="text-[9px] text-slate-500 mt-1">{doc.status.replace('_', ' ')} - {displayDate(doc.createdAt)}</p>
                     {doc.token && (
-                      <button onClick={() => copyText(`${window.location.origin}/?legal_sign=${doc.token}&role=DEBTOR`, 'Link jurídico')} className="mt-3 text-[8px] font-black uppercase text-indigo-300">
+                      <button onClick={() => copyText(buildPublicAppUrl('/', { legal_sign: doc.token, role: 'DEBTOR' }), 'Link jurídico')} className="mt-3 text-[8px] font-black uppercase text-indigo-300">
                         copiar link do cliente
                       </button>
                     )}

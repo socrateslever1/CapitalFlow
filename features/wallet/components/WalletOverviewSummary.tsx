@@ -13,8 +13,8 @@ export const WalletOverviewSummary: React.FC<{
   credit: ReturnType<typeof getCreditSummary>;
   onNavigate: (path: string) => void;
 }> = ({ accounts, cards, accountBalance, currentInvoiceTotal, credit, onNavigate }) => (
-  <div className="grid items-start gap-5 lg:grid-cols-12">
-    <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3.5 sm:p-5 lg:col-span-6">
+  <div className="grid min-w-0 items-start gap-4 xl:grid-cols-12">
+    <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3.5 sm:p-5 xl:col-span-6">
       <header className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Landmark size={18} className="text-blue-400"/>Liquidez imediata</h3>
         <span className="text-xs font-medium text-slate-300">{accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}</span>
@@ -31,7 +31,7 @@ export const WalletOverviewSummary: React.FC<{
         <span>Ver detalhes das contas</span> <ArrowRight size={17}/>
       </button>
     </article>
-    <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3.5 sm:p-5 lg:col-span-6">
+    <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3.5 sm:p-5 xl:col-span-6">
       <header className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><CreditCard size={18} className="text-blue-400"/>Cartões</h3>
         <span className="text-xs font-medium text-slate-300">{cards.length} {cards.length === 1 ? 'ativo' : 'ativos'}</span>
@@ -50,25 +50,38 @@ export const WalletOverviewSummary: React.FC<{
       <div role="progressbar" aria-label="Uso do limite de crédito" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(credit.percentage)} className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-800">
         <div className="h-full rounded-full bg-blue-500" style={{width:`${Math.min(100,Math.max(0,credit.percentage))}%`}}/>
       </div>
-      <ul aria-label="Seus cartões" className="mt-4 divide-y divide-slate-800">
+      <ul aria-label="Seus cartões" className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
         {cards.slice(0,4).map(card => {
           const account=accounts.find(item => item.id===card.account_id);
           const institution=card.institution_key||account?.institution_key||card.issuer||card.nickname;
           const visual=getBankVisual(institution);
-          return <li key={card.id}><button type="button" onClick={() => onNavigate(getCardSummaryDestination(card.id))} className="group flex min-h-14 w-full min-w-0 items-center justify-between gap-3 px-2 py-3 text-left transition-colors hover:bg-slate-800/60 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-            <span className="flex min-w-0 flex-1 items-center gap-3">
-              <span className="h-8 w-1 shrink-0 rounded-full" style={{backgroundColor:card.primary_color || visual.accent}}/>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/80 bg-slate-950"><BankLogo name={institution} alternateName={card.nickname} size="sm"/></span>
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-sm sm:text-base font-semibold text-white">{card.nickname}</strong>
-                <span className="mt-0.5 block truncate text-xs sm:text-sm text-slate-300">{card.brand || 'Crédito'} · •••• {card.last_four || '----'}</span>
+          const accent=card.primary_color || visual.accent;
+          const available=Math.max(0,Number(card.credit_limit)-Number(card.used_limit));
+          return <li key={card.id} className="min-w-0 shrink-0 basis-[min(82%,280px)] snap-start sm:basis-[min(48%,300px)]">
+            <button type="button" onClick={() => onNavigate(getCardSummaryDestination(card.id))}
+              aria-label={`Abrir cartão ${card.nickname}, final ${card.last_four || 'não informado'}`}
+              className="group relative flex aspect-[1.586/1] w-full flex-col justify-between overflow-hidden rounded-xl border border-white/15 bg-slate-950 p-4 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              style={{background:`linear-gradient(145deg, ${accent}, #0f172a 88%)`}}>
+              <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full border border-white/10"/>
+              <span className="relative flex min-w-0 items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/90"><BankLogo name={institution} alternateName={card.nickname} size="sm"/></span>
+                  <span className="truncate text-sm font-bold">{card.nickname}</span>
+                </span>
+                <CreditCard size={19} className="shrink-0 text-white/75"/>
               </span>
-            </span>
-            <span className="ml-auto shrink-0 text-right">
-              <span className="block text-xs text-slate-300">Disponível</span>
-              <strong className="mt-0.5 block text-base font-bold tabular-nums text-emerald-300">{formatMoney(Math.max(0,Number(card.credit_limit)-Number(card.used_limit)))}</strong>
-            </span>
-          </button></li>;
+              <span className="relative block">
+                <span className="block text-xs font-medium tracking-[0.12em] text-white/80">••••  {card.last_four || '----'}</span>
+                <span className="mt-2 flex items-end justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block text-[11px] text-white/75">Disponível</span>
+                    <strong className="block break-words text-base font-semibold tabular-nums sm:text-lg">{formatMoney(available)}</strong>
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-white/90">{card.brand || 'Crédito'}</span>
+                </span>
+              </span>
+            </button>
+          </li>;
         })}
       </ul>
       {!cards.length && <p className="py-6 text-sm text-slate-300">Nenhum cartão cadastrado. Adicione um na aba Cartões.</p>}

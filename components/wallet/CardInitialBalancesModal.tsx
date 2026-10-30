@@ -16,8 +16,8 @@ export interface CardInitialBalancesModalProps {
   onSaved: () => Promise<void>;
 }
 
-const toInputMoney = (value: number): string =>
-  Number.isFinite(value) ? (Math.round(value * 100) / 100).toFixed(2) : '0.00';
+const placeholderMoney = (value: number): string =>
+  Number.isFinite(value) ? new Intl.NumberFormat('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}).format(value) : '0,00';
 
 const moneyCentsOrNull = (value: string): number | null => {
   try {
@@ -39,9 +39,10 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
       Math.round(Number(card.initial_future_installments_balance || 0) * 100) +
       Math.round(nativeFutureCommitments * 100),
   ) / 100;
-  const [limit, setLimit] = useState(toInputMoney(Number(card.credit_limit || 0)));
-  const [used, setUsed] = useState(toInputMoney(initialUsed));
-  const [bill, setBill] = useState(toInputMoney(invoice));
+  // Empty fields are deliberate: only changes typed by the user replace saved values.
+  const [limit, setLimit] = useState('');
+  const [used, setUsed] = useState('');
+  const [bill, setBill] = useState('');
   const [month, setMonth] = useState(
     (initialDueMonth || new Date().toLocaleDateString('en-CA')).slice(0, 7),
   );
@@ -56,8 +57,8 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
     setError('');
   };
 
-  const totalCents = moneyCentsOrNull(limit);
-  const usedCents = moneyCentsOrNull(used);
+  const totalCents = moneyCentsOrNull(limit.trim() || String(Number(card.credit_limit || 0)));
+  const usedCents = moneyCentsOrNull(used.trim() || String(initialUsed));
   const differenceCents = totalCents === null || usedCents === null
     ? null : totalCents - usedCents;
   const freeCredit = differenceCents === null ? null : Math.max(0, differenceCents) / 100;
@@ -68,9 +69,9 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
     if (saving) return;
     setError('');
     try {
-      const creditLimit = parseWalletMoney(limit, 'limite total');
-      const usedLimit = parseWalletMoney(used, 'limite usado');
-      const currentInvoice = parseWalletMoney(bill, 'fatura atual');
+      const creditLimit = parseWalletMoney(limit.trim() || String(Number(card.credit_limit || 0)), 'limite total');
+      const usedLimit = parseWalletMoney(used.trim() || String(initialUsed), 'limite usado');
+      const currentInvoice = parseWalletMoney(bill.trim() || String(invoice), 'fatura atual');
       calculateCardOpening(creditLimit, usedLimit, currentInvoice, nativeFutureCommitments);
       setSaving(true);
       await personalWalletService.setSimpleCardOpening({
@@ -107,26 +108,23 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
       }
     >
       <form id={formId} onSubmit={submit} className="space-y-4">
-        <p className="text-xs text-slate-400">
-          Informe os valores do banco. O limite usado já inclui a fatura atual.
-          A disponibilidade abaixo é calculada e não substitui o saldo informado pelo emissor.
-        </p>
+        <p className="text-xs text-slate-400">Preencha apenas o que deseja alterar. Valores vazios permanecem como estão.</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-300">
             Limite total (R$)
-            <input required type="text" inputMode="decimal" value={limit}
+            <input name="wallet-initial-limit" type="text" inputMode="decimal" autoComplete="off" placeholder={placeholderMoney(Number(card.credit_limit || 0))} value={limit}
               onChange={(e) => { changed(); setLimit(e.target.value); }}
               className={field} />
           </label>
           <label className="text-xs text-slate-300">
             Limite usado (R$)
-            <input required type="text" inputMode="decimal" value={used}
+            <input name="wallet-initial-used" type="text" inputMode="decimal" autoComplete="off" placeholder={placeholderMoney(initialUsed)} value={used}
               onChange={(e) => { changed(); setUsed(e.target.value); }}
               className={field} />
           </label>
           <label className="text-xs text-slate-300">
             Fatura atual (R$)
-            <input required type="text" inputMode="decimal" value={bill}
+            <input name="wallet-initial-bill" type="text" inputMode="decimal" autoComplete="off" placeholder={placeholderMoney(invoice)} value={bill}
               onChange={(e) => { changed(); setBill(e.target.value); }}
               className={field} />
           </label>
@@ -137,7 +135,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
               className={field} />
           </label>
           <label className="text-xs text-slate-300">
-            Situação da fatura
+            Situação
             <select value={state} className={field}
               onChange={(e) => { changed(); setState(e.target.value as 'OPEN' | 'CLOSED'); }}>
               <option value="OPEN">Aberta</option>
@@ -146,7 +144,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
           </label>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300">
-          <span>Disponível calculado para compras: </span>
+          <span>Disponível: </span>
           <strong className="text-emerald-300">
             {freeCredit === null ? '—' : formatMoney(freeCredit)}
           </strong>
@@ -157,10 +155,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
             </p>
           )}
         </div>
-        <p className="text-xs text-slate-400">
-          Posteriormente, detalhe as compras ou importe a fatura para conciliar os
-          valores iniciais, sem registrar o total da fatura como nova compra.
-        </p>
+        <p className="text-[11px] text-slate-500">Use vírgula ou ponto: 0000,00 · 0.000,00</p>
         {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
       </form>
     </Modal>

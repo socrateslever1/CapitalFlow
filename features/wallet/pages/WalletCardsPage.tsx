@@ -389,7 +389,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </div>
         </div>
       </Modal>}
-      {creating && <Modal title="Novo cartão" subtitle="Identificação, numeração completa e situação inicial" icon={<CreditCard size={17}/>} onClose={() => {setCreating(false);setProtectedDraft(emptyProtectedCard());encryptedDraft.current=null;setCreateError('');}} busy={saving}
+      {creating && <Modal title="Novo cartão" subtitle="Identificação, numeração completa e situação inicial" icon={<CreditCard size={17}/>} onClose={() => {
+          setCreating(false);
+          setThirdPartyCard(false);
+          setCardForm(value => ({ ...value, cardholder_name: ownerDefaults.name }));
+          setProtectedDraft(emptyProtectedCard());
+          encryptedDraft.current=null;
+          setCreateError('');
+        }} busy={saving}
         footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
        <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
         <datalist id="wallet-new-card-banks">{BANK_CATALOG.map(b => <option key={b.id} value={b.name}/>)}</datalist>

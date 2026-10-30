@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag } from 'lucide-react';
+import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, XCircle } from 'lucide-react';
 import { Modal, modalPrimaryActionClass } from '../../ui/Modal';
 import type { Installment, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
@@ -154,15 +154,26 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
   );
 
   return (
-    <Modal onClose={onClose} title="Condição de pagamento" subtitle="Defina o que acontecerá após o pagamento" icon={<CalendarClock size={22} />} size="sm" busy={isSaving}
-      footer={<>
-        {active && <button type="button" onClick={cancelOffer} disabled={isSaving} className="min-h-11 rounded-md border border-rose-500/30 px-3 text-[9px] font-black uppercase text-rose-400 disabled:opacity-50">Cancelar condição ativa</button>}
-        <button type="button" onClick={submit} disabled={isSaving} className={modalPrimaryActionClass}>{isSaving ? 'Enviando...' : 'Enviar para o portal'}</button>
-      </>}>
+    <Modal onClose={onClose} title="Condição de pagamento" subtitle="Defina o que acontecerá após o pagamento" icon={<CalendarClock size={22} />} size="lg" busy={isSaving}
+      footerMode="custom"
+      footer={<div className="grid w-full min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
+        <button type="button" onClick={onClose} disabled={isSaving}
+          className="order-2 flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-blue-400 disabled:opacity-50 sm:order-1">
+          <XCircle size={16} className="shrink-0" /> Voltar
+        </button>
+        <button type="button" onClick={submit} disabled={isSaving}
+          className={`order-1 col-span-2 min-w-0 whitespace-normal break-words rounded-xl transition-all duration-150 motion-reduce:transition-none sm:order-2 sm:col-span-1 ${modalPrimaryActionClass}`}>
+          {isSaving ? 'Enviando…' : 'Enviar para o portal'}
+        </button>
+        {active ? <button type="button" onClick={cancelOffer} disabled={isSaving}
+          className="order-3 flex min-h-12 min-w-0 items-center justify-center rounded-xl border border-rose-500/40 bg-rose-950/30 px-2 py-2 text-center text-xs font-semibold leading-snug text-rose-200 transition-colors hover:bg-rose-950/50 focus-visible:outline-2 focus-visible:outline-rose-400 disabled:opacity-50">
+          Cancelar condição ativa
+        </button> : <div className="order-3 hidden sm:block" aria-hidden="true" />}
+      </div>}>
       <div className="space-y-3">
           <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
                 <span className="block text-[10px] font-black text-white">Quitar ou abater</span>
                 <span className="block text-[8px] text-slate-500">Reduz o saldo da parcela</span>
@@ -173,15 +184,15 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
               </button>
             </div>
           </section>
-          <section className="grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-blue-500/30 bg-blue-500/5 p-3">
+          <section className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
             <div>
               <p className="text-[9px] font-black uppercase text-slate-500">Valor atual</p>
               <p className="mt-1 text-sm font-bold text-slate-400 line-through">{formatMoney(preview.originalAmount)}</p>
             </div>
-            <ArrowRight size={16} className="mx-3 text-blue-400" />
+            <ArrowRight size={16} className="mx-2 shrink-0 text-blue-400 sm:mx-4" />
             <div className="text-right">
               <p className="text-[9px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
-              <p className="text-xl font-black text-white">{formatMoney(preview.finalAmount)}</p>
+              <p className="break-words text-base font-black leading-tight text-white sm:text-xl">{formatMoney(preview.finalAmount)}</p>
             </div>
             {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
               <p className="col-span-3 mt-2 border-t border-slate-800 pt-2 text-[10px] font-bold text-emerald-400">
@@ -198,7 +209,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
 
           {(form.offerType === 'SETTLEMENT' || preview.fine > 0.05 || preview.dailyInterest > 0.05) && <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">1. Encargos do atraso</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <ChargeToggle checked={form.waiveFine} onChange={(value) => update('waiveFine', value)} title="Retirar multa" amount={preview.fine} />
               <ChargeToggle checked={form.waiveDailyInterest} onChange={(value) => update('waiveDailyInterest', value)} title="Retirar mora diária" amount={preview.dailyInterest} />
             </div>
@@ -206,7 +217,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
 
           {form.offerType === 'SETTLEMENT' && <section>
             <p className="mb-2 text-[9px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
-            <div className="grid grid-cols-3 gap-1 rounded-md bg-slate-950 p-1">
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-950 p-1">
               {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
                 <button
                   key={mode}
@@ -218,7 +229,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
                       update('discount', 0);
                     }
                   }}
-                  className={`min-h-9 rounded px-1 text-[8px] font-black uppercase transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  className={`min-h-11 min-w-0 rounded-lg px-1 py-2 text-[10px] font-semibold uppercase leading-snug transition-colors ${form.discountMode === mode ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
                 >
                   {label}
                 </button>

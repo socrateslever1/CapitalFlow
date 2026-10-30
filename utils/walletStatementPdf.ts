@@ -112,8 +112,8 @@ function findMoneyTokens(raw: string): RegExpMatchArray[] {
 }
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
 
-const historyStartRx = /detalhes?\s+de\s+consumo|(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
-const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|encargos|juros|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
+const historyStartRx = /compras\s+no\s+app|outros\s+lan[cç]amentos|transa[cç][oõ]es\s+do\s+cart[aã]o\s+principal|detalhes?\s+de\s+consumo|(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
+const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
 
 function normalizePdfLabel(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -144,6 +144,7 @@ function extractInstallment(raw: string, dateToken: string): { number: number; t
 export function parseStatementLines(lines: {key:string;text:string}[], kind: 'ACCOUNT' | 'CARD'): { rows: ParsedStatementRow[]; skipped: number } {
   const rows: ParsedStatementRow[] = [];
   let skipped = 0;
+  const recargaPayLayout = lines.some(line => /compras\s+no\s+app/i.test(line.text));
   // Some PDF renderers split amounts into a separate line. Join only if
   // that continuation has no date and is not a summary/footer.
   const combined = lines.map((line, index) => {
@@ -161,13 +162,22 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
   });
   const hasHistoryMarker = combined.some(line => historyStartRx.test(normalizePdfLabel(line.text)));
   let inHistory = !hasHistoryMarker;
+  let lastCardDate: string | null = null;
   for (const line of combined) {
-    const raw = line.text.replace(/\s+/g, ' ').trim();
+    let raw = line.text.replace(/\s+/g, ' ').trim();
     const normalized = normalizePdfLabel(raw);
-    if (historyStartRx.test(normalized)) { inHistory = true; continue; }
-    if (hasHistoryMarker && inHistory && historyEndRx.test(normalized)) { inHistory = false; continue; }
+    if (historyStartRx.test(normalized)) { inHistory = true; lastCardDate = null; continue; }
+    if (hasHistoryMarker && inHistory && historyEndRx.test(normalized)) { inHistory = false; lastCardDate = null; continue; }
     if (!inHistory || notTransactionRx.test(raw)) continue;
-    const matchedDate = raw.match(dateRx);
+    let matchedDate = raw.match(dateRx);
+    // RecargaPay prints a date only on the first line of several purchases.
+    // Its following same-date rows must keep their own amount, including repeated merchants.
+    if (kind === 'CARD' && recargaPayLayout && !matchedDate && lastCardDate &&
+        /recargapay\s+/i.test(raw) && findMoneyTokens(raw).length === 1) {
+      raw = lastCardDate + ' ' + raw;
+      matchedDate = raw.match(dateRx);
+    }
+    if (kind === 'CARD' && recargaPayLayout && matchedDate) lastCardDate = matchedDate[0];
     if (!matchedDate) continue;
     const date = normalizeDate(matchedDate[0]);
     if (!date) { skipped++; continue; }
@@ -191,11 +201,12 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     const markedCredit = /C$/i.test(last[0].trim());
     // Invoice settlement is a credit even if the bank prints it without a
     // trailing "C". Do not confuse it with "Pix no Crédito" (a card charge).
-    const invoicePayment = /\b(?:pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|pagamentos?\s+efetuados?|credito\s+na\s+fatura|estorno|reembolso|devolucao|cashback)\b/.test(context)
+    const invoicePayment = /\b(?:inclusao\s+de\s+pagamento|pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|pagamentos?\s+efetuados?|credito\s+na\s+fatura|estorno|reembolso|devolucao|cashback)\b/.test(context)
       && !/\b(?:no\s+credito|com\s+cartao)\b/.test(context);
     const signed = kind === 'CARD'
-      ? (markedCredit || invoicePayment || (incoming && !outgoing) ? -Math.abs(value)
-          : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
+      ? (invoicePayment || markedCredit || (incoming && !outgoing) ? -Math.abs(value)
+          : recargaPayLayout ? Math.abs(value)
+            : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
       : (markedCredit || (incoming && !outgoing) ? Math.abs(value) : -Math.abs(value));
     const category = classifyStatementDescriptionEnhanced(description);
     const installment = extractInstallment(raw, matchedDate[0]);

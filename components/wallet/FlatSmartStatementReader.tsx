@@ -86,7 +86,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         !row.description.trim())
   );
 
-  const handleFileProcess = async (fileToProcess: File) => {
+  const handleFileProcess = async (fileToProcess: File, forceAi = false) => {
     setSource(fileToProcess);
     setResult(null);
     setRows([]);
@@ -96,13 +96,15 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     setBusy(true);
 
     try {
-      const parsed = await parseSmartFinancialDocument(fileToProcess, kind);
+      const parsed = await parseSmartFinancialDocument(fileToProcess, kind, { forceAi });
       setResult(parsed);
       setRows(parsed.rows);
 
       if (!parsed.rows.length) {
         setError(
-          'Não localizei lançamentos claros no documento. PDFs ou imagens com baixa resolução podem exigir conferência manual.'
+          fileToProcess.name.toLowerCase().endsWith('.pdf')
+            ? 'A leitura local não encontrou compras. Este PDF pode ser digitalizado ou usar um layout não reconhecido. Você pode tentar a leitura com IA abaixo.'
+            : 'Não foram encontradas transações válidas. Confira se o arquivo contém um extrato detalhado.'
         );
       } else if (parsed.previewUrl) {
         setShowPreview(true);
@@ -173,6 +175,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     }
   };
 
+  const isPdf = source?.type === 'application/pdf' || /\.pdf$/i.test(source?.name || '');
   const isImage =
     source?.type.startsWith('image/') ||
     /\.(png|jpe?g|webp)$/i.test(source?.name || '');
@@ -190,13 +193,13 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-              Leitor Inteligente de Faturas e Extratos
+              Importar fatura ou extrato
               <span className="rounded-full bg-cyan-950 px-2 py-0.5 text-[10px] font-semibold text-cyan-300 border border-cyan-800">
-                Plano / Direto
+                Conferência obrigatória
               </span>
             </h3>
             <p className="text-xs text-slate-400">
-              Dissecação rápida para <strong className="text-slate-200">{targetName}</strong> ({kind === 'CARD' ? 'Cartão' : 'Conta'})
+              Importação para <strong className="text-slate-200">{targetName}</strong> ({kind === 'CARD' ? 'Cartão' : 'Conta'})
             </p>
           </div>
         </div>
@@ -214,18 +217,18 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Badges de Custo R$ 0,00 vs IA */}
-      <div className="grid gap-2 sm:grid-cols-2">
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-200">
+      {/* OFX e PDFs nativos são locais, IA só mediante ação explícita. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
+        <div className="flex items-center gap-2">
           <Zap size={16} className="shrink-0 text-emerald-400" />
           <span>
-            <strong>OFX / PDF:</strong> Processamento 100% local — <strong>Custo R$ 0,00</strong>
+            <strong className="text-white">OFX e PDF com texto</strong> · leitura local
           </span>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-950/20 px-3 py-2 text-xs text-indigo-200">
+        <div className="flex items-center gap-2">
           <Sparkles size={16} className="shrink-0 text-indigo-400" />
           <span>
-            <strong>Prints / Imagens:</strong> IA Vision Multimodal — <strong>Frações de centavo</strong>
+            <strong className="text-white">Imagens e PDF digitalizado</strong> · IA opcional
           </span>
         </div>
       </div>
@@ -274,13 +277,13 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           const f = e.dataTransfer.files?.[0];
           if (f) void handleFileProcess(f);
         }}
-        className={`relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition ${
+        className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center transition ${
           isDragging
             ? 'border-cyan-400 bg-cyan-950/30'
             : 'border-slate-700 bg-slate-950/70 hover:border-slate-500 hover:bg-slate-950'
         }`}
       >
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-cyan-400 shadow">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-cyan-400">
           <UploadCloud size={24} />
         </div>
 
@@ -293,7 +296,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
           </p>
         </div>
 
-        <label className="mt-1 cursor-pointer rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow transition">
+        <label className="mt-1 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-500 px-4 py-2.5 text-xs font-bold text-white transition">
           {busy ? 'Processando arquivo...' : 'Selecionar do Computador ou Celular'}
           <input
             type="file"
@@ -345,8 +348,19 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Envio para IA somente após consentimento explícito. */}
+      {isPdf && source && !busy && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-800/50 bg-cyan-950/20 px-3 py-2.5 text-xs text-slate-200">
+          <span className="min-w-0 flex-1">PDF com compras ausentes? A leitura com IA envia o documento ao Google Gemini e pode gerar custos.</span>
+          <button type="button" onClick={() => {
+            if (!window.confirm('Enviar este PDF financeiro ao Google Gemini para análise? O arquivo pode conter dados pessoais e bancários. Esta ação pode gerar custos de API.')) return;
+            void handleFileProcess(source, true);
+          }} className="min-h-10 rounded-lg border border-cyan-600/60 px-3 py-2 font-semibold text-cyan-200 hover:bg-cyan-950/50">Ler PDF com IA</button>
+        </div>
+      )}
+
       {/* Lista Plana de Lançamentos Extraídos */}
-      {result && (
+      {result && result.rows.length > 0 && (
         <div className="space-y-3 pt-2">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-xs">
             <div className="flex items-center gap-2">

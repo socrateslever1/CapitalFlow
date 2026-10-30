@@ -18,19 +18,33 @@ export type StatementParseResult = {
 };
 
 function brlAmount(raw: string): number {
-  const cleaned = raw.replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.');
-  const number = Number(cleaned);
-  return Number.isFinite(number) ? number : NaN;
+  const clean = raw.replace(/R\$/gi, '').replace(/\s/g, '').replace(/[CD]$/i, '').replace(/[+-]$/, '');
+  const negative = /^-/.test(clean) || /-$/.test(raw.trim()) || /D$/i.test(raw.trim());
+  const amount = clean.replace(/^-/, '');
+  // Handle Brazilian grouping/decimal notation and dot decimal exports.
+  const normalized = /^\d{1,3}(?:\.\d{3})+,\d{2}$/.test(amount)
+    ? amount.replace(/\./g, '').replace(',', '.')
+    : /^\d+(?:,\d{2})$/.test(amount) ? amount.replace(',', '.') : amount;
+  if (!/^\d+(?:\.\d{2})?$/.test(normalized)) return NaN;
+  const value = Number(normalized);
+  return negative ? -value : value;
 }
 function normalizeDate(raw: string): string | null {
+  const months: Record<string, number> = {jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
   let day: number, month: number, year: number;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     [year, month, day] = raw.split('-').map(Number);
   } else {
-    const parts = raw.split('/');
-    day = Number(parts[0]); month = Number(parts[1]);
-    year = parts.length === 3 ? Number(parts[2]) : new Date().getFullYear();
-    if (year < 100) year += 2000;
+    const named = /^(\d{1,2})\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?:\s+(\d{4}))?$/i.exec(raw);
+    if (named) {
+      day = Number(named[1]); month = months[named[2].toLowerCase()]; year = named[3] ? Number(named[3]) : new Date().getFullYear();
+    } else {
+      const parts = raw.split(/[/-]/);
+      if (parts.length < 2) return null;
+      day = Number(parts[0]); month = Number(parts[1]);
+      year = parts.length === 3 ? Number(parts[2]) : new Date().getFullYear();
+      if (year < 100) year += 2000;
+    }
   }
   const parsed = new Date(Date.UTC(year, month - 1, day));
   if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
@@ -83,11 +97,13 @@ function classifyStatementDescriptionEnhanced(description: string): string {
   return rules.find(([pattern]) => pattern.test(label))?.[1] || 'Outros';
 }
 
-const moneyRx = /(?:-\s*)?(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}(?:\s*[-+])?|(?:-\s*)?(?:R\$\s*)?\d{4,},\d{2}(?:\s*[-+])?/g;
-const dateRx = /(?:\b\d{2}\/\d{2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b)/;
+// Common Brazilian invoices use comma decimals, including a trailing D/C marker.
+// Dot decimals are also encountered in digital bank exports.
+const moneyRx = /(?:-\s*)?(?:R\$\s*)?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}(?:\s*[-+CD])?|(?:-\s*)?(?:R\$\s*)?\d+\.\d{2}(?:\s*[-+CD])?/gi;
+const dateRx = /(?:\b\d{2}\/\d{2}(?:\/\d{2,4})?\b|\b\d{2}-\d{2}(?:-\d{4})?\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?:\s+\d{4})?\b)/i;
 const notTransactionRx = /^(saldo|total|resumo|limite|vencimento|pagina|página|fatura|lançamentos futuros|crédito disponível|valor mínimo|taxa efetiva)/i;
 
-const historyStartRx = /hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
+const historyStartRx = /(?:detalhamento|detalhe|discriminacao)\s+(?:da\s+)?fatura|(?:compras\s+e\s+saques)|(?:lancamentos|lan[cç]amentos)\s+(?:do\s+cartao|do\s+cartão)|hist[oó]rico\s+de\s+(?:lan[cç]amentos|movimenta[cç][oõ]es)|lan[cç]amentos\s+(?:do\s+per[ií]odo|realizados|da\s+fatura)|movimenta[cç][oõ]es\s+do\s+per[ií]odo|transa[cç][oõ]es/i;
 const historyEndRx = /^(resumo|totais?|total\s+(?:da|fatura)|limite|cr[eé]dito\s+dispon[ií]vel|vencimento|pagamento\s+m[ií]nimo|encargos|juros|anualidade|observa[cç][oõ]es|legenda|lan[cç]amentos\s+futuros)/i;
 
 function normalizePdfLabel(value: string): string {
@@ -115,17 +131,30 @@ function extractInstallment(raw: string, dateToken: string): { number: number; t
 }
 
 /** Conservative extractor: ambiguous entries are left unselected for review. */
+/** Conservative extractor: values, dates and uncertain credits remain editable before saving. */
 export function parseStatementLines(lines: {key:string;text:string}[], kind: 'ACCOUNT' | 'CARD'): { rows: ParsedStatementRow[]; skipped: number } {
   const rows: ParsedStatementRow[] = [];
   let skipped = 0;
-  const hasHistoryMarker = lines.some(line => historyStartRx.test(normalizePdfLabel(line.text)));
+  // Some PDF renderers split amounts into a separate line. Join only if
+  // that continuation has no date and is not a summary/footer.
+  const combined = lines.map((line, index) => {
+    const here = line.text.replace(/\s+/g, ' ').trim();
+    const next = (lines[index + 1]?.text || '').replace(/\s+/g, ' ').trim();
+    if (dateRx.test(here) && ![...here.matchAll(moneyRx)].length && next
+      && !dateRx.test(next) && [...next.matchAll(moneyRx)].length > 0
+      && !historyEndRx.test(normalizePdfLabel(next)) && !notTransactionRx.test(next)) {
+      return {key:line.key, text:here + ' ' + next};
+    }
+    return line;
+  });
+  const hasHistoryMarker = combined.some(line => historyStartRx.test(normalizePdfLabel(line.text)));
   let inHistory = !hasHistoryMarker;
-  for (const line of lines) {
+  for (const line of combined) {
     const raw = line.text.replace(/\s+/g, ' ').trim();
     const normalized = normalizePdfLabel(raw);
     if (historyStartRx.test(normalized)) { inHistory = true; continue; }
     if (hasHistoryMarker && inHistory && historyEndRx.test(normalized)) { inHistory = false; continue; }
-    if (!inHistory) continue;
+    if (!inHistory || notTransactionRx.test(raw)) continue;
     const matchedDate = raw.match(dateRx);
     if (!matchedDate) continue;
     const date = normalizeDate(matchedDate[0]);
@@ -136,26 +165,33 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     const value = brlAmount(last[0]);
     const description = raw.slice(matchedDate.index! + matchedDate[0].length, last.index)
       .replace(/^[\s:;|\-–]+|[\s:;|\-–]+$/g, '').trim();
-    if (!description || notTransactionRx.test(description) || !Number.isFinite(value) || value===0) { skipped++; continue; }
-    const context = raw.toLowerCase();
-    const incoming = /recebid|entrada|crédito|credito|deposit|sal[aá]rio|estorno|reembols/.test(context);
-    const outgoing = /pago|pagamento|compra|débito|debito|sa[ií]da|enviado|tarifa|saque/.test(context);
-    const signed = /\-|\(/.test(last[0]) ? -Math.abs(value) : incoming && !outgoing ? Math.abs(value) : -Math.abs(value);
-    // PDF lines containing multiple amounts / sign uncertainty must be explicitly reviewed.
-    const classified = classifyStatementDescriptionEnhanced(description);
+    if (!description || notTransactionRx.test(description) || !Number.isFinite(value) || value === 0) { skipped++; continue; }
+    const context = normalizePdfLabel(description);
+    const incoming = /recebid|entrada|credito|deposit|salario|estorno|reembols|devolu[cç]/.test(context) || /C$/i.test(last[0].trim());
+    const outgoing = /pago|pagamento|compra|debito|saida|enviado|tarifa|saque/.test(context) || /D$/i.test(last[0].trim());
+    // A charge on a credit-card PDF is positive. Payments/refunds are
+    // negative and cannot be imported as new purchases. Accounts retain
+    // the opposite sign convention for expenses.
+    const markedDebit = /D$/i.test(last[0].trim());
+    const markedCredit = /C$/i.test(last[0].trim());
+    const signed = kind === 'CARD'
+      ? (markedCredit || (incoming && !outgoing) ? -Math.abs(value)
+          : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
+      : (markedCredit || (incoming && !outgoing) ? Math.abs(value) : -Math.abs(value));
+    const category = classifyStatementDescriptionEnhanced(description);
     const installment = extractInstallment(raw, matchedDate[0]);
-    const confidence: 'HIGH' | 'REVIEW' = valueMatches.length===1
-      && classified !== 'Outros' && (kind==='CARD' || incoming!==outgoing) ? 'HIGH' : 'REVIEW';
+    const confidence: 'HIGH' | 'REVIEW' =
+      valueMatches.length === 1 && category !== 'Outros' && (kind === 'CARD' ? signed > 0 : incoming !== outgoing)
+        ? 'HIGH' : 'REVIEW';
     rows.push({
-      rowKey: line.key, date, description: description.slice(0,240),
-      amount: Math.round(signed*100)/100,
-      category: classified, confidence,
-      selected: false,
-      installmentNumber: installment?.number || null,
-      installmentTotal: installment?.total || null,
+      rowKey:line.key, date, description:description.slice(0,240),
+      amount:Math.round(signed * 100) / 100, category, confidence,
+      selected: false, // PDF layout/sign requires explicit confirmation
+      installmentNumber:installment?.number || null,
+      installmentTotal:installment?.total || null,
     });
   }
-  return { rows, skipped };
+  return {rows,skipped};
 }
 export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): Promise<StatementParseResult> {
   if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {

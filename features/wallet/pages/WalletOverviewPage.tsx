@@ -14,6 +14,7 @@ import { getEffectiveInvoiceCycles } from '../../../components/wallet/invoiceSta
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
+import { WalletSpendingGuide } from '../components/WalletSpendingGuide';
 import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { CreateAccountModal } from '../components/CreateAccountModal';
@@ -245,15 +246,18 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}
       currentInvoiceTotal={overview.currentInvoiceTotal} credit={credit} onNavigate={onNavigate}/>
 
+    <WalletSpendingGuide projectedBalance={balance.projectedBalance} creditPercent={credit.percentage}
+      pendingCount={upcoming.length} onNavigate={onNavigate}/>
+
     {/* 1. SEÇÃO BALANÇO DO MÊS */}
-    <article className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+    <article className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white">
             <Scale size={18} className="text-blue-400"/> Balanço do mês ({today.slice(5, 7)}/{today.slice(0, 4)})
           </h3>
           <p className="mt-1 text-xs sm:text-sm text-slate-300">
-            Resultado calculado por: (Saldo em contas + Receitas fixas a receber) − (Faturas do mês + Dívidas do mês)
+            Entradas, saídas e saldo previsto conforme os lançamentos cadastrados.
           </p>
         </div>
         <span className={'rounded-full border px-3.5 py-1 text-xs sm:text-sm font-bold ' +
@@ -264,18 +268,18 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       {/* Resumo Direto: Entradas / Saídas / Resultado */}
-      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:p-4">
           <dt className="text-xs sm:text-sm font-semibold text-slate-300">Entradas e recursos (A)</dt>
-          <dd className="mt-1 text-right text-xl sm:text-2xl font-extrabold tabular-nums text-emerald-300">{money(balance.totalResources)}</dd>
+          <dd className="mt-1 text-right text-lg sm:text-xl font-bold tabular-nums text-emerald-300">{money(balance.totalResources)}</dd>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 sm:p-4">
           <dt className="text-xs sm:text-sm font-semibold text-slate-300">Saídas do mês (B)</dt>
-          <dd className="mt-1 text-right text-xl sm:text-2xl font-extrabold tabular-nums text-rose-300">{money(balance.totalLiabilities)}</dd>
+          <dd className="mt-1 text-right text-lg sm:text-xl font-bold tabular-nums text-rose-300">{money(balance.totalLiabilities)}</dd>
         </div>
-        <div className={`rounded-xl border p-4 ${deficit ? 'border-rose-500/30 bg-rose-950/20' : 'border-emerald-500/30 bg-emerald-950/20'}`}>
+        <div className={`col-span-2 rounded-xl border p-3 sm:col-span-1 sm:p-4 ${deficit ? 'border-rose-500/30 bg-rose-950/20' : 'border-emerald-500/30 bg-emerald-950/20'}`}>
           <dt className="text-xs sm:text-sm font-semibold text-slate-200">Saldo projetado do mês (A − B)</dt>
-          <dd className={'mt-1 text-right text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ' + (deficit ? 'text-rose-300' : 'text-emerald-300')}>
+          <dd className={'mt-1 text-right text-lg sm:text-xl font-bold tracking-tight tabular-nums ' + (deficit ? 'text-rose-300' : 'text-emerald-300')}>
             {money(balance.projectedBalance)}
           </dd>
         </div>

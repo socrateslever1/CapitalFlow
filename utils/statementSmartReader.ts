@@ -278,7 +278,7 @@ Regras Cruciais:
       skipped: 0,
       pages: 1,
       sourceType: 'IMAGE_AI',
-      costLabel: 'Frações de centavo (~R$ 0,0002) via Gemini Flash',
+      costLabel: 'IA Gemini (consulte os custos da API)',
       institutionDetected: parsedJson.institution || undefined,
       totalIdentifiedAmount: parsedJson.summary?.totalAmount,
       previewUrl: dataUrl,
@@ -293,7 +293,7 @@ Regras Cruciais:
     if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
       throw new Error('Limite momentâneo da IA atingido. Tente novamente em alguns segundos ou use arquivo OFX/PDF nativo.');
     }
-    throw new Error(`Não foi possível dissecar a imagem com IA: ${errorMsg}`);
+    throw new Error(`Não foi possível ler o documento com IA: ${errorMsg}`);
   }
 }
 
@@ -329,6 +329,17 @@ export async function parseSmartFinancialDocument(
 
   // 3. Arquivos PDF (Faturas e Extratos)
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+    if (options?.forceAi) {
+      if (file.size > 10 * 1024 * 1024) throw new Error('Limite de PDF para leitura com IA: 10 MB.');
+      // User must explicitly choose cloud processing in the importer UI.
+      // Local extraction never silently sends private financial data to Gemini.
+      const cloud = await parseStatementImageWithAi(
+        file.type === 'application/pdf' ? file : new File([file], file.name, {type: 'application/pdf'}),
+        kind,
+      );
+      return {...cloud, sourceType: 'PDF_AI', previewUrl: undefined,
+        costLabel: 'IA Gemini (consulte os custos da API)'};
+    }
     const nativeResult = await parseStatementPdf(file, kind);
     return {
       ...nativeResult,

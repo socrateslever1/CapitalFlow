@@ -85,20 +85,22 @@ export const WalletStatementImport: React.FC<Props> = ({
         !row.description.trim())
   );
 
-  const parse = async () => {
+  const parse = async (forceAi = false) => {
     if (!source) return;
     setBusy(true);
     setError('');
     setFinished(null);
     try {
       // Processa com o leitor inteligente universal (OFX / PDF / Imagem com IA)
-      const parsed = await parseSmartFinancialDocument(source, kind);
+      const parsed = await parseSmartFinancialDocument(source, kind, { forceAi });
       setResult(parsed);
       setRows(parsed.rows);
 
       if (!parsed.rows.length) {
         setError(
-          'Não localizei lançamentos claros no documento. PDFs ou imagens com baixa resolução podem exigir conferência manual.'
+          source.name.toLowerCase().endsWith('.pdf')
+            ? 'O leitor local não encontrou transações. O PDF pode ser digitalizado ou ter um layout bancário diferente; tente a IA somente se desejar.'
+            : 'Nenhuma transação válida encontrada. Confira se o arquivo exportado contém lançamentos.'
         );
       } else if (parsed.previewUrl) {
         setShowPreview(true);
@@ -169,6 +171,7 @@ export const WalletStatementImport: React.FC<Props> = ({
     }
   };
 
+  const isPdf = source?.type === 'application/pdf' || /\.pdf$/i.test(source?.name || '');
   const isImage = source?.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(source?.name || '');
   const isOfx = source?.name?.toLowerCase().endsWith('.ofx') || source?.name?.toLowerCase().endsWith('.qfx');
 
@@ -310,7 +313,7 @@ export const WalletStatementImport: React.FC<Props> = ({
             <div className="flex items-center justify-between gap-3">
               <button
                 disabled={!source || busy}
-                onClick={parse}
+                onClick={() => void parse()}
                 type="button"
                 className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/20 hover:from-blue-500 hover:to-cyan-500 disabled:opacity-40 transition"
               >
@@ -365,8 +368,18 @@ export const WalletStatementImport: React.FC<Props> = ({
             </div>
           )}
 
+          {isPdf && source && !busy && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-3 text-xs text-slate-200">
+              <span className="min-w-0 flex-1">Se a leitura local falhou, a IA pode analisar o PDF. Isso envia o documento ao Google Gemini e pode gerar custos.</span>
+              <button type="button" className="min-h-10 rounded-lg border border-cyan-500/50 px-3 py-2 font-semibold text-cyan-200" onClick={() => {
+                if (!window.confirm('Enviar este PDF financeiro ao Google Gemini? O documento pode conter dados bancários e pessoais. A leitura pode gerar custos de API.')) return;
+                void parse(true);
+              }}>Ler PDF com IA</button>
+            </div>
+          )}
+
           {/* Resultados Identificados */}
-          {result && (
+          {result && result.rows.length > 0 && (
             <div className="space-y-3 pt-2">
               {/* Header do Resultado */}
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-xs">

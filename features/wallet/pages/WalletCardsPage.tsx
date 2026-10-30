@@ -411,9 +411,15 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
                 </div>
-                {selected && <select aria-label="Ciclo da fatura" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
-                  className="mt-2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200">
-                  {invoiceCycles.length ? invoiceCycles.map(cycle => <option key={cycle.dueMonth} value={cycle.dueMonth}>{cycle.dueMonth.slice(0, 7).split('-').reverse().join('/')}{cycle.hasOverride ? ' · consolidada' : ''}</option>) : <option value={statementMonth || ''}>{(statementMonth || '').slice(0, 7).split('-').reverse().join('/')}</option>}
+                {selected && <select aria-label="Ciclo da fatura — competência e vencimento" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
+                  className="mt-2 max-w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200">
+                  {invoiceCycles.length ? invoiceCycles.map(cycle => {
+                    const dates=getInvoiceCycleDates(cycle.dueMonth,selected.closing_day,selected.due_day,
+                      invoiceFacts.find(item=>item.due_month===cycle.dueMonth)?.due_date);
+                    const competence=dates.closingDate.slice(5,7)+'/'+dates.closingDate.slice(0,4);
+                    const due=dates.dueDate.slice(8,10)+'/'+dates.dueDate.slice(5,7)+'/'+dates.dueDate.slice(0,4);
+                    return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura '+competence+' · vence '+due+(cycle.hasOverride?' · consolidada':'')}</option>;
+                  }) : <option value={statementMonth || ''}>Selecione uma fatura</option>}
                 </select>}
               </div>
               {selected && <div className="flex flex-wrap gap-2">

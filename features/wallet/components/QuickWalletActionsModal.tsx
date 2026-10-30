@@ -9,6 +9,7 @@ import {
 } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
+import { tryParseWalletMoney } from '../utils/parseWalletMoney';
 import { getCardCreditPosition } from '../../../components/wallet/invoiceStatementDomain';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from './CardOpeningFields';
 
@@ -134,7 +135,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
     e.preventDefault();
     if (saving) return;
     setError('');
-    const amount = Number(String(expenseForm.amount).replace(',', '.'));
+    const amount = tryParseWalletMoney(expenseForm.amount) ?? NaN;
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Informe um valor válido maior que zero.');
       return;
@@ -199,7 +200,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
     if (saving) return;
     setError('');
     const nickname = walletForm.nickname.trim() || 'Carteira física';
-    const initialBalance = Number(String(walletForm.balance || '0').replace(',', '.'));
+    const initialBalance = tryParseWalletMoney(walletForm.balance.trim() || '0') ?? NaN;
     if (!Number.isFinite(initialBalance) || initialBalance < 0) {
       setError('Informe um saldo inicial válido (zero ou positivo).');
       return;
@@ -228,7 +229,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
     e.preventDefault();
     if (!selectedCard || saving) return;
     setError('');
-    const newCreditLimit = Number(String(cardLimitInput || '0').replace(',', '.'));
+    const newCreditLimit = tryParseWalletMoney(cardLimitInput) ?? NaN;
     if (!Number.isFinite(newCreditLimit) || newCreditLimit <= 0) {
       setError('Informe um limite total válido para o cartão.');
       return;
@@ -403,10 +404,8 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                   Valor da Despesa (R$)
                   <input
                     required
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    inputMode="decimal"
+                    type="text"
+                        inputMode="decimal"
                     placeholder="0,00"
                     value={expenseForm.amount}
                     onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))}
@@ -552,10 +551,8 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
               <label className="block text-xs font-semibold text-slate-300">
                 Saldo Atual em Dinheiro (R$)
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
+                  type="text"
+                        inputMode="decimal"
                   placeholder="0,00"
                   value={walletForm.balance}
                   onChange={(e) => setWalletForm((f) => ({ ...f, balance: e.target.value }))}
@@ -607,9 +604,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                       Limite Total do Cartão (R$)
                       <input
                         required
-                        type="number"
-                        min="1"
-                        step="0.01"
+                        type="text"
                         inputMode="decimal"
                         placeholder="Ex.: 10000"
                         value={cardLimitInput}
@@ -620,7 +615,7 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
                   </div>
 
                   <CardOpeningFields
-                    creditLimit={Number(String(cardLimitInput || '0').replace(',', '.')) || 0}
+                    creditLimit={tryParseWalletMoney(cardLimitInput) ?? 0}
                     value={openingValues}
                     onChange={setOpeningValues}
                   />

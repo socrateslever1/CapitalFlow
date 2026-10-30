@@ -9,6 +9,7 @@ import {
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { tryParseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { Modal } from '../ui/Modal';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
 
@@ -31,7 +32,7 @@ const localDateTime = () => {
   return value.toISOString().slice(0, 16);
 };
 const today = () => localDateTime().slice(0, 10);
-const parseAmount = (value: string) => Number(value.trim().replace(',', '.'));
+const parseAmount = (value: string) => tryParseWalletMoney(value) ?? NaN;
 const validAmount = (value: number) => Number.isFinite(value) && value > 0
   && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001;
 

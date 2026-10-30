@@ -223,7 +223,17 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
   }
   return {rows,skipped};
 }
-export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): Promise<StatementParseResult> {
+export class StatementPdfPasswordError extends Error {
+  readonly code: 'PDF_PASSWORD_REQUIRED' | 'PDF_PASSWORD_INCORRECT';
+  constructor(code: 'PDF_PASSWORD_REQUIRED' | 'PDF_PASSWORD_INCORRECT') {
+    super(code === 'PDF_PASSWORD_REQUIRED'
+      ? 'O PDF está protegido. Informe a senha para leitura local.'
+      : 'Senha do PDF incorreta. Confira a senha e tente novamente.');
+    this.name = 'StatementPdfPasswordError';
+    this.code = code;
+  }
+}
+export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD', password?: string): Promise<StatementParseResult> {
   if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
     throw new Error('Selecione um arquivo PDF.');
   }
@@ -234,7 +244,7 @@ export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): P
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const worker = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-  const loading = pdfjs.getDocument({data:new Uint8Array(buffer)});
+  const loading = pdfjs.getDocument({data:new Uint8Array(buffer), ...(password ? {password} : {})});
   let document: Awaited<typeof loading.promise> | null = null;
   try {
     document = await loading.promise;
@@ -262,10 +272,14 @@ export async function parseStatementPdf(file: File, kind: 'ACCOUNT' | 'CARD'): P
     const {rows,skipped}=parseStatementLines(lines,kind);
     return {hash,rows,skipped,pages:document.numPages,
       invoiceSummary: kind === 'CARD' ? parseCardInvoiceSummary(lines.map(line => line.text)) : undefined};
-  } catch (error:any) {
-    throw new Error(error?.message?.includes('password') ? 'PDF protegido por senha. Exporte uma versão desbloqueada.' :
-      error?.message||'Não foi possível ler o PDF. PDFs digitalizados sem texto não são reconhecidos.');
+  } catch (error: unknown) {
+    const failure = error as {name?:string;code?:number;message?:string} | null;
+    if (failure?.name === 'PasswordException' || failure?.code === 1 || failure?.code === 2) {
+      throw new StatementPdfPasswordError(password ? 'PDF_PASSWORD_INCORRECT' : 'PDF_PASSWORD_REQUIRED');
+    }
+    throw new Error(failure?.message || 'Não foi possível ler o PDF. PDFs digitalizados sem texto precisam de leitura especial.');
   } finally {
-    await document?.destroy();
+    if (document) await document.destroy();
+    else await loading.destroy();
   }
 }

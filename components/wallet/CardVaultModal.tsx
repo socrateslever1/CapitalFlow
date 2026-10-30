@@ -35,7 +35,7 @@ export const CardVaultModal: React.FC<{
     setError('');setFeedback('');setPin('');setConfirmPin('');setLegacyPassword('');
     Promise.all([personalWalletService.getCardVault(card.id),personalWalletService.getWalletPinProfile()])
       .then(([vault,pinProfile])=>{
-        if(operation.current!==generation || document.hidden) return;
+        if(operation.current!==generation) return;
         if(vault.ownerId!==pinProfile.ownerId) throw new Error('Sessão do proprietário inconsistente.');
         setOwner(vault.ownerId);setEnvelope(vault.envelope);setProfile(pinProfile.profile);
         setLoaded(true);
@@ -46,24 +46,40 @@ export const CardVaultModal: React.FC<{
               if(operation.current!==generation || document.hidden) return;
               if(card.last_four && value.number.slice(-4)!==card.last_four)
                 throw new Error('O cartão protegido não corresponde ao final cadastrado.');
-              setDraft({...emptyProtectedCard(),...value});setUnlocked(true);
+              setDraft({...emptyProtectedCard(),...value,securityCode:''});setUnlocked(true);
             })
             .catch(()=>{if(operation.current===generation)clearWalletVaultSession();});
         }
       })
       .catch(reason=>{
-        if(operation.current===generation)setError(reason instanceof Error?reason.message:'Não foi possível carregar o cofre.');
+        if(operation.current!==generation)return;
+        const detail = reason instanceof Error ? reason.message : '';
+        // HTTP success can be followed by an app-side session or owner mismatch.
+        // Do not expose raw database errors or any decrypted values to the UI.
+        const authFailure = /jwt|session|auth|autoriz|permiss|401|403|proprietário inconsistente/i.test(detail);
+        const offline = /network|fetch|timeout|conex|offline/i.test(detail);
+        setError(authFailure
+          ? 'A sessão mudou ou não tem autorização para abrir este cartão. Entre novamente e tente.'
+          : offline ? 'Conexão com o cofre indisponível. Verifique a rede e tente novamente.'
+          : 'Não foi possível carregar os dados protegidos. Tente novamente.');
+        setLoaded(false);
       });
     return()=>{operation.current++;};
   },[card.id,retry]);
 
   useEffect(()=>{
+    let wasHidden = document.hidden;
     const lock=()=>{
       if(document.hidden) {
+        wasHidden = true;
         operation.current++;
         clearWalletVaultSession();
-        setUnlocked(false);setDraft(emptyProtectedCard());
+        setLoaded(false);setUnlocked(false);setDraft(emptyProtectedCard());
         setPin('');setConfirmPin('');setLegacyPassword('');setFeedback('');
+      } else if(wasHidden) {
+        wasHidden = false;
+        // WebView suspension invalidates pending reads; reload on resume.
+        setRetry(value=>value+1);
       }
     };
     document.addEventListener('visibilitychange',lock);
@@ -117,7 +133,7 @@ export const CardVaultModal: React.FC<{
         const next=await encryptCardWithMaster(oldPlain,master,owner,envelope.context_id);
         await personalWalletService.saveCardVault(card.id,next,oldPlain.number.slice(-4));
         if(operation.current!==generation || document.hidden)return;
-        setEnvelope(next);setDraft({...emptyProtectedCard(),...oldPlain});setUnlocked(true);
+        setEnvelope(next);setDraft({...emptyProtectedCard(),...oldPlain,securityCode:''});setUnlocked(true);
         setFeedback('Cartão migrado. Da próxima vez, use apenas o PIN da Carteira.');
         await onSaved(oldPlain.number.slice(-4));
       } else if(envelope?.version===2 && !unlocked) {
@@ -125,7 +141,7 @@ export const CardVaultModal: React.FC<{
         if(card.last_four && value.number.slice(-4)!==card.last_four)
           throw new Error('O número protegido diverge do cadastro.');
         if(operation.current!==generation || document.hidden)return;
-        setDraft({...emptyProtectedCard(),...value});setUnlocked(true);
+        setDraft({...emptyProtectedCard(),...value,securityCode:''});setUnlocked(true);
       } else {
         const number=validateCardNumber(draft.number);
         const next=await encryptCardWithMaster(
@@ -157,7 +173,7 @@ export const CardVaultModal: React.FC<{
       {loaded&&<>
         {isLegacy&&<label className="block text-xs font-medium text-slate-300">
           Senha antiga deste cartão (somente para migração)
-          <input type="password" autoComplete="off" maxLength={256} value={legacyPassword}
+          <input type="password" name="wallet-legacy-vault-secret" autoComplete="off" maxLength={256} value={legacyPassword}
             onChange={e=>setLegacyPassword(e.target.value)}
             className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>}
@@ -167,14 +183,14 @@ export const CardVaultModal: React.FC<{
           </p>
           <label className="block text-xs text-slate-300">
             {needsConfirmation?'Novo PIN (8 a 12 dígitos)':'Informe seu PIN'}
-            <input type="password" inputMode="numeric" autoComplete="off"
+            <input type="password" name="wallet-vault-pin" inputMode="numeric" autoComplete="off"
               minLength={8} maxLength={12} pattern="[0-9]{8,12}"
               value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,'').slice(0,12))}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" required/>
           </label>
           {needsConfirmation&&<label className="block text-xs text-slate-300">
             Confirmar PIN
-            <input type="password" inputMode="numeric" autoComplete="off"
+            <input type="password" name="wallet-vault-pin-confirmation" inputMode="numeric" autoComplete="off"
               minLength={8} maxLength={12} pattern="[0-9]{8,12}"
               value={confirmPin} onChange={e=>setConfirmPin(e.target.value.replace(/\D/g,'').slice(0,12))}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" required/>
@@ -188,14 +204,11 @@ export const CardVaultModal: React.FC<{
           </p>
         </div>}
         {showCardFields&&<CardProtectedFields value={draft} onChange={setDraft} askPassword={false}/>}
-        {unlocked&&<div className="flex flex-wrap gap-2">
-          {([['Número completo',draft.number],['CVC',draft.securityCode]] as const)
-            .map(([label,value])=><button key={label} type="button" disabled={!value}
-              onClick={()=>{void copyCardFieldToClipboard(label,value).then(result=>setFeedback(result.message));}}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-xs text-slate-200 disabled:opacity-40">
-              <Copy size={15}/>Copiar {label.toLowerCase()}
-            </button>)}
-        </div>}
+        {unlocked&&<button type="button" disabled={!draft.number}
+          onClick={()=>{void copyCardFieldToClipboard('Número completo',draft.number).then(result=>setFeedback(result.message));}}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 px-3 text-xs text-slate-200 disabled:opacity-40">
+          <Copy size={15}/>Copiar número completo
+        </button>}
         <p className="text-xs text-slate-400">
           O cofre exige login no CapitalFlow e um PIN da Carteira, sem senha separada por cartão.
         </p>

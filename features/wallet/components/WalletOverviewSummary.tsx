@@ -14,14 +14,14 @@ export const WalletOverviewSummary: React.FC<{
   onNavigate: (path: string) => void;
 }> = ({ accounts, cards, accountBalance, currentInvoiceTotal, credit, onNavigate }) => (
   <div className="grid items-start gap-5 lg:grid-cols-12">
-    <article className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:col-span-6">
+    <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3.5 sm:p-5 lg:col-span-6">
       <header className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-base font-bold text-white"><Landmark size={18} className="text-blue-400"/>Liquidez imediata</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><Landmark size={18} className="text-blue-400"/>Liquidez imediata</h3>
         <span className="text-xs font-medium text-slate-300">{accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}</span>
       </header>
-      <div className="mt-4 rounded-xl border border-slate-800/90 bg-slate-950/60 p-4">
+      <div className="mt-3 rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
         <p className="text-sm font-semibold text-slate-300">Saldo disponível</p>
-        <p className={`mt-1.5 break-words text-3xl font-extrabold tracking-tight tabular-nums sm:text-4xl ${accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+        <p className={`mt-1.5 break-words text-xl font-bold tracking-tight tabular-nums sm:text-2xl ${accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
           {formatMoney(accountBalance)}
         </p>
         <p className="mt-1 text-xs sm:text-sm text-slate-300">Total livre para movimentação nas suas instituições</p>
@@ -31,19 +31,19 @@ export const WalletOverviewSummary: React.FC<{
         <span>Ver detalhes das contas</span> <ArrowRight size={17}/>
       </button>
     </article>
-    <article className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:col-span-6">
+    <article className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-3.5 sm:p-5 lg:col-span-6">
       <header className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-base font-bold text-white"><CreditCard size={18} className="text-blue-400"/>Cartões</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-white"><CreditCard size={18} className="text-blue-400"/>Cartões</h3>
         <span className="text-xs font-medium text-slate-300">{cards.length} {cards.length === 1 ? 'ativo' : 'ativos'}</span>
       </header>
       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="min-w-0 rounded-xl border border-slate-800/90 bg-slate-950/60 p-4">
+        <div className="min-w-0 rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
           <dt className="text-sm font-semibold text-slate-300">Faturas do mês</dt>
-          <dd className="mt-1.5 break-words text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-white">{formatMoney(currentInvoiceTotal)}</dd>
+          <dd className="mt-1.5 break-words text-lg sm:text-xl font-bold tracking-tight tabular-nums text-white">{formatMoney(currentInvoiceTotal)}</dd>
         </div>
-        <div className="min-w-0 rounded-xl border border-slate-800/90 bg-slate-950/60 p-4">
+        <div className="min-w-0 rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
           <dt className="text-sm font-semibold text-slate-300">Limite disponível</dt>
-          <dd className="mt-1.5 break-words text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-emerald-300">{formatMoney(credit.available)}</dd>
+          <dd className="mt-1.5 break-words text-lg sm:text-xl font-bold tracking-tight tabular-nums text-emerald-300">{formatMoney(credit.available)}</dd>
         </div>
       </dl>
       <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-300"><span>Limite utilizado</span><strong className="tabular-nums text-slate-200">{Math.round(credit.percentage)}%</strong></div>

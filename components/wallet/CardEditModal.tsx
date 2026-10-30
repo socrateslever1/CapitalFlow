@@ -4,6 +4,7 @@ import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '..
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
 import {getBankVisual} from './walletPresentation';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
@@ -17,13 +18,17 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
   event.preventDefault();if(saving)return;
   if(form.last_four&&!/^\d{4}$/.test(form.last_four)){setError('Informe exatamente os quatro últimos dígitos.');return;}
   if(Boolean(form.expiry_month)!==Boolean(form.expiry_year)){setError('Informe mês e ano da validade juntos.');return;}
+  let limit: number;
+  try { limit = parseWalletMoney(form.credit_limit, 'limite de crédito'); }
+  catch (reason) { setError(reason instanceof Error ? reason.message : 'Limite inválido.'); return; }
+  if (Math.round(limit * 100) < Math.round(Number(card.used_limit) * 100)) { setError('O limite não pode ser menor que o valor utilizado.'); return; }
   setSaving(true);setError('');
   try{
    await personalWalletService.updateCardMetadata(card.id,{
     nickname:form.nickname,issuer:form.issuer,brand:form.brand,account_id:form.account_id||null,
     last_four:form.last_four||null,cardholder_name:form.cardholder_name.trim()||null,
     expiry_month:form.expiry_month?Number(form.expiry_month):null,expiry_year:form.expiry_year?Number(form.expiry_year):null,
-    credit_limit:Number(form.credit_limit),closing_day:form.closing_day?Number(form.closing_day):null,
+    credit_limit:limit,closing_day:form.closing_day?Number(form.closing_day):null,
     due_day:form.due_day?Number(form.due_day):null,status:form.status as 'ACTIVE'|'BLOCKED'|'CANCELED',primary_color:form.primary_color
    });
    await onSaved();onClose();
@@ -59,8 +64,8 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      <label className="text-xs text-slate-300">Ano da validade<input type="number" min="2000" max="2200" autoComplete="cc-exp-year" className={field} value={form.expiry_year} onChange={e=>change('expiry_year',e.target.value)}/></label>
     </div>
     <label className="text-xs text-slate-300 sm:col-span-2">Código de segurança (CVC)<input readOnly aria-describedby="wallet-cvc-policy" className={field+' cursor-not-allowed opacity-70 tracking-[0.35em]'} value="•••"/><span id="wallet-cvc-policy" className="text-[10px] text-slate-500">O CVC não é armazenado no CapitalFlow por segurança.</span></label>
-    <label className="text-xs text-slate-300">Limite total<input type="number" required min={card.used_limit} step="0.01" className={field} value={form.credit_limit} onChange={e=>change('credit_limit',e.target.value)}/></label>
-    <label className="text-xs text-slate-300">Limite disponível<input readOnly className={field+' opacity-70'} value={formatMoney(Math.max(0,Number(form.credit_limit)-Number(card.used_limit)))}/><span className="text-[10px] text-slate-500">Calculado a partir do uso real</span></label>
+    <label className="text-xs text-slate-300">Limite total<input type="text" inputMode="decimal" required className={field} value={form.credit_limit} onChange={e=>change('credit_limit',e.target.value)}/></label>
+    <label className="text-xs text-slate-300">Limite disponível<input readOnly className={field+' opacity-70'} value={formatMoney(Math.max(0,(() => { try { return parseWalletMoney(form.credit_limit); } catch { return 0; } })()-Number(card.used_limit)))}/><span className="text-[10px] text-slate-500">Calculado a partir do uso real</span></label>
     <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
     <label className="text-xs text-slate-300">Vencimento (dia)<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
     <label className="text-xs text-slate-300">Cor principal<input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>

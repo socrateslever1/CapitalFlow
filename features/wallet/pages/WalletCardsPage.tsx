@@ -23,6 +23,7 @@ import { CardInitialBalancesModal } from '../../../components/wallet/CardInitial
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
+import { parseWalletMoney } from '../utils/parseWalletMoney';
 
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
@@ -187,12 +188,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const createCard = async (event: React.FormEvent) => {
     event.preventDefault(); if (saving) return; setSaving(true); setNotice('');
     try {
-      const position = validateCardOpening(opening, Number(cardForm.credit_limit));
+      const creditLimit = parseWalletMoney(cardForm.credit_limit, 'limite de crédito');
+      const position = validateCardOpening(opening, creditLimit);
       await personalWalletService.createCardWithOpening({
         card: {
           nickname: cardForm.nickname.trim(), issuer: cardForm.issuer.trim(),
           brand: cardForm.brand || null, last_four: cardForm.last_four || null,
-          credit_limit: Number(cardForm.credit_limit),
+          credit_limit: creditLimit,
           due_day: Number(cardForm.due_day), closing_day: Number(cardForm.closing_day),
         },
         existingAccountId: cardForm.account_id || null,
@@ -360,8 +362,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <label key={field} className="space-y-1 text-xs text-slate-300">
             {({nickname:'Apelido',issuer:'Instituição',brand:'Bandeira',last_four:'Últimos 4 dígitos',
               credit_limit:'Limite de crédito',closing_day:'Dia de fechamento',due_day:'Dia do vencimento'} as const)[field]}
-            <input required={field !== 'last_four'} type={['credit_limit','closing_day','due_day'].includes(field) ? 'number':'text'}
-              min={field === 'credit_limit' ? 0 : field === 'closing_day' || field === 'due_day' ? 1 : undefined}
+            <input required={field !== 'last_four'} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
+              min={field === 'closing_day' || field === 'due_day' ? 1 : undefined}
+              inputMode={field === 'credit_limit' ? 'decimal' : field === 'closing_day' || field === 'due_day' ? 'numeric' : undefined}
               max={field === 'closing_day' || field === 'due_day' ? 31 : undefined}
               value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
@@ -373,7 +376,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </select>
         </label>
         <div className="sm:col-span-2">
-          <CardOpeningFields value={opening} creditLimit={Number(cardForm.credit_limit) || 0}
+          <CardOpeningFields value={opening} creditLimit={(() => { try { return parseWalletMoney(cardForm.credit_limit || '0'); } catch { return 0; } })()}
             onChange={value => { requestId.current = generateUUID(); setOpening(value); }}/>
         </div>
        </form>

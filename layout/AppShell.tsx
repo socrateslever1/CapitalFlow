@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, Megaphone, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
 import { HeaderBar } from './HeaderBar';
+import { AndroidApkNotice } from '../components/system/AndroidApkNotice';
 import { PageBackProvider } from '../contexts/PageBackContext';
 import { ApplePageBackBar } from './ApplePageBackBar';
 import { isAppleMobile } from '../utils/appleMobile';
@@ -204,8 +205,9 @@ export const AppShell: React.FC<AppShellProps> = ({
       />
 
       <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
+      {activeUser && !isSupportOpen && !activeModal && <AndroidApkNotice placement="banner" />}
       <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain pb-36 md:pb-12">
-        <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="w-full max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
           {children}
         </div>
       </main>

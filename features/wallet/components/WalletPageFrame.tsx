@@ -5,7 +5,7 @@ export const WalletPageFrame: React.FC<{
   title: string; description: string; error?: string; loading?: boolean;
   onRefresh?: () => void; actions?: React.ReactNode; children: React.ReactNode;
 }> = ({ title, description, error, loading, onRefresh, actions, children }) => (
-  <section className="mx-auto w-full max-w-[1500px] space-y-4 px-4 pb-24 sm:space-y-5 sm:px-6 lg:pb-10">
+  <section className="mx-auto w-full max-w-[1500px] space-y-4 px-3 pb-24 sm:space-y-5 sm:px-6 lg:pb-10">
     <header className="flex flex-wrap items-start justify-between gap-4 pb-1">
       <div className="min-w-0">
         <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">{title}</h2>

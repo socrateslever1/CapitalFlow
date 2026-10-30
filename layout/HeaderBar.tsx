@@ -26,6 +26,7 @@ import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { resolveNotificationTarget } from '../utils/notificationRouting';
 import { notificationService } from '../services/notification.service';
+import { AndroidApkNotice } from '../components/system/AndroidApkNotice';
 import { pushSubscriptionService } from '../services/pushSubscription.service';
 
 interface HeaderBarProps {
@@ -441,6 +442,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2 custom-scrollbar">
+        <AndroidApkNotice placement="notifications" />
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-white/5 bg-slate-900/80 shadow-inner">
@@ -477,7 +479,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <header id="app-header" className="sticky top-0 z-[1000] shrink-0 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
-      <div id="header-container" className="max-w-[1920px] mx-auto px-2 sm:px-6 min-h-[4rem] sm:min-h-[5rem] py-2 sm:py-3 flex flex-wrap items-center justify-between gap-y-2 sm:gap-y-3">
+      <div id="header-container" className="max-w-[1500px] mx-auto px-3 sm:px-6 min-h-[3.75rem] sm:min-h-[4.25rem] py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-y-2 sm:gap-y-3">
         <div id="header-main-row" className="flex flex-wrap items-center justify-between w-full gap-2 sm:gap-6">
           <div id="header-left-section" className="flex items-center gap-3 sm:gap-6 order-1">
             <div id="menu-button-container" className="hidden md:flex items-center">
@@ -500,15 +502,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-lg flex items-center justify-center shadow-lg transition-transform flex-shrink-0 group-hover:scale-110"
                 style={{ backgroundColor: primaryColor }}
               >
-                {activeUser?.logoUrl ? (
-                  <img
-                    src={activeUser.logoUrl}
-                    className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <TrendingUp className="text-white w-4 h-4 sm:w-6 sm:h-6" />
-                )}
+                <img
+                  src={activeUser?.logoUrl || '/brand/capitalflow-app-icon.svg'}
+                  alt="CapitalFlow"
+                  className="h-full w-full rounded-lg object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div id="title-wrapper">
                 <h1 id="app-title" className="text-sm sm:text-2xl font-black tracking-tighter uppercase leading-none text-white">

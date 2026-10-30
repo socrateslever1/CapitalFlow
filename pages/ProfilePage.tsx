@@ -175,7 +175,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   if (!profileEditForm) return null;
 
   return (
-    <div className="space-y-8 pb-20 max-w-[1600px] mx-auto animate-in fade-in">
+    <div className="space-y-5 pb-20 w-full max-w-[1500px] mx-auto animate-in fade-in">
       <input
         ref={profilePhotoInputRef}
         type="file"
@@ -283,7 +283,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
       {/* SIDEBAR */}
       <div className="lg:col-span-4 space-y-6">
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg relative overflow-hidden">

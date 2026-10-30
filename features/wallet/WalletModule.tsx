@@ -29,7 +29,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   if (access.status === 'error') return <StateCard kind="error" message={access.message}/>;
 
   return <main className="w-full pb-28">
-    <header className="mx-auto mb-3 flex w-full max-w-[1500px] min-w-0 items-center gap-3 border-b border-slate-800/70 px-4 pb-3 sm:px-6">
+    <header className="mx-auto mb-3 flex w-full max-w-[1500px] min-w-0 items-center gap-3 border-b border-slate-800/70 px-3 pb-3 sm:px-6">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-cyan-300" aria-hidden="true"><Wallet size={20} strokeWidth={2.1}/></span>
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-base font-extrabold text-white sm:text-xl">Minha carteira</h1>
@@ -40,7 +40,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         {realtimeStatus === 'connected' ? 'Sincronizado' : realtimeStatus === 'error' || realtimeStatus === 'disconnected' ? 'Sem conexão ao vivo' : 'Conectando'}
       </span>
     </header>
-    <div className="mx-auto mb-4 w-full max-w-[1500px] px-4 sm:px-6">
+    <div className="mx-auto mb-4 w-full max-w-[1500px] px-3 sm:px-6">
       <nav aria-label="Navegação da Carteira" className="grid w-full min-w-0 grid-cols-5 items-center gap-1 rounded-2xl border border-slate-800 bg-slate-900 p-1.5 sm:flex">
         {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
           const Icon = navigationIcons[item.key];

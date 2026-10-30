@@ -73,6 +73,9 @@ begin
     -- Reutiliza a criação/edição CANÔNICA: nunca insere segunda consolidação do mesmo mês.
     v_result:=public.personal_wallet_set_monthly_invoice_override(
       p_card_id,p_new_due_month,p_amount,p_request_id);
+    update public.personal_wallet_expenses
+      set mutation_requests=mutation_requests||jsonb_build_object(p_request_id::text,v_payload)
+      where id=(v_result->>'expense_id')::uuid and owner_user_id=v_owner;
   else
     select * into v_previous from public.personal_wallet_expenses
     where owner_user_id=v_owner and card_id=p_card_id
@@ -106,7 +109,7 @@ begin
       update public.personal_wallet_expenses
         set status='CANCELED',updated_at=now(),
           mutation_requests=mutation_requests||jsonb_build_object(
-            p_request_id::text,v_payload||jsonb_build_object('duplicated_target',true))
+            ('duplicate-target:'||p_request_id::text),v_payload||jsonb_build_object('duplicated_target',true))
         where id=v_target.id;
       update public.personal_wallet_expense_installments set status='CANCELED'
         where expense_id=v_target.id and status<>'PAID';

@@ -31,6 +31,7 @@ test('internal navigation remains functional and visually restrained for five se
 
 test('one expense action lives in global FAB, not a duplicated overview toolbar', () => {
   assert(moduleSource.includes("<WalletExpenseFab />"));
+  assert(!moduleSource.includes("route !== 'cartoes' && <WalletExpenseFab />"));
   assert(fab.includes('Adicionar despesa'));
   assert(fab.includes('<QuickExpenseModal'));
   assert(!overview.includes('Lançar despesa'));

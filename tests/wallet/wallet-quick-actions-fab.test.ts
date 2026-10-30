@@ -12,7 +12,10 @@ test('o FAB expande para cima com as quatro ações rápidas', () => {
     assert.match(fab, new RegExp(label));
   }
   assert.match(fab, /aria-expanded/);
-  assert.match(fab, /bottom-20 right-4/);
+  assert.match(fab, /right-4 z-40/);
+  assert.match(fab, /onCards/);
+  assert.match(fab, /bottom-28/);
+  assert.match(fab, /bottom-20/);
   assert.match(fab, /flex-col-reverse/);
 });
 

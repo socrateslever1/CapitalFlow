@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Landmark, Loader2, QrCode, Wallet } from 'lucide-react';
-import type { CapitalSource } from '../../types';
+import type { CapitalSource, UserProfile } from '../../types';
+import { useWalletOwnerDefaults } from '../../features/wallet/hooks/useWalletOwnerDefaults';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { formatMoney } from '../../utils/formatters';
@@ -10,9 +11,11 @@ import { getBankVisual, walletAccountTypeLabel } from './walletPresentation';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { BankAccountDetailsFields } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 export interface CreateAccountModalProps {
   capitalSources?: CapitalSource[];
+  activeUser?: UserProfile | null;
   initialAccountType?: 'CHECKING' | 'PAYMENT' | 'SAVINGS' | 'CASH' | 'INVESTMENT';
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -35,13 +38,14 @@ const PRESET_INSTITUTIONS = [
 
 export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   capitalSources: providedCapitalSources,
+  activeUser,
   initialAccountType = 'CHECKING',
   onClose,
   onSaved,
 }) => {
   const [loadedSources, setLoadedSources] = useState<CapitalSource[]>(providedCapitalSources || []);
   useEffect(() => {
-    if (providedCapitalSources && providedCapitalSources.length > 0) {
+    if (providedCapitalSources !== undefined) {
       setLoadedSources(providedCapitalSources);
       return;
     }
@@ -69,6 +73,15 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const [capitalSourceId, setCapitalSourceId] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft());
+  const [thirdPartyAccount, setThirdPartyAccount] = useState(false);
+  const ownerDefaults = useWalletOwnerDefaults(activeUser, accountType !== 'CASH');
+  useEffect(() => {
+    if (thirdPartyAccount || accountType === 'CASH') return;
+    setBankDetails(previous => ({ ...previous,
+      holder_name: previous.holder_name || ownerDefaults.name,
+      holder_document: previous.holder_document || ownerDefaults.document,
+    }));
+  }, [ownerDefaults.name, ownerDefaults.document, accountType, thirdPartyAccount]);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -105,9 +118,11 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       return;
     }
 
-    const parsedBalance = Math.round((Number(initialBalance || 0) || 0) * 100) / 100;
-    if (!Number.isFinite(parsedBalance) || parsedBalance < 0) {
-      setError('Informe um saldo inicial válido (zero ou positivo).');
+    let parsedBalance: number;
+    try {
+      parsedBalance = parseWalletMoney(initialBalance.trim() || '0', 'saldo inicial');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Informe um saldo inicial válido.');
       return;
     }
 
@@ -118,6 +133,10 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       return;
     }
 
+    if (!isPhysicalWallet && thirdPartyAccount && !bankDetails.holder_name.trim()) {
+      setError('Informe o titular da conta de terceiros.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -300,9 +319,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             <label className={labelClass}>
               Saldo Inicial (R$)
               <input
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
                 inputMode="decimal"
                 value={initialBalance}
                 onChange={(e) => {
@@ -370,7 +387,29 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             </label>
           </div>
 
-          {!isPhysicalWallet&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}
+          {!isPhysicalWallet && <div className="space-y-3 border-t border-slate-800 pt-3">
+            <div className="rounded-lg border border-slate-700/70 bg-slate-950/50 p-3">
+              <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-slate-200">
+                <input type="checkbox" checked={thirdPartyAccount} className="h-4 w-4 accent-blue-600"
+                  onChange={event => {
+                    const thirdParty = event.target.checked;
+                    setThirdPartyAccount(thirdParty);
+                    setBankDetails(previous => ({
+                      ...previous,
+                      holder_name: thirdParty ? '' : ownerDefaults.name || previous.holder_name,
+                      holder_document: thirdParty ? '' : ownerDefaults.document || previous.holder_document,
+                    }));
+                  }}/>
+                Conta de outra pessoa
+              </label>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                {thirdPartyAccount
+                  ? 'Informe o titular desta conta. Os dados não serão copiados do seu perfil.'
+                  : 'Nome e documento são sugeridos a partir do perfil CapitalFlow. Confira antes de salvar.'}
+              </p>
+            </div>
+            <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>
+          </div>}
           {error && (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
               {error}

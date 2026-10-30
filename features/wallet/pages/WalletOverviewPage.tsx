@@ -163,7 +163,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   };
 };
 
-export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
+export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) => {
   const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -353,6 +353,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
     {quickModal?.mode === 'CASH_WALLET' && (
       <CreateAccountModal
+        activeUser={activeUser}
         onClose={() => setQuickModal(null)}
         onSaved={async () => {
           await refresh();

@@ -179,6 +179,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
       </form>}
       {createModalType && (
         <CreateAccountModal
+          activeUser={activeUser}
           capitalSources={data.capitalSources || []}
           initialAccountType={createModalType}
           onClose={() => setCreateModalType(null)}

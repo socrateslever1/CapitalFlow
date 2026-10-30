@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
+import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import type { PersonalWalletCard } from '../../../services/personalWallet.service';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import { BankStack } from '../../../components/wallet/BankStack';
@@ -32,7 +33,7 @@ import { BANK_CATALOG } from '../../../utils/bankLogoRegistry';
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
 
-export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
+export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
   const requestedAction = searchParams.get('acao');
@@ -50,6 +51,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     });
   };
   const [creating, setCreating] = useState(false);
+  const [thirdPartyCard, setThirdPartyCard] = useState(false);
+  const ownerDefaults = useWalletOwnerDefaults(activeUser, creating);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
@@ -74,6 +77,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '10',
     closing_day: '1', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
+  useEffect(() => {
+    if (!creating || thirdPartyCard || !ownerDefaults.name) return;
+    setCardForm(value => value.cardholder_name.trim()
+      ? value : { ...value, cardholder_name: ownerDefaults.name });
+  }, [creating, thirdPartyCard, ownerDefaults.name]);
+
   const [expenseForm, setExpenseForm] = useState({
     description: '', amount: '', category: 'Compras', installment_count: '1',
   });
@@ -204,6 +213,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     event.preventDefault(); if (saving) return; setSaving(true); setNotice('');
     setCreateError('');
     try {
+      if (thirdPartyCard && !cardForm.cardholder_name.trim()) {
+        throw new Error('Informe o nome do titular do cartão de terceiros.');
+      }
       const creditLimit = parseWalletMoney(cardForm.credit_limit, 'limite de crédito');
       const position = validateCardOpening(opening, creditLimit);
       if(Boolean(cardForm.expiry_month)!==Boolean(cardForm.expiry_year))throw new Error('Informe mês e ano da validade juntos.');
@@ -234,7 +246,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         identity:{cardholder_name:cardForm.cardholder_name.trim()||null,expiry_month:cardForm.expiry_month?Number(cardForm.expiry_month):null,expiry_year:cardForm.expiry_year?Number(cardForm.expiry_year):null},
         envelope,
       });
-      await refresh(); setCreating(false); setOpening(freshCardOpening());
+      await refresh(); setCreating(false); setThirdPartyCard(false); setOpening(freshCardOpening());
       requestId.current = generateUUID();
       setCardForm({
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
@@ -428,6 +440,27 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             {data.accounts.map(account => <option key={account.id} value={account.id}>{account.nickname}</option>)}
           </select>
         </label>
+        <div className="sm:col-span-2 rounded-lg border border-slate-700/70 bg-slate-950/60 p-3">
+          <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-slate-200">
+            <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
+              onChange={event => {
+                const thirdParty = event.target.checked;
+                setThirdPartyCard(thirdParty);
+                requestId.current = generateUUID();
+                setCardForm(value => ({...value,
+                  cardholder_name: thirdParty ? '' : ownerDefaults.name || value.cardholder_name,
+                }));
+              }}/>
+            Cartão de outra pessoa
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-slate-400">
+            {thirdPartyCard
+              ? 'Informe o nome do titular autorizado deste cartão.'
+              : ownerDefaults.name
+                ? 'Titular preenchido pelo seu perfil CapitalFlow. Você pode editar o nome impresso.'
+                : 'Informe o titular ou complete seu perfil CapitalFlow para preenchimento automático.'}
+          </p>
+        </div>
         <label className="space-y-1 text-xs text-slate-300">Nome impresso no cartão
           <input maxLength={120} autoComplete="cc-name" value={cardForm.cardholder_name} onChange={event=>{requestId.current=generateUUID();setCardForm(value=>({...value,cardholder_name:event.target.value}));}} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" placeholder="NOME DO TITULAR"/>
         </label>

@@ -59,7 +59,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     </nav>
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
 
-    {route !== 'cartoes' && <WalletExpenseFab />}
+    <WalletExpenseFab />
   </main>;
 };
 

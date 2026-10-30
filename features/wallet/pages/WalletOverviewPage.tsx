@@ -4,7 +4,7 @@ import {
   Scale, TrendingDown, TrendingUp, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
-import type { PersonalWalletAccount, PersonalWalletCard } from '../../../services/personalWallet.service';
+import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';

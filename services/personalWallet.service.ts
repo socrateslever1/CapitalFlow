@@ -191,6 +191,41 @@ export type WalletStatementRow = {
   amount: number;
   category: string;
 };
+
+/** Read-only issuer observation. Never use this record as a payment/ledger event. */
+export type WalletCardInvoiceFacts = {
+  id: string;
+  card_id: string;
+  due_month: string;
+  due_date: string | null;
+  issuer: string | null;
+  invoice_total: number | null;
+  minimum_payment: number | null;
+  credit_limit: number | null;
+  used_limit: number | null;
+  available_limit: number | null;
+  future_installments: number | null;
+  source_hash: string | null;
+  source_type: 'PDF' | 'OFX' | 'MANUAL';
+  observed_at: string;
+  updated_at: string;
+};
+
+export type SaveWalletCardInvoiceFacts = {
+  cardId: string;
+  dueMonth: string;
+  dueDate: string | null;
+  issuer: string | null;
+  invoiceTotal: number | null;
+  minimumPayment: number | null;
+  creditLimit: number | null;
+  usedLimit: number | null;
+  availableLimit: number | null;
+  futureInstallments: number | null;
+  sourceHash: string | null;
+  sourceType: 'PDF' | 'OFX' | 'MANUAL';
+};
+
 export type PersonalWalletCharge = {
   id: string;
   owner_user_id: string;
@@ -615,6 +650,52 @@ export const personalWalletService = {
       throw new CardRegistrationError(error.code==='PGRST202'?'O cadastro completo precisa da atualização do banco. Nenhum cartão foi criado.':error.message,definitive);
     }
     return data as {card_id:string;account_id:string|null;replayed:boolean};
+  },
+
+  /** Only store facts after a human has reviewed the issuer PDF; no settlement RPC. */
+  async saveCardInvoiceFacts(input: SaveWalletCardInvoiceFacts): Promise<WalletCardInvoiceFacts> {
+    if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(input.dueMonth))
+      throw new Error('Mês de vencimento inválido.');
+    if (input.dueDate) {
+      const parsedDate = new Date(input.dueDate + 'T00:00:00Z');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) ||
+          Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== input.dueDate ||
+          input.dueDate.slice(0,7) !== input.dueMonth.slice(0,7))
+        throw new Error('Data de vencimento fora do mês selecionado.');
+    }
+    if (!input.cardId) throw new Error('Cartão obrigatório.');
+    if (input.issuer !== null && input.issuer.length > 80) throw new Error('Nome do emissor inválido.');
+    if (input.sourceHash !== null && !/^[a-f0-9]{64}$/.test(input.sourceHash))
+      throw new Error('Assinatura do arquivo inválida.');
+    const amounts = [input.invoiceTotal, input.minimumPayment, input.creditLimit, input.usedLimit, input.availableLimit, input.futureInstallments];
+    if (amounts.some(value => value !== null &&
+        (!Number.isFinite(value) || value < 0 || value > 9999999999.99 ||
+         Math.abs(value * 100 - Math.round(value * 100)) > 0.000001)))
+      throw new Error('Valor monetário inválido na fatura.');
+    if (input.invoiceTotal !== null && input.minimumPayment !== null &&
+        input.minimumPayment > input.invoiceTotal)
+      throw new Error('O pagamento mínimo não pode superar a fatura.');
+    const owner = await this.ownerId();
+    const { data, error } = await supabase.from('personal_wallet_card_invoice_facts').upsert({
+      owner_user_id: owner, card_id: input.cardId, due_month: input.dueMonth,
+      due_date: input.dueDate, issuer: input.issuer,
+      invoice_total: input.invoiceTotal, minimum_payment: input.minimumPayment,
+      credit_limit: input.creditLimit, used_limit: input.usedLimit,
+      available_limit: input.availableLimit, future_installments: input.futureInstallments,
+      source_hash: input.sourceHash, source_type: input.sourceType,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'owner_user_id,card_id,due_month' }).select().single();
+    if (error) throw new Error(error.message);
+    return data as WalletCardInvoiceFacts;
+  },
+
+  async loadCardInvoiceFacts(cardId: string): Promise<WalletCardInvoiceFacts[]> {
+    if (!cardId) return [];
+    const { data, error } = await supabase.from('personal_wallet_card_invoice_facts')
+      .select('*').eq('card_id', cardId)
+      .order('due_month', { ascending: false }).limit(24);
+    if (error) throw new Error(error.message);
+    return (data || []) as WalletCardInvoiceFacts[];
   },
 
   async getCardVault(cardId:string) {

@@ -14,6 +14,7 @@ type CardInvoiceStatementProps = {
   installments: PersonalWalletExpenseInstallment[];
   onEdit: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
   onDelete: (expenseId: string, requestId: string) => Promise<void>;
+  onCancelConsolidation?: (dueMonth: string, requestId: string) => Promise<void>;
   headerAction?: React.ReactNode;
   invoiceState?: InvoiceCycleState;
   cycleDates?: InvoiceCycleDates;
@@ -21,9 +22,12 @@ type CardInvoiceStatementProps = {
   openingBalance?: number;
 };
 
-export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, headerAction, invoiceState, cycleDates, openingBalance = 0, className = '' }) => {
+export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ cardId, dueMonth, expenses, installments, onEdit, onDelete, onCancelConsolidation, headerAction, invoiceState, cycleDates, openingBalance = 0, className = '' }) => {
   const [editing, setEditing] = useState<PersonalWalletExpense | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<PersonalWalletExpense | null>(null);
+  const [confirmingConsolidation, setConfirmingConsolidation] = useState<PersonalWalletExpense | null>(null);
+  const [cancelingConsolidation, setCancelingConsolidation] = useState(false);
+  const consolidationRequests = useRef(new Map<string, string>());
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const deleteRequestIds = useRef(new Map<string, string>());
@@ -42,6 +46,23 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
     }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível excluir o lançamento.'); }
     finally { setDeletingId(null); }
+  };
+
+  const cancelConsolidation = async (expense: PersonalWalletExpense) => {
+    if (!onCancelConsolidation || !expense.invoice_due_month || cancelingConsolidation) return;
+    setCancelingConsolidation(true);
+    setError('');
+    const month = expense.invoice_due_month.slice(0, 7) + '-01';
+    const requestId = consolidationRequests.current.get(month) || generateUUID();
+    consolidationRequests.current.set(month, requestId);
+    try {
+      await onCancelConsolidation(month, requestId);
+      consolidationRequests.current.delete(month);
+      setConfirmingConsolidation(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível cancelar a consolidação.');
+      setConfirmingConsolidation(null);
+    } finally { setCancelingConsolidation(false); }
   };
 
   return (
@@ -71,9 +92,10 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
               </div>
               <div className="text-right">
                 <strong className="block text-xs font-extrabold text-rose-300">{formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))}</strong>
+                {expense.entry_type === 'INVOICE_OVERRIDE' && onCancelConsolidation && <button type="button" onClick={() => setConfirmingConsolidation(expense)} disabled={cancelingConsolidation} className="mt-1 rounded-md border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300 disabled:opacity-40">Cancelar consolidação</button>}
                 {expense.entry_type !== 'INVOICE_OVERRIDE' && <div className="mt-1 flex justify-end gap-1">
-                  <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`} className="rounded-md p-1.5 text-blue-400 transition hover:bg-blue-500/10 hover:text-blue-300"><Pencil size={13}/></button>
-                  <button type="button" disabled={deletingId === expense.id} onClick={() => setConfirmingDelete(expense)} aria-label={`Excluir ${expense.description}`} className="rounded-md p-1.5 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-40"><Trash2 size={13}/></button>
+                  <button type="button" onClick={() => setEditing(expense)} aria-label={`Editar ${expense.description}`} className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-blue-300 transition hover:bg-blue-500/10"><Pencil size={14}/> Editar</button>
+                  <button type="button" disabled={deletingId === expense.id} onClick={() => setConfirmingDelete(expense)} aria-label={`Excluir ${expense.description}`} className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"><Trash2 size={14}/> Excluir</button>
                 </div>}
               </div>
             </article>
@@ -82,6 +104,10 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
       )}
       {error && <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p>}
       {editing && <ExpenseEditModal compact expense={editing} onClose={() => setEditing(null)} onSave={onEdit}/>} 
+      {confirmingConsolidation && <Modal compact title="Cancelar valor consolidado?" subtitle="Preserva compras e histórico." onClose={() => !cancelingConsolidation && setConfirmingConsolidation(null)} busy={cancelingConsolidation}
+        footer={<button type="button" disabled={cancelingConsolidation} onClick={() => {void cancelConsolidation(confirmingConsolidation);}} className={modalPrimaryActionClass}>Confirmar cancelamento</button>}>
+        <p className="text-xs leading-relaxed text-slate-300">O valor consolidado será cancelado, sem excluir as compras individuais. Se existirem pagamentos registrados, a operação será bloqueada. Nenhum pagamento bancário será estornado.</p>
+      </Modal>}
       {confirmingDelete && <Modal compact title="Excluir lançamento?" subtitle="A fatura e o limite serão recalculados." icon={<AlertTriangle size={17}/>} onClose={() => setConfirmingDelete(null)}>
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-slate-300">Excluir <strong className="text-white">{confirmingDelete.description}</strong> deste extrato?</p>

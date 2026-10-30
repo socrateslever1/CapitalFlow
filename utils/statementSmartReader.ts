@@ -72,7 +72,8 @@ function ofxAmount(raw: string): number {
 function isCardCredit(type: string, description: string): boolean {
   // Bank-issued refunds and invoice payments must never become purchases.
   return /^(CREDIT|DEP|DIRECTDEP|DIV|INT)$/.test(type)
-    || /\b(estorno|reembolso|devolu[cç][aã]o|cashback|pagamento\s+(?:da\s+)?fatura|cr[eé]dito\s+na\s+fatura)\b/i.test(description);
+    || /\b(estorno|reembolso|devolu[cç][aã]o|cashback|pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|cr[eé]dito\s+na\s+fatura)\b/i.test(description)
+      && !/\b(?:pagamento\s+de\s+boleto\s+no\s+cr[eé]dito|pix\s+no\s+cr[eé]dito)\b/i.test(description);
 }
 
 /**

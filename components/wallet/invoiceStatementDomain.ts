@@ -49,10 +49,11 @@ export const getInvoiceCycleDates = (
     && !Number.isNaN(Date.parse(exactDueDate + 'T00:00:00Z'))
     && new Date(exactDueDate + 'T00:00:00Z').toISOString().slice(0, 10) === exactDueDate
       ? exactDueDate : inferredDue;
-  const effectiveDueDay = Number(dueDate.slice(8));
+  // Uma prorrogação excepcional de vencimento NÃO altera a data em que a fatura fechou.
+  const referenceDueDay = dueDay ? due : Number(dueDate.slice(8));
   const closing = Math.min(Math.max(Number(closingDay || 1), 1), 31);
   // E.g. 05 October payment with closing day 28 closes on 28 September.
-  const prior = closing >= effectiveDueDay;
+  const prior = closing >= referenceDueDay;
   const closeMonthDate = new Date(Date.UTC(year, month - 1 - (prior ? 1 : 0), 1));
   const closeYear = closeMonthDate.getUTCFullYear();
   const closeMonthIndex = closeMonthDate.getUTCMonth();

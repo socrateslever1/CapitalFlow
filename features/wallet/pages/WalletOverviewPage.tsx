@@ -4,13 +4,11 @@ import {
   Scale, TrendingDown, TrendingUp, AlertCircle,
 } from 'lucide-react';
 import type { UserProfile } from '../../../types';
-import type {
-  PersonalWalletAccount, PersonalWalletCard, PersonalWalletPayable,
-} from '../../../services/personalWallet.service';
+import type { PersonalWalletAccount, PersonalWalletCard } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
 import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
-import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
+import { deriveWalletCommitments, getCommitmentsWithinDays, getMonthlyDueAmount } from '../domain/walletCommitments';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
@@ -23,15 +21,6 @@ type Props = {
   activeUser?: UserProfile | null;
   onNavigate: (path: string) => void;
 };
-type Commitment = {
-  id: string;
-  title: string;
-  institution: string;
-  dueDate: string;
-  amount: number;
-  accountLabel: string;
-  category: 'CARD' | 'PAYABLE';
-};
 
 const money = (value: number) => formatMoney(Number.isFinite(value) ? value : 0);
 const sum = <T,>(items: T[], getter: (item: T) => number) =>
@@ -41,26 +30,7 @@ const dayKey = (date: Date) => {
   return year + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' +
     String(date.getDate()).padStart(2, '0');
 };
-const dateLabel = (value: string) => {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit', month: 'short', year: 'numeric',
-  }).format(new Date(year, month - 1, day));
-};
-const sourceAccount = (
-  accounts: PersonalWalletAccount[],
-  cards: PersonalWalletCard[],
-  accountId?: string | null,
-  cardId?: string | null,
-) => {
-  const card = cardId ? cards.find(item => item.id === cardId) : null;
-  const account = accounts.find(item => item.id === (accountId || card?.account_id));
-  if (account) return account.nickname;
-  return card ? 'Origem: ' + card.nickname : 'Conta de pagamento não definida';
-};
-const isOpenPayable = (payable: PersonalWalletPayable) =>
-  !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
-
+const dateLabel = (value: string) => value.slice(8,10)+'/'+value.slice(5,7)+'/'+value.slice(0,4);
 const dedupePresentationAccounts = (accounts: PersonalWalletAccount[]) => {
   const seen = new Set<string>();
   return accounts.filter(account => {
@@ -86,34 +56,8 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   ));
   const credit = getCreditSummary(cards);
   const spending = getWalletSpendingOverview(snapshot.expenses, month);
-  const exactDueDates = new Map((snapshot.cardInvoiceDates || [])
-    .map(item => [item.card_id + ':' + item.due_month.slice(0, 7), item.due_date] as const));
-  const invoiceList: Commitment[] = cards.flatMap(card =>
-    getEffectiveInvoiceCycles(card.id, snapshot.expenses, snapshot.installments)
-      .filter(cycle => cycle.amount > 0)
-      .flatMap(cycle => {
-        const explicitDate=exactDueDates.get(card.id + ':' + cycle.dueMonth.slice(0, 7));
-        if (!card.due_day && !explicitDate) return [];
-        const { closingDate, dueDate } = getInvoiceCycleDates(
-          cycle.dueMonth, card.closing_day, card.due_day, explicitDate,
-        );
-        const competence = closingDate.slice(5,7) + '/' + closingDate.slice(0,4);
-        return [{
-          id: card.id + ':' + cycle.dueMonth,
-          title: 'Fatura ' + card.nickname + ' · competência ' + competence,
-          institution: card.issuer || card.nickname,
-          dueDate,
-          amount: cycle.amount,
-          accountLabel: sourceAccount(accounts, cards, card.account_id),
-          category: 'CARD' as const,
-        }];
-      }),
-  );
-  // Only the current calendar month's invoices enter the monthly projection.
-  const currentInvoiceTotal = sum(
-    invoiceList.filter(invoice => invoice.dueDate.slice(0, 7) === month),
-    invoice => invoice.amount,
-  );
+  const commitments = deriveWalletCommitments(snapshot,today);
+  const currentInvoiceTotal = getMonthlyDueAmount(commitments,month,'CARD_INVOICE');
   const receivedIds = new Set(snapshot.recurringReceipts
     .filter(receipt => String(receipt.reference_month).slice(0, 7) === month)
     .map(receipt => receipt.income_id));
@@ -127,27 +71,8 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     month,
   });
 
-  const openPayables: Commitment[] = snapshot.payables.filter(isOpenPayable)
-    .filter(payable => Boolean(payable.due_date))
-    .map((payable: PersonalWalletPayable) => ({
-      id: 'payable:' + payable.id,
-      title: payable.description || payable.creditor_name,
-      institution: payable.creditor_name,
-      dueDate: payable.due_date!,
-      amount: Math.max(0, Number(payable.outstanding_balance || 0)),
-      accountLabel: sourceAccount(
-        accounts, cards, payable.origin_account_id, payable.origin_card_id,
-      ),
-      category: 'PAYABLE',
-    }));
-  const limit = new Date(today + 'T12:00:00');
-  limit.setDate(limit.getDate() + 45);
-  const limitDate = dayKey(limit);
-  const allUpcoming = [...invoiceList, ...openPayables]
-    .filter(item => item.dueDate <= limitDate)
-    .sort((first, second) =>
-      first.dueDate.localeCompare(second.dueDate) || first.title.localeCompare(second.title),
-    );
+  // Overview and the Compromissos page use the same read-only source.
+  const allUpcoming = getCommitmentsWithinDays(commitments,today,45);
   const overdueCount = allUpcoming.filter(item => item.dueDate < today).length;
   const weekEnd = new Date(today + 'T12:00:00');
   weekEnd.setDate(weekEnd.getDate() + 7);
@@ -211,7 +136,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar.');
     } finally { setRefreshing(false); }
   };
-  const go = (route: 'contas' | 'cartoes' | 'dividas') => onNavigate(route);
   if (!overview) {
     return <section className="w-full min-w-0">
       {error ? <div role="alert" className="rounded-2xl border border-rose-500/30 bg-slate-900 p-6 text-sm text-rose-200">
@@ -305,8 +229,8 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <h2 className="flex items-center gap-2 text-base sm:text-lg font-bold text-white"><CalendarClock size={18} className="text-blue-400"/> Compromissos próximos</h2>
           <p className="mt-1 text-xs sm:text-sm text-slate-300">Até 8 obrigações vencidas ou com vencimento nos próximos 45 dias</p>
         </div>
-        <button type="button" onClick={() => go('dividas')} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200">
-          <span>Ver contas a pagar</span> <ArrowRight size={16}/>
+        <button type="button" onClick={() => onNavigate('dividas?filtro=proximos')} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-blue-300 transition-colors hover:text-blue-200">
+          <span>Ver compromissos</span> <ArrowRight size={16}/>
         </button>
       </div>
       <div className="mt-4 divide-y divide-slate-800">
@@ -324,12 +248,12 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm sm:text-base font-semibold text-white">{item.title}</p>
-                  <p className="mt-0.5 truncate text-xs sm:text-sm text-slate-300">{item.institution} · {item.accountLabel}</p>
+                  <p className="mt-0.5 truncate text-xs sm:text-sm text-slate-300">{item.institution}</p>
                 </div>
               </div>
 
               {/* Centro & Lado Direito */}
-              <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0">
+              <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end shrink-0">
                 <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
                   overdue
                     ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
@@ -340,6 +264,13 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
                 <strong className="text-right text-base sm:text-lg font-bold text-white tracking-tight tabular-nums">
                   {money(item.amount)}
                 </strong>
+                <button type="button"
+                  onClick={() => onNavigate(item.kind === 'CARD_INVOICE'
+                    ? 'cartoes?card='+encodeURIComponent(item.cardId || '')+'&fatura='+encodeURIComponent(item.dueMonth || '')
+                    : 'dividas?gerenciar=1')}
+                  className="min-h-10 rounded-lg border border-blue-500/40 px-3 text-xs font-semibold text-blue-200 hover:bg-blue-950/30">
+                  {item.kind === 'CARD_INVOICE' ? 'Ver / pagar' : 'Ver detalhes'}
+                </button>
               </div>
             </div>
           );

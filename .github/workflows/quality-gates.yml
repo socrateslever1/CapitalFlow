@@ -30,6 +30,8 @@ jobs:
         run: npm run test:wallet-statement-import
       - name: Verify due-date calculations and invoice editing
         run: npm run test:wallet-invoice-cycle && node --test tests/architecture/wallet-invoice-editor-regression.test.mjs
+      - name: Verify issuer invoice facts and financial ledger bridge
+        run: node --test tests/architecture/wallet-issuer-invoice-atomic.test.mjs
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - run: npm run test:quality

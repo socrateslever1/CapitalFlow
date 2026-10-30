@@ -440,41 +440,48 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
         </div>
         <div className="min-w-0 space-y-4 lg:col-span-7">
-          {selected && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5">
-            <div className="min-w-0">
-              <strong className="block text-xs text-white">Valores informados pelo banco</strong>
-              <p className="mt-1 text-[11px] text-slate-400">
-                {savedInvoiceFacts
-                  ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
-                    ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
-                    ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
-                  : 'Ainda não conferidos neste ciclo'}
-              </p>
-              {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
+          {selected && <section aria-label="Fatura selecionada" className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-slate-300">Fatura a pagar</p>
+                <strong className="mt-1 block text-2xl font-black tabular-nums text-white">
+                  {formatMoney(selectedCycle?.amount || 0)}
+                </strong>
+                <p className="mt-1 text-sm text-slate-300">
+                  Vence em {statementMonth
+                    ? getInvoiceCycleDates(statementMonth,selected.closing_day,selected.due_day,savedInvoiceFacts?.due_date).dueDate.split('-').reverse().join('/')
+                    : 'data não informada'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(selectedCycle?.amount || 0)>0 && <button type="button" onClick={()=>setPaying(selected)}
+                  className="min-h-12 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white hover:bg-emerald-500">Pagar</button>}
+                <button type="button" onClick={()=>setOverriding(true)}
+                  className="min-h-12 rounded-xl border border-blue-500/40 px-4 text-sm font-semibold text-blue-200">Editar fatura</button>
+              </div>
             </div>
-            <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
-              className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
-              {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
-            </button>
-          </div>}
-          {mayApplySavedIssuerFacts && <p className="text-xs text-amber-200">
-            O banco informou uma posição diferente da abertura provisória. Aplicar os valores confirmados
-            atualizará a fatura e os compromissos iniciais, sem criar compras individuais.
-          </p>}
-          {mayApplySavedIssuerFacts && <button type="button" disabled={applyingIssuerFacts}
-            onClick={() => { void applySavedIssuerFacts(); }}
-            className="min-h-11 rounded-xl border border-cyan-600/60 bg-cyan-950/30 px-4 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-50">
-            {applyingIssuerFacts ? 'Conferindo e aplicando…' : 'Aplicar valores já salvos à posição do cartão'}
-          </button>}
-          {issuerCommitFeedback && <p role="status" className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{issuerCommitFeedback}</p>}
-          <WalletMetricStrip items={[
-            { label: 'Saldo de fatura registrado', value: formatMoney(selectedCycle?.amount || 0) },
-            { label: 'Faturas posteriores', value: formatMoney(selectedFutureCommitments) },
-            { label: savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível informado pelo banco', value: formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit)), tone: 'positive' },
-          ]}/>
-          {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-            {formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
-          </p>}
+            <details className="mt-3 border-t border-slate-800 pt-2">
+              <summary className="min-h-10 cursor-pointer py-2 text-xs font-semibold text-slate-300">Mais informações</summary>
+              <div className="mt-2 space-y-3">
+                <WalletMetricStrip items={[
+                  { label: 'Fatura', value: formatMoney(selectedCycle?.amount || 0) },
+                  { label: 'Próximas faturas', value: formatMoney(selectedFutureCommitments) },
+                  { label: 'Disponível', value: formatMoney(savedInvoiceFacts?.available_limit == null
+                    ? creditPosition?.freeLimit || 0 : Number(savedInvoiceFacts.available_limit)), tone:'positive' },
+                ]}/>
+                {selectedIsOpeningCycle && Number(selected.initial_future_installments_balance || 0)>0 &&
+                  <p className="text-xs text-slate-400">Outros gastos no limite usado: {formatMoney(Number(selected.initial_future_installments_balance))}</p>}
+                {invoiceFactsError && <p className="text-xs text-amber-300">{invoiceFactsError}</p>}
+                <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
+                  className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs text-blue-200">Ajustar dados do banco</button>
+                {mayApplySavedIssuerFacts && <button type="button" disabled={applyingIssuerFacts}
+                  onClick={()=>{void applySavedIssuerFacts();}}
+                  className="ml-2 min-h-10 rounded-lg border border-cyan-600/50 px-3 text-xs text-cyan-200 disabled:opacity-50">
+                  {applyingIssuerFacts?'Aplicando…':'Aplicar valores do banco'}</button>}
+                {issuerCommitFeedback&&<p role="status" className="text-xs text-slate-300">{issuerCommitFeedback}</p>}
+              </div>
+            </details>
+          </section>}
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -488,21 +495,26 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                       invoiceFacts.find(item=>item.due_month===cycle.dueMonth)?.due_date);
                     const competence=dates.closingDate.slice(5,7)+'/'+dates.closingDate.slice(0,4);
                     const due=dates.dueDate.slice(8,10)+'/'+dates.dueDate.slice(5,7)+'/'+dates.dueDate.slice(0,4);
-                    return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura '+competence+' · vence '+due+(cycle.hasOverride?' · consolidada':'')}</option>;
+                    return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura '+competence+' · vence '+due}</option>;
                   }) : <option value={statementMonth || ''}>Selecione uma fatura</option>}
                 </select>}
               </div>
-              {selected && <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={()=>setVaultCard(selected)} className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">Dados completos do cartão</button>
-                <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">Lançamento rápido</button>
-                <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">Situação inicial</button>
-                <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Corrigir valor, mês e vencimento</button>
-                {statementMonth && (selectedCycle?.amount || 0) > 0 && <button type="button" onClick={() => {setClearInvoiceError('');setClearInvoiceConfirm({cardId:selected.id,month:statementMonth,nickname:selected.nickname});}} className="min-h-11 rounded-xl border border-rose-600/50 px-3 py-2 text-xs font-semibold text-rose-200">Excluir fatura não paga</button>}
-                <button type="button" onClick={() => setFlatReaderOpen(v => !v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${flatReaderOpen ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'border border-cyan-500/50 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40'}`}>
-                  <Sparkles size={13} className={flatReaderOpen ? '' : 'text-cyan-400'} />
-                  {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
-                </button>
-
+              {selected && <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={()=>setQuickExpenseOpen(true)}
+                  className="min-h-11 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white">Novo gasto</button>
+                <details>
+                  <summary className="flex min-h-11 cursor-pointer items-center rounded-xl border border-slate-700 px-4 text-xs font-semibold text-slate-200">Mais ações</summary>
+                  <div className="mt-2 flex max-w-full flex-wrap gap-2 rounded-xl border border-slate-700 bg-slate-950/70 p-2">
+                    <button type="button" onClick={()=>setVaultCard(selected)} className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs text-slate-200">Dados do cartão</button>
+                    <button type="button" onClick={()=>setCardOpeningModalOpen(true)} className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs text-slate-200">Editar saldo inicial</button>
+                    {statementMonth && (selectedCycle?.amount || 0)>0 && <button type="button"
+                      onClick={()=>{setClearInvoiceError('');setClearInvoiceConfirm({cardId:selected.id,month:statementMonth,nickname:selected.nickname});}}
+                      className="min-h-10 rounded-lg border border-rose-600/50 px-3 text-xs text-rose-200">Excluir fatura não paga</button>}
+                    <button type="button" onClick={()=>setFlatReaderOpen(value=>!value)}
+                      className="min-h-10 rounded-lg border border-cyan-500/40 px-3 text-xs text-cyan-200">
+                      {flatReaderOpen?'Fechar importação':'Importar PDF / extrato'}</button>
+                  </div>
+                </details>
               </div>}
             </div>
             {flatReaderOpen && selected && (

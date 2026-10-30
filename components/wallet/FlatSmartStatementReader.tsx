@@ -14,6 +14,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
+import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
 import {
@@ -25,6 +26,7 @@ type Props = {
   kind: 'ACCOUNT' | 'CARD';
   targetId: string;
   targetName: string;
+  targetIssuer?: string | null;
   initialFile?: File;
   initialDueMonth?: string | null;
   hasOpening?: boolean;
@@ -51,6 +53,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   kind,
   targetId,
   targetName,
+  targetIssuer,
   initialFile,
   initialDueMonth,
   hasOpening = false,
@@ -73,6 +76,10 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const declaredBank = result?.invoiceSummary?.institution;
+  const bankMismatch = Boolean(kind === 'CARD' && targetIssuer && declaredBank
+    && !targetIssuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(
+      declaredBank.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -134,6 +141,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     );
 
   const save = async () => {
+    if (bankMismatch) { setError('Esta fatura é de outra instituição. Selecione o cartão correto antes de importar.'); return; }
     if (!result || !selectedCount || selectedInvalid) {
       setError('Revise os valores, as datas e as descrições selecionadas.');
       return;
@@ -274,6 +282,9 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         </div>
       )}
 
+      {kind === 'CARD' && result?.invoiceSummary && <CardInvoiceSummaryPreview summary={result.invoiceSummary} />}
+      {bankMismatch && <p role="alert" className="text-xs text-rose-300">O banco identificado nesta fatura é diferente do cartão de destino. Selecione o cartão correto.</p>}
+
       {/* Área Plana de Drag & Drop */}
       <div
         onDragOver={(e) => {
@@ -394,7 +405,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                 disabled={busy}
                 onClick={() =>
                   setRows((current) =>
-                    current.map((x) => ({ ...x, selected: true }))
+                    current.map((x) => ({ ...x, selected: kind !== 'CARD' || x.amount > 0 }))
                   )
                 }
               >

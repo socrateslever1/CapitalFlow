@@ -290,7 +290,7 @@ export const personalWalletService = {
    * Financial writes remain in the existing canonical RPCs.
    */
   async loadOverview() {
-    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts] =
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates] =
       await Promise.all([
         supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
         supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
@@ -303,9 +303,13 @@ export const personalWalletService = {
         supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }),
         supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id')
           .order('reference_month', { ascending: false }).limit(500),
+        // Lightweight invoice metadata: exact issuer due dates may differ from
+        // the generic day configured for the card. No PAN or sensitive fields.
+        supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
+          .order('due_month',{ascending:false}).limit(500),
       ]);
     const error = accounts.error || cards.error || expenses.error || installments.error ||
-      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error;
+      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error || cardInvoiceDates.error;
     if (error) throw new Error(error.message);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
@@ -335,6 +339,7 @@ export const personalWalletService = {
       payables: (payables.data || []) as PersonalWalletPayable[],
       recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
       recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
+      cardInvoiceDates: (cardInvoiceDates.data || []) as Array<{card_id:string;due_month:string;due_date:string|null}>,
     };
   },
 

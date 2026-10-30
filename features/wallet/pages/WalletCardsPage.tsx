@@ -365,6 +365,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             <input required={field !== 'last_four'} type={['closing_day','due_day'].includes(field) ? 'number':'text'}
               min={field === 'closing_day' || field === 'due_day' ? 1 : undefined}
               inputMode={field === 'credit_limit' ? 'decimal' : field === 'closing_day' || field === 'due_day' ? 'numeric' : undefined}
+              placeholder={field === 'credit_limit' ? 'Ex.: 495,61' : undefined}
               max={field === 'closing_day' || field === 'due_day' ? 31 : undefined}
               value={cardForm[field]} onChange={e => { requestId.current = generateUUID(); setCardForm(v => ({ ...v, [field]: e.target.value })); }}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}

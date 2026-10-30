@@ -29,7 +29,14 @@ test('mobile browser offers the signed APK directly, native app never prompts it
   const source = readFileSync('components/system/AndroidApkNotice.tsx', 'utf8');
   const header = readFileSync('layout/HeaderBar.tsx', 'utf8');
   const shell = readFileSync('layout/AppShell.tsx', 'utf8');
-  assert(source.includes('/releases/download/android-signed-beta/CapitalFlow-Android.apk'));
+  assert(source.includes("ANDROID_APK_DOWNLOAD_URL = '/api/android/apk'"));
+  assert(source.includes('download="CapitalFlow-Android.apk"'));
+  assert(!source.includes('target="_blank"'),'web must not navigate away to download APK');
+  const proxy = readFileSync('functions/api/android/apk.ts','utf8');
+  assert(proxy.includes('/releases/download/android-signed-beta/CapitalFlow-Android.apk'));
+  assert(proxy.includes("'Content-Disposition': 'attachment; filename=\"CapitalFlow-Android.apk\"'"));
+  assert(proxy.includes("new Response(upstream.body"));
+  assert(proxy.includes("final.hostname.endsWith('.githubusercontent.com')"));
   assert(source.includes('isNativePlatform'));
   assert(source.includes('sessionStorage'));
   assert(header.includes('<AndroidApkNotice placement="notifications" />'));

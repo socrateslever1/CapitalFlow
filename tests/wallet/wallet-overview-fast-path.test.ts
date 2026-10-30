@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { WalletSpendingGuide } from '../../features/wallet/components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
 
-test('overview fetches nine lightweight sources including exact invoice due dates', () => {
+test('overview fetches ten lightweight sources including issuer dates and generated payable references', () => {
   const service = readFileSync('services/personalWallet.service.ts','utf8');
   const repository = readFileSync('features/wallet/services/walletRepository.ts','utf8');
   const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx','utf8');
@@ -18,10 +18,10 @@ test('overview fetches nine lightweight sources including exact invoice due date
     'personal_wallet_accounts','personal_wallet_cards','personal_wallet_expenses',
     'personal_wallet_expense_installments','personal_wallet_invoice_payments',
     'personal_wallet_payables','personal_wallet_recurring_incomes','personal_wallet_recurring_receipts',
-    'personal_wallet_card_invoice_facts',
+    'personal_wallet_card_invoice_facts','personal_wallet_recurring_obligation_issues',
   ];
   for (const table of expected) assert(query.includes("from('" + table + "')"), table);
-  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 9);
+  assert.equal((query.match(/supabase\.from\('/g) ?? []).length, 10);
   for (const excluded of [
     'personal_wallet_statement_rows','personal_wallet_account_operations',
     'personal_wallet_payable_payments','personal_wallet_recurring_obligations',

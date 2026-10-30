@@ -99,6 +99,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
       aria-busy={busy}
       data-modal-open="true"
       className="fixed inset-0 z-[2000] flex flex-col justify-end sm:justify-center sm:items-center bg-slate-950/85 sm:p-4 backdrop-blur-sm overflow-hidden"
+      style={viewport ? { top: viewport.top, height: viewport.height, bottom: 'auto' } : undefined}
       onClick={event => event.stopPropagation()}
     >
       <div

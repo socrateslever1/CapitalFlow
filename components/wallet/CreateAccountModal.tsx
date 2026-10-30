@@ -104,8 +104,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     if (/dinheiro|carteira manual|esp[eé]cie/i.test(value)) {
       setAccountType('CASH');
       if (!nickname) setNickname('Carteira física');
-    } else if (!nickname) {
-      setNickname(value);
+    } else {
+      // Replace only the nickname that was automatically derived from the prior bank.
+      setNickname(current => !current.trim() || current === bankName ? value : current);
     }
   };
 

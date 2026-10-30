@@ -56,7 +56,7 @@ export const WalletPayablesManagement: React.FC<{ activeUser?: UserProfile | nul
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-7">
           <WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards}
-            saving={saving} showCreateButton={false}
+            saving={saving} initialPayableId={searchParams.get('pagar')} showCreateButton={false}
             onPay={async input => {
               setSaving(true); setNotice('');
               try {

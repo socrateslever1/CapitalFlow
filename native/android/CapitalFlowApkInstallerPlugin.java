@@ -119,8 +119,12 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
     private static String downloadChecksum() throws Exception {
         HttpURLConnection conn = connect(RELEASE + ".sha256");
         try (InputStream stream = conn.getInputStream()) {
-            byte[] bytes = stream.readNBytes(1024);
-            String response = new String(bytes, StandardCharsets.US_ASCII);
+            byte[] bytes = new byte[1024];
+            int length = 0, n;
+            while (length < bytes.length && (n = stream.read(bytes, length, bytes.length-length)) != -1) {
+                length += n;
+            }
+            String response = new String(bytes, 0, length, StandardCharsets.US_ASCII);
             Matcher match = Pattern.compile("(?i)^\\s*([a-f0-9]{64})(?=\\s|$)").matcher(response);
             if (!match.find()) throw new IllegalStateException("O resumo SHA-256 oficial não está disponível.");
             return match.group(1).toLowerCase(Locale.ROOT);

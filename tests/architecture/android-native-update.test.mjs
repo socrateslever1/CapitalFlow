@@ -24,16 +24,16 @@ test('APK update can only use the canonical GitHub signed release asset', () => 
   assert(!source.includes('target="_blank"'),'native update must never launch external browser');
   assert(!source.includes('href={update.downloadUrl}'),'native update must not navigate to GitHub');
   const native = readFileSync('native/android/CapitalFlowApkInstallerPlugin.java','utf8');
-  const shell = readFileSync('scripts/android/apply-native-shell.py','utf8');
+  const nativeShellScript = readFileSync('scripts/android/apply-native-shell.py','utf8');
   assert(native.includes('verifyPackageAndCertificate'));
   assert(native.includes('downloadChecksum'));
   assert(native.includes('MessageDigest.isEqual'));
   assert(native.includes('FileProvider.getUriForFile'));
   assert(native.includes('FLAG_GRANT_READ_URI_PERMISSION'));
   assert(native.includes('ACTION_MANAGE_UNKNOWN_APP_SOURCES'));
-  assert(shell.includes('CapitalFlowApkInstallerPlugin.java'));
-  assert(shell.includes('android.permission.REQUEST_INSTALL_PACKAGES'));
-  assert(shell.includes('capitalflow_apk_file_paths.xml'));
+  assert(nativeShellScript.includes('CapitalFlowApkInstallerPlugin.java'));
+  assert(nativeShellScript.includes('android.permission.REQUEST_INSTALL_PACKAGES'));
+  assert(nativeShellScript.includes('capitalflow_apk_file_paths.xml'));
   assert(readFileSync('native/android/MainActivity.java','utf8').includes('registerPlugin(CapitalFlowApkInstallerPlugin.class)'));
 
   assert(source.includes('App.addListener(\'resume\''));

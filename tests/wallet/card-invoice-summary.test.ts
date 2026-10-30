@@ -77,3 +77,45 @@ test('four digit amounts and written due dates must parse without truncation',()
   assert.equal(result.creditLimit,6991.3);
   assert.equal(result.dueDate,'2026-11-06');
 });
+
+
+test('C6: card limits must not be confused with the cash-advance limit or future commitments', () => {
+  const result = parseCardInvoiceSummary([
+    'Cartão C6 Bank',
+    'Vencimento: 05 de Novembro',
+    'Valor da fatura: R$ 3.050,00',
+    'Pagamento mínimo R$ 750,00',
+    'Compras e pagamentos feitos até o fechamento desta fatura em 29/10/26.',
+    'Saldo obrigações futuras R$ 6.100,00',
+    'Limite de cartão',
+    'Valores atualizados na data de fechamento da fatura',
+    'Total Utilizado Disponível Total Utilizado Disponível',
+    'R$ 8.000,00 R$ 6.100,00 R$ 1.900,00 R$ 800,00 R$ 0,00 R$ 800,00',
+  ]);
+  assert.equal(result.institution, 'C6 Bank');
+  assert.equal(result.invoiceTotal, 3050);
+  assert.equal(result.minimumPayment, 750);
+  assert.equal(result.creditLimit, 8000);
+  assert.equal(result.usedLimit, 6100);
+  assert.equal(result.availableLimit, 1900);
+  assert.equal(result.futureInstallments, null, 'C6 future obligations are not installment schedule');
+  assert.equal(result.dueDate, '2026-11-05');
+});
+test('RecargaPay: columnar minimum payment and credit limit remain distinct', () => {
+  const result = parseCardInvoiceSummary([
+    'RecargaPay',
+    'Fatura Limite de crédito: R$ 800,00 | Limite utilizado: R$ 630,00',
+    'Total da fatura Pagamento mínimo Data de vencimento',
+    'R$ 630,00 R$ 94,50 06/11/2026',
+    'Compras no App',
+    'Total da fatura R$ 630,00',
+    'Total de compras parceladas R$ 0,00',
+  ]);
+  assert.equal(result.institution, 'RecargaPay');
+  assert.equal(result.invoiceTotal, 630);
+  assert.equal(result.minimumPayment, 94.5);
+  assert.equal(result.creditLimit, 800);
+  assert.equal(result.usedLimit, 630);
+  assert.equal(result.dueDate, '2026-11-06');
+  assert.equal(result.futureInstallments, 0);
+});

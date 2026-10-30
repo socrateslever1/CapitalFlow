@@ -137,29 +137,32 @@ jobs:
           "$RUNNER_TEMP/capitalflow-icon-venv/bin/pip" install --disable-pip-version-check --no-cache-dir Pillow==11.3.0 CairoSVG==2.8.2
           "$RUNNER_TEMP/capitalflow-icon-venv/bin/python" scripts/android/install_launcher_icon.py
           # Android Package Manager reads the launcher manifest resource directly.
-          grep -q 'android:icon="@mipmap/ic_launcher"' android/app/src/main/AndroidManifest.xml
-          grep -q 'android:roundIcon="@mipmap/ic_launcher_round"' android/app/src/main/AndroidManifest.xml
-          test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          test -s android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
-          test -s android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          test -s android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png
-          test -s android/app/src/main/res/drawable-xxxhdpi/ic_launcher_monochrome.png
+          grep -q 'android:icon="@mipmap/cf_launcher"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:roundIcon="@mipmap/cf_launcher_round"' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/mipmap-xxxhdpi/cf_launcher.png
+          test -s android/app/src/main/res/mipmap-xxxhdpi/cf_launcher_round.png
+          test -s android/app/src/main/res/mipmap-anydpi-v26/cf_launcher.xml
+          test -s android/app/src/main/res/drawable-xxxhdpi/cf_launcher_foreground.png
+          test -s android/app/src/main/res/drawable-xxxhdpi/cf_launcher_monochrome.png
           "$RUNNER_TEMP/capitalflow-icon-venv/bin/python" - <<'PY'
           from PIL import Image
           from pathlib import Path
           res = Path('android/app/src/main/res')
           scales = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
           for density, scale in scales.items():
-              for name in ('ic_launcher.png', 'ic_launcher_round.png'):
+              for name in ('cf_launcher.png', 'cf_launcher_round.png'):
                   p = res / f'mipmap-{density}' / name
                   with Image.open(p) as i:
                       assert i.size == (round(48 * scale), round(48 * scale)), p
-              for name in ('ic_launcher_foreground.png', 'ic_launcher_monochrome.png'):
+              for name in ('cf_launcher_foreground.png', 'cf_launcher_monochrome.png'):
                   p = res / f'drawable-{density}' / name
                   with Image.open(p) as i:
                       assert i.size == (round(108 * scale), round(108 * scale)), p
                       assert i.getbbox(), f'Blank Android launcher asset: {p}'
-          print('All 20 official CapitalFlow icon PNG resources verified')
+          # Default Capacitor vector and branded PNG must never share a resource name.
+          for xml in res.glob('drawable*/cf_launcher_foreground.xml'):
+              raise AssertionError(f'Conflicting vector drawable overrides CF: {xml}')
+          print('All 20 CF PNG resources use unique launcher names')
           PY
       - name: Assemble Android debug APK
         working-directory: android
@@ -177,6 +180,14 @@ jobs:
           signer="$(find "${ANDROID_HOME:?}/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$signer"
           "$signer" verify "$apk"
+          # Inspect the compiled Android badge, not merely source PNG files:
+          # an "anydpi" Capacitor vector can override a correctly generated PNG.
+          aapt="$(find "${ANDROID_HOME:?}/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/cf-debug-badging.txt"
+          grep -Eq "application: .*icon='res/.*/cf_launcher([.]png|[.]xml)'" "$RUNNER_TEMP/cf-debug-badging.txt"
+          unzip -Z -1 "$apk" | grep -Eq '^res/mipmap-anydpi-v26/cf_launcher[.]xml$'
+          unzip -Z -1 "$apk" | grep -Eq '^res/drawable-xxxhdpi-v4/cf_launcher_foreground[.]png$'
           sha256sum "$apk" > "$apk.sha256"
       - name: Publish verified APK and checksum
         uses: actions/upload-artifact@v4

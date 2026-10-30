@@ -33,11 +33,11 @@ def install():
         size = round(48 * scale)
         legacy = render(full_svg, size)
         folder = RES / f'mipmap-{density}'
-        save_png(legacy, folder, 'ic_launcher.png')
+        save_png(legacy, folder, 'cf_launcher.png')
         mask = Image.new('L', (size, size), 0)
         ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
         save_png(Image.composite(legacy, Image.new('RGBA', legacy.size), mask),
-                 folder, 'ic_launcher_round.png')
+                 folder, 'cf_launcher_round.png')
 
         adaptive_size = round(108 * scale)
         foreground = Image.new('RGBA', (adaptive_size, adaptive_size))
@@ -45,21 +45,21 @@ def install():
         off = (adaptive_size - safe_size) // 2
         foreground.alpha_composite(render(glyph_svg, safe_size), (off, off))
         drawable_dir = RES / f'drawable-{density}'
-        save_png(foreground, drawable_dir, 'ic_launcher_foreground.png')
+        save_png(foreground, drawable_dir, 'cf_launcher_foreground.png')
         mono = Image.new('RGBA', foreground.size, (255, 255, 255, 0))
         mono.putalpha(foreground.getchannel('A'))
-        save_png(mono, drawable_dir, 'ic_launcher_monochrome.png')
+        save_png(mono, drawable_dir, 'cf_launcher_monochrome.png')
 
     xml = '''<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
   <background android:drawable="@color/cf_icon_background" />
-  <foreground android:drawable="@drawable/ic_launcher_foreground" />
-  <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+  <foreground android:drawable="@drawable/cf_launcher_foreground" />
+  <monochrome android:drawable="@drawable/cf_launcher_monochrome" />
 </adaptive-icon>
 '''
     xml_dir = RES / 'mipmap-anydpi-v26'
     xml_dir.mkdir(parents=True, exist_ok=True)
-    for name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
+    for name in ('cf_launcher.xml', 'cf_launcher_round.xml'):
         (xml_dir / name).write_text(xml, encoding='utf-8')
     values_dir = RES / 'values'
     values_dir.mkdir(parents=True, exist_ok=True)
@@ -68,10 +68,14 @@ def install():
         '<resources><color name="cf_icon_background">' + NAVY + '</color></resources>\n',
         encoding='utf-8'
     )
+    # Capacitor ships a default Android robot vector using ic_launcher_foreground.
+    # Unique cf_launcher names ensure the resource resolver cannot select it.
+    if (RES / 'drawable-anydpi-v24' / 'cf_launcher_foreground.xml').exists():
+        raise SystemExit('Unexpected conflicting CapitalFlow vector foreground')
     manifest = MANIFEST.read_text(encoding='utf-8')
     if manifest.count('<application') != 1:
         raise SystemExit('Unexpected generated AndroidManifest')
-    for key, resource in (('icon', '@mipmap/ic_launcher'), ('roundIcon', '@mipmap/ic_launcher_round')):
+    for key, resource in (('icon', '@mipmap/cf_launcher'), ('roundIcon', '@mipmap/cf_launcher_round')):
         attr = f'android:{key}'
         if re.search(rf'\b{attr}="[^"]+"', manifest):
             manifest = re.sub(rf'\b{attr}="[^"]+"', f'{attr}="{resource}"', manifest, count=1)

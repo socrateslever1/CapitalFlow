@@ -150,11 +150,14 @@ test('official CapitalFlow CF icon is packaged into Android installer on every b
   assert(script.includes("'public/brand/capitalflow-app-icon.svg'"));
   for(const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi'])
     assert(script.includes("'" + density + "'"), 'missing launcher density ' + density);
-  for(const icon of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png', 'ic_launcher_monochrome.png'])
+  for(const icon of ['cf_launcher.png', 'cf_launcher_round.png', 'cf_launcher_foreground.png', 'cf_launcher_monochrome.png'])
     assert(script.includes(icon), 'missing legacy/adaptive themed icon ' + icon);
   assert(script.includes('mipmap-anydpi-v26'), 'must publish adaptive icon on Android 8+');
-  assert(script.includes("('icon', '@mipmap/ic_launcher')"), 'installer must use the CF logo');
-  assert(script.includes("('roundIcon', '@mipmap/ic_launcher_round')"), 'round launcher icon');
+  assert(script.includes("('icon', '@mipmap/cf_launcher')"), 'installer must use the CF logo');
+  assert(script.includes("('roundIcon', '@mipmap/cf_launcher_round')"), 'round launcher icon');
+  assert(script.includes("'cf_launcher_foreground.png'"), 'distinct drawable name prevents Capacitor robot vector from overriding the brand');
+  assert(yaml.includes('dump badging "$apk"'), 'compiled APK must expose the correct launcher resource');
+  assert(yaml.includes('cf_launcher_foreground'), 'the unique foreground must be inside the compiled APK');
   const install = yaml.indexOf('      - name: Install official CapitalFlow icon into Android installer');
   const assemble = yaml.indexOf('      - name: Assemble Android debug APK');
   assert(install > 0 && install < assemble, 'regenerated native res must be changed before assembling debug/release');

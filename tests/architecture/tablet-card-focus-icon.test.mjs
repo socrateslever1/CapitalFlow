@@ -27,6 +27,6 @@ test('APK launcher draws the provided white/turquoise CF from the same vector as
   assert(icon.includes('fill="url(#flow)"'));
   assert(icon.includes('stop-color="#18edaf"'));
   assert(generator.includes("SOURCE = ROOT / 'public/brand/capitalflow-app-icon.svg'"));
-  assert(generator.includes('ic_launcher_foreground.png'));
-  assert(generator.includes('ic_launcher_round.png'));
+  assert(generator.includes('cf_launcher_foreground.png'));
+  assert(generator.includes('cf_launcher_round.png'));
 });

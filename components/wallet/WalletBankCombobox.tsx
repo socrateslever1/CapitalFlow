@@ -61,14 +61,13 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
   useEffect(() => {
     if (!open || height === 0) return;
     const item = listRef.current?.querySelectorAll<HTMLElement>('[role="option"]')[active];
-    item?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    item?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }, [open, active, height]);
 
   const select = (name: string): void => {
     onChange(name);
     setOpen(false);
     setActive(0);
-    inputRef.current?.focus({ preventScroll: true });
   };
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
@@ -116,7 +115,6 @@ export const WalletBankCombobox: React.FC<Props> = ({ value, onChange, disabled 
           <li key={bank.id} id={id+'-option-'+index} role="option" aria-selected={index===active}>
             <button type="button" tabIndex={-1}
               onMouseDown={event => event.preventDefault()}
-              onPointerUp={event => { if (event.pointerType === 'touch') select(bank.name); }}
               onClick={() => select(bank.name)}
               className={`flex min-h-11 w-full items-center px-3 text-left text-sm text-slate-100 hover:bg-slate-800 ${index===active?'bg-blue-900/40':''}`}>
               {bank.name}

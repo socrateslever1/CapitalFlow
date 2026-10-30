@@ -37,5 +37,5 @@ test('APK update can only use the canonical GitHub signed release asset', () => 
   assert(readFileSync('native/android/MainActivity.java','utf8').includes('registerPlugin(CapitalFlowApkInstallerPlugin.class)'));
 
   assert(source.includes('App.addListener(\'resume\''));
-  assert(shell.includes('<AndroidNativeUpdateNotice />'));
+  assert(/<AndroidNativeUpdateNotice\s*\/>/.test(shell));
 });

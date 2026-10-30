@@ -2,6 +2,7 @@ import React,{useState,useEffect,useRef} from 'react';
 import {Repeat,Plus,Check,X,CalendarDays,PauseCircle,PlayCircle} from 'lucide-react';
 import {personalWalletService,PersonalWalletAccount,PersonalWalletCard,WalletRecurringObligation} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
+import {parseWalletMoney} from '../../features/wallet/utils/parseWalletMoney';
 
 type Props={accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];items:WalletRecurringObligation[];onSaved:()=>Promise<void>;showCreateButton?:boolean;createRequest?:number};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white';
@@ -17,7 +18,7 @@ export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,on
    await personalWalletService.createRecurringObligation({
     kind:form.kind as 'EXPENSE'|'DEBT',description:form.description,creditor_name:form.creditor_name,
     creditor_type:form.creditor_type as 'PERSON'|'COMPANY',category:form.category,
-    amount:Number(form.amount),due_day:Number(form.due_day),origin_type:origin_type as 'ACCOUNT'|'CARD',
+    amount:parseWalletMoney(form.amount,'valor recorrente'),due_day:Number(form.due_day),origin_type:origin_type as 'ACCOUNT'|'CARD',
     origin_id,start_month:month()
    });
    await personalWalletService.generateRecurringObligations(month(),3);
@@ -49,7 +50,7 @@ export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,on
     <label className="text-xs">Descrição<input className={field} required maxLength={240} placeholder="Aluguel, internet, energia" value={form.description} onChange={e=>update('description',e.target.value)}/></label>
     <label className="text-xs">Nome do credor<input className={field} required maxLength={240} value={form.creditor_name} onChange={e=>update('creditor_name',e.target.value)}/></label>
     <label className="text-xs">Categoria<input className={field} required value={form.category} onChange={e=>update('category',e.target.value)}/></label>
-    <label className="text-xs">Valor mensal (R$)<input className={field} required type="number" step="0.01" min="0.01" value={form.amount} onChange={e=>update('amount',e.target.value)}/></label>
+    <label className="text-xs">Valor mensal (R$)<input className={field} required type="text" inputMode="decimal" autoComplete="off" placeholder="0,00" value={form.amount} onChange={e=>update('amount',e.target.value)}/></label>
     <label className="text-xs">Dia de vencimento<input className={field} required type="number" min="1" max="31" value={form.due_day} onChange={e=>update('due_day',e.target.value)}/></label>
     <label className="text-xs">Origem do pagamento<select className={field} required value={form.origin} onChange={e=>update('origin',e.target.value)}><option value="">Selecione</option><optgroup label="Conta bancária">{accounts.map(a=><option key={a.id} value={'ACCOUNT:'+a.id}>{a.nickname}</option>)}</optgroup><optgroup label="Cartão">{cards.filter(c=>c.status==='ACTIVE').map(c=><option key={c.id} value={'CARD:'+c.id}>{c.nickname}</option>)}</optgroup></select></label>
    </div>

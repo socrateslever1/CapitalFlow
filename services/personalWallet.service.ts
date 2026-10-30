@@ -298,7 +298,7 @@ export const personalWalletService = {
    * Financial writes remain in the existing canonical RPCs.
    */
   async loadOverview() {
-    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates] =
+    const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates, recurringIssues] =
       await Promise.all([
         supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
         supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
@@ -315,9 +315,13 @@ export const personalWalletService = {
         // the generic day configured for the card. No PAN or sensitive fields.
         supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
           .order('due_month',{ascending:false}).limit(500),
+        // Generated recurrence issues reference existing payables. They must
+        // never create an additional liability when shown in the UI.
+        supabase.from('personal_wallet_recurring_obligation_issues')
+          .select('payable_id,obligation_id').limit(500),
       ]);
     const error = accounts.error || cards.error || expenses.error || installments.error ||
-      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error || cardInvoiceDates.error;
+      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error || cardInvoiceDates.error || recurringIssues.error;
     if (error) throw new Error(error.message);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
@@ -348,6 +352,7 @@ export const personalWalletService = {
       recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
       recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
       cardInvoiceDates: (cardInvoiceDates.data || []) as Array<{card_id:string;due_month:string;due_date:string|null}>,
+      recurringIssues: (recurringIssues.data || []) as Array<{payable_id:string|null;obligation_id:string}>,
     };
   },
 

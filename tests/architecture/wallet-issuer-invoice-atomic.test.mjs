@@ -41,10 +41,10 @@ test('Mercado Pago fixture is consistent without inventing additional credit or 
 test('bank facts navigate real due-month cycles while preserving distinct financial ledger values', () => {
   assert.match(page, /for \(const fact of invoiceFacts\)/);
   assert.match(page, /cycles\.sort\(/);
-  assert.match(page, /Saldo de fatura registrado/);
+  assert.match(page, /Fatura a pagar/);
   assert.match(page, /selectedCycle\?\.amount \|\| 0/);
-  assert.match(page, /Disponível informado pelo banco/);
-  assert.match(page, /Aplicar valores já salvos à posição do cartão/);
+  assert.match(page, /label: 'Disponível'/);
+  assert.match(page, /Aplicar valores do banco/);
   assert.match(page, /await Promise\.all\(\[refreshInvoiceFacts\(\),\s*refresh\(\)\]\)/);
   assert.match(page, /setStatementMonth\(result\.due_month\)/);
   assert.match(preview, /Dados do PDF salvos; posição financeira não modificada/);

@@ -22,15 +22,14 @@ export interface SmartStatementParseResult extends StatementParseResult {
  * Normaliza datas provenientes de formatos OFX (ex: 20261025120000 ou 20261025)
  */
 function normalizeOfxDate(raw: string): string | null {
-  if (!raw) return null;
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length >= 8) {
-    const year = digits.slice(0, 4);
-    const month = digits.slice(4, 6);
-    const day = digits.slice(6, 8);
-    return `${year}-${month}-${day}`;
-  }
-  return null;
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (!/^\d{8}$/.test(digits)) return null;
+  const year = Number(digits.slice(0, 4));
+  const month = Number(digits.slice(4, 6));
+  const day = Number(digits.slice(6, 8));
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  return candidate.getUTCFullYear() === year && candidate.getUTCMonth() === month - 1 && candidate.getUTCDate() === day
+    ? digits.slice(0, 4) + '-' + digits.slice(4, 6) + '-' + digits.slice(6, 8) : null;
 }
 
 /**
@@ -48,79 +47,87 @@ function extractInstallmentFromText(text: string): { number: number; total: numb
   return null;
 }
 
+/** Extract OFX SGML 1.x or XML 2.x fields without interpreting markup as HTML. */
+function ofxField(block: string, name: string): string {
+  const match = new RegExp('<' + name + '(?:\\s[^>]*)?>\\s*([^<\\r\\n]*)', 'i').exec(block);
+  return (match?.[1] || '').trim().replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>');
+}
+
+function ofxAmount(raw: string): number {
+  const value = raw.replace(/\s/g, '').replace(/^\+/, '');
+  // OFX spec uses a dot decimal. Some Brazilian exports use a comma
+  // decimal and grouped thousands; never guess for ambiguous fractions.
+  if (!/^-?(?:\d+(?:[.,]\d{1,2})?|\d{1,3}(?:[.,]\d{3})+[.,]\d{2})$/.test(value)) return NaN;
+  const comma = value.lastIndexOf(',');
+  const dot = value.lastIndexOf('.');
+  const decimal = comma > dot ? ',' : '.';
+  const normalized = value.includes(',') && value.includes('.')
+    ? value.replace(decimal === ',' ? /\./g : /,/g, '').replace(decimal, '.')
+    : value.replace(',', '.');
+  const number = Number(normalized);
+  return Number.isFinite(number) && Math.abs(number) <= 9999999999.99
+    ? Math.round(number * 100) / 100 : NaN;
+}
+
+function isCardCredit(type: string, description: string): boolean {
+  // Bank-issued refunds and invoice payments must never become purchases.
+  return /^(CREDIT|DEP|DIRECTDEP|DIV|INT)$/.test(type)
+    || /\b(estorno|reembolso|devolu[cç][aã]o|cashback|pagamento\s+(?:da\s+)?fatura|cr[eé]dito\s+na\s+fatura)\b/i.test(description);
+}
+
 /**
- * Parser nativo para arquivos OFX (Open Financial Exchange 1.x / 2.x)
- * Roda 100% no cliente sem dependências externas e CUSTO R$ 0,00.
+ * Parse OFX 1.x SGML and OFX 2.x XML from local bytes only.
+ * A credit on a card is NOT a purchase and cannot increase the invoice.
  */
 export async function parseStatementOfx(file: File, kind: 'ACCOUNT' | 'CARD'): Promise<SmartStatementParseResult> {
-  const text = await file.text();
+  if (file.size > 10 * 1024 * 1024) throw new Error('Limite de OFX: 10 MB.');
   const buffer = await file.arrayBuffer();
-  const hashBytes = await crypto.subtle.digest('SHA-256', buffer.slice(0));
+  const bytes = new Uint8Array(buffer);
+  const preview = new TextDecoder('ascii').decode(bytes.subarray(0, Math.min(bytes.length, 800)));
+  const legacy = /CHARSET:\s*(?:1252|ISO-8859-1)|encoding=["'](?:windows-1252|ISO-8859-1)/i.test(preview);
+  const text = new TextDecoder(legacy ? 'windows-1252' : 'utf-8').decode(bytes).replace(/^\uFEFF/, '');
+  if (!/<OFX(?:\s|>)/i.test(text)) throw new Error('Arquivo OFX inválido: estrutura OFX não encontrada.');
+  const hashBytes = await crypto.subtle.digest('SHA-256', buffer);
   const hash = [...new Uint8Array(hashBytes)].map(b => b.toString(16).padStart(2, '0')).join('');
-
-  // Identificação do banco ou instituição no cabeçalho OFX
-  const orgMatch = text.match(/<ORG>([^<\r\n]+)/i);
-  const fidMatch = text.match(/<FID>([^<\r\n]+)/i);
-  const bankIdMatch = text.match(/<BANKID>([^<\r\n]+)/i);
-  const institution = (orgMatch?.[1] || fidMatch?.[1] || bankIdMatch?.[1] || '').trim();
-
-  // Extrair blocos de transações <STMTTRN>...</STMTTRN>
-  const trnRegex = /<STMTTRN>([\s\S]*?)(?:<\/STMTTRN>|(?=<STMTTRN>)|(?=<\/BANKTRANLIST>)|(?=<\/CCSTMTTRNRS>)|(?=<\/STMTRS>)|$)/gi;
-  const matches = [...text.matchAll(trnRegex)];
-
+  const institution = ofxField(text, 'ORG') || ofxField(text, 'FID') || ofxField(text, 'BANKID');
+  const matches = [...text.matchAll(/<STMTTRN(?:\s[^>]*)?>([\s\S]*?)(?=<\/STMTTRN>|<STMTTRN(?:\s|>)|<\/BANKTRANLIST>|<\/CCSTMTRS>|$)/gi)];
   const rows: ParsedStatementRow[] = [];
+  const usedKeys = new Map<string, number>();
   let skipped = 0;
-
-  for (let i = 0; i < matches.length; i++) {
-    const block = matches[i][1];
-    const trnType = block.match(/<TRNTYPE>([^<\r\n]+)/i)?.[1]?.trim()?.toUpperCase() || 'OTHER';
-    const dtPostedRaw = block.match(/<DTPOSTED>([^<\r\n]+)/i)?.[1]?.trim() || '';
-    const trnAmtRaw = block.match(/<TRNAMT>([^<\r\n]+)/i)?.[1]?.trim() || '';
-    const fitIdRaw = block.match(/<FITID>([^<\r\n]+)/i)?.[1]?.trim() || `ofx-row-${i}`;
-    const nameRaw = block.match(/<NAME>([^<\r\n]+)/i)?.[1]?.trim() || '';
-    const memoRaw = block.match(/<MEMO>([^<\r\n]+)/i)?.[1]?.trim() || '';
-
-    const combinedText = [nameRaw, memoRaw].filter(Boolean).join(' - ');
-    const description = (combinedText || trnType).replace(/\s+/g, ' ').trim();
-    const date = normalizeOfxDate(dtPostedRaw) || new Date().toISOString().slice(0, 10);
-    const parsedAmt = Number(trnAmtRaw.replace(',', '.'));
-
-    if (!Number.isFinite(parsedAmt) || !description) {
-      skipped++;
-      continue;
-    }
-
-    let finalAmount = parsedAmt;
-    if (kind === 'CARD') {
-      // Para cartão de crédito: despesas comuns nos OFX vêm negativas (-25.50).
-      // Na convenção do sistema, compras são valores positivos.
-      if (finalAmount < 0) {
-        finalAmount = Math.abs(finalAmount);
-      }
-    }
-
+  for (const match of matches) {
+    const block = match[1];
+    const type = ofxField(block, 'TRNTYPE').toUpperCase();
+    const date = normalizeOfxDate(ofxField(block, 'DTPOSTED'));
+    const amount = ofxAmount(ofxField(block, 'TRNAMT'));
+    const description = [ofxField(block, 'NAME'), ofxField(block, 'MEMO')]
+      .filter(Boolean).join(' - ').replace(/\s+/g, ' ').trim().slice(0, 240) || type;
+    if (!date || !Number.isFinite(amount) || amount === 0 || !description) { skipped++; continue; }
+    const credit = kind === 'CARD' && isCardCredit(type, description);
+    // Debit/card purchases are positive in CapitalFlow; refunds/payments
+    // remain negative and cannot be accidentally applied as purchases.
+    const finalAmount = kind === 'CARD' ? (credit ? -Math.abs(amount) : Math.abs(amount)) : amount;
+    const fitid = ofxField(block, 'FITID');
+    const rawKey = fitid
+      ? 'ofx-' + fitid.slice(0, 140)
+      : 'ofx-' + [date, Math.round(amount * 100), description].join('-').slice(0, 160);
+    const repeat = usedKeys.get(rawKey) || 0;
+    usedKeys.set(rawKey, repeat + 1);
     const installment = extractInstallmentFromText(description);
-    const category = classifyStatementDescription(description);
-
     rows.push({
-      rowKey: `ofx-${fitIdRaw}-${i}`,
+      rowKey: repeat ? rawKey + '-' + repeat : rawKey,
       date,
-      description: description.slice(0, 240),
-      amount: Math.round(finalAmount * 100) / 100,
-      category,
-      confidence: 'HIGH',
+      description,
+      amount: finalAmount,
+      category: classifyStatementDescription(description),
+      confidence: credit ? 'REVIEW' : 'HIGH',
       selected: kind === 'CARD' ? finalAmount > 0 : true,
       installmentNumber: installment?.number || null,
       installmentTotal: installment?.total || null,
     });
   }
-
+  if (!matches.length) throw new Error('O arquivo OFX não contém transações STMTTRN. Exporte o extrato detalhado pelo banco.');
   return {
-    hash,
-    rows,
-    skipped,
-    pages: 1,
-    sourceType: 'OFX',
+    hash, rows, skipped, pages: 1, sourceType: 'OFX',
     costLabel: 'R$ 0,00 (Processamento Local)',
     institutionDetected: institution || undefined,
   };
@@ -331,8 +338,7 @@ export async function parseSmartFinancialDocument(
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     if (options?.forceAi) {
       if (file.size > 10 * 1024 * 1024) throw new Error('Limite de PDF para leitura com IA: 10 MB.');
-      // User must explicitly choose cloud processing in the importer UI.
-      // Local extraction never silently sends private financial data to Gemini.
+      // PDF cloud processing requires explicit confirmation in the importer UI.
       const cloud = await parseStatementImageWithAi(
         file.type === 'application/pdf' ? file : new File([file], file.name, {type: 'application/pdf'}),
         kind,

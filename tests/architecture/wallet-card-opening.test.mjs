@@ -42,7 +42,8 @@ test('onboarding and empty existing cards share validated opening workflow', () 
   assert.match(ui, /Fatura inicial/);
   assert.match(ui, /Situação da fatura/);
   assert.match(ui, /Disponível para gastar/);
-  assert.match(ui, /used > limit/);
+  assert.match(ui, /overLimit > 0/);
+  assert.doesNotMatch(ui, /if \(used > limit\)/);
   assert.match(ui, /invoice \+ future > used/);
   assert.match(service, /personal_wallet_create_card_with_opening/);
   assert.match(service, /personal_wallet_initialize_card_opening/);

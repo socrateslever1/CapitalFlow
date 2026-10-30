@@ -14,6 +14,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
+import { tryParseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
 import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
@@ -117,6 +118,9 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     return confirmation;
   };
 
+  // Raw text survives partial edits and pasted bank separators; invalid drafts
+  // never become zero or mutate the persisted statement value.
+  const [rowAmountDrafts, setRowAmountDrafts] = useState<Record<string, string>>({});
   const selectedCount = rows.filter((row) => row.selected).length;
   const selectedSum = rows
     .filter((row) => row.selected)
@@ -125,7 +129,9 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const selectedInvalid = rows.some(
     (row) =>
       row.selected &&
-      (!Number.isFinite(row.amount) ||
+      ((Object.prototype.hasOwnProperty.call(rowAmountDrafts, row.rowKey) &&
+        tryParseWalletSignedMoney(rowAmountDrafts[row.rowKey]) === null) ||
+       !Number.isFinite(row.amount) ||
         row.amount === 0 ||
         Math.abs(row.amount * 100 - Math.round(row.amount * 100)) > 0.0001 ||
         !row.date ||
@@ -136,6 +142,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
     setSource(fileToProcess);
     setResult(null);
     setRows([]);
+    setRowAmountDrafts({});
     setError('');
     setPdfPasswordRequired(false);
     setFinished(null);
@@ -536,13 +543,18 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
 
                   <div className="text-right">
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       step="0.01"
                       aria-label="Valor"
                       className="w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-right text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
                       disabled={busy}
-                      value={row.amount}
-                      onChange={(e) => revise(i, { amount: Number(e.target.value) })}
+                      value={rowAmountDrafts[row.rowKey] ?? String(row.amount).replace('.', ',')}
+                      onChange={(e) => {
+                      const raw = e.target.value;
+                      setRowAmountDrafts(previous => ({ ...previous, [row.rowKey]: raw }));
+                      const parsed = tryParseWalletSignedMoney(raw);
+                      if (parsed !== null) revise(i, { amount: parsed });
+                    }}
                     />
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {formatMoney(row.amount)}

@@ -3,6 +3,7 @@ import { X, Receipt, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { PersonalWalletCard, PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { tryParseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 export interface PayInvoiceModalProps {
   card: PersonalWalletCard;
@@ -24,10 +25,10 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
   const [error, setError] = useState('');
   // Reuse request ID after a network failure; changing the payment creates a new operation.
   const operation = useRef({ signature: '', id: generateUUID() });
-  const amount = Number(paymentText.trim().replace(',', '.'));
-  const isValid = paymentText.trim() !== '' && Number.isFinite(amount)
-    && amount > 0 && Math.abs(amount * 100 - Math.round(amount * 100)) < 0.000001
-    && amount <= remaining;
+  const parsedPayment = tryParseWalletMoney(paymentText);
+  const amount = parsedPayment ?? NaN;
+  const isValid = parsedPayment !== null && parsedPayment > 0
+    && Math.round(parsedPayment * 100) <= Math.round(remaining * 100);
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

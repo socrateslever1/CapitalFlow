@@ -5,6 +5,7 @@ import { PersonalWalletAccount, personalWalletService } from '../../services/per
 import { formatMoney } from '../../utils/formatters';
 import { pixKeyTypeLabel } from './walletPresentation';
 import { generateUUID } from '../../utils/generators';
+import { tryParseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { BankLogo } from './BankLogo';
 import { buildPersistedPixCharge, PersistedWalletChargePreview } from './walletChargeDomain';
 
@@ -50,7 +51,7 @@ export const WalletPixCharge: React.FC<Props> = ({
   const generate = async () => {
     if (generating || settling) return;
     const normalized = amount.trim();
-    const value = Number(normalized.replace(',', '.'));
+    const value = tryParseWalletMoney(normalized) ?? NaN;
     if (!account) { setError('Selecione uma conta com chave PIX cadastrada.'); return; }
     if (!/^\d+(?:[.,]\d{1,2})?$/.test(normalized) || !Number.isFinite(value) || value <= 0) {
       setError('Informe um valor positivo com até duas casas decimais.'); return;

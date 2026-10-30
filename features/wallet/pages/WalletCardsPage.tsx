@@ -193,12 +193,20 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const invoiceCycles = useMemo(() => {
     if (!data || !selected) return [];
     const cycles = getEffectiveInvoiceCycles(selected.id, data.expenses, data.installments);
+    // Bank-observed cycles remain navigable even if there are no expense entries.
+    // Their values must NOT be counted as purchases by this navigation list.
+    for (const fact of invoiceFacts) {
+      if (fact.card_id === selected.id &&
+          !cycles.some(cycle => cycle.dueMonth.slice(0, 7) === fact.due_month.slice(0, 7)))
+        cycles.push({ dueMonth: fact.due_month, amount: 0, hasOverride: false });
+    }
+    cycles.sort((a,b) => a.dueMonth.localeCompare(b.dueMonth));
     const lastMonth = cycles.at(-1)?.dueMonth || creditPosition?.dueMonth || `${new Date().toLocaleDateString('en-CA').slice(0, 7)}-01`;
     const [year, month] = lastMonth.slice(0, 7).split('-').map(Number);
     const nextMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
     if (!cycles.some(cycle => cycle.dueMonth === nextMonth)) cycles.push({ dueMonth: nextMonth, amount: 0, hasOverride: false });
     return cycles;
-  }, [data, selected, creditPosition?.dueMonth]);
+  }, [data, selected, creditPosition?.dueMonth, invoiceFacts]);
   useEffect(() => {
     if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
   }, [selected?.id, creditPosition?.dueMonth]);
@@ -219,7 +227,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   };
   const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
     if (!selected || !statementMonth) throw new Error('Selecione o cartão e o mês.');
-    await personalWalletService.saveCardInvoiceFacts({
+    const confirmed = await personalWalletService.saveCardInvoiceFacts({
       cardId:selected.id,
       dueMonth:statementMonth.slice(0,7)+'-01',
       dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
@@ -228,8 +236,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       availableLimit:summary.availableLimit, futureInstallments:summary.futureInstallments,
       sourceHash:null, sourceType:'MANUAL',
     });
-    await refreshInvoiceFacts();
-    setInvoiceFactsModalOpen(false);
+    await Promise.all([refreshInvoiceFacts(),refresh()]);
+    setStatementMonth(confirmed.due_month);
+    return confirmed;
   };
   const selectedCycle = selected && data
     ? getSelectedInvoiceCycle(selected.id, statementMonth, data.expenses, data.installments)
@@ -443,7 +452,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   targetName={selected.nickname}
                   targetIssuer={selected.issuer} targetLastFour={selected.last_four}
                   existingRows={data.statementRows}
-                  onSummarySaved={refreshInvoiceFacts}
+                  onSummarySaved={async month => {
+                    await Promise.all([refreshInvoiceFacts(), refresh()]);
+                    setStatementMonth(month);
+                  }}
                   initialDueMonth={statementMonth}
                   hasOpening={Boolean(selected.initial_balance_occurred_at)}
                   isFlat={true}
@@ -701,7 +713,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
         initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
-        targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four} existingRows={data.statementRows} onSummarySaved={refreshInvoiceFacts} onClose={() => setImporting(false)}
+        targetName={selected.nickname} targetIssuer={selected.issuer} targetLastFour={selected.last_four} existingRows={data.statementRows} onSummarySaved={async month => {
+                    await Promise.all([refreshInvoiceFacts(), refresh()]);
+                    setStatementMonth(month);
+                  }} onClose={() => setImporting(false)}
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}

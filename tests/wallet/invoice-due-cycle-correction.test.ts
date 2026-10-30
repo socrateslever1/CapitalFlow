@@ -35,9 +35,9 @@ test('the editor changes the SAME invoice via one transactional RPC, never a sec
   const page=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
   const service=readFileSync('services/personalWallet.service.ts','utf8');
   const sql=readFileSync('supabase/migrations/20261030214000_wallet_correct_invoice_due_cycle.sql','utf8');
-  assert.match(component,/Mês de pagamento/);
-  assert.match(component,/Data exata de vencimento/);
-  assert.match(component,/Competência \(fechamento\)/);
+  assert.match(component,/Valor da fatura/);
+  assert.match(component,/Vencimento/);
+  assert.match(component,/dueMonth=dueDate\.slice\(0,7\)\+'-01'/);
   assert.match(component,/hasExistingConsolidation/);
   assert.match(page,/personalWalletService\.correctInvoiceOverride/);
   assert.match(page,/previousDueMonth:selectedCycle\?\.hasOverride/);

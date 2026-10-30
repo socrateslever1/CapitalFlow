@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Download, RefreshCw, X } from 'lucide-react';
 
 const RELEASE_API = 'https://api.github.com/repos/socrateslever1/CapitalFlow/releases/tags/android-signed-beta';
 const RELEASE_ASSET_PATH = '/socrateslever1/CapitalFlow/releases/download/android-signed-beta/CapitalFlow-Android.apk';
 
 type Update = { versionCode: number; downloadUrl: string };
+type InAppInstaller = { downloadAndInstall: () => Promise<void> };
+const apkInstaller = registerPlugin<InAppInstaller>('CapitalFlowApkInstaller');
 export function parseSignedAndroidRelease(payload: unknown, installedCode: number): Update | null {
   if (!payload || typeof payload !== 'object') return null;
   const data = payload as { body?: unknown; assets?: Array<{ name?: unknown; browser_download_url?: unknown }> };
@@ -28,6 +30,8 @@ export function parseSignedAndroidRelease(payload: unknown, installedCode: numbe
 export const AndroidNativeUpdateNotice: React.FC = () => {
   const [update, setUpdate] = useState<Update | null>(null);
   const [dismissedCode, setDismissedCode] = useState(0);
+  const [installing, setInstalling] = useState(false);
+  const [installError, setInstallError] = useState<string|null>(null);
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
     let active = true;
@@ -70,16 +74,35 @@ export const AndroidNativeUpdateNotice: React.FC = () => {
     };
   }, []);
 
-  if (!update || update.versionCode === dismissedCode) return null;
+  const install = async () => {
+    if (installing || !update) return;
+    setInstalling(true);
+    setInstallError(null);
+    try {
+      // The native Capacitor plugin streams and verifies the signed release
+      // internally, then shows Android's standard package-installation dialog.
+      // No browser window and no external GitHub navigation.
+      await apkInstaller.downloadAndInstall();
+    } catch (error) {
+      setInstallError(error instanceof Error ? error.message : 'Não foi possível instalar a atualização.');
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android' ||
+      !update || update.versionCode === dismissedCode) return null;
   return <aside role="status" aria-live="polite" aria-label="Atualização do aplicativo Android"
     className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-[1750] mx-auto max-w-sm rounded-xl border border-cyan-500/40 bg-slate-900 p-3 text-white shadow-2xl shadow-black/60 md:bottom-5 md:left-auto md:right-5">
     <button type="button" onClick={() => setDismissedCode(update.versionCode)}
       aria-label="Dispensar atualização do APK" className="absolute right-2 top-2 rounded-lg p-1.5 text-slate-400"><X size={16}/></button>
     <div className="flex items-center gap-2 pr-7 text-sm font-semibold"><RefreshCw size={16} className="text-cyan-300"/> Nova versão do aplicativo</div>
     <p className="mt-1 text-xs text-slate-300">Existe um APK mais recente e assinado disponível para atualizar o CapitalFlow.</p>
-    <a href={update.downloadUrl} target="_blank" rel="noopener noreferrer"
-      className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">
-      <Download size={15}/> Abrir download da atualização
-    </a>
+    {installError && <p role="alert" className="mt-2 rounded-lg bg-rose-950/40 px-3 py-2 text-xs text-rose-200">{installError}</p>}
+    <button type="button" disabled={installing} onClick={() => { void install(); }}
+      className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:opacity-50">
+      {installing ? <RefreshCw size={15} className="animate-spin"/> : <Download size={15}/>}
+      {installing ? 'Baixando e verificando APK…' : 'Atualizar pelo aplicativo'}
+    </button>
   </aside>;
 };

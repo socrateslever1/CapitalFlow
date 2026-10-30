@@ -39,7 +39,20 @@ export const onRequestGet = async (): Promise<Response> => {
       'Referrer-Policy': 'no-referrer',
     });
     if (contentLength > 0) headers.set('Content-Length', String(contentLength));
-    return new Response(upstream.body, { status: 200, headers });
+    // Enforce the maximum while streaming, even if the CDN omits or lies
+    // about Content-Length. Never buffer the full APK in the Worker.
+    let transferred = 0;
+    const bounded = upstream.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        transferred += chunk.byteLength;
+        if (transferred > MAX_APK_BYTES) {
+          controller.error(new Error('APK excedeu o tamanho máximo permitido.'));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    }));
+    return new Response(bounded, { status: 200, headers });
   } catch {
     return new Response('Não foi possível obter o APK. Tente novamente.', {
       status: 503, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' },

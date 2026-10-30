@@ -28,7 +28,8 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
   const request=useRef<{key:string;id:string}>({key:'',id:generateUUID()});
-  const dates=getInvoiceCycleDates(month+'-01',card.closing_day,card.due_day,dueDate);
+  const visualMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(month)?month:originalMonth;
+  const dates=getInvoiceCycleDates(visualMonth+'-01',card.closing_day,card.due_day,dueDate);
   const monthLabel=(date:string)=>new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'})
     .format(new Date(date.slice(0,7)+'-01T12:00:00Z'));
 

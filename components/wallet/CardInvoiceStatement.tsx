@@ -32,7 +32,6 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({ card
   const [error, setError] = useState('');
   const deleteRequestIds = useRef(new Map<string, string>());
   const entries = useMemo(() => getCardInvoiceEntries(cardId, dueMonth, expenses, installments), [cardId, dueMonth, expenses, installments]);
-  const hasOverride = entries.some(entry => entry.expense.entry_type === 'INVOICE_OVERRIDE');
 
   const remove = async (expense: PersonalWalletExpense) => {
     setDeletingId(expense.id);

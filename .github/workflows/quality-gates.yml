@@ -26,6 +26,8 @@ jobs:
 
       - run: |
           if [ -f package-lock.json ]; then npm ci --progress=false; else npm install --progress=false --no-fund; fi
+      - name: Verify wallet invoice and cross-file import regression suite
+        run: npm run test:wallet-statement-import
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
       - run: npm run test:quality

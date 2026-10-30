@@ -211,6 +211,14 @@ export type WalletCardInvoiceFacts = {
   updated_at: string;
 };
 
+export type WalletIssuerInvoiceCommit = {
+  facts: WalletCardInvoiceFacts;
+  due_month: string;
+  financial_applied: boolean;
+  replayed: boolean;
+  note: string;
+};
+
 export type SaveWalletCardInvoiceFacts = {
   cardId: string;
   dueMonth: string;
@@ -658,7 +666,7 @@ export const personalWalletService = {
   },
 
   /** Only store facts after a human has reviewed the issuer PDF; no settlement RPC. */
-  async saveCardInvoiceFacts(input: SaveWalletCardInvoiceFacts): Promise<WalletCardInvoiceFacts> {
+  async saveCardInvoiceFacts(input: SaveWalletCardInvoiceFacts, requestId = generateUUID()): Promise<WalletIssuerInvoiceCommit> {
     if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(input.dueMonth))
       throw new Error('Mês de vencimento inválido.');
     if (input.dueDate) {
@@ -680,18 +688,24 @@ export const personalWalletService = {
     if (input.invoiceTotal !== null && input.minimumPayment !== null &&
         input.minimumPayment > input.invoiceTotal)
       throw new Error('O pagamento mínimo não pode superar a fatura.');
-    const owner = await this.ownerId();
-    const { data, error } = await supabase.from('personal_wallet_card_invoice_facts').upsert({
-      owner_user_id: owner, card_id: input.cardId, due_month: input.dueMonth,
-      due_date: input.dueDate, issuer: input.issuer,
-      invoice_total: input.invoiceTotal, minimum_payment: input.minimumPayment,
-      credit_limit: input.creditLimit, used_limit: input.usedLimit,
-      available_limit: input.availableLimit, future_installments: input.futureInstallments,
-      source_hash: input.sourceHash, source_type: input.sourceType,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'owner_user_id,card_id,due_month' }).select().single();
-    if (error) throw new Error(error.message);
-    return data as WalletCardInvoiceFacts;
+    const { data, error } = await supabase.rpc('personal_wallet_confirm_issuer_invoice', {
+      p_card_id: input.cardId, p_due_month: input.dueMonth,
+      p_request_id: requestId,
+      p_facts: {
+        due_date: input.dueDate, issuer: input.issuer,
+        invoice_total: input.invoiceTotal, minimum_payment: input.minimumPayment,
+        credit_limit: input.creditLimit, used_limit: input.usedLimit,
+        available_limit: input.availableLimit, future_installments: input.futureInstallments,
+        source_hash: input.sourceHash, source_type: input.sourceType,
+      },
+    });
+    if (error) throw new Error(error.code === 'PGRST202'
+      ? 'A confirmação integrada da fatura ainda não foi instalada no Supabase.'
+      : error.message);
+    const result = data as WalletIssuerInvoiceCommit | null;
+    if (!result?.facts?.id || result.facts.due_month.slice(0, 7) !== input.dueMonth.slice(0, 7))
+      throw new Error('O banco não confirmou a gravação dos dados deste ciclo.');
+    return result;
   },
 
   async loadCardInvoiceFacts(cardId: string): Promise<WalletCardInvoiceFacts[]> {

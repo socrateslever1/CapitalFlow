@@ -323,6 +323,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                   targetId={selected.id}
                   targetName={selected.nickname}
                   targetIssuer={selected.issuer}
+                  existingRows={data.statementRows}
                   initialDueMonth={statementMonth}
                   hasOpening={Boolean(selected.initial_balance_occurred_at)}
                   isFlat={true}
@@ -550,7 +551,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
         initialDueMonth={statementMonth} hasOpening={Boolean(selected.initial_balance_occurred_at)}
-        targetName={selected.nickname} targetIssuer={selected.issuer} onClose={() => setImporting(false)}
+        targetName={selected.nickname} targetIssuer={selected.issuer} existingRows={data.statementRows} onClose={() => setImporting(false)}
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}

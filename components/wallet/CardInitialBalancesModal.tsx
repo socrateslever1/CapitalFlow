@@ -28,11 +28,11 @@ const moneyCentsOrNull = (value: string): number | null => {
 };
 
 export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> = ({
-  card, initialDueMonth, currentInvoiceAmount = 0,
+  card, initialDueMonth, currentInvoiceAmount,
   nativeFutureCommitments = 0, onClose, onSaved,
 }) => {
   const formId = useId();
-  const invoice = currentInvoiceAmount || Number(card.current_bill || 0);
+  const invoice = currentInvoiceAmount ?? Number(card.current_bill || 0);
   const initialUsed = Math.max(
     Math.round(Number(card.used_limit || 0) * 100),
     Math.round(invoice * 100) +

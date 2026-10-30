@@ -30,18 +30,34 @@ const manausToday = () => {
 };
 const daysInMonth = (year: number, monthIndex: number) => new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
 
-export const getInvoiceCycleDates = (dueMonth: string, closingDay: number | null, dueDay: number | null): InvoiceCycleDates => {
+/** dueMonth is the actual payment month (the first day is only its database key). */
+export const getInvoiceCycleDates = (
+  dueMonth: string,
+  closingDay: number | null,
+  dueDay: number | null,
+  exactDueDate?: string | null,
+): InvoiceCycleDates => {
   const [year, month] = dueMonth.slice(0, 7).split('-').map(Number);
-  const closing = Math.min(Math.max(Number(closingDay || 1), 1), daysInMonth(year, month - 1));
-  const due = Math.max(Number(dueDay || 1), 1);
-  const dueMonthOffset = due <= closing ? 1 : 0;
-  const dueYear = month - 1 + dueMonthOffset >= 12 ? year + 1 : year;
-  const dueMonthIndex = (month - 1 + dueMonthOffset) % 12;
-  const boundedDue = Math.min(due, daysInMonth(dueYear, dueMonthIndex));
-  return {
-    closingDate: `${year}-${String(month).padStart(2, '0')}-${String(closing).padStart(2, '0')}`,
-    dueDate: `${dueYear}-${String(dueMonthIndex + 1).padStart(2, '0')}-${String(boundedDue).padStart(2, '0')}`,
-  };
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12)
+    throw new Error('Mês de vencimento inválido.');
+  const due = Math.min(Math.max(Number(dueDay || 1), 1), daysInMonth(year, month - 1));
+  const inferredDue = `${year}-${String(month).padStart(2, '0')}-${String(due).padStart(2, '0')}`;
+  // A due date informed by the issuer overrides the card's recurring due day,
+  // but never moves purchases or payments to a different database cycle.
+  const dueDate = exactDueDate && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(exactDueDate)
+    && exactDueDate.slice(0, 7) === dueMonth.slice(0, 7)
+    && !Number.isNaN(Date.parse(exactDueDate + 'T00:00:00Z'))
+    && new Date(exactDueDate + 'T00:00:00Z').toISOString().slice(0, 10) === exactDueDate
+      ? exactDueDate : inferredDue;
+  const effectiveDueDay = Number(dueDate.slice(8));
+  const closing = Math.min(Math.max(Number(closingDay || 1), 1), 31);
+  // E.g. 05 October payment with closing day 28 closes on 28 September.
+  const prior = closing >= effectiveDueDay;
+  const closeMonthDate = new Date(Date.UTC(year, month - 1 - (prior ? 1 : 0), 1));
+  const closeYear = closeMonthDate.getUTCFullYear();
+  const closeMonthIndex = closeMonthDate.getUTCMonth();
+  const closingDate = `${closeYear}-${String(closeMonthIndex + 1).padStart(2, '0')}-${String(Math.min(closing, daysInMonth(closeYear, closeMonthIndex))).padStart(2, '0')}`;
+  return { closingDate, dueDate };
 };
 
 export const resolveInvoiceCycleState = (input: {
@@ -52,10 +68,11 @@ export const resolveInvoiceCycleState = (input: {
   hasCycle?: boolean;
   paid?: boolean;
   today?: string;
+  exactDueDate?: string | null;
 }): InvoiceCycleState => {
   if (input.paid) return 'PAID';
   if (input.hasCycle === false) return 'OPEN';
-  const dates = getInvoiceCycleDates(input.dueMonth, input.closingDay, input.dueDay);
+  const dates = getInvoiceCycleDates(input.dueMonth, input.closingDay, input.dueDay, input.exactDueDate);
   const today = input.today || manausToday();
   if (input.outstanding <= 0) return 'PAID';
   if (today <= dates.closingDate) return 'OPEN';

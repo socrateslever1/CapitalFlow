@@ -215,14 +215,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     usedLimit: savedInvoiceFacts?.used_limit ?? null,
     availableLimit: savedInvoiceFacts?.available_limit ?? null,
     futureInstallments: savedInvoiceFacts?.future_installments ?? null,
-    dueDate: savedInvoiceFacts?.due_date ?? null,
+    dueDate: savedInvoiceFacts?.due_date ?? (selected && statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day).dueDate : null),
     warnings: [],
   };
   const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
     if (!selected || !statementMonth) throw new Error('Selecione o cartão e o mês.');
     await personalWalletService.saveCardInvoiceFacts({
       cardId:selected.id,
-      dueMonth:(summary.dueDate || statementMonth).slice(0,7)+'-01',
+      dueMonth:statementMonth.slice(0,7)+'-01',
       dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
       invoiceTotal:summary.invoiceTotal, minimumPayment:summary.minimumPayment,
       creditLimit:summary.creditLimit, usedLimit:summary.usedLimit,
@@ -252,6 +252,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         dueDay: selected.due_day,
         outstanding: selectedCycle?.amount || 0,
         hasCycle: Boolean(selectedCycle?.amount),
+        exactDueDate: savedInvoiceFacts?.due_date,
       }))
     : undefined;
   const mayInitializeExisting = Boolean(selected && data && Number(selected.used_limit) === 0
@@ -377,7 +378,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </div>
             <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
               className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
-              {savedInvoiceFacts?'Corrigir valores':'Informar valores'}
+              {savedInvoiceFacts?'Corrigir valores e vencimento':'Informar vencimento e valores'}
             </button>
           </div>}
           <WalletMetricStrip items={[
@@ -435,9 +436,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               openingBalance={selectedIsOpeningCycle ? Number(selected.initial_future_installments_balance || 0) : 0}
               expenses={data.expenses} installments={data.installments}
               invoiceState={selectedInvoiceState}
-              cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day) : undefined}
+              cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
+              onCancelConsolidation={async (dueMonth, mutationRequestId) => { await personalWalletService.cancelInvoiceConsolidation(selected.id, dueMonth, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
           </div>
@@ -677,7 +679,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}
-        dueMonth={statementMonth || undefined} onClose={() => setPaying(null)}
+        dueMonth={statementMonth || undefined} dueDate={statementMonth && selected ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date).dueDate : null} onClose={() => setPaying(null)}
         onPay={async (cardId, month, accountId, amount, requestId) => {
           await personalWalletService.payInvoicePartial(cardId, month, accountId, amount, requestId);
           await refresh();

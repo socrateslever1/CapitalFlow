@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Loader2, Save, X } from 'lucide-react';
 import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { generateUUID } from '../../utils/generators';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
@@ -29,9 +30,11 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const parsedAmount = Number(amount.replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
     if (!description.trim()) return setError('Informe a descrição do lançamento.');
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return setError('Informe um valor válido.');
+    let parsedAmount: number;
+    try { parsedAmount = parseWalletMoney(amount, 'valor do lançamento'); }
+    catch (reason) { return setError(reason instanceof Error ? reason.message : 'Valor inválido.'); }
+    if (parsedAmount <= 0) return setError('Informe um valor maior que zero.');
     setSaving(true);
     setError('');
     try {
@@ -83,11 +86,13 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
             <label className="block text-xs font-bold text-slate-300">Data da compra
               <span className="relative mt-1.5 block"><CalendarDays className="pointer-events-none absolute left-3 top-3 text-slate-500" size={15} /><input type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className={`${fieldClass} pl-9`} /></span>
             </label>
-            {!compact && <label className="block text-xs font-bold text-slate-300">Primeiro vencimento
+            {compact ? <label className="block text-xs font-bold text-slate-300">Mês da fatura
+              <input type="month" required value={dueDate.slice(0, 7)} onChange={(e) => setDueDate(e.target.value ? e.target.value + '-01' : '')} className={`${fieldClass} mt-1.5`} />
+            </label> : <label className="block text-xs font-bold text-slate-300">Primeiro vencimento
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${fieldClass} mt-1.5`} />
             </label>}
           </div>
-          {!compact && <label className="block text-xs font-bold text-slate-300">Observações
+          {<label className="block text-xs font-bold text-slate-300">Observações
             <textarea maxLength={2000} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={`${fieldClass} mt-1.5 resize-none`} />
           </label>}
         </div>

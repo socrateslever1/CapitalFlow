@@ -1155,6 +1155,17 @@ export const personalWalletService = {
     return data as { card_id: string; expense_id: string; due_month: string | null; current_invoice: number; future_commitments: number; committed_limit: number; free_limit: number; replayed: boolean };
   },
 
+  async cancelInvoiceConsolidation(cardId: string, dueMonth: string, requestId: string) {
+    if (!cardId || !requestId || !/^\\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
+      throw new Error('Identificação ou mês da fatura inválido.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_cancel_invoice_consolidation', {
+      p_card_id: cardId, p_due_month: dueMonth, p_request_id: requestId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { card_id: string; replayed: boolean };
+  },
+
   async updateExpense(input: UpdatePersonalWalletExpense, requestId = generateUUID()) {
     if (!input.description.trim()) throw new Error('Informe a descrição do lançamento.');
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {

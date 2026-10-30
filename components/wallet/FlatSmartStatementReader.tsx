@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
+import { issuerMatchesBank } from '../../utils/cardInvoiceSummary';
 import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
@@ -86,9 +87,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const [isDragging, setIsDragging] = useState(false);
 
   const declaredBank = result?.invoiceSummary?.institution;
-  const bankMismatch = Boolean(kind === 'CARD' && targetIssuer && declaredBank
-    && !targetIssuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(
-      declaredBank.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()));
+  const bankMismatch = kind === 'CARD' && !issuerMatchesBank(targetIssuer, declaredBank || null);
   const duplicateKeys = detectPreviouslyImported(rows, existingRows, kind, targetId);
   const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
   const cardMismatch = Boolean(kind === 'CARD' && targetLastFour

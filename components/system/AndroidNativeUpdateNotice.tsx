@@ -113,7 +113,7 @@ export const AndroidNativeUpdateNotice: React.FC = () => {
       // Native Plugin verifies SHA, cert, version, then stages via PackageInstaller.Session.
       // Starting a system session is not proof that Android installed anything.
       await apkInstaller.downloadAndInstall();
-      setInstallNotice('O APK foi enviado ao Android. Confirme a instalação solicitada.');
+      setInstallNotice('Atualização enviada ao Android. Confirme apenas se for solicitado.');
     } catch (error) {
       setInstallError(error instanceof Error ? error.message : 'Não foi possível instalar a atualização.');
     } finally {

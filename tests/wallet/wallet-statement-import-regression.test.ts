@@ -80,3 +80,21 @@ test('OFX distinguishes invoice PIX settlement from Pix no Crédito charge',asyn
   const result=await parseStatementOfx(file,'CARD');
   assert.deepEqual(result.rows.map(x=>x.amount),[-350,58.5]);
 });
+
+
+test('encrypted PDF requires local password and never persists document secrets', () => {
+  const parser = readFileSync('utils/walletStatementPdf.ts', 'utf8');
+  const dispatcher = readFileSync('utils/statementSmartReader.ts', 'utf8');
+  const panels = [
+    readFileSync('components/wallet/FlatSmartStatementReader.tsx','utf8'),
+    readFileSync('components/wallet/WalletStatementImport.tsx','utf8'),
+  ];
+  assert(parser.includes('StatementPdfPasswordError'));
+  assert(parser.includes('PDF_PASSWORD_REQUIRED'));
+  assert(parser.includes('PDF_PASSWORD_INCORRECT'));
+  assert(parser.includes('...(password ? {password} : {})'));
+  assert(dispatcher.includes('pdfPassword:'));
+  assert(panels.every(panel => panel.includes('type="password"')));
+  assert(panels.every(panel => panel.includes("setPdfPassword('')")));
+  assert(panels.every(panel => panel.includes('onSave={saveSummary}')));
+});

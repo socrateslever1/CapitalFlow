@@ -70,6 +70,18 @@ export const CardVaultModal: React.FC<{
     return()=>{document.removeEventListener('visibilitychange',lock);};
   },[]);
 
+  useEffect(()=>{
+    if(!unlocked)return;
+    const timer=window.setTimeout(()=>{
+      clearWalletVaultSession();
+      operation.current++;
+      setUnlocked(false);setDraft(emptyProtectedCard());
+      setPin('');setLegacyPassword('');setFeedback('');
+      setError('Dados protegidos bloqueados por inatividade. Digite o PIN novamente.');
+    },120_000);
+    return()=>window.clearTimeout(timer);
+  },[unlocked,card.id]);
+
   const submit=async(event:React.FormEvent)=>{
     event.preventDefault();
     if(!loaded||busy)return;

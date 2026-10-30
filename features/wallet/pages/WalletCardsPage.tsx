@@ -38,6 +38,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
   const requestedAction = searchParams.get('acao');
+  const requestedInvoiceMonth = searchParams.get('fatura');
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(requestedCardId);
   const [editing, setEditing] = useState<PersonalWalletCard | null>(null);
@@ -211,8 +212,17 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     return cycles;
   }, [data, selected, creditPosition?.dueMonth, invoiceFacts]);
   useEffect(() => {
-    if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
-  }, [selected?.id, creditPosition?.dueMonth]);
+    if(selected) setStatementMonth(requestedInvoiceMonth && /^\d{4}-(0[1-9]|1[0-2])-01$/.test(requestedInvoiceMonth)
+      ? requestedInvoiceMonth : creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
+  }, [selected?.id, creditPosition?.dueMonth, requestedInvoiceMonth]);
+  useEffect(() => {
+    if(requestedAction!=='pagar-fatura' || !selected || !statementMonth ||
+       (requestedInvoiceMonth && statementMonth !== requestedInvoiceMonth)) return;
+    setPaying(selected);
+    const next=new URLSearchParams(searchParams);
+    next.delete('acao');
+    setSearchParams(next,{replace:true});
+  },[requestedAction,selected?.id,statementMonth,requestedInvoiceMonth,searchParams,setSearchParams]);
   const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0,7) === statementMonth?.slice(0,7)) || null;
   const editableInvoiceSummary: CardInvoiceSummary = {
     institution: (['Nubank','Mercado Pago','Itaú','C6 Bank','RecargaPay'] as const).find(

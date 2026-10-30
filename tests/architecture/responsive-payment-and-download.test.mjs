@@ -43,4 +43,8 @@ test('Cloudflare binary proxy enforces official immutable URL, HTTPS, max size, 
   assert.match(proxy,/Content-Disposition/);
   assert.match(proxy,/new Response\(bounded/);
   assert.doesNotMatch(proxy,/302|status:\s*3\d\d/);
+  const serviceWorker=readFileSync('public/service-worker.js','utf8');
+  assert.match(serviceWorker,/url\.pathname === '\/api\/android\/apk'/);
+  assert.match(serviceWorker,/if \(isSameOrigin && url\.pathname === '\/api\/android\/apk'\) return/);
+
 });

@@ -87,7 +87,8 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
   const cardLastFour = cardNumbers.size === 1 ? [...cardNumbers][0] : null;
   const invoiceTotal = matchValue(documentLines, /\btotal\s+(?:a\s+pagar|desta\s+fatura)\b/)
     ?? (institution === 'Mercado Pago' ? matchValue(documentLines, /^total\s*(?=r\$|\d)/) : null);
-  const minimumPayment = matchValue(documentLines, /\bpagamento\s+minimo\b(?:\s*:)?/);
+  const minimumPayment = matchValue(documentLines, /\bpagamento\s+minimo\b(?:\s*:)?/)
+    ?? matchValue(documentLines, /\bvalor\s+minimo\s+que\s+voce\s+deve\s+pagar\s+e\s+de\b/);
   let creditLimit = matchValue(documentLines, /\blimite\s+total(?:\s+de\s+credito|\s+do\s+cartao\s+de\s+credito)?\b(?!\s+utilizado)(?=\s|:)/);
   let usedLimit = matchValue(documentLines, /\blimite\s+(?:total\s+)?utilizado\b/);
   let availableLimit = matchValue(documentLines, /\blimite\s+disponivel\b/);

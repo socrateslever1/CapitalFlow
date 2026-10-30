@@ -89,8 +89,11 @@ begin
   elsif v_invoice is not null and v_invoice > 0 and v_used is not null
     and v_limit is not null and v_used >= v_invoice and
     (v_future is null or abs(v_used-v_invoice-v_future) <= 0.01) and
-    coalesce(v_card.used_limit,0)=0 and coalesce(v_card.current_bill,0)=0
-    and coalesce(v_card.initial_future_installments_balance,0)=0
+    coalesce(v_card.current_bill,0)=0
+    -- The card may already contain ONLY a provisional, unallocated opening
+    -- (no purchases/payments). An explicit confirmation can safely reconcile it.
+    -- Never override real purchase/payment history or an active invoice.
+    and coalesce(v_card.used_limit,0)=coalesce(v_card.initial_future_installments_balance,0)
     and not exists (
       select 1 from public.personal_wallet_expenses e
       where e.owner_user_id=v_owner and e.card_id=p_card_id and e.status<>'CANCELED'

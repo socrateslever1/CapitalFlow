@@ -12,12 +12,15 @@ test('statement writer matches deployed Supabase eight-parameter RPC', () => {
   assert(section.includes("supabase.rpc('personal_wallet_record_statement_row'"));
 });
 
-test('wallet mobile layout keeps the refresh control adjacent to the heading and avoids overlapping FAB on cards', () => {
+test('wallet cards keeps a visible FAB above the navigation while preserving import actions', () => {
   const module=read('features/wallet/WalletModule.tsx');
   const frame=read('features/wallet/components/WalletPageFrame.tsx');
   const cards=read('features/wallet/pages/WalletCardsPage.tsx');
   const stack=read('components/wallet/BankStack.tsx');
-  assert(module.includes("route !== 'cartoes' && <WalletExpenseFab />"));
+  assert(module.includes('<WalletExpenseFab />'));
+  assert(!module.includes("route !== 'cartoes' && <WalletExpenseFab />"));
+  const fab=read('features/wallet/components/WalletExpenseFab.tsx');
+  assert(fab.includes('bottom-28'));
   assert(module.includes('grid-cols-5'));
   assert(frame.includes('grid-cols-[minmax(0,1fr)_auto]'));
   assert(stack.includes('onImportStatement'));

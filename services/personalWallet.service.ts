@@ -1156,7 +1156,7 @@ export const personalWalletService = {
   },
 
   async cancelInvoiceConsolidation(cardId: string, dueMonth: string, requestId: string) {
-    if (!cardId || !requestId || !/^\\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
+    if (!cardId || !requestId || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(dueMonth)) {
       throw new Error('Identificação ou mês da fatura inválido.');
     }
     const { data, error } = await supabase.rpc('personal_wallet_cancel_invoice_consolidation', {

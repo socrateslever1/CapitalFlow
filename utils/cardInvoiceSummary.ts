@@ -183,6 +183,21 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
     availableLimit, futureInstallments, dueDate, warnings };
 }
 
+/** Match recognized issuer to card registration without requiring identical bank display names. */
+export function issuerMatchesBank(issuer: string | null | undefined, bank: CardInvoiceSummary['institution']): boolean {
+  if (!bank || !issuer?.trim()) return true;
+  const compact = issuer.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  const patterns: Record<NonNullable<CardInvoiceSummary['institution']>, RegExp> = {
+    'Nubank': /nubank|^nu(?:ultra|credito)?$/,
+    'Mercado Pago': /mercadopago/,
+    'Itaú': /itau/,
+    'C6 Bank': /c6(?:bank)?/,
+    'RecargaPay': /recargapay/,
+  };
+  return patterns[bank].test(compact);
+}
+
 export function reconcileCardInvoice(input: {
   invoiceTotal: number | null;
   paymentsConfirmed: number | null;

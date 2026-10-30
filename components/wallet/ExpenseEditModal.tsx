@@ -92,9 +92,9 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${fieldClass} mt-1.5`} />
             </label>}
           </div>
-          {<label className="block text-xs font-bold text-slate-300">Observações
+          <label className="block text-xs font-bold text-slate-300">Observações
             <textarea maxLength={2000} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={`${fieldClass} mt-1.5 resize-none`} />
-          </label>}
+          </label>
         </div>
 
         {error && <p role="alert" className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</p>}

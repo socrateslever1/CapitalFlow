@@ -43,7 +43,7 @@
     "test:wallet-money-apk": "tsx --test tests/wallet/wallet-money-input.test.ts",
     "test:native-apk-update": "node --test tests/architecture/android-native-update.test.mjs",
     "test:wallet-visual": "node --test tests/architecture/wallet-visual-guard.test.mjs",
-    "test:wallet-statement-import": "tsx --test tests/wallet/statement-smart-reader.test.ts tests/wallet/wallet-statement-pdf-categories.test.ts tests/wallet/wallet-statement-import-regression.test.ts",
+    "test:wallet-statement-import": "tsx --test tests/wallet/statement-smart-reader.test.ts tests/wallet/wallet-statement-pdf-categories.test.ts tests/wallet/wallet-statement-import-regression.test.ts tests/wallet/card-invoice-summary.test.ts tests/wallet/wallet-statement-duplicates.test.ts",
     "test:wallet-visual-next": "tsx --test tests/wallet/wallet-spending-insights.test.ts tests/wallet/wallet-summary-render.test.tsx tests/wallet/wallet-ui-architecture.test.ts",
     "test:wallet-import-contract": "node --test tests/architecture/wallet-import-contract.test.mjs",
     "test:wallet-visual-simplification": "node --test tests/architecture/wallet-visual-simplification.test.mjs",

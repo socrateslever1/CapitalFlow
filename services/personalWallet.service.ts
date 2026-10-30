@@ -20,6 +20,7 @@ import type { CapitalSource } from '../types';
 import type { BankAccountDetails } from '../features/wallet/domain/bankAccountDetails';
 import type { CardVaultEnvelope } from '../features/wallet/domain/cardVault';
 import { CardRegistrationError, type CompleteCardRegistration } from '../features/wallet/domain/cardRegistration';
+import { signWalletImagePaths } from '../features/wallet/services/walletImageSigning';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
@@ -267,31 +268,40 @@ export const personalWalletService = {
     if (error) throw new Error(error.message);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
-    const cardsWithImagesPromise = Promise.all(((cards.data || []) as PersonalWalletCard[]).map(async (rawCard) => {
+    const rawCards = (cards.data || []) as PersonalWalletCard[];
+    const activeAccounts = ((accounts.data || []) as PersonalWalletAccount[])
+      .filter(account => !account.archived_at);
+    // Two batched Storage requests replace a separate call for every image.
+    const [cardImageUrls, accountImageUrls] = await Promise.all([
+      signWalletImagePaths(rawCards.map(card => card.image_path),
+        paths => supabase.storage.from(CARD_IMAGES_BUCKET).createSignedUrls(paths, 3600)),
+      signWalletImagePaths(activeAccounts.map(account => account.image_path),
+        paths => supabase.storage.from(ACCOUNT_IMAGES_BUCKET).createSignedUrls(paths, 3600)),
+    ]);
+    const cardsWithImages = rawCards.map(rawCard => {
       const initialFuture = Math.max(
         Number(rawCard.initial_future_installments_balance || 0),
         Number(rawCard.opening_unallocated_amount || 0),
       );
-      const effectiveUsed = getCardCreditPosition({ ...rawCard, initial_future_installments_balance: initialFuture }, loadedExpenses, loadedInstallments).committedLimit;
-      const availableLimit = Math.max(0, Math.round((Number(rawCard.credit_limit || 0) - effectiveUsed) * 100) / 100);
-      const card: PersonalWalletCard = {
+      const effectiveUsed = getCardCreditPosition(
+        { ...rawCard, initial_future_installments_balance: initialFuture },
+        loadedExpenses, loadedInstallments,
+      ).committedLimit;
+      const availableLimit = Math.max(
+        0, Math.round((Number(rawCard.credit_limit || 0) - effectiveUsed) * 100) / 100,
+      );
+      return {
         ...rawCard,
         initial_future_installments_balance: initialFuture,
         opening_unallocated_amount: initialFuture,
         used_limit: effectiveUsed,
         available_limit: availableLimit,
+        ...(rawCard.image_path ? { image_url: cardImageUrls.get(rawCard.image_path) || null } : {}),
       };
-      if (!card.image_path) return card;
-      const signed = await supabase.storage.from(CARD_IMAGES_BUCKET).createSignedUrl(card.image_path, 3600);
-      return { ...card, image_url: signed.data?.signedUrl || null };
-    }));
-    const activeAccounts = ((accounts.data || []) as PersonalWalletAccount[]).filter(account => !account.archived_at);
-    const accountsWithImagesPromise = Promise.all(activeAccounts.map(async (account) => {
-      if (!account.image_path) return account;
-      const signed = await supabase.storage.from(ACCOUNT_IMAGES_BUCKET).createSignedUrl(account.image_path, 3600);
-      return { ...account, image_url: signed.data?.signedUrl || null };
-    }));
-    const [cardsWithImages, accountsWithImages] = await Promise.all([cardsWithImagesPromise, accountsWithImagesPromise]);
+    });
+    const accountsWithImages = activeAccounts.map(account => account.image_path
+      ? { ...account, image_url: accountImageUrls.get(account.image_path) || null }
+      : account);
     return {
       accounts: accountsWithImages,
       cards: cardsWithImages,

@@ -8,7 +8,7 @@ export function useWalletSnapshot() {
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try {
-      const snapshot = await walletRepository.load();
+      const snapshot = await walletRepository.load({ force: true });
       setData(snapshot);
       setError('');
       return snapshot;
@@ -25,7 +25,7 @@ export function useWalletSnapshot() {
       if (active) setError(cause instanceof Error ? cause.message : 'Falha ao carregar a carteira.');
     }).finally(() => { if (active) setLoading(false); });
     const onChange = () => {
-      void walletRepository.load().then(result => {
+      void walletRepository.load({ force: true }).then(result => {
         if (active) { setData(result); setError(''); }
       }).catch(cause => {
         if (active) setError(cause instanceof Error ? cause.message : 'Falha ao sincronizar a carteira.');

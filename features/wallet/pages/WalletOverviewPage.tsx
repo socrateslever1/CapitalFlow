@@ -169,7 +169,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
     accountId?: string | null;
   } | null>(null);
   const refresh = useCallback(async () => {
-    const result = await walletRepository.load();
+    const result = await walletRepository.load({ force: true });
     setSnapshot(result);
     setToday(dayKey(new Date()));
     setError('');
@@ -229,10 +229,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ onNavigate }) => {
 
   return <section aria-label="Visão geral da carteira"
     className="w-full min-w-0 space-y-4 pb-24 lg:pb-8">
-    <header className="min-w-0 pb-1">
-      <h2 className="text-lg font-bold tracking-tight text-white sm:text-xl">Panorama financeiro</h2>
-      <p className="mt-1 text-xs leading-relaxed text-slate-300 sm:text-sm">Contas, cartões e compromissos do mês.</p>
-    </header>
     {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>}
 
     <WalletOverviewSummary accounts={accounts} cards={cards} accountBalance={overview.accountBalance}

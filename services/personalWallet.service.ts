@@ -1135,6 +1135,35 @@ export const personalWalletService = {
     return String(data);
   },
 
+  /** One atomic correction: payment month, exact due date and consolidated amount.
+   * Moving an existing invoice never creates a second liability. The RPC rejects
+   * paid cycles or divergent destination invoices and is request-idempotent.
+   */
+  async correctInvoiceOverride(input: {
+    cardId: string; previousDueMonth: string | null;
+    dueMonth: string; dueDate: string; amount: number; requestId: string;
+  }) {
+    const monthPattern=/^\d{4}-(0[1-9]|1[0-2])-01$/;
+    if (!input.cardId || !input.requestId || !monthPattern.test(input.dueMonth)
+      || (input.previousDueMonth !== null && !monthPattern.test(input.previousDueMonth)))
+      throw new Error('Selecione o cartão e um mês de vencimento válido.');
+    const timestamp=new Date(input.dueDate+'T00:00:00Z');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dueDate) ||
+      Number.isNaN(timestamp.getTime()) || timestamp.toISOString().slice(0,10)!==input.dueDate ||
+      input.dueDate.slice(0,7)!==input.dueMonth.slice(0,7))
+      throw new Error('Informe uma data de pagamento válida dentro do mês escolhido.');
+    if (!Number.isFinite(input.amount) || input.amount<=0 || input.amount>9999999999.99 ||
+      Math.abs(input.amount*100-Math.round(input.amount*100))>0.000001)
+      throw new Error('Informe o valor da fatura com até duas casas decimais.');
+    const { data,error }=await supabase.rpc('personal_wallet_correct_invoice_override',{
+      p_card_id:input.cardId,p_previous_due_month:input.previousDueMonth,
+      p_new_due_month:input.dueMonth,p_due_date:input.dueDate,
+      p_amount:input.amount,p_request_id:input.requestId,
+    });
+    if(error)throw new Error(error.message);
+    return data as {card_id:string;expense_id:string;due_month:string|null;replayed:boolean;merged_duplicate?:boolean};
+  },
+
   async setMonthlyInvoiceOverride(input: {
     cardId: string;
     dueMonth: string;

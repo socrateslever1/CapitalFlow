@@ -540,6 +540,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 />
               </div>
             )}
+            <details className="mt-3 overflow-hidden rounded-xl border border-slate-800">
+              <summary className="flex min-h-12 cursor-pointer items-center px-3 text-sm font-semibold text-blue-200">
+                Ver / editar lançamentos
+              </summary>
+              <div className="border-t border-slate-800 p-2">
             {selected ? <CardInvoiceStatement cardId={selected.id} dueMonth={statementMonth}
               openingBalance={selectedIsOpeningCycle ? Number(selected.initial_future_installments_balance || 0) : 0}
               expenses={data.expenses} installments={data.installments}
@@ -550,6 +555,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               onCancelConsolidation={async (dueMonth, mutationRequestId) => { await personalWalletService.cancelInvoiceConsolidation(selected.id, dueMonth, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
+
+              </div>
+            </details>
           </div>
         </div>
       </div>

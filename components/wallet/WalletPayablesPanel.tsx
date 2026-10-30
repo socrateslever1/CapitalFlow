@@ -1,4 +1,4 @@
-import React,{useMemo,useState,useRef} from 'react';
+import React,{useEffect,useMemo,useState,useRef} from 'react';
 import {Building2,CheckCircle2,FileUp,HandCoins,Plus,UserRound,X} from 'lucide-react';
 import {PersonalWalletAccount,PersonalWalletCard,PersonalWalletPayable} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
@@ -8,15 +8,16 @@ import {derivePayableStatus,summarizePayables} from './payablesDomain';
 import {WalletMetricStrip} from './WalletMetricStrip';
 type Props={
  payables:PersonalWalletPayable[];accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];
- saving:boolean;onCreate?:()=>void;showCreateButton?:boolean;onPay:(input:{
+ saving:boolean;initialPayableId?:string|null;onCreate?:()=>void;showCreateButton?:boolean;onPay:(input:{
  payableId:string;accountId:string|null;cardId:string|null;amount:number;receipt:File|null;requestId:string;
  })=>Promise<void>;
 };
 const labels={PENDING:'Pendente',PARTIAL:'Parcial',PAID:'Liquidado',OVERDUE:'Atrasado',CANCELED:'Cancelado'} as const;
 const badge={PENDING:'text-amber-300',PARTIAL:'text-blue-300',PAID:'text-emerald-300',OVERDUE:'text-rose-300',CANCELED:'text-slate-400'} as const;
-export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,onCreate,showCreateButton=true,onPay})=>{
+export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,initialPayableId,onCreate,showCreateButton=true,onPay})=>{
  const summary=useMemo(()=>summarizePayables(payables),[payables]);
  const [selected,setSelected]=useState<PersonalWalletPayable|null>(null);
+ const openedPayment=useRef<string|null>(null);
  const [value,setValue]=useState('');
  const [source,setSource]=useState('');
  const [receipt,setReceipt]=useState<File|null>(null);
@@ -30,6 +31,14 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
   setSource(p.origin_type==='ACCOUNT'&&p.origin_account_id?'account:'+p.origin_account_id:
             p.origin_type==='CARD'&&p.origin_card_id?'card:'+p.origin_card_id:'');
  };
+ useEffect(()=>{
+  if(!initialPayableId || openedPayment.current===initialPayableId)return;
+  const found=payables.find(item=>item.id===initialPayableId);
+  if(found && !['PAID','CANCELED'].includes(found.status)){
+    openedPayment.current=initialPayableId;
+    start(found);
+  }
+ },[initialPayableId,payables]);
  const submit=async(event:React.FormEvent)=>{
   event.preventDefault();if(!selected||busy||saving)return;
   const [kind,id]=source.split(':');

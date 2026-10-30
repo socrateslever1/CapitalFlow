@@ -3,6 +3,7 @@ import {CalendarDays,CheckCircle2,Plus,Repeat,Save,Trash2,X} from 'lucide-react'
 import {PersonalWalletAccount,WalletRecurringIncome,personalWalletService} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
 import {generateUUID} from '../../utils/generators';
+import {parseWalletMoney} from '../../features/wallet/utils/parseWalletMoney';
 import {WalletMetricStrip} from './WalletMetricStrip';
 type Props={accounts:PersonalWalletAccount[];incomes:WalletRecurringIncome[];receivedIds:Set<string>;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
@@ -15,7 +16,7 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
  const update=(k:keyof typeof form,v:string)=>setForm(old=>({...old,[k]:v}));
  const save=async(e:React.FormEvent)=>{e.preventDefault();if(busy)return;setBusy(true);setError('');
   try{await personalWalletService.createRecurringIncome({
-   description:form.description,category:form.category,amount:Number(form.amount),receipt_day:Number(form.receipt_day),destination_account_id:form.destination_account_id
+   description:form.description,category:form.category,amount:parseWalletMoney(form.amount,'valor mensal'),receipt_day:Number(form.receipt_day),destination_account_id:form.destination_account_id
   });await onSaved();setOpen(false);setForm({description:'',category:'Salário',amount:'',receipt_day:'5',destination_account_id:accounts[0]?.id||''});}
   catch(reason){setError(reason instanceof Error?reason.message:'Erro ao cadastrar');}finally{setBusy(false);}
  };
@@ -46,7 +47,7 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
     <div className="grid min-h-0 gap-3 overflow-y-auto p-4 sm:grid-cols-2">
      <label className="text-xs text-slate-300 sm:col-span-2">Descrição<input required maxLength={240} value={form.description} onChange={e=>update('description',e.target.value)} className={field} placeholder="Salário, aluguel recebido..."/></label>
      <label className="text-xs text-slate-300">Categoria<input required maxLength={100} value={form.category} onChange={e=>update('category',e.target.value)} className={field}/></label>
-     <label className="text-xs text-slate-300">Valor mensal<input required min="0.01" step="0.01" type="number" value={form.amount} onChange={e=>update('amount',e.target.value)} className={field}/></label>
+     <label className="text-xs text-slate-300">Valor mensal<input required inputMode="decimal" type="text" placeholder="Ex.: 1.250,50" value={form.amount} onChange={e=>update('amount',e.target.value)} className={field}/></label>
      <label className="text-xs text-slate-300">Dia de recebimento<input required type="number" min="1" max="31" value={form.receipt_day} onChange={e=>update('receipt_day',e.target.value)} className={field}/></label>
      <label className="text-xs text-slate-300">Conta de destino<select required value={form.destination_account_id} onChange={e=>update('destination_account_id',e.target.value)} className={field}><option value="">Selecione</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.nickname}</option>)}</select></label>
      <p className="flex items-center gap-2 text-xs text-slate-300 sm:col-span-2"><CalendarDays size={15}/> O saldo será creditado somente ao tocar em Receber. O mesmo mês não é lançado duas vezes.</p>

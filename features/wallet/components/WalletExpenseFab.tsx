@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
+import { ArrowDownToLine, ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
 
-const menuItemClass = 'flex min-h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-100 shadow-xl shadow-black/30 transition hover:border-blue-500/50 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+const menuItemClass = 'flex min-h-12 min-w-0 items-center justify-start gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left text-xs font-semibold text-slate-100 transition-colors hover:border-blue-500/50 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+const QuickIncomeModal = React.lazy(() => import('./QuickIncomeModal').then(module => ({ default: module.QuickIncomeModal })));
 
 /** Financial data is not fetched until the user actually opens the expense form. */
 const ExpenseModalOnDemand: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -29,6 +30,7 @@ export const WalletExpenseFab: React.FC = () => {
   const onCards = location.pathname.startsWith('/carteira/cartoes');
   const [menuOpen, setMenuOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [incomeOpen, setIncomeOpen] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -57,13 +59,29 @@ export const WalletExpenseFab: React.FC = () => {
       >
         {menuOpen ? <X size={21}/> : <Plus size={22} strokeWidth={2.5}/>}
       </button>
-      {menuOpen && <div id="wallet-quick-actions" role="menu" aria-label="Ações rápidas da Carteira" className="flex flex-col items-end gap-2 animate-in slide-in-from-bottom-2 fade-in duration-150">
-        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/cartoes?acao=novo-cartao')} className={menuItemClass}><CreditCard size={16} className="text-violet-300"/>Adicionar cartão</button>
-        <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setExpenseOpen(true); }} className={menuItemClass}><ReceiptText size={16} className="text-rose-300"/>Adicionar despesa</button>
-        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/contas?acao=nova-conta')} className={menuItemClass}><Landmark size={16} className="text-emerald-300"/>Adicionar conta</button>
-        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/dividas?acao=novo-compromisso')} className={menuItemClass}><ClipboardList size={16} className="text-amber-300"/>Adicionar compromisso</button>
+      {menuOpen && <div id="wallet-quick-actions" role="menu" aria-label="Ações rápidas da Carteira"
+        className="grid w-[min(21rem,calc(100vw-2rem))] grid-cols-2 gap-2 rounded-xl border border-slate-700 bg-slate-950 p-2 shadow-2xl shadow-black/50 animate-in fade-in duration-150">
+        <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setIncomeOpen(true); }}
+          className={menuItemClass + ' col-span-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-100 hover:bg-emerald-950/60'}>
+          <ArrowDownToLine size={17} className="shrink-0 text-emerald-300"/>Receber valor
+        </button>
+        <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setExpenseOpen(true); }} className={menuItemClass}>
+          <ReceiptText size={17} className="shrink-0 text-rose-300"/>Adicionar despesa
+        </button>
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/cartoes?acao=novo-cartao')} className={menuItemClass}>
+          <CreditCard size={17} className="shrink-0 text-violet-300"/>Adicionar cartão
+        </button>
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/contas?acao=nova-conta')} className={menuItemClass}>
+          <Landmark size={17} className="shrink-0 text-blue-300"/>Adicionar conta
+        </button>
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/dividas?acao=novo-compromisso')} className={menuItemClass}>
+          <ClipboardList size={17} className="shrink-0 text-amber-300"/>Compromisso
+        </button>
       </div>}
     </div>
     {expenseOpen && <ExpenseModalOnDemand onClose={() => setExpenseOpen(false)}/>}
+    {incomeOpen && <React.Suspense fallback={<div role="status" className="fixed inset-0 z-[2000] grid place-items-center bg-slate-950/80 text-sm text-slate-100">Preparando recebimento...</div>}>
+      <QuickIncomeModal onClose={() => setIncomeOpen(false)}/>
+    </React.Suspense>}
   </>;
 };

@@ -19,6 +19,7 @@ export const CardInvoiceSummaryPreview: React.FC<{
       <div className="flex flex-wrap items-center justify-between gap-2">
         <strong className="text-xs text-slate-100">Resumo da fatura — conferência</strong>
         <span className="text-[11px] text-slate-400">{summary.institution || 'Banco não identificado'}
+          {summary.cardLastFour ? ' · •••• ' + summary.cardLastFour : ''}
           {summary.dueDate ? ' · Vence ' + summary.dueDate.split('-').reverse().join('/') : ''}
         </span>
       </div>

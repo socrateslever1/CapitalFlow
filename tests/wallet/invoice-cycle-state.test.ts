@@ -53,6 +53,9 @@ test('due month, not closing month, controls the payment date and supports issue
   assert.deepEqual(getInvoiceCycleDates('2026-10-01', 28, 5, '2026-10-10'), {
     closingDate: '2026-09-28', dueDate: '2026-10-10',
   });
+  assert.deepEqual(getInvoiceCycleDates('2026-10-01', 28, 5, '2026-10-30'), {
+    closingDate: '2026-09-28', dueDate: '2026-10-30',
+  });
   assert.deepEqual(getInvoiceCycleDates('2026-10-01', 28, 5, '2026-11-10'), {
     closingDate: '2026-09-28', dueDate: '2026-10-05',
   });

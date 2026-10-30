@@ -93,7 +93,7 @@ test('encrypted PDF requires local password and never persists document secrets'
   assert(parser.includes('PDF_PASSWORD_REQUIRED'));
   assert(parser.includes('PDF_PASSWORD_INCORRECT'));
   assert(parser.includes('...(password ? {password} : {})'));
-  assert(dispatcher.includes('pdfPassword:'));
+  assert(dispatcher.includes('pdfPassword?: string') && dispatcher.includes('options?.pdfPassword'));
   assert(panels.every(panel => panel.includes('type="password"')));
   assert(panels.every(panel => panel.includes("setPdfPassword('')")));
   assert(panels.every(panel => panel.includes('onSave={saveSummary}')));

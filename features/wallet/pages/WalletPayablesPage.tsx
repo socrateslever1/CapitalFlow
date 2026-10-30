@@ -1,5 +1,5 @@
 import React, {useCallback,useEffect,useMemo,useState} from 'react';
-import {CalendarClock,CheckCircle2,ChevronRight,ClipboardList,Plus,RefreshCw} from 'lucide-react';
+import {ChevronRight,ClipboardList,Plus,RefreshCw} from 'lucide-react';
 import {useSearchParams} from 'react-router-dom';
 import type {UserProfile} from '../../../types';
 import {formatMoney} from '../../../utils/formatters';

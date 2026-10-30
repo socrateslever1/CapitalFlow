@@ -88,6 +88,8 @@ export const CardVaultModal: React.FC<{
     setBusy(true);setError('');setFeedback('');
     const generation=operation.current;
     try {
+      // Reject invalid card details before creating an irreversible master PIN.
+      if(!envelope) validateCardNumber(draft.number);
       // Never send a PIN, full PAN or CVC to the PIN-profile RPC.
       let oldPlain:ProtectedCardData|null=null;
       if(envelope?.version===1) {
@@ -177,6 +179,9 @@ export const CardVaultModal: React.FC<{
               value={confirmPin} onChange={e=>setConfirmPin(e.target.value.replace(/\D/g,'').slice(0,12))}
               className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" required/>
           </label>}
+          {needsConfirmation&&<p className="text-[11px] text-amber-200">
+            Guarde este PIN: sem ele, os dados completos criptografados não poderão ser recuperados.
+          </p>}
           <p className="text-[11px] text-slate-400">
             O PIN não é enviado nem armazenado. Ele desbloqueia a chave criptografada dos cartões;
             os dados se bloqueiam quando o aplicativo vai para segundo plano.

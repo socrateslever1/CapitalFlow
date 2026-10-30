@@ -48,3 +48,15 @@ test('Cloudflare binary proxy enforces official immutable URL, HTTPS, max size, 
   assert.match(serviceWorker,/if \(isSameOrigin && url\.pathname === '\/api\/android\/apk'\) return/);
 
 });
+
+test('wallet card footer keeps Cancel and Save in separate equal-width responsive cells', () => {
+  const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  assert.match(page, /title="Novo cartão"[\s\S]+?footer=\{<button[^>]+form="new-wallet-card-form"/);
+  assert.match(modal, /footer && footerMode === 'default' \? 'sm:grid-cols-2'/);
+  assert.match(modal, /data-modal-footer-actions/);
+  assert.match(modal, /sm:col-start-2 sm:row-start-1/);
+  assert.match(modal, /sm:col-start-1 sm:row-start-1/);
+  assert.match(modal, /\[&>\*\]:min-w-0 \[&>\*\]:max-w-full/);
+  assert.doesNotMatch(modal, /sm:flex-row-reverse|sm:flex-1/);
+  assert.match(modal, /footerMode === 'default' && <button/);
+});

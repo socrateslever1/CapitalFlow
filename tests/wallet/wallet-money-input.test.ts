@@ -13,7 +13,7 @@ test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands',
   assert.equal(parseWalletMoney('0'), 0);
 });
 test('wallet amounts never silently round more than two decimal digits', () => {
-  for (const invalid of ['', '495,611', '495.6111', '-1', 'R$ 10', '1.2.3', '10000000000']) {
+  for (const invalid of ['', '495,611', '495.6111', '-1', 'R$ abc', '1.2.3', '10000000000']) {
     assert.throws(() => parseWalletMoney(invalid), { name: 'Error' }, invalid);
   }
 });

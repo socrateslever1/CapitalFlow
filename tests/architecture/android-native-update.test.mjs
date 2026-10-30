@@ -28,12 +28,23 @@ test('APK update can only use the canonical GitHub signed release asset', () => 
   assert(native.includes('verifyPackageAndCertificate'));
   assert(native.includes('downloadChecksum'));
   assert(native.includes('MessageDigest.isEqual'));
-  assert(native.includes('FileProvider.getUriForFile'));
+  assert(native.includes('PackageInstaller.SessionParams'));
+  assert(native.includes('installer.createSession(params)'));
+  assert(native.includes('session.openWrite('));
+  assert(native.includes('session.commit(pending.getIntentSender())'));
+  assert(native.includes('PendingIntent.FLAG_MUTABLE'));
+  assert(!native.includes('Intent.ACTION_VIEW'));
+  assert(native.includes('consumeInstallStatus'));
+  assert(readFileSync('native/android/CapitalFlowInstallStatusReceiver.java','utf8').includes('STATUS_PENDING_USER_ACTION'));
   assert(native.includes('FLAG_GRANT_READ_URI_PERMISSION'));
   assert(native.includes('ACTION_MANAGE_UNKNOWN_APP_SOURCES'));
   assert(nativeShellScript.includes('CapitalFlowApkInstallerPlugin.java'));
   assert(nativeShellScript.includes('android.permission.REQUEST_INSTALL_PACKAGES'));
   assert(nativeShellScript.includes('capitalflow_apk_file_paths.xml'));
+  assert(nativeShellScript.includes('CapitalFlowInstallStatusReceiver.java'));
+  assert(nativeShellScript.includes('android:exported="false"'));
+  assert(source.includes('apkInstaller.consumeInstallStatus()'));
+  assert(source.includes("status.stage === 'ERROR'"));
   assert(readFileSync('native/android/MainActivity.java','utf8').includes('registerPlugin(CapitalFlowApkInstallerPlugin.class)'));
 
   assert(source.includes('App.addListener(\'resume\''));

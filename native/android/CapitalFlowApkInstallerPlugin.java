@@ -1,6 +1,11 @@
 package com.socrateslever.capitalflow;
 
+import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInstaller;
+import android.content.IntentSender;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -8,7 +13,7 @@ import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
-import androidx.core.content.FileProvider;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.CapacitorPlugin;
@@ -16,6 +21,7 @@ import com.getcapacitor.PluginMethod;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -29,7 +35,8 @@ import java.util.regex.Pattern;
 /**
  * Downloads the official *signed* APK within CapitalFlow (no external browser).
  * Revalidates SHA-256, package identity, versionCode and signing certificate.
- * Installation still requires an explicit Android Package Installer confirmation.
+ * Installation is staged using PackageInstaller.Session and still requires
+ * explicit Android confirmation. A status receiver reports real install errors.
  */
 @CapacitorPlugin(name = "CapitalFlowApkInstaller")
 public final class CapitalFlowApkInstallerPlugin extends Plugin {
@@ -37,6 +44,25 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
         "https://github.com/socrateslever1/CapitalFlow/releases/download/android-signed-beta/CapitalFlow-Android.apk";
     private static final long MAX_BYTES = 150L * 1024L * 1024L;
     private final AtomicBoolean downloading = new AtomicBoolean(false);
+
+    @PluginMethod
+    public void consumeInstallStatus(PluginCall call) {
+        SharedPreferences prefs = getContext().getSharedPreferences(
+            CapitalFlowInstallStatusReceiver.PREFS, Context.MODE_PRIVATE);
+        String stage = prefs.getString("stage", "IDLE");
+        String message = prefs.getString("message", "");
+        JSObject result = new JSObject();
+        result.put("stage", stage);
+        result.put("message", message);
+        if ("ERROR".equals(stage) || "SUCCESS".equals(stage)) {
+            prefs.edit().putString("stage", "IDLE").remove("message").apply();
+        }
+        call.resolve(result);
+    }
+
+    private void recordStatus(String stage, String message) {
+        CapitalFlowInstallStatusReceiver.record(getContext(), stage, message);
+    }
 
     @PluginMethod
     public void downloadAndInstall(PluginCall call) {
@@ -57,6 +83,7 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
             }
             return;
         }
+        recordStatus("DOWNLOADING", "Baixando e verificando o APK oficial.");
         Thread worker = new Thread(() -> {
             File temp = null;
             try {
@@ -91,22 +118,21 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                 }
                 if (!temp.renameTo(verified)) throw new IllegalStateException("Não foi possível preparar o instalador.");
                 temp = null;
-                File validated = verified;
-                getActivity().runOnUiThread(() -> {
-                    try {
-                        Uri apkUri = FileProvider.getUriForFile(getContext(),
-                            getContext().getPackageName() + ".capitalflowapk", validated);
-                        Intent install = new Intent(Intent.ACTION_VIEW);
-                        install.setDataAndType(apkUri, "application/vnd.android.package-archive");
-                        install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        getActivity().startActivity(install);
-                        call.resolve();
-                    } catch (Exception e) {
-                        call.reject("Não foi possível abrir o instalador do Android.", null, e);
+                recordStatus("STAGING", "Preparando atualização validada no Android.");
+                try {
+                    stageAndCommit(verified);
+                    JSObject response = new JSObject();
+                    response.put("stage", "AWAITING_CONFIRMATION");
+                    call.resolve(response);
+                } finally {
+                    // The PackageInstaller session has its own sealed copy.
+                    if (verified.exists() && !verified.delete()) {
+                        android.util.Log.w("CapitalFlowApk", "Verified temporary APK could not be deleted.");
                     }
-                });
+                }
             } catch (Exception e) {
-                call.reject("Falha ao baixar atualização: " + e.getMessage(), null, e);
+                recordStatus("ERROR", "Não foi possível preparar a atualização: " + safeError(e));
+                call.reject("Falha na atualização: " + safeError(e), null, e);
             } finally {
                 if (temp != null) temp.delete();
                 downloading.set(false);
@@ -114,6 +140,68 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
         }, "CapitalFlow-SignedApk");
         worker.setDaemon(true);
         worker.start();
+    }
+
+    /**
+     * Stage the verified package in Android's supported installation API.
+     * ACTION_VIEW cannot report installer errors and was previously treated as
+     * success merely because the Android installer screen had opened.
+     */
+    private void stageAndCommit(File verified) throws Exception {
+        PackageInstaller installer = getContext().getPackageManager().getPackageInstaller();
+        PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
+            PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+        params.setAppPackageName(getContext().getPackageName());
+        params.setSize(verified.length());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.setRequireUserAction(
+                PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+        }
+        int sessionId = installer.createSession(params);
+        boolean committed = false;
+        try {
+            try (PackageInstaller.Session session = installer.openSession(sessionId)) {
+                try (InputStream source = new FileInputStream(verified);
+                     OutputStream destination = session.openWrite(
+                         "base.apk", 0, verified.length())) {
+                    byte[] buffer = new byte[64 * 1024];
+                    int length;
+                    while ((length = source.read(buffer)) != -1) {
+                        destination.write(buffer, 0, length);
+                    }
+                    session.fsync(destination);
+                }
+                Intent callback = new Intent(
+                    getContext(), CapitalFlowInstallStatusReceiver.class);
+                callback.setAction(CapitalFlowInstallStatusReceiver.ACTION);
+                callback.putExtra("session_id", sessionId);
+                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+                // Android 12+ requires MUTABLE so the system can fill in the
+                // result extras. The target intent stays explicit to our receiver.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    flags |= PendingIntent.FLAG_MUTABLE;
+                }
+                PendingIntent pending = PendingIntent.getBroadcast(
+                    getContext(), sessionId, callback, flags);
+                recordStatus("AWAITING_CONFIRMATION",
+                    "Confirme a atualização quando o Android solicitar.");
+                session.commit(pending.getIntentSender());
+                committed = true;
+            }
+        } finally {
+            if (!committed) {
+                installer.abandonSession(sessionId);
+            }
+        }
+    }
+
+    private static String safeError(Exception error) {
+        String message = error.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            return error.getClass().getSimpleName();
+        }
+        // Do not print OS paths or unbounded native errors in the UI.
+        return message.length() > 220 ? message.substring(0, 220) : message;
     }
 
     private static String downloadChecksum() throws Exception {

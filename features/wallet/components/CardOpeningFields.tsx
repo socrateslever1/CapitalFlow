@@ -71,9 +71,7 @@ export function validateCardOpening(
   ) {
     throw new Error('Informe um limite de crédito válido.');
   }
-  const limit = Math.round(creditLimit * 100);
-  if (used > limit)
-    throw new Error('O limite utilizado não pode superar o limite contratado.');
+  // O excesso é permitido como fotografia do banco, não para novas compras.
   if (future < 0)
     throw new Error('A fatura inicial não pode superar o limite já utilizado.');
   if (invoice + future > used) {
@@ -123,7 +121,9 @@ export const CardOpeningFields: React.FC<Props> = ({
   const [expanded, setExpanded] = React.useState(
     () => !collapsible || used > 0 || invoice > 0,
   );
-  const available = Math.round((creditLimit - used) * 100) / 100;
+  const differenceCents = Math.round(creditLimit * 100) - Math.round(used * 100);
+  const available = Math.max(0, differenceCents) / 100;
+  const overLimit = Math.max(0, -differenceCents) / 100;
   const field =
     'mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
   const changeUsed = (raw: string) =>
@@ -248,10 +248,14 @@ export const CardOpeningFields: React.FC<Props> = ({
             Limite total: {formatMoney(creditLimit)} · Disponível para gastar:{' '}
             <strong className="text-emerald-300">{formatMoney(available)}</strong>
           </p>
-          {(used > creditLimit || invoice > used || available < 0) && (
+          {overLimit > 0 && (
+            <p role="status" className="text-xs text-amber-300">
+              Limite excedido em {formatMoney(overLimit)}. Confira os valores informados pelo banco.
+            </p>
+          )}
+          {invoice > used && (
             <p role="alert" className="text-xs text-rose-300">
-              O limite usado deve incluir a fatura e não pode superar o limite
-              total.
+              A fatura inicial não pode superar o limite usado informado.
             </p>
           )}
         </>

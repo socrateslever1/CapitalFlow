@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
+import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
-import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../services/personalWallet.service';
 import type { CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
 import { CardInvoiceSummaryPreview } from '../../../components/wallet/CardInvoiceSummaryPreview';
@@ -29,7 +29,7 @@ import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../..
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
-import { BANK_CATALOG } from '../../../utils/bankLogoRegistry';
+import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
 
 const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
 const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
@@ -60,6 +60,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
   const [overriding, setOverriding] = useState(false);
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
+  const [clearingInvoice, setClearingInvoice] = useState(false);
+  const [clearInvoiceConfirm, setClearInvoiceConfirm] = useState<{ cardId: string; month: string; nickname: string } | null>(null);
+  const [clearInvoiceError, setClearInvoiceError] = useState('');
+  const clearInvoiceRequest = useRef({ signature: '', id: generateUUID() });
   const [statementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
@@ -81,11 +85,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '',
     closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
-  useEffect(() => {
-    if (!creating || thirdPartyCard || !ownerDefaults.name) return;
-    setCardForm(value => value.cardholder_name.trim()
-      ? value : { ...value, cardholder_name: ownerDefaults.name });
-  }, [creating, thirdPartyCard, ownerDefaults.name]);
 
   const [expenseForm, setExpenseForm] = useState({
     description: '', amount: '', category: 'Compras', installment_count: '1',
@@ -215,14 +214,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     usedLimit: savedInvoiceFacts?.used_limit ?? null,
     availableLimit: savedInvoiceFacts?.available_limit ?? null,
     futureInstallments: savedInvoiceFacts?.future_installments ?? null,
-    dueDate: savedInvoiceFacts?.due_date ?? null,
+    dueDate: savedInvoiceFacts?.due_date ?? (selected && statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day).dueDate : null),
     warnings: [],
   };
   const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
     if (!selected || !statementMonth) throw new Error('Selecione o cartão e o mês.');
     await personalWalletService.saveCardInvoiceFacts({
       cardId:selected.id,
-      dueMonth:(summary.dueDate || statementMonth).slice(0,7)+'-01',
+      dueMonth:statementMonth.slice(0,7)+'-01',
       dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
       invoiceTotal:summary.invoiceTotal, minimumPayment:summary.minimumPayment,
       creditLimit:summary.creditLimit, usedLimit:summary.usedLimit,
@@ -244,16 +243,34 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       : creditPosition?.dueMonth === statementMonth
   ));
   const selectedInvoiceState = selected && statementMonth
-    ? (selected.opening_invoice_month?.slice(0, 7) === statementMonth.slice(0, 7) && selected.opening_invoice_state
-      ? selected.opening_invoice_state
-      : resolveInvoiceCycleState({
+    ? resolveInvoiceCycleState({
         dueMonth: statementMonth,
         closingDay: selected.closing_day,
         dueDay: selected.due_day,
         outstanding: selectedCycle?.amount || 0,
         hasCycle: Boolean(selectedCycle?.amount),
-      }))
+        exactDueDate: savedInvoiceFacts?.due_date,
+      })
     : undefined;
+  const clearUnpaidInvoice = async () => {
+    if (!clearInvoiceConfirm || clearingInvoice) return;
+    const signature = clearInvoiceConfirm.cardId + ':' + clearInvoiceConfirm.month;
+    if (clearInvoiceRequest.current.signature !== signature) {
+      clearInvoiceRequest.current = { signature, id: generateUUID() };
+    }
+    setClearingInvoice(true);
+    setClearInvoiceError('');
+    try {
+      await personalWalletService.cancelUnpaidInvoiceCycle(
+        clearInvoiceConfirm.cardId, clearInvoiceConfirm.month, clearInvoiceRequest.current.id,
+      );
+      clearInvoiceRequest.current = { signature: '', id: generateUUID() };
+      await refresh();
+      setClearInvoiceConfirm(null);
+    } catch (cause) {
+      setClearInvoiceError(cause instanceof Error ? cause.message : 'Não foi possível cancelar a fatura.');
+    } finally { setClearingInvoice(false); }
+  };
   const mayInitializeExisting = Boolean(selected && data && Number(selected.used_limit) === 0
     && Number(selected.current_bill) === 0
     && !data.expenses.some(expense => expense.card_id === selected.id)
@@ -377,7 +394,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </div>
             <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
               className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
-              {savedInvoiceFacts?'Corrigir valores':'Informar valores'}
+              {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
             </button>
           </div>}
           <WalletMetricStrip items={[
@@ -404,6 +421,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                 <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">Lançamento rápido</button>
                 <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">Situação inicial</button>
                 <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Definir Valor da Fatura</button>
+                {statementMonth && (selectedCycle?.amount || 0) > 0 && <button type="button" onClick={() => {setClearInvoiceError('');setClearInvoiceConfirm({cardId:selected.id,month:statementMonth,nickname:selected.nickname});}} className="min-h-11 rounded-xl border border-rose-600/50 px-3 py-2 text-xs font-semibold text-rose-200">Excluir fatura não paga</button>}
                 <button type="button" onClick={() => setFlatReaderOpen(v => !v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${flatReaderOpen ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'border border-cyan-500/50 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40'}`}>
                   <Sparkles size={13} className={flatReaderOpen ? '' : 'text-cyan-400'} />
                   {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
@@ -435,9 +453,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               openingBalance={selectedIsOpeningCycle ? Number(selected.initial_future_installments_balance || 0) : 0}
               expenses={data.expenses} installments={data.installments}
               invoiceState={selectedInvoiceState}
-              cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day) : undefined}
+              cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
+              onCancelConsolidation={async (dueMonth, mutationRequestId) => { await personalWalletService.cancelInvoiceConsolidation(selected.id, dueMonth, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
           </div>
@@ -473,12 +492,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       {creating && <Modal title="Novo cartão" subtitle="Identificação e valores opcionais" icon={<CreditCard size={17}/>} onClose={() => {
           setCreating(false);
           setThirdPartyCard(false);
-          setCardForm(value => ({ ...value, cardholder_name: ownerDefaults.name }));
           setCreateError('');
         }} busy={saving}
         footer={<button type="submit" form="new-wallet-card-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar cartão'}</button>}>
        <form id="new-wallet-card-form" onSubmit={event => { void createCard(event); }} className="grid gap-3 sm:grid-cols-2">
-        <datalist id="wallet-new-card-banks">{BANK_CATALOG.map(b => <option key={b.id} value={b.name}/>)}</datalist>
+
         <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
             <h3 className="text-sm font-bold text-white">Identificação do cartão</h3>
@@ -493,29 +511,24 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             Escanear com a câmera (IA)
           </button>
         </div>
-        <label className="space-y-1 text-xs font-medium text-slate-200 sm:col-span-2">
-          Banco ou instituição
-          <input required maxLength={120} list="wallet-new-card-banks" autoComplete="off"
-            placeholder="Ex.: Nubank, Itaú, C6, RecargaPay"
-            value={cardForm.issuer} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:e.target.value}));}}
-            className="w-full rounded-xl border border-blue-500/40 bg-slate-950 p-3 text-white"/>
-        </label>
+        <WalletBankCombobox value={cardForm.issuer} disabled={saving}
+          onChange={value=>{requestId.current=generateUUID();setCardForm(v=>({...v,issuer:value}));}}/>
         <label className="space-y-1 text-xs text-slate-300">
           Apelido (opcional)
-          <input maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
+          <input name="wallet-card-nickname" type="text" autoComplete="off" maxLength={120} placeholder="Ex.: Cartão principal" value={cardForm.nickname}
             onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,nickname:e.target.value}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
         <label className="space-y-1 text-xs text-slate-300">
           Final do cartão (opcional)
-          <input inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
+          <input name="wallet-card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" placeholder="Ex.: 1234"
             value={cardForm.last_four}
             onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,last_four:e.target.value.replace(/\D/g,'').slice(0,4)}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
         <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">
           Limite total (R$, opcional)
-          <input inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
+          <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
             value={cardForm.credit_limit}
             onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,credit_limit:e.target.value}));}}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
@@ -530,7 +543,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </summary>
           <div className="grid gap-3 border-t border-slate-800 p-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs text-slate-300">Bandeira
-              <select value={cardForm.brand} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,brand:e.target.value}));}}
+              <select name="wallet-card-brand" autoComplete="off" value={cardForm.brand} onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,brand:e.target.value}));}}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
                 {['Mastercard','Visa','Elo','American Express','Hipercard'].map(brand=><option key={brand} value={brand}>{brand}</option>)}
               </select>
@@ -544,10 +557,9 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               </label>
             )}
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Conta vinculada (opcional)
-              <select value={cardForm.account_id} onChange={e=>{
-                const matched=data.accounts.find(a=>a.id===e.target.value);
+              <select name="wallet-card-linked-account" value={cardForm.account_id} onChange={e=>{
                 requestId.current=generateUUID();
-                setCardForm(v=>({...v,account_id:e.target.value,issuer:v.issuer||matched?.bank_name||matched?.nickname||''}));
+                setCardForm(v=>({...v,account_id:e.target.value}));
               }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
                 <option value="">Sem vínculo bancário</option>
                 {data.accounts.map(account=><option key={account.id} value={account.id}>{account.nickname}</option>)}
@@ -555,13 +567,18 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             </label>
             <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
               <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"
-                onChange={e=>{
-                  setThirdPartyCard(e.target.checked);requestId.current=generateUUID();
-                  setCardForm(v=>({...v,cardholder_name:e.target.checked?'':ownerDefaults.name||v.cardholder_name}));
-                }}/>Cartão de outra pessoa
+                onChange={e=>{setThirdPartyCard(e.target.checked);requestId.current=generateUUID();}}/>Cartão de outra pessoa
             </label>
+            <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-slate-300">O nome impresso é independente do perfil</span>
+              {!thirdPartyCard && ownerDefaults.name && <button type="button"
+                onClick={()=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:ownerDefaults.name}));}}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-blue-200">
+                Usar nome do perfil
+              </button>}
+            </div>
             <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Nome impresso (opcional)
-              <input maxLength={120} autoComplete="cc-name" placeholder="Nome do titular"
+              <input type="text" maxLength={120} autoComplete="off" name="wallet-card-printed-name" placeholder="Nome do titular"
                 value={cardForm.cardholder_name}
                 onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,cardholder_name:e.target.value}));}}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
@@ -669,6 +686,11 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         <CardInvoiceSummaryPreview key={selected.id + ':' + statementMonth + ':' + (savedInvoiceFacts?.updated_at || '')}
           summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>
       </Modal>}
+      {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={clearInvoiceConfirm.nickname + ' · ' + clearInvoiceConfirm.month.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}
+        footer={<button type="button" disabled={clearingInvoice} onClick={() => {void clearUnpaidInvoice();}} className={modalPrimaryActionClass}>Confirmar exclusão da fatura</button>}>
+        <p className="text-xs leading-relaxed text-slate-300">Os lançamentos financeiros não pagos que pertencem exclusivamente a esta fatura serão cancelados e mantidos no histórico. A operação será bloqueada se houver pagamento ou parcelas de outros meses. Não há estorno automático.</p>
+        {clearInvoiceError && <p role="alert" className="mt-3 text-xs text-rose-300">{clearInvoiceError}</p>}
+      </Modal>}
       {editing && <CardEditModal card={editing} accounts={data.accounts} onClose={() => setEditing(null)} onSaved={async () => { await refresh(); }}/>}
       {vaultCard && <CardVaultModal card={vaultCard} onClose={()=>setVaultCard(null)} onSaved={async()=>{await refresh();}}/>}
       {importing && selected && <WalletStatementImport kind="CARD" targetId={selected.id}
@@ -677,7 +699,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}
-        dueMonth={statementMonth || undefined} onClose={() => setPaying(null)}
+        dueMonth={statementMonth || undefined} dueDate={statementMonth && selected ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date).dueDate : null} onClose={() => setPaying(null)}
         onPay={async (cardId, month, accountId, amount, requestId) => {
           await personalWalletService.payInvoicePartial(cardId, month, accountId, amount, requestId);
           await refresh();

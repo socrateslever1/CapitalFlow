@@ -22,7 +22,8 @@ test('complete-card RPC is atomic, invoker-restricted, and uses existing financi
 });
 test('new card form is minimal, optional financial values do not require a password or CVV',()=>{
   assert.ok(form.length>1000,'Card creation modal must be present');
-  assert.match(form,/Banco ou instituição/);
+  assert.match(form,/<WalletBankCombobox/);
+  assert.match(readFileSync('components/wallet/WalletBankCombobox.tsx','utf8'),/Banco ou instituição/);
   assert.match(form,/Apenas o banco é obrigatório/);
   assert.match(form,/Mais informações \(opcional\)/);
   assert.match(form,/CardOpeningFields collapsible/);

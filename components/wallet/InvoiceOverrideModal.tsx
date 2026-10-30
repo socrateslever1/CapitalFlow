@@ -50,7 +50,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({ card, initialDueMonth, i
         <button type="button" aria-label="Fechar" disabled={saving} onClick={onClose} className="rounded-full bg-slate-800 p-2 text-slate-400 hover:text-white"><X size={17}/></button>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs font-bold text-slate-300">Mês da fatura
+        <label className="text-xs font-bold text-slate-300">Mês de vencimento da fatura
           <span className="relative block"><CalendarDays className="pointer-events-none absolute left-3 top-4 text-slate-500" size={15}/>
             <input type="month" required value={dueMonth} onChange={event => setDueMonth(event.target.value)} className={`${field} pl-9`}/>
           </span>

@@ -25,7 +25,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
   let limit: number;
   try { limit = parseWalletMoney(form.credit_limit, 'limite de crédito'); }
   catch (reason) { setError(reason instanceof Error ? reason.message : 'Limite inválido.'); return; }
-  if (Math.round(limit * 100) < Math.round(Number(card.used_limit) * 100)) { setError('O limite não pode ser menor que o valor utilizado.'); return; }
+  if (Math.round(limit * 100) < Math.round(Number(card.used_limit) * 100) && limit < Number(card.credit_limit)) { setError('Não reduza o limite enquanto o cartão está excedido.'); return; }
   setSaving(true);setError('');
   try{
    await personalWalletService.updateCardMetadata(card.id,{
@@ -79,7 +79,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
     <label className="text-xs text-slate-300">Limite total<input type="text" inputMode="decimal" required className={field} value={form.credit_limit} onChange={e=>change('credit_limit',e.target.value)}/><span className="mt-1 block text-[11px] text-slate-400">Disponível atual: <strong className="text-emerald-300">{formatMoney(Math.max(0,(() => { try { return parseWalletMoney(form.credit_limit); } catch { return 0; } })()-Number(card.used_limit)))}</strong></span></label>
     <div className="grid grid-cols-2 gap-2">
      <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
-     <label className="text-xs text-slate-300">Vencimento (dia)<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
+     <label className="text-xs text-slate-300">Dia habitual de vencimento<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>
     </div>
     <label className="text-xs text-slate-300">Cor no app<input type="color" value={form.primary_color} onChange={e=>change('primary_color',e.target.value)} className="mt-1 h-11 w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 p-1"/></label>
     <label className="text-xs text-slate-300">Status<select className={field} value={form.status} onChange={e=>change('status',e.target.value)}><option value="ACTIVE">Ativo</option><option value="BLOCKED">Bloqueado neste sistema</option></select></label>

@@ -31,7 +31,7 @@
     "test:wallet-overview": "tsx --test tests/architecture/wallet-overview.test.mjs tests/wallet/card-summary-navigation.test.ts",
     "test:wallet-pages": "node --test tests/architecture/wallet-pages.test.mjs",
     "test:wallet-overview-localization": "node --test tests/architecture/wallet-overview-localization.test.mjs",
-    "test:wallet-card-opening": "node --test tests/architecture/wallet-card-opening.test.mjs tests/architecture/wallet-card-complete-registration.test.mjs",
+    "test:wallet-card-opening": "node --test tests/architecture/wallet-card-opening.test.mjs tests/architecture/wallet-card-complete-registration.test.mjs && tsx --test tests/wallet/card-opening-overlimit.test.ts tests/wallet/card-opening-summary.test.ts",
     "test:wallet-pin": "tsx --test tests/wallet/wallet-vault-pin.test.ts",
     "test:wallet-invoice-cycle": "tsx --test tests/wallet/invoice-cycle-state.test.ts",
     "test:wallet-capital-sync": "node --test tests/wallet/wallet-capital-sync.test.mjs",

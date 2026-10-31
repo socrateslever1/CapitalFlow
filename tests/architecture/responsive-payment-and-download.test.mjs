@@ -33,6 +33,10 @@ test('browser gets only web-refresh, Android web can download APK in site and na
   assert.match(browser,/ANDROID_APK_DOWNLOAD_URL = '\/api\/android\/apk'/);
   assert.match(browser,/download="CapitalFlow-Android\.apk"/);
   assert.doesNotMatch(browser,/target="_blank"/);
+  // Copy de UX não deve conter instruções internas da implementação.
+  assert.match(browser,/Instale o CapitalFlow no seu celular e acesse o sistema pelo aplicativo\./);
+  assert.equal((browser.match(/Baixar aplicativo/g) || []).length, 2);
+  assert.doesNotMatch(browser,/O arquivo será baixado pelo próprio site|sem abrir outra página|Baixar sem sair do CapitalFlow/);
 });
 test('Cloudflare binary proxy enforces official immutable URL, HTTPS, max size, download disposition',()=>{
   const proxy=readFileSync('functions/api/android/apk.ts','utf8');

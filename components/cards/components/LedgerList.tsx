@@ -10,6 +10,7 @@ import {
   getLedgerReversalIndex, isLedgerAudit, isLedgerReversal
 } from '../../../utils/ledgerPresentation';
 import { getPaymentGroupKey } from '../../../utils/paymentGroups';
+import { ReceiptInstallmentDetails } from './ReceiptInstallmentDetails';
 
 interface LedgerListProps {
   ledger: LedgerEntry[];
@@ -80,6 +81,8 @@ export const LedgerList: React.FC<LedgerListProps> = ({
                 {' · '}Mora/multa {formatMoney(Number(entry.lateFeeDelta || 0), !!isStealthMode)}
               </p>
             )}
+
+            {payment && !audit && <ReceiptInstallmentDetails entry={entry} loan={loan} isStealthMode={isStealthMode} />}
 
             {details && details.length > 0 && (
               <div className="ml-9 mt-1 space-y-0.5 border-l border-slate-800 pl-2">

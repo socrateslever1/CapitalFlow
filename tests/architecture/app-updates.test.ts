@@ -42,8 +42,8 @@ test('Background polling offers a button without forced reloads', () => {
   const headers = read('public/_headers');
 
   assert.doesNotMatch(main, /<AppUpdateBanner\s*\/>/, 'updates must never render as overlays');
-  assert.match(banner, /Nova atualização disponível/);
-  assert.match(banner, /Atualizar página/);
+  assert.match(banner, /Atualização disponível/);
+  assert.match(banner, /Atualizar agora/);
   assert.match(banner, /CHECK_INTERVAL_MS = 60_000/);
   assert.match(banner, /cache: 'no-store'/);
   assert.match(banner, /application\/json/);
@@ -53,7 +53,7 @@ test('Background polling offers a button without forced reloads', () => {
   assert.match(banner, /navigator\.onLine/);
   assert.match(banner, /window\.location\.reload\(\)/);
   assert.match(banner, /registration\.waiting\.postMessage\(\{ type: 'SKIP_WAITING' \}\)/);
-  assert.match(banner, /setDismissedBuild/);
+  assert.match(banner, /dismissReleaseNotice/);
   assert.doesNotMatch(main, /activateWaitingWorker/);
   assert.doesNotMatch(main, /serviceWorker\.addEventListener\('controllerchange'/);
   assert.match(sw, /event\.waitUntil\(cacheAppShell\(\)\)/);
@@ -103,12 +103,12 @@ test('updates only appear inside notification bell and never cover the screen', 
   const header = read('layout/HeaderBar.tsx');
   const shell = read('layout/AppShell.tsx');
   const main = read('main.tsx');
-  assert.match(header, /<AndroidApkNotice placement="notifications"\\s*\\/>/);
-  assert.match(header, /<AppUpdateBanner placement="notifications"\\s*\\/>/);
-  assert.match(header, /<AndroidNativeUpdateNotice placement="notifications"\\s*\\/>/);
-  assert.doesNotMatch(shell, /<AndroidApkNotice placement="banner"\\s*\\/>/);
-  assert.doesNotMatch(shell, /<AndroidNativeUpdateNotice\\s*\\/>/);
-  assert.doesNotMatch(main, /<AppUpdateBanner\\s*\\/>/);
+  assert.match(header, /<AndroidApkNotice placement="notifications"\s*\\/>/);
+  assert.match(header, /<AppUpdateBanner placement="notifications"\s*\\/>/);
+  assert.match(header, /<AndroidNativeUpdateNotice placement="notifications"\s*\\/>/);
+  assert.doesNotMatch(shell, /<AndroidApkNotice placement="banner"\s*\\/>/);
+  assert.doesNotMatch(shell, /<AndroidNativeUpdateNotice\s*\\/>/);
+  assert.doesNotMatch(main, /<AppUpdateBanner\s*\\/>/);
   for (const source of [browser, native, web]) {
     assert.match(source, /dismissReleaseNotice/, 'refusal must persist');
     assert.match(source, /isReleaseNoticeDismissed/, 'dismissed notices stay hidden');

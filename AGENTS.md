@@ -22,3 +22,8 @@
 - Falhas de segurança/dependências são reportadas; não declarar todos os gates aprovados se o Quality Gates estiver vermelho.
 - Versão Android: conferir assinatura release, pacote, versão monotônica, commit exato e asset publicado. Build local/debug não comprova release.
 - Atualizar `docs/CARTEIRA_CONTINUIDADE.md` com mudanças, commit, testes, limitações e pendências. Nunca afirmar validação visual em celular físico quando não ocorreu.
+
+## Skills de engenharia contínua (adicionadas)
+- Antes de uma tarefa complexa, utilizar as skills locais em `.agents/skills/` conforme o domínio: `contexto-verificavel`, `raciocinio-computacional`, `planejar-e-executar`, `corrigir-sem-regressao`, `banco-seguro`, `webdesign-profissional`, `qualidade-e-seguranca` e `publicacao-verificada`.
+- Ler `.agents/README-ENGENHARIA-CONTINUA.md` para selecionar skills e `docs/AI_TASK_ACCEPTANCE_TEMPLATE.md` para critérios de aceite. As regras específicas de CapitalFlow acima prevalecem.
+- Nenhuma skill substitui evidências de testes, nem autoriza deploy ou alteração de dados financeiros por iniciativa própria.

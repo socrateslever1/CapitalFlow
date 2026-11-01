@@ -103,12 +103,12 @@ test('updates only appear inside notification bell and never cover the screen', 
   const header = read('layout/HeaderBar.tsx');
   const shell = read('layout/AppShell.tsx');
   const main = read('main.tsx');
-  assert.match(header, /<AndroidApkNotice placement="notifications"\s*\\/>/);
-  assert.match(header, /<AppUpdateBanner placement="notifications"\s*\\/>/);
-  assert.match(header, /<AndroidNativeUpdateNotice placement="notifications"\s*\\/>/);
-  assert.doesNotMatch(shell, /<AndroidApkNotice placement="banner"\s*\\/>/);
-  assert.doesNotMatch(shell, /<AndroidNativeUpdateNotice\s*\\/>/);
-  assert.doesNotMatch(main, /<AppUpdateBanner\s*\\/>/);
+  assert(header.includes('<AndroidApkNotice placement="notifications" />'));
+  assert(header.includes('<AppUpdateBanner placement="notifications" />'));
+  assert(header.includes('<AndroidNativeUpdateNotice placement="notifications" />'));
+  assert(!shell.includes('<AndroidApkNotice placement="banner" />'));
+  assert(!shell.includes('<AndroidNativeUpdateNotice />'));
+  assert(!main.includes('<AppUpdateBanner />'));
   for (const source of [browser, native, web]) {
     assert.match(source, /dismissReleaseNotice/, 'refusal must persist');
     assert.match(source, /isReleaseNoticeDismissed/, 'dismissed notices stay hidden');

@@ -38,3 +38,33 @@ export function claimReleaseNotice(
   catch { /* In-memory protection remains for this running session. */ }
   return true;
 }
+
+const dismissedInMemory = new Map<ReleaseNoticeKind, string>();
+const dismissalKey = (kind: ReleaseNoticeKind) =>
+  `capitalflow:release-notice:v1:dismissed:${kind}`;
+
+const isValidReleaseId = (value: string) => /^[a-zA-Z0-9._-]{1,128}$/.test(value);
+
+/** Dismissing a notice does not affect a later release of the same platform. */
+export function isReleaseNoticeDismissed(
+  kind: ReleaseNoticeKind,
+  version: string,
+  storage: NoticeStorage | null = getStorage(),
+): boolean {
+  if (!isValidReleaseId(version)) return false;
+  if (dismissedInMemory.get(kind) === version) return true;
+  try { return storage?.getItem(dismissalKey(kind)) === version; }
+  catch { return false; }
+}
+
+/** User-chosen dismissal, unlike mere discovery of an update. */
+export function dismissReleaseNotice(
+  kind: ReleaseNoticeKind,
+  version: string,
+  storage: NoticeStorage | null = getStorage(),
+): void {
+  if (!isValidReleaseId(version)) return;
+  dismissedInMemory.set(kind, version);
+  try { storage?.setItem(dismissalKey(kind), version); }
+  catch { /* Remain dismissed in the current app session. */ }
+}

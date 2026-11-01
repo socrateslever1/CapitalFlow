@@ -26,7 +26,7 @@ test('payment condition keeps three real actions responsive, no forced 320px wid
 });
 test('browser gets only web-refresh, Android web can download APK in site and native gets APK installer',()=>{
   assert.match(web,/Capacitor\.isNativePlatform\(\)/);
-  assert.match(web,/Atualizar página/);
+  assert.match(web,/Atualizar agora/);
   assert.match(native,/await apkInstaller\.downloadAndInstall\(\)/);
   assert.match(native,/Capacitor\.getPlatform\(\) !== 'android'/);
   assert.match(browser,/isAndroidSaaSBrowser/);
@@ -34,8 +34,8 @@ test('browser gets only web-refresh, Android web can download APK in site and na
   assert.match(browser,/download="CapitalFlow-Android\.apk"/);
   assert.doesNotMatch(browser,/target="_blank"/);
   // Copy de UX não deve conter instruções internas da implementação.
-  assert.match(browser,/Instale o CapitalFlow no seu celular e acesse o sistema pelo aplicativo\./);
-  assert.equal((browser.match(/Baixar aplicativo/g) || []).length, 2);
+  assert.match(browser,/Instale o CapitalFlow no seu celular para acessar com mais facilidade\./);
+  assert.equal((browser.match(/Instalar aplicativo/g) || []).length, 1);
   assert.doesNotMatch(browser,/O arquivo será baixado pelo próprio site|sem abrir outra página|Baixar sem sair do CapitalFlow/);
 });
 test('Cloudflare binary proxy enforces official immutable URL, HTTPS, max size, download disposition',()=>{

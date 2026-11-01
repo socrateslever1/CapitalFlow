@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import type { LedgerEntry } from '../../types';
+import type { LedgerEntry, Loan } from '../../types';
+import { getReceiptInstallmentBreakdown } from '../../utils/receiptInstallmentBreakdown';
 import {
   canReverseLedgerEntry, formatLedgerTime, getLedgerDayKey,
   getLedgerDisplayEvents, getLedgerReversalIndex, isLedgerReversal
@@ -87,4 +88,81 @@ test('agreement reverse checks the precise group before calling the existing ato
   assert(code.includes("getPaymentGroupKey({ idempotencyKey: String(latest.idempotency_key"));
   assert(code.includes("supabase.rpc('reverse_agreement_payment_atomic'"));
   assert(!code.includes("supabase.from('acordo_pagamentos').update"));
+});
+
+const agreementId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
+const installment3 = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
+const installment4 = 'cccccccc-cccc-4ccc-cccc-cccccccccccc';
+const installment5 = 'dddddddd-dddd-4ddd-dddd-dddddddddddd';
+const testLoan = {
+  activeAgreement: {
+    id: agreementId,
+    installments: [
+      { id: installment3, number: 3, amount: 400 },
+      { id: installment4, number: 4, amount: 400 },
+      { id: installment5, number: 5, amount: 400 }
+    ]
+  },
+  installments: [{ id: uuid3, number: 2, amount: 600 }]
+} as unknown as Loan;
+
+test('agreement receipt itemizes R$ 500 between installments 4 and 5', () => {
+  const payment = e('split', {
+    type: 'AGREEMENT_PAYMENT', amount: 500,
+    meta: {
+      agreement_id: agreementId,
+      agreement_installment_id: installment4,
+      allocations: [
+        { installment_id: installment4, installment_number: 4, principal: 400, late_fee: 0 },
+        { installment_id: installment5, installment_number: 5, principal: 100, late_fee: 0 }
+      ]
+    }
+  });
+  assert.deepEqual(getReceiptInstallmentBreakdown(payment, testLoan), {
+    allocations: [
+      { installmentId: installment4, number: 4, amount: 400, scheduledAmount: 400, coverage: 'INTEGRAL' },
+      { installmentId: installment5, number: 5, amount: 100, scheduledAmount: 400, coverage: 'PARCIAL' }
+    ],
+    unidentifiedAmount: 0
+  });
+});
+
+test('historical agreement receipt resolves exact installment id, not payment order', () => {
+  const payment = e('old', {
+    type: 'AGREEMENT_PAYMENT', amount: 300,
+    meta: { agreement_id: agreementId, agreement_installment_id: installment3 },
+    notes: 'Pagamento da parcela 99 do acordo de renegociação.'
+  });
+  assert.deepEqual(getReceiptInstallmentBreakdown(payment, testLoan), {
+    allocations: [
+      { installmentId: installment3, number: 3, amount: 300, scheduledAmount: 400, coverage: 'PARCIAL' }
+    ],
+    unidentifiedAmount: 0
+  });
+});
+
+test('normal installment receipts are attributed only by persisted installment IDs', () => {
+  const identified = getReceiptInstallmentBreakdown(e('p', {
+    type: 'PAYMENT', amount: 200, installmentId: uuid3
+  }), testLoan);
+  assert.equal(identified.allocations[0]?.number, 2);
+  assert.equal(identified.allocations[0]?.coverage, 'PARCIAL');
+  assert.equal(identified.unidentifiedAmount, 0);
+  const unidentified = getReceiptInstallmentBreakdown(e('p', {
+    type: 'PAYMENT', amount: 200, notes: 'Pagamento da parcela 2'
+  }), testLoan);
+  assert.deepEqual(unidentified.allocations, []);
+  assert.equal(unidentified.unidentifiedAmount, 200);
+});
+
+test('contradictory persisted allocation does not show fictitious attribution', () => {
+  const result = getReceiptInstallmentBreakdown(e('bad', {
+    type: 'AGREEMENT_PAYMENT', amount: 100,
+    meta: { agreement_id: agreementId, allocations: [
+      { installment_id: installment4, installment_number: 4, principal: 100 },
+      { installment_id: installment5, installment_number: 5, principal: 100 }
+    ] }
+  }), testLoan);
+  assert.deepEqual(result.allocations, []);
+  assert.equal(result.unidentifiedAmount, 100);
 });

@@ -10,6 +10,7 @@ import { Loan, LedgerEntry } from '../../types';
 import { formatMoney } from '../../utils/formatters';
 import { translateTransactionType } from '../../utils/translationHelpers';
 import { canReverseLedgerEntry, formatLedgerTime, getLedgerReversalIndex, isLedgerAudit, isLedgerReversal } from '../../utils/ledgerPresentation';
+import { ReceiptInstallmentDetails } from '../../components/cards/components/ReceiptInstallmentDetails';
 
 
 interface LedgerTimelineProps {
@@ -105,6 +106,9 @@ export const LedgerTimeline: React.FC<LedgerTimelineProps> = ({
                                                     ref: {entry.id.split('-')[0]} •{' '}
                                                     {formatLedgerTime(entry) || 'data contábil'}
                                                 </span>
+                                                {entry.type?.includes('PAYMENT') && !isLedgerReversal(entry) && (
+                                                    <ReceiptInstallmentDetails entry={entry} loan={loan} isStealthMode={isStealthMode} compact />
+                                                )}
                                             </div>
                                         </div>
 

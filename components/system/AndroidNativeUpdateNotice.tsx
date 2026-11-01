@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { App } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Download, RefreshCw, X } from 'lucide-react';
+import { claimReleaseNotice } from '../../utils/releaseNotice';
 
 const RELEASE_API = 'https://api.github.com/repos/socrateslever1/CapitalFlow/releases/tags/android-signed-beta';
 const RELEASE_ASSET_PATH = '/socrateslever1/CapitalFlow/releases/download/android-signed-beta/CapitalFlow-Android.apk';
@@ -31,9 +32,11 @@ export function parseSignedAndroidRelease(payload: unknown, installedCode: numbe
 }
 
 /** Native APK update discovery: compare the signed release versionCode with App.getInfo().build. */
-export const AndroidNativeUpdateNotice: React.FC = () => {
+export const AndroidNativeUpdateNotice: React.FC<{ placement?: 'banner' | 'notifications' }> = ({ placement = 'banner' }) => {
   const [update, setUpdate] = useState<Update | null>(null);
   const [dismissedCode, setDismissedCode] = useState(0);
+  const [bannerCode, setBannerCode] = useState<number | null>(null);
+  const [declinedInBell, setDeclinedInBell] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string|null>(null);
   const [installNotice, setInstallNotice] = useState<string|null>(null);
@@ -77,7 +80,13 @@ export const AndroidNativeUpdateNotice: React.FC = () => {
         });
         if (!response.ok) return;
         const next = parseSignedAndroidRelease(await response.json(), installedCode);
-        if (active) setUpdate(next);
+        if (active) {
+          setUpdate(next);
+          if (placement === 'banner' && next &&
+              claimReleaseNotice('android-update', String(next.versionCode))) {
+            setBannerCode(next.versionCode);
+          }
+        }
       } catch {
         // Sem internet não se mostra uma versão não confirmada.
       } finally {
@@ -85,12 +94,12 @@ export const AndroidNativeUpdateNotice: React.FC = () => {
       }
     };
     void check();
-    void readInstallStatus();
+    if (placement === 'banner') void readInstallStatus();
     void App.addListener('resume', () => {
       void check();
-      void readInstallStatus();
+      if (placement === 'banner') void readInstallStatus();
       // Installer results can be delivered after the activity resumes.
-      window.setTimeout(() => { if (active) void readInstallStatus(); }, 1500);
+      if (placement === 'banner') window.setTimeout(() => { if (active) void readInstallStatus(); }, 1500);
     }).then(handle => {
       if (!active) { void handle.remove(); return; }
       listener = handle;
@@ -102,7 +111,7 @@ export const AndroidNativeUpdateNotice: React.FC = () => {
       window.removeEventListener('online', onOnline);
       if (listener) void listener.remove();
     };
-  }, []);
+  }, [placement]);
 
   const install = async () => {
     if (installing || !update) return;
@@ -121,8 +130,31 @@ export const AndroidNativeUpdateNotice: React.FC = () => {
     }
   };
 
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android' ||
-      !update || update.versionCode === dismissedCode) return null;
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android' || !update) return null;
+  if (placement === 'notifications') {
+    return <section aria-label="Atualização do aplicativo Android"
+      className="mx-2 mb-2 rounded-xl border border-cyan-500/25 bg-cyan-950/20 p-3">
+      <div className="flex items-center gap-2 text-xs font-bold text-cyan-200">
+        <RefreshCw size={16}/> Nova versão do aplicativo
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-slate-300">
+        {declinedInBell ? 'Atualização adiada. Você pode instalá-la por aqui.' :
+          'Há uma nova versão assinada do CapitalFlow disponível.'}
+      </p>
+      {installError && <p role="alert" className="mt-2 text-xs text-rose-300">{installError}</p>}
+      {installNotice && !installError && <p role="status" className="mt-2 text-xs text-cyan-100">{installNotice}</p>}
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <button type="button" disabled={installing} onClick={() => { void install(); }}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+          {installing ? <RefreshCw size={15} className="animate-spin"/> : <Download size={15}/>}
+          {installing ? 'Verificando APK…' : 'Atualizar aplicativo'}
+        </button>
+        <button type="button" onClick={() => setDeclinedInBell(true)}
+          className="min-h-10 text-xs font-semibold text-slate-300">Agora não</button>
+      </div>
+    </section>;
+  }
+  if (update.versionCode !== bannerCode || update.versionCode === dismissedCode) return null;
   return <aside role="status" aria-live="polite" aria-label="Atualização do aplicativo Android"
     className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-[1750] mx-auto max-w-sm rounded-xl border border-cyan-500/40 bg-slate-900 p-3 text-white shadow-2xl shadow-black/60 md:bottom-5 md:left-auto md:right-5">
     <button type="button" onClick={() => setDismissedCode(update.versionCode)}

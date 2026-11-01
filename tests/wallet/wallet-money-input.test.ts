@@ -38,8 +38,8 @@ test('mobile browser offers the signed APK directly, native app never prompts it
   assert(proxy.includes("new Response(bounded"));
   assert(proxy.includes("final.hostname.endsWith('.githubusercontent.com')"));
   assert(source.includes('isNativePlatform'));
-  assert(source.includes("claimReleaseNotice('android-install', __CAPITALFLOW_BUILD_ID__)"));
+  assert(source.includes("dismissReleaseNotice('android-install', __CAPITALFLOW_BUILD_ID__)"));
   assert(!source.includes('sessionStorage'), 'session-scoped preferences must not reshow the popup');
   assert(header.includes('<AndroidApkNotice placement="notifications" />'));
-  assert(shell.includes('<AndroidApkNotice placement="banner" />'));
+  assert(!shell.includes('<AndroidApkNotice placement="banner" />'));
 });

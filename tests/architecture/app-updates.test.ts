@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
 import { parsePublishedVersion, isNewPublishedVersion } from '../../utils/appVersion';
-import { claimReleaseNotice, releaseNoticeKey, type NoticeStorage } from '../../utils/releaseNotice';
+import { claimReleaseNotice, releaseNoticeKey, dismissReleaseNotice, isReleaseNoticeDismissed, type NoticeStorage } from '../../utils/releaseNotice';
 
 const read = (file: string) => readFileSync(file, 'utf8');
 
@@ -41,9 +41,9 @@ test('Background polling offers a button without forced reloads', () => {
   const sw = read('public/service-worker.js');
   const headers = read('public/_headers');
 
-  assert.match(main, /<AppUpdateBanner\s*\/>/);
-  assert.match(banner, /Nova atualização disponível/);
-  assert.match(banner, /Atualizar página/);
+  assert.doesNotMatch(main, /<AppUpdateBanner\s*\/>/, 'updates must never render as overlays');
+  assert.match(banner, /Atualização disponível/);
+  assert.match(banner, /Atualizar agora/);
   assert.match(banner, /CHECK_INTERVAL_MS = 60_000/);
   assert.match(banner, /cache: 'no-store'/);
   assert.match(banner, /application\/json/);
@@ -53,7 +53,7 @@ test('Background polling offers a button without forced reloads', () => {
   assert.match(banner, /navigator\.onLine/);
   assert.match(banner, /window\.location\.reload\(\)/);
   assert.match(banner, /registration\.waiting\.postMessage\(\{ type: 'SKIP_WAITING' \}\)/);
-  assert.match(banner, /setDismissedBuild/);
+  assert.match(banner, /dismissReleaseNotice/);
   assert.doesNotMatch(main, /activateWaitingWorker/);
   assert.doesNotMatch(main, /serviceWorker\.addEventListener\('controllerchange'/);
   assert.match(sw, /event\.waitUntil\(cacheAppShell\(\)\)/);
@@ -81,22 +81,39 @@ test('release notices are claimed once for each version and independently for ea
   assert.equal(claimReleaseNotice('android-update', '', store), false);
 });
 
-test('all platforms show banners only once, while the bell retains dismissible actions', () => {
+test('release-specific refusals hide notices until the next release', () => {
+  const values = new Map<string, string>();
+  const store: NoticeStorage = {
+    getItem: key => values.get(key) || null,
+    setItem: (key, value) => { values.set(key, value); },
+  };
+  for (const kind of ['android-install', 'android-update', 'web-update'] as const) {
+    assert.equal(isReleaseNoticeDismissed(kind, 'version-200', store), false);
+    dismissReleaseNotice(kind, 'version-200', store);
+    assert.equal(isReleaseNoticeDismissed(kind, 'version-200', store), true);
+    assert.equal(isReleaseNoticeDismissed(kind, 'version-201', store), false);
+  }
+  assert.equal(isReleaseNoticeDismissed('web-update', 'invalid version', store), false);
+});
+
+test('updates only appear inside notification bell and never cover the screen', () => {
   const browser = read('components/system/AndroidApkNotice.tsx');
   const native = read('components/system/AndroidNativeUpdateNotice.tsx');
   const web = read('components/system/AppUpdateBanner.tsx');
   const header = read('layout/HeaderBar.tsx');
-  assert.match(browser, /claimReleaseNotice\('android-install', __CAPITALFLOW_BUILD_ID__\)/);
-  assert.match(native, /claimReleaseNotice\('android-update', String\(next.versionCode\)\)/);
-  assert.match(web, /claimReleaseNotice\('web-update', remote!\.buildId\)/);
-  assert.match(header, /<AndroidApkNotice placement="notifications"\s*\/>/);
-  assert.match(header, /<AppUpdateBanner placement="notifications"\s*\/>/);
-  assert.match(header, /<AndroidNativeUpdateNotice placement="notifications"\s*\/>/);
-  assert.match(browser, /placement === 'notifications'/);
-  assert.match(native, /placement === 'notifications'/);
-  assert.match(web, /placement === 'notifications'/);
+  const shell = read('layout/AppShell.tsx');
+  const main = read('main.tsx');
+  assert(header.includes('<AndroidApkNotice placement="notifications" />'));
+  assert(header.includes('<AppUpdateBanner placement="notifications" />'));
+  assert(header.includes('<AndroidNativeUpdateNotice placement="notifications" />'));
+  assert(!shell.includes('<AndroidApkNotice placement="banner" />'));
+  assert(!shell.includes('<AndroidNativeUpdateNotice />'));
+  assert(!main.includes('<AppUpdateBanner />'));
   for (const source of [browser, native, web]) {
-    assert.match(source, /Agora não/, 'user must be able to refuse an update inside the bell');
+    assert.match(source, /dismissReleaseNotice/, 'refusal must persist');
+    assert.match(source, /isReleaseNoticeDismissed/, 'dismissed notices stay hidden');
+    assert.match(source, /Agora não/, 'refusal action required');
+    assert.doesNotMatch(source, /<aside/, 'do not render floating notice');
+    assert.doesNotMatch(source, /fixed bottom-/, 'do not render screen overlay');
   }
-  assert.doesNotMatch(browser, /sessionStorage/, 'browser dismissal survives app restarts');
 });

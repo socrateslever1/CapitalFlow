@@ -4,7 +4,6 @@ import './index.css';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { App } from './App';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
-import { AppUpdateBanner } from './components/system/AppUpdateBanner';
 import { Capacitor } from '@capacitor/core';
 import { hasIncomingWalletFile } from './features/wallet/nativeWalletFileInbox';
 
@@ -95,7 +94,6 @@ if (isDevCacheResetting) {
         <BrowserRouter>
           <NativeWalletImportRouter />
           <App />
-          <AppUpdateBanner />
         </BrowserRouter>
       </AppErrorBoundary>
     </React.StrictMode>

@@ -43,7 +43,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
 }) => {
     const {
         originalInst, isFixedTerm, isFixedTermDone, isZeroBalance, isLateInst, isPrepaid, isActionDisabled, isPaid,
-        statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, isFullyFinalized
+        statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, isFullyFinalized, recordedBalance
     } = vm;
 
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
@@ -113,11 +113,11 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                         <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
                             {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
                         </p>
-                        {!isPaid && debt.total > originalInst.amount && (
+                        {!isPaid && !recordedBalance && debt.total > originalInst.amount && (
                             <>
                                 <span className="text-slate-700">•</span>
                                 <p className="text-[8px] text-rose-400/80 font-bold leading-tight">
-                                    +{formatMoney(debt.total - originalInst.amount, isStealthMode)} juros
+                                    +{formatMoney(debt.total - originalInst.amount, isStealthMode)} em encargos e saldo
                                 </p>
                             </>
                         )}
@@ -130,6 +130,17 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             </>
                         )}
                     </div>
+                    {recordedBalance && !isPaid && (
+                        <div className="mt-2 space-y-1 rounded-md border border-blue-500/20 bg-blue-500/5 p-2 text-[10px] leading-relaxed">
+                            <p className="font-semibold text-blue-200">Saldo registrado após o último recebimento</p>
+                            <p className="text-slate-300">
+                                Já recebido: {formatMoney(Number(originalInst.paidTotal || 0), isStealthMode)}.
+                                Capital ainda devido: {formatMoney(debt.principal, isStealthMode)}.
+                                Encargos ainda registrados: {formatMoney(debt.interest + debt.lateFee, isStealthMode)}.
+                            </p>
+                            <p className="text-slate-500">Novos encargos, se aplicáveis, serão conferidos antes de confirmar outro recebimento.</p>
+                        </div>
+                    )}
                 </div>
             </div>
 

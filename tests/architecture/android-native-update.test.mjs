@@ -55,3 +55,31 @@ test('APK update can only use the canonical GitHub signed release asset', () => 
   const header = readFileSync('layout/HeaderBar.tsx', 'utf8');
   assert(header.includes('<AndroidNativeUpdateNotice placement="notifications" />'));
 });
+
+test('Android update never leaks technical exceptions or network internals to the user', () => {
+  const native = readFileSync('native/android/CapitalFlowApkInstallerPlugin.java', 'utf8');
+  const receiver = readFileSync('native/android/CapitalFlowInstallStatusReceiver.java','utf8');
+  const messages = readFileSync('utils/androidUpdateMessages.ts','utf8');
+  assert(source.includes('friendlyAndroidUpdateError(status.message)'));
+  assert(source.includes('friendlyAndroidUpdateError(error)'));
+  assert(!source.includes('error instanceof Error ? error.message'));
+  assert(!source.includes('status.message ||'));
+  assert(!native.includes('private static String safeError('));
+  assert(!native.includes('"Falha na atualização: " +'));
+  assert(!receiver.includes('reason = reason + " Detalhe técnico: "'));
+  assert(!receiver.includes('error.getClass().getSimpleName()'));
+  assert(messages.includes('Não foi possível baixar a atualização'));
+  assert(!messages.includes('return error.message'));
+});
+
+test('native installer retries interrupted transfers and rechecks the downloaded file', () => {
+  const native = readFileSync('native/android/CapitalFlowApkInstallerPlugin.java', 'utf8');
+  assert(native.includes('MAX_DOWNLOAD_ATTEMPTS = 3'));
+  assert(native.includes('downloadWithRetries('));
+  assert(native.includes('getContentLengthLong()'));
+  assert(native.includes('count != expectedLength'));
+  assert(native.includes('actual.equals(checksum)'));
+  assert(native.includes('verifyPackageAndCertificate(temp)'));
+  assert(native.includes('MessageDigest.isEqual'));
+  assert(native.includes('temp.delete()'));
+});

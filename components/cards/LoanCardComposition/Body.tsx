@@ -61,8 +61,8 @@ export const Body: React.FC<BodyProps> = ({
     );
     const activeOfferDiscount = activePaymentOffer
         ? Math.max(0, Number(
-            activePaymentOffer.paymentOfferDiscountApplied
-            || activePaymentOffer.paymentOfferDiscountValue
+            activePaymentOffer.paymentOfferDiscountValue
+            || activePaymentOffer.paymentOfferDiscountApplied
             || 0
         ))
         : 0;

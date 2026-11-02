@@ -19,10 +19,14 @@ import { formatMoney } from '../../../utils/formatters';
 import { filterOperationalSources, isTestSource } from '../../../utils/testSource';
 import { PageHeader } from '../../../components/ui/PageHeader';
 
+import { MonthlyBalanceReport } from '../components/MonthlyBalanceReport';
+
 interface ReportsPageProps {
   loans: Loan[];
   sources: CapitalSource[];
   activeUser: UserProfile | null;
+  profileId: string;
+  onOpenLoan?: (id: string) => void;
   isStealthMode?: boolean;
 }
 
@@ -30,6 +34,8 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
   loans,
   sources,
   activeUser,
+  profileId,
+  onOpenLoan,
   isStealthMode
 }) => {
   const operationalSources = useMemo(() => filterOperationalSources(sources), [sources]);
@@ -91,6 +97,13 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
           </div>
         </div>}
       />
+
+      {activeUser?.id === profileId && profileId ? (
+        <MonthlyBalanceReport profileId={profileId} loans={loans} sources={sources}
+          isStealthMode={isStealthMode} onOpenLoan={onOpenLoan} />
+      ) : <p role="alert" className="rounded-lg border border-rose-700/50 p-3 text-sm text-rose-300">
+        Perfil financeiro não identificado. Faça login novamente.
+      </p>}
 
       {/* Grid de KPIs Principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

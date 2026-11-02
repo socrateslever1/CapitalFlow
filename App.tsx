@@ -509,6 +509,8 @@ export const App: React.FC = () => {
               className={activeTab === 'DASHBOARD' ? 'block' : 'hidden'}
             >
               <DashboardContainer
+                profileId={activeProfileId || ''}
+                onOpenReports={() => handleSetActiveTab('REPORTS')}
                 loans={loans}
                 sources={sources}
                 activeUser={activeUser}
@@ -663,6 +665,11 @@ export const App: React.FC = () => {
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ReportsPage
+                    profileId={activeProfileId || ''}
+                    onOpenLoan={(loanId) => {
+                      ui.setSelectedLoanId(loanId);
+                      navigate(`/contrato/${loanId}`);
+                    }}
                     loans={loans}
                     sources={sources}
                     activeUser={activeUser}

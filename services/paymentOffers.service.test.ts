@@ -6,7 +6,9 @@ import { calculatePaymentOfferPreview } from './paymentOffers.service';
 
 const installment = {
   id: 'installment',
-  dueDate: '2026-08-10',
+  // Três dias de atraso: multa 2% + juros diários 1% × 3 = 5% de encargos.
+  // Referência relativa evita que a suíte mude de resultado com o calendário.
+  dueDate: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 3, 12)).toISOString().slice(0,10),
   amount: 1300,
   scheduledPrincipal: 1000,
   scheduledInterest: 300,

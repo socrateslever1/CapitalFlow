@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Loan, LoanStatus } from "../../../types";
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from "../../../components/ui/Modal";
-import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent, TrendingUp } from "lucide-react";
+import { Calculator, CheckCircle2, AlertTriangle } from "lucide-react";
 import { simulateAgreement, CalculationMode, InterestApplicationMode, InterestBaseMode } from "../logic/calculations";
+import { buildAgreementBreakdown, parseAgreementInteger, parseAgreementMoney, parseAgreementRate } from "../logic/agreementInputs";
 import { formatMoney } from "../../../utils/formatters";
 import { agreementService } from "../services/agreementService";
 import { legalService } from "../../legal/services/legalService";
@@ -81,15 +82,16 @@ const buildRenegotiationDebtSnapshot = (loans: Loan[]) => {
 export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, activeUser, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
     const [flowMode, setFlowMode] = useState<'INSTALLMENT_AGREEMENT' | 'NORMAL_UNIFICATION' | 'CAPITAL_ONLY_OPEN'>('INSTALLMENT_AGREEMENT');
-    const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_COM_JUROS');
-    const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_INSTALLMENTS');
+    const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_SEM_JUROS');
+    const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_VALUE_AND_COUNT');
 
-    const [installmentValue, setInstallmentValue] = useState<number | string>(0);
-    const [installmentsCount, setInstallmentsCount] = useState<number | string>(1);
-    const [interestRate, setInterestRate] = useState<number | string>(5);
-    const [gracePeriod, setGracePeriod] = useState<number | string>(0);
-    const [discount, setDiscount] = useState<number | string>(0);
-    const [downPayment, setDownPayment] = useState<number | string>(0);
+    const [installmentValue, setInstallmentValue] = useState('');
+    const [installmentsCount, setInstallmentsCount] = useState('');
+    const [interestRate, setInterestRate] = useState('');
+    const [gracePeriod, setGracePeriod] = useState('');
+    const [discount, setDiscount] = useState('');
+    const [downPayment, setDownPayment] = useState('');
+    const [formError, setFormError] = useState<string | null>(null);
 
     const [firstDueDate, setFirstDueDate] = useState('');
     const [totalDebt, setTotalDebt] = useState(0);
@@ -120,13 +122,14 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         try {
-            setFirstDueDate(tomorrow.toISOString().split('T')[0]);
+            setFirstDueDate(`${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`);
         } catch (e) {
             setFirstDueDate(new Date().toISOString().split('T')[0]);
         }
     }, [loans]);
 
     const handleSimulate = () => {
+        setFormError(null);
         if (flowMode !== 'INSTALLMENT_AGREEMENT') {
             setStep(2);
             return;
@@ -134,14 +137,78 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
         const baseDebtForAgreement = finalType === 'PARCELADO_SEM_JUROS' || interestBaseMode === 'CAPITAL_ONLY' ? principalDebt : totalDebt;
+        const count = parseAgreementInteger(installmentsCount, 60);
+        const amount = parseAgreementMoney(installmentValue);
+        const rate = interestRate.trim() ? parseAgreementRate(interestRate) : 0;
+        const grace = gracePeriod.trim() ? parseAgreementInteger(gracePeriod, 365) : 0;
+        const entry = downPayment.trim() ? parseAgreementMoney(downPayment) : 0;
+        const reduction = discount.trim() ? parseAgreementMoney(discount) : 0;
+        const needsCount = calculationMode !== 'BY_INSTALLMENT_VALUE';
+        const needsValue = calculationMode !== 'BY_INSTALLMENTS';
+        const rateApplicable = finalType === 'PARCELADO_COM_JUROS';
+        const validDate = /^\d{4}-\d{2}-\d{2}$/.test(firstDueDate)
+            && !Number.isNaN(Date.parse(firstDueDate + 'T00:00:00Z'))
+            && new Date(firstDueDate + 'T00:00:00Z').toISOString().slice(0, 10) === firstDueDate;
+
+        if (baseDebtForAgreement <= 0 || !Number.isFinite(baseDebtForAgreement)) {
+            setFormError('Este contrato não possui saldo disponível para a modalidade escolhida.');
+            return;
+        }
+        if (needsCount && (count === null || count < 1)) {
+            setFormError('Informe de 1 a 60 parcelas.');
+            return;
+        }
+        if (needsValue && (amount === null || amount <= 0)) {
+            setFormError('Informe um valor válido para cada parcela, por exemplo 200,00.');
+            return;
+        }
+        if (rateApplicable && (rate === null || rate <= 0)) {
+            setFormError('Informe uma taxa de juros válida, maior que zero, ou escolha Sem juros.');
+            return;
+        }
+        if (grace === null || entry === null || reduction === null) {
+            setFormError('Revise os valores da entrada, desconto ou carência. Use, por exemplo, 1.000,00.');
+            return;
+        }
+        if (entry + (calculationMode === 'BY_VALUE_AND_COUNT' ? 0 : reduction) > baseDebtForAgreement + 0.001) {
+            setFormError('A entrada e o desconto não podem superar o valor usado como base do acordo.');
+            return;
+        }
+        if (!validDate) {
+            setFormError('Informe uma data válida para o primeiro vencimento.');
+            return;
+        }
+
         const result = simulateAgreement({
-            totalDebt, type: finalType, installmentsCount: installmentsCount as number, installmentValue: installmentValue as number, calculationMode,
-            interestRate: interestRate as number, firstDueDate, frequency, gracePeriod: gracePeriod as number, discount: discount as number, downPayment: downPayment as number,
+            totalDebt,
+            type: finalType,
+            installmentsCount: count ?? 0,
+            installmentValue: amount ?? 0,
+            calculationMode,
+            interestRate: rateApplicable ? (rate ?? 0) : 0,
+            firstDueDate,
+            frequency,
+            gracePeriod: grace,
+            discount: calculationMode === 'BY_VALUE_AND_COUNT' ? 0 : reduction,
+            downPayment: entry,
             baseDebtForAgreement,
             interestApplicationMode,
-            interestBaseMode
+            interestBaseMode: finalType === 'PARCELADO_SEM_JUROS' ? 'CAPITAL_ONLY' : interestBaseMode,
         });
-        setSimulation(result);
+        if (!result.installments.length || result.installments.length > 60 || result.installments.some(item => !(item.amount > 0))) {
+            setFormError('Essas condições não produzem um parcelamento válido de até 60 parcelas. Revise o valor e a quantidade.');
+            return;
+        }
+        const proposedTotal = result.negotiatedTotal + entry;
+        if (finalType === 'PARCELADO_SEM_JUROS' && proposedTotal > principalDebt + 0.009) {
+            setFormError('O total proposto ultrapassa o principal restante. Reduza o valor ou escolha uma modalidade com juros.');
+            return;
+        }
+        if (!Number.isFinite(proposedTotal) || proposedTotal <= 0) {
+            setFormError('O acordo deve possuir um valor total maior que zero.');
+            return;
+        }
+        setSimulation({ ...result, debtSnapshot: { totalDebt, principalDebt } });
         setStep(2);
     };
 
@@ -150,6 +217,20 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         setIsSaving(true);
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
         const currentDebtSnapshot = buildRenegotiationDebtSnapshot(loans);
+        if (flowMode === 'INSTALLMENT_AGREEMENT' && simulation?.debtSnapshot && (
+            Math.abs(currentDebtSnapshot.totalDebt - simulation.debtSnapshot.totalDebt) > 0.009 ||
+            Math.abs(currentDebtSnapshot.principalDebt - simulation.debtSnapshot.principalDebt) > 0.009
+        )) {
+            setIsSaving(false);
+            setFormError('O saldo do contrato mudou. Revise as condições e simule novamente.');
+            setStep(1);
+            return;
+        }
+        const financialBreakdown = simulation && flowMode === 'INSTALLMENT_AGREEMENT'
+            ? buildAgreementBreakdown(currentDebtSnapshot.totalDebt, currentDebtSnapshot.principalDebt, simulation.negotiatedTotal, parseAgreementMoney(downPayment) ?? 0)
+            : null;
+        const implicitPrincipalDiscount = finalType === 'PARCELADO_SEM_JUROS' && calculationMode === 'BY_VALUE_AND_COUNT'
+            ? (financialBreakdown?.reducedPrincipal ?? 0) : 0;
 
         try {
             if (flowMode === 'CAPITAL_ONLY_OPEN') {
@@ -315,14 +396,14 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 frequency,
                 startDate: new Date().toISOString(),
                 gracePeriod: Number(gracePeriod) || 0,
-                discount: Number(discount) || 0,
-                downPayment: Number(downPayment) || 0,
+                discount: implicitPrincipalDiscount || (parseAgreementMoney(discount) ?? 0),
+                downPayment: parseAgreementMoney(downPayment) ?? 0,
                 calculation_mode: calculationMode,
                 interest_application_mode: interestApplicationMode,
                 interest_base_mode: finalType === 'PARCELADO_SEM_JUROS' ? 'CAPITAL_ONLY' : interestBaseMode,
-                installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (Number(installmentValue) || 0) : (simulation.installments[0]?.amount || 0),
+                installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (parseAgreementMoney(installmentValue) ?? 0) : (simulation.installments[0]?.amount || 0),
                 calculation_result: simulation.calculationResult,
-                notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(Number(downPayment) || 0)}, desconto de ${formatMoney(Number(discount) || 0)}.`
+                notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(parseAgreementMoney(downPayment) ?? 0)}, desconto no principal de ${formatMoney(implicitPrincipalDiscount || (parseAgreementMoney(discount) ?? 0))} e encargos dispensados de ${formatMoney(finalType === 'PARCELADO_SEM_JUROS' ? (financialBreakdown?.waivedCharges ?? 0) : 0)}.`
             };
 
             {

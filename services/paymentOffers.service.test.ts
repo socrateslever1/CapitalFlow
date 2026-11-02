@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { LoanStatus, type Installment, type Loan } from '../types';
 import { calculatePaymentOfferPreview } from './paymentOffers.service';
@@ -154,4 +155,18 @@ test('renewal terms ignore additional settlement discounts', () => {
     waiveFine: false, waiveDailyInterest: false,
   });
   assert.equal(preview.finalAmount, 365);
+});
+
+test('SQL implementation preserves ledger authorization and blocks unsafe partial reductions on charges', () => {
+  const sql = readFileSync('supabase/migrations/20261102160000_payment_offer_total_settlement_discount.sql','utf8');
+  const service = readFileSync('services/paymentOffers.service.ts','utf8');
+  assert.match(service, /supabase\.rpc\('set_installment_payment_offer_v4'/);
+  assert.match(sql, /public\.set_installment_payment_offer_v3\(/);
+  assert.match(sql, /v_discount_late\s*:=/);
+  assert.match(sql, /payment_offer_discount_applied=v_discount_base/);
+  assert.match(sql, /payment_offer_late_fee_forgiven=round\(v_waived_late\+v_discount_late,2\)/);
+  assert.match(sql, /discount_total/);
+  assert.match(sql, /payment_offer_late_fee_forgiven,0\),0\)/);
+  assert.match(sql, /exige o pagamento integral do valor combinado/);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.set_installment_payment_offer_v4/);
 });

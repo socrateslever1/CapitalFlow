@@ -376,7 +376,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="mt-1 flex flex-wrap items-center justify-end gap-x-1.5 gap-y-0 text-[8px] font-black uppercase leading-tight text-slate-500 max-w-[190px]">
               <span>Cap <b className="text-slate-300">{formatMoney(amountBreakdown.capital, isStealthMode)}</b></span>
               <span className="text-slate-700">•</span>
-              <span>Juros <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>
+              <span>Encargos <b className={amountBreakdown.juros > ZERO_BALANCE_THRESHOLD ? 'text-rose-400' : 'text-slate-400'}>{formatMoney(amountBreakdown.juros, isStealthMode)}</b></span>
               {originalContractTotal > ZERO_BALANCE_THRESHOLD && (
                 <>
                   <span className="text-slate-700">•</span>

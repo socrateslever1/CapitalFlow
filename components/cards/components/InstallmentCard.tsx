@@ -113,11 +113,11 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                         <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
                             {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
                         </p>
-                        {!isPaid && !recordedBalance && displayDebt.total > originalInst.amount && (
+                        {!isPaid && !recordedBalance && displayDebt.lateFee > 0.005 && (
                             <>
                                 <span className="text-slate-700">•</span>
                                 <p className="text-[8px] text-rose-400/80 font-bold leading-tight">
-                                    +{formatMoney(displayDebt.total - originalInst.amount, isStealthMode)} em encargos e saldo
+                                    Encargos por atraso: {formatMoney(displayDebt.lateFee, isStealthMode)}
                                 </p>
                             </>
                         )}

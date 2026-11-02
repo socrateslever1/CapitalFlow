@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loan, LoanStatus } from "../../../types";
-import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from "../../../components/ui/Modal";
+import { Modal } from "../../../components/ui/Modal";
 import { Calculator, CheckCircle2, AlertTriangle } from "lucide-react";
 import { simulateAgreement, CalculationMode, InterestApplicationMode, InterestBaseMode } from "../logic/calculations";
 import { buildAgreementBreakdown, parseAgreementInteger, parseAgreementMoney, parseAgreementRate } from "../logic/agreementInputs";
@@ -388,7 +388,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 type: finalType,
                 totalDebtAtNegotiation: Number(currentDebtSnapshot.totalDebt.toFixed(2)),
                 negotiatedTotal: simulation.negotiatedTotal,
-                interestRate: finalType === 'PARCELADO_COM_JUROS' ? (Number(interestRate) || 0) : 0,
+                interestRate: finalType === 'PARCELADO_COM_JUROS' ? (parseAgreementRate(interestRate) ?? 0) : 0,
                 principal_base: Number(currentDebtSnapshot.principalDebt.toFixed(2)),
                 interest_base: Number(currentDebtSnapshot.interestDebt.toFixed(2)),
                 late_fee_base: Number(currentDebtSnapshot.lateFeeDebt.toFixed(2)),
@@ -396,14 +396,14 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 frequency,
                 startDate: new Date().toISOString(),
                 gracePeriod: Number(gracePeriod) || 0,
-                discount: implicitPrincipalDiscount || (parseAgreementMoney(discount) ?? 0),
+                discount: calculationMode === 'BY_VALUE_AND_COUNT' ? implicitPrincipalDiscount : (parseAgreementMoney(discount) ?? 0),
                 downPayment: parseAgreementMoney(downPayment) ?? 0,
                 calculation_mode: calculationMode,
                 interest_application_mode: interestApplicationMode,
                 interest_base_mode: finalType === 'PARCELADO_SEM_JUROS' ? 'CAPITAL_ONLY' : interestBaseMode,
                 installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (parseAgreementMoney(installmentValue) ?? 0) : (simulation.installments[0]?.amount || 0),
                 calculation_result: simulation.calculationResult,
-                notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(parseAgreementMoney(downPayment) ?? 0)}, desconto no principal de ${formatMoney(implicitPrincipalDiscount || (parseAgreementMoney(discount) ?? 0))} e encargos dispensados de ${formatMoney(finalType === 'PARCELADO_SEM_JUROS' ? (financialBreakdown?.waivedCharges ?? 0) : 0)}.`
+                notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(parseAgreementMoney(downPayment) ?? 0)}, desconto no principal de ${formatMoney(calculationMode === 'BY_VALUE_AND_COUNT' ? implicitPrincipalDiscount : (parseAgreementMoney(discount) ?? 0))} e encargos dispensados de ${formatMoney(finalType === 'PARCELADO_SEM_JUROS' ? (financialBreakdown?.waivedCharges ?? 0) : 0)}.`
             };
 
             {
@@ -476,7 +476,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
         } catch (e: any) {
             console.error("Erro detalhado na renegociação:", e);
-            alert("Erro ao criar acordo/unificação: " + (e.message || "Erro desconhecido"));
+            alert("Não foi possível salvar o acordo. Nenhuma nova condição foi confirmada. Confira sua conexão e tente novamente.");
         } finally {
             setIsSaving(false);
         }
@@ -484,12 +484,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const operationWarning = (() => {
 
         if (flowMode === 'NORMAL_UNIFICATION') {
-            return `Ao confirmar, ${mainLoanLabel} sera o contrato principal. O saldo atual vira a nova base e a cobranca normal continua.`;
+            return `Ao confirmar, ${mainLoanLabel} será o contrato principal. O saldo atual será a nova base e a cobrança normal continuará.`;
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
             return loans.length > 1
-                ? 'Ao confirmar, todos os contratos selecionados ficarao em Somente Capital: apenas principal restante, sem juros/mora.'
-                : 'Ao confirmar, este contrato ficara em Somente Capital: apenas principal restante, sem juros/mora.';
+                ? 'Ao confirmar, os contratos selecionados continuarão abertos, cobrando apenas o principal restante, sem juros ou mora.'
+                : 'Ao confirmar, este contrato continuará aberto, cobrando apenas o principal restante, sem juros ou mora.';
         }
         return loans.length > 1
             ? `Ao confirmar, ${mainLoanLabel} será o contrato principal do acordo parcelado e os demais ficarão como legado histórico.`
@@ -501,12 +501,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
             if (loansWithActiveAgreement.length > 0) {
                 return 'Bloqueado: existe contrato com acordo ativo na selecao. A unificacao normal so aceita contratos sem acordo.';
             }
-            return 'Junta os contratos no contrato principal e mantem a cobranca normal de juros/mora conforme a modalidade.';
+            return 'Agrupa os contratos e mantém a cobrança normal dos juros e encargos previstos.';
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
-            return 'Mantem os contratos abertos, ignora juros/mora e usa somente o principal restante.';
+            return 'Mantém o contrato aberto, sem criar parcelas novas, cobrando apenas o principal restante.';
         }
-        return 'Cria acordo parcelado. Use quando quiser novo cronograma, entrada, desconto ou juros negociados.';
+        return 'Cria parcelas conforme o valor negociado.';
     })();
 
     const displayedDebtTotal = flowMode === 'CAPITAL_ONLY_OPEN' ? principalDebt : totalDebt;

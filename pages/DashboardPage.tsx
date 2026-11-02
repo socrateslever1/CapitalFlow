@@ -12,6 +12,7 @@ import { AIBalanceInsight } from '../features/dashboard/AIBalanceInsight';
 import { formatMoney } from '../utils/formatters';
 import { groupLoansByClient } from '../domain/dashboard/loanGrouping';
 import { NativeDonutChart, NativeTrendChart } from '../components/dashboard/NativeDashboardCharts';
+import { MonthlyBalanceReport } from '../features/reports/components/MonthlyBalanceReport';
 import type { InstallmentPaymentHandler } from '../components/cards/components/InstallmentReceiptModel';
 
 const getDashboardColumnCount = () => {
@@ -90,6 +91,8 @@ interface DashboardPageProps {
   sources: CapitalSource[];
   filteredLoans: Loan[];
   stats: any;
+  profileId: string;
+  onOpenReports?: () => void;
   activeUser: UserProfile | null;
   staffMembers: UserProfile[];
   selectedStaffId: string;
@@ -139,7 +142,7 @@ interface DashboardPageProps {
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
-  loans, sources, filteredLoans, stats, activeUser, staffMembers, selectedStaffId, onStaffChange,
+  loans, sources, filteredLoans, stats, activeUser, profileId, onOpenReports, staffMembers, selectedStaffId, onStaffChange,
   mobileDashboardTab, setMobileDashboardTab, statusFilter, setStatusFilter, sortOption, setSortOption,
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore,
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria,
@@ -340,6 +343,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   {/* CARD LUCRO DISPONÍVEL */}
                   <ProfitCard variant="compact" balance={stats.interestBalance} onWithdraw={() => ui.openModal('WITHDRAW')} isStealthMode={isStealthMode} />
               </div>
+
+              {activeUser?.id === profileId && profileId && (
+                <div className="space-y-2" data-dashboard-balance>
+                  <MonthlyBalanceReport profileId={profileId} loans={loans} sources={sources}
+                    compact isStealthMode={isStealthMode} onOpenLoan={id=>onNavigate(`/contrato/${id}`)} />
+                  {onOpenReports && <button type="button" onClick={onOpenReports}
+                    className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-3 py-2 text-xs font-bold text-blue-300">
+                    Histórico mensal completo <BarChart3 size={15}/>
+                  </button>}
+                </div>
+              )}
 
               <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
                   <div className="flex items-center justify-between w-full mb-6">

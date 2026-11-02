@@ -26,7 +26,8 @@ DECLARE
   v_offer numeric;
   v_waived_late numeric;
 BEGIN
-  IF NOT isfinite(coalesce(p_discount_percent,0)) OR NOT isfinite(coalesce(p_discount_value,0))
+  IF coalesce(p_discount_percent,0)::text IN ('NaN','Infinity','-Infinity')
+    OR coalesce(p_discount_value,0)::text IN ('NaN','Infinity','-Infinity')
     OR coalesce(p_discount_percent,0)<0 OR coalesce(p_discount_percent,0)>100
     OR coalesce(p_discount_value,0)<0 THEN
     RAISE EXCEPTION 'Desconto invalido.';

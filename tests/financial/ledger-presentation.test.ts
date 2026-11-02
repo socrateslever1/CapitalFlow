@@ -166,3 +166,22 @@ test('contradictory persisted allocation does not show fictitious attribution', 
   assert.deepEqual(result.allocations, []);
   assert.equal(result.unidentifiedAmount, 100);
 });
+
+test('archiving is a visibly actionable and accessible control on phones and desktop', () => {
+  const footer = readFileSync('components/cards/LoanCardComposition/Footer.tsx', 'utf8');
+  const archive = footer.match(/\{!loan\.isArchived\s*\?\s*\([\s\S]*?<button[\s\S]*?<\/button>/)?.[0];
+  assert.ok(archive, 'archive action must be a real button');
+  assert.match(archive, /onArchive\(\)/, 'do not replace archiving with a passive label');
+  assert.match(archive, /type="button"/);
+  assert.match(archive, /min-h-12/);
+  assert.match(archive, /w-full sm:w-auto/, 'mobile touch target must not collapse');
+  assert.match(archive, /border-amber-400/);
+  assert.match(archive, /bg-amber-500/);
+  assert.match(archive, /text-amber-100/);
+  assert.match(archive, /focus-visible:ring/);
+  assert.doesNotMatch(archive, /className="section-title"/, 'do not style the action as a passive section heading');
+  assert.match(footer, /Exclusão definitiva bloqueada/);
+  assert.match(footer, /flex-col sm:flex-row/, 'mobile separates safety note from the action');
+  assert.match(footer, /onRestore\(\)/);
+  assert.match(footer, /onDelete\(\)/);
+});

@@ -101,28 +101,46 @@ export const Footer: React.FC<FooterProps> = ({
                 )}
             </div>
 
-            {/* Ações destrutivas (ex: Arquivar/Deletar) - Direita */}
-            <div className="flex justify-end gap-2 border-t border-slate-800/30 pt-3">
+            {/* Arquivamento reversível; exclusão definitiva só quando não existe histórico. */}
+            <div className="flex flex-col gap-3 border-t border-slate-800/40 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 {!loan.isArchived ? (
-                    <button onClick={(e) => { e.stopPropagation(); onArchive(); }} className="p-2 text-slate-500 hover:text-amber-500 hover:bg-amber-950/20 rounded-lg transition-all flex items-center gap-2" title="Arquivar">
-                        <Archive size={14}/>
-                        <span className="section-title">Arquivar (recuperável)</span>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onArchive(); }}
+                        aria-label="Arquivar contrato (recuperável)"
+                        title="Arquivar contrato sem apagar o histórico. É possível restaurá-lo depois."
+                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl border border-amber-400/60 bg-amber-500/20 px-5 py-3 text-amber-100 shadow-sm shadow-amber-950/30 transition-all hover:border-amber-300 hover:bg-amber-500/30 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    >
+                        <Archive size={18} aria-hidden="true" className="shrink-0" />
+                        <span className="text-sm font-bold">Arquivar (recuperável)</span>
                     </button>
                 ) : (
-                    <button onClick={(e) => { e.stopPropagation(); onRestore(); }} className="p-2 text-slate-500 hover:text-emerald-500 hover:bg-emerald-950/20 rounded-lg transition-all flex items-center gap-2" title="Restaurar">
-                        <RotateCcw size={14}/>
-                        <span className="section-title">Restaurar</span>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onRestore(); }}
+                        aria-label="Restaurar contrato arquivado"
+                        title="Restaurar contrato arquivado"
+                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2.5 rounded-xl border border-emerald-400/50 bg-emerald-500/15 px-5 py-3 text-sm font-bold text-emerald-100 transition-all hover:bg-emerald-500/25 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    >
+                        <RotateCcw size={18} aria-hidden="true" className="shrink-0" />
+                        Restaurar contrato
                     </button>
                 )}
                 {!hasFinancialHistory ? (
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="p-2 text-rose-400 hover:bg-rose-950/20 rounded-lg transition-all flex items-center gap-2" title="Excluir contrato sem movimentações">
-                        <Trash2 size={14}/>
-                        <span className="section-title">Excluir contrato sem histórico</span>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        aria-label="Excluir contrato sem histórico"
+                        title="Excluir definitivamente contrato sem movimentações"
+                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-xs font-bold text-rose-200 transition-all hover:bg-rose-500/20 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                    >
+                        <Trash2 size={16} aria-hidden="true" className="shrink-0" />
+                        Excluir sem histórico
                     </button>
                 ) : (
-                    <span className="max-w-40 self-center text-right text-[9px] leading-3 text-slate-500" title="O histórico financeiro deve ser preservado. Arquive o contrato para poder restaurá-lo.">
+                    <p className="min-w-0 self-center rounded-lg border border-slate-700/40 bg-slate-900/50 px-3 py-2 text-center text-xs leading-relaxed text-slate-400 sm:max-w-52 sm:text-left" title="O histórico financeiro deve ser preservado. O contrato pode ser restaurado após o arquivamento.">
                         Exclusão definitiva bloqueada: contrato com histórico. Use Arquivar.
-                    </span>
+                    </p>
                 )}
             </div>
         </div>

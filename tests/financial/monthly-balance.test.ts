@@ -5,8 +5,9 @@ import { buildMonthlyBalances, localAccountingMonth, type FinancialMovement } fr
 
 const PROFILE_A = '00000000-0000-4000-8000-000000000001';
 const PROFILE_B = '00000000-0000-4000-8000-000000000002';
+let rowCounter = 0;
 const row = (overrides: Partial<FinancialMovement> = {}): FinancialMovement => ({
-  id: 'id-' + Math.random().toString(16).slice(2),
+  id: `row-${++rowCounter}`,
   profile_id: PROFILE_A,
   loan_id: 'loan-one',
   source_id: 'cash-source',
@@ -94,6 +95,10 @@ test('personal report is queried by profile and guarded against cross-account ro
   assert.match(source,/\.eq\('profile_id', id\)/);
   assert.match(source,/entry\.profile_id !== id/);
   assert.match(ui,/activeUser\?\.id === profileId/);
+  const report = readFileSync('features/reports/components/MonthlyBalanceReport.tsx','utf8');
+  assert.match(report,/loadedProfileId === profileId/);
+  assert.match(report,/loan\.profile_id===profileId/);
+  assert.match(report,/source\.profile_id===profileId/);
   assert.match(app,/profileId=\{activeProfileId \|\| ''\}/);
   assert.match(ui,/<MonthlyBalanceReport/);
 });

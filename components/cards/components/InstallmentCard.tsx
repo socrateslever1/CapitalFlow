@@ -43,12 +43,12 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
 }) => {
     const {
         originalInst, isFixedTerm, isFixedTermDone, isZeroBalance, isLateInst, isPrepaid, isActionDisabled, isPaid,
-        statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, isFullyFinalized, recordedBalance
+        statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, displayDebt, isFullyFinalized, recordedBalance
     } = vm;
 
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
     const hasActiveOffer = isPaymentOfferActive(originalInst);
-    const displayedAmount = isPaid ? getInstallmentPaidAmount(originalInst) : debt.total;
+    const displayedAmount = isPaid ? getInstallmentPaidAmount(originalInst) : displayDebt.total;
 
     const containerClasses = `responsive-card rounded-lg border flex flex-col justify-between h-full ${
         isRenegotiated ? 'bg-slate-900/80 border-slate-700/50' :
@@ -113,11 +113,11 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                         <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
                             {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
                         </p>
-                        {!isPaid && !recordedBalance && debt.total > originalInst.amount && (
+                        {!isPaid && !recordedBalance && displayDebt.total > originalInst.amount && (
                             <>
                                 <span className="text-slate-700">•</span>
                                 <p className="text-[8px] text-rose-400/80 font-bold leading-tight">
-                                    +{formatMoney(debt.total - originalInst.amount, isStealthMode)} em encargos e saldo
+                                    +{formatMoney(displayDebt.total - originalInst.amount, isStealthMode)} em encargos e saldo
                                 </p>
                             </>
                         )}
@@ -135,8 +135,8 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             <p className="font-semibold text-blue-200">Saldo registrado após o último recebimento</p>
                             <p className="text-slate-300">
                                 Já recebido: {formatMoney(Number(originalInst.paidTotal || 0), isStealthMode)}.
-                                Capital ainda devido: {formatMoney(debt.principal, isStealthMode)}.
-                                Encargos ainda registrados: {formatMoney(debt.interest + debt.lateFee, isStealthMode)}.
+                                Capital ainda devido: {formatMoney(displayDebt.principal, isStealthMode)}.
+                                Encargos ainda registrados: {formatMoney(displayDebt.interest + displayDebt.lateFee, isStealthMode)}.
                             </p>
                             <p className="text-slate-500">Novos encargos, se aplicáveis, serão conferidos antes de confirmar outro recebimento.</p>
                         </div>

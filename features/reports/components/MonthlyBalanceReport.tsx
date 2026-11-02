@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownLeft, ArrowRight, CalendarDays, ChevronDown, RefreshCw, TrendingUp, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowDownLeft, ArrowRight, CalendarDays, ChevronDown, RefreshCw, Wallet } from 'lucide-react';
 import type { CapitalSource, Loan } from '../../../types';
 import { formatMoney } from '../../../utils/formatters';
 import { isTestSource } from '../../../utils/testSource';
@@ -21,7 +21,7 @@ const monthLabel = (month: string) => {
 };
 const empty: (month: string) => MonthlyBalance = month => ({
   month, principal: 0, profit: 0, totalReceived: 0, unclassified: 0, lent: 0,
-  withdrawal: 0, loss: 0, reversed: 0, count: 0, entries: [],
+  withdrawal: 0, loss: 0, expense: 0, reversed: 0, count: 0, entries: [],
 });
 
 const Card: React.FC<{title:string; value:number; stealth:boolean; color?:string; description:string}> =
@@ -61,7 +61,7 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
     () => new Set(sources.filter(isTestSource).map(source=>String(source.id))),
     [sources]
   );
-  const balances = useMemo(()=>buildMonthlyBalances(records,excludedSourceIds),[records,excludedSourceIds]);
+  const balances = useMemo(()=>buildMonthlyBalances(records,excludedSourceIds,profileId),[records,excludedSourceIds]);
   const months = useMemo(()=>{
     const keys = new Set(balances.map(balance=>balance.month));
     keys.add(currentMonth());
@@ -122,12 +122,19 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
         <Card title="Retiradas do lucro" value={period.withdrawal} stealth={isStealthMode}
           description="Dinheiro retirado do caixa; não reduz o lucro histórico."/>
       </div>
-      {(period.loss!==0 || period.unclassified!==0) && <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">
+      {(period.loss!==0 || period.expense!==0 || period.unclassified!==0) && <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 text-xs text-amber-200">
         <AlertTriangle size={16} className="mr-2 inline" />
         {period.loss!==0 && <>Perdas efetivamente registradas: {money(period.loss)}. </>}
+        {period.expense!==0 && <>Despesas identificadas: {money(period.expense)}. </>}
         {period.unclassified!==0 && <>Movimentações com composição divergente/sem classificação: {money(period.unclassified)}. Não foram incluídas como lucro.</>}
       </div>}
       {!compact && <>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <Card title="Despesas" value={period.expense} stealth={isStealthMode}
+            color="text-rose-300" description="Despesas registradas, distintas de retiradas de lucro."/>
+          <Card title="Perdas reconhecidas" value={period.loss} stealth={isStealthMode}
+            color="text-rose-300" description="Somente baixas efetivas; atrasos não são prejuízo automático."/>
+        </div>
         <div className="mt-4 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-200">Histórico por mês</h3>
           <p className="text-[10px] text-slate-500">Sem previsão de juros futuros</p>
@@ -172,6 +179,7 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
               {entry.lent!==0 && <p className="text-amber-300">Aplicado {money(entry.lent)}</p>}
               {entry.withdrawal!==0 && <p className="text-slate-300">Retirado {money(entry.withdrawal)}</p>}
               {entry.loss!==0 && <p className="text-rose-300">Perda {money(entry.loss)}</p>}
+              {entry.expense!==0 && <p className="text-rose-300">Despesa {money(entry.expense)}</p>}
               {entry.unclassified!==0 && <p className="text-amber-300">Revisar {money(entry.unclassified)}</p>}
             </div>
           </div>

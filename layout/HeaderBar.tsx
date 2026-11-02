@@ -371,7 +371,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-      className={`${isMobile ? 'fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1600]' : 'absolute top-full right-0 mt-3 w-[22rem] max-h-[min(28rem,calc(100dvh-7rem))] z-[1100]'} max-w-[calc(100vw-1.5rem)] min-h-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl ring-1 ring-white/10`}
+      className={`${isMobile ? 'md:hidden fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1600]' : 'absolute top-full right-0 mt-3 w-[22rem] max-h-[min(28rem,calc(100dvh-7rem))] z-[1100]'} max-w-[calc(100vw-1.5rem)] min-h-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl ring-1 ring-white/10`}
       style={{
         boxShadow: `0 28px 80px -26px ${primaryColor}30, 0 28px 90px -28px rgba(0,0,0,0.82)`,
       }}
@@ -573,7 +573,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="relative" ref={desktopNotificationRef}>
                 <button
                   id="btn-notifications-desktop"
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  type="button"
+                  aria-label="Abrir ou fechar a Central de Alertas"
+                  aria-expanded={showNotifications}
+                  onClick={() => setShowNotifications((open) => !open)}
                   className={`p-3 rounded-lg transition-all shadow-lg group relative ${
                     showNotifications
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-500/20'
@@ -635,7 +638,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="relative" ref={mobileNotificationRef}>
                 <button
                   id="btn-notifications-mobile"
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  type="button"
+                  aria-label="Abrir ou fechar a Central de Alertas"
+                  aria-expanded={showNotifications}
+                  onClick={() => setShowNotifications((open) => !open)}
                   className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all relative ${
                     showNotifications
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/20'
@@ -649,7 +655,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </span>
                   )}
                 </button>
-                <AnimatePresence>{showNotifications && typeof document !== 'undefined' && createPortal(renderNotificationList(true), document.body)}</AnimatePresence>
+                {typeof document !== 'undefined' && createPortal(
+                  <AnimatePresence>{showNotifications && renderNotificationList(true)}</AnimatePresence>,
+                  document.body
+                )}
               </div>
 
               <button

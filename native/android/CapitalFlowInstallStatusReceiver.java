@@ -40,7 +40,7 @@ public final class CapitalFlowInstallStatusReceiver extends BroadcastReceiver {
             }
             if (consent == null) {
                 record(context, "ERROR",
-                    "O Android não forneceu a tela de confirmação da instalação.");
+                    "INSTALLATION");
                 return;
             }
             try {
@@ -48,7 +48,7 @@ public final class CapitalFlowInstallStatusReceiver extends BroadcastReceiver {
                 context.startActivity(consent);
             } catch (RuntimeException error) {
                 record(context, "ERROR",
-                    "Não foi possível apresentar a confirmação do Android: " + error.getClass().getSimpleName());
+                    "INSTALLATION");
             }
             return;
         }
@@ -59,32 +59,31 @@ public final class CapitalFlowInstallStatusReceiver extends BroadcastReceiver {
         String reason;
         switch (status) {
             case PackageInstaller.STATUS_FAILURE_ABORTED:
-                reason = "A instalação foi cancelada.";
+                reason = "INSTALLATION_CANCELLED";
                 break;
             case PackageInstaller.STATUS_FAILURE_BLOCKED:
-                reason = "Instalação bloqueada pelas permissões ou políticas de segurança do Android.";
+                reason = "INSTALLATION_BLOCKED";
                 break;
             case PackageInstaller.STATUS_FAILURE_CONFLICT:
-                reason = "Conflito com o aplicativo já instalado. Verifique a assinatura do APK.";
+                reason = "INSTALLATION_CONFLICT";
                 break;
             case PackageInstaller.STATUS_FAILURE_INCOMPATIBLE:
-                reason = "Esta versão do APK não é compatível com o dispositivo.";
+                reason = "INSTALLATION_INCOMPATIBLE";
                 break;
             case PackageInstaller.STATUS_FAILURE_INVALID:
-                reason = "O Android rejeitou o conteúdo ou a assinatura do pacote.";
+                reason = "INSTALLATION_INVALID";
                 break;
             case PackageInstaller.STATUS_FAILURE_STORAGE:
-                reason = "Espaço insuficiente para instalar a atualização.";
+                reason = "INSTALLATION_STORAGE";
                 break;
             default:
-                reason = "O instalador do Android falhou (código " + status + ").";
+                reason = "INSTALLATION_UNKNOWN";
                 break;
         }
         String detail = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
         if (detail != null && !detail.trim().isEmpty()) {
-            String clean = detail.replaceAll("[\\r\\n\\t]+", " ").trim();
-            if (clean.length() > 160) clean = clean.substring(0, 160);
-            reason = reason + " Detalhe técnico: " + clean;
+            // Only internal logs receive the Android diagnostic. Never surface it.
+            android.util.Log.w("CapitalFlowApk", "Installation failed with status " + status + ": " + detail);
         }
         record(context, "ERROR", reason);
     }

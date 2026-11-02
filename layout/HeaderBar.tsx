@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   TrendingUp,
   Plus,
@@ -214,12 +215,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
   const mobileNotificationRef = useRef<HTMLDivElement>(null);
+  const mobileNotificationPanelRef = useRef<HTMLDivElement>(null);
   const desktopNotificationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const isMobileClickOutside =
-        mobileNotificationRef.current && !mobileNotificationRef.current.contains(event.target as Node);
+        mobileNotificationRef.current && !mobileNotificationRef.current.contains(event.target as Node) &&
+        !mobileNotificationPanelRef.current?.contains(event.target as Node);
       const isDesktopClickOutside =
         desktopNotificationRef.current && !desktopNotificationRef.current.contains(event.target as Node);
 
@@ -362,10 +365,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   const renderNotificationList = (isMobile = false) => (
     <motion.div
+      ref={isMobile ? mobileNotificationPanelRef : undefined}
+      role="dialog"
+      aria-label="Central de Alertas"
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-      className={`absolute ${isMobile ? 'fixed inset-x-3 top-20' : 'top-full right-0 mt-3 w-[22rem]'} max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-6rem)] sm:max-h-[28rem] flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl z-[1100] ring-1 ring-white/10`}
+      className={`${isMobile ? 'fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1600]' : 'absolute top-full right-0 mt-3 w-[22rem] max-h-[min(28rem,calc(100dvh-7rem))] z-[1100]'} max-w-[calc(100vw-1.5rem)] min-h-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl ring-1 ring-white/10`}
       style={{
         boxShadow: `0 28px 80px -26px ${primaryColor}30, 0 28px 90px -28px rgba(0,0,0,0.82)`,
       }}
@@ -443,7 +449,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2 custom-scrollbar">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y px-2 py-2 custom-scrollbar"
+        style={{ WebkitOverflowScrolling: "touch", overflowWrap: "anywhere" }}>
         <AppUpdateBanner placement="notifications" />
         <AndroidNativeUpdateNotice placement="notifications" />
         <AndroidApkNotice placement="notifications" />
@@ -642,7 +649,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </span>
                   )}
                 </button>
-                <AnimatePresence>{showNotifications && renderNotificationList(true)}</AnimatePresence>
+                <AnimatePresence>{showNotifications && typeof document !== 'undefined' && createPortal(renderNotificationList(true), document.body)}</AnimatePresence>
               </div>
 
               <button

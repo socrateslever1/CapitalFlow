@@ -21,6 +21,7 @@ import com.getcapacitor.PluginMethod;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -45,6 +46,7 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
     private static final String RELEASE =
         "https://github.com/socrateslever1/CapitalFlow/releases/download/android-signed-beta/CapitalFlow-Android.apk";
     private static final long MAX_BYTES = 150L * 1024L * 1024L;
+    private static final int MAX_DOWNLOAD_ATTEMPTS = 3;
     private final AtomicBoolean downloading = new AtomicBoolean(false);
 
     @PluginMethod
@@ -79,13 +81,14 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                 Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getContext().getPackageName()));
                 getActivity().startActivity(settings);
-                call.reject("Autorize a instalação por este aplicativo nas configurações do Android e toque em atualizar novamente.");
+                call.reject("PERMISSION");
             } catch (ActivityNotFoundException e) {
-                call.reject("O dispositivo não permite instalar atualizações por este aplicativo.", null, e);
+                android.util.Log.w("CapitalFlowApk", "Installation permission activity unavailable", e);
+                call.reject("INSTALLATION_BLOCKED", null, e);
             }
             return;
         }
-        recordStatus("DOWNLOADING", "Baixando e verificando o APK oficial.");
+        recordStatus("DOWNLOADING", "Baixando e verificando a atualização.");
         Thread worker = new Thread(() -> {
             File temp = null;
             try {
@@ -94,25 +97,7 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                     throw new IllegalStateException("Não foi possível preparar o espaço de atualização.");
                 }
                 String checksum = downloadChecksum();
-                temp = File.createTempFile("download-", ".apk", directory);
-                MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                long count = 0;
-                HttpURLConnection connection = connect(RELEASE);
-                try (InputStream input = connection.getInputStream();
-                     FileOutputStream output = new FileOutputStream(temp)) {
-                    byte[] buffer = new byte[64 * 1024];
-                    int bytesRead;
-                    while ((bytesRead = input.read(buffer)) != -1) {
-                        count += bytesRead;
-                        if (count > MAX_BYTES) throw new IllegalStateException("Tamanho do instalador excedeu o limite de segurança.");
-                        output.write(buffer, 0, bytesRead);
-                        digest.update(buffer, 0, bytesRead);
-                    }
-                    output.getFD().sync();
-                } finally { connection.disconnect(); }
-                if (count < 100_000) throw new IllegalStateException("O instalador recebido está incompleto.");
-                String actual = toHex(digest.digest());
-                if (!actual.equals(checksum)) throw new IllegalStateException("Assinatura de integridade do download inválida.");
+                temp = downloadWithRetries(directory, checksum);
                 verifyPackageAndCertificate(temp);
                 File verified = new File(directory, "CapitalFlow-Android.apk");
                 if (verified.exists() && !verified.delete()) {
@@ -133,8 +118,10 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                     }
                 }
             } catch (Exception e) {
-                recordStatus("ERROR", "Não foi possível preparar a atualização: " + safeError(e));
-                call.reject("Falha na atualização: " + safeError(e), null, e);
+                String code = publicErrorCode(e);
+                android.util.Log.e("CapitalFlowApk", "Falha interna durante a atualização", e);
+                recordStatus("ERROR", code);
+                call.reject(code, null, e);
             } finally {
                 if (temp != null) temp.delete();
                 downloading.set(false);
@@ -200,13 +187,67 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
         }
     }
 
-    private static String safeError(Exception error) {
-        String message = error.getMessage();
-        if (message == null || message.trim().isEmpty()) {
-            return error.getClass().getSimpleName();
+    /** Do not expose exception messages, server addresses or Java classes in the interface. */
+    private static String publicErrorCode(Exception error) {
+        if (error instanceof IOException) return "CONNECTION";
+        if (error instanceof SecurityException || error instanceof IllegalStateException) return "VALIDATION";
+        return "INSTALLATION";
+    }
+
+    /**
+     * A truncated or interrupted connection must restart with a new temporary
+     * file and a new digest. Never resume an unverified partial installation.
+     * Integrity and signing failures are fatal and never retried as network errors.
+     */
+    private static File downloadWithRetries(File directory, String checksum) throws Exception {
+        for (int attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++) {
+            File temp = File.createTempFile("download-", ".apk", directory);
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                long count = 0;
+                HttpURLConnection connection = connect(RELEASE);
+                try (InputStream input = connection.getInputStream();
+                     FileOutputStream output = new FileOutputStream(temp)) {
+                    long expectedLength = connection.getContentLengthLong();
+                    byte[] buffer = new byte[64 * 1024];
+                    int bytesRead;
+                    while ((bytesRead = input.read(buffer)) != -1) {
+                        count += bytesRead;
+                        if (count > MAX_BYTES) throw new SecurityException("Exceeded maximum permitted length");
+                        output.write(buffer, 0, bytesRead);
+                        digest.update(buffer, 0, bytesRead);
+                    }
+                    output.getFD().sync();
+                    if (expectedLength > 0 && count != expectedLength) {
+                        throw new IOException("Incomplete response");
+                    }
+                } finally {
+                    connection.disconnect();
+                }
+                if (count < 100_000) throw new IOException("Incomplete installer");
+                String actual = toHex(digest.digest());
+                if (!actual.equals(checksum)) throw new SecurityException("Checksum mismatch");
+                return temp;
+            } catch (IOException transientFailure) {
+                if (temp.exists() && !temp.delete()) {
+                    android.util.Log.w("CapitalFlowApk", "Temporary download cleanup failed");
+                }
+                android.util.Log.w("CapitalFlowApk", "Transfer interrupted; attempt " + attempt, transientFailure);
+                if (attempt == MAX_DOWNLOAD_ATTEMPTS) throw transientFailure;
+                try {
+                    Thread.sleep(1000L * attempt);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Transfer cancelled", interrupted);
+                }
+            } catch (Exception failure) {
+                if (temp.exists() && !temp.delete()) {
+                    android.util.Log.w("CapitalFlowApk", "Temporary download cleanup failed");
+                }
+                throw failure;
+            }
         }
-        // Do not print OS paths or unbounded native errors in the UI.
-        return message.length() > 220 ? message.substring(0, 220) : message;
+        throw new IOException("Download could not be completed");
     }
 
     private static String downloadChecksum() throws Exception {
@@ -248,7 +289,10 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
             }
             if (status != 200) {
                 connection.disconnect();
-                throw new IllegalStateException("O servidor recusou o instalador (HTTP " + status + ").");
+                if (status == 408 || status == 429 || status >= 500) {
+                    throw new IOException("Temporary server failure");
+                }
+                throw new IllegalStateException("Unexpected server response");
             }
             long length = connection.getContentLengthLong();
             if (length > MAX_BYTES) {

@@ -35,6 +35,7 @@ const Card: React.FC<{title:string; value:number; stealth:boolean; color?:string
 
 export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,isStealthMode=false,compact=false,onOpenLoan}) => {
   const [records,setRecords] = useState<Awaited<ReturnType<typeof loadFinancialMovements>>>([]);
+  const [loadedProfileId,setLoadedProfileId] = useState<string | null>(null);
   const [status,setStatus] = useState<'loading'|'ready'|'error'>('loading');
   const [error,setError] = useState('');
   const [reload,setReload] = useState(0);
@@ -45,9 +46,11 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
     setStatus('loading');
     setError('');
     setRecords([]);
+    setLoadedProfileId(null);
     void loadFinancialMovements(profileId,controller.signal).then(data=>{
       if (controller.signal.aborted) return;
       setRecords(data);
+      setLoadedProfileId(profileId);
       setStatus('ready');
     }).catch((failure: unknown)=>{
       if (controller.signal.aborted) return;
@@ -61,7 +64,8 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
     () => new Set(sources.filter(isTestSource).map(source=>String(source.id))),
     [sources]
   );
-  const balances = useMemo(()=>buildMonthlyBalances(records,excludedSourceIds,profileId),[records,excludedSourceIds]);
+  const visibleStatus = loadedProfileId === profileId ? status : status === 'error' ? 'error' : 'loading';
+  const balances = useMemo(()=>buildMonthlyBalances(loadedProfileId===profileId?records:[],excludedSourceIds,profileId),[records,excludedSourceIds,profileId,loadedProfileId]);
   const months = useMemo(()=>{
     const keys = new Set(balances.map(balance=>balance.month));
     keys.add(currentMonth());
@@ -70,12 +74,12 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
   const chosen = months.includes(selectedMonth) ? selectedMonth : months[0];
   const period = balances.find(balance=>balance.month===chosen) || empty(chosen);
   const loanNames = useMemo(
-    ()=>new Map(loans.map(loan=>[loan.id,loan.debtorName])),
-    [loans]
+    ()=>new Map(loans.filter(loan=>loan.profile_id===profileId).map(loan=>[loan.id,loan.debtorName])),
+    [loans,profileId]
   );
   const sourceNames = useMemo(
-    ()=>new Map(sources.map(source=>[source.id,source.name])),
-    [sources]
+    ()=>new Map(sources.filter(source=>source.profile_id===profileId).map(source=>[source.id,source.name])),
+    [sources,profileId]
   );
   const money = (amount:number)=>formatMoney(amount,isStealthMode);
   const heading = compact ? 'Recebimentos do mês' : 'Balanço financeiro mensal';
@@ -102,9 +106,9 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
         </button>
       </div>
     </div>
-    {status==='loading' && <p role="status" className="py-6 text-xs text-slate-400">Consultando movimentações do período…</p>}
-    {status==='error' && <p role="alert" className="mt-3 rounded-md border border-rose-500/30 bg-rose-950/30 p-3 text-sm text-rose-300">{error}</p>}
-    {status==='ready' && <>
+    {visibleStatus==='loading' && <p role="status" className="py-6 text-xs text-slate-400">Consultando movimentações do período…</p>}
+    {visibleStatus==='error' && <p role="alert" className="mt-3 rounded-md border border-rose-500/30 bg-rose-950/30 p-3 text-sm text-rose-300">{error}</p>}
+    {visibleStatus==='ready' && <>
       <div className="mt-4 rounded-lg border border-emerald-600/25 bg-emerald-500/5 p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
           <ArrowDownLeft size={16}/> Total recebido no mês

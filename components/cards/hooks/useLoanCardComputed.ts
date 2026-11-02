@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Loan, CapitalSource, Installment } from '../../../types';
 import { parseDateOnlyUTC, addDaysUTC, getDaysDiff } from '../../../utils/dateHelpers';
 import { hasActiveAgreement as hasActiveAgreementData, rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
-import { loanEngine } from '../../../domain/loanEngine';
+import { getDisplayedLoanBalance } from '../../../domain/finance/displayedBalance';
 import { modalityRegistry } from '../../../domain/finance/modalities/registry';
 import { resolveLoanVisualClassification } from '../../../utils/loanFilterResolver';
 import { calculateRiskProfile } from '../../../domain/finance/riskAnalysis';
@@ -48,7 +48,7 @@ export const useLoanCardComputed = (loanRaw: Loan, sources: CapitalSource[], isS
 
   // O totalDebt agora usa o motor de cálculo que já respeita o acordo
   const totalDebt = useMemo(() => 
-    loanEngine.computeRemainingBalance(loan).totalRemaining, 
+    getDisplayedLoanBalance(loan).totalRemaining, 
   [loan]);
   
   const isZeroBalance = totalDebt <= ZERO_BALANCE_THRESHOLD;

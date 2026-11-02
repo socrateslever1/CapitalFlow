@@ -134,22 +134,29 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
             color="text-rose-300" description="Despesas registradas, distintas de retiradas de lucro."/>
           <Card title="Perdas reconhecidas" value={period.loss} stealth={isStealthMode}
             color="text-rose-300" description="Somente baixas efetivas; atrasos não são prejuízo automático."/>
+          <div className="col-span-2">
+            <Card title="Resultado após despesas e perdas" value={period.profit-period.expense-period.loss}
+              stealth={isStealthMode} color="text-emerald-300"
+              description="Lucro realizado menos despesas e perdas reconhecidas. Retiradas e novos empréstimos não reduzem o resultado."/>
+          </div>
         </div>
         <div className="mt-4 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-slate-200">Histórico por mês</h3>
           <p className="text-[10px] text-slate-500">Sem previsão de juros futuros</p>
         </div>
         <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-slate-800">
-          <table className="w-full min-w-[470px] text-left text-xs">
+          <table className="w-full min-w-[740px] text-left text-xs">
             <thead className="sticky top-0 bg-slate-900 text-slate-400">
               <tr><th className="p-2">Mês</th><th className="p-2 text-right">Capital</th>
-                <th className="p-2 text-right">Lucro</th><th className="p-2 text-right">Total recebido</th></tr>
+                <th className="p-2 text-right">Lucro</th><th className="p-2 text-right">Despesas e perdas</th><th className="p-2 text-right">Resultado</th><th className="p-2 text-right">Total recebido</th></tr>
             </thead>
             <tbody>{balances.map(balance=><tr key={balance.month} className={balance.month===chosen?'bg-blue-900/20':'border-t border-slate-800'}>
               <td className="p-2"><button type="button" className="text-blue-300 underline-offset-2 hover:underline"
                 onClick={()=>{setSelectedMonth(balance.month);setShowEntries(true);}}>{monthLabel(balance.month)}</button></td>
               <td className="p-2 text-right tabular-nums">{money(balance.principal)}</td>
               <td className="p-2 text-right tabular-nums text-emerald-300">{money(balance.profit)}</td>
+              <td className="p-2 text-right tabular-nums text-rose-300">{money(balance.expense+balance.loss)}</td>
+              <td className="p-2 text-right tabular-nums">{money(balance.profit-balance.expense-balance.loss)}</td>
               <td className="p-2 text-right tabular-nums font-bold">{money(balance.totalReceived)}</td>
             </tr>)}</tbody>
           </table>

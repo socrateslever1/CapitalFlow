@@ -36,7 +36,7 @@ export const isPaymentOfferActive = (installment: Installment | any, referenceDa
 export const paymentOffersService = {
   async save(loan: Loan, installment: Installment, input: PaymentOfferInput) {
     const discount = Number(input.discount || 0);
-    const { data, error } = await supabase.rpc('set_installment_payment_offer_v3', {
+    const { data, error } = await supabase.rpc('set_installment_payment_offer_v4', {
       p_loan_id: loan.id,
       p_installment_id: installment.id,
       p_agreed_date: input.agreedDate,
@@ -49,7 +49,14 @@ export const paymentOffersService = {
       p_offer_type: input.offerType,
     });
 
-    if (error) throw new Error(error.message || 'Falha ao salvar condição especial.');
+    if (error) {
+      const raw = String(error.message || '').toLowerCase();
+      if (raw.includes('condicao') && raw.includes('valor positivo')) {
+        throw new Error('O desconto deixou um valor muito baixo para receber. Ajuste o percentual ou o valor.');
+      }
+      if (raw.includes('acesso negado')) throw new Error('Você não tem permissão para alterar essa condição.');
+      throw new Error('Não foi possível salvar a condição. Confira os valores e tente novamente.');
+    }
     return data;
   },
 
@@ -122,7 +129,11 @@ export const calculatePaymentOfferPreview = (
   const requestedDiscount = input.discountMode === 'PERCENT'
     ? subtotal * (Math.max(0, Number(input.discount || 0)) / 100)
     : input.discountMode === 'VALUE' ? Math.max(0, Number(input.discount || 0)) : 0;
-  const discountApplied = roundMoney(Math.min(base, requestedDiscount));
+  // A condição de quitação desconta todo o valor negociado após dispensas.
+  // O banco distribui o abatimento entre capital/juros e encargos proporcionalmente.
+  const discountApplied = input.offerType === 'SETTLEMENT'
+    ? roundMoney(Math.min(subtotal, requestedDiscount))
+    : 0;
 
   return {
     base,

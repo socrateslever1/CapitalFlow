@@ -53,6 +53,9 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     () => calculatePaymentOfferPreview(loan, installment, form),
     [loan, installment, form]
   );
+  const otherOpenInstallments = (loan.installments || []).filter(item =>
+    item.id !== installment.id && !['PAID','PAGO','QUITADO','QUITADA','FINALIZADO'].includes(String(item.status || '').toUpperCase())
+  ).length;
   const canRenewInterest = ['MONTHLY', 'BIWEEKLY', 'WEEKLY', 'GIRO', 'REVOLVING'].includes(String(loan.billingCycle || '').toUpperCase());
   const update = <K extends keyof PaymentOfferInput>(key: K, value: PaymentOfferInput[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -79,7 +82,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     if (normalized === 'USED') return 'Usada';
     if (normalized === 'PARTIAL') return 'Recebimento parcial';
     if (normalized === 'EXPIRED') return 'Vencida';
-    return action;
+    return 'Movimentação registrada';
   };
 
   const submit = async () => {
@@ -88,12 +91,12 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
       setError('Confira a data combinada e a validade.');
       return;
     }
-    if (form.discount < 0 || (form.discountMode === 'PERCENT' && form.discount > 100)) {
+    if (!Number.isFinite(form.discount) || form.discount < 0 || (form.discountMode === 'PERCENT' && form.discount > 100)) {
       setError('Informe um desconto válido.');
       return;
     }
     if (preview.finalAmount <= 0.05) {
-      setError('O valor final precisa ser maior que zero.');
+      setError('O valor para receber precisa ser superior a cinco centavos. Reduza o desconto.');
       return;
     }
     if (form.offerType === 'INTEREST_RENEWAL' && !canRenewInterest) {
@@ -106,7 +109,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
       await onSaved();
       onClose();
     } catch (reason: any) {
-      setError(reason?.message || 'Falha ao enviar condição.');
+      setError(reason instanceof Error ? reason.message : 'Não foi possível salvar a condição. Tente novamente.');
     } finally {
       setIsSaving(false);
     }
@@ -175,7 +178,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
             <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Tipo da condição</p>
             <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
               <button type="button" onClick={() => update('offerType', 'SETTLEMENT')} className={`min-h-14 rounded-md border px-3 text-left ${form.offerType === 'SETTLEMENT' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 bg-slate-950'}`}>
-                <span className="block text-xs font-black text-white">Quitar ou abater</span>
+                <span className="block text-xs font-black text-white">Quitar ou abater a parcela</span>
                 <span className="block text-[11px] text-slate-500">Reduz o saldo da parcela</span>
               </button>
               <button type="button" disabled={!canRenewInterest} onClick={() => { update('offerType', 'INTEREST_RENEWAL'); update('discountMode', 'NONE'); update('discount', 0); setDiscountInput(''); }} className={`min-h-14 rounded-md border px-3 text-left disabled:cursor-not-allowed disabled:opacity-40 ${form.offerType === 'INTEREST_RENEWAL' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-950'}`}>
@@ -184,6 +187,12 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
               </button>
             </div>
           </section>
+          {form.offerType === 'SETTLEMENT' && <p className="rounded-md border border-blue-500/25 bg-blue-500/5 p-2.5 text-xs leading-relaxed text-blue-200">
+            Esta condição vale para a parcela selecionada.
+            {otherOpenInstallments > 0
+              ? ` Existem mais ${otherOpenInstallments} parcela(s) em aberto neste contrato; pagar esta condição não quita as demais.`
+              : ' A quitação do contrato será reconhecida somente após o recebimento integral do valor combinado.'}
+          </p>}
           <section className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
             <div>
               <p className="text-[11px] font-black uppercase text-slate-500">Valor atual</p>
@@ -191,7 +200,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
             </div>
             <ArrowRight size={16} className="mx-2 shrink-0 text-blue-400 sm:mx-4" />
             <div className="text-right">
-              <p className="text-[11px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor oferecido'}</p>
+              <p className="text-[11px] font-black uppercase text-blue-400">{form.offerType === 'INTEREST_RENEWAL' ? 'Juros e encargos' : 'Valor para quitar a parcela'}</p>
               <p className="break-words text-base font-black leading-tight text-white sm:text-xl">{formatMoney(preview.finalAmount)}</p>
             </div>
             {(preview.chargesForgiven + preview.discountApplied) > 0.05 && (
@@ -216,7 +225,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
           </section>}
 
           {form.offerType === 'SETTLEMENT' && <section>
-            <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">2. Desconto adicional</p>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-400">2. Desconto sobre o valor negociado</p>
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-950 p-1">
               {([['NONE', 'Sem desconto'], ['PERCENT', 'Percentual'], ['VALUE', 'Valor em R$']] as const).map(([mode, label]) => (
                 <button
@@ -244,7 +253,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
                     max={form.discountMode === 'PERCENT' ? 100 : undefined}
                     step="0.01"
                     value={discountInput}
-                    placeholder="0"
+                    placeholder="Informe o desconto"
                     onChange={(event) => {
                       const rawValue = event.target.value;
                       setDiscountInput(rawValue);
@@ -257,6 +266,11 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
                   </span>
                 </label>
               )}
+            {form.discountMode !== 'NONE' && (
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                O desconto reduz todo o valor negociado, incluindo encargos que não foram retirados. O pagamento integral do valor oferecido será necessário se houver desconto sobre encargos.
+              </p>
+            )}
             {preview.discountApplied > 0.05 && (
               <p className="mt-1.5 text-[11px] font-bold text-emerald-400">
                 Desconto aplicado: {form.discountMode === 'PERCENT' ? `${Number(form.discount)}% (${formatMoney(preview.discountApplied)})` : formatMoney(preview.discountApplied)}

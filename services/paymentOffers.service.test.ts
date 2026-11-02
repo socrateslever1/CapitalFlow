@@ -1,11 +1,14 @@
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { LoanStatus, type Installment, type Loan } from '../types';
 import { calculatePaymentOfferPreview } from './paymentOffers.service';
 
 const installment = {
   id: 'installment',
-  dueDate: '2026-08-10',
+  // Três dias de atraso: multa 2% + juros diários 1% × 3 = 5% de encargos.
+  // Referência relativa evita que a suíte mude de resultado com o calendário.
+  dueDate: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 3, 12)).toISOString().slice(0,10),
   amount: 1300,
   scheduledPrincipal: 1000,
   scheduledInterest: 300,
@@ -117,4 +120,55 @@ test('interest-renewal offer still includes overdue charges when current interes
   });
 
   assert.equal(preview.finalAmount, 65);
+});
+
+test('99% on settlement reduces the whole payable balance including unwaived late charges', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'SETTLEMENT', discountMode: 'PERCENT', discount: 99,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  assert.equal(preview.originalAmount, 1365);
+  assert.equal(preview.discountApplied, 1351.35);
+  assert.equal(preview.finalAmount, 13.65);
+});
+
+test('99% after waiving late charges applies to the reduced payable amount, without duplicating waivers', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'SETTLEMENT', discountMode: 'PERCENT', discount: 99,
+    waiveFine: true, waiveDailyInterest: true,
+  });
+  assert.equal(preview.chargesForgiven, 65);
+  assert.equal(preview.discountApplied, 1287);
+  assert.equal(preview.finalAmount, 13);
+});
+
+test('fixed settlement discount can reduce late charges without creating a negative offer', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'SETTLEMENT', discountMode: 'VALUE', discount: 1340,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  assert.equal(preview.discountApplied, 1340);
+  assert.equal(preview.finalAmount, 25);
+});
+
+test('renewal terms ignore additional settlement discounts', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL', discountMode: 'PERCENT', discount: 99,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  assert.equal(preview.finalAmount, 365);
+});
+
+test('SQL implementation preserves ledger authorization and blocks unsafe partial reductions on charges', () => {
+  const sql = readFileSync('supabase/migrations/20261102160000_payment_offer_total_settlement_discount.sql','utf8');
+  const service = readFileSync('services/paymentOffers.service.ts','utf8');
+  assert.match(service, /supabase\.rpc\('set_installment_payment_offer_v4'/);
+  assert.match(sql, /public\.set_installment_payment_offer_v3\(/);
+  assert.match(sql, /v_discount_late\s*:=/);
+  assert.match(sql, /payment_offer_discount_applied=v_discount_base/);
+  assert.match(sql, /payment_offer_late_fee_forgiven=round\(v_waived_late\+v_discount_late,2\)/);
+  assert.match(sql, /discount_total/);
+  assert.match(sql, /payment_offer_late_fee_forgiven,0\),0\)/);
+  assert.match(sql, /exige o pagamento integral do valor combinado/);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.set_installment_payment_offer_v4/);
 });

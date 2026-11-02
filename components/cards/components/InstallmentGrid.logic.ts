@@ -1,11 +1,13 @@
 import { Loan, Installment, LoanStatus } from '../../../types';
 import { getDaysDiff, formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../../utils/dateHelpers';
 import { calculateTotalDue, getInstallmentStatusLogic } from '../../../domain/finance/calculations';
+import { getDisplayedInstallmentDebt } from '../../../domain/finance/displayedBalance';
 
 export interface InstallmentViewModel {
     originalInst: Installment;
     realIndex: number;
     debt: ReturnType<typeof calculateTotalDue>;
+    recordedBalance: boolean;
     displayDueDate: string;
     paidUntilDate: string;
     daysDiff: number;
@@ -54,7 +56,7 @@ export const prepareInstallmentViewModel = (
         (Number(inst.lateFeeAccrued) || 0);
     const isInstPaid = inst.status === LoanStatus.PAID || totalRemaining <= 0.05;
 
-    const rawDebt = calculateTotalDue(loan, inst);
+    const { debt: rawDebt, recorded: recordedBalance } = getDisplayedInstallmentDebt(loan, inst);
     const debt = isSettledContract || isInstPaid
         ? { ...rawDebt, principal: 0, interest: 0, lateFee: 0, total: 0 }
         : rawDebt;
@@ -142,6 +144,7 @@ export const prepareInstallmentViewModel = (
 
     return {
         originalInst: inst,
+        recordedBalance,
         realIndex,
         debt,
         displayDueDate,

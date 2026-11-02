@@ -148,9 +148,9 @@ export const Header: React.FC<HeaderProps> = ({
   const activeOfferLabel = activePaymentOffer
     ? Number(activePaymentOffer.paymentOfferDiscountPercent || 0) > 0
       ? `Desconto ${Number(activePaymentOffer.paymentOfferDiscountPercent).toLocaleString('pt-BR')}% |`
-      : Number(activePaymentOffer.paymentOfferDiscountApplied || activePaymentOffer.paymentOfferDiscountValue || 0) > 0
+      : Number(activePaymentOffer.paymentOfferDiscountValue || activePaymentOffer.paymentOfferDiscountApplied || 0) > 0
         ? `${formatMoney(
-            Number(activePaymentOffer.paymentOfferDiscountApplied || activePaymentOffer.paymentOfferDiscountValue),
+            Number(activePaymentOffer.paymentOfferDiscountValue || activePaymentOffer.paymentOfferDiscountApplied),
             isStealthMode
           )} |`
         : ''

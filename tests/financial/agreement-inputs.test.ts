@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildAgreementBreakdown, parseAgreementInteger, parseAgreementMoney, parseAgreementRate } from '../../features/agreements/logic/agreementInputs';
+import { simulateAgreement } from '../../features/agreements/logic/calculations';
 
 test('campos em branco não começam com zero e não são convertidos em valor negociado', () => {
   assert.equal(parseAgreementMoney(''), null);
@@ -44,4 +45,22 @@ test('se o novo total for menor que o principal, identifica abatimento adicional
   assert.equal(summary.waivedCharges, 1610);
   assert.equal(summary.reducedPrincipal, 250);
   assert.equal(summary.totalReduction, 1860);
+});
+
+test('motor cria exatamente cinco parcelas de R$ 200 no acordo somente de capital', () => {
+  const result = simulateAgreement({
+    totalDebt: 2860,
+    baseDebtForAgreement: 1000,
+    type: 'PARCELADO_SEM_JUROS',
+    installmentsCount: 5,
+    installmentValue: 200,
+    calculationMode: 'BY_VALUE_AND_COUNT',
+    interestRate: 0,
+    firstDueDate: '2026-11-03',
+    frequency: 'MONTHLY',
+  });
+  assert.equal(result.negotiatedTotal, 1000);
+  assert.equal(result.installments.length, 5);
+  assert.deepEqual(result.installments.map(row => row.amount), [200,200,200,200,200]);
+  assert.equal(result.calculationResult, 'SAME');
 });

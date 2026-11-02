@@ -88,7 +88,9 @@ test('mobile notification panel stays within screen and lets long messages scrol
   const header = readFileSync('layout/HeaderBar.tsx','utf8');
   // Portalling escapes the sticky header backdrop, which is a CSS containing block.
   assert(header.includes("import { createPortal } from 'react-dom'"));
-  assert(header.includes("createPortal(renderNotificationList(true), document.body)"));
+  // Framer Motion deve receber os elementos animados dentro do portal,
+  // nunca o portal diretamente (React.isValidElement(portal) é false).
+  assert.match(header, /createPortal\(\s*<AnimatePresence[^>]*>\s*\{showNotifications\s*&&\s*renderNotificationList\(true\)\}\s*<\/AnimatePresence>\s*,\s*document\.body\s*\)/);
   assert(header.includes('mobileNotificationPanelRef'));
   assert(header.includes('mobileNotificationPanelRef.current?.contains(event.target as Node)'));
   assert(header.includes('bottom-[calc('));

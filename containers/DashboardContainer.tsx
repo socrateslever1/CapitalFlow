@@ -15,6 +15,8 @@ interface DashboardContainerProps {
   loans: Loan[];
   sources: CapitalSource[];
   activeUser: UserProfile | null;
+  profileId: string;
+  onOpenReports?: () => void;
   staffMembers: UserProfile[];
   mobileDashboardTab: 'CONTRACTS' | 'BALANCE';
   setMobileDashboardTab: (val: 'CONTRACTS' | 'BALANCE') => void;
@@ -48,7 +50,7 @@ type InstallmentPaymentOptions = {
 };
 
 export const DashboardContainer: React.FC<DashboardContainerProps> = ({
-  loans, sources, activeUser, staffMembers, mobileDashboardTab, setMobileDashboardTab,
+  loans, sources, activeUser, profileId, onOpenReports, staffMembers, mobileDashboardTab, setMobileDashboardTab,
   statusFilter, setStatusFilter, searchTerm, setSearchTerm, selectedStaffId, setSelectedStaffId,
   ui, loanCtrl, fileCtrl, showToast, onRefresh, onNavigate, onOpenClient, isLoadingData = false
 }) => {
@@ -218,6 +220,8 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
         sources={sources}
         filteredLoans={filteredLoans}
         stats={stats}
+        profileId={profileId}
+        onOpenReports={onOpenReports}
         activeUser={activeUser} staffMembers={staffMembers} selectedStaffId={selectedStaffId} onStaffChange={setSelectedStaffId}
         mobileDashboardTab={mobileDashboardTab} setMobileDashboardTab={setMobileDashboardTab}
         statusFilter={statusFilter} setStatusFilter={setStatusFilter} searchTerm={searchTerm} setSearchTerm={setSearchTerm}

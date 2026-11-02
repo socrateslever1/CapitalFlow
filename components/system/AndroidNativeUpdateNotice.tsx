@@ -3,6 +3,7 @@ import { App } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Download, RefreshCw, X } from 'lucide-react';
 import { dismissReleaseNotice, isReleaseNoticeDismissed } from '../../utils/releaseNotice';
+import { friendlyAndroidUpdateError } from '../../utils/androidUpdateMessages';
 
 const RELEASE_API = 'https://api.github.com/repos/socrateslever1/CapitalFlow/releases/tags/android-signed-beta';
 const RELEASE_ASSET_PATH = '/socrateslever1/CapitalFlow/releases/download/android-signed-beta/CapitalFlow-Android.apk';
@@ -50,7 +51,7 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
         const status = await apkInstaller.consumeInstallStatus();
         if (!active) return;
         if (status.stage === 'ERROR') {
-          setInstallError(status.message || 'A atualização foi recusada pelo Android.');
+          setInstallError(friendlyAndroidUpdateError(status.message));
           setInstallNotice(null);
         } else if (status.stage === 'AWAITING_CONFIRMATION') {
           setInstallNotice('Confirme a instalação na tela do Android.');
@@ -119,7 +120,7 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
       await apkInstaller.downloadAndInstall();
       setInstallNotice('O Android vai concluir a atualização. Confirme se for solicitado.');
     } catch (error) {
-      setInstallError(error instanceof Error ? error.message : 'Não foi possível concluir a atualização.');
+      setInstallError(friendlyAndroidUpdateError(error));
     } finally {
       setInstalling(false);
     }
@@ -147,7 +148,7 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
       <button type="button" disabled={installing} onClick={() => { void install(); }}
         className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
         {installing ? <RefreshCw size={15} className="animate-spin"/> : <Download size={15}/>}
-        {installing ? 'Preparando atualização…' : 'Atualizar aplicativo'}
+        {installing ? 'Baixando atualização…' : installError ? 'Tentar novamente' : 'Atualizar aplicativo'}
       </button>
       <button type="button" onClick={dismiss}
         className="min-h-10 text-xs font-semibold text-slate-300">Agora não</button>

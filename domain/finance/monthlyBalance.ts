@@ -1,6 +1,7 @@
 /** Projeção exclusivamente de leitura: nenhum lançamento é criado ou alterado. */
 export interface FinancialMovement {
   id: string;
+  profile_id: string;
   loan_id: string | null;
   source_id: string | null;
   date: string;
@@ -26,6 +27,7 @@ export interface BalanceLine {
   lent: number;
   withdrawal: number;
   loss: number;
+  expense: number;
   notes: string;
 }
 export interface MonthlyBalance {
@@ -37,6 +39,7 @@ export interface MonthlyBalance {
   lent: number;
   withdrawal: number;
   loss: number;
+  expense: number;
   reversed: number;
   count: number;
   entries: BalanceLine[];
@@ -58,25 +61,31 @@ const money = (cents: number): number => Math.round(cents) / 100;
 export const localAccountingMonth = (value: string): string | null => {
   const date = new Date(value);
   if (!Number.isFinite(date.valueOf())) return null;
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Manaus',
-    year: 'numeric', month: '2-digit' }).format(date).replace(/^(\d{2})\/(\d{4})$/, '$2-$1');
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Manaus', year: 'numeric', month: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find(part => part.type === 'year')?.value;
+  const month = parts.find(part => part.type === 'month')?.value;
+  return year && month ? `${year}-${month}` : null;
 };
 const empty = (month: string): MonthlyBalance => ({ month, principal: 0, profit: 0,
-  totalReceived: 0, unclassified: 0, lent: 0, withdrawal: 0, loss: 0,
+  totalReceived: 0, unclassified: 0, lent: 0, withdrawal: 0, loss: 0, expense: 0,
   reversed: 0, count: 0, entries: [] });
 
 /** Independent projection of persisted, signed ledger components in integer centavos. */
 export function buildMonthlyBalances(
   movements: readonly FinancialMovement[],
   excludedSourceIds: ReadonlySet<string> = new Set(),
+  expectedProfileId?: string,
 ): MonthlyBalance[] {
   type Bucket = { month: string; capital: number; gain: number; received: number;
-    unknown: number; lent: number; withdrawal: number; loss: number;
+    unknown: number; lent: number; withdrawal: number; loss: number; expense: number;
     reversal: number; lines: BalanceLine[] };
   const buckets = new Map<string, Bucket>();
   const seen = new Set<string>();
   for (const movement of movements) {
     if (!movement.id || seen.has(movement.id)) continue;
+    if (expectedProfileId && movement.profile_id !== expectedProfileId) continue;
     seen.add(movement.id);
     if (movement.source_id && excludedSourceIds.has(movement.source_id)) continue;
     if (['TEST', 'TESTE', 'SANDBOX', 'HOMOLOGACAO'].includes(String(movement.category || '').toUpperCase())) continue;
@@ -86,7 +95,7 @@ export function buildMonthlyBalances(
     const amount = toCents(movement.amount);
     const principal = toCents(movement.principal_delta);
     const profit = toCents(movement.interest_delta) + toCents(movement.late_fee_delta);
-    let capitalCents = 0, profitCents = 0, unknownCents = 0, lentCents = 0, withdrawalCents = 0, lossCents = 0;
+    let capitalCents = 0, profitCents = 0, unknownCents = 0, lentCents = 0, withdrawalCents = 0, lossCents = 0, expenseCents = 0;
     let category: BalanceLine['category'];
     if (paymentTypes.has(type) || reversalTypes.has(type)) {
       // Reversals must reduce the original month's totals only when posted there;
@@ -105,11 +114,20 @@ export function buildMonthlyBalances(
     } else if (lossTypes.has(type)) {
       lossCents = Math.abs(amount);
       category = 'PERDA';
+    } else if (type === 'FINANCEIRO' && String(movement.category || '').toUpperCase() === 'DESPESA') {
+      expenseCents = Math.abs(amount);
+      category = 'PERDA';
     } else {
-      continue; // audit, capitalizations, source transfers, forecasts are not receipts
+      // An unrecognized nonzero movement requires reconciliation; it is not a receipt.
+      if (!type || ['ADJUSTMENT','RECONCILIATION','FORGIVENESS','CAPITALIZATION',
+        'PARTIAL_RENEWAL','RENEGOTIATION_CREATED','RENEGOTIATION_BROKEN',
+        'AGREEMENT_SCHEDULE_REBUILT','PROFIT_TRANSFER','REFUND_SOURCE_CHANGE'].includes(type)
+        || amount === 0) continue;
+      unknownCents = amount;
+      category = 'PENDENCIA';
     }
-    if (![capitalCents,profitCents,unknownCents,lentCents,withdrawalCents,lossCents].some(Boolean)) continue;
-    const bucket = buckets.get(month) || { month,capital:0,gain:0,received:0,unknown:0,lent:0,withdrawal:0,loss:0,reversal:0,lines:[] };
+    if (![capitalCents,profitCents,unknownCents,lentCents,withdrawalCents,lossCents,expenseCents].some(Boolean)) continue;
+    const bucket = buckets.get(month) || { month,capital:0,gain:0,received:0,unknown:0,lent:0,withdrawal:0,loss:0,expense:0,reversal:0,lines:[] };
     bucket.capital += capitalCents;
     bucket.gain += profitCents;
     bucket.received += capitalCents + profitCents;
@@ -117,13 +135,14 @@ export function buildMonthlyBalances(
     bucket.lent += lentCents;
     bucket.withdrawal += withdrawalCents;
     bucket.loss += lossCents;
+    bucket.expense += expenseCents;
     if (reversalTypes.has(type)) bucket.reversal += amount;
     bucket.lines.push({
       id: movement.id, date: movement.date, loanId: movement.loan_id,
       sourceId: movement.source_id, type, category,
       principal: money(capitalCents), profit: money(profitCents),
       unclassified: money(unknownCents), lent: money(lentCents),
-      withdrawal: money(withdrawalCents), loss: money(lossCents),
+      withdrawal: money(withdrawalCents), loss: money(lossCents), expense: money(expenseCents),
       notes: String(movement.notes || '').slice(0,250),
     });
     buckets.set(month, bucket);
@@ -132,7 +151,7 @@ export function buildMonthlyBalances(
     month: bucket.month,principal: money(bucket.capital),profit: money(bucket.gain),
     totalReceived: money(bucket.received),unclassified: money(bucket.unknown),
     lent: money(bucket.lent),withdrawal: money(bucket.withdrawal),
-    loss: money(bucket.loss),reversed: money(bucket.reversal),
+    loss: money(bucket.loss),expense: money(bucket.expense),reversed: money(bucket.reversal),
     count: bucket.lines.length,
     entries: bucket.lines.sort((a,b)=>b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
   }));

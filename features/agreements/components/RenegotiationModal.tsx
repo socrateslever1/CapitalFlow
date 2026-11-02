@@ -375,15 +375,6 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 return;
             }
 
-            const oldInstallmentIds = loans.flatMap(l => (l.installments || []).map(i => i.id));
-            if (oldInstallmentIds.length > 0) {
-                const { error: updateError } = await supabase
-                    .from('parcelas')
-                    .update({ status: LoanStatus.RENEGOCIADO })
-                    .in('id', oldInstallmentIds);
-                if (updateError) throw new Error(`Falha ao marcar parcelas antigas como renegociadas: ${updateError.message}`);
-            }
-
             const commonAgreementData = {
                 type: finalType,
                 totalDebtAtNegotiation: Number(currentDebtSnapshot.totalDebt.toFixed(2)),
@@ -450,6 +441,21 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     activeUser.id
                 );
 
+                // Somente congela parcelas ainda abertas após o novo acordo ter sido criado.
+                // Parcelas já pagas permanecem históricas e não podem ser reclassificadas.
+                const openInstallmentIds = loans.flatMap(loan =>
+                    (loan.installments || [])
+                        .filter(inst => ['PENDENTE', 'ATRASADO', 'PENDING', 'LATE'].includes(String(inst.status || '').toUpperCase()))
+                        .map(inst => safeUUID(inst.id))
+                        .filter((id): id is string => id !== null)
+                );
+                if (openInstallmentIds.length > 0) {
+                    const { error: statusError } = await supabase.from('parcelas')
+                        .update({ status: LoanStatus.RENEGOCIADO })
+                        .in('id', openInstallmentIds);
+                    if (statusError) throw new Error('Falha ao atualizar as parcelas anteriores ao acordo.');
+                }
+
                 for (const loan of loans.slice(1)) {
                     const previousStatus = String(loan.status || LoanStatus.ATIVO);
                     const legacyNote =
@@ -476,7 +482,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
         } catch (e: any) {
             console.error("Erro detalhado na renegociação:", e);
-            alert("Não foi possível salvar o acordo. Nenhuma nova condição foi confirmada. Confira sua conexão e tente novamente.");
+            alert("Não foi possível concluir a operação. Confira a situação atual do contrato antes de tentar novamente.");
         } finally {
             setIsSaving(false);
         }

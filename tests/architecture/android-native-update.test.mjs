@@ -83,3 +83,18 @@ test('native installer retries interrupted transfers and rechecks the downloaded
   assert(native.includes('MessageDigest.isEqual'));
   assert(native.includes('temp.delete()'));
 });
+
+test('mobile notification panel stays within screen and lets long messages scroll', () => {
+  const header = readFileSync('layout/HeaderBar.tsx','utf8');
+  // Portalling escapes the sticky header backdrop, which is a CSS containing block.
+  assert(header.includes("import { createPortal } from 'react-dom'"));
+  assert(header.includes("createPortal(renderNotificationList(true), document.body)"));
+  assert(header.includes('mobileNotificationPanelRef'));
+  assert(header.includes('mobileNotificationPanelRef.current?.contains(event.target as Node)'));
+  assert(header.includes('bottom-[calc('));
+  assert(header.includes('touch-pan-y'));
+  assert(header.includes('overflow-y-auto'));
+  const nativeNotice = readFileSync('components/system/AndroidNativeUpdateNotice.tsx','utf8');
+  assert(nativeNotice.includes('break-words'));
+  assert(nativeNotice.includes('aria-live="polite"'));
+});

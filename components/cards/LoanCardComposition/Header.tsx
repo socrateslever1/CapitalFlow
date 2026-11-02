@@ -17,7 +17,8 @@ import { RiskProfile } from '../../../domain/finance/riskAnalysis';
 import { formatMoney, formatShortName } from '../../../utils/formatters';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
-import { computeLoanRemainingBalance, ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
+import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
+import { getDisplayedLoanBalance, isRecordedPartialMonthlyInstallment } from '../../../domain/finance/displayedBalance';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 import { formatBRDate } from '../../../utils/dateHelpers';
 import { getInstallmentScheduleTotal } from '../../../utils/loanStatus';
@@ -125,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const clientAvatarUrl = String(loan.clientAvatarUrl || '').trim();
   const amountBreakdown = React.useMemo(() => {
-    const balance = computeLoanRemainingBalance(loan);
+    const balance = getDisplayedLoanBalance(loan);
     const capital = Math.max(0, Number(balance.principalRemaining) || 0);
     const juros = Math.max(0, (Number(balance.interestRemaining) || 0) + (Number(balance.lateFeeRemaining) || 0));
     const total = Math.max(0, Number(balance.totalRemaining) || capital + juros);
@@ -141,7 +142,9 @@ export const Header: React.FC<HeaderProps> = ({
     : Math.max(0, Number(currentDebt ?? loan.totalToReceive ?? loan.principal ?? 0));
   const amountLabel = activePaymentOffer && loan.installments.length === 1
     ? 'Saldo da condição'
-    : 'Saldo atual';
+    : (loan.installments || []).some(inst => isRecordedPartialMonthlyInstallment(loan, inst))
+      ? 'Saldo registrado após recebimento'
+      : 'Saldo atual';
   const activeOfferLabel = activePaymentOffer
     ? Number(activePaymentOffer.paymentOfferDiscountPercent || 0) > 0
       ? `Desconto ${Number(activePaymentOffer.paymentOfferDiscountPercent).toLocaleString('pt-BR')}% |`

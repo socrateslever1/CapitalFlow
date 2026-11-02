@@ -386,7 +386,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 installmentsCount: simulation.installments.length,
                 frequency,
                 startDate: new Date().toISOString(),
-                gracePeriod: Number(gracePeriod) || 0,
+                gracePeriod: parseAgreementInteger(gracePeriod, 365) ?? 0,
                 discount: calculationMode === 'BY_VALUE_AND_COUNT' ? implicitPrincipalDiscount : (parseAgreementMoney(discount) ?? 0),
                 downPayment: parseAgreementMoney(downPayment) ?? 0,
                 calculation_mode: calculationMode,
@@ -516,7 +516,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     })();
 
     const displayedDebtTotal = flowMode === 'CAPITAL_ONLY_OPEN' ? principalDebt : totalDebt;
-    const displayedDebtLabel = flowMode === 'CAPITAL_ONLY_OPEN' ? 'Capital a Recuperar' : 'Divida Total Calculada';
+    const displayedDebtLabel = flowMode === 'CAPITAL_ONLY_OPEN' ? 'Capital a recuperar' : 'Saldo devedor atual';
 
     const fieldClass = 'mt-1 h-11 w-full min-w-0 rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 text-sm font-semibold text-slate-100 outline-none transition-colors duration-150 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30';
     const labelClass = 'block text-xs font-medium text-slate-300';
@@ -622,7 +622,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                     </div>
                                     <p className="text-xs leading-relaxed text-slate-400">
                                         {calculationMode === 'BY_VALUE_AND_COUNT'
-                                            ? 'Defina o valor e o número de parcelas. A soma será o novo valor negociado, sem juros adicionais.'
+                                            ? 'Defina o valor e o número de parcelas. A soma será o novo valor negociado, dispensando juros e encargos anteriores.'
                                             : calculationMode === 'BY_INSTALLMENTS'
                                             ? 'Informe quantas parcelas deseja. O sistema calcula o valor de cada uma.'
                                             : 'Informe quanto deseja receber por parcela. O sistema calcula a quantidade necessária.'}
@@ -632,7 +632,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                                 {calculationMode !== 'BY_VALUE_AND_COUNT' && (
                                     <div className="grid grid-cols-2 gap-2" aria-label="Cobrança de juros">
                                         <button type="button" aria-pressed={type === 'PARCELADO_SEM_JUROS'} onClick={() => { setType('PARCELADO_SEM_JUROS'); setFormError(null); }}
-                                            className={choiceClass + ' ' + (type === 'PARCELADO_SEM_JUROS' ? activeChoice : passiveChoice)}>Sem juros novos</button>
+                                            className={choiceClass + ' ' + (type === 'PARCELADO_SEM_JUROS' ? activeChoice : passiveChoice)}>Parcelar só o capital</button>
                                         <button type="button" aria-pressed={type === 'PARCELADO_COM_JUROS'} onClick={() => { setType('PARCELADO_COM_JUROS'); setFormError(null); }}
                                             className={choiceClass + ' ' + (type === 'PARCELADO_COM_JUROS' ? activeChoice : passiveChoice)}>Adicionar juros</button>
                                     </div>

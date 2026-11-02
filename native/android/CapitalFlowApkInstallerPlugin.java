@@ -81,9 +81,10 @@ public final class CapitalFlowApkInstallerPlugin extends Plugin {
                 Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:" + getContext().getPackageName()));
                 getActivity().startActivity(settings);
-                call.reject("Autorize a instalação por este aplicativo nas configurações do Android e toque em atualizar novamente.");
+                call.reject("PERMISSION");
             } catch (ActivityNotFoundException e) {
-                call.reject("O dispositivo não permite instalar atualizações por este aplicativo.", null, e);
+                android.util.Log.w("CapitalFlowApk", "Installation permission activity unavailable", e);
+                call.reject("INSTALLATION_BLOCKED", null, e);
             }
             return;
         }

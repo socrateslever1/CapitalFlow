@@ -118,3 +118,40 @@ test('interest-renewal offer still includes overdue charges when current interes
 
   assert.equal(preview.finalAmount, 65);
 });
+
+test('99% on settlement reduces the whole payable balance including unwaived late charges', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'SETTLEMENT', discountMode: 'PERCENT', discount: 99,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  assert.equal(preview.originalAmount, 1365);
+  assert.equal(preview.discountApplied, 1351.35);
+  assert.equal(preview.finalAmount, 13.65);
+});
+
+test('99% after waiving late charges applies to the reduced payable amount, without duplicating waivers', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'SETTLEMENT', discountMode: 'PERCENT', discount: 99,
+    waiveFine: true, waiveDailyInterest: true,
+  });
+  assert.equal(preview.chargesForgiven, 65);
+  assert.equal(preview.discountApplied, 1287);
+  assert.equal(preview.finalAmount, 13);
+});
+
+test('fixed settlement discount can reduce late charges without creating a negative offer', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'SETTLEMENT', discountMode: 'VALUE', discount: 1340,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  assert.equal(preview.discountApplied, 1340);
+  assert.equal(preview.finalAmount, 25);
+});
+
+test('renewal terms ignore additional settlement discounts', () => {
+  const preview = calculatePaymentOfferPreview(loan, installment, {
+    offerType: 'INTEREST_RENEWAL', discountMode: 'PERCENT', discount: 99,
+    waiveFine: false, waiveDailyInterest: false,
+  });
+  assert.equal(preview.finalAmount, 365);
+});

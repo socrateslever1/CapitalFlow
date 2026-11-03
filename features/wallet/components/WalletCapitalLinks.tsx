@@ -75,7 +75,7 @@ export const WalletCapitalLinks: React.FC<Props> = ({
                 <p className="break-words text-sm font-semibold text-white">{account.nickname}</p>
                 <p className={`flex items-start gap-1.5 text-xs leading-relaxed ${warning ? 'text-rose-300' : state.status === 'linked' ? 'text-emerald-300' : 'text-slate-400'}`}>
                   {warning && <AlertCircle size={15} className="mt-0.5 shrink-0" />}
-                  <span>{state.status === 'unlinked' ? 'Sem vínculo' : state.status === 'unavailable' ? 'Fonte indisponível' : state.status === 'divergent' ? 'Saldos divergentes: não movimentar sem reconciliação' : `${state.source?.name} · saldos conferem`}</span>
+                  <span>{state.status === 'unlinked' ? 'Sem vínculo com Capital' : state.status === 'unavailable' ? 'Fonte indisponível' : state.status === 'divergent' ? 'Saldos divergentes: não movimentar sem reconciliação' : `${state.source?.name} · saldos conferem`}</span>
                 </p>
                 {canManage && (
                   <div className="relative">

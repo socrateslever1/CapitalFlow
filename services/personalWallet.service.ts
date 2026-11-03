@@ -286,6 +286,28 @@ export type UpdatePersonalWalletExpense = {
 };
 
 export const personalWalletService = {
+  /**
+   * Vínculo opcional: RPC existente valida proprietário, saldo idêntico,
+   * exclusividade da fonte e serialização. Não altera registros históricos.
+   */
+  async linkAccountCapitalSource(accountId: string, sourceId: string | null): Promise<void> {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(accountId)) {
+      throw new Error('Selecione uma conta válida.');
+    }
+    if (sourceId !== null && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(sourceId)) {
+      throw new Error('Selecione uma fonte válida.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_link_capital_source', {
+      p_account_id: accountId,
+      p_capital_source_id: sourceId,
+    });
+    if (error) {
+      console.error('[Carteira] Falha ao vincular fonte de capital:', error);
+      throw new Error('Não foi possível vincular. Confira a propriedade e a igualdade dos saldos.');
+    }
+    if (data !== true) throw new Error('O vínculo não foi confirmado pelo servidor.');
+  },
+
   async ownerId() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user?.id) throw new Error('Sessão não encontrada.');

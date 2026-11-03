@@ -247,7 +247,11 @@ export const mapFormToLoan = (
     fundingCalculationMode,
     fundingInstallmentsCount: initialData ? initialData.fundingInstallmentsCount : fundingInstallmentsCount || undefined,
     fundingMonthlyRate: initialData ? initialData.fundingMonthlyRate : fundingMonthlyRate || undefined,
-    fundingInstallmentValue: fundingInstallmentsCount > 0 && fundingTotalPayable > 0 ? (fundingCalculationMode === 'INSTALLMENT' ? fundingInstallmentValue : parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2))) : undefined,
+    fundingInstallmentValue: initialData ? initialData.fundingInstallmentValue : (
+      fundingInstallmentsCount > 0 && fundingTotalPayable > 0
+        ? (fundingCalculationMode === 'INSTALLMENT' ? fundingInstallmentValue : parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2)))
+        : undefined
+    ),
     customerMarginPercent: form.billingCycle === 'INSTALLMENT_FIXED' ? customerMarginPercent : undefined,
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,

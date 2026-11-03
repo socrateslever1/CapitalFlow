@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FileText, X } from 'lucide-react';
 import { useWalletSnapshot } from './hooks/useWalletSnapshot';
 import { consumeIncomingWalletFile, hasIncomingWalletFile, suggestWalletDestination,
-  type WalletDestination } from './nativeWalletFileInbox';
+  type WalletDestination } from './walletFileInboxBridge';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
 
 const FlatStatementReader = React.lazy(() => import('../../components/wallet/FlatSmartStatementReader')

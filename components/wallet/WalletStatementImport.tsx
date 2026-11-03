@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FileText,
   UploadCloud,
@@ -23,6 +23,7 @@ import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
 import { parseStatementPdf, ParsedStatementRow } from '../../utils/walletStatementPdf';
+import { generateUUID } from '../../utils/generators';
 import {
   parseSmartFinancialDocument,
   SmartStatementParseResult,
@@ -69,8 +70,8 @@ export const WalletStatementImport: React.FC<Props> = ({
   onImported,
   onSummarySaved,
 }) => {
-  const [mode, setMode] = useState<'NEW' | 'INCLUDED' | 'DOCUMENT'>(
-    hasOpening ? 'INCLUDED' : 'NEW'
+  const [mode, setMode] = useState<'NEW' | 'INCLUDED' | 'DOCUMENT' | 'REVIEW'>(
+    hasOpening ? 'REVIEW' : 'NEW'
   );
   const [dueMonth, setDueMonth] = useState(
     (initialDueMonth || new Date().toLocaleDateString('en-CA')).slice(0, 7)
@@ -85,10 +86,32 @@ export const WalletStatementImport: React.FC<Props> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [pdfPassword, setPdfPassword] = useState('');
   const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
+  const [reviewedRows, setReviewedRows] = useState<WalletStatementRow[]>([]);
+  const [confirmedOpening, setConfirmedOpening] = useState<{ cardId: string; month: string } | null>(null);
+  const confirmationAttempt = useRef<{ signature: string; requestId: string } | null>(null);
+  const previousTarget = useRef(kind + ':' + targetId);
+  useEffect(() => {
+    const nextTarget = kind + ':' + targetId;
+    if (previousTarget.current === nextTarget) return;
+    previousTarget.current = nextTarget;
+    setSource(null);
+    setResult(null);
+    setRows([]);
+    setReviewedRows([]);
+    setAllowDuplicates(false);
+    setConfirmedOpening(null);
+    confirmationAttempt.current = null;
+    setMode(hasOpening ? 'REVIEW' : 'NEW');
+  }, [kind, targetId]);
+  const changeDueMonth = (month: string) => {
+    if (month !== dueMonth) setMode(confirmedOpening?.month === month ? 'INCLUDED'
+      : confirmedOpening ? 'NEW' : hasOpening ? 'REVIEW' : 'NEW');
+    setDueMonth(month);
+  };
 
   const declaredBank = result?.invoiceSummary?.institution;
   const bankMismatch = kind === 'CARD' && !issuerMatchesBank(targetIssuer, declaredBank || null);
-  const duplicateKeys = detectPreviouslyImported(rows, existingRows, kind, targetId);
+  const duplicateKeys = detectPreviouslyImported(rows, [...existingRows, ...reviewedRows], kind, targetId);
   const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
   const cardMismatch = Boolean(kind === 'CARD' && targetLastFour
     && result?.invoiceSummary?.cardLastFour
@@ -100,7 +123,7 @@ export const WalletStatementImport: React.FC<Props> = ({
       (targetLastFour && summary.cardLastFour && targetLastFour !== summary.cardLastFour))
       throw new Error('A fatura não corresponde à instituição ou ao cartão selecionado.');
     const referenceMonth = (summary.dueDate || dueMonth + '-01').slice(0,7);
-    const confirmation = await personalWalletService.saveCardInvoiceFacts({
+    const payload = {
       cardId:targetId, dueMonth:referenceMonth+'-01', dueDate:summary.dueDate,
       issuer:summary.institution, invoiceTotal:summary.invoiceTotal,
       minimumPayment:summary.minimumPayment, creditLimit:summary.creditLimit,
@@ -108,8 +131,18 @@ export const WalletStatementImport: React.FC<Props> = ({
       futureInstallments:summary.futureInstallments, sourceHash:result.hash,
       sourceType:result.sourceType === 'OFX' ? 'OFX' :
         result.sourceType === 'PDF_NATIVE' || result.sourceType === 'PDF_AI' ? 'PDF' : 'MANUAL',
-    });
+    } as const;
+    const signature = JSON.stringify(payload);
+    if (confirmationAttempt.current?.signature !== signature)
+      confirmationAttempt.current = { signature, requestId: generateUUID() };
+    const confirmation = await personalWalletService.saveCardInvoiceFacts(payload, confirmationAttempt.current.requestId);
     setDueMonth(referenceMonth);
+    if (confirmation.financial_applied) {
+      setConfirmedOpening({ cardId: targetId, month: referenceMonth });
+      if (mode !== 'DOCUMENT') setMode('INCLUDED');
+    } else if (referenceMonth !== dueMonth) {
+      setMode(hasOpening ? 'REVIEW' : 'NEW');
+    }
     await onSummarySaved?.(referenceMonth+'-01');
     return confirmation;
   };
@@ -131,15 +164,21 @@ export const WalletStatementImport: React.FC<Props> = ({
 
   const parse = async (forceAi = false, password?: string) => {
     if (!source) return;
+    if ((source.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(source.name)) && !forceAi) {
+      setError('A imagem fica neste dispositivo até você escolher Ler imagem com IA.');
+      return;
+    }
     setBusy(true);
     setError('');
     setPdfPasswordRequired(false);
     setFinished(null);
     try {
       // Processa com o leitor inteligente universal (OFX / PDF / Imagem com IA)
-      const parsed = await parseSmartFinancialDocument(source, kind, { forceAi, pdfPassword: password });
+      const parsed = await parseSmartFinancialDocument(source, kind, {
+        forceAi, pdfPassword: password, cloudConsent: forceAi,
+      });
       setPdfPassword('');
-      if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) setDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
+      if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) changeDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
       setResult(parsed);
       setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
         ? { ...row, selected: false } : row));
@@ -175,7 +214,7 @@ export const WalletStatementImport: React.FC<Props> = ({
       setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
       return;
     }
-    if (!result || !selectedCount || selectedInvalid) {
+    if (!result || !selectedCount || selectedInvalid || mode === 'REVIEW') {
       setError('Revise os valores, as datas e as descrições selecionadas.');
       return;
     }
@@ -183,7 +222,16 @@ export const WalletStatementImport: React.FC<Props> = ({
     setError('');
     let recorded = 0;
     try {
-      for (const row of rows.filter((x) => x.selected)) {
+      const selected = rows.filter(row => row.selected);
+      const latestRows = await personalWalletService.getStatementRowsForReview(
+        kind, targetId, selected.map(row => row.date),
+      );
+      setReviewedRows(latestRows);
+      if (detectPreviouslyImported(selected, latestRows, kind, targetId).size && !allowDuplicates) {
+        setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
+        return;
+      }
+      for (const row of selected) {
         const rowId = await personalWalletService.recordStatementRow({
           targetKind: kind,
           targetId,
@@ -215,7 +263,7 @@ export const WalletStatementImport: React.FC<Props> = ({
       setFinished(recorded);
       setRows((current) => current.map((row) => ({ ...row, selected: false })));
     } catch (reason: any) {
-      await onImported().catch(() => {});
+      if (recorded > 0) await onImported().catch(() => {});
       setError(
         `${recorded} lançamento(s) processados. ${
           reason?.message || 'Falha no registro.'
@@ -289,7 +337,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                 <strong className="block font-semibold text-indigo-300">
                   IA Vision Multimodal (Frações de centavo)
                 </strong>
-                Prints de tela, faturas digitalizadas ou fotos de comprovantes Pix são dissecados automaticamente com IA.
+                Prints, faturas digitalizadas e fotos de comprovantes podem ser lidos com IA após sua confirmação de envio.
               </div>
             </div>
           </div>
@@ -305,6 +353,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                   onChange={(event) => setMode(event.target.value as typeof mode)}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                 >
+                  <option value="REVIEW" disabled>Escolha como esta fatura afeta o saldo</option>
                   <option value="NEW">Novos gastos — somar ao limite usado da fatura</option>
                   <option value="INCLUDED">Já incluídos na situação inicial da fatura</option>
                   <option value="DOCUMENT">Somente conferência — não alterar limites/saldos</option>
@@ -318,7 +367,7 @@ export const WalletStatementImport: React.FC<Props> = ({
                   type="month"
                   value={dueMonth}
                   disabled={busy}
-                  onChange={(event) => setDueMonth(event.target.value)}
+                  onChange={(event) => changeDueMonth(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                 />
               </label>
@@ -435,6 +484,15 @@ export const WalletStatementImport: React.FC<Props> = ({
               <AlertTriangle size={18} className="shrink-0 text-rose-400 mt-0.5" />
               <div>{error}</div>
             </div>
+          )}
+
+          {isImage && source && !result && (
+            <button type="button" disabled={busy} onClick={() => {
+              if (!window.confirm('Enviar esta imagem financeira ao Google Gemini para análise? Ela pode conter dados pessoais e bancários. Esta ação pode gerar custos de API.')) return;
+              void parse(true);
+            }} className="min-h-10 rounded-lg border border-cyan-600/60 px-3 py-2 text-xs font-semibold text-cyan-200 disabled:opacity-40">
+              Ler imagem com IA
+            </button>
           )}
 
           {finished !== null && (
@@ -613,7 +671,7 @@ export const WalletStatementImport: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              disabled={busy || !result || selectedCount === 0 || selectedInvalid}
+              disabled={busy || !result || selectedCount === 0 || selectedInvalid || mode === 'REVIEW'}
               onClick={save}
               className="rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-600/20 disabled:opacity-40 transition"
             >

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../services/personalWallet.service';
-import { suggestWalletDestination } from '../../features/wallet/nativeWalletFileInbox';
+import { suggestWalletDestination } from '../../features/wallet/walletFileInboxBridge';
 
 const card = (id:string, last_four:string) =>
   ({id, last_four, issuer:'Nubank',nickname:'Nubank '+id,status:'ACTIVE'} as PersonalWalletCard);

@@ -35,6 +35,16 @@ test('consolida limite utilizado e disponível sem percentuais inválidos', () =
   assert.equal(getCreditSummary([{ credit_limit: 0, used_limit: 10 }]).percentage, 0);
 });
 
+test('excesso de um cartão não consome o limite disponível de outro', () => {
+  const summary = getCreditSummary([
+    { credit_limit: 100, used_limit: 150 },
+    { credit_limit: 100, used_limit: 0 },
+  ]);
+  assert.equal(summary.total, 200);
+  assert.equal(summary.used, 150);
+  assert.equal(summary.available, 100);
+});
+
 test('agrupa cartão vinculado na conta e mantém cartão independente', () => {
   const groups = groupWalletByBank(
     [{ id: 'a1', nickname: 'Principal', bank_name: 'Nubank', balance: 10 }],

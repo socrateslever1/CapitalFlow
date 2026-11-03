@@ -21,6 +21,7 @@ import type { BankAccountDetails } from '../features/wallet/domain/bankAccountDe
 import type { AnyCardVaultEnvelope, WrappedWalletMasterKey } from '../features/wallet/domain/cardVault';
 import { CardRegistrationError, type CompleteCardRegistration } from '../features/wallet/domain/cardRegistration';
 import { signWalletImagePaths } from '../features/wallet/services/walletImageSigning';
+import { loadAllWalletRows } from '../features/wallet/services/walletCompleteRead';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
@@ -291,6 +292,20 @@ export const personalWalletService = {
     return data.user.id;
   },
 
+  async getStatementRowsForReview(
+    kind: 'ACCOUNT' | 'CARD', targetId: string, dates: readonly string[],
+  ): Promise<WalletStatementRow[]> {
+    if (!targetId || !dates.length || dates.some(date => !/^\d{4}-\d{2}-\d{2}$/.test(date)))
+      throw new Error('Destino ou datas da importação inválidos.');
+    const orderedDates = [...dates].sort();
+    const result = await loadAllWalletRows<WalletStatementRow>((from, to) => supabase
+      .from('personal_wallet_statement_rows').select('*')
+      .eq('target_kind', kind).eq('target_id', targetId)
+      .gte('entry_date', orderedDates[0]).lte('entry_date', orderedDates[orderedDates.length - 1])
+      .order('entry_date', { ascending: false }).order('id', { ascending: false }).range(from, to));
+    return result.data;
+  },
+
   /**
    * Fast path for the wallet overview. It retrieves every purchase and
    * installment necessary to calculate card cycles accurately, but does
@@ -300,25 +315,22 @@ export const personalWalletService = {
   async loadOverview() {
     const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates] =
       await Promise.all([
-        supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
-        supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
-        supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
-        supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }),
-        supabase.from('personal_wallet_invoice_payments')
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_invoice_payments')
           .select('id,request_id,card_id,due_month,account_id,amount,source,created_at')
-          .order('created_at', { ascending: false }),
-        supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }),
-        supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }),
-        supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id')
-          .order('reference_month', { ascending: false }).limit(500),
+          .order('created_at', { ascending: false }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id')
+          .order('reference_month', { ascending: false }).order('id').range(from, to)),
         // Lightweight invoice metadata: exact issuer due dates may differ from
         // the generic day configured for the card. No PAN or sensitive fields.
-        supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
-          .order('due_month',{ascending:false}).limit(500),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('id,card_id,due_month,due_date')
+          .order('due_month',{ascending:false}).order('id').range(from, to)),
       ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error ||
-      invoicePayments.error || payables.error || recurringIncomes.error || recurringReceipts.error || cardInvoiceDates.error;
-    if (error) throw new Error(error.message);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
     const calculatedCards = ((cards.data || []) as PersonalWalletCard[]).map(card => {
@@ -353,19 +365,19 @@ export const personalWalletService = {
 
   async load() {
     const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
-      supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }),
-      supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }),
-      supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }),
-      supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }),
-      supabase.from('personal_wallet_invoice_payments').select('id,request_id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_invoice_payments').select('id,request_id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }).order('id').range(from, to)),
       supabase.from('personal_wallet_account_operations').select('*').order('operation_date', {ascending:false}).limit(2000),
       supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', {ascending:false}).limit(2000),
-      supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }),
-      supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,card_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }),
-      supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day',{ascending:true}),
-      supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month',{ascending:false}).limit(500),
-      supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at',{ascending:false}),
-      supabase.from('fontes').select('id,profile_id,name,balance,type').is('archived_at', null).order('name', { ascending: true }),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,card_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day',{ascending:true}).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month',{ascending:false}).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at',{ascending:false}).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
     ]);
     const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error || recurringObligations.error || capitalSources.error;
     if (error) throw new Error(error.message);

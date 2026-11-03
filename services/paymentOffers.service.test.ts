@@ -4,11 +4,17 @@ import assert from 'node:assert/strict';
 import { LoanStatus, type Installment, type Loan } from '../types';
 import { calculatePaymentOfferPreview } from './paymentOffers.service';
 
+const localDueDate = (() => {
+  const today = new Date();
+  const due = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3);
+  return `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+})();
+
 const installment = {
   id: 'installment',
   // Três dias de atraso: multa 2% + juros diários 1% × 3 = 5% de encargos.
   // Referência relativa evita que a suíte mude de resultado com o calendário.
-  dueDate: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 3, 12)).toISOString().slice(0,10),
+  dueDate: localDueDate,
   amount: 1300,
   scheduledPrincipal: 1000,
   scheduledInterest: 300,

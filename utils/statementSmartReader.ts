@@ -314,7 +314,7 @@ Regras Cruciais:
 export async function parseSmartFinancialDocument(
   file: File,
   kind: 'ACCOUNT' | 'CARD',
-  options?: { forceAi?: boolean; pdfPassword?: string }
+  options?: { forceAi?: boolean; pdfPassword?: string; cloudConsent?: boolean }
 ): Promise<SmartStatementParseResult> {
   const fileName = file.name.toLowerCase();
   const fileType = file.type.toLowerCase();
@@ -332,12 +332,14 @@ export async function parseSmartFinancialDocument(
     fileName.endsWith('.jpeg') ||
     fileName.endsWith('.webp')
   ) {
+    if (!options?.cloudConsent) throw new Error('Confirme o envio da imagem financeira para leitura com IA.');
     return parseStatementImageWithAi(file, kind);
   }
 
   // 3. Arquivos PDF (Faturas e Extratos)
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     if (options?.forceAi) {
+      if (!options.cloudConsent) throw new Error('Confirme o envio do PDF financeiro para leitura com IA.');
       if (file.size > 10 * 1024 * 1024) throw new Error('Limite de PDF para leitura com IA: 10 MB.');
       // PDF cloud processing requires explicit confirmation in the importer UI.
       const cloud = await parseStatementImageWithAi(

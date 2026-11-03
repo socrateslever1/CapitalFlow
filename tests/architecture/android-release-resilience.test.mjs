@@ -52,6 +52,6 @@ test('Android signed release tolerates transient GitHub errors but refuses misma
   assert(flow.includes('Arquivo publicado difere da release assinada'));
   assert(flow.includes('for tag in android-signed-beta android-preview'));
   assert(flow.includes('gh release edit "$tag"'));
-  assert(flow.includes('new_code <= prior_code'));
+  assert(flow.includes('node scripts/android/release-safety.mjs compare'));
   assert(flow.includes('new_cert'));
 });

@@ -61,24 +61,9 @@ const sourceAccount = (
 const isOpenPayable = (payable: PersonalWalletPayable) =>
   !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
 
-const dedupePresentationAccounts = (accounts: PersonalWalletAccount[]) => {
-  const seen = new Set<string>();
-  return accounts.filter(account => {
-    const key = [
-      account.account_type,
-      account.nickname.trim().toLocaleLowerCase(),
-      (account.bank_name || '').trim().toLocaleLowerCase(),
-      Number(account.balance || 0).toFixed(2),
-    ].join('|');
-    if (seen.has(key) && account.account_type === 'CASH') return false;
-    seen.add(key);
-    return true;
-  });
-};
-
 const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   const month = today.slice(0, 7);
-  const accounts = dedupePresentationAccounts(snapshot.accounts);
+  const accounts = snapshot.accounts;
   const cards = snapshot.cards.filter(card => card.status !== 'CANCELED');
   const accountBalance = sum(accounts, account => Number(account.balance));
   const institutionKeys = new Set(accounts.map(account =>

@@ -109,10 +109,13 @@ export function buildChargeLink(baseUrl: string, input: { pixKey: string; recipi
 export function getCreditSummary(cards: Array<{ credit_limit: number; used_limit: number }>) {
   const total = cards.reduce((sum, card) => sum + Math.max(0, Number(card.credit_limit) || 0), 0);
   const used = cards.reduce((sum, card) => sum + Math.max(0, Number(card.used_limit) || 0), 0);
+  const availableCents = cards.reduce((sum, card) => sum + Math.max(0, Math.round(
+    (Math.max(0, Number(card.credit_limit) || 0) - Math.max(0, Number(card.used_limit) || 0)) * 100,
+  )), 0);
   return {
     total,
     used,
-    available: Math.max(0, total - used),
+    available: availableCents / 100,
     percentage: total > 0 ? Math.min(100, Math.max(0, (used / total) * 100)) : 0,
   };
 }

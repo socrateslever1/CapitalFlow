@@ -102,11 +102,11 @@ function readerHarness(name: 'FlatSmartStatementReader' | 'WalletStatementImport
     effects.forEach(effect => effect());
     return tree;
   };
-  const all = (node: any = tree): any[] => !node || typeof node !== 'object' ? []
+  const all = (node: any): any[] => !node || typeof node !== 'object' ? []
     : Array.isArray(node) ? node.flatMap(item => all(item))
       : [node, ...all(node.props?.children)];
   const find = (predicate: (node: any) => boolean) => {
-    const node = all().find(predicate);
+    const node = all(tree).find(predicate);
     assert.ok(node, 'Expected reader control is present');
     return node;
   };
@@ -213,7 +213,11 @@ for (const reader of ['FlatSmartStatementReader', 'WalletStatementImport'] as co
     await app.load(); await app.confirmSummary();
     app.props.targetId = 'card-b'; app.props.targetName = 'Cartão B'; app.props.hasOpening = false;
     app.render(); app.render();
-    assert.equal(app.button('Confirmar itens selecionados').props.disabled, true);
+    if (reader === 'FlatSmartStatementReader') {
+      assert.throws(() => app.button('Confirmar itens selecionados'), /Expected reader control is present/);
+    } else {
+      assert.equal(app.button('Confirmar itens selecionados').props.disabled, true);
+    }
     assert.equal(app.calls.rows.length, 0);
   });
 

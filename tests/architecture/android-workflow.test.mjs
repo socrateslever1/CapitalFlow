@@ -45,10 +45,8 @@ test('public Android APK only comes from a permanent release signature', () => {
   assert(yaml.includes('gh release upload "$tag"'), 'publish permanently signed APK');
   assert(yaml.includes('for tag in android-signed-beta android-preview'),
     'existing link must be preserved after signing setup');
-  assert(yaml.includes('new_cert" != "$prior_cert"'),
-    'reject incompatible signatures from new release');
-  assert(yaml.includes('new_code <= prior_code'),
-    'reject Android version downgrades or unchanged versionCode');
+  assert(yaml.includes('node scripts/android/release-safety.mjs compare'),
+    'reject incompatible signatures and version downgrades through the release validator');
   assert(yaml.includes('com.socrateslever.capitalflow'), 'validate Android package identity');
   assert(yaml.includes('contents: write'), 'publishing requires GitHub write permissions');
 });

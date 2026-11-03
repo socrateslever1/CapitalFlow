@@ -5,7 +5,7 @@ import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { App } from './App';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
 import { Capacitor } from '@capacitor/core';
-import { hasIncomingWalletFile } from './features/wallet/nativeWalletFileInbox';
+import { hasIncomingWalletFile } from './features/wallet/walletFileInboxBridge';
 
 /** Opening a Gmail attachment starts the relevant wallet route, including cold launch. */
 const NativeWalletImportRouter: React.FC = () => {

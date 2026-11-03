@@ -76,7 +76,7 @@ export const validateLoanForm = (
   if (!isEditing && isCreditCardSource && formData.billingCycle !== 'INSTALLMENT_FIXED' && !hasFundingTotal) {
     return { isValid: false, error: 'Informe o custo do cartão. Se a operação não teve taxa, digite zero.' };
   }
-  if (hasFundingTotal) {
+  if (hasFundingTotal && !isEditing) {
     const fundingTotal = parseCurrency(formData.fundingTotalPayable);
     if (!Number.isFinite(fundingTotal) || fundingTotal < principal - 0.005) {
       return { isValid: false, error: 'O total financiado não pode ser menor que o capital entregue ao cliente.' };

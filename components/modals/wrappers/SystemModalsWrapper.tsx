@@ -162,7 +162,7 @@ export const SystemModalsWrapper = () => {
                         <button
                             onClick={loanCtrl.executeConfirmation}
                             disabled={!!ui.isSaving || (['ARCHIVE', 'RECLASSIFY_ARCHIVE'].includes(ui.confirmation.type) && !!validateArchiveClassification(ui.confirmation.archiveReason, ui.confirmation.archiveNote))}
-                            className={`disabled:cursor-not-allowed disabled:opacity-40 ${`flex-1 py-3 text-white rounded-full font-bold uppercase ${
+                            className={`flex-1 py-3 text-white rounded-full font-bold uppercase disabled:cursor-not-allowed disabled:opacity-40 ${
                                 ['DELETE', 'DELETE_CLIENT', 'DELETE_SOURCE', 'REVERSE_TRANSACTION'].includes(ui.confirmation.type || '')
                                 ? 'bg-rose-600'
                                 : ui.confirmation.type === 'RESTORE' ? 'bg-emerald-600' : 'bg-blue-600'

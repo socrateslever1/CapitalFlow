@@ -196,8 +196,8 @@ export const legalPublicService = {
     });
 
     const rpcPayload = Array.isArray(signResult) ? signResult[0] : signResult;
-    if (insertError || rpcPayload?.success === false) {
-      throw new Error(rpcPayload?.message || insertError?.message || 'Falha ao registrar assinatura.');
+    if (insertError || rpcPayload?.success !== true) {
+      throw new Error(rpcPayload?.message || insertError?.message || 'Assinatura não confirmada. Confira os dados.');
     }
 
     return true;

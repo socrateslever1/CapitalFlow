@@ -40,5 +40,6 @@ test('não aceita erros de valor e inconsistências', () => {
 test('histórico legado lê custo, sem somá-lo duas vezes', () => {
   assert.equal(readLoanFundingCost({principal:200,fundingTotalPayable:209.98,fundingCost:9.98}),9.98);
   assert.equal(readLoanFundingCost({principal:200,fundingTotalPayable:209.98}),9.98);
+  assert.equal(readLoanFundingCost({principal:200,fundingTotalPayable:209.98,fundingCost:0}),9.98);
   assert.equal(readLoanFundingCost({principal:200}),0);
 });

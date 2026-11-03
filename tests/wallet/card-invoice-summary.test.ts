@@ -125,14 +125,35 @@ test('Itaú: o total contábil da fatura prevalece sobre o boleto de financiamen
   // Não armazenar PDFs nem dados pessoais de clientes neste repositório.
   const parsed = parseCardInvoiceSummary([
     'Itaú - Platinum',
-    'Resumo da fatura em R$',
+    // A ordem de blocos do PDF pode apresentar o boleto financiado antes do resumo.
+    'Encargos R$ 48,00',
+    'Total a pagar',
+    'R$ 1.934,79',
+    'Resumo da fatura em R
+    'Limite total de crédito',
+    'R$ 3.000,00',
+    'Vencimento: 02/11/2026',
+  ]);
+  assert.equal(parsed.institution, 'Itaú');
+  assert.equal(parsed.invoiceTotal, 1876.54, 'não incorporar encargos de parcelamento');
+  assert.equal(parsed.minimumPayment, 205);
+  assert.equal(parsed.dueDate, '2026-11-02');
+  assert(parsed.warnings.some(w => /alternativo de financiamento/.test(w)));
+});
+
+test('Itaú: total da fatura é preservado quando não existe alternativa de financiamento', () => {
+  const parsed = parseCardInvoiceSummary([
+    'Banco Itaú', 'Total desta fatura', 'R$ 1.111,21',
+    'Pagamento mínimo: R$ 111,00', 'Vencimento 25/12/2026',
+  ]);
+  assert.equal(parsed.invoiceTotal, 1111.21);
+  assert.equal(parsed.warnings.filter(w => /alternativo de financiamento/.test(w)).length, 0);
+});
+,
     'Total desta fatura',
     '1.876,54',
     'Pagamento mínimo:',
     'R$ 205,00',
-    'Encargos R$ 48,00',
-    'Total a pagar',
-    'R$ 1.934,79',
     'O total da sua fatura é:',
     'R$ 1.876,54',
     'Limite total de crédito',

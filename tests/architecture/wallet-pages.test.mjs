@@ -7,16 +7,19 @@ test('physical pages no longer render the legacy wallet monolith',()=>{
  for(const name of names){
   const src=read('features/wallet/pages/'+name+'.tsx');
   assert.doesNotMatch(src,/PersonalWalletPage/);
-  assert.match(src,/useWalletSnapshot/);
+  assert.match(src,name==='WalletPayablesPage' ? /walletRepository\.loadOverview/ : /useWalletSnapshot/);
   assert.match(src,/WalletPageFrame/);
  }
 });
 test('pages use canonical RPC service, not direct financial mutations',()=>{
  const card=read('features/wallet/pages/WalletCardsPage.tsx');
- const debt=read('features/wallet/pages/WalletPayablesPage.tsx');
+ const debt=read('features/wallet/pages/WalletPayablesManagement.tsx');
+ const debtList=read('features/wallet/pages/WalletPayablesPage.tsx');
  assert.match(card,/payInvoicePartial/);
  assert.match(card,/createCompleteCard/);
  assert.match(debt,/payPayable/);
+ assert.match(debtList,/deriveWalletCommitments/);
+ assert.match(debtList,/React\.lazy/);
  for(const name of names) assert.doesNotMatch(read('features/wallet/pages/'+name+'.tsx'),/\.from\(['"]personal_wallet_/);
 });
 test('realtime correctly scopes income owner field',()=>{

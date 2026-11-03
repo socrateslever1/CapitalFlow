@@ -1,21 +1,23 @@
-import React,{useMemo,useState,useRef} from 'react';
+import React,{useEffect,useMemo,useState,useRef} from 'react';
 import {Building2,CheckCircle2,FileUp,HandCoins,Plus,UserRound,X} from 'lucide-react';
 import {PersonalWalletAccount,PersonalWalletCard,PersonalWalletPayable} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
+import {parseWalletMoney} from '../../features/wallet/utils/parseWalletMoney';
 import {generateUUID} from '../../utils/generators';
 import {derivePayableStatus,summarizePayables} from './payablesDomain';
 import {WalletMetricStrip} from './WalletMetricStrip';
 type Props={
  payables:PersonalWalletPayable[];accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];
- saving:boolean;onCreate?:()=>void;showCreateButton?:boolean;onPay:(input:{
+ saving:boolean;initialPayableId?:string|null;onCreate?:()=>void;showCreateButton?:boolean;onPay:(input:{
  payableId:string;accountId:string|null;cardId:string|null;amount:number;receipt:File|null;requestId:string;
  })=>Promise<void>;
 };
 const labels={PENDING:'Pendente',PARTIAL:'Parcial',PAID:'Liquidado',OVERDUE:'Atrasado',CANCELED:'Cancelado'} as const;
 const badge={PENDING:'text-amber-300',PARTIAL:'text-blue-300',PAID:'text-emerald-300',OVERDUE:'text-rose-300',CANCELED:'text-slate-400'} as const;
-export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,onCreate,showCreateButton=true,onPay})=>{
+export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,initialPayableId,onCreate,showCreateButton=true,onPay})=>{
  const summary=useMemo(()=>summarizePayables(payables),[payables]);
  const [selected,setSelected]=useState<PersonalWalletPayable|null>(null);
+ const openedPayment=useRef<string|null>(null);
  const [value,setValue]=useState('');
  const [source,setSource]=useState('');
  const [receipt,setReceipt]=useState<File|null>(null);
@@ -29,11 +31,21 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
   setSource(p.origin_type==='ACCOUNT'&&p.origin_account_id?'account:'+p.origin_account_id:
             p.origin_type==='CARD'&&p.origin_card_id?'card:'+p.origin_card_id:'');
  };
+ useEffect(()=>{
+  if(!initialPayableId || openedPayment.current===initialPayableId)return;
+  const found=payables.find(item=>item.id===initialPayableId);
+  if(found && !['PAID','CANCELED'].includes(found.status)){
+    openedPayment.current=initialPayableId;
+    start(found);
+  }
+ },[initialPayableId,payables]);
  const submit=async(event:React.FormEvent)=>{
   event.preventDefault();if(!selected||busy||saving)return;
   const [kind,id]=source.split(':');
   if(!id||(kind!=='account'&&kind!=='card')){setError('Escolha uma conta ou cartão para realizar o pagamento.');return;}
-  const amount=Number(value);if(!Number.isFinite(amount)||amount<=0||amount>selected.outstanding_balance){setError('Valor inválido.');return;}
+  let amount:number;
+  try{amount=parseWalletMoney(value,'pagamento');}catch{setError('Valor inválido.');return;}
+  if(amount<=0||amount>selected.outstanding_balance){setError('Valor inválido.');return;}
   setBusy(true);setError('');
   try{
    await onPay({payableId:selected.id,accountId:kind==='account'?id:null,cardId:kind==='card'?id:null,amount,receipt,requestId:request.current});
@@ -62,7 +74,7 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
    <form onSubmit={submit} className="w-full max-w-md space-y-3 rounded-t-3xl border border-slate-700 bg-slate-900 p-5 text-white sm:rounded-3xl">
     <header className="flex items-center justify-between"><div><span className="text-xs text-emerald-400">Registrar pagamento</span><h3 className="text-lg font-bold">{selected.creditor_name}</h3></div><button type="button" aria-label="Fechar" onClick={reset}><X size={18}/></button></header>
     <p className="text-xs text-slate-400">Saldo devedor: {formatMoney(selected.outstanding_balance)}</p>
-    <label className="block text-xs text-slate-300">Valor pago<input required type="number" min="0.01" step="0.01" max={selected.outstanding_balance} value={value} onChange={e=>setValue(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"/></label>
+    <label className="block text-xs text-slate-300">Valor pago<input required name="wallet-payment-amount" type="text" inputMode="decimal" autoComplete="off" value={value} onChange={e=>setValue(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white"/></label>
     <label className="block text-xs text-slate-300">Origem do pagamento
      <select required value={source} onChange={e=>{setSource(e.target.value);request.current=generateUUID();}} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white">
       <option value="">Selecione conta ou cartão</option>

@@ -1,125 +1,151 @@
-import React, { useEffect, useState } from 'react';
-import { ClipboardList, Plus, Repeat } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import type { UserProfile } from '../../../types';
-import { WalletPayablesPanel } from '../../../components/wallet/WalletPayablesPanel';
-import { RecurringObligationsPanel } from '../../../components/wallet/RecurringObligationsPanel';
-import { personalWalletService } from '../../../services/personalWallet.service';
-import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
-import { WalletPageFrame } from '../components/WalletPageFrame';
-import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
+import React, {useCallback,useEffect,useMemo,useState} from 'react';
+import {ChevronRight,ClipboardList,Plus,RefreshCw} from 'lucide-react';
+import {useSearchParams} from 'react-router-dom';
+import type {UserProfile} from '../../../types';
+import {formatMoney} from '../../../utils/formatters';
+import {BankLogo} from '../../../components/wallet/BankLogo';
+import {WalletPageFrame} from '../components/WalletPageFrame';
+import {walletRepository,type WalletOverviewSnapshot} from '../services/walletRepository';
+import {deriveWalletCommitments,getCommitmentsWithinDays,type WalletCommitment} from '../domain/walletCommitments';
 
-export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { data, loading, error, refresh } = useWalletSnapshot();
-  const [creating, setCreating] = useState(false);
-  const [createChooserOpen, setCreateChooserOpen] = useState(false);
-  const [recurringCreateRequest, setRecurringCreateRequest] = useState<number | undefined>();
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState('');
-  const [form, setForm] = useState({
-    description: '', creditor_name: '', creditor_type: 'COMPANY' as 'COMPANY' | 'PERSON',
-    category: 'Despesas', total_amount: '', due_date: '', origin: '',
-  });
-  useEffect(() => {
-    if (searchParams.get('acao') !== 'novo-compromisso') return;
-    setCreateChooserOpen(true);
-    const next = new URLSearchParams(searchParams);
-    next.delete('acao');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
-  const create = async (event: React.FormEvent) => {
-    event.preventDefault(); if (saving) return;
-    setSaving(true); setNotice('');
-    const [source, id] = form.origin.split(':');
-    try {
-      await personalWalletService.createPayable({
-        description: form.description, creditor_name: form.creditor_name,
-        creditor_type: form.creditor_type, category: form.category,
-        total_amount: Number(form.total_amount), due_date: form.due_date || null,
-        origin_type: source === 'ACCOUNT' || source === 'CARD' ? source : 'CASH',
-        origin_account_id: source === 'ACCOUNT' ? id : null,
-        origin_card_id: source === 'CARD' ? id : null,
-      });
-      await refresh(); setCreating(false);
-      setForm({ description: '', creditor_name: '', creditor_type: 'COMPANY',
-        category: 'Despesas', total_amount: '', due_date: '', origin: '' });
-    } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao cadastrar compromisso.'); }
-    finally { setSaving(false); }
+const WalletPayablesManagement=React.lazy(()=>import('./WalletPayablesManagement')
+  .then(module=>({default:module.WalletPayablesManagement})));
+
+type Props={activeUser?:UserProfile|null;onNavigate:(path:string)=>void};
+const todayInManaus=()=>{
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Manaus',year:'numeric',month:'2-digit',day:'2-digit'})
+    .formatToParts(new Date());
+  const values=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  return values.year+'-'+values.month+'-'+values.day;
+};
+const dateLabel=(iso:string)=>iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4);
+const labelFor=(item:WalletCommitment)=>item.kind==='CARD_INVOICE'?'Cartão':
+  item.kind==='RECURRING'?'Recorrente':item.kind==='DEBT'?'Dívida':'Conta';
+const statusLabel=(item:WalletCommitment)=>item.status==='PARTIAL'?'Parcial':
+  item.status==='OVERDUE'?'Vencido':'A vencer';
+
+export const WalletPayablesPage:React.FC<Props>=({activeUser,onNavigate})=>{
+  const [searchParams,setSearchParams]=useSearchParams();
+  const [managing,setManaging]=useState(()=>searchParams.get('gerenciar')==='1' ||
+    searchParams.get('acao')==='novo-compromisso');
+  const [snapshot,setSnapshot]=useState<WalletOverviewSnapshot|null>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [showAll,setShowAll]=useState(searchParams.get('filtro')!=='proximos');
+  const [today,setToday]=useState(todayInManaus);
+  const load=useCallback(async(force=false)=>{
+    const result=await walletRepository.loadOverview({force});
+    setSnapshot(result);setToday(todayInManaus());setError('');
+  },[]);
+  useEffect(()=>{
+    let alive=true;
+    walletRepository.loadOverview().then(result=>{
+      if(alive){setSnapshot(result);setToday(todayInManaus());}
+    }).catch(cause=>{
+      if(alive)setError(cause instanceof Error?cause.message:'Falha ao carregar os compromissos.');
+    }).finally(()=>{if(alive)setLoading(false);});
+    const update=()=>{void walletRepository.loadOverview({force:true})
+      .then(data=>{if(alive){setSnapshot(data);setToday(todayInManaus());setError('');}})
+      .catch(()=>{if(alive)setError('Falha na atualização. Atualize a Carteira.');});};
+    window.addEventListener('capitalflow:wallet-updated',update);
+    return()=>{alive=false;window.removeEventListener('capitalflow:wallet-updated',update);};
+  },[]);
+
+  useEffect(()=>{
+    if(searchParams.get('gerenciar')==='1' || searchParams.get('acao')==='novo-compromisso')setManaging(true);
+    if(searchParams.get('filtro')==='proximos')setShowAll(false);
+  },[searchParams]);
+
+  const records=useMemo(()=>snapshot?deriveWalletCommitments(snapshot,today):[],[snapshot,today]);
+  const upcoming=useMemo(()=>getCommitmentsWithinDays(records,today,45),[records,today]);
+  const displayed=showAll?records:upcoming;
+  const overdue=upcoming.filter(item=>item.dueDate<today).length;
+
+  const goDetails=(item:WalletCommitment,pay=false)=>{
+    if(item.kind==='CARD_INVOICE'){
+      onNavigate('cartoes?card='+encodeURIComponent(item.cardId || '')+'&fatura='+encodeURIComponent(item.dueMonth || '')+
+        (pay?'&acao=pagar-fatura':''));
+    }else {
+      setManaging(true);
+      const params=new URLSearchParams(searchParams);
+      params.set('gerenciar','1');
+      if(pay && item.payableId)params.set('pagar',item.payableId);
+      else params.delete('pagar');
+      setSearchParams(params,{replace:true});
+    }
   };
-  return <WalletPageFrame title="Compromissos" description="Contas a pagar e despesas recorrentes."
-    actions={<button type="button" onClick={() => setCreateChooserOpen(true)}
-      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><Plus size={17}/> Novo compromisso</button>}
-    loading={loading} error={error || notice} onRefresh={() => { void refresh().catch(() => {}); }}>
-    {data && <div className="space-y-5">
-      <div className="grid gap-5 lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-7">
-          <WalletPayablesPanel payables={data.payables} accounts={data.accounts} cards={data.cards}
-            saving={saving} showCreateButton={false}
-            onPay={async input => {
-              setSaving(true); setNotice('');
-              try {
-                await personalWalletService.payPayable(input);
-                await refresh();
-              } catch (cause) {
-                setNotice(cause instanceof Error ? cause.message : 'Pagamento não realizado.');
-                throw cause;
-              } finally { setSaving(false); }
-            }}/>
+  const manage=()=>{
+    setManaging(true);
+    const next=new URLSearchParams(searchParams);
+    next.set('gerenciar','1');
+    setSearchParams(next,{replace:true});
+  };
+  const back=()=>{
+    setManaging(false);
+    const next=new URLSearchParams(searchParams);
+    next.delete('gerenciar');next.delete('acao');next.delete('pagar');
+    setSearchParams(next,{replace:true});
+    void load(true).catch(()=>setError('Falha ao atualizar compromissos.'));
+  };
+  if(managing)return <>
+    <button type="button" onClick={back} className="mb-3 min-h-11 rounded-xl border border-slate-700 px-4 text-sm text-blue-200">
+      ← Voltar aos compromissos
+    </button>
+    <React.Suspense fallback={<div className="animate-pulse rounded-xl bg-slate-900 p-6 text-sm text-slate-300">Abrindo gerenciamento…</div>}>
+      <WalletPayablesManagement activeUser={activeUser} onNavigate={onNavigate}/>
+    </React.Suspense>
+  </>;
+
+  return <WalletPageFrame title="Compromissos" description="Faturas, contas e dívidas em um só lugar."
+    loading={loading} error={error} onRefresh={()=>{void load(true).catch(cause=>setError(cause instanceof Error?cause.message:'Falha ao atualizar.'));}}
+    actions={<button type="button" onClick={manage}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+      <Plus size={17}/> Novo / gerenciar
+    </button>}>
+    {snapshot&&<section aria-label="Lista de compromissos" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 px-3 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white">{upcoming.length} compromisso(s) até 45 dias</p>
+          <p className="text-xs text-slate-400">{overdue} vencido(s) · {records.length} pendente(s) no total</p>
         </div>
-        <div className="min-w-0 border-t border-slate-800 pt-5 lg:col-span-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-          <RecurringObligationsPanel accounts={data.accounts} cards={data.cards}
-            items={data.recurringObligations} showCreateButton={false} createRequest={recurringCreateRequest}
-            onSaved={async () => { await refresh(); }}/>
-        </div>
+        <button type="button" onClick={()=>setShowAll(value=>!value)}
+          className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-blue-200">
+          {showAll?'Até 45 dias':'Ver todos'}
+        </button>
       </div>
-      {createChooserOpen && <Modal compact title="Novo compromisso" subtitle="Escolha o tipo de obrigação" icon={<ClipboardList size={17}/>} onClose={() => setCreateChooserOpen(false)}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button type="button" onClick={() => { setCreateChooserOpen(false); setCreating(true); }}
-            className="group rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-left transition hover:border-rose-400/40 hover:bg-rose-500/10">
-            <span className="flex items-center gap-2 text-sm font-bold text-white"><ClipboardList size={18} className="text-rose-300"/> Conta a pagar</span>
-            <span className="mt-2 block text-xs text-slate-400">Dívidas, parcelas e obrigações pontuais.</span>
-          </button>
-          <button type="button" onClick={() => { setCreateChooserOpen(false); setRecurringCreateRequest(value => (value ?? 0) + 1); }}
-            className="group rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-left transition hover:border-amber-400/40 hover:bg-amber-500/10">
-            <span className="flex items-center gap-2 text-sm font-bold text-white"><Repeat size={18} className="text-amber-300"/> Despesa recorrente</span>
-            <span className="mt-2 block text-xs text-slate-400">Vencimentos mensais sem débito automático.</span>
-          </button>
-        </div>
-      </Modal>}
-      {creating && <Modal title="Nova conta a pagar" subtitle="Dívida, parcela ou obrigação pontual" icon={<ClipboardList size={17}/>} onClose={() => setCreating(false)} busy={saving}
-        footer={<button type="submit" form="new-payable-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar compromisso'}</button>}>
-        <form id="new-payable-form" onSubmit={event => { void create(event); }} className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-xs text-slate-300">Descrição
-          <input required value={form.description} onChange={e => setForm(v => ({ ...v, description: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Credor
-          <input required value={form.creditor_name} onChange={e => setForm(v => ({ ...v, creditor_name: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Tipo de credor
-          <select value={form.creditor_type} onChange={e => setForm(v => ({ ...v, creditor_type: e.target.value as 'COMPANY'|'PERSON' }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="COMPANY">Pessoa jurídica</option><option value="PERSON">Pessoa física</option>
-          </select></label>
-        <label className="space-y-1 text-xs text-slate-300">Categoria
-          <input required value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Valor
-          <input required type="number" min="0.01" step="0.01" value={form.total_amount}
-            onChange={e => setForm(v => ({ ...v, total_amount: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Vencimento
-          <input type="date" value={form.due_date} onChange={e => setForm(v => ({ ...v, due_date: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Origem do pagamento
-          <select value={form.origin} onChange={e => setForm(v => ({ ...v, origin: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="">A definir</option>
-            {data.accounts.map(account => <option value={'ACCOUNT:'+account.id} key={account.id}>Conta · {account.nickname}</option>)}
-            {data.cards.map(card => <option value={'CARD:'+card.id} key={card.id}>Cartão · {card.nickname}</option>)}
-          </select></label>
-        </form>
-      </Modal>}
-    </div>}
+      {displayed.length===0?<div className="rounded-xl border border-dashed border-slate-700 bg-slate-900 p-6 text-center text-sm text-slate-300">
+        {records.length?'Nenhum vencimento neste período. Selecione Ver todos.':'Nenhum compromisso financeiro pendente.'}
+      </div>:<div className="divide-y divide-slate-800 overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+        {displayed.map(item=><article key={item.id} className="flex min-w-0 flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-slate-950">
+              {item.kind==='CARD_INVOICE'?<BankLogo name={item.institution} alternateName={item.title} size="sm"/>:<ClipboardList size={19} className="text-slate-300"/>}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+              <p className="truncate text-xs text-slate-400">{labelFor(item)} · {item.institution}</p>
+              <p className="text-xs text-slate-300">{dateLabel(item.dueDate)} · <span className={
+                item.status==='OVERDUE'?'text-rose-300':item.status==='PARTIAL'?'text-amber-300':'text-slate-300'
+              }>{statusLabel(item)}</span></p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+            <strong className="text-base font-bold tabular-nums text-white">{formatMoney(item.amount)}</strong>
+            <div className="flex gap-2">
+              <button type="button" onClick={()=>goDetails(item)}
+                className="min-h-11 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200">
+                Ver <ChevronRight size={14} className="inline"/>
+              </button>
+              <button type="button" onClick={()=>goDetails(item,true)}
+                className="min-h-11 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white">
+                Pagar
+              </button>
+            </div>
+          </div>
+        </article>)}
+      </div>}
+      <button type="button" onClick={()=>{void load(true).catch(cause=>setError(cause instanceof Error?cause.message:'Falha ao atualizar.'));}}
+        className="flex min-h-11 items-center gap-2 text-xs text-blue-200"><RefreshCw size={15}/>Atualizar</button>
+    </section>}
   </WalletPageFrame>;
 };

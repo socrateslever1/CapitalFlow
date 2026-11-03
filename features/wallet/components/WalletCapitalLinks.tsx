@@ -9,7 +9,7 @@ type Props = {
   accounts: PersonalWalletAccount[];
   sources: CapitalSource[];
   canManage?: boolean;
-  onSaved?: () => Promise<void>;
+  onSaved?: () => Promise<unknown>;
 };
 
 export const WalletCapitalLinks: React.FC<Props> = ({

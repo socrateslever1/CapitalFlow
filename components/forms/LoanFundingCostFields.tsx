@@ -49,7 +49,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           value={editing === 'COST' ? costDraft : hasTotal ? cost.toFixed(2).replace('.', ',') : ''}
           onFocus={() => { setEditing('COST'); setCostDraft(hasTotal ? cost.toFixed(2).replace('.', ',') : ''); }}
           onBlur={() => setEditing(null)}
-          onChange={event => { setCostDraft(event.target.value); changeCost(event.target.value); }}
+          onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setCostDraft(event.target.value); changeCost(event.target.value); }}
           placeholder="Ex.: 9,98"
           className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
@@ -60,7 +60,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           value={editing === 'RATE' ? rateDraft : hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''}
           onFocus={() => { setEditing('RATE'); setRateDraft(hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''); }}
           onBlur={() => setEditing(null)}
-          onChange={event => { setRateDraft(event.target.value); changePercent(event.target.value); }}
+          onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setRateDraft(event.target.value); changePercent(event.target.value); }}
           placeholder="Ex.: 4,99"
           className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>

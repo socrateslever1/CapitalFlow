@@ -5,9 +5,12 @@ import { readFileSync } from 'node:fs';
 const read = (path) => readFileSync(path, 'utf8');
 test('segredos de IA nunca entram no bundle do Vite', () => {
   const vite = read('vite.config.ts');
-  assert.doesNotMatch(vite, /process\\.env\\.GEMINI_API_KEY|VITE_GOOGLE_API_KEY|VITE_GEMINI_API_KEY/);
+  for (const forbidden of ['process.env.GEMINI_API_KEY', 'VITE_GOOGLE_API_KEY', 'VITE_GEMINI_API_KEY']) {
+    assert.ok(!vite.includes(forbidden), 'O Vite não pode incorporar ' + forbidden);
+  }
   const config = read('utils/geminiConfig.ts');
-  assert.doesNotMatch(config, /import\\.meta\\.env|process\\.env/);
+  assert.ok(!config.includes('import.meta.env'));
+  assert.ok(!config.includes('process.env'));
 });
 test('módulos de IA chamam somente o proxy autenticado', () => {
   for (const file of [
@@ -18,13 +21,15 @@ test('módulos de IA chamam somente o proxy autenticado', () => {
     'utils/statementSmartReader.ts',
   ]) {
     const content = read(file);
-    assert.doesNotMatch(content, /new GoogleGenAI|VITE_CF_AIG_TOKEN|generativelanguage\\.googleapis\\.com/);
-    assert.match(content, /requestGemini/);
+    for (const forbidden of ['new GoogleGenAI', 'VITE_CF_AIG_TOKEN', 'generativelanguage.googleapis.com']) {
+      assert.ok(!content.includes(forbidden), file + ' não pode usar ' + forbidden);
+    }
+    assert.ok(content.includes('requestGemini'), file + ' deve usar o proxy');
   }
 });
 test('IA não cadastra lançamentos financeiros sem revisão explícita', () => {
   const parser = read('utils/statementSmartReader.ts');
-  assert.match(parser, /selected: false, \\/\\/ Always require manual review/);
-  assert.doesNotMatch(parser, /ai-img-\\$\\{idx\\}-\\$\\{Date\\.now\\(\\)\\}/);
-  assert.doesNotMatch(parser, /date: item\\.date \\|\\| new Date\\(\\)/);
+  assert.ok(parser.includes('selected: false, // Always require manual review'));
+  assert.ok(!parser.includes('ai-img-${idx}-${Date.now()}'));
+  assert.ok(!parser.includes('date: item.date || new Date()'));
 });

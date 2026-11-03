@@ -260,7 +260,7 @@ Regras Cruciais:
       const amt = Number(item.amount) || 0;
       return {
         rowKey: `ai-img-${idx}-${hash.slice(0, 16)}`,
-        date: /^\\d{4}-\\d{2}-\\d{2}$/.test(String(item.date || '')) ? item.date : '',
+        date: /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')) ? item.date : '',
         description: String(item.description || '').slice(0, 240),
         amount: Math.round(amt * 100) / 100,
         category: item.category || classifyStatementDescription(item.description || ''),

@@ -251,8 +251,11 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
     if (!loggedClient) return;
     setIsSigning(true);
     try {
-      const missingInfo = await portalService.docMissingFields(docId) as any;
+      const missingInfo = await portalService.docMissingFields(initialToken, initialCode, docId) as any;
 
+      if (!missingInfo || (missingInfo.can_sign !== true && (!Array.isArray(missingInfo.missing) || missingInfo.missing.length === 0))) {
+        throw new Error('Documento indisponível para assinatura. Consulte o responsável.');
+      }
       if (missingInfo && missingInfo.missing && missingInfo.missing.length > 0) {
         const patch: any = {};
         if (missingInfo.missing.includes('documento') && loggedClient.document) patch.documento = loggedClient.document;
@@ -265,6 +268,11 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
           setIsSigning(false);
           return;
         }
+      }
+
+      const verified = await portalService.docMissingFields(initialToken, initialCode, docId) as any;
+      if (verified?.can_sign !== true) {
+        throw new Error('O documento ainda possui pendências ou não está disponível para assinatura.');
       }
 
       let ip = '0.0.0.0';

@@ -237,15 +237,18 @@ export const portalService = {
   /**
    * Verifica campos faltantes para assinatura
    */
-  async docMissingFields(docId: string) {
+  async docMissingFields(token: string, code: string, docId: string) {
     const safeDocId = safeUUID(docId);
     if (!safeDocId) throw new Error('ID do documento invalido.');
 
     const { data, error } = await supabasePortal
-      .rpc('rpc_doc_missing_fields', { p_documento_id: safeDocId })
-      .single();
+      .rpc('portal_document_signing_check_v1', {
+        p_token: token,
+        p_shortcode: code,
+        p_documento_id: safeDocId,
+      });
 
-    if (error) throw new Error('Erro ao verificar campos.');
+    if (error || !data) throw new Error('Não foi possível verificar o documento.');
     return data;
   },
 
@@ -299,7 +302,10 @@ export const portalService = {
         p_user_agent: userAgent
       });
 
-    if (error) throw new Error('Erro ao assinar documento: ' + error.message);
+    if (error) throw new Error('Não foi possível registrar a assinatura: ' + error.message);
+    if (!data || (data as any).success !== true) {
+      throw new Error((data as any)?.message || 'Assinatura não concluída. Confira os dados do documento.');
+    }
     return data;
   },
 

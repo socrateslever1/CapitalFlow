@@ -3,9 +3,6 @@ import { supabase } from '../lib/supabase';
 import { UserProfile, Loan, CapitalSource } from '../types';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
-import {
-  isCapitalOnlyRecoveryLoan,
-} from '../utils/capitalOnlyRecovery';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
@@ -604,22 +601,24 @@ export const contractsService = {
     return data;
   },
 
-  async assertClientCanBorrow(loan: Loan, existingLoans: Loan[]) {
-    if (isCapitalOnlyRecoveryLoan(loan)) {
-      throw new Error('Cliente marcado como Somente Capital nao pode receber novo emprestimo.');
-    }
-
-    const doc = onlyDigits(loan.debtorDocument);
-    const name = String(loan.debtorName || '').trim().toLowerCase();
-    const blocked = existingLoans.some((existing) => {
-      if (!isCapitalOnlyRecoveryLoan(existing)) return false;
-      if (loan.clientId && existing.clientId === loan.clientId) return true;
-      if (doc && !isUnknownDocument(doc) && onlyDigits(existing.debtorDocument) === doc) return true;
-      return !!name && String(existing.debtorName || '').trim().toLowerCase() === name;
+  async assertClientCanBorrow(loan: Loan, _existingLoans: Loan[]) {
+    const document = onlyDigits(loan.debtorDocument);
+    const { data, error } = await supabase.rpc('assess_client_credit_v1', {
+      p_client_id: safeUUID(loan.clientId),
+      p_document: document.length === 11 || document.length === 14 ? document : null,
     });
-
-    if (blocked) {
-      throw new Error('Cliente marcado como Somente Capital nao pode receber novo emprestimo.');
+    if (error) {
+      console.error('[ContractsService] Erro ao verificar situação de crédito:', error);
+      throw new Error('Não foi possível verificar o histórico de crédito nesta conta. Atualize o sistema antes de emitir.');
+    }
+    if (!data || !['ALLOW', 'BLOCK', 'REVIEW'].includes(data.status)) {
+      throw new Error('Não foi possível confirmar a situação do cliente. Nenhum contrato foi emitido.');
+    }
+    if (data.status === 'BLOCK') {
+      throw new Error('Há uma pendência de pagamento confirmada nesta conta. Regularize o histórico antes de conceder novo crédito.');
+    }
+    if (data.status === 'REVIEW') {
+      throw new Error('Há contrato arquivado sem classificação suficiente. Revise o motivo do arquivamento antes de emitir novo crédito.');
     }
   },
 

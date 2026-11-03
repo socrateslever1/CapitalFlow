@@ -768,11 +768,15 @@ export const App: React.FC = () => {
                     onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
                     onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
                     onArchive={(l) => loanCtrl.openConfirmation({
-                        type: 'ARCHIVE',
+                        type: l.isArchived ? 'RECLASSIFY_ARCHIVE' : 'ARCHIVE',
                         target: l,
                         showRefundOption: false,
-                        title: 'Arquivar Contrato?',
-                        message: 'O contrato sairá da lista ativa, mas poderá ser restaurado depois.'
+                        archiveReason: l.archiveReason || '',
+                        archiveNote: l.archiveNote || '',
+                        title: l.isArchived ? 'Motivo do arquivamento' : 'Arquivar contrato',
+                        message: l.isArchived
+                          ? 'Ajuste o registro sem modificar o histórico financeiro.'
+                          : 'O contrato sairá da lista ativa e poderá ser restaurado depois.'
                     })}
                     onRestore={(l) => loanCtrl.openConfirmation({
                         type: 'RESTORE',

@@ -276,6 +276,9 @@ export const mapLoanFromDB = (l: any, clientsData: any[] = []): Loan => {
     supportUnreadCount: asNumber(l.support_unread_count ?? l.supportUnreadCount),
     customDocuments: asArray(l.policies_snapshot?.customDocuments),
     isArchived: !!l.is_archived,
+    archiveReason: l.archive_reason ?? null,
+    archiveNote: l.archive_note ?? null,
+    archivedAt: l.archived_at ?? null,
     skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
     collectionDaysMode,
 

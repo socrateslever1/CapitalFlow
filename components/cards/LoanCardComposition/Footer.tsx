@@ -126,6 +126,14 @@ export const Footer: React.FC<FooterProps> = ({
                         Restaurar contrato
                     </button>
                 )}
+                {loan.isArchived && (
+                    <button type="button"
+                        onClick={(e) => { e.stopPropagation(); onArchive(); }}
+                        className="inline-flex min-h-12 w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 hover:border-blue-400 hover:text-white">
+                        <FileEdit size={16} aria-hidden="true" />
+                        Classificar arquivamento
+                    </button>
+                )}
                 {!hasFinancialHistory ? (
                     <button
                         type="button"

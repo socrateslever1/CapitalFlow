@@ -3,7 +3,7 @@ import { Loan, UserProfile, CapitalSource, LedgerEntry } from '../../types';
 import { executeLedgerAction } from './ledgerActions';
 import { reverseTransaction } from './ledgerReverse';
 
-export type LedgerActionType = 'DELETE' | 'ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'ACTIVATE';
+export type LedgerActionType = 'DELETE' | 'ARCHIVE' | 'RECLASSIFY_ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'ACTIVATE';
 
 export const ledgerService = {
   executeLedgerAction(params: {
@@ -13,6 +13,8 @@ export const ledgerService = {
     activeUser: UserProfile;
     sources: CapitalSource[];
     refundChecked: boolean;
+    archiveReason?: import('../../domain/credit/archivePolicy').ArchiveReason | '';
+    archiveNote?: string;
   }) {
     return executeLedgerAction(params);
   },

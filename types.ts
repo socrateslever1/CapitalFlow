@@ -339,6 +339,9 @@ export interface Loan {
   capitalOnlyRecovery?: boolean;
   interestFreeInstallment?: boolean;
   isArchived?: boolean;
+  archiveReason?: import('./domain/credit/archivePolicy').ArchiveReason | null;
+  archiveNote?: string | null;
+  archivedAt?: string | null;
   skipWeekends?: boolean;
   collectionDaysMode?: CollectionDaysMode;
   clientAvatarUrl?: string;

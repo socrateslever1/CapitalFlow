@@ -164,6 +164,10 @@ export const mapFormToLoan = (
     fundingCost = 0;
   }
 
+  if (form.fundingTotalPayable && fundingTotalPayable < principal - 0.005) {
+    throw new RangeError('O valor total da origem do capital deve cobrir o principal.');
+  }
+
   const collectionDaysMode = normalizeCollectionDaysMode(form.collectionDaysMode, !!form.skipWeekends);
 
   // --- GERAÇÃO VIA REGISTRY ---
@@ -248,7 +252,7 @@ export const mapFormToLoan = (
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
     fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? (interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest) : undefined,
-    fundingPaymentMethod: form.billingCycle === 'INSTALLMENT_FIXED' ? fundingPaymentMethod : undefined,
+    fundingPaymentMethod: form.billingCycle === 'INSTALLMENT_FIXED' || fundingTotalPayable > 0 ? fundingPaymentMethod : undefined,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',

@@ -1,7 +1,7 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { requestGemini } from "../../../services/secureGemini.service";
 import { LegalDocumentParams, Agreement, Loan, UserProfile } from "../../../types";
-import { getGeminiApiKey } from "../../../utils/geminiConfig";
 import { buildLegalConfessionFallback } from "../../../services/internalAI.service";
 
 export const legalAIService = {
@@ -11,14 +11,7 @@ export const legalAIService = {
     activeUser: UserProfile,
     options: any
   ): Promise<LegalDocumentParams> => {
-    const googleApiKey = getGeminiApiKey();
-
-    if (!googleApiKey) {
-      return buildLegalConfessionFallback(agreement, loan, activeUser, options) as LegalDocumentParams;
-    }
-
-    const ai = new GoogleGenAI({ apiKey: googleApiKey });
-    const model = ai.models.generateContent({
+    const model = requestGemini({
       model: "gemini-3.8-flash",
       contents: [
         {
@@ -117,10 +110,7 @@ export const legalAIService = {
       return JSON.parse(response) as LegalDocumentParams;
     } catch (error: any) {
       const msg = String(error?.message || error || "");
-      if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("xhr")) {
-        return buildLegalConfessionFallback(agreement, loan, activeUser, options) as LegalDocumentParams;
-      }
-      throw error;
+      return buildLegalConfessionFallback(agreement, loan, activeUser, options) as LegalDocumentParams;
     }
   }
 };

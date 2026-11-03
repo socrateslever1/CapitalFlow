@@ -1,6 +1,6 @@
 import { classifyStatementDescription, ParsedStatementRow, StatementParseResult, parseStatementPdf } from './walletStatementPdf';
-import { getGeminiApiKey } from './geminiConfig';
-import { GoogleGenAI, Type } from '@google/genai';
+import { Type } from '@google/genai';
+import { requestGemini } from '../services/secureGemini.service';
 
 export type SmartSourceType = 'OFX' | 'PDF_NATIVE' | 'IMAGE_AI' | 'PDF_AI';
 
@@ -158,19 +158,10 @@ export async function parseStatementImageWithAi(
   file: File,
   kind: 'ACCOUNT' | 'CARD'
 ): Promise<SmartStatementParseResult> {
-  const apiKey = getGeminiApiKey();
   const buffer = await file.arrayBuffer();
   const hashBytes = await crypto.subtle.digest('SHA-256', buffer.slice(0));
   const hash = [...new Uint8Array(hashBytes)].map(b => b.toString(16).padStart(2, '0')).join('');
   const { base64, dataUrl } = await fileToBase64(file);
-
-  if (!apiKey) {
-    throw new Error(
-      'Para ler imagens, prints de faturas ou fotos de comprovantes com IA, configure sua chave gratuita do Google Gemini em VITE_GOOGLE_API_KEY. Alternativamente, você pode importar faturas em PDF ou arquivos OFX com custo R$ 0,00 e sem necessidade de chave de API.'
-    );
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   const promptText = `Você é um perito em análise fiscal e bancária do Brasil. Analise rigorosamente este documento financeiro (imagem/print de fatura de cartão de crédito, extrato bancário ou comprovante de pagamento/Pix/TED).
 Tipo de destino no sistema: ${kind === 'CARD' ? 'CARTÃO DE CRÉDITO (Faturas e compras)' : 'CONTA BANCÁRIA (Extrato de movimentações)'}.
@@ -199,7 +190,7 @@ Retorne ESTRITAMENTE um JSON com as informações extraídas:
 }
 
 Regras Cruciais:
-1. Para cada lançamento encontrado, extraia data precisa no formato YYYY-MM-DD (se o ano não estiver explícito na imagem, deduza pelo ano atual ou recente).
+1. Extraia datas apenas quando estiverem comprovadas no documento. Se faltar ano ou dia, retorne date null e confidence REVIEW. Nunca deduza datas.
 2. Se o documento for CARTÃO DE CRÉDITO: Cada compra/gasto deve ter valor POSITIVO (ex: 45.90). Pagamentos de fatura ou estornos devem vir com valor NEGATIVO.
 3. Se o documento for CONTA BANCÁRIA: Entradas/Pix recebidos devem ser POSITIVOS (+), Saídas/Pix enviados/contas pagas devem ser NEGATIVOS (-).
 4. Se o documento for um COMPROVANTE ÚNICO (Pix, TED, Boleto): Gere 1 único item no array 'rows' correspondente ao valor pago com o nome do favorecido/descrição.
@@ -208,7 +199,7 @@ Regras Cruciais:
 
   try {
     const mimeType = file.type || 'image/jpeg';
-    const response = await ai.models.generateContent({
+    const response = await requestGemini({
       model: 'gemini-2.5-flash',
       contents: [
         {
@@ -268,13 +259,13 @@ Regras Cruciais:
     const rows: ParsedStatementRow[] = rawRows.map((item: any, idx: number) => {
       const amt = Number(item.amount) || 0;
       return {
-        rowKey: `ai-img-${idx}-${Date.now()}`,
-        date: item.date || new Date().toISOString().slice(0, 10),
-        description: String(item.description || 'Lançamento identificado').slice(0, 240),
+        rowKey: `ai-img-${idx}-${hash.slice(0, 16)}`,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')) ? item.date : '',
+        description: String(item.description || '').slice(0, 240),
         amount: Math.round(amt * 100) / 100,
         category: item.category || classifyStatementDescription(item.description || ''),
-        confidence: item.confidence === 'REVIEW' ? 'REVIEW' : 'HIGH',
-        selected: kind === 'CARD' ? amt > 0 : true,
+        confidence: 'REVIEW',
+        selected: false, // Always require manual review of AI-inferred transactions
         installmentNumber: item.installmentNumber ? Number(item.installmentNumber) : null,
         installmentTotal: item.installmentTotal ? Number(item.installmentTotal) : null,
       };

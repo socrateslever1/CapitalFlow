@@ -283,7 +283,7 @@ BEGIN
 
   RETURN jsonb_build_object('success', true);
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.portal_sign_document(text,text,uuid,text,text,text,text,text,text,text,text,text,text,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.portal_sign_document(text,text,uuid,text,text,text,text,text,text,text,text,text,text,uuid) TO anon,authenticated,service_role;
@@ -357,7 +357,7 @@ BEGIN
 
   RETURN jsonb_build_object('ok', true, 'document_id', v_updated_id);
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public.portal_patch_document_snapshot(text,text,uuid,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.portal_patch_document_snapshot(text,text,uuid,jsonb) TO anon,authenticated,service_role;

@@ -45,6 +45,9 @@ export default defineConfig(({ mode }) => {
     .replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'local';
   const buildId = `${commit}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
   return {
+    // Vite injects every matching env variable into the browser bundle.
+    // Explicitly permit public settings only; provider secrets are never exposed.
+    envPrefix: ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'VITE_SUPPORT_PHONE', 'VITE_WEB_PUSH_PUBLIC_KEY', 'VITE_PUBLIC_APP_ORIGIN'],
     server: { port: 3000, host: '0.0.0.0', allowedHosts: true },
     plugins: [react(), tailwindcss(), publishedVersionPlugin(buildId), spaFallbackPlugin()],
     define: {

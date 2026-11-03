@@ -14,3 +14,5 @@ O frontend não recebe chaves Gemini nem tokens privados do Cloudflare AI Gatewa
 - O limitador em memória é auxiliar e não é uma quota distribuída. Necessário adicionar quota persistente por usuário antes de escala.
 - Sem segredo do Gemini no servidor, a IA remota falha fechada e recursos textuais recorrem ao mecanismo interno; PDF/OFX local continua operacional.
 - Alterações em produção e homologação física exigem confirmação por build e deploy do SHA exato.
+
+- Vite usa allowlist `envPrefix` explícita para impedir que variáveis `VITE_GOOGLE_API_KEY`, `VITE_GEMINI_API_KEY` ou `VITE_CF_AIG_TOKEN` sejam copiadas para `import.meta.env`, mesmo quando ainda estiverem presentes na configuração antiga de implantação.

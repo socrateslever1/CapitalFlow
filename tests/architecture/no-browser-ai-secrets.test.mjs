@@ -8,6 +8,9 @@ test('segredos de IA nunca entram no bundle do Vite', () => {
   for (const forbidden of ['process.env.GEMINI_API_KEY', 'VITE_GOOGLE_API_KEY', 'VITE_GEMINI_API_KEY']) {
     assert.ok(!vite.includes(forbidden), 'O Vite não pode incorporar ' + forbidden);
   }
+  assert.ok(vite.includes('envPrefix: ['), 'Variáveis públicas devem ter lista explícita.');
+  assert.ok(vite.includes('VITE_PUBLIC_APP_ORIGIN'));
+  assert.ok(!vite.includes("'VITE_'"), 'Prefixo VITE_ global pode divulgar segredos.');
   const config = read('utils/geminiConfig.ts');
   assert.ok(!config.includes('import.meta.env'));
   assert.ok(!config.includes('process.env'));

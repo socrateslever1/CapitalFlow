@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatMoney } from '../../utils/formatters';
+import { formatMoney, parseCurrency } from '../../utils/formatters';
 
 type Props = {
   principal: number;
@@ -14,7 +14,10 @@ type Props = {
 export const LoanFundingCostFields: React.FC<Props> = ({
   principal, totalPayable, feePercent, onChange, required = false, disabled = false,
 }) => {
-  const total = Number(String(totalPayable || '').replace(',', '.'));
+  const [editing, setEditing] = React.useState<'COST' | 'RATE' | null>(null);
+  const [costDraft, setCostDraft] = React.useState('');
+  const [rateDraft, setRateDraft] = React.useState('');
+  const total = parseCurrency(totalPayable);
   const hasTotal = String(totalPayable ?? '').trim() !== '';
   const cost = hasTotal && Number.isFinite(total) && Number.isFinite(principal)
     ? Math.max(0, Math.round((total - principal) * 100) / 100)
@@ -22,7 +25,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
   const rounded = (value: number) => (Math.round((value + Number.EPSILON) * 100) / 100).toFixed(2);
   const changeCost = (raw: string) => {
     if (raw === '') { onChange('', ''); return; }
-    const value = Number(raw);
+    const value = parseCurrency(raw);
     if (!Number.isFinite(value) || value < 0 || !Number.isFinite(principal) || principal <= 0) return;
     const roundedCost = Number(rounded(value));
     onChange(rounded(principal + roundedCost),
@@ -30,7 +33,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
   };
   const changePercent = (raw: string) => {
     if (raw === '') { onChange('', ''); return; }
-    const rate = Number(raw);
+    const rate = parseCurrency(raw);
     if (!Number.isFinite(rate) || rate < 0 || !Number.isFinite(principal) || principal <= 0) return;
     const roundedCost = Number(rounded(principal * rate / 100));
     onChange(rounded(principal + roundedCost), raw);
@@ -39,19 +42,23 @@ export const LoanFundingCostFields: React.FC<Props> = ({
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Custo da operação (R$)
-        <input type="number" inputMode="decimal" min="0" max="1000000000" step="0.01"
+        <input type="text" inputMode="decimal"
           required={required} disabled={disabled} aria-label="Custo da operação em reais"
-          value={hasTotal ? String(Number(cost.toFixed(2))) : ''}
-          onChange={event => changeCost(event.target.value)}
+          value={editing === 'COST' ? costDraft : hasTotal ? cost.toFixed(2).replace('.', ',') : ''}
+          onFocus={() => { setEditing('COST'); setCostDraft(hasTotal ? cost.toFixed(2).replace('.', ',') : ''); }}
+          onBlur={() => setEditing(null)}
+          onChange={event => { setCostDraft(event.target.value); changeCost(event.target.value); }}
           placeholder="Ex.: 9,98"
           className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Taxa equivalente (%)
-        <input type="number" inputMode="decimal" min="0" max="100000" step="any"
+        <input type="text" inputMode="decimal"
           disabled={disabled} aria-label="Taxa da operação em porcentagem"
-          value={hasTotal ? feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6))) : ''}
-          onChange={event => changePercent(event.target.value)}
+          value={editing === 'RATE' ? rateDraft : hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''}
+          onFocus={() => { setEditing('RATE'); setRateDraft(hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''); }}
+          onBlur={() => setEditing(null)}
+          onChange={event => { setRateDraft(event.target.value); changePercent(event.target.value); }}
           placeholder="Ex.: 4,99"
           className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>

@@ -134,7 +134,12 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
               <QrCode size={17} className="text-blue-300"/> Gerar cobrança PIX
             </button>
           </div>
-          <WalletCapitalLinks accounts={data.accounts} sources={data.capitalSources}/>
+          <WalletCapitalLinks
+            accounts={data.accounts}
+            sources={data.capitalSources}
+            canManage={!!activeUser && !activeUser.supervisor_id && activeUser.id !== 'DEMO'}
+            onSaved={refresh}
+          />
         </div>
       </div>
       {creating && <form onSubmit={event => { void create(event); }}

@@ -120,36 +120,15 @@ test('RecargaPay: columnar minimum payment and credit limit remain distinct', ()
   assert.equal(result.futureInstallments, 0);
 });
 
-test('Itaú: o total contábil da fatura prevalece sobre o boleto de financiamento', () => {
-  // Layout inspirado em um documento bancário real, com números fictícios.
-  // Não armazenar PDFs nem dados pessoais de clientes neste repositório.
+test('Itaú: o total contábil prevalece se o PDF extrair o financiamento antes do resumo', () => {
+  // Fixture sintética baseada na estrutura de um documento real.
+  // Nenhum dado pessoal ou valor real é persistido no repositório.
   const parsed = parseCardInvoiceSummary([
     'Itaú - Platinum',
-    // A ordem de blocos do PDF pode apresentar o boleto financiado antes do resumo.
-    'Encargos R$ 48,00',
+    'Encargos de financiamento',
     'Total a pagar',
     'R$ 1.934,79',
-    'Resumo da fatura em R
-    'Limite total de crédito',
-    'R$ 3.000,00',
-    'Vencimento: 02/11/2026',
-  ]);
-  assert.equal(parsed.institution, 'Itaú');
-  assert.equal(parsed.invoiceTotal, 1876.54, 'não incorporar encargos de parcelamento');
-  assert.equal(parsed.minimumPayment, 205);
-  assert.equal(parsed.dueDate, '2026-11-02');
-  assert(parsed.warnings.some(w => /alternativo de financiamento/.test(w)));
-});
-
-test('Itaú: total da fatura é preservado quando não existe alternativa de financiamento', () => {
-  const parsed = parseCardInvoiceSummary([
-    'Banco Itaú', 'Total desta fatura', 'R$ 1.111,21',
-    'Pagamento mínimo: R$ 111,00', 'Vencimento 25/12/2026',
-  ]);
-  assert.equal(parsed.invoiceTotal, 1111.21);
-  assert.equal(parsed.warnings.filter(w => /alternativo de financiamento/.test(w)).length, 0);
-});
-,
+    'Resumo da fatura em R$',
     'Total desta fatura',
     '1.876,54',
     'Pagamento mínimo:',
@@ -161,13 +140,13 @@ test('Itaú: total da fatura é preservado quando não existe alternativa de fin
     'Vencimento: 02/11/2026',
   ]);
   assert.equal(parsed.institution, 'Itaú');
-  assert.equal(parsed.invoiceTotal, 1876.54, 'não incorporar encargos de parcelamento');
+  assert.equal(parsed.invoiceTotal, 1876.54, 'não incorporar encargos do financiamento');
   assert.equal(parsed.minimumPayment, 205);
   assert.equal(parsed.dueDate, '2026-11-02');
   assert(parsed.warnings.some(w => /alternativo de financiamento/.test(w)));
 });
 
-test('Itaú: total da fatura é preservado quando não existe alternativa de financiamento', () => {
+test('Itaú: total declarado também é correto sem financiamento alternativo', () => {
   const parsed = parseCardInvoiceSummary([
     'Banco Itaú', 'Total desta fatura', 'R$ 1.111,21',
     'Pagamento mínimo: R$ 111,00', 'Vencimento 25/12/2026',

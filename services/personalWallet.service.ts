@@ -379,8 +379,7 @@ export const personalWalletService = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at',{ascending:false}).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error || recurringObligations.error || capitalSources.error;
-    if (error) throw new Error(error.message);
+    // Paginated reads fail by throwing; no partial snapshot is returned.
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
     const rawCards = (cards.data || []) as PersonalWalletCard[];

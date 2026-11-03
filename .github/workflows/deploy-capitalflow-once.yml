@@ -1,0 +1,73 @@
+name: Deploy verified CapitalFlow to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - ops/verify-cloudflare-20261103
+    paths:
+      - .github/workflows/deploy-capitalflow-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      SOURCE_SHA: d95707d7497867120778b721eef8d50ca864d948
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CF_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID || vars.CF_ACCOUNT_ID }}
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      VITE_PUBLIC_APP_ORIGIN: https://capflow.pages.dev
+      CF_PAGES_COMMIT_SHA: d95707d7497867120778b721eef8d50ca864d948
+    steps:
+      - name: Require already configured Cloudflare credentials
+        run: |
+          set -euo pipefail
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "::error::Deploy não realizado: segredos CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID não estão configurados para este repositório."
+            exit 1
+          fi
+          if [[ -z "$VITE_SUPABASE_URL" || -z "$VITE_SUPABASE_ANON_KEY" ]]; then
+            echo "::error::Deploy não realizado: variáveis públicas Supabase do frontend não estão configuradas."
+            exit 1
+          fi
+          echo "Credenciais de publicação disponíveis; valores mantidos em segredo."
+      - name: Check out exact corrected main commit
+        uses: actions/checkout@v4
+        with:
+          ref: d95707d7497867120778b721eef8d50ca864d948
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Rebuild the audited application for Cloudflare
+        run: |
+          set -euo pipefail
+          npm run build
+          node -e 'const fs=require("fs");const version=JSON.parse(fs.readFileSync("dist/version.json","utf8"));if(!version.buildId.startsWith(process.env.SOURCE_SHA.slice(0,12)+"-"))process.exit(1); console.log("Build válido: "+version.buildId)'
+      - name: Publish verified files and Pages Functions
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ env.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=capflow --branch=main --commit-hash=d95707d7497867120778b721eef8d50ca864d948
+      - name: Confirm production serves the exact corrected source
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            response="$(curl --silent --show-error --fail --location --max-time 12 -H 'Cache-Control: no-cache' "https://capflow.pages.dev/version.json?verify=${SOURCE_SHA}&attempt=${attempt}" || true)"
+            if [[ -n "$response" ]] && BUILD_RESPONSE="$response" node -e 'try{let j=JSON.parse(process.env.BUILD_RESPONSE);process.exit(typeof j.buildId==="string"&&j.buildId.startsWith(process.env.SOURCE_SHA.slice(0,12)+"-")?0:1)}catch{process.exit(1)}'; then
+              echo "Produção confirmada para commit ${SOURCE_SHA}."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Publicação executada, mas build de produção não confirmado."
+          exit 1

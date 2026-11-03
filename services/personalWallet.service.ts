@@ -370,8 +370,8 @@ export const personalWalletService = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expense_installments').select('*').order('due_month', { ascending: true }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_invoice_payments').select('id,request_id,card_id,due_month,account_id,amount,source,created_at').order('created_at', { ascending: false }).order('id').range(from, to)),
-      supabase.from('personal_wallet_account_operations').select('*').order('operation_date', {ascending:false}).limit(2000),
-      supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', {ascending:false}).limit(2000),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_account_operations').select('*').order('operation_date', { ascending: false }).order('id', { ascending: false }).range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', { ascending: false }).order('id', { ascending: false }).range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,card_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day',{ascending:true}).order('id').range(from, to)),
@@ -379,8 +379,7 @@ export const personalWalletService = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at',{ascending:false}).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
     ]);
-    const error = accounts.error || cards.error || expenses.error || installments.error || invoicePayments.error || accountOperations.error || statementRows.error || payables.error || payablePayments.error || recurringIncomes.error || recurringReceipts.error || recurringObligations.error || capitalSources.error;
-    if (error) throw new Error(error.message);
+    // Paginated reads fail by throwing; no partial snapshot is returned.
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
     const rawCards = (cards.data || []) as PersonalWalletCard[];

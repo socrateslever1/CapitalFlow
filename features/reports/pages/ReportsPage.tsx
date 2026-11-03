@@ -1,4 +1,5 @@
 
+import { readLoanFundingCost } from '../../../domain/finance/fundingCost';
 import React, { useMemo } from 'react';
 import {
   TrendingUp,
@@ -58,6 +59,9 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
     // Lucro Esperado (Total a Receber - Principal)
     const totalToReceive = activeLoans.reduce((acc, l) => acc + (l.totalToReceive || 0), 0);
     const grossProfit = totalToReceive - totalPrincipal;
+    const fundingExpenses = activeLoans.reduce((total, loan) => total + readLoanFundingCost(loan), 0);
+    const netProjectedProfit = grossProfit - fundingExpenses;
+    const netProjectedROI = totalPrincipal > 0 ? netProjectedProfit / totalPrincipal * 100 : 0;
 
     // ROI Estimado
     const estimatedROI = totalPrincipal > 0 ? (grossProfit / totalPrincipal) * 100 : 0;
@@ -71,6 +75,9 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
       latePrincipal,
       defaultRate,
       grossProfit,
+      fundingExpenses,
+      netProjectedProfit,
+      netProjectedROI,
       estimatedROI,
       totalBalance,
       allocationRate,
@@ -153,8 +160,14 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
             </div>
           </div>
           <p className="text-[9px] text-slate-600 mt-2 font-medium">
-            Lucro planejado: {maskValue(formatMoney(stats.grossProfit))}.
+            Lucro bruto previsto: {maskValue(formatMoney(stats.grossProfit))}.
           </p>
+          <div className="mt-3 border-t border-slate-800 pt-3 space-y-1 text-xs">
+            <p className="text-slate-400">Custo de captação previsto: <strong className="text-rose-300">{maskValue(formatMoney(stats.fundingExpenses))}</strong></p>
+            <p className="text-slate-200">Lucro líquido previsto: <strong className={stats.netProjectedProfit < 0 ? 'text-rose-300' : 'text-emerald-300'}>{maskValue(formatMoney(stats.netProjectedProfit))}</strong></p>
+            <p className="text-slate-400">Retorno líquido estimado: <strong className="text-slate-200">{stats.netProjectedROI.toFixed(2)}%</strong></p>
+            <p className="text-slate-500">Projeção de contratos ativos; não representa recebimento realizado.</p>
+          </div>
         </div>
 
         {/* KPI: Alocação de Capital */}

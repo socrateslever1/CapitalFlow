@@ -328,8 +328,8 @@ export const personalWalletService = {
           .order('reference_month', { ascending: false }).order('id').range(from, to)),
         // Lightweight invoice metadata: exact issuer due dates may differ from
         // the generic day configured for the card. No PAN or sensitive fields.
-        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('id,card_id,due_month,due_date')
-          .order('due_month',{ascending:false}).order('id').range(from, to)),
+        loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
+          .order('due_month',{ascending:false}).order('card_id').range(from, to)),
       ]);
     const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
     const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];

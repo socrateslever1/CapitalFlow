@@ -4,6 +4,8 @@ import { useModal } from '../../../contexts/ModalContext';
 import { Modal } from '../../ui/Modal';
 import { CheckSquare, Square, Table, ArrowRight, AlertTriangle, CheckCircle2, Info, Loader2, ChevronDown } from 'lucide-react';
 import { FIELD_MAPS } from '../../../features/profile/import/domain/importSchema';
+import { ArchiveReasonFields } from '../../contracts/ArchiveReasonFields';
+import { validateArchiveClassification } from '../../../domain/credit/archivePolicy';
 import { CalculatorModal } from '../CalculatorModal';
 import { FlowModal } from '../FlowModal';
 import { MessageHubModal } from '../MessageHubModal';
@@ -132,6 +134,15 @@ export const SystemModalsWrapper = () => {
                     <p className="text-white text-lg font-bold">{ui.confirmation.title || 'Tem certeza?'}</p>
                     <p className="text-slate-400 text-sm">{ui.confirmation.message || 'Essa ação não pode ser desfeita.'}</p>
 
+                    {['ARCHIVE','RECLASSIFY_ARCHIVE'].includes(ui.confirmation.type) && (
+                      <ArchiveReasonFields
+                        reason={ui.confirmation.archiveReason || ''}
+                        note={ui.confirmation.archiveNote || ''}
+                        onReasonChange={(reason) => ui.setConfirmation((previous: any) => previous ? { ...previous, archiveReason: reason } : null)}
+                        onNoteChange={(note) => ui.setConfirmation((previous: any) => previous ? { ...previous, archiveNote: note } : null)}
+                      />
+                    )}
+
                     {/* RESTAURAÇÃO DO CHECKBOX DE ESTORNO */}
                     {ui.confirmation.showRefundOption && (
                        <div className="flex items-center justify-center gap-2 bg-slate-950 p-3 rounded-full border border-slate-800 cursor-pointer" onClick={() => ui.setRefundChecked(!ui.refundChecked)}>
@@ -150,7 +161,8 @@ export const SystemModalsWrapper = () => {
                         <button onClick={closeModal} className="flex-1 py-3 bg-slate-800 text-slate-300 rounded-full font-bold uppercase">Cancelar</button>
                         <button
                             onClick={loanCtrl.executeConfirmation}
-                            className={`flex-1 py-3 text-white rounded-full font-bold uppercase ${
+                            disabled={!!ui.isSaving || (['ARCHIVE', 'RECLASSIFY_ARCHIVE'].includes(ui.confirmation.type) && !!validateArchiveClassification(ui.confirmation.archiveReason, ui.confirmation.archiveNote))}
+                            className={`disabled:cursor-not-allowed disabled:opacity-40 ${`flex-1 py-3 text-white rounded-full font-bold uppercase ${
                                 ['DELETE', 'DELETE_CLIENT', 'DELETE_SOURCE', 'REVERSE_TRANSACTION'].includes(ui.confirmation.type || '')
                                 ? 'bg-rose-600'
                                 : ui.confirmation.type === 'RESTORE' ? 'bg-emerald-600' : 'bg-blue-600'

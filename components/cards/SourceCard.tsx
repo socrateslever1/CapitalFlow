@@ -74,8 +74,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     const activeLoans = useMemo(() => getActiveSourceLoans(loans, source.id), [loans, source.id]);
     const activeContractsCount = activeLoans.length;
-    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : source.type === 'MISTO' ? CreditCard : Wallet;
-    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : source.type === 'MISTO' ? 'text-rose-500' : 'text-purple-500';
+    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : ['MISTO', 'CARD'].includes(source.type) ? CreditCard : Wallet;
+    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : ['MISTO', 'CARD'].includes(source.type) ? 'text-rose-500' : 'text-purple-500';
 
     const handleUpdateLogo = () => {
         onEdit(source);
@@ -111,7 +111,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                             <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
                             <div className="flex items-center gap-1.5 mt-1 min-w-0">
                                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">
-                                    {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : 'Outro'}
+                                    {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
                                 </p>
                                 <span className="w-0.5 h-0.5 bg-slate-700 rounded-full shrink-0"></span>
                                 <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline whitespace-nowrap">
@@ -131,7 +131,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                                {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : 'Outro'}
+                                {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
                             </p>
                             <span className="w-0.5 h-0.5 bg-slate-700 rounded-full"></span>
                             <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline">
@@ -165,7 +165,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     <div className="space-y-3">
                         <div className="flex justify-between items-center bg-gradient-to-r from-slate-950 to-slate-900 p-3 rounded-xl border border-slate-800">
                             <div>
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Saldo Atual</p>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">{source.type === 'CARD' ? 'Crédito operacional informado' : 'Saldo atual'}</p>
                                 <p className={`text-xl font-black ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
                             </div>
                             <div className="text-right">

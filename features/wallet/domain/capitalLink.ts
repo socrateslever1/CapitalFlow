@@ -11,3 +11,23 @@ export function getCapitalLinkState(account: PersonalWalletAccount, sources: Cap
     && Math.round(walletBalance * 100) === Math.round(capitalBalance * 100);
   return { status: equal ? 'linked' as const : 'divergent' as const, source };
 }
+
+/** Apenas fontes com mesmo saldo podem ser vinculadas a contas.
+ * Cartões representam crédito, não liquidez; vínculos antigos continuam visíveis
+ * para que o titular possa diagnosticar ou desfazer uma associação inadequada.
+ */
+export function getEligibleAccountCapitalSources(
+  account: PersonalWalletAccount,
+  accounts: PersonalWalletAccount[],
+  sources: CapitalSource[],
+): CapitalSource[] {
+  return sources.filter(source => {
+    if (source.id === account.capital_source_id) return true;
+    if (['CARD', 'MISTO'].includes(source.type)) return false;
+    if (accounts.some(other => other.id !== account.id && other.capital_source_id === source.id)) return false;
+    const walletBalance = Number(account.balance);
+    const sourceBalance = Number(source.balance);
+    return Number.isFinite(walletBalance) && Number.isFinite(sourceBalance)
+      && Math.round(walletBalance * 100) === Math.round(sourceBalance * 100);
+  });
+}

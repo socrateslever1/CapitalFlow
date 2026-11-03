@@ -164,6 +164,10 @@ export const mapFormToLoan = (
     fundingCost = 0;
   }
 
+  if (!initialData && form.fundingTotalPayable && fundingTotalPayable < principal - 0.005) {
+    throw new RangeError('O valor total da origem do capital deve cobrir o principal.');
+  }
+
   const collectionDaysMode = normalizeCollectionDaysMode(form.collectionDaysMode, !!form.skipWeekends);
 
   // --- GERAÇÃO VIA REGISTRY ---
@@ -178,7 +182,7 @@ export const mapFormToLoan = (
     fundingInstallmentsCount,
     fundingMonthlyRate,
     fundingInstallmentValue,
-    fundingCalculationMode,
+    fundingCalculationMode: initialData ? initialData.fundingCalculationMode : fundingCalculationMode,
     customerMarginPercent,
     operatorAbsorbsInterest: interestFreeInstallment || fundingPaymentMethod === 'BANK_ACCOUNT_DEBIT' ? true : form.fundingOperatorAbsorbsInterest,
     interestFreeInstallment,
@@ -236,19 +240,23 @@ export const mapFormToLoan = (
     dailyInterestPercent,
 
     // Mapeamento de Funding
-    fundingTotalPayable: fundingTotalPayable || undefined,
-    fundingCost: fundingCost || undefined,
-    fundingProvider: form.fundingProvider || undefined,
-    fundingFeePercent: parseCurrency(form.fundingFeePercent || '') || undefined,
+    fundingTotalPayable: initialData ? initialData.fundingTotalPayable : fundingTotalPayable || undefined,
+    fundingCost: initialData ? initialData.fundingCost : fundingCost || undefined,
+    fundingProvider: initialData ? initialData.fundingProvider : form.fundingProvider || undefined,
+    fundingFeePercent: initialData ? initialData.fundingFeePercent : parseCurrency(form.fundingFeePercent || '') || undefined,
     fundingCalculationMode,
-    fundingInstallmentsCount: fundingInstallmentsCount || undefined,
-    fundingMonthlyRate: fundingMonthlyRate || undefined,
-    fundingInstallmentValue: fundingInstallmentsCount > 0 && fundingTotalPayable > 0 ? (fundingCalculationMode === 'INSTALLMENT' ? fundingInstallmentValue : parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2))) : undefined,
+    fundingInstallmentsCount: initialData ? initialData.fundingInstallmentsCount : fundingInstallmentsCount || undefined,
+    fundingMonthlyRate: initialData ? initialData.fundingMonthlyRate : fundingMonthlyRate || undefined,
+    fundingInstallmentValue: initialData ? initialData.fundingInstallmentValue : (
+      fundingInstallmentsCount > 0 && fundingTotalPayable > 0
+        ? (fundingCalculationMode === 'INSTALLMENT' ? fundingInstallmentValue : parseFloat((fundingTotalPayable / fundingInstallmentsCount).toFixed(2)))
+        : undefined
+    ),
     customerMarginPercent: form.billingCycle === 'INSTALLMENT_FIXED' ? customerMarginPercent : undefined,
     customerInstallmentValue: form.billingCycle === 'INSTALLMENT_FIXED' ? generatedInstallments[0]?.amount : undefined,
     customerTotalPayable: form.billingCycle === 'INSTALLMENT_FIXED' ? totalToReceive : undefined,
     fundingOperatorAbsorbsInterest: form.billingCycle === 'INSTALLMENT_FIXED' ? (interestFreeInstallment ? true : form.fundingOperatorAbsorbsInterest) : undefined,
-    fundingPaymentMethod: form.billingCycle === 'INSTALLMENT_FIXED' ? fundingPaymentMethod : undefined,
+    fundingPaymentMethod: initialData ? initialData.fundingPaymentMethod : form.billingCycle === 'INSTALLMENT_FIXED' || fundingTotalPayable > 0 ? fundingPaymentMethod : undefined,
 
     billingCycle: form.billingCycle,
     amortizationType: 'JUROS',

@@ -37,7 +37,7 @@ export interface CapitalSource {
   profile_id: string;
   name: string;
   balance: number;
-  type: 'PROPRIO' | 'TERCEIROS' | 'MISTO';
+  type: 'PROPRIO' | 'TERCEIROS' | 'MISTO' | 'BANK' | 'CARD' | 'CASH' | 'WALLET' | 'CAIXA' | 'Caixa';
   description?: string;
   logo_url?: string;
   created_at?: string;

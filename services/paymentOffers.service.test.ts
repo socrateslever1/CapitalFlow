@@ -2,7 +2,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { LoanStatus, type Installment, type Loan } from '../types';
-import { calculatePaymentOfferPreview } from './paymentOffers.service';
+import { calculatePaymentOfferPreview, isPaymentOfferActive } from './paymentOffers.service';
+import { businessDateInManaus } from '../utils/businessDate';
 
 const localDueDate = (() => {
   const today = new Date();
@@ -177,4 +178,29 @@ test('SQL implementation preserves ledger authorization and blocks unsafe partia
   assert.match(sql, /payment_offer_late_fee_forgiven,0\),0\)/);
   assert.match(sql, /exige o pagamento integral do valor combinado/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.set_installment_payment_offer_v4/);
+});
+
+test('prazo de condição respeita o dia civil de Manaus antes da virada UTC', () => {
+  const utcBeforeLocalMidnight = new Date('2026-11-03T02:59:59Z');
+  const localMidnight = new Date('2026-11-03T04:00:00Z');
+  assert.equal(businessDateInManaus(utcBeforeLocalMidnight), '2026-11-02');
+  assert.equal(businessDateInManaus(localMidnight), '2026-11-03');
+  const offer = { paymentOfferStatus: 'ACTIVE', paymentOfferValidUntil: '2026-11-02', paymentOfferAmount: 13.65 };
+  assert.equal(isPaymentOfferActive(offer, businessDateInManaus(utcBeforeLocalMidnight)), true);
+  assert.equal(isPaymentOfferActive(offer, businessDateInManaus(localMidnight)), false);
+});
+test('validade da condição atravessa viradas de mês e ano sem confundir UTC', () => {
+  assert.equal(businessDateInManaus(new Date('2027-01-01T01:00:00Z')), '2026-12-31');
+  assert.equal(businessDateInManaus(new Date('2027-01-01T04:00:00Z')), '2027-01-01');
+  assert.throws(() => businessDateInManaus(new Date('inválido')), /Data de referência inválida/);
+});
+test('interface e backend possuem uma única regra de data civil para condições', () => {
+  const modal = readFileSync('components/cards/components/PaymentOfferModal.tsx', 'utf8');
+  const service = readFileSync('services/paymentOffers.service.ts', 'utf8');
+  const migration = readFileSync('supabase/migrations/20261103090000_payment_offer_manaus_business_date.sql','utf8');
+  assert.match(modal, /const today = businessDateInManaus\(\)/);
+  assert.match(service, /referenceDate = businessDateInManaus\(\)/);
+  assert.match(migration, /America\/Manaus/);
+  assert.match(migration, /pg_get_functiondef/);
+  assert.match(migration, /definition_md5/);
 });

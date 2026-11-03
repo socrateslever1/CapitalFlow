@@ -1,4 +1,5 @@
 import React from 'react';
+import { businessDateInManaus } from '../../../utils/businessDate';
 import { ArrowRight, Calendar, CalendarClock, Check, Percent, RefreshCcw, Tag, XCircle } from 'lucide-react';
 import { Modal, modalPrimaryActionClass } from '../../ui/Modal';
 import type { Installment, Loan } from '../../../types';
@@ -26,7 +27,7 @@ export const PaymentOfferModal: React.FC<PaymentOfferModalProps> = ({ loan, inst
     Number(installment.paymentOfferDiscountPercent || 0) > 0
       ? 'PERCENT'
       : Number(installment.paymentOfferDiscountValue || 0) > 0 ? 'VALUE' : 'NONE';
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateInManaus();
   const [form, setForm] = React.useState<PaymentOfferInput>({
     offerType: installment.paymentOfferType === 'INTEREST_RENEWAL' ? 'INTEREST_RENEWAL' : 'SETTLEMENT',
     agreedDate: dateKey(installment.paymentOfferAgreedDate) || today,

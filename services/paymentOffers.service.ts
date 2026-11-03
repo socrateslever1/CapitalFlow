@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { businessDateInManaus } from '../utils/businessDate';
 import type { Installment, Loan } from '../types';
 import { calculateTotalDue } from '../domain/finance/calculations';
 
@@ -26,9 +27,9 @@ export interface PaymentOfferHistoryItem {
   createdAt: string;
 }
 
-const todayKey = () => new Date().toISOString().slice(0, 10);
 
-export const isPaymentOfferActive = (installment: Installment | any, referenceDate = todayKey()) =>
+
+export const isPaymentOfferActive = (installment: Installment | any, referenceDate = businessDateInManaus()) =>
   String(installment?.paymentOfferStatus ?? installment?.payment_offer_status ?? '').toUpperCase() === 'ACTIVE'
   && String(installment?.paymentOfferValidUntil ?? installment?.payment_offer_valid_until ?? '') >= referenceDate
   && Number(installment?.paymentOfferAmount ?? installment?.payment_offer_amount ?? 0) > 0.05;

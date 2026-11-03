@@ -3,7 +3,7 @@ import { AlertCircle, Link2, Loader2 } from 'lucide-react';
 import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import type { CapitalSource } from '../../../types';
-import { getCapitalLinkState } from '../domain/capitalLink';
+import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../domain/capitalLink';
 
 type Props = {
   accounts: PersonalWalletAccount[];
@@ -69,13 +69,7 @@ export const WalletCapitalLinks: React.FC<Props> = ({
           {accounts.map(account => {
             const state = getCapitalLinkState(account, sources);
             const warning = state.status === 'divergent' || state.status === 'unavailable';
-            const options = sources.filter(source => {
-              if (source.id === account.capital_source_id) return true;
-              if (['CARD', 'MISTO'].includes(source.type)) return false;
-              if (accounts.some(other => other.id !== account.id && other.capital_source_id === source.id)) return false;
-              return Number.isFinite(Number(source.balance)) &&
-                Math.round(Number(source.balance) * 100) === Math.round(Number(account.balance) * 100);
-            });
+            const options = getEligibleAccountCapitalSources(account, accounts, sources);
             return (
               <li key={account.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
                 <p className="break-words text-sm font-semibold text-white">{account.nickname}</p>

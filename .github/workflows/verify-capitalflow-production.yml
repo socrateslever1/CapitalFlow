@@ -18,7 +18,7 @@ jobs:
         shell: bash
         env:
           ORIGIN: https://capflow.pages.dev
-          MAIN_SHA: 12aa23f64aef011e620695eab8e133898a27651c
+          MAIN_SHA: bd5817e93f607e6a43b8a55516ff164eed344abc
         run: |
           set -euo pipefail
           expected="${MAIN_SHA:0:12}"

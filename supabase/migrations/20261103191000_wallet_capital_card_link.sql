@@ -1,1 +1,0 @@
--- Integração opcional de fontes e cartões. Não movimentar saldos ou despesas.

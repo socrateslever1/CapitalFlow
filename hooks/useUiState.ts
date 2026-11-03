@@ -95,11 +95,13 @@ export const useUiState = () => {
 
   // Confirmations
   const [confirmation, setConfirmation] = useState<{
-    type: 'DELETE' | 'ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'REVERSE_TRANSACTION';
+    type: 'DELETE' | 'ARCHIVE' | 'RECLASSIFY_ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'REVERSE_TRANSACTION';
     target: any;
     title?: string;
     message?: string;
     showRefundOption?: boolean;
+    archiveReason?: import('../domain/credit/archivePolicy').ArchiveReason | '';
+    archiveNote?: string;
     extraData?: any;
   } | null>(null);
 

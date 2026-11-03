@@ -69,7 +69,7 @@ export function readLoanFundingCost(loan: {
 }): number {
   const cost = Number(loan.fundingCost);
   if (loan.fundingCost !== undefined && loan.fundingCost !== null
-      && Number.isFinite(cost) && cost >= 0) {
+      && Number.isFinite(cost) && cost > 0) {
     return Math.round((cost + Number.EPSILON) * 100) / 100;
   }
   const principal = Number(loan.principal);

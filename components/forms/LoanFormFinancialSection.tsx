@@ -4,6 +4,7 @@ import { Wallet, CalendarX, Clock, CreditCard, Landmark, AlertTriangle, Calendar
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
+import { LoanFundingCostFields } from './LoanFundingCostFields';
 import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
 
 const MULTI_SOURCE_CREATION_ENABLED = false;
@@ -67,7 +68,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
   const dateInputClass = `${inputClass} px-4 font-black text-base tabular-nums [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer`;
 
   const selectedSource = sources.find(s => s.id === formData.sourceId);
-  const isCardSource = selectedSource?.type === 'MISTO';
+  const isCardSource = selectedSource?.type === 'CARD' || selectedSource?.type === 'MISTO';
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
   const fundingPaymentMethod = formData.fundingPaymentMethod || 'CREDIT_CARD';
   const interestFreeInstallment = isInstallmentFixed && formData.interestFreeInstallment === true;
@@ -114,17 +115,6 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
     : fundingAllocations.reduce((sum: number, allocation: any) => sum + (parseFloat(String(allocation.amount || '').replace(',', '.')) || 0), 0);
   const hasMultipleSources = fundingAllocations.length > 1;
 
-  const fundingCostDisplay = useMemo(() => {
-      const principal = parseFloat(formData.principal) || 0;
-      const totalPayable = parseFloat(formData.fundingTotalPayable) || 0;
-      if (totalPayable > principal) {
-          return {
-              cost: totalPayable - principal,
-              isValid: true
-          };
-      }
-      return { cost: 0, isValid: totalPayable === 0 };
-  }, [formData.principal, formData.fundingTotalPayable]);
 
   const fixedInstallmentDisplay = useMemo(() => {
       const principal = parseFloat(formData.principal) || 0;
@@ -300,9 +290,22 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
               const principal = cleanNumberStr(e.target.value);
               setFormData((current: any) => {
-                if (current.billingCycle !== 'INSTALLMENT_FIXED' || (current.fundingPaymentMethod || 'CREDIT_CARD') !== 'CREDIT_CARD') return { ...current, principal };
-                const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
+                if (current.billingCycle === 'INSTALLMENT_FIXED' && (current.fundingPaymentMethod || 'CREDIT_CARD') === 'CREDIT_CARD') {
+                  const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                  return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
+                }
+                // Quando o capital muda, conserva o custo absoluto que o usuário informou.
+                if (isCardSource && current.fundingTotalPayable !== '' && current.fundingTotalPayable != null) {
+                  const oldPrincipal = parseFundingInput(current.principal);
+                  const oldCost = Math.max(0, parseFundingInput(current.fundingTotalPayable) - oldPrincipal);
+                  const newPrincipal = parseFundingInput(principal);
+                  return {
+                    ...current, principal,
+                    fundingTotalPayable: formatMoneyInput(newPrincipal + oldCost),
+                    fundingFeePercent: newPrincipal > 0 ? formatRateInput(oldCost / newPrincipal * 100) : '',
+                  };
+                }
+                return { ...current, principal };
               });
             }} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
             {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
@@ -368,7 +371,19 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
             <div className="space-y-2">
               {fundingAllocations.map((allocation: any, index: number) => <div key={`${allocation.sourceId}-${index}`} className="flex gap-2">
-                <div className="relative group min-w-0 flex-1"><select value={allocation.sourceId || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], sourceId: event.target.value }; return { ...current, sourceId: index === 0 ? event.target.value : current.sourceId, fundingAllocations: next }; })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.type === 'MISTO' ? 'Misto' : `R$ ${Number(source.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
+                <div className="relative group min-w-0 flex-1"><select value={allocation.sourceId || ''} onChange={(event) => setFormData((current: any) => {
+                  const next = [...(current.fundingAllocations || fundingAllocations)];
+                  next[index] = { ...next[index], sourceId: event.target.value };
+                  const chosen = sources.find(source => source.id === event.target.value);
+                  const cardOrigin = chosen?.type === 'CARD' || chosen?.type === 'MISTO';
+                  return {
+                    ...current,
+                    sourceId: index === 0 ? event.target.value : current.sourceId,
+                    fundingAllocations: next,
+                    ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
+                      ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
+                  };
+                })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.type === 'MISTO' ? 'Misto' : `R$ ${Number(source.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
                 {hasMultipleSources && <input type="number" min="0.01" step="0.01" value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], amount: event.target.value }; return { ...current, fundingAllocations: next }; })} placeholder="Valor" className="w-28 rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 text-xs font-bold text-white outline-none focus:border-purple-500/50" />}
                 {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
               </div>)}
@@ -497,10 +512,20 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total a pagar à fonte</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
-                      <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-4"><p className="text-[9px] uppercase font-black text-slate-500">Custo da captação</p><p className={`mt-1 font-black ${fundingCostDisplay.isValid ? 'text-rose-400' : 'text-slate-400'}`}>{formatMoney(fundingCostDisplay.cost)}</p></div>
-                    </div>
+                    <LoanFundingCostFields
+                      principal={principalValue}
+                      totalPayable={String(formData.fundingTotalPayable ?? '')}
+                      feePercent={String(formData.fundingFeePercent ?? '')}
+                      required={!isEditing && selectedSource?.type === 'CARD'}
+                      disabled={principalValue <= 0}
+                      onChange={(total, rate) => setFormData((current: any) => ({
+                        ...current,
+                        fundingTotalPayable: total,
+                        fundingFeePercent: rate,
+                        fundingPaymentMethod: 'CREDIT_CARD',
+                        fundingCalculationMode: 'TOTAL',
+                      }))}
+                    />
                 )}
             </div>
         )}

@@ -164,8 +164,20 @@ export function parseCardInvoiceSummary(lines: readonly string[]): CardInvoiceSu
     // Saldo em aberto total não equivale necessariamente a parcelas futuras.
     // Preserve o campo como desconhecido até haver detalhamento explícito.
   }
-  if (institution === 'Itaú' && futureInstallments === null)
-    futureInstallments = matchValue(documentLines, /\btotal\s+para\s+proximas\s+faturas\b/);
+  if (institution === 'Itaú') {
+    // O Itaú apresenta "Total a pagar" também no quadro de financiamento,
+    // acrescido de encargos. Esse valor NÃO é o total contábil da fatura.
+    const declaredInvoiceTotal = matchValue(documentLines, /\btotal\s+desta\s+fatura\b/)
+      ?? matchValue(documentLines, /\bo\s+total\s+da\s+sua\s+fatura\s+e\b/);
+    if (declaredInvoiceTotal !== null) {
+      if (invoiceTotal !== null && Math.abs(invoiceTotal - declaredInvoiceTotal) > 0.01) {
+        warnings.push('Valor alternativo de financiamento identificado; o total da fatura foi preservado conforme o resumo do banco.');
+      }
+      invoiceTotal = declaredInvoiceTotal;
+    }
+    if (futureInstallments === null)
+      futureInstallments = matchValue(documentLines, /\btotal\s+para\s+proximas\s+faturas\b/);
+  }
   if (creditLimit !== null && usedLimit !== null && usedLimit > creditLimit + 0.01)
     warnings.push('O limite utilizado supera o limite total declarado; confira as modalidades de limite.');
   if (creditLimit !== null && usedLimit !== null && availableLimit !== null

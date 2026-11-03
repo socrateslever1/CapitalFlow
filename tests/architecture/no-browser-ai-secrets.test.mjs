@@ -36,3 +36,19 @@ test('IA não cadastra lançamentos financeiros sem revisão explícita', () => 
   assert.ok(!parser.includes('ai-img-${idx}-${Date.now()}'));
   assert.ok(!parser.includes('date: item.date || new Date()'));
 });
+
+test('gateway usa modelo compatível e diagnostica erro externo sem divulgar segredos', () => {
+  const proxy = read('supabase/functions/capitalflow-gemini-proxy/index.ts');
+  assert.ok(proxy.includes("body.model : 'gemini-3.8-flash'"));
+  assert.ok(proxy.includes("event: 'upstream_rejected'"));
+  assert.ok(proxy.includes('upstream.status'));
+  assert.ok(!proxy.includes('console.error(upstream'));
+  for (const file of [
+    'services/geminiService.ts', 'services/geminiGateway.service.ts',
+    'features/finance/extrato/services/extratoAIService.ts',
+    'utils/statementSmartReader.ts',
+  ]) {
+    assert.ok(read(file).includes("'gemini-3.8-flash'"), file);
+    assert.ok(!read(file).includes("'gemini-2.5-flash'"), file);
+  }
+});

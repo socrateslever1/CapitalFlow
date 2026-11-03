@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY');
   if (!apiKey) return json({ error: 'O provedor de IA ainda não está configurado no servidor.' }, 503);
   try {
-    const model = typeof body.model === 'string' && MODEL_IDS.has(body.model) ? body.model : 'gemini-2.5-flash';
+    const model = typeof body.model === 'string' && MODEL_IDS.has(body.model) ? body.model : 'gemini-3.8-flash';
     const contents = validateContents(body.contents);
     const conf = body.config && typeof body.config === 'object' && !Array.isArray(body.config)
       ? body.config as Record<string, unknown> : {};
@@ -108,15 +108,38 @@ Deno.serve(async (req) => {
       },
     );
     if (!upstream.ok) {
-      return json({ error: upstream.status === 429 ? 'Limite de IA atingido.' : 'Falha no serviço de IA.' },
-        upstream.status === 429 ? 429 : 502);
+      // Only categorical provider status is logged. No prompts, credentials,
+      // personal documents or raw upstream response are ever logged.
+      const failure: unknown = await upstream.json().catch(() => null);
+      const envelope = (failure && typeof failure === 'object' && 'error' in failure)
+        ? (failure as { error?: { status?: unknown; details?: Array<{ reason?: unknown }> } }).error
+        : null;
+      const code = typeof envelope?.status === 'string' && /^[A-Z_]{1,50}$/.test(envelope.status)
+        ? envelope.status : 'UNKNOWN';
+      const reason = typeof envelope?.details?.[0]?.reason === 'string'
+        && /^[A-Z_]{1,60}$/.test(envelope.details[0].reason)
+        ? envelope.details[0].reason : 'UNSPECIFIED';
+      console.error('[gemini-proxy]', JSON.stringify({
+        event: 'upstream_rejected', model, status: upstream.status, code, reason,
+      }));
+      if (upstream.status === 429)
+        return json({ error: 'A IA atingiu seu limite temporário de utilização.' }, 429);
+      if (upstream.status === 400 || upstream.status === 401 || upstream.status === 402
+          || upstream.status === 403 || upstream.status === 404)
+        return json({ error: 'O provedor de IA recusou a solicitação. Verifique acesso ao modelo, chave e faturamento.' }, 503);
+      return json({ error: 'O provedor de IA está indisponível. Tente novamente.' }, 502);
     }
     const payload = await upstream.json();
     const answer = payload?.candidates?.[0]?.content?.parts
       ?.map((part: { text?: unknown }) => typeof part.text === 'string' ? part.text : '').join('') || '';
-    if (!answer || answer.length > 150_000) return json({ error: 'Resposta da IA inválida.' }, 502);
+    if (!answer || answer.length > 150_000) {
+      console.error('[gemini-proxy]', JSON.stringify({ event: 'empty_or_oversized_response', model }));
+      return json({ error: 'O provedor não retornou uma resposta utilizável.' }, 502);
+    }
     return json({ text: answer }, 200);
-  } catch {
+  } catch (cause) {
+    const kind = cause instanceof Error && cause.name === 'TimeoutError' ? 'TIMEOUT' : 'FETCH_FAILURE';
+    console.error('[gemini-proxy]', JSON.stringify({ event: 'request_failed', kind }));
     return json({ error: 'Não foi possível concluir a análise.' }, 502);
   }
 });

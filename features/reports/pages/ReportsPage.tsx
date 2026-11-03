@@ -67,7 +67,8 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
     const estimatedROI = totalPrincipal > 0 ? (grossProfit / totalPrincipal) * 100 : 0;
 
     // Capital disponível vs Alocado
-    const totalBalance = operationalSources.reduce((acc, s) => acc + (s.balance || 0), 0);
+    const totalBalance = operationalSources.filter(source => !['CARD', 'MISTO'].includes(source.type))
+      .reduce((sum, source) => sum + (Number(source.balance) || 0), 0);
     const allocationRate = (totalBalance + totalPrincipal) > 0 ? (totalPrincipal / (totalBalance + totalPrincipal)) * 100 : 0;
 
     return {

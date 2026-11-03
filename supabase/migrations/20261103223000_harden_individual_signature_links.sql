@@ -64,6 +64,7 @@ DECLARE
   v_required_roles text[] := ARRAY[]::text[];
   v_signed_roles text[] := ARRAY[]::text[];
   v_witnesses jsonb := '[]'::jsonb;
+  v_has_explicit_roles boolean := false;
   v_next_status text := 'EM_ASSINATURA';
   v_client_id uuid;
   i integer;
@@ -127,10 +128,10 @@ BEGIN
   IF jsonb_typeof(v_doc.snapshot->'witnesses')='array' THEN
     v_witnesses := v_doc.snapshot->'witnesses';
   END IF;
-  IF CASE WHEN jsonb_typeof(v_doc.snapshot->'requiredSignatureRoles')='array'
-      THEN jsonb_array_length(v_doc.snapshot->'requiredSignatureRoles')>0
-      ELSE false END
-  THEN
+  IF jsonb_typeof(v_doc.snapshot->'requiredSignatureRoles')='array' THEN
+    v_has_explicit_roles := jsonb_array_length(v_doc.snapshot->'requiredSignatureRoles')>0;
+  END IF;
+  IF v_has_explicit_roles THEN
     SELECT coalesce(array_agg(DISTINCT public.legal_normalize_signature_role_v1(role_value)),ARRAY[]::text[])
     INTO v_required_roles
     FROM jsonb_array_elements_text(v_doc.snapshot->'requiredSignatureRoles') AS required(role_value);

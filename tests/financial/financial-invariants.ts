@@ -732,3 +732,21 @@ run('abatimento por capital desejado não confunde capital com saldo total', () 
 });
 
 console.log('Suite financeira concluída com sucesso.');
+
+run('edição de contrato preserva custo original do cartão mesmo com novo principal', () => {
+  const input = {
+    clientId:'cliente', debtorName:'Teste', debtorPhone:'92999999999',
+    debtorDocument:'00000000000', debtorAddress:'', sourceId:'fonte',
+    principal:'200', interestRate:'30', finePercent:'2', dailyInterestPercent:'1',
+    billingCycle:'MONTHLY', notes:'', guaranteeDescription:'', startDate:'2026-11-03',
+    preferredPaymentMethod:'PIX', fundingTotalPayable:'209.98',
+    fundingFeePercent:'4.99', fundingPaymentMethod:'CREDIT_CARD',
+  } as any;
+  const initial = mapFormToLoan(input,'30',null,[],[],[],
+    '00000000-0000-4000-8000-000000000001');
+  const edited = mapFormToLoan({ ...input, principal:'250', fundingTotalPayable:'300' },'30',initial,[],[],[],
+    '00000000-0000-4000-8000-000000000001');
+  assertMoney(edited.fundingTotalPayable || 0,209.98,'total do cartão original');
+  assertMoney(edited.fundingCost || 0,9.98,'custo da operação original');
+  assert.equal(edited.fundingPaymentMethod,'CREDIT_CARD');
+});

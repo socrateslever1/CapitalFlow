@@ -290,6 +290,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
               const principal = cleanNumberStr(e.target.value);
               setFormData((current: any) => {
+                if (isEditing) return { ...current, principal };
                 if (current.billingCycle === 'INSTALLMENT_FIXED' && (current.fundingPaymentMethod || 'CREDIT_CARD') === 'CREDIT_CARD') {
                   const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
                   return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
@@ -517,7 +518,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                       totalPayable={String(formData.fundingTotalPayable ?? '')}
                       feePercent={String(formData.fundingFeePercent ?? '')}
                       required={!isEditing && selectedSource?.type === 'CARD'}
-                      disabled={principalValue <= 0}
+                      disabled={isEditing || principalValue <= 0}
                       onChange={(total, rate) => setFormData((current: any) => ({
                         ...current,
                         fundingTotalPayable: total,

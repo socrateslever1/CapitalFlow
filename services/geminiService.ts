@@ -22,7 +22,7 @@ export async function processNaturalLanguageCommand(text: string, context: unkno
     const persona: AIPersona = (context as {type?: string})?.type === 'PORTAL_CLIENT'
       ? 'CLIENT_MENTOR' : 'OPERATOR_CRO';
     const response = await requestGemini({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: `Perfil: ${persona}\nComando: ${text}\nDados informados: ${JSON.stringify(context)}`,
       config: { systemInstruction: SYSTEM_INSTRUCTION, responseMimeType: 'application/json' },
     });
@@ -50,7 +50,7 @@ export async function askGemini(prompt: string): Promise<string> {
   if (!prompt.trim()) return '';
   try {
     const response = await requestGemini({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: { systemInstruction: SYSTEM_INSTRUCTION },
     });

@@ -16,3 +16,8 @@ O frontend não recebe chaves Gemini nem tokens privados do Cloudflare AI Gatewa
 - Alterações em produção e homologação física exigem confirmação por build e deploy do SHA exato.
 
 - Vite usa allowlist `envPrefix` explícita para impedir que variáveis `VITE_GOOGLE_API_KEY`, `VITE_GEMINI_API_KEY` ou `VITE_CF_AIG_TOKEN` sejam copiadas para `import.meta.env`, mesmo quando ainda estiverem presentes na configuração antiga de implantação.
+
+## Incidente confirmado em 03/11/2026
+Os logs das últimas 24h retornavam 26 respostas HTTP 502 ao chamar o proxy e 13 respostas 204 de preflight, sem resposta 200. A existência de respostas 502 indica que houve tentativa de chamada externa, mas não comprova validade da chave nem sucesso. A versão antiga mascarava o status do provedor e usava por padrão Gemini 2.5 Flash, cujo acesso o Google restringiu a usuários ativos anteriores (documentação oficial atualizada em 29/10/2026: https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash ).
+
+A versão atual usa `gemini-3.8-flash`, modelo suportado e estável, e registra **somente códigos não secretos** de erro upstream (`status`, `code`, `reason` validados), sem prompts, documentos, chaves ou mensagens de erro brutas. Nenhum teste automatizado substitui uma resposta HTTP 200 autenticada do Gemini em produção. A rotação da chave antiga exige ação no Google AI Studio e atualização segura do Secret da Edge Function.

@@ -164,7 +164,7 @@ export const mapFormToLoan = (
     fundingCost = 0;
   }
 
-  if (form.fundingTotalPayable && fundingTotalPayable < principal - 0.005) {
+  if (!initialData && form.fundingTotalPayable && fundingTotalPayable < principal - 0.005) {
     throw new RangeError('O valor total da origem do capital deve cobrir o principal.');
   }
 
@@ -240,10 +240,10 @@ export const mapFormToLoan = (
     dailyInterestPercent,
 
     // Mapeamento de Funding
-    fundingTotalPayable: fundingTotalPayable || undefined,
-    fundingCost: fundingCost || undefined,
-    fundingProvider: form.fundingProvider || undefined,
-    fundingFeePercent: parseCurrency(form.fundingFeePercent || '') || undefined,
+    fundingTotalPayable: initialData ? initialData.fundingTotalPayable : fundingTotalPayable || undefined,
+    fundingCost: initialData ? initialData.fundingCost : fundingCost || undefined,
+    fundingProvider: initialData ? initialData.fundingProvider : form.fundingProvider || undefined,
+    fundingFeePercent: initialData ? initialData.fundingFeePercent : parseCurrency(form.fundingFeePercent || '') || undefined,
     fundingCalculationMode,
     fundingInstallmentsCount: fundingInstallmentsCount || undefined,
     fundingMonthlyRate: fundingMonthlyRate || undefined,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { formatMoney, cleanNumberStr } from '../../utils/formatters';
+import { formatMoney, cleanNumberStr, parseCurrency } from '../../utils/formatters';
 
 export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: any) => void }> = ({ formData, setFormData }) => {
   const [mode, setMode] = useState<'RATE' | 'VALUE'>('RATE');
@@ -18,6 +18,9 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
 
   const principal = Number(formData.principal || 0);
   const interestValue = preview.interest;
+  const fundingTotal = parseCurrency(formData.fundingTotalPayable);
+  const fundingCost = fundingTotal > principal ? Math.round((fundingTotal - principal) * 100) / 100 : 0;
+  const netProfit = Math.round((interestValue - fundingCost) * 100) / 100;
 
   const setInterestByValue = (raw: string) => {
     setValueInput(raw);
@@ -42,6 +45,12 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
         <strong className="text-lg font-black tabular-nums text-white">{formatMoney(preview.total)}</strong>
       </div>
 
+      {fundingCost > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs">
+          <span className="text-slate-300">Custo do capital: <strong className="text-rose-300">{formatMoney(fundingCost)}</strong></span>
+          <span className="text-slate-300">Lucro líquido previsto: <strong className={netProfit < 0 ? 'text-rose-300' : 'text-emerald-300'}>{formatMoney(netProfit)}</strong></span>
+        </div>
+      )}
       <div className="flex bg-slate-950/70 p-1 rounded-lg border border-slate-800/80">
         <button type="button" onClick={() => switchMode('RATE')} className={`flex-1 py-2 rounded-md text-[9px] font-black uppercase transition-all ${mode === 'RATE' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>Juros em %</button>
         <button type="button" onClick={() => switchMode('VALUE')} className={`flex-1 py-2 rounded-md text-[9px] font-black uppercase transition-all ${mode === 'VALUE' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>Juros em R$</button>

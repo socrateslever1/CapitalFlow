@@ -74,8 +74,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     const activeLoans = useMemo(() => getActiveSourceLoans(loans, source.id), [loans, source.id]);
     const activeContractsCount = activeLoans.length;
-    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : source.type === 'MISTO' ? CreditCard : Wallet;
-    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : source.type === 'MISTO' ? 'text-rose-500' : 'text-purple-500';
+    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : ['MISTO', 'CARD'].includes(source.type) ? CreditCard : Wallet;
+    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : ['MISTO', 'CARD'].includes(source.type) ? 'text-rose-500' : 'text-purple-500';
 
     const handleUpdateLogo = () => {
         onEdit(source);

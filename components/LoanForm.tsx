@@ -11,7 +11,7 @@ import { LoanFormDocumentsSection } from './forms/LoanFormDocumentsSection';
 import { LoanFormActions } from './forms/LoanFormActions';
 
 interface LoanFormProps {
-  onAdd: (loan: Loan) => void;
+  onAdd: (loan: Loan) => void | Promise<void>;
   onCancel: () => void;
   initialData?: Loan | null;
   clients: Client[];

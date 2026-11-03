@@ -251,7 +251,7 @@ export const useClientPortalLogic = (initialToken: string, initialCode: string) 
     if (!loggedClient) return;
     setIsSigning(true);
     try {
-      const missingInfo = await portalService.docMissingFields(docId) as any;
+      const missingInfo = await portalService.docMissingFields(initialToken, initialCode, docId) as any;
 
       if (missingInfo && missingInfo.missing && missingInfo.missing.length > 0) {
         const patch: any = {};

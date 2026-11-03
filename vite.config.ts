@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'node:crypto';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -41,7 +41,6 @@ function spaFallbackPlugin() {
 }
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
   const commit = (process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA || 'local')
     .replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'local';
   const buildId = `${commit}-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
@@ -51,7 +50,6 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       '__CAPITALFLOW_BUILD_ID__': JSON.stringify(buildId),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || env.VITE_GOOGLE_API_KEY),
     },
     resolve: {
       alias: { '@': path.resolve('./') },

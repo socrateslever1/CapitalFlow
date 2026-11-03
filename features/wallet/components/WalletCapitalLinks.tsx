@@ -70,8 +70,8 @@ export const WalletCapitalLinks: React.FC<Props> = ({
             const state = getCapitalLinkState(account, sources);
             const warning = state.status === 'divergent' || state.status === 'unavailable';
             const options = sources.filter(source => {
-              if (['CARD', 'MISTO'].includes(source.type)) return false;
               if (source.id === account.capital_source_id) return true;
+              if (['CARD', 'MISTO'].includes(source.type)) return false;
               if (accounts.some(other => other.id !== account.id && other.capital_source_id === source.id)) return false;
               return Number.isFinite(Number(source.balance)) &&
                 Math.round(Number(source.balance) * 100) === Math.round(Number(account.balance) * 100);

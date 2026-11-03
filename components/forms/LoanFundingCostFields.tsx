@@ -24,6 +24,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
     : 0;
   const rounded = (value: number) => (Math.round((value + Number.EPSILON) * 100) / 100).toFixed(2);
   const changeCost = (raw: string) => {
+    if (!/^(?:\d{0,12}(?:[.,]\d{0,2})?|\d{1,3}(?:\.\d{3})+(?:,\d{0,2})?)$/.test(raw)) return;
     if (raw === '') { onChange('', ''); return; }
     const value = parseCurrency(raw);
     if (!Number.isFinite(value) || value < 0 || !Number.isFinite(principal) || principal <= 0) return;
@@ -32,6 +33,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
       String(Number((roundedCost / principal * 100).toFixed(6))));
   };
   const changePercent = (raw: string) => {
+    if (!/^\d{0,6}(?:[.,]\d{0,6})?$/.test(raw)) return;
     if (raw === '') { onChange('', ''); return; }
     const rate = parseCurrency(raw);
     if (!Number.isFinite(rate) || rate < 0 || !Number.isFinite(principal) || principal <= 0) return;

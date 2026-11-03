@@ -46,3 +46,16 @@ test('RPC antiga exige proprietário autenticado e a pública usa dois fatores',
   assert.match(migration, /REVOKE ALL ON FUNCTION public\.rpc_doc_missing_fields\(uuid\) FROM PUBLIC,anon,authenticated/);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.portal_document_signing_check_v1\(text,text,uuid\) TO anon,authenticated,service_role/);
 });
+
+test('documentos assinados não podem ser modificados pelo portal, mesmo com token válido', () => {
+  assert.match(migration, /d\.signed_at IS NULL/);
+  assert.match(migration, /d\.locked_at IS NULL/);
+  assert.match(migration, /c\.portal_token::text = p_token/);
+  assert.match(migration, /c\.portal_shortcode = p_shortcode/);
+  assert.match(migration, /portal_burned_at IS NULL/);
+  assert.match(migration, /portal_patch_document_snapshot\(text,text,uuid,jsonb\)/);
+});
+test('a interface interrompe o fluxo se a segunda verificação falhar', () => {
+  assert.match(logic, /verified\?\.can_sign !== true/);
+  assert.match(logic, /missingInfo\.can_sign !== true/);
+});

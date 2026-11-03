@@ -1,0 +1,42 @@
+name: Verify CapitalFlow production (read-only)
+
+on:
+  push:
+    branches:
+      - ops/verify-cloudflare-20261103
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cloudflare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Verify currently published Cloudflare Pages build
+        shell: bash
+        env:
+          ORIGIN: https://capflow.pages.dev
+          MAIN_SHA: d95707d7497867120778b721eef8d50ca864d948
+        run: |
+          set -euo pipefail
+          expected="${MAIN_SHA:0:12}"
+          found=""
+          for attempt in $(seq 1 24); do
+            response="$(curl --silent --show-error --fail --location --max-time 12 \
+              -H 'Cache-Control: no-cache' "${ORIGIN}/version.json?verify=${expected}&n=${attempt}" || true)"
+            if [[ -n "$response" ]]; then
+              found="$(BUILD_RESPONSE="$response" node -e 'try{let j=JSON.parse(process.env.BUILD_RESPONSE);process.stdout.write(typeof j.buildId === "string"?j.buildId:"")}catch{process.stdout.write("")}')"
+              echo "Tentativa $attempt: buildId=$found"
+              if [[ "$found" == "$expected"-* ]]; then
+                echo "OK: Cloudflare Pages running exact verified source $MAIN_SHA"
+                exit 0
+              fi
+            else
+              echo "Tentativa $attempt: endpoint indisponível."
+            fi
+            sleep 10
+          done
+          echo "::error::Deploy Cloudflare não confirmado para $MAIN_SHA; último build=$found"
+          exit 1

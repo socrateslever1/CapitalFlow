@@ -750,3 +750,18 @@ run('edição de contrato preserva custo original do cartão mesmo com novo prin
   assertMoney(edited.fundingCost || 0,9.98,'custo da operação original');
   assert.equal(edited.fundingPaymentMethod,'CREDIT_CARD');
 });
+
+run('fonte cartão exige custo explícito em contrato mensal, inclusive zero', () => {
+  const source={ id:'card',profile_id:'profile',name:'Cartão',type:'CARD',balance:500 } as any;
+  const form={
+    clientId:'cliente',debtorName:'Teste',debtorPhone:'92999999999',
+    debtorDocument:'12345678901',debtorAddress:'',sourceId:'card',
+    principal:'200',interestRate:'30',finePercent:'2',dailyInterestPercent:'1',
+    startDate:'2026-11-03',billingCycle:'MONTHLY',notes:'',
+    guaranteeDescription:'',preferredPaymentMethod:'PIX',
+  } as any;
+  assert.equal(validateLoanForm(form,[source],false).isValid,false);
+  assert.equal(validateLoanForm({...form,fundingTotalPayable:'209.98'},[source],false).isValid,true);
+  assert.equal(validateLoanForm({...form,fundingTotalPayable:'200'},[source],false).isValid,true);
+  assert.equal(validateLoanForm({...form,fundingTotalPayable:'199'},[source],false).isValid,false);
+});

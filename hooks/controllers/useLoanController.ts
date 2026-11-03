@@ -116,11 +116,8 @@ export const useLoanController = (
     }
   };
 
-  const handleSaveLoan = async (loan: Loan) => {
-    if (!activeUser) {
-      showToast('Entre novamente para salvar o contrato.', 'error');
-      return;
-    }
+  const handleSaveLoan = async (loan: Loan): Promise<void> => {
+    if (!activeUser) throw new Error('Entre novamente para salvar o contrato.');
 
     if (activeUser.id === 'DEMO') {
       demoService.handleSaveLoan(loan, ui.editingLoan, sources, setSources, loans, setLoans, showToast);
@@ -130,24 +127,26 @@ export const useLoanController = (
     }
 
     const ownerId = getOwnerId();
-    if (!ownerId) {
-      showToast('Perfil inválido. Refaça o login.', 'error');
-      return;
-    }
+    if (!ownerId) throw new Error('Perfil inválido. Refaça o login.');
 
     try {
-      if (!ui.editingLoan) {
-        await contractsService.assertClientCanBorrow(loan, loans);
-      }
-
+      if (!ui.editingLoan) await contractsService.assertClientCanBorrow(loan, loans);
       await contractsService.saveLoan(loan, activeUser, sources, ui.editingLoan);
-      showToast(ui.editingLoan ? 'Contrato Atualizado!' : 'Contrato Salvo!', 'success');
-      ui.closeModal();
-      ui.setEditingLoan(null);
+    } catch (error) {
+      console.error('[LoanController] Falha na persistência do contrato:', error);
+      // Propaga a falha ao formulário: não se pode sinalizar sucesso sem confirmação do banco.
+      throw error;
+    }
+
+    // A persistência terminou; erro na sincronização da lista não desfaz a gravação.
+    showToast(ui.editingLoan ? 'Contrato atualizado!' : 'Contrato salvo!', 'success');
+    ui.closeModal();
+    ui.setEditingLoan(null);
+    try {
       await fetchFullData(ownerId);
-    } catch (e: any) {
-      console.error('Erro ao salvar contrato:', e);
-      showToast('Não foi possível salvar o contrato. Confira os dados e tente novamente.', 'error');
+    } catch (error) {
+      console.error('[LoanController] Contrato salvo, mas falhou a atualização da lista:', error);
+      showToast('Contrato salvo. Não foi possível atualizar a lista; recarregue a página para visualizar.', 'error');
     }
   };
 

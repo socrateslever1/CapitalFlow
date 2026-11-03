@@ -67,10 +67,12 @@ on:
 
 permissions:
   contents: write  # Only main pushes may publish the public test release.
+  actions: read   # Read the complete Quality Gates conclusion for this exact SHA.
 
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  # Never interrupt an active APK/checksum publication with a newer push.
+  cancel-in-progress: false
 
 jobs:
   android-debug:
@@ -100,6 +102,12 @@ jobs:
         run: npm install --no-save --package-lock=false --no-audit --no-fund @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
       - name: Validate architecture and financial invariants
         run: npm run test:quality
+      - name: Audit production dependencies before Android distribution
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify invoice regressions outside the general quality suite
+        run: |
+          npm run test:wallet-invoice-cycle
+          node --test tests/architecture/wallet-invoice-editor-regression.test.mjs tests/architecture/wallet-issuer-invoice-atomic.test.mjs
       - name: Build application bundle
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
@@ -242,6 +250,12 @@ jobs:
             echo '::warning::Assinatura de producao nao configurada. Defina os 4 segredos ANDROID_RELEASE_*. Nenhum APK sera publicado como assinado.'
           fi
 
+      - name: Require complete Quality Gates for the exact source commit
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/android/release-safety.mjs quality "$GITHUB_REPOSITORY" "$GITHUB_SHA"
+
       - name: Set monotonic versionCode for Android release
         if: ${{ steps.signing.outputs.enabled == 'true' }}
         shell: bash
@@ -348,9 +362,11 @@ jobs:
           # signed release APKs at that URL. Compare against prior signed releases,
           # never against old randomly-signed debug previews.
           reference_tag="android-signed-beta"
-          if gh release view "$reference_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            if gh release view "$reference_tag" --repo "$GITHUB_REPOSITORY" \
-                 --json assets -q '.assets[].name' | grep -Fxq 'CapitalFlow-Android.apk'; then
+          metadata="$RUNNER_TEMP/android-prior-release.json"
+          release_state="$(node scripts/android/release-safety.mjs lookup "$GITHUB_REPOSITORY" "$reference_tag" "$metadata")"
+          if [[ "$release_state" = present ]]; then
+            asset_state="$(node scripts/android/release-safety.mjs has-apk "$metadata")"
+            if [[ "$asset_state" = present ]]; then
               mkdir -p "$RUNNER_TEMP/capitalflow-prior-release"
               gh release download "$reference_tag" --repo "$GITHUB_REPOSITORY" \
                 --pattern 'CapitalFlow-Android.apk' \
@@ -359,15 +375,12 @@ jobs:
               prior_cert="$(certificate "$previous")"
               prior_code="$(version_code "$previous")"
               prior_package="$(package_name "$previous")"
-              test "$prior_package" = "$new_package"
-              if [[ -z "$prior_cert" || "$new_cert" != "$prior_cert" ]]; then
-                echo '::error::Certificado diferente da release anterior. Publicacao bloqueada para proteger atualizacoes instaladas.'
-                exit 1
-              fi
-              if ! [[ "$prior_code" =~ ^[0-9]+$ ]] || (( new_code <= prior_code )); then
-                echo '::error::versionCode deve ser maior que a versao publicada anteriormente.'
-                exit 1
-              fi
+              new_sha="$(sha256sum "$signed" | cut -d ' ' -f 1)"
+              prior_sha="$(sha256sum "$previous" | cut -d ' ' -f 1)"
+              # Same versionCode is recoverable only for exactly the same signed bytes.
+              node scripts/android/release-safety.mjs compare \
+                "$new_package" "$new_cert" "$new_code" "$new_sha" \
+                "$prior_package" "$prior_cert" "$prior_code" "$prior_sha"
             fi
           fi
           cat > "$RUNNER_TEMP/android-signed-notes.md" <<EOF
@@ -386,7 +399,8 @@ jobs:
           # android-preview is the original public link; both tags now contain
           # the exact same signed binary and SHA-256 checksum.
           for tag in android-signed-beta android-preview; do
-            if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            release_state="$(node scripts/android/release-safety.mjs lookup "$GITHUB_REPOSITORY" "$tag" "$RUNNER_TEMP/release-$tag.json")"
+            if [[ "$release_state" = absent ]]; then
               gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
                 --target "$GITHUB_SHA" --title "CapitalFlow Android — beta assinada" \
                 --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"

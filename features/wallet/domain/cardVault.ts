@@ -43,7 +43,8 @@ async function key(password: string, salt: Uint8Array) {
 
 export async function encryptCardData(data: ProtectedCardData,password: string,owner: string,context: string): Promise<CardVaultEnvelope> {
   if(!globalThis.crypto?.subtle)throw new Error('O cofre precisa de uma conexão HTTPS ou do aplicativo atualizado.');
-  const value=normalized(data);
+  // Legacy encryption is kept for compatibility, never for retaining CVC/CVV.
+  const value=normalized({...data,securityCode:''});
   const salt=crypto.getRandomValues(new Uint8Array(16));
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const derived=await key(password,salt);

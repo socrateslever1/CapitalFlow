@@ -3,6 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, File
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { tryParseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 
@@ -49,7 +50,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [openingSaving,setOpeningSaving]=useState(false);
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const openingRef=useRef({signature:'',id:generateUUID()});
-  const parsedAmount=Number(amount.trim().replace(',','.'));
+  const parsedAmount=tryParseWalletMoney(amount) ?? NaN;
 
   const entries=useMemo(()=>buildAccountStatementEntries({
     accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,
@@ -84,7 +85,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   };
   const submitOpening=async(e:React.FormEvent)=>{
     e.preventDefault();
-    const value=Number(openingAmount.trim().replace(',','.'));
+    const value=tryParseWalletMoney(openingAmount) ?? NaN;
     if(openingSaving)return;
     if(!Number.isFinite(value)||value<=0||Math.abs(value*100-Math.round(value*100))>0.00001){setError('Informe um saldo inicial válido.');return;}
     const occurredAt=new Date(`${openingDate}T12:00:00`).toISOString();

@@ -7,6 +7,7 @@ import {
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { tryParseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 export interface QuickExpenseModalProps {
   accounts: PersonalWalletAccount[];
@@ -33,24 +34,6 @@ const EXPENSE_CATEGORIES = [
 ] as const;
 
 const todayIso = () => new Date().toLocaleDateString('en-CA');
-
-const formatCurrencyInput = (raw: string): string => {
-  const digits = raw.replace(/\D/g, '');
-  if (!digits) return '';
-  const cents = Number(digits);
-  if (!Number.isFinite(cents)) return '';
-  return (cents / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
-
-const parseCurrencyInput = (formatted: string): number => {
-  if (!formatted) return 0;
-  const normalized = formatted.replace(/\./g, '').replace(',', '.');
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
-};
 
 const resolveFirstInstallmentMonthLabel = (expenseDate: string, closingDay?: number | null): { dueDateIso: string; label: string } => {
   const base = expenseDate ? new Date(`${expenseDate}T12:00:00`) : new Date();
@@ -108,7 +91,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     requestIdRef.current = generateUUID();
   };
 
-  const amountValue = useMemo(() => parseCurrencyInput(amountFormatted), [amountFormatted]);
+  const amountValue = useMemo(() => tryParseWalletMoney(amountFormatted) ?? NaN, [amountFormatted]);
   const selectedCard = useMemo(
     () => activeCards.find((card) => card.id === selectedCardId) || null,
     [activeCards, selectedCardId],
@@ -125,7 +108,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   }, [paymentMode, conditionMode, installmentCount]);
 
   const installmentPreview = useMemo(() => {
-    if (paymentMode !== 'CARD' || amountValue <= 0) return null;
+    if (paymentMode !== 'CARD' || !Number.isFinite(amountValue) || amountValue <= 0) return null;
     const perInstallment = Math.round((amountValue / effectiveInstallments) * 100) / 100;
     const cycle = resolveFirstInstallmentMonthLabel(expenseDate, selectedCard?.closing_day);
     return {
@@ -145,7 +128,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       setError('Informe a descrição da despesa.');
       return;
     }
-    if (amountValue <= 0) {
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
       setError('Informe um valor válido maior que R$ 0,00.');
       return;
     }
@@ -291,13 +274,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 <span className="text-xl font-black text-slate-400">R$</span>
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   required
                   autoFocus
                   value={amountFormatted}
                   onChange={(e) => {
                     resetIdempotencyKey();
-                    setAmountFormatted(formatCurrencyInput(e.target.value));
+                    setAmountFormatted(e.target.value);
                   }}
                   placeholder="0,00"
                   className="w-full bg-transparent text-3xl font-bold tracking-tight text-white outline-none placeholder:text-slate-700"

@@ -127,8 +127,9 @@ BEGIN
   IF jsonb_typeof(v_doc.snapshot->'witnesses')='array' THEN
     v_witnesses := v_doc.snapshot->'witnesses';
   END IF;
-  IF jsonb_typeof(v_doc.snapshot->'requiredSignatureRoles')='array'
-    AND jsonb_array_length(v_doc.snapshot->'requiredSignatureRoles')>0
+  IF CASE WHEN jsonb_typeof(v_doc.snapshot->'requiredSignatureRoles')='array'
+      THEN jsonb_array_length(v_doc.snapshot->'requiredSignatureRoles')>0
+      ELSE false END
   THEN
     SELECT coalesce(array_agg(DISTINCT public.legal_normalize_signature_role_v1(role_value)),ARRAY[]::text[])
     INTO v_required_roles
@@ -186,6 +187,7 @@ BEGIN
   IF coalesce(p_hash_assinado,'') !~* '^[0-9a-f]{64}$'
     OR coalesce(length(p_assinatura_imagem),0)>3000000
     OR jsonb_typeof(coalesce(p_dispositivo_info,'{}'::jsonb))<>'object'
+    OR length(coalesce(p_dispositivo_info,'{}'::jsonb)::text)>32768
   THEN
     RETURN jsonb_build_object('success',false,'message','Dados da assinatura inválidos.');
   END IF;

@@ -75,3 +75,14 @@ test('wallet mobile navigation renders all five tabs without horizontal scrollin
  assert.match(module,/PageHeader/);
  assert.match(module,/Minha <span/);
 });
+
+test('navegação de faturas usa apenas seletor responsivo e vencimento sincronizado', () => {
+  const cardPage = read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.doesNotMatch(cardPage, /ChevronLeft|ChevronRight|aria-label="Fatura anterior"|aria-label="Próxima fatura"/);
+  assert.match(cardPage, /aria-label="Selecionar fatura por mês e vencimento"/);
+  assert.match(cardPage, /block w-full min-w-0 max-w-full/);
+  assert.match(cardPage, /resolveInvoiceMonthSelection\(/);
+  assert.match(cardPage, /dueMonth: statementMonth,/);
+  assert.match(cardPage, /getInvoiceCycleDates\(/);
+  assert.match(cardPage, /Melhor dia de compra:/);
+});

@@ -1,6 +1,7 @@
 import { getInvoiceCycleDates, resolveInvoiceCycleState, type InvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import { formatInstallmentBadgeLabel } from './cardInstallmentPlan';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
 export type QuickDateTag = 'TODAY' | 'YESTERDAY' | 'OTHER';
 
@@ -54,6 +55,39 @@ export function stepInvoiceMonth(
     .format(shifted)
     .replace('.', '');
   return { dueMonthIso, monthInputValue, label };
+}
+
+
+/**
+ * Resolve a displayed invoice cycle against the actual selector options.
+ * This avoids showing the browser's first option for an invalid controlled
+ * value while the header still displays the stale month.
+ */
+export function resolveInvoiceMonthSelection(
+  requestedMonth: string | null | undefined,
+  cycles: readonly { dueMonth: string; amount: number }[],
+  preferredMonth?: string | null,
+  referenceDate: string = businessDateInManaus(),
+): string | null {
+  if (cycles.length === 0) return null;
+  const normalize = (value: string | null | undefined) =>
+    value && /^\d{4}-(0[1-9]|1[0-2])(?:-\d{2})?$/.test(value)
+      ? value.slice(0, 7) + '-01' : null;
+  const available = new Set(cycles.map(cycle => cycle.dueMonth));
+  for (const desired of [normalize(requestedMonth), normalize(preferredMonth)]) {
+    if (desired && available.has(desired)) return desired;
+  }
+
+  const currentMonth = normalize(referenceDate);
+  const sorted = [...cycles].sort((a, b) => a.dueMonth.localeCompare(b.dueMonth));
+  const openCycles = sorted.filter(cycle => cycle.amount > 0);
+  const currentDue = openCycles.find(cycle => cycle.dueMonth === currentMonth);
+  const recentDue = openCycles.filter(cycle => currentMonth && cycle.dueMonth <= currentMonth).at(-1);
+  const upcomingDue = openCycles.find(cycle => currentMonth && cycle.dueMonth > currentMonth);
+  const calendarCycle = sorted.find(cycle => cycle.dueMonth === currentMonth);
+  return (currentDue || recentDue || upcomingDue || calendarCycle ||
+    sorted.filter(cycle => currentMonth && cycle.dueMonth <= currentMonth).at(-1) ||
+    sorted[0]).dueMonth;
 }
 
 const diffCalendarDays = (fromIso: string, toIso: string): number => {

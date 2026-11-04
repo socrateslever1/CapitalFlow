@@ -5,7 +5,7 @@ import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
-import { calculateCardOpening } from './cardOpeningSummary';
+import { calculateCardOpening, calculateUsedFromAvailable } from './cardOpeningSummary';
 
 export interface CardInitialBalancesModalProps {
   card: PersonalWalletCard;
@@ -44,8 +44,11 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
   const [limit, setLimit] = useState(toInputMoney(Number(card.credit_limit || 0)));
   const [used, setUsed] = useState(toInputMoney(initialUsed));
   const [bill, setBill] = useState(toInputMoney(invoice));
-  const [usedManuallyEdited, setUsedManuallyEdited] = useState(
-    () => Math.round(initialUsed * 100) > Math.round(invoice * 100) + futureCents,
+  // A fatura não determina quanto do limite do cartão está comprometido.
+  const [available, setAvailable] = useState('');
+  const [positionSource, setPositionSource] = useState<'INVOICE' | 'AVAILABLE' | 'USED'>(
+    () => Math.round(initialUsed * 100) > Math.round(invoice * 100) + futureCents
+      ? 'USED' : 'INVOICE',
   );
   const [month, setMonth] = useState(
     (initialDueMonth || new Date().toLocaleDateString('en-CA')).slice(0, 7),
@@ -64,24 +67,39 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
   const handleBillChange = (rawBill: string) => {
     changed();
     setBill(rawBill);
-    const billCents = moneyCentsOrNull(rawBill);
-    if (billCents === null) {
-      if (!usedManuallyEdited) setUsed('');
-      return;
-    }
-    const autoUsedCents = billCents + futureCents;
-    const currentUsedCents = moneyCentsOrNull(used);
-    if (!usedManuallyEdited || currentUsedCents === null || currentUsedCents < autoUsedCents) {
-      setUsed(formatWalletMoneyInput((autoUsedCents / 100).toFixed(2)));
+    // Valores já informados pelo banco ou editados manualmente são preservados.
+    if (positionSource !== 'INVOICE') return;
+    const cents = moneyCentsOrNull(rawBill);
+    setUsed(cents === null ? '' : formatWalletMoneyInput(((cents + futureCents) / 100).toFixed(2)));
+  };
+
+  const handleAvailableChange = (rawAvailable: string) => {
+    changed();
+    setAvailable(rawAvailable);
+    setPositionSource(rawAvailable.trim() ? 'AVAILABLE' : 'INVOICE');
+    if (!rawAvailable.trim()) {
+      const cents = moneyCentsOrNull(bill);
+      setUsed(cents === null ? '' : formatWalletMoneyInput(((cents + futureCents) / 100).toFixed(2)));
     }
   };
 
   const totalCents = moneyCentsOrNull(limit);
   const billCents = moneyCentsOrNull(bill);
+  const availableCents = moneyCentsOrNull(available);
+  const bankAvailableEntered = positionSource === 'AVAILABLE' && available.trim() !== '';
   const rawUsedCents = moneyCentsOrNull(used);
-  const usedCents = rawUsedCents !== null
-    ? rawUsedCents
-    : (billCents !== null ? billCents + futureCents : null);
+  const usedCents = bankAvailableEntered
+    ? totalCents !== null && availableCents !== null && availableCents <= totalCents
+      ? totalCents - availableCents : null
+    : rawUsedCents !== null ? rawUsedCents
+      : positionSource === 'INVOICE' && billCents !== null ? billCents + futureCents : null;
+  const displayedUsed = bankAvailableEntered
+    ? usedCents === null ? '' : formatWalletMoneyInput((usedCents / 100).toFixed(2))
+    : used;
+  const invalidAvailable = bankAvailableEntered && totalCents !== null &&
+    availableCents !== null && availableCents > totalCents;
+  const insufficientUsed = usedCents !== null && billCents !== null &&
+    usedCents < billCents + futureCents;
   const differenceCents = totalCents === null || usedCents === null
     ? null : totalCents - usedCents;
   const freeCredit = differenceCents === null ? null : Math.max(0, differenceCents) / 100;
@@ -94,7 +112,15 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
     try {
       const creditLimit = parseWalletMoney(limit, 'limite total');
       const currentInvoice = parseWalletMoney(bill || '0', 'fatura atual');
-      const usedLimit = parseWalletMoney(used.trim() !== '' ? used : ((Math.round(currentInvoice * 100) + futureCents) / 100).toFixed(2), 'limite usado');
+      const usedLimit = bankAvailableEntered
+        ? calculateUsedFromAvailable(creditLimit, parseWalletMoney(available, 'limite disponível'))
+        : parseWalletMoney(
+          used.trim() !== '' ? used : ((Math.round(currentInvoice * 100) + futureCents) / 100).toFixed(2),
+          'limite usado',
+        );
+      if (Math.round(usedLimit * 100) < Math.round(currentInvoice * 100) + futureCents) {
+        throw new Error('O limite usado precisa incluir a fatura atual e os gastos futuros já cadastrados.');
+      }
       calculateCardOpening(creditLimit, usedLimit, currentInvoice, nativeFutureCommitments);
       setSaving(true);
       await personalWalletService.setSimpleCardOpening({
@@ -132,7 +158,8 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
     >
       <form id={formId} onSubmit={submit} className="space-y-4">
         <p className="text-xs text-slate-400">
-          Informe o limite total e a fatura atual: o limite usado é preenchido automaticamente (você pode ajustá-lo se tiver parcelas de meses futuros no cartão).
+          Informe o limite disponível exibido pelo banco. O limite usado será calculado pela diferença com o limite total.
+          A fatura atual é separada: ela não representa necessariamente todo o limite comprometido.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-300">
@@ -151,7 +178,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
                   const formatted = formatWalletMoneyInput(e.target.value);
                   setBill(formatted);
                   const bCents = moneyCentsOrNull(formatted);
-                  if (bCents !== null && !usedManuallyEdited) {
+                  if (bCents !== null && positionSource === 'INVOICE') {
                     setUsed(formatWalletMoneyInput(((bCents + futureCents) / 100).toFixed(2)));
                   }
                 } catch { }
@@ -159,11 +186,25 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
               className={field} />
           </label>
           <label className="text-xs text-slate-300">
-            Limite usado (R$) <span className="text-[10px] text-slate-400">(automático ou edite)</span>
-            <input required type="text" inputMode="decimal" placeholder="0,00" value={used}
+            Limite disponível no banco (R$)
+            <input name="wallet-card-available-limit" type="text" inputMode="decimal"
+              placeholder="Informe o valor disponível" value={available}
+              onChange={e => handleAvailableChange(e.target.value)}
+              onBlur={e => {
+                try { setAvailable(formatWalletMoneyInput(e.target.value)); } catch { }
+              }}
+              className={field} />
+            <span className="mt-1 block text-[11px] text-slate-400">
+              Confira no aplicativo do banco. Ao preencher, recalculamos o limite usado.
+            </span>
+          </label>
+          <label className="text-xs text-slate-300">
+            Limite usado (R$) <span className="text-[10px] text-slate-400">(calculado ou edite)</span>
+            <input required type="text" inputMode="decimal" placeholder="0,00" value={displayedUsed}
               onChange={(e) => {
                 changed();
-                setUsedManuallyEdited(e.target.value.trim() !== '');
+                setAvailable('');
+                setPositionSource(e.target.value.trim() ? 'USED' : 'INVOICE');
                 setUsed(e.target.value);
               }}
               onBlur={(e) => { try { setUsed(formatWalletMoneyInput(e.target.value)); } catch { } }}
@@ -185,10 +226,21 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
           </label>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300">
-          <span>Disponível calculado para compras: </span>
+          <span>{bankAvailableEntered ? 'Disponível informado pelo banco: ' : 'Disponível estimado para compras: '}</span>
           <strong className="text-emerald-300 tabular-nums">
             {freeCredit === null ? '—' : formatMoney(freeCredit)}
           </strong>
+          {invalidAvailable && (
+            <p role="alert" className="mt-2 text-rose-300">
+              O disponível informado não pode superar o limite total.
+            </p>
+          )}
+          {insufficientUsed && (
+            <p role="alert" className="mt-2 text-rose-300">
+              O limite usado precisa incluir a fatura e os compromissos futuros já cadastrados.
+              Confira o disponível informado pelo banco.
+            </p>
+          )}
           {excess !== null && excess > 0 && (
             <p role="status" className="mt-2 text-amber-300">
               Limite excedido em {formatMoney(excess)}. Confirme esse excesso no aplicativo do banco.

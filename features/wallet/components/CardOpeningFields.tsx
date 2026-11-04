@@ -1,9 +1,11 @@
 import React from 'react';
 import { formatMoney } from '../../../utils/formatters';
+import { calculateUsedFromAvailable } from '../../../components/wallet/cardOpeningSummary';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 
 export type CardOpeningFormValues = {
   used: string;
+  available?: string;
   invoice: string;
   future: string;
   futureCount: string;
@@ -24,6 +26,7 @@ export const freshCardOpening = (): CardOpeningFormValues => {
   const date = new Date();
   return {
     used: '',
+    available: '',
     invoice: '',
     future: '',
     futureCount: '',
@@ -57,11 +60,16 @@ export function validateCardOpening(
       ? cents(values.future, 'Demais gastos no cartão')
       : null;
   const rawUsed = cents(values.used, 'Limite já utilizado');
-  // Se o usuário informou a fatura (e opcionalmente demais gastos) e deixou o limite usado zerado, calcula automaticamente:
-  const used =
-    rawUsed === 0 && invoice + (explicitFuture ?? 0) > 0
-      ? invoice + (explicitFuture ?? 0)
-      : rawUsed;
+  // O limite disponível declarado pelo banco tem precedência sobre estimativas da fatura.
+  const availableEntered = String(values.available ?? '').trim() !== '';
+  const bankUsed = availableEntered
+    ? Math.round(calculateUsedFromAvailable(
+      creditLimit, parseWalletMoney(values.available!, 'limite disponível'),
+    ) * 100)
+    : null;
+  const used = bankUsed !== null ? bankUsed
+    : rawUsed === 0 && invoice + (explicitFuture ?? 0) > 0
+      ? invoice + (explicitFuture ?? 0) : rawUsed;
   const future = used - invoice;
 
   if (
@@ -118,7 +126,19 @@ export const CardOpeningFields: React.FC<Props> = ({
 }) => {
   const invoice = safeMoney(value.invoice);
   const rawUsed = safeMoney(value.used);
-  const used = rawUsed > 0 ? rawUsed : invoice;
+  const availableEntered = Boolean(value.available?.trim());
+  let bankUsed: number | null = null;
+  if (availableEntered) {
+    try {
+      bankUsed = calculateUsedFromAvailable(
+        creditLimit, parseWalletMoney(value.available!, 'limite disponível'),
+      );
+    } catch { /* O campo parcial deve permanecer editável. */ }
+  }
+  const used = bankUsed ?? (rawUsed > 0 ? rawUsed : invoice);
+  const usedInputValue = availableEntered
+    ? bankUsed === null ? '' : formatWalletMoneyInput(bankUsed.toFixed(2))
+    : value.used;
   const [usedManuallyEdited, setUsedManuallyEdited] = React.useState(
     () => rawUsed > invoice,
   );
@@ -126,7 +146,8 @@ export const CardOpeningFields: React.FC<Props> = ({
     () => !collapsible || used > 0 || invoice > 0,
   );
   const differenceCents = Math.round(creditLimit * 100) - Math.round(used * 100);
-  const available = Math.max(0, differenceCents) / 100;
+  const available = availableEntered && bankUsed === null
+    ? null : Math.max(0, differenceCents) / 100;
   const overLimit = Math.max(0, -differenceCents) / 100;
   const field =
     'mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
@@ -135,6 +156,7 @@ export const CardOpeningFields: React.FC<Props> = ({
     const nextUsed = safeMoney(raw);
     onChange({
       ...value,
+      available: '',
       used: raw,
       future: String(
         Math.max(0, Math.round((nextUsed - invoice) * 100) / 100),
@@ -161,6 +183,7 @@ export const CardOpeningFields: React.FC<Props> = ({
                   onChange({
                     ...value,
                     used: '',
+                    available: '',
                     invoice: '',
                     future: '',
                     futureCount: '',
@@ -176,13 +199,13 @@ export const CardOpeningFields: React.FC<Props> = ({
       {!expanded ? (
         <p className="text-xs text-slate-400">
           Cartão iniciará zerado (Disponível para gastar:{' '}
-          <strong className="text-emerald-300">{formatMoney(available)}</strong>
+          <strong className="text-emerald-300">{available === null ? '—' : formatMoney(available)}</strong>
           ). Marque a opção acima se já houver fatura ou limite comprometido.
         </p>
       ) : (
         <>
           <p className="text-xs text-slate-400">
-            Informe a fatura atual e o limite usado será calculado automaticamente (ou ajuste o limite usado se houver parcelas futuras).
+            Informe o limite disponível mostrado pelo banco para calcular o usado. A fatura atual é independente do limite comprometido.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-slate-300">
@@ -200,15 +223,16 @@ export const CardOpeningFields: React.FC<Props> = ({
                     onChange({
                       ...value,
                       invoice: formatted,
-                      used: !usedManuallyEdited ? formatted : value.used,
+                      used: !usedManuallyEdited && !availableEntered ? formatted : value.used,
                     });
                   } catch { }
                 }}
                 onChange={(e) => {
                   const rawInvoice = e.target.value;
                   const nextInv = safeMoney(rawInvoice);
-                  const nextUsedStr = !usedManuallyEdited ? rawInvoice : value.used;
-                  const nextUsedVal = safeMoney(nextUsedStr);
+                  const nextUsedStr = !usedManuallyEdited && !availableEntered
+                    ? rawInvoice : value.used;
+                  const nextUsedVal = availableEntered ? (bankUsed ?? 0) : safeMoney(nextUsedStr);
                   onChange({
                     ...value,
                     invoice: rawInvoice,
@@ -225,6 +249,39 @@ export const CardOpeningFields: React.FC<Props> = ({
               />
             </label>
             <label className="text-xs text-slate-300">
+              Limite disponível no banco (R$)
+              <input name="wallet-card-available-limit-new"
+                type="text" inputMode="decimal" placeholder="Informe o valor disponível"
+                value={value.available ?? ''}
+                onChange={e => {
+                  const rawAvailable = e.target.value;
+                  setUsedManuallyEdited(false);
+                  let nextUsed = rawAvailable.trim() ? '' : value.invoice;
+                  if (rawAvailable.trim()) {
+                    try {
+                      nextUsed = formatWalletMoneyInput(calculateUsedFromAvailable(
+                        creditLimit, parseWalletMoney(rawAvailable, 'limite disponível'),
+                      ).toFixed(2));
+                    } catch { /* A validação rejeita um valor incompatível. */ }
+                  }
+                  onChange({
+                    ...value, available: rawAvailable, used: nextUsed,
+                    future: String(Math.max(
+                      0, Math.round((safeMoney(nextUsed) - invoice) * 100) / 100,
+                    )),
+                    futureCount: '0',
+                  });
+                }}
+                onBlur={e => {
+                  try { onChange({ ...value, available: formatWalletMoneyInput(e.target.value) }); }
+                  catch { /* Preserve a entrada para correção. */ }
+                }}
+                className={field} />
+              <span className="mt-1 block text-[11px] text-slate-400">
+                Calculamos o limite usado pela diferença com o total do cartão.
+              </span>
+            </label>
+            <label className="text-xs text-slate-300">
               Limite usado, incluindo a fatura (R$)
               <input
                 type="text"
@@ -232,7 +289,7 @@ export const CardOpeningFields: React.FC<Props> = ({
                 step="0.01"
                 inputMode="decimal"
                 placeholder="0,00"
-                value={value.used}
+                value={usedInputValue}
                 onChange={(e) => changeUsed(e.target.value)}
                 onBlur={(e) => { try { onChange({ ...value, used: formatWalletMoneyInput(e.target.value) }); } catch { } }}
                 className={field}
@@ -270,12 +327,17 @@ export const CardOpeningFields: React.FC<Props> = ({
             </label>
           </div>
           <p className="text-xs text-slate-400">
-            Limite total: {formatMoney(creditLimit)} · Disponível para gastar:{' '}
-            <strong className="text-emerald-300">{formatMoney(available)}</strong>
+            Limite total: {formatMoney(creditLimit)} · {availableEntered ? 'Disponível informado pelo banco:' : 'Disponível estimado para gastar:'}{' '}
+            <strong className="text-emerald-300">{available === null ? '—' : formatMoney(available)}</strong>
           </p>
           {overLimit > 0 && (
             <p role="status" className="text-xs text-amber-300">
               Limite excedido em {formatMoney(overLimit)}. Confira os valores informados pelo banco.
+            </p>
+          )}
+          {availableEntered && bankUsed === null && (
+            <p role="alert" className="text-xs text-rose-300">
+              O limite disponível precisa ser válido e não pode superar o limite total.
             </p>
           )}
           {invoice > used && (

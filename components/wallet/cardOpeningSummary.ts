@@ -31,3 +31,18 @@ export function calculateCardOpening(
     unallocated: (committed - bill - future) / 100,
   };
 }
+
+/** O banco informa o disponível. O comprometido é a diferença, em centavos. */
+export function calculateUsedFromAvailable(limit: number, available: number): number {
+  const values = [limit, available];
+  if (values.some(value => !Number.isFinite(value) || value < 0 ||
+    Math.abs(value * 100 - Math.round(value * 100)) > 0.00001)) {
+    throw new Error('Informe limites válidos, positivos ou zero, com até duas casas decimais.');
+  }
+  const total = Math.round(limit * 100);
+  const remaining = Math.round(available * 100);
+  if (remaining > total) {
+    throw new Error('O limite disponível informado não pode superar o limite total do cartão.');
+  }
+  return (total - remaining) / 100;
+}

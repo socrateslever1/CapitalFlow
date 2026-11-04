@@ -22,6 +22,10 @@ import QuickExpenseModal from '../../features/wallet/components/QuickExpenseModa
 import { BankAccountDetailsFields, BankAccountDetailsSummary } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
 import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../../features/wallet/domain/capitalLink';
+import { calculateBalanceAdjustment, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { generateUUID } from '../../utils/generators';
+import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -56,6 +60,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const [pixCopied, setPixCopied] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [adjustBalanceOpen, setAdjustBalanceOpen] = useState(false);
+  const [realBalanceInput, setRealBalanceInput] = useState(() => formatWalletMoneyInput(String(Number(account.balance || 0))));
+  const [adjustDescription, setAdjustDescription] = useState('Reajuste de saldo bancário');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -171,6 +178,54 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     }
   };
 
+  const parsedRealBalance = useMemo(() => {
+    try {
+      return parseWalletMoney(realBalanceInput);
+    } catch {
+      return Number.NaN;
+    }
+  }, [realBalanceInput]);
+
+  const balanceAdjustmentPreview = useMemo(
+    () => calculateBalanceAdjustment(Number(account.balance || 0), Number.isFinite(parsedRealBalance) ? parsedRealBalance : Number(account.balance || 0)),
+    [account.balance, parsedRealBalance],
+  );
+
+  const submitBalanceAdjustment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (saving) return;
+    if (!Number.isFinite(parsedRealBalance) || parsedRealBalance < 0) {
+      setError('Informe um saldo real válido (zero ou positivo).');
+      return;
+    }
+    if (balanceAdjustmentPreview.kind === 'NONE' || !balanceAdjustmentPreview.accountOperationType) {
+      setAdjustBalanceOpen(false);
+      return;
+    }
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      await personalWalletService.recordAccountOperation({
+        type: balanceAdjustmentPreview.accountOperationType,
+        fromAccountId: balanceAdjustmentPreview.kind === 'DECREASE' ? account.id : null,
+        toAccountId: balanceAdjustmentPreview.kind === 'INCREASE' ? account.id : null,
+        amount: balanceAdjustmentPreview.absDelta,
+        description: adjustDescription.trim() || 'Reajuste de saldo bancário',
+        category: 'Ajuste de Saldo',
+        date: resolveQuickDateShortcuts().today,
+        requestId: generateUUID(),
+      });
+      await onSaved();
+      setAdjustBalanceOpen(false);
+      setSuccess(`Saldo reajustado com sucesso (${balanceAdjustmentPreview.accountEntryLabel}: ${formatMoney(balanceAdjustmentPreview.absDelta)}).`);
+    } catch (err: any) {
+      setError(err?.message || 'Não foi possível reajustar o saldo da conta.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -182,6 +237,14 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           <button type="button" onClick={() => setExpenseOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20">
             Despesa
+          </button>
+          <button type="button" onClick={() => {
+            setRealBalanceInput(formatWalletMoneyInput(String(Number(account.balance || 0))));
+            setAdjustDescription('Reajuste de saldo bancário');
+            setAdjustBalanceOpen(true);
+          }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35">
+            Reajustar saldo
           </button>
           <button type="button" onClick={() => setMovementOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">
@@ -259,6 +322,82 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         initialAccountId={account.id} onClose={()=>setMovementOpen(false)} onSaved={onSaved}/>}
       {expenseOpen && <QuickExpenseModal accounts={accounts} cards={cards} initialMode="ACCOUNT" initialAccountId={account.id}
         onClose={() => setExpenseOpen(false)} onSaved={onSaved}/>}
+      {adjustBalanceOpen && (
+        <Modal
+          compact
+          title="Reajustar saldo da conta"
+          subtitle={account.nickname}
+          icon={<Landmark size={17} />}
+          busy={saving}
+          onClose={() => !saving && setAdjustBalanceOpen(false)}
+          footer={
+            <button
+              type="submit"
+              form="adjust-account-balance-form"
+              disabled={saving || balanceAdjustmentPreview.kind === 'NONE'}
+              className={modalPrimaryActionClass}
+            >
+              {saving ? 'Ajustando...' : 'Aplicar reajuste no extrato'}
+            </button>
+          }
+        >
+          <form id="adjust-account-balance-form" onSubmit={submitBalanceAdjustment} className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+              <div>
+                <span className="block text-[10px] uppercase text-slate-400">Saldo atual no app</span>
+                <strong className="text-sm text-white">{formatMoney(Number(account.balance || 0))}</strong>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase text-slate-400">Ajuste calculado</span>
+                <strong
+                  className={`text-sm ${
+                    balanceAdjustmentPreview.kind === 'INCREASE'
+                      ? 'text-emerald-300'
+                      : balanceAdjustmentPreview.kind === 'DECREASE'
+                        ? 'text-rose-300'
+                        : 'text-slate-400'
+                  }`}
+                >
+                  {balanceAdjustmentPreview.kind === 'NONE'
+                    ? 'Sem diferença'
+                    : `${balanceAdjustmentPreview.kind === 'INCREASE' ? '+' : '-'} ${formatMoney(balanceAdjustmentPreview.absDelta)}`}
+                </strong>
+              </div>
+            </div>
+            <label className={labelClass}>
+              Saldo real no banco (R$)
+              <input
+                required
+                inputMode="decimal"
+                className={inputClass}
+                value={realBalanceInput}
+                onChange={e => setRealBalanceInput(e.target.value)}
+                onBlur={e => {
+                  try {
+                    setRealBalanceInput(formatWalletMoneyInput(e.target.value));
+                  } catch {
+                    // ignore invalid format
+                  }
+                }}
+                placeholder="0,00"
+              />
+            </label>
+            <label className={labelClass}>
+              Descrição do lançamento de ajuste
+              <input
+                maxLength={160}
+                className={inputClass}
+                value={adjustDescription}
+                onChange={e => setAdjustDescription(e.target.value)}
+                placeholder="Reajuste de saldo bancário"
+              />
+            </label>
+            <p className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
+              O ajuste cria uma movimentação rastreável ({balanceAdjustmentPreview.accountEntryLabel.toLowerCase()}) pela diferença exata entre o saldo atual e o saldo real informado, sem apagar o histórico da conta.
+            </p>
+          </form>
+        </Modal>
+      )}
 
       {success && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 p-3 text-xs text-emerald-200"><CheckCircle2 size={16} />{success}</div>}
       {error && <div role="alert" className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</div>}

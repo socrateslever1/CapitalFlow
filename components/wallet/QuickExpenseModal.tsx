@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Calendar, CheckCircle2, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletCard,
@@ -13,6 +13,12 @@ import {
   resolveCardInstallmentPlan,
   type CardExpenseAmountMode,
 } from '../../features/wallet/utils/cardInstallmentPlan';
+import {
+  checkClosedOrPaidInvoiceWarning,
+  getQuickDateTag,
+  resolveQuickDateShortcuts,
+  stepInvoiceMonth,
+} from '../../features/wallet/utils/minhasFinancasWalletTools';
 
 export interface QuickExpenseModalProps {
   accounts: PersonalWalletAccount[];
@@ -130,6 +136,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     initialDueMonth ? initialDueMonth.slice(0, 7) : '',
   );
   const [notes, setNotes] = useState<string>('');
+  const [saveAndContinue, setSaveAndContinue] = useState<boolean>(false);
+  const [batchFeedback, setBatchFeedback] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const requestIdRef = useRef<string>(generateUUID());
@@ -138,6 +146,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     requestIdRef.current = generateUUID();
   };
 
+  const quickDates = useMemo(() => resolveQuickDateShortcuts(), []);
+  const dateTag = useMemo(() => getQuickDateTag(expenseDate), [expenseDate]);
   const amountValue = useMemo(() => parseSafeMoney(amountFormatted), [amountFormatted]);
   const selectedCard = useMemo(
     () => activeCards.find((card) => card.id === selectedCardId) || null,
@@ -157,6 +167,16 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       ),
     [expenseDate, selectedCard?.closing_day, firstInvoiceMonth, initialDueMonth],
   );
+
+  const closedInvoiceWarning = useMemo(() => {
+    if (paymentMode !== 'CARD' || !selectedCard) return null;
+    return checkClosedOrPaidInvoiceWarning({
+      dueMonth: resolvedCycle.dueDateIso,
+      closingDay: selectedCard.closing_day,
+      dueDay: selectedCard.due_day,
+      outstanding: Number(selectedCard.current_bill || 0) || 1,
+    });
+  }, [paymentMode, selectedCard, resolvedCycle.dueDateIso]);
 
   const installmentPlan = useMemo(() => {
     const total = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS'
@@ -192,6 +212,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
     setSaving(true);
     setError('');
+    setBatchFeedback('');
     try {
       if (paymentMode === 'ACCOUNT') {
         if (!selectedAccountId) {
@@ -227,7 +248,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
       window.dispatchEvent(new Event('capitalflow:wallet-updated'));
       await onSaved();
-      onClose();
+      if (saveAndContinue) {
+        resetIdempotencyKey();
+        setAmountFormatted('');
+        setDescription('');
+        setNotes('');
+        setBatchFeedback(`"${cleanDescription}" registrado! Preencha o próximo lançamento.`);
+      } else {
+        onClose();
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível registrar a despesa.');
     } finally {
@@ -436,14 +465,47 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             </label>
 
             {/* Data */}
-            <label>
-              <span className={labelClass}>
-                <Calendar size={11} className="mr-1 inline text-emerald-400" />
-                Data da Compra
-              </span>
+            <div>
+              <div className="flex items-center justify-between gap-1.5">
+                <span className={labelClass}>
+                  <Calendar size={11} className="mr-1 inline text-emerald-400" />
+                  Data da Compra
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetIdempotencyKey();
+                      setExpenseDate(quickDates.today);
+                    }}
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                      dateTag === 'TODAY'
+                        ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetIdempotencyKey();
+                      setExpenseDate(quickDates.yesterday);
+                    }}
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                      dateTag === 'YESTERDAY'
+                        ? 'border-emerald-500/60 bg-emerald-500/20 text-emerald-200'
+                        : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Ontem
+                  </button>
+                </div>
+              </div>
               <input
                 type="date"
                 required
+                aria-label="Data da Compra"
                 value={expenseDate}
                 onChange={(e) => {
                   resetIdempotencyKey();
@@ -451,7 +513,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 }}
                 className={fieldClass}
               />
-            </label>
+            </div>
 
             {/* Fluxo Condicional: Cartão vs Conta */}
             {paymentMode === 'CARD' ? (
@@ -484,7 +546,66 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                 </label>
 
                 <div className="sm:col-span-2 space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5">
-                  <span className={labelClass}>Condição de Pagamento</span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className={labelClass}>Condição e Fatura do Cartão</span>
+                    {/* Seletor rápido de fatura < Mês/Ano > (inspirado no InvoiceMonthField do Minhas Finanças) */}
+                    <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-1.5 py-1">
+                      <button
+                        type="button"
+                        aria-label="Fatura anterior"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          const prev = stepInvoiceMonth(resolvedCycle.monthInputValue, -1);
+                          setFirstInvoiceMonth(prev.monthInputValue);
+                        }}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <input
+                        type="month"
+                        aria-label="Fatura desta parcela"
+                        value={resolvedCycle.monthInputValue}
+                        onChange={(e) => {
+                          resetIdempotencyKey();
+                          setFirstInvoiceMonth(e.target.value);
+                        }}
+                        className="bg-transparent px-1 text-xs font-bold text-cyan-200 outline-none"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Próxima fatura"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          const next = stepInvoiceMonth(resolvedCycle.monthInputValue, 1);
+                          setFirstInvoiceMonth(next.monthInputValue);
+                        }}
+                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {closedInvoiceWarning?.shouldWarn && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-400" />
+                        <span>{closedInvoiceWarning.message}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetIdempotencyKey();
+                          setFirstInvoiceMonth(closedInvoiceWarning.nextOpenMonthInput);
+                        }}
+                        className="shrink-0 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-100 hover:bg-amber-500/30"
+                      >
+                        Mover para {closedInvoiceWarning.nextOpenLabel}
+                      </button>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -518,7 +639,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </div>
 
                   {conditionMode === 'INSTALLMENTS' && (
-                    <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
                       <label className="block">
                         <span className="text-[11px] font-bold text-slate-300">
                           Iniciar na parcela
@@ -564,24 +685,6 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                         />
                         <span className="mt-1 block text-[10px] text-slate-500">
                           Total da compra (2x a 48x)
-                        </span>
-                      </label>
-
-                      <label className="block">
-                        <span className="text-[11px] font-bold text-slate-300">
-                          Fatura desta parcela
-                        </span>
-                        <input
-                          type="month"
-                          value={resolvedCycle.monthInputValue}
-                          onChange={(e) => {
-                            resetIdempotencyKey();
-                            setFirstInvoiceMonth(e.target.value);
-                          }}
-                          className={fieldClass}
-                        />
-                        <span className="mt-1 block text-[10px] text-slate-500">
-                          Mês em que entra a {installmentPlan.startInstallment}ª
                         </span>
                       </label>
                     </div>
@@ -661,6 +764,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             </label>
           </div>
 
+          {batchFeedback && (
+            <p
+              role="status"
+              className="rounded-xl border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200"
+            >
+              {batchFeedback}
+            </p>
+          )}
+
           {error && (
             <p
               role="alert"
@@ -672,23 +784,34 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         </div>
 
         {/* Footer */}
-        <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-800 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onClose}
-            className="rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-950/40 hover:bg-blue-500 disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-            {saving ? 'Lançando...' : 'Confirmar Despesa'}
-          </button>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-800 bg-slate-900 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300 select-none">
+            <input
+              type="checkbox"
+              checked={saveAndContinue}
+              onChange={(e) => setSaveAndContinue(e.target.checked)}
+              className="h-4 w-4 rounded accent-blue-600"
+            />
+            <span>Salvar e continuar</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onClose}
+              className="rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-300 hover:text-white"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-950/40 hover:bg-blue-500 disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+              {saving ? 'Lançando...' : saveAndContinue ? 'Salvar e Novo' : 'Confirmar Despesa'}
+            </button>
+          </div>
         </footer>
       </form>
     </div>

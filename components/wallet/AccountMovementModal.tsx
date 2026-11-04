@@ -12,6 +12,7 @@ import { generateUUID } from '../../utils/generators';
 import { Modal } from '../ui/Modal';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { getQuickDateTag, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
 
 type Tab = 'INTERNAL' | 'EXTERNAL' | 'INVOICE';
 type Props = {
@@ -66,6 +67,8 @@ export const AccountMovementModal: React.FC<Props> = ({
 
   const selectedInvoice = invoiceOptions.find(option => `${option.cardId}|${option.dueMonth}` === invoiceKey);
   const numericAmount = parseAmount(amount);
+  const dateShortcuts = useMemo(() => resolveQuickDateShortcuts(), []);
+  const activeDateTag = getQuickDateTag(date);
   const requestIdFor = (signature: string) => {
     if (requestRef.current.signature !== signature) requestRef.current = { signature, id: generateUUID() };
     return requestRef.current.id;
@@ -154,9 +157,36 @@ export const AccountMovementModal: React.FC<Props> = ({
           <label className={labelClass}>Valor
 <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
           </label>
-          <label className={labelClass}>Data
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-slate-300">Data</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setDate(dateShortcuts.today)}
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                    activeDateTag === 'TODAY'
+                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
+                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  Hoje
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDate(dateShortcuts.yesterday)}
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-bold transition ${
+                    activeDateTag === 'YESTERDAY'
+                      ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200'
+                      : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
+                  }`}
+                >
+                  Ontem
+                </button>
+              </div>
+            </div>
             <input required type="date" max={today()} className={inputClass} value={date} onChange={event => setDate(event.target.value)}/>
-          </label>
+          </div>
           <label className={`${labelClass} sm:col-span-2`}>Descrição
             <input required maxLength={240} className={inputClass} value={description} onChange={event => setDescription(event.target.value)} placeholder="Ex.: Reserva para outra conta"/>
           </label>

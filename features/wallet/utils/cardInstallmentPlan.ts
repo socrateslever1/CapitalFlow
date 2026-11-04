@@ -96,6 +96,22 @@ export function buildCardExpenseNotes(
   return cleanUser ? `${cleanUser} ${plan.notesTag}` : plan.notesTag;
 }
 
+export function parseInstallmentTag(
+  expense: { installment_count?: number | null; notes?: string | null },
+): { startInstallment: number; totalInstallments: number } {
+  const notes = String(expense.notes || '');
+  const match = notes.match(INICIAL_TAG_REGEX);
+  if (match) {
+    const start = Number(match[1]);
+    const total = Number(match[2]);
+    if (Number.isInteger(start) && Number.isInteger(total) && start >= 1 && total >= start) {
+      return { startInstallment: start, totalInstallments: total };
+    }
+  }
+  const count = Math.max(1, Number(expense.installment_count || 1));
+  return { startInstallment: 1, totalInstallments: count };
+}
+
 export function formatInstallmentBadgeLabel(
   expense: { installment_count?: number | null; notes?: string | null },
   installment: { installment_number: number },

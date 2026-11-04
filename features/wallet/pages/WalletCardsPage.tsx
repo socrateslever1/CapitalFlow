@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
+import { AlertTriangle, Sparkles, Camera, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
@@ -28,7 +28,11 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
-import { buildCardExpenseNotes, resolveCardInstallmentPlan, type CardExpenseAmountMode } from '../utils/cardInstallmentPlan';
+import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan, type CardExpenseAmountMode } from '../utils/cardInstallmentPlan';
+import { calculateInstallmentAdvancement, describeCardCycleDates, stepInvoiceMonth } from '../utils/minhasFinancasWalletTools';
+import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
+import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvoiceStatement';
+import type { InvoiceRemainderAction } from '../../../components/wallet/PayInvoiceModal';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
 
@@ -303,6 +307,212 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         exactDueDate: savedInvoiceFacts?.due_date,
       })
     : undefined;
+  const cycleDateInsights = useMemo(() => {
+    if (!selected || !statementMonth) return null;
+    try {
+      return describeCardCycleDates({
+        dueMonth: statementMonth,
+        closingDay: selected.closing_day,
+        dueDay: selected.due_day,
+        exactDueDate: savedInvoiceFacts?.due_date,
+      });
+    } catch {
+      return null;
+    }
+  }, [selected, statementMonth, savedInvoiceFacts?.due_date]);
+
+  const handleScopedInstallmentDelete = async (
+    expense: PersonalWalletExpense,
+    targetInstallment: PersonalWalletExpenseInstallment,
+    scope: InstallmentDeleteScope,
+    mutationRequestId: string,
+  ) => {
+    if (!data || scope === 'ALL') {
+      await personalWalletService.cancelExpense(expense.id, mutationRequestId);
+      await refresh();
+      return;
+    }
+    const pendingInstallments = data.installments
+      .filter((inst) => inst.expense_id === expense.id && inst.status === 'PENDING')
+      .sort((a, b) => a.installment_number - b.installment_number);
+
+    const { startInstallment: origStart, totalInstallments: origTotal } = parseInstallmentTag(expense);
+    const before = pendingInstallments.filter((inst) => inst.installment_number < targetInstallment.installment_number);
+    const after =
+      scope === 'ONLY_CURRENT'
+        ? pendingInstallments.filter((inst) => inst.installment_number > targetInstallment.installment_number)
+        : [];
+
+    await personalWalletService.cancelExpense(expense.id, mutationRequestId);
+
+    if (before.length > 0) {
+      const beforeSum = Math.round(before.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100) / 100;
+      const plan = resolveCardInstallmentPlan({
+        inputAmount: beforeSum,
+        amountMode: 'TOTAL',
+        startInstallment: origStart,
+        totalInstallments: origTotal,
+      });
+      await personalWalletService.createExpense({
+        description: expense.description,
+        amount: beforeSum,
+        category: expense.category,
+        expense_date: expense.expense_date,
+        due_date: before[0].due_month.slice(0, 10),
+        card_id: expense.card_id,
+        status: 'PENDING',
+        installment_count: before.length,
+        notes: buildCardExpenseNotes(expense.notes || '', {
+          ...plan,
+          notesTag: origTotal > 1 ? `[PARC_INICIAL:${origStart}/${origTotal}]` : null,
+        }),
+      });
+    }
+
+    if (after.length > 0) {
+      const afterSum = Math.round(after.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100) / 100;
+      const afterStart = origStart + (after[0].installment_number - 1);
+      const plan = resolveCardInstallmentPlan({
+        inputAmount: afterSum,
+        amountMode: 'TOTAL',
+        startInstallment: afterStart,
+        totalInstallments: origTotal,
+      });
+      await personalWalletService.createExpense({
+        description: expense.description,
+        amount: afterSum,
+        category: expense.category,
+        expense_date: expense.expense_date,
+        due_date: after[0].due_month.slice(0, 10),
+        card_id: expense.card_id,
+        status: 'PENDING',
+        installment_count: after.length,
+        notes: buildCardExpenseNotes(expense.notes || '', plan),
+      });
+    }
+
+    await refresh();
+  };
+
+  const handleAdvanceInstallments = async (
+    expense: PersonalWalletExpense,
+    currentDueMonth: string,
+    countToAdvance: number,
+    discountAmount: number,
+    mutationRequestId: string,
+  ) => {
+    if (!data) return;
+    const preview = calculateInstallmentAdvancement({
+      expense,
+      allInstallments: data.installments,
+      currentDueMonth,
+      countToAdvance,
+      discountAmount,
+    });
+    if (!preview.selectedInstallments.length) return;
+
+    const { startInstallment: origStart, totalInstallments: origTotal } = parseInstallmentTag(expense);
+    await personalWalletService.cancelExpense(expense.id, mutationRequestId);
+
+    // 1. Mantém parcelas anteriores/atuais que não foram antecipadas
+    if (preview.keptActiveInstallments.length > 0) {
+      const keptSum = Math.round(
+        preview.keptActiveInstallments.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100,
+      ) / 100;
+      await personalWalletService.createExpense({
+        description: expense.description,
+        amount: keptSum,
+        category: expense.category,
+        expense_date: expense.expense_date,
+        due_date: preview.keptActiveInstallments[0].due_month.slice(0, 10),
+        card_id: expense.card_id,
+        status: 'PENDING',
+        installment_count: preview.keptActiveInstallments.length,
+        notes: origTotal > 1 ? `[PARC_INICIAL:${origStart}/${origTotal}]` : expense.notes,
+      });
+    }
+
+    // 2. Cria o lançamento das parcelas antecipadas na fatura atual (já líquido do desconto)
+    await personalWalletService.createExpense({
+      description: `${expense.description} (Antecipação ${preview.advancedBadgesLabel})`,
+      amount: preview.netAdvancedAmount,
+      category: expense.category,
+      expense_date: new Date().toLocaleDateString('en-CA'),
+      due_date: `${currentDueMonth.slice(0, 7)}-01`,
+      card_id: expense.card_id,
+      status: 'PENDING',
+      installment_count: 1,
+      notes:
+        preview.discountAmount > 0
+          ? `Antecipação com desconto de ${formatMoney(preview.discountAmount)} (original ${formatMoney(preview.advancedSum)})`
+          : `Parcelas antecipadas para ${currentDueMonth.slice(0, 7)}`,
+    });
+
+    // 3. Se restaram parcelas futuras além das antecipadas, recria a cauda nos meses originais
+    if (preview.remainingTailInstallments.length > 0) {
+      const tailSum = Math.round(
+        preview.remainingTailInstallments.reduce((s, i) => s + (Number(i.amount) - Number(i.paid_amount || 0)), 0) * 100,
+      ) / 100;
+      const tailStart = origStart + (preview.remainingTailInstallments[0].installment_number - 1);
+      await personalWalletService.createExpense({
+        description: expense.description,
+        amount: tailSum,
+        category: expense.category,
+        expense_date: expense.expense_date,
+        due_date: preview.remainingTailInstallments[0].due_month.slice(0, 10),
+        card_id: expense.card_id,
+        status: 'PENDING',
+        installment_count: preview.remainingTailInstallments.length,
+        notes: `[PARC_INICIAL:${tailStart}/${origTotal}]`,
+      });
+    }
+
+    await refresh();
+  };
+
+  const handleInvoiceRemainder = async (action: InvoiceRemainderAction, baseRequestId: string) => {
+    if (!paying || !statementMonth || action.mode === 'KEEP_IN_CURRENT') return;
+    if (action.mode === 'ROLL_TO_NEXT') {
+      await personalWalletService.payInvoicePartial(
+        paying.id,
+        statementMonth,
+        null,
+        action.remainderAmount,
+        `${baseRequestId}:roll-clear`,
+      );
+      await personalWalletService.createExpense({
+        description: `Saldo restante da fatura ${statementMonth.slice(5, 7)}/${statementMonth.slice(0, 4)}`,
+        amount: action.remainderAmount,
+        category: 'Outros',
+        expense_date: new Date().toLocaleDateString('en-CA'),
+        due_date: action.nextDueMonth,
+        card_id: paying.id,
+        status: 'PENDING',
+        installment_count: 1,
+        notes: 'Transferido para a próxima fatura',
+      });
+    } else if (action.mode === 'INSTALLMENT_PLAN') {
+      await personalWalletService.payInvoicePartial(
+        paying.id,
+        statementMonth,
+        null,
+        action.remainderPrincipal,
+        `${baseRequestId}:plan-clear`,
+      );
+      await personalWalletService.createExpense({
+        description: `Parcelamento da fatura ${statementMonth.slice(5, 7)}/${statementMonth.slice(0, 4)}`,
+        amount: action.totalFinancedAmount,
+        category: 'Serviços',
+        expense_date: new Date().toLocaleDateString('en-CA'),
+        due_date: action.nextDueMonth,
+        card_id: paying.id,
+        status: 'PENDING',
+        installment_count: action.installmentCount,
+        notes: `Saldo financiado: ${formatMoney(action.remainderPrincipal)} em ${action.installmentCount}x de ${formatMoney(action.installmentAmount)}`,
+      });
+    }
+    await refresh();
+  };
   const clearUnpaidInvoice = async () => {
     if (!clearInvoiceConfirm || clearingInvoice) return;
     const signature = clearInvoiceConfirm.cardId + ':' + clearInvoiceConfirm.month;
@@ -471,17 +681,47 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
+                  {cycleDateInsights && (
+                    <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                      {cycleDateInsights.statusSummary}
+                    </span>
+                  )}
                 </div>
-                {selected && <select aria-label="Ciclo da fatura — competência e vencimento" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
-                  className="mt-2 max-w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200">
-                  {invoiceCycles.length ? invoiceCycles.map(cycle => {
-                    const dates=getInvoiceCycleDates(cycle.dueMonth,selected.closing_day,selected.due_day,
-                      invoiceFacts.find(item=>item.due_month===cycle.dueMonth)?.due_date);
-                    const competence=dates.closingDate.slice(5,7)+'/'+dates.closingDate.slice(0,4);
-                    const due=dates.dueDate.slice(8,10)+'/'+dates.dueDate.slice(5,7)+'/'+dates.dueDate.slice(0,4);
-                    return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura '+competence+' · vence '+due+(cycle.hasOverride?' · consolidada':'')}</option>;
-                  }) : <option value={statementMonth || ''}>Selecione uma fatura</option>}
-                </select>}
+                {selected && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      aria-label="Fatura anterior"
+                      onClick={() => statementMonth && setStatementMonth(stepInvoiceMonth(statementMonth, -1).dueMonthIso)}
+                      className="rounded-lg border border-slate-700 bg-slate-950 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <select aria-label="Ciclo da fatura — competência e vencimento" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
+                      className="max-w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200">
+                      {invoiceCycles.length ? invoiceCycles.map(cycle => {
+                        const dates=getInvoiceCycleDates(cycle.dueMonth,selected.closing_day,selected.due_day,
+                          invoiceFacts.find(item=>item.due_month===cycle.dueMonth)?.due_date);
+                        const competence=dates.closingDate.slice(5,7)+'/'+dates.closingDate.slice(0,4);
+                        const due=dates.dueDate.slice(8,10)+'/'+dates.dueDate.slice(5,7)+'/'+dates.dueDate.slice(0,4);
+                        return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura '+competence+' · vence '+due+(cycle.hasOverride?' · consolidada':'')}</option>;
+                      }) : <option value={statementMonth || ''}>Selecione uma fatura</option>}
+                    </select>
+                    <button
+                      type="button"
+                      aria-label="Próxima fatura"
+                      onClick={() => statementMonth && setStatementMonth(stepInvoiceMonth(statementMonth, 1).dueMonthIso)}
+                      className="rounded-lg border border-slate-700 bg-slate-950 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-white"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                    {selected.closing_day && (
+                      <span className="ml-1 text-[10px] text-slate-400">
+                        Melhor dia de compra: <strong className="text-emerald-300">dia {selected.closing_day}</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {selected && <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={()=>setVaultCard(selected)} className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">Dados completos do cartão</button>
@@ -526,6 +766,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               cycleDates={statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date) : undefined}
               onEdit={async (input, mutationRequestId) => { await personalWalletService.updateExpense(input, mutationRequestId); await refresh(); }}
               onDelete={async (id, mutationRequestId) => { await personalWalletService.cancelExpense(id, mutationRequestId); await refresh(); }}
+              onScopedInstallmentDelete={handleScopedInstallmentDelete}
+              onAdvanceInstallments={handleAdvanceInstallments}
               onCancelConsolidation={async (dueMonth, mutationRequestId) => { await personalWalletService.cancelInvoiceConsolidation(selected.id, dueMonth, mutationRequestId); await refresh(); }}
               className="m-0 border-0 bg-transparent p-0"/> :
               <p className="text-xs text-slate-400">Cadastre um cartão para visualizar o extrato.</p>}
@@ -772,17 +1014,34 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         onImported={async () => { await refresh(); }}/>}
       {paying && <PayInvoiceModal card={paying} accounts={data.accounts}
         invoiceAmount={paying.id === selected?.id ? selectedCycle?.amount || 0 : 0}
+        minimumPayment={savedInvoiceFacts?.minimum_payment ?? null}
         dueMonth={statementMonth || undefined} dueDate={statementMonth && selected ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day, savedInvoiceFacts?.due_date).dueDate : null} onClose={() => setPaying(null)}
         onPay={async (cardId, month, accountId, amount, requestId) => {
           await personalWalletService.payInvoicePartial(cardId, month, accountId, amount, requestId);
           await refresh();
-        }}/>}
+        }}
+        onHandleRemainder={handleInvoiceRemainder}/>}
       {overriding && selected && <InvoiceOverrideModal card={selected}
         initialDueMonth={statementMonth || creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01'}
         initialDueDate={savedInvoiceFacts?.due_date}
         initialAmount={invoiceCycles.find(cycle => cycle.dueMonth === statementMonth)?.amount || 0}
         hasExistingConsolidation={Boolean(selectedCycle?.hasOverride)}
         onClose={() => setOverriding(false)}
+        onRecordAdjustmentExpense={async (dueMonth, deltaAmount, notes) => {
+          await personalWalletService.createExpense({
+            card_id: selected.id,
+            description: 'Despesa de ajuste de fatura',
+            amount: deltaAmount,
+            category: 'Outros',
+            expense_date: new Date().toLocaleDateString('en-CA'),
+            due_date: dueMonth,
+            status: 'PENDING',
+            installment_count: 1,
+            notes,
+          });
+          await refresh();
+          setStatementMonth(dueMonth);
+        }}
         onSave={async (dueMonth, amount, dueDate, overrideRequestId) => {
           await personalWalletService.correctInvoiceOverride({
             cardId:selected.id,

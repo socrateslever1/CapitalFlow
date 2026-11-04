@@ -3,31 +3,37 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const migration = readFileSync('supabase/migrations/20261104190000_restore_wallet_financial_rpcs_without_loan_regression.sql','utf8');
+const lower = migration.toLowerCase();
 
-test('deploys exactly the three RPCs missing from the live database', () => {
-  for (const f of [
-    'personal_wallet_record_external_transfer(',
-    'personal_wallet_create_charge(',
-    'personal_wallet_settle_charge(',
-  ]) assert.match(migration, new RegExp('create or replace function public\\.'+f.replace('(','\\('),'i'));
-  assert.match(migration,/pg_advisory_xact_lock/g);
-  assert.match(migration,/for update/gi);
-  assert.match(migration,/request_id/g);
+test('instala exatamente as três RPCs ausentes', () => {
+  for (const fn of [
+    'personal_wallet_record_external_transfer',
+    'personal_wallet_create_charge',
+    'personal_wallet_settle_charge',
+  ]) assert.ok(lower.includes('create or replace function public.' + fn + '('), fn);
+  assert.ok(lower.includes('pg_advisory_xact_lock'));
+  assert.ok(lower.includes('for update'));
+  assert.ok(lower.includes('request_id'));
 });
-test('cannot regress existing loan operations or rewrite financial history', () => {
-  assert.match(migration,/LOAN_DISBURSEMENT/);
-  assert.match(migration,/LOAN_REPAYMENT/);
-  assert.doesNotMatch(migration,/drop constraint if exists personal_wallet_account_operations_operation_type_check/i);
-  assert.doesNotMatch(migration,/update public\\.personal_wallet_accounts\\s+set balance\\s*=\\s*\d/i);
-  assert.doesNotMatch(migration,/update public\\.payment_charges\\s+set\\s+owner_user_id/i);
-  assert.doesNotMatch(migration,/drop policy if exists payment_charges_owner_select/i);
+
+test('preserva lançamentos de empréstimo e não reescreve histórico existente', () => {
+  assert.ok(migration.includes('LOAN_DISBURSEMENT'));
+  assert.ok(migration.includes('LOAN_REPAYMENT'));
+  assert.ok(!lower.includes('drop constraint if exists personal_wallet_account_operations_operation_type_check'));
+  assert.ok(!lower.includes('drop policy if exists payment_charges_owner_select'));
+  assert.ok(!lower.includes('update public.payment_charges\n  set owner_user_id'));
+  assert.ok(!lower.includes('delete from public.personal_wallet_'));
 });
-test('isolates wallet charges from native gateway charges and the legacy ledger', () => {
-  assert.match(migration,/provider='STATIC_PIX'/);
-  assert.match(migration,/payment_charges_wallet_select/);
-  assert.ok(migration.includes('owner_user_id=(SELECT auth.uid())'), 'A política exige titular da sessão.');
-  assert.match(migration,/wallet_prevent_static_charge_legacy_credit/);
-  assert.ok(migration.includes('from public,anon,authenticated,service_role'), 'Revogação deve cobrir papéis públicos.');
-  assert.match(migration,/revoke all on function public\\.personal_wallet_settle_charge[^;]+from public,anon,authenticated,service_role/i);
-  assert.match(migration,/grant execute on function public\\.personal_wallet_settle_charge[^;]+to authenticated/i);
+
+test('restringe cobranças manuais ao titular e impede crédito no ledger legado', () => {
+  assert.ok(migration.includes("provider='STATIC_PIX'"));
+  assert.ok(migration.includes('payment_charges_wallet_select'));
+  assert.ok(migration.includes('owner_user_id=(SELECT auth.uid())'));
+  assert.ok(migration.includes('wallet_prevent_static_charge_legacy_credit'));
+  for (const fn of ['personal_wallet_create_charge','personal_wallet_settle_charge','personal_wallet_record_external_transfer']) {
+    const revoke = lower.split('\n').find(line=>line.startsWith('revoke all on function public.' + fn + '('));
+    const grant = lower.split('\n').find(line=>line.startsWith('grant execute on function public.' + fn + '('));
+    assert.ok(revoke?.endsWith(' from public,anon,authenticated,service_role;'), 'revogação: '+fn);
+    assert.ok(grant?.endsWith(' to authenticated;'), 'grant: '+fn);
+  }
 });

@@ -118,6 +118,9 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
           used.trim() !== '' ? used : ((Math.round(currentInvoice * 100) + futureCents) / 100).toFixed(2),
           'limite usado',
         );
+      if (Math.round(usedLimit * 100) < Math.round(currentInvoice * 100) + futureCents) {
+        throw new Error('O limite usado precisa incluir a fatura atual e os gastos futuros já cadastrados.');
+      }
       calculateCardOpening(creditLimit, usedLimit, currentInvoice, nativeFutureCommitments);
       setSaving(true);
       await personalWalletService.setSimpleCardOpening({

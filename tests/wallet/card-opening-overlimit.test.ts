@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { calculateCardOpening } from '../../components/wallet/cardOpeningSummary';
+import { calculateCardOpening, calculateUsedFromAvailable } from '../../components/wallet/cardOpeningSummary';
 import { validateCardOpening } from '../../features/wallet/components/CardOpeningFields';
 
 const sql = readFileSync('supabase/migrations/20261030193000_wallet_allow_overlimit_opening.sql', 'utf8');
@@ -46,4 +46,54 @@ test('migração preserva RPCs canônicas e permite o excedente apenas na abertu
   assert.match(sql, /opening_summary_requests/);
   assert.match(sql, /is_platform_super_admin/);
   assert.match(sql, /private\.wallet_recalculate_card_position/);
+});
+
+test('limite usado é calculado pelo disponível bancário, sem supor que a fatura seja o total usado', () => {
+  assert.equal(calculateUsedFromAvailable(6991.30, 3720.90), 3270.40);
+  const used = calculateUsedFromAvailable(6991.30, 2180.35);
+  assert.equal(used, 4810.95);
+  assert.deepEqual(calculateCardOpening(6991.30, used, 3270.40), {
+    available: 2180.35, overLimit: 0, other: 1540.55, unallocated: 1540.55,
+  });
+  assert.equal(calculateUsedFromAvailable(6991.30, 0), 6991.30);
+  assert.equal(calculateUsedFromAvailable(6991.30, 6991.30), 0);
+});
+
+test('validação não ajusta silenciosamente o disponível informado pelo banco', () => {
+  assert.throws(() => calculateUsedFromAvailable(6991.30, 6991.31), /não pode superar/);
+  assert.throws(() => calculateUsedFromAvailable(100, -0.01), /valores|limites/);
+  assert.throws(() => calculateUsedFromAvailable(100, Number.NaN), /valores|limites/);
+  assert.throws(() => calculateUsedFromAvailable(100, 1.001), /duas casas/);
+  assert.throws(() => validateCardOpening({
+    used: '3.270,40', available: '7.000,00', invoice: '3.270,40',
+    future: '', futureCount: '', invoiceMonth: '2026-11',
+  }, 6991.30), /não pode superar/);
+});
+
+test('cadastro do cartão utiliza o disponível declarado como fonte de cálculo', () => {
+  const result = validateCardOpening({
+    used: '3.270,40', available: '2.180,35', invoice: '3.270,40',
+    future: '', futureCount: '', invoiceMonth: '2026-11',
+  }, 6991.30);
+  assert.equal(result.used_limit, 4810.95);
+  assert.equal(result.invoice_amount, 3270.40);
+  assert.equal(result.future_amount, 1540.55);
+  assert.throws(() => validateCardOpening({
+    used: '', available: '4.000,00', invoice: '3.270,40',
+    future: '', futureCount: '', invoiceMonth: '2026-11',
+  }, 6991.30), /fatura/);
+});
+
+test('situação inicial distingue o disponível do banco da fatura e preserva os compromissos', () => {
+  const opening = readFileSync('features/wallet/components/CardOpeningFields.tsx', 'utf8');
+  const summary = readFileSync('components/wallet/cardOpeningSummary.ts', 'utf8');
+  assert.match(modal, /name="wallet-card-available-limit"/);
+  assert.match(modal, /value={available}/);
+  assert.match(modal, /calculateUsedFromAvailable\(creditLimit, parseWalletMoney\(available/);
+  assert.match(modal, /positionSource !== 'INVOICE'/);
+  assert.match(modal, /Math\.round\(usedLimit \* 100\) < Math\.round\(currentInvoice \* 100\) \+ futureCents/);
+  assert.match(opening, /name="wallet-card-available-limit-new"/);
+  assert.match(opening, /calculateUsedFromAvailable\(/);
+  assert.match(opening, /available: ''/);
+  assert.match(summary, /Math\.round\(available \* 100\)/);
 });

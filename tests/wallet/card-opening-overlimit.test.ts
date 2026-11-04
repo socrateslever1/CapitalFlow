@@ -32,7 +32,7 @@ test('modal tem só um cancelar, mostra excesso e impede precisão flutuante no 
   assert.doesNotMatch(modal, />\s*Cancelar\s*</);
   assert.match(modal, /Limite excedido/);
   assert.match(modal, /Math\.round\(Number\(card\.used_limit \|\| 0\) \* 100\)/);
-  assert.match(modal, /parseWalletMoney\(used/);
+  assert.match(modal, /parseWalletMoney\(\s*used/);
   assert.doesNotMatch(modal, /min="0"[^>]*value=\{available\}/);
 });
 test('migração preserva RPCs canônicas e permite o excedente apenas na abertura', () => {

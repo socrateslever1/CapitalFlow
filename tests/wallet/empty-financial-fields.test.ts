@@ -7,6 +7,7 @@ import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/
 test('financial entry fields start blank instead of forcing zero text', () => {
   assert.deepEqual(freshCardOpening(), {
     used: '',
+    available: '',
     invoice: '',
     future: '',
     futureCount: '',

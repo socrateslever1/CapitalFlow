@@ -247,7 +247,11 @@ jobs:
             echo 'enabled=true' >> "$GITHUB_OUTPUT"
           else
             echo 'enabled=false' >> "$GITHUB_OUTPUT"
-            echo '::warning::Assinatura de producao nao configurada. Defina os 4 segredos ANDROID_RELEASE_*. Nenhum APK sera publicado como assinado.'
+            if [[ "$GITHUB_EVENT_NAME" = "push" && "$GITHUB_REF" = "refs/heads/main" ]]; then
+              echo '::error::Assinatura de producao nao configurada. Defina os 4 segredos ANDROID_RELEASE_* antes de publicar na main.'
+              exit 1
+            fi
+            echo '::warning::Assinatura de producao nao configurada neste ensaio. O APK debug nao e uma release publica.'
           fi
 
       - name: Require complete Quality Gates for the exact source commit

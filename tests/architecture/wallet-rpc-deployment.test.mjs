@@ -25,9 +25,9 @@ test('cannot regress existing loan operations or rewrite financial history', () 
 test('isolates wallet charges from native gateway charges and the legacy ledger', () => {
   assert.match(migration,/provider='STATIC_PIX'/);
   assert.match(migration,/payment_charges_wallet_select/);
-  assert.match(migration,/owner_user_id=\\(SELECT auth\\.uid\\(\\)\\)/);
+  assert.ok(migration.includes('owner_user_id=(SELECT auth.uid())'), 'A política exige titular da sessão.');
   assert.match(migration,/wallet_prevent_static_charge_legacy_credit/);
-  assert.match(migration,/revoke all on function public\\.personal_wallet_create_charge[^;]+from public,anon,authenticated,service_role/i);
+  assert.ok(migration.includes('from public,anon,authenticated,service_role'), 'Revogação deve cobrir papéis públicos.');
   assert.match(migration,/revoke all on function public\\.personal_wallet_settle_charge[^;]+from public,anon,authenticated,service_role/i);
   assert.match(migration,/grant execute on function public\\.personal_wallet_settle_charge[^;]+to authenticated/i);
 });

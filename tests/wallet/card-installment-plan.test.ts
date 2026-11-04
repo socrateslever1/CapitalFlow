@@ -13,6 +13,7 @@ import {
   describeCardCycleDates,
   getQuickDateTag,
   resolveQuickDateShortcuts,
+  resolveInvoiceMonthSelection,
   stepInvoiceMonth,
 } from '../../features/wallet/utils/minhasFinancasWalletTools';
 
@@ -175,3 +176,27 @@ test('calculateInstallmentAdvancement calcula parcelas futuras antecipadas com d
 });
 
 
+
+test('seletor de faturas nunca apresenta um mês diferente do vencimento exibido no cabeçalho', () => {
+  const cycles = [
+    { dueMonth: '2026-11-01', amount: 1200 },
+    { dueMonth: '2026-12-01', amount: 0 },
+  ];
+  assert.equal(resolveInvoiceMonthSelection('2026-07-01', cycles, null, '2026-11-04'), '2026-11-01');
+  assert.equal(resolveInvoiceMonthSelection(null, cycles, '2026-07-01', '2026-11-04'), '2026-11-01');
+  assert.equal(resolveInvoiceMonthSelection('2026-12-01', cycles, '2026-11-01', '2026-11-04'), '2026-12-01');
+  assert.equal(resolveInvoiceMonthSelection(null, cycles, '2026-11-01', '2026-11-04'), '2026-11-01');
+  assert.equal(resolveInvoiceMonthSelection('2026-11-01', [], null, '2026-11-04'), null);
+});
+
+test('seletor de faturas escolhe um vencimento válido sem fabricar novos ciclos', () => {
+  const cycles = [
+    { dueMonth: '2026-10-01', amount: 0 },
+    { dueMonth: '2026-12-01', amount: 200 },
+    { dueMonth: '2027-01-01', amount: 0 },
+  ];
+  assert.equal(resolveInvoiceMonthSelection('2025-01-01', cycles, null, '2026-11-04'), '2026-12-01');
+  assert.equal(resolveInvoiceMonthSelection(null, [
+    { dueMonth: '2026-10-01', amount: 0 }, { dueMonth: '2026-11-01', amount: 0 },
+  ], null, '2026-11-04'), '2026-11-01');
+});

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Sparkles, Camera, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
 import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
@@ -29,7 +29,7 @@ import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../..
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan, type CardExpenseAmountMode } from '../utils/cardInstallmentPlan';
-import { calculateInstallmentAdvancement, describeCardCycleDates, stepInvoiceMonth } from '../utils/minhasFinancasWalletTools';
+import { calculateInstallmentAdvancement, describeCardCycleDates, resolveInvoiceMonthSelection } from '../utils/minhasFinancasWalletTools';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvoiceStatement';
 import type { InvoiceRemainderAction } from '../../../components/wallet/PayInvoiceModal';
@@ -69,7 +69,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [clearInvoiceConfirm, setClearInvoiceConfirm] = useState<{ cardId: string; month: string; nickname: string } | null>(null);
   const [clearInvoiceError, setClearInvoiceError] = useState('');
   const clearInvoiceRequest = useRef({ signature: '', id: generateUUID() });
-  const [statementMonth, setStatementMonth] = useState<string | null>(null);
+  const [requestedStatementMonth, setStatementMonth] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
@@ -215,9 +215,17 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     if (!cycles.some(cycle => cycle.dueMonth === nextMonth)) cycles.push({ dueMonth: nextMonth, amount: 0, hasOverride: false });
     return cycles;
   }, [data, selected, creditPosition?.dueMonth, invoiceFacts]);
+  // Keep the selected value in the list of rendered invoice cycles.
+  // A stale cycle from a previously selected card must not make the browser
+  // display one invoice in the select while the header shows another.
+  const statementMonth = resolveInvoiceMonthSelection(
+    requestedStatementMonth,
+    invoiceCycles,
+    creditPosition?.dueMonth,
+  );
   useEffect(() => {
-    if (selected) setStatementMonth(creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01');
-  }, [selected?.id, creditPosition?.dueMonth]);
+    setStatementMonth(null);
+  }, [selected?.id]);
   const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0,7) === statementMonth?.slice(0,7)) || null;
   const editableInvoiceSummary: CardInvoiceSummary = {
     institution: (['Nubank','Mercado Pago','Itaú','C6 Bank','RecargaPay'] as const).find(
@@ -676,50 +684,43 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
             {formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
           </p>}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
+          <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <div className="mb-4 flex min-w-0 flex-col gap-3">
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h3 className="min-w-0 break-words text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
                   {cycleDateInsights && (
-                    <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                    <span className="max-w-full whitespace-normal break-words rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-slate-300">
                       {cycleDateInsights.statusSummary}
                     </span>
                   )}
                 </div>
                 {selected && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      aria-label="Fatura anterior"
-                      onClick={() => statementMonth && setStatementMonth(stepInvoiceMonth(statementMonth, -1).dueMonthIso)}
-                      className="rounded-lg border border-slate-700 bg-slate-950 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-white"
+                  <div className="mt-3 min-w-0 max-w-md">
+                    <select
+                      aria-label="Selecionar fatura por mês e vencimento"
+                      value={statementMonth || ''}
+                      onChange={event => setStatementMonth(event.target.value)}
+                      className="block w-full min-w-0 max-w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-xs text-slate-200"
                     >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <select aria-label="Ciclo da fatura — competência e vencimento" value={statementMonth || ''} onChange={event => setStatementMonth(event.target.value)}
-                      className="max-w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200">
                       {invoiceCycles.length ? invoiceCycles.map(cycle => {
-                        const dates=getInvoiceCycleDates(cycle.dueMonth,selected.closing_day,selected.due_day,
-                          invoiceFacts.find(item=>item.due_month===cycle.dueMonth)?.due_date);
-                        const competence=dates.closingDate.slice(5,7)+'/'+dates.closingDate.slice(0,4);
-                        const due=dates.dueDate.slice(8,10)+'/'+dates.dueDate.slice(5,7)+'/'+dates.dueDate.slice(0,4);
-                        return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura '+competence+' · vence '+due+(cycle.hasOverride?' · consolidada':'')}</option>;
-                      }) : <option value={statementMonth || ''}>Selecione uma fatura</option>}
+                        const dates = getInvoiceCycleDates(
+                          cycle.dueMonth,
+                          selected.closing_day,
+                          selected.due_day,
+                          invoiceFacts.find(item => item.due_month === cycle.dueMonth)?.due_date,
+                        );
+                        const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
+                        const due = dates.dueDate.slice(8, 10) + '/' + dates.dueDate.slice(5, 7) + '/' + dates.dueDate.slice(0, 4);
+                        return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura ' + competence + ' · vence ' + due}</option>;
+                      }) : <option value="">Nenhuma fatura disponível</option>}
                     </select>
-                    <button
-                      type="button"
-                      aria-label="Próxima fatura"
-                      onClick={() => statementMonth && setStatementMonth(stepInvoiceMonth(statementMonth, 1).dueMonthIso)}
-                      className="rounded-lg border border-slate-700 bg-slate-950 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-white"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                    {selected.closing_day && (
-                      <span className="ml-1 text-[10px] text-slate-400">
-                        Melhor dia de compra: <strong className="text-emerald-300">dia {selected.closing_day}</strong>
-                      </span>
-                    )}
+                    <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                      {selected.closing_day && (
+                        <span>Melhor dia de compra: <strong className="text-emerald-300">dia {selected.closing_day}</strong></span>
+                      )}
+                      {selectedCycle?.hasOverride && <span>Fatura consolidada</span>}
+                    </div>
                   </div>
                 )}
               </div>

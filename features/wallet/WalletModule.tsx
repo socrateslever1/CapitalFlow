@@ -12,7 +12,8 @@ import { PageHeader } from '../../components/ui/PageHeader';
 const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry?: () => void }> = ({ kind, message, onRetry }) => <section className="mx-auto mt-10 max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center text-white shadow-2xl">
   {kind === 'inactive' ? <LockKeyhole className="mx-auto mb-4 text-amber-300" size={34}/> : <AlertTriangle className="mx-auto mb-4 text-rose-300" size={34}/>}
   <h1 className="text-xl font-black">{kind === 'inactive' ? 'Módulo Carteira não está ativo' : 'Carteira temporariamente indisponível'}</h1>
-  <p className="mt-2 text-sm text-slate-400">{message}</p>\n  {onRetry && <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Tentar novamente</button>}
+  <p className="mt-2 text-sm text-slate-400">{message}</p>
+  {onRetry && <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Tentar novamente</button>}
 </section>;
 
 const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark };

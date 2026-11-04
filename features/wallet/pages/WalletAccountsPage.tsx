@@ -5,7 +5,6 @@ import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
 import { formatMoney } from '../../../utils/formatters';
-import { personalWalletService } from '../../../services/personalWallet.service';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
@@ -17,26 +16,14 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [searchParams, setSearchParams] = useSearchParams();
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
   const [movementOpen, setMovementOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [form, setForm] = useState({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '', capital_source_id: '' });
-  const isPhysicalWallet = form.account_type === 'CASH';
+
   const startCreate = (accountType: 'CHECKING' | 'CASH') => {
-    setForm({
-      nickname: accountType === 'CASH' ? 'Carteira física' : '',
-      bank_name: '',
-      account_type: accountType,
-      pix_key: '',
-      pix_key_type: '',
-      capital_source_id: '',
-    });
     setCreateModalType(accountType);
-    setMessage('');
   };
+
   useEffect(() => {
     if (searchParams.get('acao') !== 'nova-conta') return;
     startCreate('CHECKING');
@@ -44,31 +31,13 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     next.delete('acao');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
-  const selected = data?.accounts.find(account => account.id === selectedId);
-  const create = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (saving) return;
-    setSaving(true); setMessage('');
-    try {
-      await personalWalletService.createAccount({
-        nickname: form.nickname.trim(), bank_name: isPhysicalWallet ? null : form.bank_name.trim(),
-        account_type: form.account_type, balance: 0,
-        pix_key: isPhysicalWallet ? null : form.pix_key.trim() || null,
-        pix_key_type: isPhysicalWallet ? null : form.pix_key.trim() ? form.pix_key_type || null : null,
-        capital_source_id: form.capital_source_id || null,
-      });
-      await refresh();
-      setCreating(false);
-      setForm({ nickname: '', bank_name: '', account_type: 'CHECKING', pix_key: '', pix_key_type: '', capital_source_id: '' });
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Falha ao cadastrar conta.'); }
-    finally { setSaving(false); }
-  };
 
+  const selected = data?.accounts.find(account => account.id === selectedId);
   const totalBalance = data?.accounts.reduce((total, account) => total + Number(account.balance || 0), 0) || 0;
   const hasPixAccount = Boolean(data?.accounts.some(account => account.pix_key?.trim()));
 
   return <WalletPageFrame title="Contas e PIX" description="Consulte os saldos e organize os movimentos de cada instituição."
-    error={error || message} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
+    error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
       statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
@@ -142,50 +111,11 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           />
         </div>
       </div>
-      {creating && <form onSubmit={event => { void create(event); }}
-        className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2">
-        <label className="space-y-1 text-xs text-slate-300">Nome da conta
-          <input required maxLength={120} value={form.nickname} onChange={e => setForm(v => ({ ...v, nickname: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Instituição {isPhysicalWallet && <span className="text-slate-500">(opcional)</span>}
-          <input required={!isPhysicalWallet} disabled={isPhysicalWallet} value={form.bank_name} placeholder={isPhysicalWallet ? 'Não se aplica à carteira física' : 'Ex.: Nubank'} onChange={e => setForm(v => ({ ...v, bank_name: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white disabled:cursor-not-allowed disabled:opacity-50"/></label>
-        <label className="space-y-1 text-xs text-slate-300">Tipo
-          <select value={form.account_type} onChange={e => setForm(v => ({ ...v, account_type: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="CHECKING">Conta corrente</option><option value="PAYMENT">Conta de pagamento</option><option value="SAVINGS">Poupança</option>
-            <option value="CASH">Carteira física</option><option value="INVESTMENT">Investimentos</option>
-          </select></label>
-        {!isPhysicalWallet ? <>
-          <label className="space-y-1 text-xs text-slate-300">Chave PIX (opcional)
-            <input value={form.pix_key} onChange={e => setForm(v => ({ ...v, pix_key: e.target.value }))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>
-          <label className="space-y-1 text-xs text-slate-300">Tipo da chave PIX
-            <select value={form.pix_key_type} onChange={e => setForm(v => ({ ...v, pix_key_type: e.target.value }))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-              <option value="">Não informado</option><option value="CPF">CPF</option><option value="CNPJ">CNPJ</option>
-              <option value="PHONE">Celular</option><option value="EMAIL">E-mail</option><option value="RANDOM">Aleatória</option>
-            </select></label>
-        </> : <div className="flex items-center rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-100 sm:col-span-2">
-          Carteira física representa dinheiro em espécie e não precisa de instituição ou chave PIX.
-        </div>}
-        <label className="space-y-1 text-xs text-slate-300 sm:col-span-2">Fonte de capital vinculada (opcional)
-          <select value={form.capital_source_id} onChange={e => setForm(v => ({ ...v, capital_source_id: e.target.value }))}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
-            <option value="">Nenhuma conta de origem vinculada</option>
-            {(data?.capitalSources || []).map(source => <option key={source.id} value={source.id}>{source.name} · {formatMoney(Number(source.balance || 0))}</option>)}
-          </select>
-          <span className="block text-[11px] text-slate-500">A vinculação ativa o débito de empréstimos e o crédito de parcelas nesta conta, somente quando a integração estiver autorizada.</span>
-        </label>
-        <div className="flex items-end"><button type="submit" disabled={saving}
-          className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
-          {saving ? 'Salvando...' : 'Cadastrar conta'}
-        </button></div>
-      </form>}
       {createModalType && (
         <CreateAccountModal
           activeUser={activeUser}
           capitalSources={data.capitalSources || []}
+          existingAccounts={data.accounts}
           initialAccountType={createModalType}
           onClose={() => setCreateModalType(null)}
           onSaved={async () => { await refresh(); }}

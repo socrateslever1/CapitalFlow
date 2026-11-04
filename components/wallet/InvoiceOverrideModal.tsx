@@ -3,7 +3,7 @@ import { CalendarDays, Loader2, PencilLine, X } from 'lucide-react';
 import type { PersonalWalletCard } from '../../services/personalWallet.service';
 import { generateUUID } from '../../utils/generators';
 import { getInvoiceCycleDates } from './invoiceStatementDomain';
-import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 type Props = {
   card: PersonalWalletCard;
@@ -91,7 +91,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
         </label>
         <label className="text-xs font-semibold text-slate-200 sm:col-span-2">Valor consolidado (R$)
           <input name="wallet-invoice-amount" type="text" inputMode="decimal" autoComplete="off"
-            required value={amount} onChange={event=>setAmount(event.target.value)}
+            required value={amount} onChange={event=>setAmount(event.target.value)} onBlur={event=>{try{setAmount(formatWalletMoneyInput(event.target.value));}catch{}}}
             placeholder="0,00" className={field}/>
         </label>
       </div>

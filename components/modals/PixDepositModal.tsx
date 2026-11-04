@@ -13,9 +13,9 @@ type PixDepositModalProps = {
 };
 
 export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }: PixDepositModalProps) {
-  const [amount, setAmount] = useState<string>("10.00");
-  const [payerName, setPayerName] = useState<string>("Teste PIX");
-  const [payerEmail, setPayerEmail] = useState<string>("teste@pix.com");
+  const [amount, setAmount] = useState<string>("");
+  const [payerName, setPayerName] = useState<string>("");
+  const [payerEmail, setPayerEmail] = useState<string>("");
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -155,7 +155,7 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
                   value={amount || ''}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full bg-slate-950 p-3 rounded-full text-white font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
-                  placeholder="10.00"
+                  placeholder="0,00"
                 />
               </div>
 

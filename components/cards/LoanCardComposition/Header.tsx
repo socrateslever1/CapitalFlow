@@ -18,7 +18,7 @@ import { formatMoney, formatShortName } from '../../../utils/formatters';
 import { getDueBadgeLabel, getDueBadgeStyle } from './helpers';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
 import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
-import { getDisplayedLoanBalance, isRecordedPartialMonthlyInstallment } from '../../../domain/finance/displayedBalance';
+import { getDisplayedLoanBalance } from '../../../domain/finance/displayedBalance';
 import { isPaymentOfferActive } from '../../../services/paymentOffers.service';
 import { formatBRDate } from '../../../utils/dateHelpers';
 import { getInstallmentScheduleTotal } from '../../../utils/loanStatus';
@@ -49,6 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
   isLate,
   hasActiveAgreement,
   daysUntilDue,
+  nextDueDate,
   iconStyle,
   isStealthMode,
   isExpanded,
@@ -60,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   isCapitalOnlyRecovery
 }) => {
   const isOverdueByDays = daysUntilDue < 0;
+  const isDueSoon = !isFullyFinalized && daysUntilDue >= 0 && daysUntilDue <= 3;
 
   // Lógica de 24h e Countdown
   const [timeLeft, setTimeLeft] = React.useState<string | null>(null);
@@ -140,11 +142,29 @@ export const Header: React.FC<HeaderProps> = ({
   const displayAmount = activePaymentOffer && loan.installments.length === 1
     ? Math.max(0, Number(activePaymentOffer.paymentOfferAmount || 0))
     : Math.max(0, Number(currentDebt ?? loan.totalToReceive ?? loan.principal ?? 0));
-  const amountLabel = activePaymentOffer && loan.installments.length === 1
-    ? 'Saldo da condição'
-    : (loan.installments || []).some(inst => isRecordedPartialMonthlyInstallment(loan, inst))
-      ? 'Saldo registrado após recebimento'
-      : 'Saldo atual';
+
+  const shortDueDate = nextDueDate ? formatBRDate(nextDueDate).slice(0, 5) : null;
+  const dueHeadline = React.useMemo(() => {
+    if (isFullyFinalized) return 'Quitado';
+    const statusLabel = daysUntilDue > 3
+      ? `Em ${daysUntilDue}d`
+      : getDueBadgeLabel(daysUntilDue);
+    if (shortDueDate) {
+      return daysUntilDue > 3
+        ? `Vence ${shortDueDate} • ${statusLabel}`
+        : `${statusLabel} • ${shortDueDate}`;
+    }
+    return statusLabel;
+  }, [daysUntilDue, isFullyFinalized, shortDueDate]);
+
+  const amountSummaryLabel = React.useMemo(() => {
+    if (isFullyFinalized) return 'Contrato finalizado';
+    if (activePaymentOffer && loan.installments.length === 1) {
+      return `Condição • Cap ${formatMoney(amountBreakdown.capital, isStealthMode)}`;
+    }
+    return `Cap ${formatMoney(amountBreakdown.capital, isStealthMode)} • Juros ${formatMoney(amountBreakdown.juros, isStealthMode)}`;
+  }, [activePaymentOffer, amountBreakdown.capital, amountBreakdown.juros, isFullyFinalized, isStealthMode, loan.installments.length]);
+
   const activeOfferLabel = activePaymentOffer
     ? Number(activePaymentOffer.paymentOfferDiscountPercent || 0) > 0
       ? `Desconto ${Number(activePaymentOffer.paymentOfferDiscountPercent).toLocaleString('pt-BR')}% |`
@@ -185,6 +205,14 @@ export const Header: React.FC<HeaderProps> = ({
       <div className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${cls}`}>
         <AlertTriangle size={8} />
         <span className="truncate text-[7px] font-black uppercase">Atrasado</span>
+      </div>
+    );
+  } else if (isDueSoon) {
+    const { cls } = getDueBadgeStyle(daysUntilDue);
+    Badge = (
+      <div className={`flex min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 ${cls}`}>
+        <CalendarClock size={8} />
+        <span className="truncate text-[7px] font-black uppercase">{getDueBadgeLabel(daysUntilDue)}</span>
       </div>
     );
   }
@@ -350,17 +378,23 @@ export const Header: React.FC<HeaderProps> = ({
               <Hash size={7} />
               <span>{loan.id.substring(0, 6)}</span>
             </div>
-            <div className="flex min-w-0 items-center gap-1 text-slate-500">
-              <Wallet size={10} className="shrink-0 opacity-50" />
-              <span className="truncate text-[8px] font-black uppercase">{amountLabel}</span>
+            <div className="flex min-w-0 items-center gap-1 text-slate-400">
+              <Wallet size={10} className="shrink-0 opacity-60" />
+              <span className="truncate text-[8px] font-black uppercase">{amountSummaryLabel}</span>
             </div>
           </div>
         </div>
         
         <div className="flex shrink-0 flex-col items-end justify-end">
-          {isOverdueByDays && (
-            <span className="mb-0.5 whitespace-nowrap text-[8px] font-black uppercase leading-none text-rose-500/80 sm:text-[9px]">
-              {getDueBadgeLabel(daysUntilDue)}
+          {!isFullyFinalized && (
+            <span className={`mb-0.5 whitespace-nowrap text-[8px] font-black uppercase leading-none sm:text-[9px] ${
+              isOverdueByDays
+                ? 'text-rose-500/80'
+                : isDueSoon
+                  ? 'text-amber-400'
+                  : 'text-slate-400'
+            }`}>
+              {dueHeadline}
             </span>
           )}
           <span className={`whitespace-nowrap text-lg sm:text-xl font-black leading-none text-right transition-all ${

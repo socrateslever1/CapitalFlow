@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Landmark, Loader2, QrCode, Wallet } from 'lucide-react';
+import { CheckCircle2, Landmark, Link2, Loader2, QrCode, Wallet } from 'lucide-react';
 import type { CapitalSource, UserProfile } from '../../types';
 import { useWalletOwnerDefaults } from '../../features/wallet/hooks/useWalletOwnerDefaults';
-import { personalWalletService } from '../../services/personalWallet.service';
+import { PersonalWalletAccount, personalWalletService } from '../../services/personalWallet.service';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
@@ -11,10 +11,11 @@ import { getBankVisual, walletAccountTypeLabel } from './walletPresentation';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { BankAccountDetailsFields } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
-import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 export interface CreateAccountModalProps {
   capitalSources?: CapitalSource[];
+  existingAccounts?: PersonalWalletAccount[];
   activeUser?: UserProfile | null;
   initialAccountType?: 'CHECKING' | 'PAYMENT' | 'SAVINGS' | 'CASH' | 'INVESTMENT';
   onClose: () => void;
@@ -42,29 +43,44 @@ const INSTITUTION_OPTIONS = [...new Set([
 
 export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   capitalSources: providedCapitalSources,
+  existingAccounts: providedAccounts,
   activeUser,
   initialAccountType = 'CHECKING',
   onClose,
   onSaved,
 }) => {
   const [loadedSources, setLoadedSources] = useState<CapitalSource[]>(providedCapitalSources || []);
+  const [loadedAccounts, setLoadedAccounts] = useState<PersonalWalletAccount[]>(providedAccounts || []);
   useEffect(() => {
-    if (providedCapitalSources !== undefined) {
+    if (providedCapitalSources !== undefined && providedAccounts !== undefined) {
       setLoadedSources(providedCapitalSources);
+      setLoadedAccounts(providedAccounts);
       return;
     }
     let mounted = true;
     personalWalletService
       .load()
       .then((res) => {
-        if (mounted) setLoadedSources(res.capitalSources || []);
+        if (mounted) {
+          setLoadedSources(res.capitalSources || []);
+          setLoadedAccounts(res.accounts || []);
+        }
       })
       .catch(() => {});
     return () => {
       mounted = false;
     };
-  }, [providedCapitalSources]);
+  }, [providedCapitalSources, providedAccounts]);
   const capitalSources = providedCapitalSources && providedCapitalSources.length > 0 ? providedCapitalSources : loadedSources;
+  const existingAccounts = providedAccounts && providedAccounts.length > 0 ? providedAccounts : loadedAccounts;
+
+  const eligibleCapitalSources = useMemo(
+    () => capitalSources.filter(source =>
+      !['CARD', 'MISTO'].includes(source.type) &&
+      !existingAccounts.some(account => account.capital_source_id === source.id)
+    ),
+    [capitalSources, existingAccounts],
+  );
 
   const [accountType, setAccountType] = useState<string>(initialAccountType);
   const [nickname, setNickname] = useState<string>(
@@ -72,7 +88,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   );
   const [bankName, setBankName] = useState<string>('');
   const [customBank, setCustomBank] = useState(false);
-  const [initialBalance, setInitialBalance] = useState<string>('0');
+  const [initialBalance, setInitialBalance] = useState<string>('');
   const [pixKeyType, setPixKeyType] = useState<string>('');
   const [pixKey, setPixKey] = useState<string>('');
   const [capitalSourceId, setCapitalSourceId] = useState<string>('');
@@ -98,6 +114,32 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     () => getBankVisual(isPhysicalWallet ? 'Carteira Física' : bankName || nickname || 'Conta'),
     [isPhysicalWallet, bankName, nickname],
   );
+
+  const previewBalance = useMemo(() => {
+    try {
+      return parseWalletMoney(initialBalance.trim() || '0');
+    } catch {
+      return 0;
+    }
+  }, [initialBalance]);
+
+  const selectedCapitalSource = useMemo(
+    () => eligibleCapitalSources.find(source => source.id === capitalSourceId) || null,
+    [eligibleCapitalSources, capitalSourceId],
+  );
+
+  const balanceMatchesSelectedSource = useMemo(() => {
+    if (!selectedCapitalSource) return true;
+    const sourceCents = Math.round(Number(selectedCapitalSource.balance || 0) * 100);
+    const inputCents = Math.round(previewBalance * 100);
+    return sourceCents === inputCents;
+  }, [selectedCapitalSource, previewBalance]);
+
+  const syncBalanceWithSelectedSource = (source: CapitalSource) => {
+    openingRequestIdRef.current = generateUUID();
+    const formatted = formatWalletMoneyInput(String(Number(source.balance || 0).toFixed(2)));
+    setInitialBalance(formatted);
+  };
 
   const handleBankChange = (value: string) => {
     setBankName(value);
@@ -130,6 +172,15 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Informe um saldo inicial válido.');
       return;
+    }
+
+    if (selectedCapitalSource) {
+      const sourceCents = Math.round(Number(selectedCapitalSource.balance || 0) * 100);
+      const balanceCents = Math.round(parsedBalance * 100);
+      if (sourceCents !== balanceCents) {
+        setError(`Para vincular à fonte "${selectedCapitalSource.name}", o saldo inicial da conta deve ser igual ao saldo da fonte (${formatMoney(Number(selectedCapitalSource.balance || 0))}).`);
+        return;
+      }
     }
 
     const cleanPixKey = isPhysicalWallet ? '' : pixKey.trim();
@@ -230,8 +281,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             </div>
             <div className="text-right">
               <span className="block text-[10px] uppercase text-white/75">Saldo Inicial</span>
-              <strong className="text-sm font-black">
-                {formatMoney(Number(initialBalance || 0))}
+              <strong className="text-sm font-black tabular-nums">
+                {formatMoney(previewBalance)}
               </strong>
             </div>
           </div>
@@ -337,6 +388,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                   openingRequestIdRef.current = generateUUID();
                   setInitialBalance(e.target.value);
                 }}
+                onBlur={(e) => { try { setInitialBalance(formatWalletMoneyInput(e.target.value)); } catch {} }}
                 placeholder="0,00"
                 className={inputClass}
               />
@@ -382,19 +434,41 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               Vínculo com Fonte de Capital (opcional)
               <select
                 value={capitalSourceId}
-                onChange={(e) => setCapitalSourceId(e.target.value)}
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  setCapitalSourceId(nextId);
+                  const chosen = eligibleCapitalSources.find(source => source.id === nextId);
+                  if (chosen) {
+                    syncBalanceWithSelectedSource(chosen);
+                    if (!nickname.trim()) setNickname(chosen.name);
+                  }
+                }}
                 className={inputClass}
               >
                 <option value="">Não vincular a uma fonte de empréstimos</option>
-                {capitalSources.map((source) => (
+                {eligibleCapitalSources.map((source) => (
                   <option key={source.id} value={source.id}>
                     {source.name} · Saldo: {formatMoney(Number(source.balance || 0))}
                   </option>
                 ))}
               </select>
               <span className="mt-1 block text-[11px] font-normal text-slate-400">
-                Sincroniza automaticamente desembolsos de empréstimos e recebimentos de parcelas com esta conta.
+                Sincroniza automaticamente desembolsos de empréstimos e recebimentos de parcelas com esta conta. Fontes de cartão de crédito ficam separadas por representarem limite, não saldo em conta.
               </span>
+              {selectedCapitalSource && !balanceMatchesSelectedSource && (
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
+                  <span>
+                    O saldo inicial precisa ser igual ao saldo da fonte <strong>{selectedCapitalSource.name}</strong> ({formatMoney(Number(selectedCapitalSource.balance || 0))}).
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => syncBalanceWithSelectedSource(selectedCapitalSource)}
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2.5 py-1 font-bold text-amber-100 hover:bg-amber-500/30"
+                  >
+                    <Link2 size={12} /> Igualar saldo
+                  </button>
+                </div>
+              )}
             </label>
           </div>
 

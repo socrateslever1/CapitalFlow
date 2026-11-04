@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
-import { ArrowDownToLine, ReceiptText } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowDownToLine, Plus, ReceiptText } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import { RecurringIncomePanel } from '../../../components/wallet/RecurringIncomePanel';
 import { formatMoney } from '../../../utils/formatters';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
+
+const QuickIncomeModal = React.lazy(() => import('../components/QuickIncomeModal').then(module => ({ default: module.QuickIncomeModal })));
 
 const localMonth = () => {
   const date = new Date();
@@ -13,6 +15,7 @@ const localMonth = () => {
 
 export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const { data, loading, error, refresh } = useWalletSnapshot();
+  const [quickIncomeOpen, setQuickIncomeOpen] = useState(false);
   const month = localMonth();
   const receivedIds = useMemo(() => new Set((data?.recurringReceipts || [])
     .filter(receipt => String(receipt.reference_month).slice(0, 7) === month)
@@ -27,6 +30,10 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
   const accountNames = useMemo(() => new Map((data?.accounts || []).map(account => [account.id,account.nickname])),[data]);
 
   return <WalletPageFrame title="Receitas" description="Consulte entradas realizadas e organize recebimentos recorrentes."
+    actions={<button type="button" onClick={() => setQuickIncomeOpen(true)}
+      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+      <Plus size={17}/> Receber valor
+    </button>}
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <div className="space-y-4">
       <section className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5" aria-label="Entradas comuns do mês">
@@ -51,7 +58,7 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
           </li>)}
         </ul> : <p className="mt-4 flex items-start gap-2 rounded-lg bg-slate-950 px-3 py-3 text-xs text-slate-300">
           <ReceiptText size={16} className="shrink-0 text-slate-400"/>
-          Nenhuma entrada avulsa registrada neste mês. Use o botão + e selecione Receber valor.
+          Nenhuma entrada avulsa registrada neste mês. Use o botão Receber valor para registrar.
         </p>}
         {manualReceipts.length > 8 && <p className="mt-2 text-xs text-slate-300">
           Exibindo os oito recebimentos mais recentes. Consulte o extrato da conta para o histórico completo.
@@ -62,6 +69,9 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
       </section>
       <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
         receivedIds={receivedIds} onSaved={async () => { await refresh(); }}/>
+      {quickIncomeOpen && <React.Suspense fallback={<div role="status" className="fixed inset-0 z-[2000] grid place-items-center bg-slate-950/80 text-sm text-slate-100">Preparando recebimento...</div>}>
+        <QuickIncomeModal onClose={() => { setQuickIncomeOpen(false); void refresh().catch(() => {}); }}/>
+      </React.Suspense>}
     </div>}
   </WalletPageFrame>;
 };

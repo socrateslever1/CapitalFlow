@@ -109,9 +109,13 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-x-1.5 gap-y-0.5 mt-0.5 flex-wrap">
-                        <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
-                            {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
+                    <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap">
+                        <p
+                            className={`text-[11px] font-semibold leading-tight ${isLateInst && !isPaid ? 'text-rose-300' : 'text-slate-300'}`}
+                            aria-label={`Vencimento ${displayDueDate ? formatBRDate(displayDueDate) : 'não informado'}`}
+                        >
+                            <span className="text-[9px] font-black uppercase tracking-wide text-slate-500">Vencimento</span>{' '}
+                            {displayDueDate ? formatBRDate(displayDueDate) : 'Não informado'}
                         </p>
                         {!isPaid && !recordedBalance && displayDebt.lateFee > 0.005 && (
                             <>

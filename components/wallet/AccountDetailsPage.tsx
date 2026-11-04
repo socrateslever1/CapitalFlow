@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Pencil, Save, Trash2, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -21,6 +21,7 @@ import { AccountMovementModal } from './AccountMovementModal';
 import QuickExpenseModal from '../../features/wallet/components/QuickExpenseModal';
 import { BankAccountDetailsFields, BankAccountDetailsSummary } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
+import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../../features/wallet/domain/capitalLink';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -40,6 +41,7 @@ type Props = {
 
 const typeLabels: Record<string, string> = {
   CHECKING: 'Conta corrente',
+  PAYMENT: 'Conta de pagamento',
   SAVINGS: 'Poupança',
   CASH: 'Carteira física',
   INVESTMENT: 'Investimento',
@@ -72,6 +74,18 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
     notes: account.notes || '',
     capital_source_id: account.capital_source_id || '',
   });
+
+  const capitalLinkState = useMemo(
+    () => getCapitalLinkState(account, capitalSources),
+    [account, capitalSources],
+  );
+  const eligibleSources = useMemo(
+    () => getEligibleAccountCapitalSources(account, accounts, capitalSources),
+    [account, accounts, capitalSources],
+  );
+  const loanLimitAvailable = account.bank_details?.has_loans && account.bank_details?.loan_balance !== undefined
+    ? Number(account.bank_details.loan_balance)
+    : null;
 
   useEffect(() => () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -198,9 +212,28 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400">Saldo</p>
-            <p className="whitespace-nowrap text-lg font-extrabold text-emerald-400">{formatMoney(Number(account.balance))}</p>
+            <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-emerald-400">{formatMoney(Number(account.balance))}</p>
           </div>
         </div>
+        {!editing && (capitalLinkState.status !== 'unlinked' || loanLimitAvailable !== null) && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {capitalLinkState.status === 'linked' && capitalLinkState.source && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-950/30 px-2.5 py-0.5 text-[11px] font-semibold text-blue-200">
+                <Link2 size={12} /> Fonte Capital: {capitalLinkState.source.name} · Sincronizada
+              </span>
+            )}
+            {(capitalLinkState.status === 'divergent' || capitalLinkState.status === 'unavailable') && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-950/30 px-2.5 py-0.5 text-[11px] font-semibold text-rose-200">
+                <AlertCircle size={12} /> {capitalLinkState.status === 'unavailable' ? 'Fonte Capital indisponível' : `Fonte Capital (${capitalLinkState.source?.name}) com saldo divergente`}
+              </span>
+            )}
+            {loanLimitAvailable !== null && loanLimitAvailable > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-950/25 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-cyan-200">
+                Limite de empréstimo disponível: {formatMoney(loanLimitAvailable)}
+              </span>
+            )}
+          </div>
+        )}
         {!editing && <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold text-slate-400">PIX {pixKeyTypeLabel(account.pix_key_type)}</span>
@@ -266,6 +299,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <label className={labelClass}>Tipo de conta
               <select className={inputClass} value={form.account_type} onChange={e => update('account_type', e.target.value)}>
                 <option value="CHECKING">Conta corrente</option>
+                <option value="PAYMENT">Conta de pagamento</option>
                 <option value="SAVINGS">Poupança</option>
                 <option value="CASH">Carteira física</option>
                 <option value="INVESTMENT">Investimento</option>
@@ -277,6 +311,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               }}>
                 <option value="">Sem PIX</option>
                 <option value="CPF">CPF</option>
+                <option value="CNPJ">CNPJ</option>
                 <option value="EMAIL">E-mail</option>
                 <option value="PHONE">Telefone</option>
                 <option value="RANDOM">Aleatória</option>
@@ -303,9 +338,16 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <label className={`${labelClass} sm:col-span-2`}>Fonte de capital vinculada (opcional)
               <select className={inputClass} value={form.capital_source_id} onChange={e => update('capital_source_id', e.target.value)}>
                 <option value="">Nenhuma conta de origem vinculada</option>
-                {capitalSources.map(source => <option key={source.id} value={source.id}>{source.name} · {formatMoney(Number(source.balance || 0))}</option>)}
+                {eligibleSources.map(source => (
+                  <option key={source.id} value={source.id}>
+                    {source.name} · {formatMoney(Number(source.balance || 0))}
+                    {Math.round(Number(source.balance || 0) * 100) !== Math.round(Number(account.balance || 0) * 100) ? ' (saldos divergentes)' : ''}
+                  </option>
+                ))}
               </select>
-              <span className="text-[11px] font-normal text-slate-500">Empréstimos e parcelas só afetam esta conta quando a integração estiver autorizada.</span>
+              <span className="text-[11px] font-normal text-slate-500">
+                Apenas fontes disponíveis e com o mesmo saldo ({formatMoney(Number(account.balance || 0))}) podem ser vinculadas.
+              </span>
             </label>
           </div>
           {form.account_type!=='CASH'&&<BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>}

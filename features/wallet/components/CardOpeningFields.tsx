@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatMoney } from '../../../utils/formatters';
+import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 
 export type CardOpeningFormValues = {
   used: string;
@@ -22,27 +23,26 @@ export type CardOpeningPayload = {
 export const freshCardOpening = (): CardOpeningFormValues => {
   const date = new Date();
   return {
-    used: '0',
-    invoice: '0',
-    future: '0',
-    futureCount: '0',
+    used: '',
+    invoice: '',
+    future: '',
+    futureCount: '',
     invoiceMonth: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
   };
 };
 
+const safeMoney = (raw: string): number => {
+  try {
+    if (String(raw ?? '').trim() === '') return 0;
+    return parseWalletMoney(raw);
+  } catch {
+    return 0;
+  }
+};
+
 const cents = (raw: string, field: string): number => {
-  const value = String(raw || '0')
-    .trim()
-    .replace(',', '.');
-  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(value)) {
-    throw new Error(
-      `Informe um valor válido em ${field}, com até duas casas decimais.`,
-    );
-  }
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric > 9999999999) {
-    throw new Error(`Valor fora do limite em ${field}.`);
-  }
+  const clean = String(raw || '0').trim();
+  const numeric = parseWalletMoney(clean, field);
   return Math.round(numeric * 100);
 };
 
@@ -57,10 +57,10 @@ export function validateCardOpening(
       ? cents(values.future, 'Demais gastos no cartão')
       : null;
   const rawUsed = cents(values.used, 'Limite já utilizado');
-  // Se o usuário informou os demais gastos (ex: Fatura 1000 + Demais gastos 8500 = 9500 usados), sincroniza o total:
+  // Se o usuário informou a fatura (e opcionalmente demais gastos) e deixou o limite usado zerado, calcula automaticamente:
   const used =
-    explicitFuture !== null && rawUsed === 0 && invoice + explicitFuture > 0
-      ? invoice + explicitFuture
+    rawUsed === 0 && invoice + (explicitFuture ?? 0) > 0
+      ? invoice + (explicitFuture ?? 0)
       : rawUsed;
   const future = used - invoice;
 
@@ -88,9 +88,9 @@ export function validateCardOpening(
   const rawMonths = Number(values.futureCount || 0);
   const futureMonths =
     future > 0 &&
-    Number.isInteger(rawMonths) &&
-    rawMonths >= 1 &&
-    rawMonths <= 120
+      Number.isInteger(rawMonths) &&
+      rawMonths >= 1 &&
+      rawMonths <= 120
       ? rawMonths
       : 0;
   return {
@@ -116,8 +116,12 @@ export const CardOpeningFields: React.FC<Props> = ({
   creditLimit,
   collapsible = false,
 }) => {
-  const used = Number(value.used || 0),
-    invoice = Number(value.invoice || 0);
+  const invoice = safeMoney(value.invoice);
+  const rawUsed = safeMoney(value.used);
+  const used = rawUsed > 0 ? rawUsed : invoice;
+  const [usedManuallyEdited, setUsedManuallyEdited] = React.useState(
+    () => rawUsed > invoice,
+  );
   const [expanded, setExpanded] = React.useState(
     () => !collapsible || used > 0 || invoice > 0,
   );
@@ -126,15 +130,18 @@ export const CardOpeningFields: React.FC<Props> = ({
   const overLimit = Math.max(0, -differenceCents) / 100;
   const field =
     'mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
-  const changeUsed = (raw: string) =>
+  const changeUsed = (raw: string) => {
+    setUsedManuallyEdited(raw.trim() !== '');
+    const nextUsed = safeMoney(raw);
     onChange({
       ...value,
       used: raw,
       future: String(
-        Math.max(0, Math.round((Number(raw) - invoice) * 100) / 100),
+        Math.max(0, Math.round((nextUsed - invoice) * 100) / 100),
       ),
       futureCount: '0',
     });
+  };
   return (
     <fieldset className="space-y-3 rounded-2xl border border-slate-800 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -150,12 +157,13 @@ export const CardOpeningFields: React.FC<Props> = ({
                 const next = e.target.checked;
                 setExpanded(next);
                 if (!next) {
+                  setUsedManuallyEdited(false);
                   onChange({
                     ...value,
-                    used: '0',
-                    invoice: '0',
-                    future: '0',
-                    futureCount: '0',
+                    used: '',
+                    invoice: '',
+                    future: '',
+                    futureCount: '',
                   });
                 }
               }}
@@ -174,42 +182,59 @@ export const CardOpeningFields: React.FC<Props> = ({
       ) : (
         <>
           <p className="text-xs text-slate-400">
-            Informe os totais do banco ou deixe zerado para cadastrar os gastos
-            um a um ou importar o PDF.
+            Informe a fatura atual e o limite usado será calculado automaticamente (ou ajuste o limite usado se houver parcelas futuras).
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-slate-300">
               Fatura atual (R$)
               <input
-                type="number"
+                type="text"
                 min="0"
                 step="0.01"
                 inputMode="decimal"
+                placeholder="0,00"
                 value={value.invoice}
-                onChange={(e) =>
+                onBlur={(e) => {
+                  try {
+                    const formatted = formatWalletMoneyInput(e.target.value);
+                    onChange({
+                      ...value,
+                      invoice: formatted,
+                      used: !usedManuallyEdited ? formatted : value.used,
+                    });
+                  } catch { }
+                }}
+                onChange={(e) => {
+                  const rawInvoice = e.target.value;
+                  const nextInv = safeMoney(rawInvoice);
+                  const nextUsedStr = !usedManuallyEdited ? rawInvoice : value.used;
+                  const nextUsedVal = safeMoney(nextUsedStr);
                   onChange({
                     ...value,
-                    invoice: e.target.value,
+                    invoice: rawInvoice,
+                    used: nextUsedStr,
                     future: String(
                       Math.max(
                         0,
-                        Math.round((used - Number(e.target.value)) * 100) / 100,
+                        Math.round((nextUsedVal - nextInv) * 100) / 100,
                       ),
                     ),
-                  })
-                }
+                  });
+                }}
                 className={field}
               />
             </label>
             <label className="text-xs text-slate-300">
               Limite usado, incluindo a fatura (R$)
               <input
-                type="number"
+                type="text"
                 min="0"
                 step="0.01"
                 inputMode="decimal"
+                placeholder="0,00"
                 value={value.used}
                 onChange={(e) => changeUsed(e.target.value)}
+                onBlur={(e) => { try { onChange({ ...value, used: formatWalletMoneyInput(e.target.value) }); } catch { } }}
                 className={field}
               />
             </label>

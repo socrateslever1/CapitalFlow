@@ -11,6 +11,7 @@ import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { Modal } from '../ui/Modal';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
+import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 type Tab = 'INTERNAL' | 'EXTERNAL' | 'INVOICE';
 type Props = {
@@ -31,7 +32,7 @@ const localDateTime = () => {
   return value.toISOString().slice(0, 16);
 };
 const today = () => localDateTime().slice(0, 10);
-const parseAmount = (value: string) => Number(value.trim().replace(',', '.'));
+const parseAmount = (value: string) => { try { return parseWalletMoney(value); } catch { return Number.NaN; } };
 const validAmount = (value: number) => Number.isFinite(value) && value > 0
   && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001;
 
@@ -151,7 +152,7 @@ export const AccountMovementModal: React.FC<Props> = ({
           {accountSelect('De qual conta sai?', sourceId, value => { setSourceId(value); if (value === destinationId) setDestinationId(''); }, destinationId)}
           {accountSelect('Para qual conta vai?', destinationId, setDestinationId, sourceId)}
           <label className={labelClass}>Valor
-            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00"/>
+<input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
           </label>
           <label className={labelClass}>Data
             <input required type="date" max={today()} className={inputClass} value={date} onChange={event => setDate(event.target.value)}/>
@@ -167,7 +168,7 @@ export const AccountMovementModal: React.FC<Props> = ({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">{accountSelect('Conta de origem', sourceId, setSourceId)}</div>
           <label className={labelClass}>Valor
-            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00"/>
+            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
           </label>
           <label className={labelClass}>Data e hora
             <input required type="datetime-local" max={localDateTime()} className={inputClass} value={occurredAt} onChange={event => setOccurredAt(event.target.value)}/>
@@ -200,7 +201,7 @@ export const AccountMovementModal: React.FC<Props> = ({
             </select>
           </label>
           <label className={`${labelClass} sm:col-span-2`}>Valor a abater
-            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00"/>
+            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
           </label>
         </div>
         {!invoiceOptions.length && <p role="status" className="text-xs text-slate-400">Nenhuma fatura pendente foi encontrada.</p>}

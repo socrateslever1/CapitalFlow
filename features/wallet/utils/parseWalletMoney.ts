@@ -16,3 +16,10 @@ export function parseWalletMoney(raw: string, field = 'valor'): number {
   }
   return Math.round(parsed * 100) / 100;
 }
+
+/** Normalizes a valid monetary field for display while preserving an empty draft. */
+export function formatWalletMoneyInput(raw: string): string {
+  if (String(raw ?? '').trim() === '') return '';
+  const value = parseWalletMoney(raw);
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

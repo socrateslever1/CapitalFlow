@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Calendar, CheckCircle2, CreditCard, Landmark, Loader2, Plus, Receipt, Tag, X } from 'lucide-react';
+import { Calendar, CheckCircle2, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletCard,
@@ -7,6 +7,12 @@ import {
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import {
+  buildCardExpenseNotes,
+  resolveCardInstallmentPlan,
+  type CardExpenseAmountMode,
+} from '../../features/wallet/utils/cardInstallmentPlan';
 
 export interface QuickExpenseModalProps {
   accounts: PersonalWalletAccount[];
@@ -17,6 +23,7 @@ export interface QuickExpenseModalProps {
   defaultCardId?: string | null;
   initialAccountId?: string | null;
   defaultAccountId?: string | null;
+  initialDueMonth?: string | null;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }
@@ -34,25 +41,40 @@ const EXPENSE_CATEGORIES = [
 
 const todayIso = () => new Date().toLocaleDateString('en-CA');
 
-const formatCurrencyInput = (raw: string): string => {
-  const digits = raw.replace(/\D/g, '');
-  if (!digits) return '';
-  const cents = Number(digits);
-  if (!Number.isFinite(cents)) return '';
-  return (cents / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+const parseSafeMoney = (raw: string): number => {
+  if (!raw || !raw.trim()) return 0;
+  try {
+    return parseWalletMoney(raw);
+  } catch {
+    const normalized = raw.replace(/\./g, '').replace(',', '.');
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
+  }
 };
 
-const parseCurrencyInput = (formatted: string): number => {
-  if (!formatted) return 0;
-  const normalized = formatted.replace(/\./g, '').replace(',', '.');
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+const formatMonthLabel = (dueDateIso: string): string => {
+  const [yyyy, mm] = dueDateIso.slice(0, 7).split('-').map(Number);
+  if (!yyyy || !mm) return dueDateIso;
+  const target = new Date(yyyy, mm - 1, 1);
+  return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' })
+    .format(target)
+    .replace('.', '');
 };
 
-const resolveFirstInstallmentMonthLabel = (expenseDate: string, closingDay?: number | null): { dueDateIso: string; label: string } => {
+const resolveFirstInstallmentMonthLabel = (
+  expenseDate: string,
+  closingDay?: number | null,
+  explicitMonth?: string | null,
+): { dueDateIso: string; monthInputValue: string; label: string } => {
+  if (explicitMonth && /^\d{4}-\d{2}/.test(explicitMonth)) {
+    const ym = explicitMonth.slice(0, 7);
+    const dueDateIso = `${ym}-01`;
+    return {
+      dueDateIso,
+      monthInputValue: ym,
+      label: formatMonthLabel(dueDateIso),
+    };
+  }
   const base = expenseDate ? new Date(`${expenseDate}T12:00:00`) : new Date();
   const day = base.getDate();
   const target = new Date(base.getFullYear(), base.getMonth(), 1);
@@ -61,10 +83,12 @@ const resolveFirstInstallmentMonthLabel = (expenseDate: string, closingDay?: num
   }
   const yyyy = target.getFullYear();
   const mm = String(target.getMonth() + 1).padStart(2, '0');
-  const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' }).format(target);
+  const ym = `${yyyy}-${mm}`;
+  const dueDateIso = `${ym}-01`;
   return {
-    dueDateIso: `${yyyy}-${mm}-01`,
-    label: monthLabel.replace('.', ''),
+    dueDateIso,
+    monthInputValue: ym,
+    label: formatMonthLabel(dueDateIso),
   };
 };
 
@@ -77,6 +101,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   defaultCardId,
   initialAccountId,
   defaultAccountId,
+  initialDueMonth,
   onClose,
   onSaved,
 }) => {
@@ -88,6 +113,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
   const [paymentMode, setPaymentMode] = useState<'CARD' | 'ACCOUNT'>(defaultMode);
   const [amountFormatted, setAmountFormatted] = useState<string>('');
+  const [amountMode, setAmountMode] = useState<CardExpenseAmountMode>('INSTALLMENT');
   const [description, setDescription] = useState<string>('');
   const [expenseDate, setExpenseDate] = useState<string>(todayIso);
   const [category, setCategory] = useState<string>('Alimentação');
@@ -98,7 +124,11 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     resolvedAccountId || accounts[0]?.id || '',
   );
   const [conditionMode, setConditionMode] = useState<'CASH' | 'INSTALLMENTS'>('CASH');
+  const [startInstallment, setStartInstallment] = useState<string>('1');
   const [installmentCount, setInstallmentCount] = useState<string>('2');
+  const [firstInvoiceMonth, setFirstInvoiceMonth] = useState<string>(
+    initialDueMonth ? initialDueMonth.slice(0, 7) : '',
+  );
   const [notes, setNotes] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -108,7 +138,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     requestIdRef.current = generateUUID();
   };
 
-  const amountValue = useMemo(() => parseCurrencyInput(amountFormatted), [amountFormatted]);
+  const amountValue = useMemo(() => parseSafeMoney(amountFormatted), [amountFormatted]);
   const selectedCard = useMemo(
     () => activeCards.find((card) => card.id === selectedCardId) || null,
     [activeCards, selectedCardId],
@@ -118,23 +148,33 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     [accounts, selectedAccountId],
   );
 
-  const effectiveInstallments = useMemo(() => {
-    if (paymentMode !== 'CARD' || conditionMode === 'CASH') return 1;
-    const count = Math.trunc(Number(installmentCount || 2));
-    return Math.min(48, Math.max(2, count));
-  }, [paymentMode, conditionMode, installmentCount]);
+  const resolvedCycle = useMemo(
+    () =>
+      resolveFirstInstallmentMonthLabel(
+        expenseDate,
+        selectedCard?.closing_day,
+        firstInvoiceMonth || initialDueMonth || null,
+      ),
+    [expenseDate, selectedCard?.closing_day, firstInvoiceMonth, initialDueMonth],
+  );
 
-  const installmentPreview = useMemo(() => {
-    if (paymentMode !== 'CARD' || amountValue <= 0) return null;
-    const perInstallment = Math.round((amountValue / effectiveInstallments) * 100) / 100;
-    const cycle = resolveFirstInstallmentMonthLabel(expenseDate, selectedCard?.closing_day);
-    return {
-      count: effectiveInstallments,
-      perInstallment,
-      dueDateIso: cycle.dueDateIso,
-      monthLabel: cycle.label,
-    };
-  }, [paymentMode, amountValue, effectiveInstallments, expenseDate, selectedCard?.closing_day]);
+  const installmentPlan = useMemo(() => {
+    const total = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS'
+      ? Math.min(48, Math.max(2, Math.trunc(Number(installmentCount) || 2)))
+      : 1;
+    const start = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS'
+      ? Math.min(total, Math.max(1, Math.trunc(Number(startInstallment) || 1)))
+      : 1;
+    const mode: CardExpenseAmountMode =
+      paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS' ? amountMode : 'TOTAL';
+
+    return resolveCardInstallmentPlan({
+      inputAmount: amountValue,
+      amountMode: mode,
+      startInstallment: start,
+      totalInstallments: total,
+    });
+  }, [paymentMode, conditionMode, installmentCount, startInstallment, amountValue, amountMode]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -145,7 +185,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
       setError('Informe a descrição da despesa.');
       return;
     }
-    if (amountValue <= 0) {
+    if (amountValue <= 0 || installmentPlan.remainingTotalAmount <= 0) {
       setError('Informe um valor válido maior que R$ 0,00.');
       return;
     }
@@ -171,18 +211,17 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         if (!selectedCardId) {
           throw new Error('Selecione o cartão de crédito utilizado.');
         }
-        const cycle = resolveFirstInstallmentMonthLabel(expenseDate, selectedCard?.closing_day);
         await personalWalletService.createExpense({
           description: cleanDescription,
-          amount: amountValue,
+          amount: installmentPlan.remainingTotalAmount,
           category,
           expense_date: expenseDate || todayIso(),
-          due_date: cycle.dueDateIso,
+          due_date: resolvedCycle.dueDateIso,
           account_id: null,
           card_id: selectedCardId,
           status: 'PENDING',
-          installment_count: effectiveInstallments,
-          notes: notes.trim() || null,
+          installment_count: installmentPlan.remainingInstallments,
+          notes: buildCardExpenseNotes(notes, installmentPlan),
         });
       }
 
@@ -199,6 +238,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const fieldClass =
     'mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-blue-500';
   const labelClass = 'block text-[11px] font-bold uppercase tracking-wider text-slate-400';
+
+  const isCardInstallments = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS';
 
   return (
     <div
@@ -283,21 +324,69 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
           {/* Valor Monetário Destacado */}
           <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+            {isCardInstallments && (
+              <div className="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Como informar o valor?
+                </span>
+                <div className="flex rounded-lg border border-slate-800 bg-slate-900 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetIdempotencyKey();
+                      setAmountMode('INSTALLMENT');
+                    }}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition ${
+                      amountMode === 'INSTALLMENT'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Valor da parcela
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetIdempotencyKey();
+                      setAmountMode('TOTAL');
+                    }}
+                    className={`rounded-md px-2.5 py-1 text-[11px] font-bold transition ${
+                      amountMode === 'TOTAL'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Valor total
+                  </button>
+                </div>
+              </div>
+            )}
             <label className="block">
               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Valor da Despesa
+                {isCardInstallments
+                  ? amountMode === 'INSTALLMENT'
+                    ? 'Valor de cada parcela (R$)'
+                    : 'Valor total da compra (R$)'
+                  : 'Valor da Despesa (R$)'}
               </span>
               <div className="mt-1.5 flex items-baseline gap-2">
                 <span className="text-xl font-black text-slate-400">R$</span>
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   required
                   autoFocus
                   value={amountFormatted}
                   onChange={(e) => {
                     resetIdempotencyKey();
-                    setAmountFormatted(formatCurrencyInput(e.target.value));
+                    setAmountFormatted(e.target.value);
+                  }}
+                  onBlur={() => {
+                    try {
+                      setAmountFormatted(formatWalletMoneyInput(amountFormatted));
+                    } catch {
+                      /* mantém entrada para correção */
+                    }
                   }}
                   placeholder="0,00"
                   className="w-full bg-transparent text-3xl font-bold tracking-tight text-white outline-none placeholder:text-slate-700"
@@ -350,7 +439,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             <label>
               <span className={labelClass}>
                 <Calendar size={11} className="mr-1 inline text-emerald-400" />
-                Data da Despesa
+                Data da Compra
               </span>
               <input
                 type="date"
@@ -394,7 +483,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </select>
                 </label>
 
-                <div className="sm:col-span-2 space-y-2.5 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5">
+                <div className="sm:col-span-2 space-y-3 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5">
                   <span className={labelClass}>Condição de Pagamento</span>
                   <div className="grid grid-cols-2 gap-2">
                     <button
@@ -402,6 +491,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       onClick={() => {
                         resetIdempotencyKey();
                         setConditionMode('CASH');
+                        setStartInstallment('1');
                       }}
                       className={`rounded-xl border px-3 py-2 text-xs font-bold transition-all ${
                         conditionMode === 'CASH'
@@ -428,32 +518,105 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   </div>
 
                   {conditionMode === 'INSTALLMENTS' && (
-                    <label className="block pt-1">
-                      <span className="text-[11px] font-bold text-slate-300">
-                        Quantidade de Parcelas (2x a 48x)
-                      </span>
-                      <input
-                        type="number"
-                        min={2}
-                        max={48}
-                        required
-                        value={installmentCount}
-                        onChange={(e) => {
-                          resetIdempotencyKey();
-                          setInstallmentCount(e.target.value);
-                        }}
-                        className={fieldClass}
-                      />
-                    </label>
+                    <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-3">
+                      <label className="block">
+                        <span className="text-[11px] font-bold text-slate-300">
+                          Iniciar na parcela
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={Math.max(2, Number(installmentCount) || 2)}
+                          required
+                          value={startInstallment}
+                          onChange={(e) => {
+                            resetIdempotencyKey();
+                            const nextStart = e.target.value;
+                            setStartInstallment(nextStart);
+                            const parsedStart = Number(nextStart);
+                            const parsedTotal = Number(installmentCount) || 2;
+                            if (parsedStart > parsedTotal) {
+                              setInstallmentCount(String(Math.min(48, parsedStart)));
+                            }
+                          }}
+                          className={fieldClass}
+                        />
+                        <span className="mt-1 block text-[10px] text-slate-500">
+                          Ex.: 3 (se já pagou a 1 e 2)
+                        </span>
+                      </label>
+
+                      <label className="block">
+                        <span className="text-[11px] font-bold text-slate-300">
+                          De (Total de parcelas)
+                        </span>
+                        <input
+                          type="number"
+                          min={2}
+                          max={48}
+                          required
+                          value={installmentCount}
+                          onChange={(e) => {
+                            resetIdempotencyKey();
+                            setInstallmentCount(e.target.value);
+                          }}
+                          className={fieldClass}
+                        />
+                        <span className="mt-1 block text-[10px] text-slate-500">
+                          Total da compra (2x a 48x)
+                        </span>
+                      </label>
+
+                      <label className="block">
+                        <span className="text-[11px] font-bold text-slate-300">
+                          Fatura desta parcela
+                        </span>
+                        <input
+                          type="month"
+                          value={resolvedCycle.monthInputValue}
+                          onChange={(e) => {
+                            resetIdempotencyKey();
+                            setFirstInvoiceMonth(e.target.value);
+                          }}
+                          className={fieldClass}
+                        />
+                        <span className="mt-1 block text-[10px] text-slate-500">
+                          Mês em que entra a {installmentPlan.startInstallment}ª
+                        </span>
+                      </label>
+                    </div>
                   )}
 
-                  {installmentPreview && (
-                    <div className="rounded-xl border border-blue-500/20 bg-blue-950/20 px-3 py-2 text-xs text-blue-200">
-                      <strong>
-                        {installmentPreview.count} parcela{installmentPreview.count > 1 ? 's' : ''} de{' '}
-                        {formatMoney(installmentPreview.perInstallment)}
-                      </strong>{' '}
-                      a partir de <span className="capitalize">{installmentPreview.monthLabel}</span>
+                  {amountValue > 0 && (
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-950/20 px-3 py-2.5 text-xs text-blue-200 space-y-1">
+                      <div>
+                        <strong>{installmentPlan.installmentRangeLabel}</strong>{' '}
+                        de <strong>{formatMoney(installmentPlan.perInstallmentAmount)}</strong>{' '}
+                        a partir de <span className="capitalize font-semibold">{resolvedCycle.label}</span>
+                      </div>
+                      {installmentPlan.totalInstallments > 1 && (
+                        <div className="text-[11px] text-slate-300">
+                          {installmentPlan.isMidStream ? (
+                            <>
+                              Saldo restante lançado no cartão:{' '}
+                              <strong className="text-emerald-300">
+                                {formatMoney(installmentPlan.remainingTotalAmount)}
+                              </strong>{' '}
+                              <span className="text-slate-400">
+                                (parcelas anteriores 1 a {installmentPlan.startInstallment - 1} ignoradas · total original{' '}
+                                {formatMoney(installmentPlan.originalTotalAmount)})
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              Total comprometido no cartão:{' '}
+                              <strong className="text-white">
+                                {formatMoney(installmentPlan.remainingTotalAmount)}
+                              </strong>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

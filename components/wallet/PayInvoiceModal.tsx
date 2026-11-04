@@ -3,6 +3,7 @@ import { X, Receipt, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { PersonalWalletCard, PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 
 export interface PayInvoiceModalProps {
   card: PersonalWalletCard;
@@ -24,7 +25,7 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
   const [error, setError] = useState('');
   // Reuse request ID after a network failure; changing the payment creates a new operation.
   const operation = useRef({ signature: '', id: generateUUID() });
-  const amount = Number(paymentText.trim().replace(',', '.'));
+  const amount = (() => { try { return parseWalletMoney(paymentText); } catch { return Number.NaN; } })();
   const isValid = paymentText.trim() !== '' && Number.isFinite(amount)
     && amount > 0 && Math.abs(amount * 100 - Math.round(amount * 100)) < 0.000001
     && amount <= remaining;
@@ -79,6 +80,7 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
             <div className="flex gap-2">
               <input required inputMode="decimal" autoComplete="off" value={paymentText}
                 onChange={(event) => { setPaymentText(event.target.value); setError(''); }}
+                onBlur={(event) => { try { setPaymentText(formatWalletMoneyInput(event.target.value)); } catch {} }}
                 placeholder="0,00" aria-label="Valor do pagamento parcial"
                 className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-base text-white outline-none focus:border-emerald-500" />
               <button type="button" onClick={() => setPaymentText(remaining.toFixed(2).replace('.', ','))}

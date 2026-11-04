@@ -27,7 +27,8 @@ import { CardInitialBalancesModal } from '../../../components/wallet/CardInitial
 import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
-import { parseWalletMoney } from '../utils/parseWalletMoney';
+import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
+import { buildCardExpenseNotes, resolveCardInstallmentPlan, type CardExpenseAmountMode } from '../utils/cardInstallmentPlan';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
 
@@ -216,15 +217,15 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0,7) === statementMonth?.slice(0,7)) || null;
   const editableInvoiceSummary: CardInvoiceSummary = {
     institution: (['Nubank','Mercado Pago','Itaú','C6 Bank','RecargaPay'] as const).find(
-      name => name === savedInvoiceFacts?.issuer) || null,
+      name => name === (savedInvoiceFacts?.issuer || selected?.issuer)) || null,
     cardLastFour: selected?.last_four || null,
     multipleCards: false,
-    invoiceTotal: savedInvoiceFacts?.invoice_total ?? null,
+    invoiceTotal: savedInvoiceFacts?.invoice_total ?? (selected?.current_bill ? Number(selected.current_bill) : null),
     minimumPayment: savedInvoiceFacts?.minimum_payment ?? null,
-    creditLimit: savedInvoiceFacts?.credit_limit ?? null,
-    usedLimit: savedInvoiceFacts?.used_limit ?? null,
-    availableLimit: savedInvoiceFacts?.available_limit ?? null,
-    futureInstallments: savedInvoiceFacts?.future_installments ?? null,
+    creditLimit: savedInvoiceFacts?.credit_limit ?? (selected?.credit_limit ? Number(selected.credit_limit) : null),
+    usedLimit: savedInvoiceFacts?.used_limit ?? (creditPosition?.committedLimit ? Number(creditPosition.committedLimit) : (selected?.used_limit ? Number(selected.used_limit) : null)),
+    availableLimit: savedInvoiceFacts?.available_limit ?? (creditPosition && Number(selected?.credit_limit || 0) > 0 ? Number(creditPosition.freeLimit) : null),
+    futureInstallments: savedInvoiceFacts?.future_installments ?? (selected?.initial_future_installments_balance ? Number(selected.initial_future_installments_balance) : null),
     dueDate: savedInvoiceFacts?.due_date ?? (selected && statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day).dueDate : null),
     warnings: [],
   };
@@ -426,7 +427,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             onSelectionChange={card => setSelectedId(current => current === card?.id ? current : card?.id || null)}
             onCreateCard={() => setCreating(true)}
             onImportStatement={openReader}
-            onNewExpense={card => { setSelectedId(card.id); setNewExpense(true); }}
+            onNewExpense={card => { setSelectedId(card.id); setQuickExpenseOpen(true); }}
             onPayInvoice={card => { setSelectedId(card.id); setPaying(card); }}/>
         </div>
         <div className="min-w-0 space-y-4 lg:col-span-7">
@@ -828,6 +829,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         cards={availableCards}
         defaultMethod="CARD"
         defaultCardId={selected?.id || null}
+        initialDueMonth={statementMonth}
         onClose={() => setQuickExpenseOpen(false)}
         onSaved={async () => { await refresh(); }}/>}
     </>}

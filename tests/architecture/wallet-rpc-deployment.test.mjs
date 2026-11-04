@@ -37,3 +37,11 @@ test('restringe cobranças manuais ao titular e impede crédito no ledger legado
     assert.ok(grant?.endsWith(' to authenticated;'), 'grant: '+fn);
   }
 });
+
+test('novas referências de conta e cobrança têm índices próprios na primeira coluna', () => {
+  const sql = readFileSync('supabase/migrations/20261104191000_wallet_charge_fk_indexes.sql','utf8');
+  assert.ok(sql.includes('ON public.payment_charges(account_id)'));
+  assert.ok(sql.includes('ON public.personal_wallet_account_operations(charge_id)'));
+  assert.ok(!sql.toLowerCase().includes('drop index'));
+  assert.ok(!sql.toLowerCase().includes('update public.personal_wallet_'));
+});

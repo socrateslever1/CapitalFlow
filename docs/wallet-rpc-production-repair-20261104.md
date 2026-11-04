@@ -34,3 +34,23 @@ não redefine o CHECK existente e preserva toda a operação de empréstimos.
 **Limite:** não é a implementação de Open Finance, liquidação PIX por webhook,
 nem a homologação integral de descontos, estornos e adiantamentos. Essas áreas exigem
 ensaios de seus fluxos próprios e reconciliação com extratos externos.
+
+## Homologação efetivamente executada em 04/11/2026
+
+- Merge: commit `41c378de70c7a9a234f7d66e6625523dbb0b8ce7` (PR #116).
+- Migração Supabase aplicada: `20261104234554` (`restore_wallet_financial_rpcs_preserve_loans_20261104`).
+- Consultas no catálogo de produção: **3/3** RPCs existem e são executáveis apenas por `authenticated`
+  (não por `anon`). **5/5** campos novos em operações, **7/7** campos novos em cobranças.
+- Foram confirmados **dois** filtros RLS de leitura específicos (gateway e Carteira) e
+  **um** trigger bloqueando crédito duplicado no ledger legado.
+- Restrição atual de operações preserva expressamente `LOAN_DISBURSEMENT` e `LOAN_REPAYMENT`.
+- Teste transacional em `tests/db/wallet-rpc-rollback-integration.sql`: executado sem erro,
+  cobrindo saldo insuficiente, idempotência, divergência de parâmetros, valor de
+  cobrança, crédito único, isolamento por titular e ausência de lançamento no ledger legado.
+- Controle antes e depois do teste revertido: **4 contas, R$ 5.678,44 agregados, 4 operações e
+  54 cobranças**, sem nenhuma nova cobrança estática nem transferência externa persistida.
+
+O Supabase Advisor detectou que as duas FKs criadas por esta integração precisavam de
+índice com `account_id` e `charge_id` como coluna inicial. A migration adicional
+`20261104191000_wallet_charge_fk_indexes.sql` cobre exatamente essas duas colunas.
+Essa melhoria de desempenho não altera o histórico financeiro.

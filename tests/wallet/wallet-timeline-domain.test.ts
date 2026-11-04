@@ -8,8 +8,7 @@ test('mantém transferência entre carteiras neutra e ordena a linha do tempo', 
     operations: [{
       id: 'transfer-1', request_id: 'req-1', operation_type: 'TRANSFER',
       from_account_id: 'a', to_account_id: 'b', amount: 250,
-      description: 'Reserva', category: 'Transferência', operation_date: '2026-11-05',
-      created_at: '2026-11-04T10:00:00Z',
+      description: 'Reserva', operation_date: '2026-11-05',
     }],
     expenses: [], installments: [], payables: [], invoicePayments: [],
   });
@@ -32,8 +31,8 @@ test('mostra somente o saldo restante de parcelas e marca vencimentos atrasados'
     ],
     payables: [{
       id: 'payable-1', description: 'Conta vencida', creditor_name: 'Fornecedor',
-      amount: 300, total_amount: 300, outstanding_balance: 300, due_date: '2026-11-03',
-      status: 'OVERDUE', creditor_type: 'COMPANY', interest_rate: 0, fine_percent: 0, created_at: '',
+      outstanding_balance: 300, due_date: '2026-11-03',
+      status: 'OVERDUE',
     }],
     invoicePayments: [],
   });

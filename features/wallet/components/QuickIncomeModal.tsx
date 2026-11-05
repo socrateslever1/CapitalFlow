@@ -8,6 +8,7 @@ import { generateUUID } from '../../../utils/generators';
 import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
 import { useModal } from '../../../contexts/ModalContext';
+import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 
 type ReceiveMode = 'COMMON' | 'CLIENT';
 type Props = { onClose: () => void };
@@ -67,8 +68,8 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     </label>
     <div className="grid gap-3 sm:grid-cols-2">
       <label className={labelClass}>Valor recebido (R$)
-        <input required inputMode="decimal" autoComplete="off" placeholder="Ex.: 250,50"
-          className={inputClass} value={amount} onChange={e => setAmount(e.target.value)} disabled={saving}/>
+        <FinancialCalculatorInput required autoComplete="off" placeholder="Ex.: 250,50"
+          className={inputClass} value={amount} fieldLabel="valor recebido" onCommit={setAmount} disabled={saving}/>
       </label>
       <label className={labelClass}>Data do recebimento
         <input required type="date" max={today()} className={inputClass} value={date}

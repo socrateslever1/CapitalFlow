@@ -85,3 +85,20 @@ test('FAB and receipt screen reuse the established payment manager and a single 
   assert(payment.includes('onConfirm={paymentCtrl.handlePayment}'));
   assert(service.includes("supabase.rpc('personal_wallet_record_account_operation'"));
 });
+
+test('contract receipts require an explicit wallet destination and preserve client traceability',()=>{
+  const modal=readFileSync('components/modals/PaymentManagerModal.tsx','utf8');
+  const controller=readFileSync('hooks/controllers/usePaymentController.ts','utf8');
+  const payments=readFileSync('services/payments.service.ts','utf8');
+  const engine=readFileSync('services/payments/paymentEngineV4.ts','utf8');
+  const migration=readFileSync('supabase/migrations/20261105230000_wallet_receipt_destination_sync.sql','utf8');
+  const statement=readFileSync('components/wallet/accountStatementDomain.ts','utf8');
+  assert.match(modal,/Destino na Carteira/);
+  assert.match(modal,/capital \+ juros/);
+  assert.match(controller,/receiptDestinationAccountId/);
+  assert.match(payments,/personal_wallet_set_receipt_destination/);
+  assert.match(engine,/p_idempotency_key: idempotencyKey/);
+  assert.match(migration,/wallet_apply_receipt_destination/);
+  assert.match(migration,/Recebimento.*v_client_name/);
+  assert.match(statement,/operation\.operation_type === 'RECEIPT' && operation\.contract_id/);
+});

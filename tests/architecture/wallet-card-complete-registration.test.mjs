@@ -6,6 +6,9 @@ const migration = readFileSync('supabase/migrations/20261030171500_wallet_create
 const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
 const form = page.slice(page.indexOf('{creating && <Modal'),page.indexOf('{mayInitializeExisting &&'));
 const service = readFileSync('services/personalWallet.service.ts','utf8');
+const linkedMigration = readFileSync('supabase/migrations/20261105190000_wallet_complete_card_with_new_account.sql','utf8');
+const existingCardMigration = readFileSync('supabase/migrations/20261105190500_wallet_account_with_existing_card.sql','utf8');
+const accountForm = readFileSync('components/wallet/CreateAccountModal.tsx','utf8');
 
 test('complete-card RPC is atomic, invoker-restricted, and uses existing financial operations',()=>{
   assert.match(migration,/function public\.personal_wallet_create_complete_card\(/i);
@@ -38,4 +41,20 @@ test('network-uncertain registration retries the same request and does not misre
   assert.match(page,/cardRegistrationAttempt\.current\.failed\(cause\)/);
   assert.match(page,/Cartão salvo no banco, mas a lista não foi atualizada/);
   assert.match(page,/last_four:e\.target\.value\.replace\(\/\\D\/g/);
+});
+
+test('card creation can create its linked account atomically, while account creation can select or create a card',()=>{
+  assert.match(linkedMigration,/personal_wallet_create_complete_card_with_new_account/i);
+  assert.match(linkedMigration,/personal_wallet_create_complete_card\(p_card,v_account_id,p_opening,p_request_id,p_identity,p_envelope\)/i);
+  assert.match(linkedMigration,/opening_request_id=p_request_id/);
+  assert.match(linkedMigration,/revoke all on function public\.personal_wallet_create_complete_card_with_new_account/);
+  assert.match(linkedMigration,/grant execute on function public\.personal_wallet_create_complete_card_with_new_account[\s\S]+to authenticated/);
+  assert.match(service,/personal_wallet_create_complete_card_with_new_account/);
+  assert.match(page,/__create__/);
+  assert.match(page,/createCompleteCardWithNewAccount/);
+  assert.match(existingCardMigration,/security invoker/i);
+  assert.match(existingCardMigration,/select \* into v_card[\s\S]+for update/);
+  assert.match(existingCardMigration,/update public\.personal_wallet_cards set account_id/);
+  assert.match(service,/personal_wallet_create_account_with_existing_card/);
+  assert.match(accountForm,/card\.account_id/);
 });

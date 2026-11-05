@@ -371,6 +371,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
     {quickModal?.mode === 'CASH_WALLET' && (
       <CreateAccountModal
         activeUser={activeUser}
+        existingCards={cards}
         onClose={() => setQuickModal(null)}
         onSaved={async () => {
           await refresh();

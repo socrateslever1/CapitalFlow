@@ -1,18 +1,21 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Modal } from "../ui/Modal";
 import { supabase } from "../../lib/supabase";
 import { CheckCircle2, Copy, RefreshCw, AlertCircle } from "lucide-react";
 import { fetchChargeById } from "../../services/pix.service";
+import type { CapitalSource } from "../../types";
+import { SourceWalletReferencePanel } from "../sources/SourceWalletReferencePanel";
 
 type PixDepositModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  // opcional: se você quiser amarrar no futuro com a fonte (carteira)
+  source?: CapitalSource | null;
   sourceId?: string | null;
+  activeUser?: { id: string; supervisor_id?: string | null } | null;
   onSuccess?: () => void;
 };
 
-export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }: PixDepositModalProps) {
+export default function PixDepositModal({ isOpen, onClose, source, sourceId, activeUser, onSuccess }: PixDepositModalProps) {
   const [amount, setAmount] = useState<string>("");
   const [payerName, setPayerName] = useState<string>("");
   const [payerEmail, setPayerEmail] = useState<string>("");
@@ -31,6 +34,7 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
 
   const [isPaid, setIsPaid] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
+  const saveOriginsRef = useRef<(() => Promise<boolean>) | null>(null);
 
   // Polling para verificar status do pagamento
   useEffect(() => {
@@ -84,6 +88,8 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
       return;
     }
 
+    if (saveOriginsRef.current && !(await saveOriginsRef.current())) return;
+
     setLoading(true);
     try {
       // CHAMA SUA EDGE FUNCTION (a que você já testou no AI Studio)
@@ -127,6 +133,14 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
   return (
     <Modal onClose={onClose} title="Depósito via PIX (Mercado Pago)">
       <div className="space-y-4">
+        {source && (
+          <SourceWalletReferencePanel
+            sources={[source]}
+            activeUser={activeUser}
+            onEditManual={() => undefined}
+            saveRef={saveOriginsRef}
+          />
+        )}
         {isPaid && (
           <div className="flex flex-col items-center justify-center py-10 space-y-4 animate-in zoom-in">
             <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/50 shadow-lg shadow-emerald-500/20">
@@ -227,7 +241,7 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
                 <label className="text-[10px] uppercase font-bold text-slate-500">Código Copia e Cola</label>
-                <button 
+                <button
                   onClick={() => copyText(result.qr_code)}
                   className="text-[10px] text-blue-400 font-bold flex items-center gap-1 hover:text-blue-300 transition-colors"
                 >
@@ -240,7 +254,7 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
                 className="w-full bg-slate-950 p-3 rounded-full text-white text-[10px] font-mono outline-none border border-slate-800 focus:border-blue-500/50 transition-colors"
                 rows={4}
               />
-              
+
               <div className="flex flex-col gap-2 pt-2">
                 <button
                   onClick={() => {
@@ -252,7 +266,7 @@ export default function PixDepositModal({ isOpen, onClose, sourceId, onSuccess }
                 >
                   Cancelar e Gerar Novo
                 </button>
-                
+
                 <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 italic">
                   <AlertCircle size={12} />
                   O saldo será atualizado automaticamente após a confirmação.

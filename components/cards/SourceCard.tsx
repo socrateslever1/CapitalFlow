@@ -76,6 +76,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     const activeLoans = useMemo(() => getActiveSourceLoans(loans, source.id), [loans, source.id]);
     const activeContractsCount = activeLoans.length;
+    const extraReferenceCount = Math.max(0, (referenceDisplay?.entries.length || 0) - 1);
     const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : ['MISTO', 'CARD'].includes(source.type) ? CreditCard : Wallet;
     const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : ['MISTO', 'CARD'].includes(source.type) ? 'text-rose-500' : 'text-purple-500';
 
@@ -85,7 +86,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     return (
         <>
-            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col h-full">
+            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
                 <div className={`absolute -top-1 -right-1 p-2 opacity-5 transition-opacity group-hover:opacity-10 ${colorClass}`}>
                     <DefaultIcon size={32} />
                 </div>
@@ -142,25 +143,25 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         </div>
                     </div>
 
-                    <div className="mt-auto">
+                    <div>
                         {referenceDisplay ? (
-                            <div className="mb-2 space-y-1.5" aria-label="Recursos associados">
-                                <p className="text-[10px] font-medium text-slate-300">Valor associado na Minha Carteira</p>
-                                <p className="text-base font-black text-blue-300">
-                                    {referenceDisplay.total === null ? 'Valor indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
-                                </p>
-                                {referenceDisplay.entries.map((entry, index) => (
-                                    <p key={entry.kind + ':' + entry.name + ':' + index} className="break-words text-[11px] text-slate-300">
-                                        {entry.kind === 'CARD' ? 'Cartão' : 'Conta'} · {entry.name}: {' '}
-                                        <span className="font-semibold text-white">
-                                            {entry.amount === null ? 'Indisponível' : formatMoney(entry.amount, isStealthMode)}
-                                        </span>
-                                        {entry.manuallyAllocated ? ' (informado)' : ' (disponível)'}
+                            <div className="mb-2 flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
+                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">Valor associado</p>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                    <p className="text-sm font-black tabular-nums text-blue-300">
+                                        {referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
                                     </p>
-                                ))}
-                                <p className="text-[10px] text-slate-400">
-                                    Saldo operacional: {formatMoney(source.balance, isStealthMode)}
-                                </p>
+                                    {extraReferenceCount > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDetails(true)}
+                                            className="inline-flex min-h-5 items-center rounded border border-blue-400/30 bg-blue-500/10 px-1 text-[9px] font-black text-blue-300 transition-colors hover:bg-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                            aria-label={`Ver mais ${extraReferenceCount} recurso${extraReferenceCount === 1 ? '' : 's'} associado${extraReferenceCount === 1 ? '' : 's'}`}
+                                        >
+                                            +{extraReferenceCount}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>

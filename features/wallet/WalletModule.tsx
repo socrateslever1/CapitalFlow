@@ -8,6 +8,7 @@ import { getWalletRoute, WALLET_ROUTES, WalletRouteView } from './routes';
 import { WalletExpenseFab } from './components/WalletExpenseFab';
 import { NativeWalletFileInbox } from './NativeWalletFileInbox';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { WalletBalanceDock } from './components/WalletBalanceDock';
 
 const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry?: () => void }> = ({ kind, message, onRetry }) => <section className="mx-auto mt-10 max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center text-white shadow-2xl">
   {kind === 'inactive' ? <LockKeyhole className="mx-auto mb-4 text-amber-300" size={34}/> : <AlertTriangle className="mx-auto mb-4 text-rose-300" size={34}/>}
@@ -59,6 +60,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         );
       })}
     </nav>
+    <WalletBalanceDock />
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
 
     <WalletExpenseFab />

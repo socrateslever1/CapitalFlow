@@ -50,7 +50,7 @@ test('vault cache contains non-extractable key only and clears explicitly',async
   clearWalletVaultSession();
   assert.equal(getWalletVaultKey(owner),null);
 });
-test('RPC uses owner checks, RLS, no plain card data and does not allow anonymous users',()=>{
+test('login-only vault uses owner checks, server-side encryption, and no plain card data',()=>{
   const sql=readFileSync('supabase/migrations/20261030192500_wallet_master_pin_vault.sql','utf8');
   for(const token of [
     'ENABLE ROW LEVEL SECURITY','SECURITY DEFINER',
@@ -61,11 +61,13 @@ test('RPC uses owner checks, RLS, no plain card data and does not allow anonymou
   ])assert.ok(sql.includes(token),token);
   const modal=readFileSync('components/wallet/CardVaultModal.tsx','utf8');
   assert.ok(modal.includes('CardProtectedFields value={draft} onChange={setDraft} askPassword={false}'));
-  assert.ok(modal.includes('cacheWalletVaultKey'));
-  assert.ok(modal.includes('clearWalletVaultSession'));
-  assert.ok(modal.includes('PIN da Carteira'));
-  assert.ok(!modal.includes('encryptCardData('),'new card must use the master key');
-  assert.ok(modal.includes('decryptCardData('),'old card must remain decryptable');
+  assert.ok(modal.includes('getCardLoginVault'));
+  assert.ok(modal.includes('saveCardLoginVault'));
+  assert.ok(!modal.includes('wallet-vault-pin'));
+  assert.ok(!modal.includes('encryptCardData('));
+  assert.ok(!modal.includes('decryptCardData('));
+  const loginSql=readFileSync('supabase/migrations/20261105200000_wallet_login_only_card_vault.sql','utf8');
+  for(const token of ['vault.decrypted_secrets','pgp_sym_encrypt','pgp_sym_decrypt','revoke all on function public.personal_wallet_get_card_login_vault','grant execute on function public.personal_wallet_save_card_login_vault']) assert.ok(loginSql.includes(token),token);
 });
 
 
@@ -113,6 +115,6 @@ test('card form and vault are isolated from account autofill and global credenti
   assert.ok(protectedFields.includes('não é solicitado nem armazenado'));
   assert.ok(!protectedFields.includes('value={value.securityCode}'));
   assert.ok(!modal.includes("['CVC',draft.securityCode]"));
-  assert.ok(modal.includes('setRetry(value=>value+1)'),'reload vault after Android backgrounding');
-  assert.ok(modal.includes('A sessão mudou ou não tem autorização'));
+  assert.ok(modal.includes('setRetry(value => value + 1)'),'reload vault after Android backgrounding');
+  assert.ok(modal.includes('getCardLoginVault'));
 });

@@ -139,6 +139,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           activeUser={activeUser}
           capitalSources={data.capitalSources || []}
           existingAccounts={data.accounts}
+          existingCards={data.cards}
           initialAccountType={createModalType}
           onClose={() => setCreateModalType(null)}
           onSaved={async () => { await refresh(); }}

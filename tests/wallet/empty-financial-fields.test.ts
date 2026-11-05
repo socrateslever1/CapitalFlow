@@ -22,6 +22,8 @@ test('financial entry fields start blank instead of forcing zero text', () => {
   assert.match(cardOpening, /value !== 0 \? .* : ''/);
   assert.match(pixDeposit, /useState<string>\(""\)/);
   assert.doesNotMatch(pixDeposit, /useState<string>\("10\.00"\)/);
+  assert.match(pixDeposit, /SourceWalletReferencePanel/);
+  assert.match(pixDeposit, /saveOriginsRef/);
 });
 
 test('monetary inputs accept Brazilian grouping and always format two decimals', () => {

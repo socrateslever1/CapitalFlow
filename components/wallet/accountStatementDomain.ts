@@ -68,6 +68,9 @@ export function buildAccountStatementEntries(input: {
         tag = 'Pagamento de fatura';
       } else if (operation.operation_type === 'RECEIPT' && operation.charge_id) {
         tag = 'Cobrança recebida';
+      } else if (operation.operation_type === 'RECEIPT' && operation.contract_id) {
+        tag = 'Parcela recebida';
+        category = operation.category || 'Recebimento de contrato';
       } else if (operation.operation_type === 'LOAN_DISBURSEMENT') {
         tag = 'Empréstimo concedido';
         category = 'Empréstimo concedido';

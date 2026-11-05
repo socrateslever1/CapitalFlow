@@ -23,7 +23,8 @@ test('create/edit card form uses validated centavos rather than native integer s
   assert(cards.includes('parseWalletMoney(cardForm.credit_limit'));
   assert(cards.includes('<input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"'));
   assert(edit.includes("parseWalletMoney(form.credit_limit"));
-  assert(edit.includes('type="text" inputMode="decimal"'));
+  assert(edit.includes('FinancialCalculatorInput'));
+  assert(edit.includes('fieldLabel="limite de crédito"'));
 });
 test('mobile browser offers the signed APK directly, native app never prompts itself', () => {
   const source = readFileSync('components/system/AndroidApkNotice.tsx', 'utf8');

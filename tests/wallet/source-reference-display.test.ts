@@ -41,8 +41,8 @@ test('cartão da fonte e lista carregam referências e atualizam após salvar',(
   const cardComponent=readFileSync('components/cards/SourceCard.tsx','utf8');
   const listPage=readFileSync('pages/SourcesPage.tsx','utf8');
   const editor=readFileSync('components/sources/SourceWalletReferencePanel.tsx','utf8');
-  assert.match(cardComponent,/Valor associado na Minha Carteira/);
-  assert.match(cardComponent,/Saldo operacional/);
+  assert.match(cardComponent,/Valor associado/);
+  assert.match(cardComponent,/extraReferenceCount/);
   assert.match(listPage,/referenceDisplay=\{sourceReferences\[source.id\]/);
   assert.match(listPage,/capital_source_wallet_references/);
   assert.match(listPage,/can_manage_capital_source_wallet_origins/);

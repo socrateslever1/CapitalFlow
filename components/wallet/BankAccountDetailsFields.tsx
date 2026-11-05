@@ -1,6 +1,7 @@
 import React from 'react';
 import { bankTextFields, bankMoneyFields, type BankAccountDetails, type BankAccountDetailsDraft } from '../../features/wallet/domain/bankAccountDetails';
 import { formatMoney } from '../../utils/formatters';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 const input='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white focus:border-blue-500 focus:outline-none';
 export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;onChange:(value:BankAccountDetailsDraft)=>void}> = ({value,onChange}) => {
@@ -20,7 +21,7 @@ export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;o
       ] as const).map(([key,label,amounts])=><div key={key} className="space-y-3">
         <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-slate-200"><input type="checkbox" checked={value[key]} onChange={event=>change(key,event.target.checked)} className="h-4 w-4 accent-blue-500"/>{label}</label>
         {value[key] && <div className="grid gap-3 pl-7 sm:grid-cols-2">{amounts.map(amount=><label key={amount} className="text-xs text-slate-300">{bankMoneyFields[amount]} (R$)
-          <input type="text" inputMode="decimal" placeholder="Ex.: 1.500,00" className={input} value={value[amount]} onChange={event=>change(amount,event.target.value)}/>
+          <FinancialCalculatorInput placeholder="Ex.: 1.500,00" className={input} value={value[amount]} fieldLabel={bankMoneyFields[amount]} onCommit={next=>change(amount,next)}/>
         </label>)}</div>}
       </div>)}
     </div>

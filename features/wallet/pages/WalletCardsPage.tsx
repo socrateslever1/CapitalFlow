@@ -96,6 +96,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '', due_day: '',
     closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
+  const [newLinkedAccountNickname, setNewLinkedAccountNickname] = useState('');
 
   const [expenseForm, setExpenseForm] = useState({
     description: '', amount: '', category: 'Compras', installment_count: '1',
@@ -554,8 +555,21 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         envelope: null,
       };
       let createdCardId:string|null=null;
+      const createNewAccount = cardForm.account_id === '__create__';
+      if (createNewAccount && !newLinkedAccountNickname.trim()) {
+        throw new Error('Informe o nome da nova conta vinculada.');
+      }
       try {
-        const saved=await personalWalletService.createCompleteCard(cardRegistrationAttempt.current.begin(candidate));
+        const saved = createNewAccount
+          ? await personalWalletService.createCompleteCardWithNewAccount({
+            ...cardRegistrationAttempt.current.begin(candidate),
+            account: {
+              nickname: newLinkedAccountNickname.trim(),
+              bank_name: candidate.card.issuer,
+              account_type: 'CHECKING',
+            },
+          })
+          : await personalWalletService.createCompleteCard(cardRegistrationAttempt.current.begin(candidate));
         createdCardId=saved.card_id;
         cardRegistrationAttempt.current.confirmed();
       } catch (cause) {
@@ -582,6 +596,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         nickname: '', issuer: '', brand: 'Mastercard', last_four: '', credit_limit: '',
         due_day: '', closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
       });
+      setNewLinkedAccountNickname('');
     } catch (cause) { setCreateError(cause instanceof Error ? cause.message : 'Falha ao cadastrar cartão.'); }
     finally { setSaving(false); }
   };
@@ -888,7 +903,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               }} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white">
                 <option value="">Sem vínculo bancário</option>
                 {data.accounts.map(account=><option key={account.id} value={account.id}>{account.nickname}</option>)}
+                <option value="__create__">+ Criar conta vinculada agora</option>
               </select>
+              {cardForm.account_id === '__create__' && <input type="text" required maxLength={120}
+                value={newLinkedAccountNickname} onChange={e=>setNewLinkedAccountNickname(e.target.value)}
+                placeholder={`Ex.: ${cardForm.issuer || 'Minha conta'} principal`}
+                className="mt-2 w-full rounded-xl border border-blue-500/60 bg-slate-950 p-3 text-white" />}
+              <span className="mt-1 block text-[11px] text-slate-400">A nova conta e o cartão serão criados e vinculados na mesma operação segura.</span>
             </label>
             <label className="flex items-center gap-2 text-xs text-slate-200 sm:col-span-2">
               <input type="checkbox" checked={thirdPartyCard} className="h-4 w-4 accent-blue-600"

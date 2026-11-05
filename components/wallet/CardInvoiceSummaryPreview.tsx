@@ -40,7 +40,23 @@ export const CardInvoiceSummaryPreview: React.FC<{
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState<WalletIssuerInvoiceCommit | null>(null);
-  useEffect(() => { setForm(toForm(summary)); setSaved(null); setError(''); }, [summary]);
+  // Parents rebuild this object on refreshes and unrelated state changes. Use
+  // the financial content as the dependency so a parent rerender never erases
+  // values the user is still reviewing in the form.
+  const summaryIdentity = JSON.stringify({
+    institution: summary.institution,
+    cardLastFour: summary.cardLastFour,
+    multipleCards: summary.multipleCards,
+    invoiceTotal: summary.invoiceTotal,
+    minimumPayment: summary.minimumPayment,
+    creditLimit: summary.creditLimit,
+    usedLimit: summary.usedLimit,
+    availableLimit: summary.availableLimit,
+    futureInstallments: summary.futureInstallments,
+    dueDate: summary.dueDate,
+    warnings: summary.warnings,
+  });
+  useEffect(() => { setForm(toForm(summary)); setSaved(null); setError(''); }, [summaryIdentity]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!onSave || saving) return;

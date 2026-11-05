@@ -1,6 +1,6 @@
 export type WalletTimelineKind = 'TRANSFER' | 'OPERATION' | 'INSTALLMENT' | 'PAYABLE' | 'INVOICE_PAYMENT';
 export type WalletTimelineDirection = 'IN' | 'OUT' | 'NEUTRAL';
-export type WalletTimelineStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'SCHEDULED';
+export type WalletTimelineStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'SCHEDULED' | 'RECORDED';
 
 export type WalletTimelineEvent = {
   id: string;
@@ -100,7 +100,10 @@ export function buildWalletTimeline(input: {
       label: operation.description || 'Movimentação',
       amount: Math.abs(finiteMoney(operation.amount)),
       direction: operationDirection(operation.operation_type),
-      status: eventStatus(date, input.referenceDate),
+      // Uma operação já lançada é um fato contábil registrado. “Pendente” é
+      // reservado a compromissos ainda não liquidados; usar o mesmo rótulo
+      // aqui fazia movimentos efetivados parecerem cobranças em aberto.
+      status: date > input.referenceDate ? 'SCHEDULED' : 'RECORDED',
       accountId: operation.to_account_id || operation.from_account_id,
     });
   }

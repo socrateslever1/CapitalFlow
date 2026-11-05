@@ -21,13 +21,15 @@ interface ModalProps {
   cancelLabel?: string;
   /** Custom action area owns all buttons, including Cancel. Avoids crowded footers. */
   footerMode?: 'default' | 'custom';
+  /** Narrow visual override for a specific modal without changing the shared shell. */
+  panelClassName?: string;
 }
 const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' };
 let openDialogs = 0;
 let previousOverflow = '';
 let previousOverscroll = '';
 
-export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default' }) => {
+export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default', panelClassName = '' }) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -107,7 +109,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
       <div
         ref={panelRef}
         data-dialog-panel
-        className={`group flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-0 border-slate-800 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150 motion-reduce:animate-none ${widths[size]}`}
+        className={`group flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-0 border-slate-800 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150 motion-reduce:animate-none ${widths[size]} ${panelClassName}`}
       >
         <header className="relative flex shrink-0 flex-col items-start gap-2 overflow-hidden border-b border-slate-800/80 bg-gradient-to-r from-blue-950/50 via-slate-900 to-emerald-950/30 px-4 sm:px-6 py-3.5 sm:py-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />

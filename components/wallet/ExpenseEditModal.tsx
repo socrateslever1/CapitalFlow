@@ -3,6 +3,7 @@ import { CalendarDays, Loader2, Save, X } from 'lucide-react';
 import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
 import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
@@ -76,7 +77,7 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs font-bold text-slate-300">Valor
-              <input inputMode="decimal" required value={amount} onChange={(e) => setAmount(e.target.value)} className={`${fieldClass} mt-1.5`} />
+              <FinancialCalculatorInput required value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" className={`${fieldClass} mt-1.5`} />
             </label>
             <label className="block text-xs font-bold text-slate-300">Categoria
               <input maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} className={`${fieldClass} mt-1.5`} />

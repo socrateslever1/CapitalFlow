@@ -8,9 +8,16 @@ import { personalWalletService } from '../../../services/personalWallet.service'
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
-import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
+import { parseWalletMoney } from '../utils/parseWalletMoney';
 import { formatMoney } from '../../../utils/formatters';
 import { buildWalletTimeline } from '../domain/walletTimeline';
+import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
+import { useWalletDraft } from '../hooks/useWalletDraft';
+
+const emptyPayableForm = {
+  description: '', creditor_name: '', creditor_type: 'COMPANY' as 'COMPANY' | 'PERSON',
+  category: 'Despesas', total_amount: '', due_date: '', origin: '',
+};
 
 export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,10 +27,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [recurringCreateRequest, setRecurringCreateRequest] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
-  const [form, setForm] = useState({
-    description: '', creditor_name: '', creditor_type: 'COMPANY' as 'COMPANY' | 'PERSON',
-    category: 'Despesas', total_amount: '', due_date: '', origin: '',
-  });
+  const [form, setForm, clearFormDraft] = useWalletDraft('payables:new', emptyPayableForm);
 
   const timelineEvents = useMemo(() => {
     if (!data) return [];
@@ -60,10 +64,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
         origin_card_id: source === 'CARD' ? id : null,
       });
       await refresh(); setCreating(false);
-      setForm({
-        description: '', creditor_name: '', creditor_type: 'COMPANY',
-        category: 'Despesas', total_amount: '', due_date: '', origin: ''
-      });
+      clearFormDraft();
     } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao cadastrar compromisso.'); }
     finally { setSaving(false); }
   };
@@ -132,10 +133,12 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
                   <span className={`text-xs font-medium ${
                     event.status === 'PAID' ? 'text-emerald-400' :
                     event.status === 'OVERDUE' ? 'text-rose-400' :
+                    event.status === 'RECORDED' ? 'text-slate-300' :
                     event.status === 'SCHEDULED' ? 'text-sky-300' : 'text-amber-300'
                   }`}>
                     {event.status === 'PAID' ? 'Pago' :
                      event.status === 'OVERDUE' ? 'Atrasado' :
+                     event.status === 'RECORDED' ? 'Registrado' :
                      event.status === 'SCHEDULED' ? 'Agendado' : 'Pendente'}
                   </span>
                   <span className="font-mono text-sm font-semibold text-white">
@@ -161,7 +164,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
           </button>
         </div>
       </Modal>}
-      {creating && <Modal title="Nova conta a pagar" subtitle="Dívida, parcela ou obrigação pontual" icon={<ClipboardList size={17} />} onClose={() => setCreating(false)} busy={saving}
+      {creating && <Modal title="Nova conta a pagar" subtitle="Dívida, parcela ou obrigação pontual" icon={<ClipboardList size={17} />} panelClassName="sm:rounded-xl" onClose={() => setCreating(false)} busy={saving}
         footer={<button type="submit" form="new-payable-form" disabled={saving} className={modalPrimaryActionClass}>{saving ? 'Salvando...' : 'Salvar compromisso'}</button>}>
         <form id="new-payable-form" onSubmit={event => { void create(event); }} className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1 text-xs text-slate-300">Descrição
@@ -179,9 +182,9 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
             <input required value={form.category} onChange={e => setForm(v => ({ ...v, category: e.target.value }))}
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
           <label className="space-y-1 text-xs text-slate-300">Valor (R$)
-            <input required type="text" inputMode="decimal" placeholder="0,00" value={form.total_amount}
-              onChange={e => setForm(v => ({ ...v, total_amount: e.target.value }))}
-              onBlur={e => { try { setForm(v => ({ ...v, total_amount: formatWalletMoneyInput(e.target.value) })); } catch { } }}
+            <FinancialCalculatorInput required placeholder="0,00" value={form.total_amount}
+              onCommit={value => setForm(v => ({ ...v, total_amount: value }))}
+              fieldLabel="valor do compromisso"
               className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white" /></label>
           <label className="space-y-1 text-xs text-slate-300">Vencimento
             <input type="date" value={form.due_date} onChange={e => setForm(v => ({ ...v, due_date: e.target.value }))}

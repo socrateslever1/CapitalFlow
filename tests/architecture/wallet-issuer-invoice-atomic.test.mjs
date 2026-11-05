@@ -54,6 +54,12 @@ test('bank facts navigate real due-month cycles while preserving distinct financ
   assert.match(preview, /Fatura e posição financeira registradas/);
 });
 
+test('invoice review form does not reset on parent object recreation', () => {
+  assert.match(preview, /const summaryIdentity = JSON\.stringify\(\{/);
+  assert.match(preview, /useEffect\(\(\) => \{ setForm\(toForm\(summary\)\); setSaved\(null\); setError\('\'\); \}, \[summaryIdentity\]\)/);
+  assert.doesNotMatch(preview, /\}, \[summary\]\)/);
+});
+
 test('both PDF entry points use the same canonical confirmation, refresh and protect card identity', () => {
   for (const reader of readers) {
     assert.match(reader, /issuerMatchesBank\(targetIssuer, summary\.institution\)/);

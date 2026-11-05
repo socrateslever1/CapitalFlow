@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Landmark, Link2, Loader2, QrCode, Wallet } from 'lucide-react';
 import type { CapitalSource, UserProfile } from '../../types';
 import { useWalletOwnerDefaults } from '../../features/wallet/hooks/useWalletOwnerDefaults';
-import { PersonalWalletAccount, personalWalletService } from '../../services/personalWallet.service';
+import { PersonalWalletAccount, PersonalWalletCard, personalWalletService } from '../../services/personalWallet.service';
 import { BANK_CATALOG } from '../../utils/bankLogoRegistry';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
@@ -12,10 +12,12 @@ import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { BankAccountDetailsFields } from './BankAccountDetailsFields';
 import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/domain/bankAccountDetails';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 export interface CreateAccountModalProps {
   capitalSources?: CapitalSource[];
   existingAccounts?: PersonalWalletAccount[];
+  existingCards?: PersonalWalletCard[];
   activeUser?: UserProfile | null;
   initialAccountType?: 'CHECKING' | 'PAYMENT' | 'SAVINGS' | 'CASH' | 'INVESTMENT';
   onClose: () => void;
@@ -44,6 +46,7 @@ const INSTITUTION_OPTIONS = [...new Set([
 export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   capitalSources: providedCapitalSources,
   existingAccounts: providedAccounts,
+  existingCards: providedCards,
   activeUser,
   initialAccountType = 'CHECKING',
   onClose,
@@ -51,10 +54,12 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 }) => {
   const [loadedSources, setLoadedSources] = useState<CapitalSource[]>(providedCapitalSources || []);
   const [loadedAccounts, setLoadedAccounts] = useState<PersonalWalletAccount[]>(providedAccounts || []);
+  const [loadedCards, setLoadedCards] = useState<PersonalWalletCard[]>(providedCards || []);
   useEffect(() => {
-    if (providedCapitalSources !== undefined && providedAccounts !== undefined) {
+    if (providedCapitalSources !== undefined && providedAccounts !== undefined && providedCards !== undefined) {
       setLoadedSources(providedCapitalSources);
       setLoadedAccounts(providedAccounts);
+      setLoadedCards(providedCards);
       return;
     }
     let mounted = true;
@@ -64,15 +69,17 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         if (mounted) {
           setLoadedSources(res.capitalSources || []);
           setLoadedAccounts(res.accounts || []);
+          setLoadedCards(res.cards || []);
         }
       })
       .catch(() => {});
     return () => {
       mounted = false;
     };
-  }, [providedCapitalSources, providedAccounts]);
+  }, [providedCapitalSources, providedAccounts, providedCards]);
   const capitalSources = providedCapitalSources && providedCapitalSources.length > 0 ? providedCapitalSources : loadedSources;
   const existingAccounts = providedAccounts && providedAccounts.length > 0 ? providedAccounts : loadedAccounts;
+  const existingCards = providedCards && providedCards.length > 0 ? providedCards : loadedCards;
 
   const eligibleCapitalSources = useMemo(
     () => capitalSources.filter(source =>
@@ -95,6 +102,10 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft());
   const [thirdPartyAccount, setThirdPartyAccount] = useState(false);
+  const [linkedCardId, setLinkedCardId] = useState('');
+  const [newCardNickname, setNewCardNickname] = useState('');
+  const [newCardLimit, setNewCardLimit] = useState('');
+  const [newCardLastFour, setNewCardLastFour] = useState('');
   const ownerDefaults = useWalletOwnerDefaults(activeUser, accountType !== 'CASH');
   useEffect(() => {
     if (thirdPartyAccount || accountType === 'CASH') return;
@@ -194,6 +205,16 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       setError('Informe o titular da conta de terceiros.');
       return;
     }
+    const createNewCard = linkedCardId === '__create__';
+    const linkedCard = existingCards.find(card => card.id === linkedCardId && !card.account_id) || null;
+    if (createNewCard) {
+      if (!newCardNickname.trim()) { setError('Informe o nome do novo cartão vinculado.'); return; }
+      if (!bankName.trim()) { setError('Informe o emissor do novo cartão.'); return; }
+      if (newCardLastFour && !/^\d{4}$/.test(newCardLastFour)) { setError('Informe apenas os quatro últimos dígitos do cartão.'); return; }
+    }
+    if (linkedCardId && linkedCardId !== '__create__' && !linkedCard) {
+      setError('O cartão selecionado não está mais disponível. Atualize a lista.'); return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -208,11 +229,37 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         pix_key_type: isPhysicalWallet ? null : cleanPixKey ? cleanPixType || null : null,
         notes: notes.trim() || null,
         capital_source_id: null,
-        bank_details:isPhysicalWallet?{}:normalizeBankDetails(bankDetails),
+        bank_details:isPhysicalWallet?{}:normalizeBankDetails({
+          ...bankDetails,
+          has_credit_card: Boolean(linkedCardId),
+          credit_card_limit: createNewCard ? String(parseWalletMoney(newCardLimit.trim() || '0', 'limite do cartão')) : (linkedCard?.credit_limit !== undefined ? String(linkedCard.credit_limit) : bankDetails.credit_card_limit),
+        }),
       };
       const signature=JSON.stringify([accountInput,parsedBalance,capitalSourceId]);
       if(createdAccountRef.current&&createdAccountRef.current.signature!==signature)throw new Error('A conta já foi criada nesta tentativa. Feche o cadastro e use Editar para alterar os dados.');
-      const created=createdAccountRef.current||await personalWalletService.createAccount(accountInput);
+      let created: PersonalWalletAccount;
+      if (createNewCard) {
+        const linked = await personalWalletService.createCompleteCardWithNewAccount({
+          account: { nickname: cleanNickname, bank_name: bankName.trim(), account_type: accountType },
+          existingAccountId: null,
+          card: {
+            nickname: newCardNickname.trim(), issuer: bankName.trim(), brand: null,
+            last_four: newCardLastFour || null, credit_limit: parseWalletMoney(newCardLimit.trim() || '0', 'limite do cartão'),
+            closing_day: null, due_day: null,
+          },
+          opening: { used_limit: 0, invoice_amount: 0, future_amount: 0, future_months: 0, invoice_month: new Date().toISOString().slice(0, 7) + '-01', invoice_state: 'OPEN' },
+          requestId: openingRequestIdRef.current,
+          identity: { cardholder_name: null, expiry_month: null, expiry_year: null }, envelope: null,
+        });
+        created = { ...accountInput, id: linked.account_id, balance: 0 } as PersonalWalletAccount;
+      } else if (linkedCard) {
+        const linked = await personalWalletService.createAccountWithExistingCard({ account: accountInput, cardId: linkedCard.id });
+        created = { ...accountInput, id: linked.account_id, balance: 0 } as PersonalWalletAccount;
+      } else {
+        created = createdAccountRef.current
+          ? ({ ...accountInput, id: createdAccountRef.current.id, balance: 0 } as PersonalWalletAccount)
+          : await personalWalletService.createAccount(accountInput);
+      }
       createdAccountRef.current={id:created.id,signature};
 
       // 2. Se houver saldo inicial > 0, invoca a RPC canônica personal_wallet_initialize_account_opening
@@ -380,16 +427,14 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
             <label className={labelClass}>
               Saldo Inicial (R$)
-              <input
-                type="text"
-                inputMode="decimal"
+              <FinancialCalculatorInput
                 value={initialBalance}
-                onChange={(e) => {
+                onCommit={(next) => {
                   openingRequestIdRef.current = generateUUID();
-                  setInitialBalance(e.target.value);
+                  setInitialBalance(next);
                 }}
-                onBlur={(e) => { try { setInitialBalance(formatWalletMoneyInput(e.target.value)); } catch {} }}
                 placeholder="0,00"
+                fieldLabel="saldo inicial"
                 className={inputClass}
               />
             </label>
@@ -494,6 +539,28 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
               </p>
             </div>
             <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>
+            <fieldset className="space-y-3 border-t border-slate-800 pt-4">
+              <legend className="px-1 text-sm font-semibold text-slate-200">Cartão de crédito desta conta</legend>
+              <select value={linkedCardId} onChange={event => setLinkedCardId(event.target.value)} className={inputClass} aria-label="Cartão vinculado à conta">
+                <option value="">Conta independente, sem cartão vinculado</option>
+                {existingCards.filter(card => card.status !== 'CANCELED' && !card.account_id).map(card => (
+                  <option key={card.id} value={card.id}>{card.nickname}{card.last_four ? ` · •••• ${card.last_four}` : ''}</option>
+                ))}
+                <option value="__create__">+ Criar novo cartão vinculado agora</option>
+              </select>
+              {linkedCardId === '__create__' && <div className="grid gap-3 sm:grid-cols-2">
+                <label className={labelClass}>Nome do cartão
+                  <input required maxLength={120} value={newCardNickname} onChange={event => setNewCardNickname(event.target.value)} placeholder="Ex.: Cartão principal" className={inputClass}/>
+                </label>
+                <label className={labelClass}>Limite de crédito (R$)
+                  <FinancialCalculatorInput value={newCardLimit} onCommit={setNewCardLimit} fieldLabel="limite do cartão" placeholder="Ex.: 1.500,00" className={inputClass}/>
+                </label>
+                <label className={labelClass}>Final do cartão (opcional)
+                  <input inputMode="numeric" maxLength={4} value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
+                </label>
+              </div>}
+              <p className="text-[11px] leading-relaxed text-slate-400">Escolha um cartão existente para vincular ou crie o cartão junto com esta conta. Se não selecionar nada, conta e cartão permanecem independentes.</p>
+            </fieldset>
           </div>}
           {error && (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">

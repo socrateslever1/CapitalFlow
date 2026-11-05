@@ -11,8 +11,9 @@ import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { Modal } from '../ui/Modal';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
-import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { getQuickDateTag, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 type Tab = 'INTERNAL' | 'EXTERNAL' | 'INVOICE';
 type Props = {
@@ -155,7 +156,7 @@ export const AccountMovementModal: React.FC<Props> = ({
           {accountSelect('De qual conta sai?', sourceId, value => { setSourceId(value); if (value === destinationId) setDestinationId(''); }, destinationId)}
           {accountSelect('Para qual conta vai?', destinationId, setDestinationId, sourceId)}
           <label className={labelClass}>Valor
-<input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
+            <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da transferência" placeholder="0,00"/>
           </label>
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -198,7 +199,7 @@ export const AccountMovementModal: React.FC<Props> = ({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">{accountSelect('Conta de origem', sourceId, setSourceId)}</div>
           <label className={labelClass}>Valor
-            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
+            <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da saída" placeholder="0,00"/>
           </label>
           <label className={labelClass}>Data e hora
             <input required type="datetime-local" max={localDateTime()} className={inputClass} value={occurredAt} onChange={event => setOccurredAt(event.target.value)}/>
@@ -231,7 +232,7 @@ export const AccountMovementModal: React.FC<Props> = ({
             </select>
           </label>
           <label className={`${labelClass} sm:col-span-2`}>Valor a abater
-            <input required inputMode="decimal" className={inputClass} value={amount} onChange={event => setAmount(event.target.value)} onBlur={event => { try { setAmount(formatWalletMoneyInput(event.target.value)); } catch {} }} placeholder="0,00"/>
+            <FinancialCalculatorInput required className={inputClass} value={amount} onCommit={setAmount} fieldLabel="valor da fatura" placeholder="0,00"/>
           </label>
         </div>
         {!invoiceOptions.length && <p role="status" className="text-xs text-slate-400">Nenhuma fatura pendente foi encontrada.</p>}

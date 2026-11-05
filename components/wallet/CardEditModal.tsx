@@ -4,9 +4,10 @@ import {PersonalWalletCard,PersonalWalletAccount,personalWalletService} from '..
 import {BANK_CATALOG} from '../../utils/bankLogoRegistry';
 import {formatMoney} from '../../utils/formatters';
 import {getBankVisual} from './walletPresentation';
-import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import {Modal,modalPrimaryActionClass} from '../ui/Modal';
 import {CardVaultModal} from './CardVaultModal';
+import {FinancialCalculatorInput} from '../forms/FinancialCalculatorInput';
 type Props={card:PersonalWalletCard;accounts:PersonalWalletAccount[];onClose:()=>void;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
 export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
@@ -76,7 +77,7 @@ export const CardEditModal:React.FC<Props>=({card,accounts,onClose,onSaved})=>{
      </div>
      <button type="button" onClick={()=>setVaultOpen(true)} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-200 hover:bg-blue-500/20"><LockKeyhole size={17}/>Número completo e código de segurança</button>
     </div>
-    <label className="text-xs text-slate-300">Limite total<input type="text" inputMode="decimal" required className={field} value={form.credit_limit} onChange={e=>change('credit_limit',e.target.value)} onBlur={e=>{try{change('credit_limit',formatWalletMoneyInput(e.target.value));}catch{}}}/><span className="mt-1 block text-[11px] text-slate-400">Disponível atual: <strong className="text-emerald-300">{formatMoney(Math.max(0,(() => { try { return parseWalletMoney(form.credit_limit); } catch { return 0; } })()-Number(card.used_limit)))}</strong></span></label>
+    <label className="text-xs text-slate-300">Limite total<FinancialCalculatorInput required className={field} value={form.credit_limit} onCommit={value=>change('credit_limit',value)} fieldLabel="limite de crédito"/><span className="mt-1 block text-[11px] text-slate-400">Disponível atual: <strong className="text-emerald-300">{formatMoney(Math.max(0,(() => { try { return parseWalletMoney(form.credit_limit); } catch { return 0; } })()-Number(card.used_limit)))}</strong></span></label>
     <div className="grid grid-cols-2 gap-2">
      <label className="text-xs text-slate-300">Fechamento (dia)<input type="number" min="1" max="31" className={field} value={form.closing_day} onChange={e=>change('closing_day',e.target.value)}/></label>
      <label className="text-xs text-slate-300">Dia habitual de vencimento<input type="number" min="1" max="31" className={field} value={form.due_day} onChange={e=>change('due_day',e.target.value)}/></label>

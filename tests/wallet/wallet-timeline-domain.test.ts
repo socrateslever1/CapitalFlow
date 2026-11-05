@@ -43,3 +43,16 @@ test('mostra somente o saldo restante de parcelas e marca vencimentos atrasados'
   assert.equal(events[1].status, 'OVERDUE');
   assert.equal(events[1].amount, 300);
 });
+
+test('não chama operação já lançada de pendente', () => {
+  const events = buildWalletTimeline({
+    referenceDate: '2026-11-05',
+    operations: [{
+      id: 'operation-1', operation_type: 'INCOME', from_account_id: null,
+      to_account_id: 'account-1', amount: 150, description: 'Recebi no pix',
+      operation_date: '2026-11-05',
+    }],
+    expenses: [], installments: [], payables: [], invoicePayments: [],
+  });
+  assert.equal(events[0].status, 'RECORDED');
+});

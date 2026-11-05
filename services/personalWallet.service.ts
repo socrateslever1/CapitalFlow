@@ -738,6 +738,36 @@ export const personalWalletService = {
     return data as {card_id:string;account_id:string|null;replayed:boolean};
   },
 
+  async createCompleteCardWithNewAccount(input: CompleteCardRegistration & {
+    account: { nickname: string; bank_name: string; account_type: string };
+  }) {
+    const { data, error } = await supabase.rpc('personal_wallet_create_complete_card_with_new_account', {
+      p_account: input.account,
+      p_card: input.card,
+      p_opening: input.opening,
+      p_request_id: input.requestId,
+      p_identity: input.identity,
+      p_envelope: input.envelope,
+    });
+    if (error) {
+      const definitive = error.code === 'PGRST202' || (/^[0-9A-Z]{5}$/.test(error.code || '') && !error.code.startsWith('08') && error.code !== '40003');
+      throw new CardRegistrationError(error.code === 'PGRST202' ? 'O cadastro vinculado precisa da atualização do banco. Nenhum cartão foi criado.' : error.message, definitive);
+    }
+    return data as { card_id: string; account_id: string; replayed: boolean; account_created: boolean };
+  },
+
+  async createAccountWithExistingCard(input: {
+    account: { nickname: string; bank_name: string; account_type: string; bank_details?: BankAccountDetails };
+    cardId: string;
+  }) {
+    const { data, error } = await supabase.rpc('personal_wallet_create_account_with_existing_card', {
+      p_account: input.account,
+      p_card_id: input.cardId,
+    });
+    if (error) throw new Error(error.message);
+    return data as { account_id: string; card_id: string };
+  },
+
   /** Only store facts after a human has reviewed the issuer PDF; no settlement RPC. */
   async saveCardInvoiceFacts(input: SaveWalletCardInvoiceFacts, requestId = generateUUID()): Promise<WalletIssuerInvoiceCommit> {
     if (!/^\d{4}-(0[1-9]|1[0-2])-01$/.test(input.dueMonth))
@@ -813,6 +843,20 @@ export const personalWalletService = {
   async saveCardVault(cardId:string,envelope:AnyCardVaultEnvelope,lastFour:string) {
     const {error}=await supabase.rpc('personal_wallet_save_card_vault',{p_card_id:cardId,p_envelope:envelope,p_last_four:lastFour});
     if(error)throw new Error(error.message);
+  },
+
+  async getCardLoginVault(cardId: string): Promise<{ number: string } | null> {
+    const { data, error } = await supabase.rpc('personal_wallet_get_card_login_vault', { p_card_id: cardId });
+    if (error) throw new Error(error.code === 'PGRST202' ? 'O cofre sem PIN precisa da atualização do banco.' : error.message);
+    return data ? { number: String((data as { number?: unknown }).number || '') } : null;
+  },
+
+  async saveCardLoginVault(cardId: string, number: string): Promise<void> {
+    const { error } = await supabase.rpc('personal_wallet_save_card_login_vault', {
+      p_card_id: cardId,
+      p_number: number,
+    });
+    if (error) throw new Error(error.message);
   },
 
   /** Imports balances only if the existing card has no financial history. */
@@ -1170,7 +1214,7 @@ export const personalWalletService = {
     return data as PersonalWalletPayable;
   },
 
-  async payPayable(input: { payableId: string; accountId: string | null; cardId?: string | null; amount: number; requestId: string; receipt?: File | null }) {
+  async payPayable(input: { payableId: string; accountId: string | null; cardId?: string | null; amount: number; requestId: string; receipt?: File | null; split?: { sources: Array<{ kind: 'ACCOUNT' | 'CARD'; id: string; amount: number; interestRate: number }> } }) {
     const ownerUserId = await this.ownerId();
     if (!Number.isFinite(input.amount) || input.amount <= 0 || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) throw new Error('Informe um valor positivo com até duas casas decimais.');
     let proofPath: string | null = null;
@@ -1181,6 +1225,17 @@ export const personalWalletService = {
       proofPath = `${ownerUserId}/${input.payableId}/${input.requestId}.${extension}`;
       const uploaded = await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).upload(proofPath, input.receipt, { contentType: input.receipt.type, upsert: false });
       if (uploaded.error && !/already exists|duplicate|conflict/i.test(uploaded.error.message)) throw new Error(`Falha ao enviar comprovante: ${uploaded.error.message}`);
+    }
+    if (input.split) {
+      const { data, error } = await supabase.rpc('personal_wallet_pay_payable_split', {
+        p_payable_id: input.payableId, p_sources: input.split.sources,
+        p_request_id: input.requestId, p_proof_path: proofPath,
+      });
+      if (error) {
+        if (proofPath) await supabase.storage.from(PAYABLE_RECEIPTS_BUCKET).remove([proofPath]);
+        throw new Error(error.message);
+      }
+      return data as { outstanding_balance: number; idempotent: boolean; card_charge_amount?: number };
     }
     if (input.accountId && input.cardId) throw new Error('Selecione apenas uma origem de fundos.');
     const {data,error}=input.cardId

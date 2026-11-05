@@ -1,8 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CreditCard, FileDown, FileUp, History, Plus, Search, Trash2 } from 'lucide-react';
 import { PersonalWalletAccount, PersonalWalletExpense, PersonalWalletInvoicePayment, WalletAccountOperation, WalletStatementRow, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { WalletStatementImport } from './WalletStatementImport';
 import { buildAccountStatementEntries } from './accountStatementDomain';
 
@@ -41,6 +43,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [date,setDate]=useState(localToday());
   const [importOpen,setImportOpen]=useState(false);
   const [saving,setSaving]=useState(false);
+  const [voidingId,setVoidingId]=useState<string|null>(null);
   const [error,setError]=useState('');
   const [success,setSuccess]=useState('');
   const [search,setSearch]=useState('');
@@ -49,7 +52,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   const [openingSaving,setOpeningSaving]=useState(false);
   const transactionRef=useRef({signature:'',id:generateUUID()});
   const openingRef=useRef({signature:'',id:generateUUID()});
-  const parsedAmount=Number(amount.trim().replace(',','.'));
+  const parsedAmount=(() => { try { return parseWalletMoney(amount); } catch { return NaN; } })();
 
   const entries=useMemo(()=>buildAccountStatementEntries({
     accountId:account.id,accounts,operations,expenses,invoicePayments,statementRows,
@@ -84,7 +87,8 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
   };
   const submitOpening=async(e:React.FormEvent)=>{
     e.preventDefault();
-    const value=Number(openingAmount.trim().replace(',','.'));
+    let value=NaN;
+    try { value=parseWalletMoney(openingAmount); } catch { /* mantém validação existente */ }
     if(openingSaving)return;
     if(!Number.isFinite(value)||value<=0||Math.abs(value*100-Math.round(value*100))>0.00001){setError('Informe um saldo inicial válido.');return;}
     const occurredAt=new Date(`${openingDate}T12:00:00`).toISOString();
@@ -98,6 +102,33 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       setSuccess('Saldo inicial registrado de forma auditável.');
     }catch(err:any){setError(err?.message||'Não foi possível registrar o saldo inicial.');}
     finally{setOpeningSaving(false);}
+  };
+  const voidManual = async (operation: WalletAccountOperation) => {
+    if (saving || voidingId) return;
+    const confirmation = window.confirm(
+      'Excluir o lançamento "' + operation.description + '" (' + formatMoney(Number(operation.amount)) +
+      ')? O valor será devolvido ou debitado da conta automaticamente. A trilha de auditoria será preservada.',
+    );
+    if (!confirmation) return;
+    setVoidingId(operation.id);
+    setError(''); setSuccess('');
+    try {
+      await personalWalletService.voidManualAccountOperation(operation.id);
+      await onSaved();
+      setSuccess('Lançamento excluído do extrato e saldo corrigido. Histórico de auditoria preservado.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível excluir o lançamento.');
+    } finally {
+      setVoidingId(null);
+    }
+  };
+  const canVoid = (entryId: string) => {
+    const operation = operations.find(item => item.id === entryId);
+    if (!operation || operation.voided_at || operation.voids_operation_id) return null;
+    if (!['EXPENSE','INCOME','RECEIPT'].includes(operation.operation_type)) return null;
+    if (operation.contract_id || operation.installment_id || operation.charge_id) return null;
+    if (['Saldo inicial','Ajuste de Saldo','Estorno de lançamento'].includes(operation.category)) return null;
+    return operation;
   };
   const exportCsv=()=>{
     const records=[['Data','Movimentação','Categoria','Valor BRL'],...filtered.map(x=>[fmtDate(x.date),x.label,x.category,x.amount.toFixed(2)])];
@@ -116,7 +147,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       </div>
       {canInitializeOpening&&<form onSubmit={submitOpening} className="mb-4 grid gap-3 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-4 sm:grid-cols-3">
         <div className="sm:col-span-3"><h3 className="text-sm font-bold text-cyan-100">Saldo inicial auditável</h3><p className="text-xs text-cyan-300/80">Disponível somente antes da primeira movimentação e sem alterar saldos existentes automaticamente.</p></div>
-        <label className="text-xs text-slate-300">Valor (R$)<input required inputMode="decimal" className={input} value={openingAmount} onChange={e=>setOpeningAmount(e.target.value)} placeholder="0,00"/></label>
+        <label className="text-xs text-slate-300">Valor (R$)<FinancialCalculatorInput required className={input} value={openingAmount} onCommit={setOpeningAmount} fieldLabel="saldo inicial" placeholder="0,00"/></label>
         <label className="text-xs text-slate-300">Data<input required type="date" max={localToday()} className={input} value={openingDate} onChange={e=>setOpeningDate(e.target.value)}/></label>
         <button type="submit" disabled={openingSaving} className="self-end rounded-lg bg-cyan-700 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">{openingSaving?'Registrando...':'Registrar saldo inicial'}</button>
       </form>}
@@ -142,7 +173,7 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
         {action==='RECEIPT' && <p className="text-xs text-slate-400">Registra o recebimento informado. Não solicita dinheiro nem gera cobrança PIX.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-xs text-slate-300">Valor (R$)
-            <input required className={input} inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0,00"/>
+            <FinancialCalculatorInput required className={input} value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" placeholder="0,00"/>
           </label>
           <label className="text-xs text-slate-300">Data
             <input required className={input} type="date" max={localToday()} value={date} onChange={e=>setDate(e.target.value)}/>
@@ -185,7 +216,15 @@ export const AccountActivityPanel: React.FC<Props> = ({account,accounts,operatio
       <div className="divide-y divide-slate-800">{filtered.map(m=>(
         <div key={m.id} className="flex items-center justify-between gap-3 py-3">
           <div className="min-w-0"><p className="truncate text-xs font-semibold text-white">{m.label}</p><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${tagClass(m.tag)}`}>{m.tag}</span><span className="text-[11px] text-slate-400">{fmtDate(m.date)} · {m.category}</span></div></div>
-          <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <strong className={`text-sm ${m.amount>=0?'text-emerald-300':'text-rose-300'}`}>{m.amount>=0?'+':'−'}{formatMoney(Math.abs(m.amount))}</strong>
+            {canVoid(m.id) && <button type="button" disabled={!!voidingId || saving}
+              onClick={() => { const operation=canVoid(m.id); if(operation) void voidManual(operation); }}
+              aria-label={'Excluir lançamento ' + m.label}
+              className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-[11px] text-rose-300 hover:bg-rose-950/40 disabled:opacity-40">
+              <Trash2 size={13}/>{voidingId===m.id?'Excluindo...':'Excluir'}
+            </button>}
+          </div>
         </div>
       ))}</div>}
     </div>

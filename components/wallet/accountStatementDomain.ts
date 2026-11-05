@@ -18,6 +18,8 @@ type OperationLike = {
   charge_id?: string | null;
   contract_id?: string | null;
   installment_id?: string | null;
+  voided_at?: string | null;
+  voids_operation_id?: string | null;
 };
 type ExpenseLike = {
   id: string; account_id?: string | null; status: string;
@@ -44,7 +46,8 @@ export function buildAccountStatementEntries(input: {
     input.operations.map(operation => operation.request_id).filter(Boolean),
   );
   const operationEntries = input.operations
-    .filter(operation => operation.from_account_id === input.accountId || operation.to_account_id === input.accountId)
+    .filter(operation => !operation.voided_at && !operation.voids_operation_id &&
+      (operation.from_account_id === input.accountId || operation.to_account_id === input.accountId))
     .map(operation => {
       const incoming = operation.to_account_id === input.accountId;
       const otherId = incoming ? operation.from_account_id : operation.to_account_id;

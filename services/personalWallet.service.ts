@@ -179,6 +179,8 @@ export type WalletAccountOperation = {
   charge_id?: string|null;
   contract_id?: string|null;
   installment_id?: string|null;
+  voided_at?: string|null;
+  voids_operation_id?: string|null;
   created_at: string;
 };
 export type WalletStatementRow = {
@@ -472,6 +474,18 @@ export const personalWalletService = {
       p_request_id: input.requestId,
     });
     if (error) throw new Error(error.message);
+    return String(data);
+  },
+
+  async voidManualAccountOperation(operationId: string): Promise<string> {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(operationId)) {
+      throw new Error('Selecione um lançamento válido.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_void_manual_operation', {
+      p_operation_id: operationId,
+    });
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error('O banco não confirmou o estorno.');
     return String(data);
   },
 

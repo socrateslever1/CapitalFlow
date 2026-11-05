@@ -141,6 +141,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const requestIdRef = useRef<string>(generateUUID());
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const resetIdempotencyKey = () => {
     requestIdRef.current = generateUUID();
@@ -262,6 +263,20 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  const insertAmountOperator = (operator: string) => {
+    const input = amountInputRef.current;
+    const start = input?.selectionStart ?? amountFormatted.length;
+    const end = input?.selectionEnd ?? start;
+    const next = amountFormatted.slice(0, start) + operator + amountFormatted.slice(end);
+    resetIdempotencyKey();
+    setAmountFormatted(next);
+    setError('');
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(start + operator.length, start + operator.length);
+    });
   };
 
   const fieldClass =
@@ -401,6 +416,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
               <div className="mt-1.5 flex items-baseline gap-2">
                 <span className="text-xl font-black text-slate-400">R$</span>
                 <input
+                  ref={amountInputRef}
                   type="text"
                   inputMode="decimal"
                   required
@@ -411,15 +427,31 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     setAmountFormatted(e.target.value);
                   }}
                   onBlur={() => {
+                    if (!amountFormatted.trim()) return;
                     try {
                       setAmountFormatted(formatWalletMoneyInput(amountFormatted));
-                    } catch {
-                      /* mantém entrada para correção */
+                      setError('');
+                    } catch (cause) {
+                      setError(cause instanceof Error ? cause.message : 'Corrija o cálculo do valor.');
                     }
                   }}
                   placeholder="0,00"
                   className="w-full bg-transparent text-3xl font-bold tracking-tight text-white outline-none placeholder:text-slate-700"
                 />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2" aria-label="Operadores da calculadora">
+                {['+', '-', '×', '÷', '%', '(', ')'].map((operator) => (
+                  <button
+                    key={operator}
+                    type="button"
+                    aria-label={'Inserir ' + operator}
+                    onPointerDown={(event) => event.preventDefault()}
+                    onClick={() => insertAmountOperator(operator)}
+                    className="min-h-10 min-w-10 rounded-lg border border-slate-700 bg-slate-800 px-3 text-base font-semibold text-white active:bg-blue-700"
+                  >
+                    {operator}
+                  </button>
+                ))}
               </div>
             </label>
           </div>

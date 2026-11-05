@@ -1,25 +1,136 @@
-/** Parse pt-BR monetary input without accidental integer coercion or rounding. */
-export function parseWalletMoney(raw: string, field = 'valor'): number {
-  const value = String(raw ?? '').trim().replace(/\s/g, '');
-  const brGrouped = /^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/;
-  const brSimple = /^\d+(?:,\d{1,2})?$/;
-  const dotDecimal = /^\d+(?:\.\d{1,2})?$/;
-  if (!brGrouped.test(value) && !brSimple.test(value) && !dotDecimal.test(value)) {
-    throw new Error(`Informe ${field} válido, com até duas casas decimais.`);
+/**
+ * Calculadora monetária pt-BR, sem eval ou execução dinâmica.
+ * Aritmética intermediária fixa em 8 casas e arredondamento apenas no resultado.
+ */
+const SCALE = 100_000_000n;
+const CENT = 1_000_000n;
+const MAX_CENTS = 999_999_999_999n;
+const MAX_INTERMEDIATE = 100_000_000_000_000n * SCALE;
+type Operator = '+' | '-' | '*' | '/' | '(' | ')' | '%';
+type Token = { kind: 'number'; value: bigint } | { kind: Operator };
+type EvalValue = { value: bigint; percent: boolean };
+
+function invalid(field: string): never {
+  throw new Error('Informe ' + field + ' válido. Use números e operações como 700+4,99%.');
+}
+function bounded(value: bigint, field: string): bigint {
+  if (value > MAX_INTERMEDIATE || value < -MAX_INTERMEDIATE) {
+    throw new Error('Informe ' + field + ' dentro do limite permitido.');
   }
-  const normalized = brGrouped.test(value) || value.includes(',')
-    ? value.replace(/\./g, '').replace(',', '.')
-    : value;
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 9999999999.99) {
-    throw new Error(`Informe ${field} dentro do limite permitido.`);
+  return value;
+}
+function decimalToFixed(raw: string, field: string, isPercent: boolean): bigint {
+  const maxFraction = isPercent ? 8 : 2;
+  const grouped = /^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(raw);
+  const br = new RegExp('^\\d+(?:,\\d{1,' + maxFraction + '})?$').test(raw);
+  const dot = new RegExp('^\\d+(?:\\.\\d{1,' + maxFraction + '})?$').test(raw);
+  if (!grouped && !br && !dot) invalid(field);
+  const normalized = grouped || raw.includes(',')
+    ? raw.replace(/\./g, '').replace(',', '.') : raw;
+  const parts = normalized.split('.');
+  return bounded(BigInt(parts[0]) * SCALE + BigInt((parts[1] || '').padEnd(8, '0') || '0'), field);
+}
+function tokenize(input: string, field: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+  while (i < input.length) {
+    if (/\s/.test(input[i])) { i++; continue; }
+    const char = input[i];
+    if ('+-*/()%×÷'.includes(char)) {
+      tokens.push({ kind: char === '×' ? '*' : char === '÷' ? '/' : char as Operator });
+      i++;
+      continue;
+    }
+    if (/\d/.test(char)) {
+      const start = i;
+      while (i < input.length && /[\d.,]/.test(input[i])) i++;
+      tokens.push({ kind: 'number', value: decimalToFixed(input.slice(start, i), field, input[i] === '%') });
+      continue;
+    }
+    invalid(field);
   }
-  return Math.round(parsed * 100) / 100;
+  if (tokens.length > 128) invalid(field);
+  return tokens;
+}
+function calculate(input: string, field: string): bigint {
+  const tokens = tokenize(input, field);
+  let pos = 0;
+  let depth = 0;
+  const peek = () => tokens[pos]?.kind;
+  const consume = () => tokens[pos++];
+
+  const primary = (): EvalValue => {
+    if (++depth > 32) invalid(field);
+    try {
+      let result: EvalValue;
+      const kind = peek();
+      if (kind === '+' || kind === '-') {
+        consume();
+        const next = primary();
+        result = { value: kind === '-' ? -next.value : next.value, percent: next.percent };
+      } else if (kind === '(') {
+        consume();
+        result = expression();
+        if (peek() !== ')') invalid(field);
+        consume();
+      } else if (kind === 'number') {
+        const token = consume();
+        result = { value: (token as Extract<Token, { kind: 'number' }>).value, percent: false };
+      } else {
+        invalid(field);
+      }
+      if (peek() === '%') {
+        consume();
+        result = { value: result.value / 100n, percent: true };
+      }
+      return result;
+    } finally { depth--; }
+  };
+  const term = (): EvalValue => {
+    let left = primary();
+    while (peek() === '*' || peek() === '/') {
+      const op = consume().kind;
+      const right = primary();
+      if (op === '/' && right.value === 0n) throw new Error('Não é possível dividir por zero.');
+      left = {
+        value: bounded(op === '*' ? (left.value * right.value) / SCALE : (left.value * SCALE) / right.value, field),
+        percent: false,
+      };
+    }
+    return left;
+  };
+  const expression = (): EvalValue => {
+    let left = term();
+    while (peek() === '+' || peek() === '-') {
+      const op = consume().kind;
+      const right = term();
+      const adjustment = right.percent ? (left.value * right.value) / SCALE : right.value;
+      left = { value: bounded(op === '+' ? left.value + adjustment : left.value - adjustment, field), percent: false };
+    }
+    return left;
+  };
+
+  if (!tokens.length) invalid(field);
+  const result = expression();
+  if (pos !== tokens.length) invalid(field);
+  return result.value;
 }
 
-/** Normalizes a valid monetary field for display while preserving an empty draft. */
+/** Interpreta quantias e expressões; mantém as validações de domínio existentes. */
+export function parseWalletMoney(raw: string, field = 'valor'): number {
+  const value = String(raw ?? '').trim();
+  if (!value || value.length > 256) invalid(field);
+  const fixed = calculate(value, field);
+  if (fixed < 0n) throw new Error('Informe ' + field + ' maior ou igual a zero.');
+  const cents = (fixed + CENT / 2n) / CENT;
+  if (cents > MAX_CENTS) throw new Error('Informe ' + field + ' dentro do limite permitido.');
+  return Number(cents) / 100;
+}
+
+/** Conclui o cálculo no blur sem introduzir zero em entradas vazias. */
 export function formatWalletMoneyInput(raw: string): string {
   if (String(raw ?? '').trim() === '') return '';
-  const value = parseWalletMoney(raw);
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return parseWalletMoney(raw).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
 }

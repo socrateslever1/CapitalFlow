@@ -26,6 +26,7 @@ import { calculateBalanceAdjustment, resolveQuickDateShortcuts } from '../../fea
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { generateUUID } from '../../utils/generators';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
+import { buildWalletBalanceFacts } from './walletBalanceDomain';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -93,6 +94,14 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
   const loanLimitAvailable = account.bank_details?.has_loans && account.bank_details?.loan_balance !== undefined
     ? Number(account.bank_details.loan_balance)
     : null;
+
+  const accountBalanceFacts = useMemo(
+    () => buildWalletBalanceFacts({
+      effectiveBalance: Number(account.balance || 0),
+      reconciledBalance: Number(account.balance || 0),
+    }),
+    [account.balance],
+  );
 
   useEffect(() => () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -295,6 +304,9 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
                 Limite de empréstimo disponível: {formatMoney(loanLimitAvailable)}
               </span>
             )}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
+              Fato: {accountBalanceFacts.effective.state} ({accountBalanceFacts.effective.origin})
+            </span>
           </div>
         )}
         {!editing && <div className="mt-3 flex flex-col gap-2 border-t border-slate-800 pt-3">

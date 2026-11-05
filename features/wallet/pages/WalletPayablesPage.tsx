@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ClipboardList, Plus, Repeat } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarClock, ClipboardList, Plus, Repeat } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { WalletPayablesPanel } from '../../../components/wallet/WalletPayablesPanel';
@@ -9,6 +9,8 @@ import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
+import { formatMoney } from '../../../utils/formatters';
+import { buildWalletTimeline } from '../domain/walletTimeline';
 
 export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -22,6 +24,19 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
     description: '', creditor_name: '', creditor_type: 'COMPANY' as 'COMPANY' | 'PERSON',
     category: 'Despesas', total_amount: '', due_date: '', origin: '',
   });
+
+  const timelineEvents = useMemo(() => {
+    if (!data) return [];
+    return buildWalletTimeline({
+      referenceDate: new Date().toLocaleDateString('en-CA'),
+      operations: data.accountOperations || [],
+      expenses: data.expenses || [],
+      installments: data.installments || [],
+      payables: data.payables || [],
+      invoicePayments: data.invoicePayments || [],
+      limit: 15,
+    });
+  }, [data]);
   useEffect(() => {
     if (searchParams.get('acao') !== 'novo-compromisso') return;
     setCreateChooserOpen(true);
@@ -78,6 +93,60 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
             onSaved={async () => { await refresh(); }} />
         </div>
       </div>
+      {timelineEvents.length > 0 && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarClock size={18} className="text-blue-400" />
+              <h3 className="text-sm font-semibold text-white">Linha do Tempo de Compromissos e Eventos</h3>
+            </div>
+            <span className="text-xs text-slate-400">{timelineEvents.length} eventos cronológicos</span>
+          </div>
+          <div className="divide-y divide-slate-800/80">
+            {timelineEvents.map(event => (
+              <div key={event.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 rounded-md bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-300">
+                    {event.date}
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-100">{event.label}</span>
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-800 text-slate-300">
+                        {event.kind === 'PAYABLE' ? 'Conta a Pagar' :
+                         event.kind === 'INSTALLMENT' ? 'Parcela' :
+                         event.kind === 'INVOICE_PAYMENT' ? 'Fatura' :
+                         event.kind === 'TRANSFER' ? 'Transferência' : 'Operação'}
+                      </span>
+                    </div>
+                    {(event.installmentNumber || event.dueMonth) && (
+                      <p className="text-xs text-slate-400">
+                        {event.installmentNumber ? `Parcela ${event.installmentNumber}` : ''}
+                        {event.installmentNumber && event.dueMonth ? ' · ' : ''}
+                        {event.dueMonth ? `Ciclo ${event.dueMonth}` : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <span className={`text-xs font-medium ${
+                    event.status === 'PAID' ? 'text-emerald-400' :
+                    event.status === 'OVERDUE' ? 'text-rose-400' :
+                    event.status === 'SCHEDULED' ? 'text-sky-300' : 'text-amber-300'
+                  }`}>
+                    {event.status === 'PAID' ? 'Pago' :
+                     event.status === 'OVERDUE' ? 'Atrasado' :
+                     event.status === 'SCHEDULED' ? 'Agendado' : 'Pendente'}
+                  </span>
+                  <span className="font-mono text-sm font-semibold text-white">
+                    {formatMoney(event.amount)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       {createChooserOpen && <Modal compact title="Novo compromisso" subtitle="Escolha o tipo de obrigação" icon={<ClipboardList size={17} />} onClose={() => setCreateChooserOpen(false)}>
         <div className="grid gap-3 sm:grid-cols-2">
           <button type="button" onClick={() => { setCreateChooserOpen(false); setCreating(true); }}

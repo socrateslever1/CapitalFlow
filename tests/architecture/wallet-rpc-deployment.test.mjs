@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const migration = readFileSync('supabase/migrations/20261104190000_restore_wallet_financial_rpcs_without_loan_regression.sql','utf8');
-const lower = migration.toLowerCase();
+const lower = migration.replace(/\r/g, '').toLowerCase();
 
 test('instala exatamente as três RPCs ausentes', () => {
   for (const fn of [

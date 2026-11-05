@@ -16,6 +16,7 @@ import { walletRepository, type WalletOverviewSnapshot } from '../services/walle
 import { WalletOverviewSummary } from '../components/WalletOverviewSummary';
 import { WalletSpendingGuide } from '../components/WalletSpendingGuide';
 import { getWalletSpendingOverview } from '../domain/walletSpendingInsights';
+import { buildWalletTimeline, type WalletTimelineEvent } from '../domain/walletTimeline';
 import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
 import { CreateAccountModal } from '../components/CreateAccountModal';
 
@@ -139,10 +140,20 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   const weekLimit = dayKey(weekEnd);
   const dueSoonCount = allUpcoming.filter(item => item.dueDate >= today && item.dueDate <= weekLimit).length;
   const upcoming = allUpcoming.slice(0, 8);
+  const timelineEvents = buildWalletTimeline({
+    referenceDate: today,
+    operations: [],
+    expenses: snapshot.expenses,
+    installments: snapshot.installments,
+    payables: snapshot.payables,
+    invoicePayments: snapshot.invoicePayments,
+    limit: 8,
+  });
 
   return {
     accounts, cards, accountBalance, institutionCount: institutionKeys.size,
     credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, dueSoonCount,
+    timelineEvents,
   };
 };
 
@@ -278,6 +289,29 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
               <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Faturas com vencimento no mês</dt><dd className="font-semibold text-white">{money(balance.openCardInvoices)}</dd></div>
               <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Dívidas e contas do mês</dt><dd className="font-semibold text-white">{money(balance.monthPayables)}</dd></div>
             </dl>
+          </div>
+          <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-12">
+            <p className="text-[11px] font-semibold text-slate-300">Auditoria dos fatos do balanço (WalletBalanceFacts):</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3 text-xs">
+              <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Efetivo</span>
+                <strong className="text-sm font-bold text-emerald-300">{money(balance.facts.effective.amount ?? balance.accountBalance)}</strong>
+                <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.effective.state} · {balance.facts.effective.origin}</span>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Projetado</span>
+                <strong className={`text-sm font-bold ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}>{money(balance.facts.projected.amount ?? balance.projectedBalance)}</strong>
+                <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.projected.state} · {balance.facts.projected.origin}</span>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
+                <span className="block text-[10px] uppercase tracking-wide text-slate-400">Receitas Pendentes</span>
+                <strong className="text-sm font-bold text-cyan-300">{money(balance.facts.pending.amount ?? balance.pendingRecurringIncome)}</strong>
+                <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.pending.state} · {balance.facts.pending.origin}</span>
+              </div>
+            </div>
+            <p className="mt-2 text-[10px] text-slate-400">
+              Origem canônica auditada. Projeções e limites não substituem nem alteram o saldo contábil efetivo.
+            </p>
           </div>
         </div>
       </details>

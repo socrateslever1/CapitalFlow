@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight, Plus, QrCode, Wallet } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
@@ -11,6 +11,7 @@ import { AccountMovementModal } from '../../../components/wallet/AccountMovement
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
 import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
+import { buildWalletBalanceFacts } from '../../../components/wallet/walletBalanceDomain';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,6 +37,17 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const totalBalance = data?.accounts.reduce((total, account) => total + Number(account.balance || 0), 0) || 0;
   const hasPixAccount = Boolean(data?.accounts.some(account => account.pix_key?.trim()));
 
+  const balanceFacts = useMemo(() => {
+    if (!data?.accounts) return null;
+    const effective = data.accounts.reduce((total, account) => total + Number(account.balance || 0), 0);
+    const imported = (data.statementRows || []).reduce((total, row) => total + Number(row.amount || 0), 0);
+    return buildWalletBalanceFacts({
+      effectiveBalance: effective,
+      reconciledBalance: effective,
+      importedBalance: data.statementRows?.length ? imported : null,
+    });
+  }, [data]);
+
   return <WalletPageFrame title="Contas e PIX" description="Consulte os saldos e organize os movimentos de cada instituição."
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
@@ -50,6 +62,17 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           <strong className={`mt-2 block break-words text-2xl font-bold tabular-nums tracking-tight ${totalBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
             {formatMoney(totalBalance)}
           </strong>
+          {balanceFacts && (
+            <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-xs">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">Origem:</span>
+                <span className="font-semibold text-emerald-300">{balanceFacts.effective.state} · {balanceFacts.effective.origin}</span>
+              </div>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Saldo contábil efetivo reconciliado por instituição.
+              </p>
+            </div>
+          )}
           <p className="mt-1.5 text-xs sm:text-sm text-slate-300">
             {data.accounts.length} {data.accounts.length === 1 ? 'conta registrada' : 'contas registradas'}
           </p>

@@ -38,7 +38,9 @@ test('editor permite várias seleções e preserva confirmação explícita', ()
   assert.match(ui,/type="checkbox"/);
   assert.match(ui,/selectedKeys\.length/);
   assert.match(ui,/capital_source_replace_wallet_origins/);
-  assert.match(ui,/Salvar origens/);
+  assert.match(ui,/Salvar alterações/);
+  assert.doesNotMatch(ui,/Informar valor/);
+  assert.match(ui,/persistedRows/);
   assert.match(ui,/can_manage_capital_source_wallet_origins/);
   assert.match(ui,/allocated_amount/);
   assert.doesNotMatch(ui,/\.from\('fontes'\)\.update/);

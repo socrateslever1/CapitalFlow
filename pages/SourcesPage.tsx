@@ -43,6 +43,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   const [logoUrlInput, setLogoUrlInput] = useState('');
   const [logoUrlError, setLogoUrlError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const saveOriginsRef = useRef<(() => Promise<boolean>) | null>(null);
   const [sourceReferences, setSourceReferences] = useState<Record<string, SourceReferenceDisplay>>({});
   const [sourceReferenceError, setSourceReferenceError] = useState(false);
   const walletOwnerId: string = activeUser?.id || '';
@@ -189,10 +190,20 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   };
 
   const saveSourceEdit = async () => {
-    if (isSavingEdit) return;
+    if (isSavingEdit || !ui.editingSource) return;
     setIsSavingEdit(true);
     try {
-      await handleUpdateSourceBalance();
+      // A confirmação no banco é obrigatória antes de fechar a edição.
+      if (saveOriginsRef.current && !(await saveOriginsRef.current())) return;
+
+      const previous = sources.find(source => source.id === ui.editingSource.id);
+      const balanceChanged = previous && Number(previous.balance) !== Number(ui.editingSource.balance);
+      const logoChanged = previous && String(previous.logo_url ?? '') !== String(ui.editingSource.logo_url ?? '');
+      if (balanceChanged || logoChanged) {
+        await handleUpdateSourceBalance();
+      } else {
+        ui.setEditingSource(null);
+      }
     } finally {
       setIsSavingEdit(false);
     }
@@ -279,6 +290,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
               sources={[ui.editingSource]}
               activeUser={activeUser}
               onEditManual={handleEditSource}
+              saveRef={saveOriginsRef}
             />
 
             <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-3">

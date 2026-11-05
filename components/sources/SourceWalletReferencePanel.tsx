@@ -4,7 +4,6 @@ import type { CapitalSource } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
-import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import {
   encodeWalletReference,
   getSourceWalletAvailability,
@@ -14,15 +13,16 @@ import {
 } from '../../domain/sources/sourceWalletReference';
 
 type Props = {
+  saveRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
   sources: CapitalSource[];
   activeUser?: { id: string; supervisor_id?: string | null } | null;
   onEditManual: (source: CapitalSource) => void;
 };
-type DraftOrigin = { selected: boolean; amount: string };
+type DraftOrigin = { selected: boolean };
 type Snapshot = { accounts: WalletResource[]; cards: WalletResource[] };
 type OriginRow = WalletReference & { allocated_amount?: number | null };
 
-export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUser, onEditManual }) => {
+export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUser, onEditManual, saveRef }) => {
   const source = sources[0] ?? null;
   const sourceId = source?.id ?? '';
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -58,12 +58,7 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
       const rows = (result.data || []) as OriginRow[];
       const next: Record<string, DraftOrigin> = {};
       for (const row of rows) {
-        next[encodeWalletReference(row.target_kind, row.target_id)] = {
-          selected: true,
-          amount: row.allocated_amount == null
-            ? ''
-            : Number(row.allocated_amount).toFixed(2).replace('.', ','),
-        };
+        next[encodeWalletReference(row.target_kind, row.target_id)] = { selected: true };
       }
       setAllowed(true);
       setSnapshot({ accounts: wallet.accounts, cards: wallet.cards });
@@ -98,55 +93,44 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
 
   const availableKeys = new Set(resources.map(r => encodeWalletReference(r.kind, r.id)));
   const selectedKeys = Object.keys(draft).filter(key => draft[key].selected);
-  const hasChanges = (() => {
-    if (saved.length !== selectedKeys.length) return true;
-    return selectedKeys.some(key => {
-      const existing = saved.find(item => encodeWalletReference(item.target_kind, item.target_id) === key);
-      if (!existing) return true;
-      const raw = draft[key]?.amount.trim() ?? '';
-      if (!raw) return existing.allocated_amount != null;
-      try {
-        return parseWalletMoney(raw, 'o valor de referência') !== Number(existing.allocated_amount);
-      } catch { return true; }
-    });
-  })();
+  const hasChanges = saved.length !== selectedKeys.length ||
+    selectedKeys.some(key => !saved.some(row => encodeWalletReference(row.target_kind, row.target_id) === key)) ||
+    saved.some(row => row.allocated_amount != null);
 
   const updateDraft = (key: string, patch: Partial<DraftOrigin>) => {
     setMessage('');
     setError('');
     setDraft(previous => ({
       ...previous,
-      [key]: { selected: previous[key]?.selected ?? false, amount: previous[key]?.amount ?? '', ...patch },
+      [key]: { selected: previous[key]?.selected ?? false, ...patch },
     }));
   };
 
-  const save = async () => {
-    if (!source || !allowed || loading || saving || !snapshot) return;
+  const save = async (): Promise<boolean> => {
+    if (!source || !allowed || loading || saving || !snapshot) {
+      setError('Aguarde o carregamento das origens antes de salvar.');
+      return false;
+    }
+    if (!hasChanges) return true;
     setError('');
     setMessage('');
-    const origins: Array<{ target_kind: WalletReferenceKind; target_id: string; allocated_amount: number | null }> = [];
+    const origins: Array<{ target_kind: WalletReferenceKind; target_id: string; allocated_amount: null }> = [];
     try {
       if (selectedKeys.length > 32) throw new Error('Selecione no máximo 32 origens.');
       for (const key of selectedKeys) {
         if (!availableKeys.has(key)) throw new Error('Remova o recurso indisponível antes de salvar.');
         const resource = resources.find(item => encodeWalletReference(item.kind, item.id) === key);
         if (!resource) throw new Error('Recurso indisponível.');
-        const raw = draft[key]?.amount.trim() ?? '';
-        const amount = raw === '' ? null : parseWalletMoney(raw, 'o valor de referência');
         origins.push({
           target_kind: resource.kind,
           target_id: resource.id,
-          allocated_amount: amount,
+          allocated_amount: null,
         });
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Confira os valores informados.');
-      return;
+      return false;
     }
-
-    if (!window.confirm(
-      'Salvar ' + origins.length + ' origem(ns) para esta fonte? Os valores informados são referências, sem alterar saldos, limites ou contratos.',
-    )) return;
 
     setSaving(true);
     try {
@@ -155,17 +139,41 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
         p_origins: origins,
       });
       if (result.error || result.data !== true) throw result.error || new Error('Confirmação não recebida.');
+      // Uma RPC sem erro não é prova de persistência: releia exatamente a fonte.
+      const persisted = await supabase.from('capital_source_wallet_references')
+        .select('source_id,target_kind,target_id,allocated_amount')
+        .eq('source_id', source.id);
+      if (persisted.error) throw persisted.error;
+      const persistedRows = (persisted.data || []) as OriginRow[];
+      const persistedKeys = persistedRows.map(row => encodeWalletReference(row.target_kind, row.target_id)).sort();
+      const requestedKeys = origins.map(row => encodeWalletReference(row.target_kind, row.target_id)).sort();
+      if (persistedKeys.length !== requestedKeys.length ||
+          persistedKeys.some((key, index) => key !== requestedKeys[index])) {
+        throw new Error('O banco não confirmou as origens selecionadas.');
+      }
+      const nextDraft: Record<string, DraftOrigin> = {};
+      for (const row of persistedRows) {
+        nextDraft[encodeWalletReference(row.target_kind, row.target_id)] = { selected: true };
+      }
+      setSaved(persistedRows);
+      setDraft(nextDraft);
       window.dispatchEvent(new CustomEvent('capitalflow:source-origins-updated', {
         detail: { sourceId: source.id },
       }));
-      setMessage('Origens salvas com sucesso.');
-      await load(() => true);
-    } catch {
-      setError('Não foi possível salvar as origens. Confirme as permissões e tente novamente.');
+      setMessage('Origens confirmadas e salvas.');
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar as origens.');
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  React.useEffect(() => {
+    if (saveRef) saveRef.current = save;
+    return () => { if (saveRef) saveRef.current = null; };
+  }, [saveRef, save]);
 
   if (!source || (!allowed && !loading && !error)) return null;
 
@@ -177,8 +185,8 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
             <Link2 size={16} className="text-blue-400" /> Origem dos recursos
           </h2>
           <p className="mt-1 text-xs text-slate-400">
-            Selecione uma ou mais contas e cartões. Defina um valor para cada origem,
-            se desejar. O saldo desta fonte continua independente.
+            Selecione contas e cartões. O sistema utiliza o saldo total ou crédito disponível
+            de cada recurso, sem alterar o saldo operacional da fonte.
           </p>
         </div>
         <button type="button" aria-label="Atualizar recursos"
@@ -217,18 +225,7 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
                   <p className="ml-8 text-xs text-slate-400">
                     {availability.label}: {availability.amount == null ? 'Não disponível' : formatMoney(availability.amount)}
                   </p>
-                  {selected && (
-                    <label className="ml-8 mt-2 block text-xs text-slate-300">
-                      Valor associado (R$) · opcional
-                      <input type="text" inputMode="decimal"
-                        value={draft[key]?.amount ?? ''}
-                        disabled={saving}
-                        placeholder="Informar valor"
-                        aria-label={'Valor associado a ' + resource.nickname}
-                        onChange={event => updateDraft(key, { amount: event.target.value })}
-                        className="mt-1 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white outline-none focus:border-blue-500" />
-                    </label>
-                  )}
+
                 </div>
               );
             })}
@@ -244,14 +241,9 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
             {resources.length === 0 && saved.length === 0 &&
               <p className="text-xs text-slate-400">Nenhuma conta ou cartão elegível cadastrado na Minha Carteira.</p>}
           </div>
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <p className="text-xs text-slate-400">{selectedKeys.length} origem(ns) selecionada(s)</p>
-            <button type="button" onClick={() => { void save(); }}
-              disabled={saving || !hasChanges}
-              className="min-h-11 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white disabled:opacity-40">
-              {saving ? 'Salvando…' : 'Salvar origens'}
-            </button>
-          </div>
+          <p className="mt-3 text-xs text-slate-300">
+            {selectedKeys.length} origem(ns) selecionada(s). Confirme em <strong>Salvar alterações</strong>.
+          </p>
           <div className="mt-2 flex items-start gap-2 text-xs text-slate-400">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <p>Associação informativa. Não transfere dinheiro, não debita cartões e não altera contratos.</p>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import PixDepositModal from "../components/modals/PixDepositModal";
 import { CapitalSource, Loan } from "../types";
 import { Plus, Wallet, Upload, Image as ImageIcon, Link2 } from 'lucide-react';
@@ -10,6 +10,10 @@ import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SourceWalletReferencePanel } from '../components/sources/SourceWalletReferencePanel';
+import { supabase } from '../lib/supabase';
+import { personalWalletService } from '../services/personalWallet.service';
+import { buildSourceReferenceDisplay, type SourceReferenceDisplay } from '../domain/sources/sourceReferenceDisplay';
+import type { WalletReference } from '../domain/sources/sourceWalletReference';
 
 interface SourcesPageProps {
   sources: CapitalSource[];
@@ -39,6 +43,57 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   const [logoUrlInput, setLogoUrlInput] = useState('');
   const [logoUrlError, setLogoUrlError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [sourceReferences, setSourceReferences] = useState<Record<string, SourceReferenceDisplay>>({});
+  const [sourceReferenceError, setSourceReferenceError] = useState(false);
+  const walletOwnerId: string = activeUser?.id || '';
+  const isPrimaryOwner = walletOwnerId !== '' && walletOwnerId !== 'DEMO' && !activeUser?.supervisor_id;
+
+  const refreshSourceReferences = useCallback(async (isActive: () => boolean) => {
+    if (!isPrimaryOwner) {
+      if (isActive()) { setSourceReferences({}); setSourceReferenceError(false); }
+      return;
+    }
+    try {
+      const permission = await supabase.rpc('can_manage_capital_source_wallet_origins');
+      if (permission.error) throw permission.error;
+      if (permission.data !== true) {
+        if (isActive()) { setSourceReferences({}); setSourceReferenceError(false); }
+        return;
+      }
+      const [wallet, rows] = await Promise.all([
+        personalWalletService.loadOverview(),
+        supabase.from('capital_source_wallet_references')
+          .select('source_id,target_kind,target_id,allocated_amount'),
+      ]);
+      if (rows.error) throw rows.error;
+      const refs = (rows.data || []) as WalletReference[];
+      const next: Record<string, SourceReferenceDisplay> = {};
+      for (const ref of refs) {
+        const sourceRefs = refs.filter(item => item.source_id === ref.source_id);
+        if (next[ref.source_id]) continue;
+        const display = buildSourceReferenceDisplay(sourceRefs, wallet.accounts, wallet.cards);
+        if (display) next[ref.source_id] = display;
+      }
+      if (isActive()) { setSourceReferences(next); setSourceReferenceError(false); }
+    } catch {
+      if (isActive()) {
+        setSourceReferenceError(true);
+      }
+    }
+  }, [isPrimaryOwner, walletOwnerId]);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => { void refreshSourceReferences(() => active); };
+    refresh();
+    window.addEventListener('capitalflow:source-origins-updated', refresh);
+    window.addEventListener('capitalflow:wallet-updated', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('capitalflow:source-origins-updated', refresh);
+      window.removeEventListener('capitalflow:wallet-updated', refresh);
+    };
+  }, [refreshSourceReferences]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +213,12 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         </button>}
       />
 
+      {sourceReferenceError && isPrimaryOwner && (
+        <p role="alert" className="text-xs text-amber-300">
+          Não foi possível atualizar os valores associados da Minha Carteira.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {sources.map(source => (
           <SourceCard
@@ -168,6 +229,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
             onEdit={handleEditSource}
             onDelete={(id) => openConfirmation({ type: 'DELETE_SOURCE', target: id })}
             isStealthMode={isStealthMode}
+            referenceDisplay={sourceReferences[source.id] ?? null}
           />
         ))}
       </div>

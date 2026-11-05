@@ -155,6 +155,9 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
         p_origins: origins,
       });
       if (result.error || result.data !== true) throw result.error || new Error('Confirmação não recebida.');
+      window.dispatchEvent(new CustomEvent('capitalflow:source-origins-updated', {
+        detail: { sourceId: source.id },
+      }));
       setMessage('Origens salvas com sucesso.');
       await load(() => true);
     } catch {

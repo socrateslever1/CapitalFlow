@@ -6,6 +6,7 @@ import { Modal } from '../ui/Modal';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 import { resolveAuthenticatedStorageUrl } from '../../utils/storageUrl';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
+import type { SourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
 
 interface SourceCardProps {
     source: CapitalSource;
@@ -14,6 +15,7 @@ interface SourceCardProps {
     onAddFunds: (source: CapitalSource) => void;
     onDelete: (id: string) => void;
     isStealthMode?: boolean;
+    referenceDisplay?: SourceReferenceDisplay | null;
 }
 
 const getBankLogoUrl = (name: string): string | null => {
@@ -46,7 +48,7 @@ const getBankLogoUrl = (name: string): string | null => {
     return null;
 };
 
-export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onDelete, isStealthMode }) => {
+export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onDelete, isStealthMode, referenceDisplay }) => {
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [imgError, setImgError] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
@@ -141,7 +143,28 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     </div>
 
                     <div className="mt-auto">
-                        <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
+                        {referenceDisplay ? (
+                            <div className="mb-2 space-y-1.5" aria-label="Recursos associados">
+                                <p className="text-[10px] font-medium text-slate-300">Valor associado na Minha Carteira</p>
+                                <p className="text-base font-black text-blue-300">
+                                    {referenceDisplay.total === null ? 'Valor indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
+                                </p>
+                                {referenceDisplay.entries.map((entry, index) => (
+                                    <p key={entry.kind + ':' + entry.name + ':' + index} className="break-words text-[11px] text-slate-300">
+                                        {entry.kind === 'CARD' ? 'Cartão' : 'Conta'} · {entry.name}: {' '}
+                                        <span className="font-semibold text-white">
+                                            {entry.amount === null ? 'Indisponível' : formatMoney(entry.amount, isStealthMode)}
+                                        </span>
+                                        {entry.manuallyAllocated ? ' (informado)' : ' (disponível)'}
+                                    </p>
+                                ))}
+                                <p className="text-[10px] text-slate-400">
+                                    Saldo operacional: {formatMoney(source.balance, isStealthMode)}
+                                </p>
+                            </div>
+                        ) : (
+                            <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); onAddFunds(source); }} className="w-full py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-500 rounded-lg text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 shadow-sm">
                             <PlusCircle size={10}/> Adicionar Saldo
                         </button>
@@ -167,6 +190,12 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                             <div>
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">{source.type === 'CARD' ? 'Crédito operacional informado' : 'Saldo atual'}</p>
                                 <p className={`text-xl font-black ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
+                                {referenceDisplay && (
+                                    <div className="mt-2">
+                                        <p className="text-[10px] font-semibold text-slate-400">Valor associado à Minha Carteira</p>
+                                        <p className="text-sm font-bold text-blue-300">{referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}</p>
+                                    </div>
+                                )}
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">Contratos Ativos</p>

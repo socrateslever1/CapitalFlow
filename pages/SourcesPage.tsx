@@ -9,6 +9,7 @@ import { filesService } from '../services/files.service';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
 import { PageHeader } from '../components/ui/PageHeader';
+import { SourceWalletReferencePanel } from '../components/sources/SourceWalletReferencePanel';
 
 interface SourcesPageProps {
   sources: CapitalSource[];
@@ -170,6 +171,12 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
           />
         ))}
       </div>
+
+      <SourceWalletReferencePanel
+        sources={sources}
+        activeUser={activeUser}
+        onEditManual={handleEditSource}
+      />
 
       {ui.editingSource && (
         <Modal

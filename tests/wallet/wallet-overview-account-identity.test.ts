@@ -28,7 +28,7 @@ test('contas CASH com IDs diferentes permanecem na liquidez e projeção', () =>
     { id: 'cash-2', account_type: 'CASH', nickname: 'Carteira', bank_name: '', balance: 100 },
   ];
   const snapshot = { accounts, cards: [], expenses: [], installments: [],
-    cardInvoiceDates: [], payables: [], recurringIncomes: [], recurringReceipts: [] };
+    cardInvoiceDates: [], invoicePayments: [], payables: [], recurringIncomes: [], recurringReceipts: [] };
   const overview = deriveOverview(snapshot, '2026-11-02');
   assert.deepEqual(overview.accounts.map((account: { id: string }) => account.id), ['cash-1', 'cash-2']);
   assert.equal(overview.accountBalance, 200);

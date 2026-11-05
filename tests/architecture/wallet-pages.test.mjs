@@ -76,13 +76,16 @@ test('wallet mobile navigation renders all five tabs without horizontal scrollin
  assert.match(module,/Minha <span/);
 });
 
-test('navegação de faturas usa apenas seletor responsivo e vencimento sincronizado', () => {
-  const cardPage = read('features/wallet/pages/WalletCardsPage.tsx');
-  assert.doesNotMatch(cardPage, /ChevronLeft|ChevronRight|aria-label="Fatura anterior"|aria-label="Próxima fatura"/);
-  assert.match(cardPage, /aria-label="Selecionar fatura por mês e vencimento"/);
-  assert.match(cardPage, /block w-full min-w-0 max-w-full/);
-  assert.match(cardPage, /resolveInvoiceMonthSelection\(/);
-  assert.match(cardPage, /dueMonth: statementMonth,/);
-  assert.match(cardPage, /getInvoiceCycleDates\(/);
-  assert.match(cardPage, /Melhor dia de compra:/);
+test('navegação de faturas apresenta linhas compactas e meses efetivamente registrados', () => {
+  const page = read('features/wallet/pages/WalletCardsPage.tsx');
+  assert.doesNotMatch(page, /ChevronLeft|ChevronRight|aria-label="Fatura anterior"|aria-label="Próxima fatura"/);
+  assert.match(page, /getVisibleInvoiceCycles\(/);
+  assert.match(page, /aria-label="Faturas registradas"/);
+  assert.match(page, /aria-pressed={active}/);
+  assert.match(page, /Fatura {competence}/);
+  assert.match(page, /Vence {due}/);
+  assert.match(page, /Adicionar fatura/);
+  assert.match(page, /resolveInvoiceMonthSelection\(/);
+  assert.match(page, /dueMonth: statementMonth,/);
+  assert.match(page, /getInvoiceCycleDates\(/);
 });

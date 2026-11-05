@@ -8,6 +8,7 @@ import {
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
 import {
   buildCardExpenseNotes,
   resolveCardInstallmentPlan,
@@ -48,14 +49,8 @@ const EXPENSE_CATEGORIES = [
 const todayIso = () => new Date().toLocaleDateString('en-CA');
 
 const parseSafeMoney = (raw: string): number => {
-  if (!raw || !raw.trim()) return 0;
-  try {
-    return parseWalletMoney(raw);
-  } catch {
-    const normalized = raw.replace(/\./g, '').replace(',', '.');
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
-  }
+  if (!raw.trim()) return 0;
+  try { return parseWalletMoney(raw); } catch { return 0; }
 };
 
 const formatMonthLabel = (dueDateIso: string): string => {
@@ -70,32 +65,13 @@ const formatMonthLabel = (dueDateIso: string): string => {
 const resolveFirstInstallmentMonthLabel = (
   expenseDate: string,
   closingDay?: number | null,
+  dueDay?: number | null,
   explicitMonth?: string | null,
 ): { dueDateIso: string; monthInputValue: string; label: string } => {
-  if (explicitMonth && /^\d{4}-\d{2}/.test(explicitMonth)) {
-    const ym = explicitMonth.slice(0, 7);
-    const dueDateIso = `${ym}-01`;
-    return {
-      dueDateIso,
-      monthInputValue: ym,
-      label: formatMonthLabel(dueDateIso),
-    };
-  }
-  const base = expenseDate ? new Date(`${expenseDate}T12:00:00`) : new Date();
-  const day = base.getDate();
-  const target = new Date(base.getFullYear(), base.getMonth(), 1);
-  if (closingDay && day > closingDay) {
-    target.setMonth(target.getMonth() + 1);
-  }
-  const yyyy = target.getFullYear();
-  const mm = String(target.getMonth() + 1).padStart(2, '0');
-  const ym = `${yyyy}-${mm}`;
-  const dueDateIso = `${ym}-01`;
-  return {
-    dueDateIso,
-    monthInputValue: ym,
-    label: formatMonthLabel(dueDateIso),
-  };
+  const dueDateIso = explicitMonth && /^\d{4}-(0[1-9]|1[0-2])/.test(explicitMonth)
+    ? explicitMonth.slice(0, 7) + '-01'
+    : getPurchaseInvoiceMonth(expenseDate || todayIso(), closingDay ?? null, dueDay ?? null);
+  return { dueDateIso, monthInputValue: dueDateIso.slice(0, 7), label: formatMonthLabel(dueDateIso) };
 };
 
 export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
@@ -132,16 +108,15 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [conditionMode, setConditionMode] = useState<'CASH' | 'INSTALLMENTS'>('CASH');
   const [startInstallment, setStartInstallment] = useState<string>('1');
   const [installmentCount, setInstallmentCount] = useState<string>('2');
-  const [firstInvoiceMonth, setFirstInvoiceMonth] = useState<string>(
-    initialDueMonth ? initialDueMonth.slice(0, 7) : '',
-  );
+  // A month chosen by the user overrides the cycle; an inherited closed month does not.
+  const [firstInvoiceMonth, setFirstInvoiceMonth] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [saveAndContinue, setSaveAndContinue] = useState<boolean>(false);
   const [batchFeedback, setBatchFeedback] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+  const [persisted, setPersisted] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const requestIdRef = useRef<string>(generateUUID());
-  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const resetIdempotencyKey = () => {
     requestIdRef.current = generateUUID();
@@ -159,15 +134,20 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     [accounts, selectedAccountId],
   );
 
-  const resolvedCycle = useMemo(
-    () =>
-      resolveFirstInstallmentMonthLabel(
-        expenseDate,
-        selectedCard?.closing_day,
-        firstInvoiceMonth || initialDueMonth || null,
-      ),
-    [expenseDate, selectedCard?.closing_day, firstInvoiceMonth, initialDueMonth],
-  );
+  const resolvedCycle = useMemo(() => {
+    let inheritedMonth: string | null = null;
+    if (initialDueMonth && selectedCard?.closing_day && selectedCard?.due_day) {
+      const candidate = initialDueMonth.slice(0, 7) + '-01';
+      const dates = getInvoiceCycleDates(candidate, selectedCard.closing_day, selectedCard.due_day);
+      if (expenseDate <= dates.closingDate) inheritedMonth = candidate;
+    }
+    return resolveFirstInstallmentMonthLabel(
+      expenseDate,
+      selectedCard?.closing_day,
+      selectedCard?.due_day,
+      firstInvoiceMonth || inheritedMonth,
+    );
+  }, [expenseDate, selectedCard?.closing_day, selectedCard?.due_day, firstInvoiceMonth, initialDueMonth]);
 
   const closedInvoiceWarning = useMemo(() => {
     if (paymentMode !== 'CARD' || !selectedCard) return null;
@@ -199,7 +179,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving) return;
+    if (saving || persisted) return;
 
     const cleanDescription = description.trim();
     if (!cleanDescription) {
@@ -244,12 +224,20 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
           status: 'PENDING',
           installment_count: installmentPlan.remainingInstallments,
           notes: buildCardExpenseNotes(notes, installmentPlan),
+          requestId: requestIdRef.current,
         });
       }
 
+      setPersisted(true);
       window.dispatchEvent(new Event('capitalflow:wallet-updated'));
-      await onSaved();
+      try {
+        await onSaved();
+      } catch {
+        setError('Despesa registrada, mas a lista não pôde ser atualizada. Atualize a Carteira para conferir o lançamento antes de tentar novamente.');
+        return;
+      }
       if (saveAndContinue) {
+        setPersisted(false);
         resetIdempotencyKey();
         setAmountFormatted('');
         setDescription('');
@@ -263,20 +251,6 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     } finally {
       setSaving(false);
     }
-  };
-
-  const insertAmountOperator = (operator: string) => {
-    const input = amountInputRef.current;
-    const start = input?.selectionStart ?? amountFormatted.length;
-    const end = input?.selectionEnd ?? start;
-    const next = amountFormatted.slice(0, start) + operator + amountFormatted.slice(end);
-    resetIdempotencyKey();
-    setAmountFormatted(next);
-    setError('');
-    requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(start + operator.length, start + operator.length);
-    });
   };
 
   const fieldClass =
@@ -413,19 +387,11 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                     : 'Valor total da compra (R$)'
                   : 'Valor da Despesa (R$)'}
               </span>
-              <div className="mt-1.5 flex items-baseline gap-2">
-                <span className="text-xl font-black text-slate-400">R$</span>
-                <input
-                  ref={amountInputRef}
-                  type="text"
-                  inputMode="decimal"
-                  required
-                  autoFocus
-                  value={amountFormatted}
-                  onChange={(e) => {
-                    resetIdempotencyKey();
-                    setAmountFormatted(e.target.value);
-                  }}
+              <div className="mt-1.5 flex min-h-14 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-3 focus-within:border-blue-500">
+                <span className="shrink-0 text-lg font-bold text-slate-400">R$</span>
+                <input type="text" inputMode="text" autoComplete="off" spellCheck={false}
+                  required autoFocus value={amountFormatted}
+                  onChange={event => { resetIdempotencyKey(); setAmountFormatted(event.target.value); }}
                   onBlur={() => {
                     if (!amountFormatted.trim()) return;
                     try {
@@ -435,24 +401,17 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       setError(cause instanceof Error ? cause.message : 'Corrija o cálculo do valor.');
                     }
                   }}
-                  placeholder="0,00"
-                  className="w-full bg-transparent text-3xl font-bold tracking-tight text-white outline-none placeholder:text-slate-700"
+                  placeholder="0,00" aria-label="Valor; aceita cálculos digitados"
+                  className="min-w-0 flex-1 bg-transparent py-2 text-2xl font-bold tracking-tight text-white outline-none placeholder:text-slate-600"
                 />
+                <span title="Digite +, -, *, / ou % no próprio valor"
+                  className="shrink-0 rounded-md bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400">fx</span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2" aria-label="Operadores da calculadora">
-                {['+', '-', '×', '÷', '%', '(', ')'].map((operator) => (
-                  <button
-                    key={operator}
-                    type="button"
-                    aria-label={'Inserir ' + operator}
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => insertAmountOperator(operator)}
-                    className="min-h-10 min-w-10 rounded-lg border border-slate-700 bg-slate-800 px-3 text-base font-semibold text-white active:bg-blue-700"
-                  >
-                    {operator}
-                  </button>
-                ))}
-              </div>
+              {/[+\-×÷*/%()]/.test(amountFormatted) && amountValue > 0 && (
+                <p role="status" className="mt-1.5 text-right text-xs font-semibold tabular-nums text-emerald-300">
+                  = {formatMoney(amountValue)}
+                </p>
+              )}
             </label>
           </div>
 
@@ -581,43 +540,38 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className={labelClass}>Condição e Fatura do Cartão</span>
                     {/* Seletor rápido de fatura < Mês/Ano > (inspirado no InvoiceMonthField do Minhas Finanças) */}
-                    <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-1.5 py-1">
-                      <button
-                        type="button"
-                        aria-label="Fatura anterior"
-                        onClick={() => {
-                          resetIdempotencyKey();
-                          const prev = stepInvoiceMonth(resolvedCycle.monthInputValue, -1);
-                          setFirstInvoiceMonth(prev.monthInputValue);
-                        }}
-                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-                      >
-                        <ChevronLeft size={14} />
+                    <div className="flex max-w-full items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-1 py-1">
+                      <button type="button" aria-label="Fatura anterior" onClick={() => {
+                        resetIdempotencyKey();
+                        setFirstInvoiceMonth(stepInvoiceMonth(resolvedCycle.monthInputValue, -1).monthInputValue);
+                      }} className="shrink-0 rounded-lg p-1.5 text-slate-300 hover:bg-slate-800">
+                        <ChevronLeft size={15}/>
                       </button>
-                      <input
-                        type="month"
-                        aria-label="Fatura desta parcela"
-                        value={resolvedCycle.monthInputValue}
-                        onChange={(e) => {
-                          resetIdempotencyKey();
-                          setFirstInvoiceMonth(e.target.value);
-                        }}
-                        className="bg-transparent px-1 text-xs font-bold text-cyan-200 outline-none"
-                      />
-                      <button
-                        type="button"
-                        aria-label="Próxima fatura"
-                        onClick={() => {
-                          resetIdempotencyKey();
-                          const next = stepInvoiceMonth(resolvedCycle.monthInputValue, 1);
-                          setFirstInvoiceMonth(next.monthInputValue);
-                        }}
-                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-                      >
-                        <ChevronRight size={14} />
+                      <label className="relative min-w-0 flex-1 cursor-pointer px-1 text-center">
+                        <span className="block truncate text-xs font-bold text-cyan-200">{resolvedCycle.label}</span>
+                        <input type="month" aria-label="Selecionar mês de pagamento da fatura"
+                          value={resolvedCycle.monthInputValue}
+                          onChange={event => {
+                            resetIdempotencyKey();
+                            setFirstInvoiceMonth(event.target.value);
+                          }}
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        />
+                      </label>
+                      <button type="button" aria-label="Próxima fatura" onClick={() => {
+                        resetIdempotencyKey();
+                        setFirstInvoiceMonth(stepInvoiceMonth(resolvedCycle.monthInputValue, 1).monthInputValue);
+                      }} className="shrink-0 rounded-lg p-1.5 text-slate-300 hover:bg-slate-800">
+                        <ChevronRight size={15}/>
                       </button>
                     </div>
                   </div>
+                  {selectedCard && (
+                    <p className="text-[11px] text-slate-400">
+                      Fecha {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).closingDate.split('-').reverse().join('/')}
+                      {' · '}Vence {getInvoiceCycleDates(resolvedCycle.dueDateIso, selectedCard.closing_day, selectedCard.due_day).dueDate.split('-').reverse().join('/')}
+                    </p>
+                  )}
 
                   {closedInvoiceWarning?.shouldWarn && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
@@ -837,11 +791,11 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || persisted}
               className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-blue-950/40 hover:bg-blue-500 disabled:opacity-50"
             >
               {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-              {saving ? 'Lançando...' : saveAndContinue ? 'Salvar e Novo' : 'Confirmar Despesa'}
+              {persisted ? 'Registrada' : saving ? 'Lançando...' : saveAndContinue ? 'Salvar e Novo' : 'Confirmar Despesa'}
             </button>
           </div>
         </footer>

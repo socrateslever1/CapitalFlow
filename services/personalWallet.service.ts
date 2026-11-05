@@ -85,6 +85,7 @@ export type PersonalWalletCard = {
   initial_balance_occurred_at?: string | null;
   opening_invoice_state?: 'OPEN' | 'CLOSED' | null;
   opening_invoice_month?: string | null;
+  invoice_cancel_requests?: Record<string, unknown>;
 };
 
 export type PersonalWalletPayable = {
@@ -273,6 +274,7 @@ export type CreatePersonalWalletExpense = {
   installment_count?: number;
   recurrence?: string | null;
   notes?: string | null;
+  requestId?: string;
 };
 
 export type UpdatePersonalWalletExpense = {
@@ -1182,6 +1184,7 @@ export const personalWalletService = {
       p_installment_count: input.installment_count || 1,
       p_recurrence: input.recurrence || null,
       p_notes: input.notes || null,
+      ...(input.requestId ? { p_request_id: input.requestId } : {}),
     });
     if (error) throw new Error(error.message);
     return String(data);

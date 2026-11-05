@@ -39,8 +39,11 @@ test('Mercado Pago fixture is consistent without inventing additional credit or 
 });
 
 test('bank facts navigate real due-month cycles while preserving distinct financial ledger values', () => {
-  assert.match(page, /for \(const fact of invoiceFacts\)/);
-  assert.match(page, /cycles\.sort\(/);
+  const domain = read('components/wallet/invoiceStatementDomain.ts');
+  assert.match(page, /getVisibleInvoiceCycles\(/);
+  assert.match(domain, /for \(const fact of facts\)/);
+  assert.match(domain, /cancelled\.has\(month\)/);
+  assert.match(domain, /cycles\.sort\(/);
   assert.match(page, /Saldo de fatura registrado/);
   assert.match(page, /selectedCycle\?\.amount \|\| 0/);
   assert.match(page, /Disponível informado pelo banco/);

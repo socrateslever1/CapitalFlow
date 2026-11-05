@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Sparkles, Camera, CreditCard } from 'lucide-react';
+import { AlertTriangle, Camera, CreditCard } from 'lucide-react';
 import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
@@ -16,7 +16,7 @@ import { PayInvoiceModal } from '../../../components/wallet/PayInvoiceModal';
 import { WalletStatementImport } from '../../../components/wallet/WalletStatementImport';
 import { FlatSmartStatementReader } from '../../../components/wallet/FlatSmartStatementReader';
 import { InvoiceOverrideModal } from '../../../components/wallet/InvoiceOverrideModal';
-import { getCardCreditPosition, getEffectiveInvoiceCycles, getInvoiceCycleDates, getSelectedInvoiceCycle, resolveInvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
+import { getCardCreditPosition, getInvoiceCycleDates, getPurchaseInvoiceMonth, getSelectedInvoiceCycle, getVisibleInvoiceCycles, resolveInvoiceCycleState } from '../../../components/wallet/invoiceStatementDomain';
 import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from '../components/CardOpeningFields';
@@ -29,7 +29,8 @@ import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../..
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan, type CardExpenseAmountMode } from '../utils/cardInstallmentPlan';
-import { calculateInstallmentAdvancement, describeCardCycleDates, resolveInvoiceMonthSelection } from '../utils/minhasFinancasWalletTools';
+import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection } from '../utils/minhasFinancasWalletTools';
+import { businessDateInManaus } from '../../../utils/businessDate';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvoiceStatement';
 import type { InvoiceRemainderAction } from '../../../components/wallet/PayInvoiceModal';
@@ -64,6 +65,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [newExpense, setNewExpense] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
   const [overriding, setOverriding] = useState(false);
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [cardOpeningModalOpen, setCardOpeningModalOpen] = useState(false);
   const [clearingInvoice, setClearingInvoice] = useState(false);
   const [clearInvoiceConfirm, setClearInvoiceConfirm] = useState<{ cardId: string; month: string; nickname: string } | null>(null);
@@ -200,21 +203,14 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     : null, [data, selected]);
   const invoiceCycles = useMemo(() => {
     if (!data || !selected) return [];
-    const cycles = getEffectiveInvoiceCycles(selected.id, data.expenses, data.installments);
-    // Bank-observed cycles remain navigable even if there are no expense entries.
-    // Their values must NOT be counted as purchases by this navigation list.
-    for (const fact of invoiceFacts) {
-      if (fact.card_id === selected.id &&
-          !cycles.some(cycle => cycle.dueMonth.slice(0, 7) === fact.due_month.slice(0, 7)))
-        cycles.push({ dueMonth: fact.due_month, amount: 0, hasOverride: false });
-    }
-    cycles.sort((a,b) => a.dueMonth.localeCompare(b.dueMonth));
-    const lastMonth = cycles.at(-1)?.dueMonth || creditPosition?.dueMonth || `${new Date().toLocaleDateString('en-CA').slice(0, 7)}-01`;
-    const [year, month] = lastMonth.slice(0, 7).split('-').map(Number);
-    const nextMonth = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
-    if (!cycles.some(cycle => cycle.dueMonth === nextMonth)) cycles.push({ dueMonth: nextMonth, amount: 0, hasOverride: false });
-    return cycles;
-  }, [data, selected, creditPosition?.dueMonth, invoiceFacts]);
+    return getVisibleInvoiceCycles(
+      selected.id, data.expenses, data.installments, invoiceFacts,
+      selected.invoice_cancel_requests,
+    );
+  }, [data, selected, invoiceFacts]);
+  const suggestedNewInvoiceMonth = selected
+    ? getPurchaseInvoiceMonth(businessDateInManaus(), selected.closing_day, selected.due_day)
+    : businessDateInManaus().slice(0, 7) + '-01';
   // Keep the selected value in the list of rendered invoice cycles.
   // A stale cycle from a previously selected card must not make the browser
   // display one invoice in the select while the header shows another.
@@ -300,7 +296,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const selectedFutureCommitments = statementMonth
     ? invoiceCycles.filter(cycle => cycle.dueMonth > statementMonth).reduce((sum, cycle) => sum + cycle.amount, 0)
     : 0;
-  const selectedIsOpeningCycle = Boolean(selected && statementMonth && (
+  const selectedIsOpeningCycle = Boolean(selected && statementMonth && selectedCycle?.hasOverride && (
     selected.opening_invoice_month
       ? selected.opening_invoice_month.slice(0, 7) === statementMonth.slice(0, 7)
       : creditPosition?.dueMonth === statementMonth
@@ -315,20 +311,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         exactDueDate: savedInvoiceFacts?.due_date,
       })
     : undefined;
-  const cycleDateInsights = useMemo(() => {
-    if (!selected || !statementMonth) return null;
-    try {
-      return describeCardCycleDates({
-        dueMonth: statementMonth,
-        closingDay: selected.closing_day,
-        dueDay: selected.due_day,
-        exactDueDate: savedInvoiceFacts?.due_date,
-      });
-    } catch {
-      return null;
-    }
-  }, [selected, statementMonth, savedInvoiceFacts?.due_date]);
-
   const handleScopedInstallmentDelete = async (
     expense: PersonalWalletExpense,
     targetInstallment: PersonalWalletExpenseInstallment,
@@ -687,54 +669,84 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="mb-4 flex min-w-0 flex-col gap-3">
               <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <h3 className="min-w-0 break-words text-sm font-bold text-white">Fatura {selected?.nickname || ''}</h3>
-                  {cycleDateInsights && (
-                    <span className="max-w-full whitespace-normal break-words rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[10px] font-semibold text-slate-300">
-                      {cycleDateInsights.statusSummary}
-                    </span>
-                  )}
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <h3 className="min-w-0 break-words text-sm font-bold text-white">Faturas {selected?.nickname || ''}</h3>
+                  <button type="button" onClick={() => setCreatingInvoice(true)}
+                    className="shrink-0 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 hover:border-blue-500 hover:text-white">
+                    + Adicionar fatura
+                  </button>
                 </div>
                 {selected && (
-                  <div className="mt-3 min-w-0 max-w-md">
-                    <select
-                      aria-label="Selecionar fatura por mês e vencimento"
-                      value={statementMonth || ''}
-                      onChange={event => setStatementMonth(event.target.value)}
-                      className="block w-full min-w-0 max-w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-xs text-slate-200"
-                    >
-                      {invoiceCycles.length ? invoiceCycles.map(cycle => {
-                        const dates = getInvoiceCycleDates(
-                          cycle.dueMonth,
-                          selected.closing_day,
-                          selected.due_day,
-                          invoiceFacts.find(item => item.due_month === cycle.dueMonth)?.due_date,
-                        );
-                        const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
-                        const due = dates.dueDate.slice(8, 10) + '/' + dates.dueDate.slice(5, 7) + '/' + dates.dueDate.slice(0, 4);
-                        return <option key={cycle.dueMonth} value={cycle.dueMonth}>{'Fatura ' + competence + ' · vence ' + due}</option>;
-                      }) : <option value="">Nenhuma fatura disponível</option>}
-                    </select>
-                    <div className="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                      {selected.closing_day && (
-                        <span>Melhor dia de compra: <strong className="text-emerald-300">dia {selected.closing_day}</strong></span>
-                      )}
-                      {selectedCycle?.hasOverride && <span>Fatura consolidada</span>}
-                    </div>
+                  <div className="mt-3 max-h-56 space-y-1.5 overflow-y-auto pr-1" role="group" aria-label="Faturas registradas">
+                    {invoiceCycles.length === 0 && (
+                      <p className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-400">
+                        Nenhuma fatura registrada. Adicione uma fatura ou lance uma compra no cartão.
+                      </p>
+                    )}
+                    {[...invoiceCycles].reverse().map(cycle => {
+                      const fact = invoiceFacts.find(item =>
+                        item.card_id === selected.id && item.due_month.slice(0, 7) === cycle.dueMonth.slice(0, 7));
+                      const dates = getInvoiceCycleDates(cycle.dueMonth, selected.closing_day, selected.due_day, fact?.due_date);
+                      const competence = dates.closingDate.slice(5, 7) + '/' + dates.closingDate.slice(0, 4);
+                      const due = dates.dueDate.split('-').reverse().join('/');
+                      const status = cycle.amount <= 0 ? 'REFERENCIA' : resolveInvoiceCycleState({
+                        dueMonth: cycle.dueMonth, closingDay: selected.closing_day,
+                        dueDay: selected.due_day, outstanding: cycle.amount,
+                        hasCycle: true, exactDueDate: fact?.due_date,
+                      });
+                      const label = status === 'REFERENCIA' ? 'Sem lançamentos'
+                        : status === 'OPEN' ? 'Aberta'
+                        : status === 'CLOSED' ? 'Fechada'
+                        : status === 'OVERDUE' ? 'Vencida' : 'Paga';
+                      const active = statementMonth === cycle.dueMonth;
+                      return (
+                        <button key={cycle.dueMonth} type="button" aria-pressed={active}
+                          onClick={() => { setStatementMonth(cycle.dueMonth); setActionMenuOpen(false); }}
+                          className={`grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
+                          <span className="min-w-0">
+                            <span className={`block text-xs font-bold ${active ? 'text-white' : 'text-slate-200'}`}>Fatura {competence}</span>
+                            <span className="mt-1 block text-[11px] text-slate-400">Vence {due}</span>
+                          </span>
+                          <span className="text-right">
+                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white">{formatMoney(cycle.amount)}</span>
+                            <span className={`mt-1 block text-[10px] ${status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>{label}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-              {selected && <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={()=>setVaultCard(selected)} className="min-h-11 rounded-xl border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">Dados completos do cartão</button>
-                <button type="button" onClick={() => setQuickExpenseOpen(true)} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-bold text-white">Lançamento rápido</button>
-                <button type="button" onClick={() => setCardOpeningModalOpen(true)} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/20">Situação inicial</button>
-                <button type="button" onClick={() => setOverriding(true)} className="rounded-xl border border-amber-600/50 px-3 py-2 text-xs font-bold text-amber-200">✏️ Corrigir valor, mês e vencimento</button>
-                {statementMonth && (selectedCycle?.amount || 0) > 0 && <button type="button" onClick={() => {setClearInvoiceError('');setClearInvoiceConfirm({cardId:selected.id,month:statementMonth,nickname:selected.nickname});}} className="min-h-11 rounded-xl border border-rose-600/50 px-3 py-2 text-xs font-semibold text-rose-200">Excluir fatura não paga</button>}
-                <button type="button" onClick={() => setFlatReaderOpen(v => !v)} className={`rounded-xl px-3 py-2 text-xs font-bold transition flex items-center gap-1.5 ${flatReaderOpen ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20' : 'border border-cyan-500/50 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40'}`}>
-                  <Sparkles size={13} className={flatReaderOpen ? '' : 'text-cyan-400'} />
-                  {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
+              {selected && <div className="relative flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => setQuickExpenseOpen(true)}
+                  className="min-h-10 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-blue-500">+ Lançar despesa</button>
+                {statementMonth && (
+                  <button type="button" onClick={() => setOverriding(true)}
+                    className="min-h-10 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">Ajustar fatura</button>
+                )}
+                <button type="button" aria-expanded={actionMenuOpen} onClick={() => setActionMenuOpen(value => !value)}
+                  className="min-h-10 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">
+                  Mais opções
                 </button>
-
+                {actionMenuOpen && <div className="absolute right-0 top-full z-30 mt-1 min-w-56 max-w-[min(19rem,90vw)] rounded-xl border border-slate-700 bg-slate-950 p-1.5 shadow-2xl">
+                  <button type="button" onClick={() => { setActionMenuOpen(false); setVaultCard(selected); }}
+                    className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-slate-200 hover:bg-slate-800">Dados do cartão</button>
+                  <button type="button" onClick={() => { setActionMenuOpen(false); setCardOpeningModalOpen(true); }}
+                    className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-slate-200 hover:bg-slate-800">Situação inicial</button>
+                  <button type="button" onClick={() => { setActionMenuOpen(false); setFlatReaderOpen(value => !value); }}
+                    className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-slate-200 hover:bg-slate-800">
+                    {flatReaderOpen ? 'Fechar importação' : 'Importar extrato ou fatura'}
+                  </button>
+                  {statementMonth && (selectedCycle?.amount || 0) > 0 && (
+                    <button type="button" onClick={() => {
+                      setActionMenuOpen(false);
+                      setClearInvoiceError('');
+                      setClearInvoiceConfirm({ cardId: selected.id, month: statementMonth, nickname: selected.nickname });
+                    }} className="block w-full rounded-lg px-3 py-2.5 text-left text-xs text-rose-300 hover:bg-rose-950/30">
+                      Excluir fatura não paga
+                    </button>
+                  )}
+                </div>}
               </div>}
             </div>
             {flatReaderOpen && selected && (
@@ -1022,13 +1034,15 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           await refresh();
         }}
         onHandleRemainder={handleInvoiceRemainder}/>}
-      {overriding && selected && <InvoiceOverrideModal card={selected}
-        initialDueMonth={statementMonth || creditPosition?.dueMonth || new Date().toLocaleDateString('en-CA').slice(0, 7) + '-01'}
-        initialDueDate={savedInvoiceFacts?.due_date}
-        initialAmount={invoiceCycles.find(cycle => cycle.dueMonth === statementMonth)?.amount || 0}
-        hasExistingConsolidation={Boolean(selectedCycle?.hasOverride)}
-        onClose={() => setOverriding(false)}
-        onRecordAdjustmentExpense={async (dueMonth, deltaAmount, notes) => {
+      {(overriding || creatingInvoice) && selected && <InvoiceOverrideModal card={selected}
+        isNew={creatingInvoice}
+        existingDueMonths={invoiceCycles.map(cycle => cycle.dueMonth)}
+        initialDueMonth={creatingInvoice ? suggestedNewInvoiceMonth : (statementMonth || creditPosition?.dueMonth || suggestedNewInvoiceMonth)}
+        initialDueDate={creatingInvoice ? null : savedInvoiceFacts?.due_date}
+        initialAmount={creatingInvoice ? 0 : (invoiceCycles.find(cycle => cycle.dueMonth === statementMonth)?.amount || 0)}
+        hasExistingConsolidation={!creatingInvoice && Boolean(selectedCycle?.hasOverride)}
+        onClose={() => { setOverriding(false); setCreatingInvoice(false); }}
+        onRecordAdjustmentExpense={creatingInvoice ? undefined : async (dueMonth, deltaAmount, notes) => {
           await personalWalletService.createExpense({
             card_id: selected.id,
             description: 'Despesa de ajuste de fatura',
@@ -1046,7 +1060,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         onSave={async (dueMonth, amount, dueDate, overrideRequestId) => {
           await personalWalletService.correctInvoiceOverride({
             cardId:selected.id,
-            previousDueMonth:selectedCycle?.hasOverride ? statementMonth : null,
+            previousDueMonth:selectedCycle?.hasOverride && !creatingInvoice ? statementMonth : null,
             dueMonth,dueDate,amount,requestId:overrideRequestId,
           });
           await refresh();

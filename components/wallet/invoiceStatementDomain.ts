@@ -23,6 +23,35 @@ export type CardCreditPosition = {
 export type InvoiceCycleState = 'OPEN' | 'CLOSED' | 'OVERDUE' | 'PAID';
 export type InvoiceCycleDates = { closingDate: string; dueDate: string };
 
+/** Display cycles only when a transaction, consolidation or explicit fact supports them. */
+export const getVisibleInvoiceCycles = (
+  cardId: string,
+  expenses: PersonalWalletExpense[],
+  installments: PersonalWalletExpenseInstallment[],
+  facts: readonly { card_id: string; due_month: string }[],
+  cancelRequests: Record<string, unknown> = {},
+): EffectiveInvoiceCycle[] => {
+  const cycles = getEffectiveInvoiceCycles(cardId, expenses, installments);
+  const visible = new Set(cycles.map(cycle => cycle.dueMonth));
+  const cancelled = new Set<string>();
+  for (const raw of Object.values(cancelRequests)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const event = raw as { operation?: unknown; card_id?: unknown; due_month?: unknown };
+    if (event.operation === 'CANCEL_UNPAID_INVOICE' &&
+      event.card_id === cardId && typeof event.due_month === 'string') {
+      cancelled.add(event.due_month.slice(0, 7) + '-01');
+    }
+  }
+  for (const fact of facts) {
+    if (fact.card_id !== cardId || !/^\d{4}-(0[1-9]|1[0-2])/.test(fact.due_month)) continue;
+    const month = fact.due_month.slice(0, 7) + '-01';
+    if (visible.has(month) || cancelled.has(month)) continue;
+    cycles.push({ dueMonth: month, amount: 0, hasOverride: false });
+    visible.add(month);
+  }
+  return cycles.sort((a, b) => a.dueMonth.localeCompare(b.dueMonth));
+};
+
 const manausToday = () => {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
@@ -59,6 +88,28 @@ export const getInvoiceCycleDates = (
   const closeMonthIndex = closeMonthDate.getUTCMonth();
   const closingDate = `${closeYear}-${String(closeMonthIndex + 1).padStart(2, '0')}-${String(Math.min(closing, daysInMonth(closeYear, closeMonthIndex))).padStart(2, '0')}`;
   return { closingDate, dueDate };
+};
+
+/** First payment month is derived from issuer closing and due days. */
+export const getPurchaseInvoiceMonth = (
+  purchaseDate: string,
+  closingDay: number | null,
+  dueDay: number | null,
+): string => {
+  const day = purchaseDate.slice(0, 10);
+  if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(day) ||
+      Number.isNaN(Date.parse(day + 'T00:00:00Z')) ||
+      new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) !== day)
+    throw new Error('Data da compra inválida.');
+  if (!closingDay || !dueDay) return day.slice(0, 7) + '-01';
+  const [year, month] = day.slice(0, 7).split('-').map(Number);
+  for (let offset = 0; offset < 4; offset++) {
+    const candidate = new Date(Date.UTC(year, month - 1 + offset, 1))
+      .toISOString().slice(0, 7) + '-01';
+    const dates = getInvoiceCycleDates(candidate, closingDay, dueDay);
+    if (day <= dates.closingDate && day <= dates.dueDate) return candidate;
+  }
+  throw new Error('Não foi possível determinar o ciclo da compra.');
 };
 
 export const resolveInvoiceCycleState = (input: {

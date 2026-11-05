@@ -13,6 +13,8 @@ type Props = {
   initialDueDate?: string | null;
   initialAmount: number;
   hasExistingConsolidation: boolean;
+  isNew?: boolean;
+  existingDueMonths?: readonly string[];
   onClose: () => void;
   onSave: (dueMonth: string, amount: number, dueDate: string, requestId: string) => Promise<void>;
   onRecordAdjustmentExpense?: (dueMonth: string, deltaAmount: number, notes: string) => Promise<void>;
@@ -20,10 +22,10 @@ type Props = {
 
 export const InvoiceOverrideModal: React.FC<Props> = ({
   card, initialDueMonth, initialDueDate, initialAmount,
-  hasExistingConsolidation, onClose, onSave, onRecordAdjustmentExpense,
+  hasExistingConsolidation, isNew = false, existingDueMonths = [], onClose, onSave, onRecordAdjustmentExpense,
 }) => {
   const originalMonth=initialDueMonth.slice(0,7);
-  const [mode, setMode] = useState<'CONSOLIDATE' | 'DIFFERENCE'>('DIFFERENCE');
+  const [mode, setMode] = useState<'CONSOLIDATE' | 'DIFFERENCE'>(isNew ? 'CONSOLIDATE' : 'DIFFERENCE');
   const [month,setMonth]=useState(originalMonth);
   const [dueDate,setDueDate]=useState(initialDueDate || getInvoiceCycleDates(
     initialDueMonth,card.closing_day,card.due_day,
@@ -72,8 +74,10 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
         return;
       }
 
-      if(!hasExistingConsolidation && month!==originalMonth)
+      if(!hasExistingConsolidation && !isNew && month!==originalMonth)
         throw new Error('Este ciclo contém lançamentos individuais. Corrija primeiro o vencimento de cada lançamento para não duplicar a cobrança.');
+      if (isNew && existingDueMonths.some(existing => existing.slice(0, 7) === month))
+        throw new Error('Esta fatura já está registrada. Selecione-a na lista para editar.');
       const signature=[month,dueDate,parsed.toFixed(2)].join('|');
       if(request.current.key!==signature)request.current={key:signature,id:generateUUID()};
       setSaving(true);
@@ -89,14 +93,14 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
     <form onSubmit={submit} className="relative max-h-[min(95dvh,850px)] w-full overflow-y-auto rounded-t-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h3 id="invoice-override-title" className="flex items-center gap-2 text-lg font-black text-white"><PencilLine size={18}/>Corrigir fatura</h3>
-          <p className="mt-1 text-xs leading-relaxed text-slate-300">{card.nickname} · reajuste por diferença ou consolide valor, mês e vencimento.</p>
+          <h3 id="invoice-override-title" className="flex items-center gap-2 text-lg font-black text-white"><PencilLine size={18}/>{isNew ? 'Adicionar fatura' : 'Corrigir fatura'}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-slate-300">{isNew ? 'Informe o mês de pagamento, o vencimento e o valor da fatura.' : card.nickname + ' · ajuste valor, mês e vencimento.'}</p>
         </div>
         <button type="button" aria-label="Fechar" disabled={saving} onClick={onClose}
           className="rounded-full bg-slate-800 p-2 text-slate-300 hover:text-white"><X size={17}/></button>
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800 bg-slate-950 p-1">
+      <div className={isNew ? 'hidden' : 'mb-3 grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800 bg-slate-950 p-1'}>
         <button
           type="button"
           onClick={() => setMode('DIFFERENCE')}
@@ -126,7 +130,6 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
       <div className="rounded-xl border border-blue-500/25 bg-blue-500/5 p-3 text-xs leading-relaxed text-slate-200">
         <span className="font-semibold">Competência (fechamento): {monthLabel(dates.closingDate)}</span>
         <span className="mt-1 block">Pagamento: {new Intl.DateTimeFormat('pt-BR',{timeZone:'UTC'}).format(new Date(dates.dueDate+'T12:00:00Z'))}</span>
-        <span className="mt-2 block text-slate-400">Exemplo: a fatura de outubro pode vencer em 03/11. Ela é uma única dívida, não duas faturas.</span>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="text-xs font-semibold text-slate-200">Mês de pagamento
@@ -201,7 +204,7 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
           ? 'Salvando…'
           : mode === 'DIFFERENCE' && adjustmentPreview.kind === 'INCREASE' && onRecordAdjustmentExpense
             ? `Lançar Despesa de Ajuste (+ ${formatMoney(adjustmentPreview.absDelta)})`
-            : 'Salvar correção sem duplicar'}
+            : isNew ? 'Adicionar fatura' : 'Salvar correção sem duplicar'}
       </button>
     </form>
   </div>;

@@ -14,6 +14,7 @@ export type WalletRecurringObligation={
  start_month:string;active:boolean;created_at:string;
 };
 import { supabase } from '../lib/supabase';
+import { filterCurrentWalletRows, type WalletResetArchive } from '../features/wallet/domain/walletResetScope';
 import { generateUUID } from '../utils/generators';
 import { getCardCreditPosition } from '../components/wallet/invoiceStatementDomain';
 import type { CapitalSource } from '../types';
@@ -289,6 +290,13 @@ export type UpdatePersonalWalletExpense = {
   notes?: string | null;
 };
 
+const getActiveWalletReset = async (): Promise<WalletResetArchive | null> => {
+  const { data, error } = await supabase.from('personal_wallet_reset_archives')
+    .select('archived_at,hidden_ids,restored_at').is('restored_at',null).maybeSingle();
+  if (error) throw new Error('Não foi possível confirmar o marco de reinício da Minha Carteira.');
+  return (data as WalletResetArchive | null) ?? null;
+};
+
 export const personalWalletService = {
   /**
    * Vínculo opcional: RPC existente valida proprietário, saldo idêntico,
@@ -339,6 +347,7 @@ export const personalWalletService = {
    * Financial writes remain in the existing canonical RPCs.
    */
   async loadOverview() {
+    const walletReset = await getActiveWalletReset();
     const [accounts, cards, expenses, installments, invoicePayments, payables, recurringIncomes, recurringReceipts, cardInvoiceDates] =
       await Promise.all([
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -357,9 +366,9 @@ export const personalWalletService = {
         loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('card_id,due_month,due_date')
           .order('due_month',{ascending:false}).order('card_id').range(from, to)),
       ]);
-    const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
-    const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
-    const calculatedCards = ((cards.data || []) as PersonalWalletCard[]).map(card => {
+    const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
+    const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
+    const calculatedCards = filterCurrentWalletRows((cards.data || []) as PersonalWalletCard[], walletReset, 'cards').map(card => {
       const initialFuture = Math.max(
         Number(card.initial_future_installments_balance || 0),
         Number(card.opening_unallocated_amount || 0),
@@ -377,19 +386,20 @@ export const personalWalletService = {
       };
     });
     return {
-      accounts: ((accounts.data || []) as PersonalWalletAccount[]).filter(account => !account.archived_at),
+      accounts: filterCurrentWalletRows((accounts.data || []) as PersonalWalletAccount[], walletReset, 'accounts').filter(account => !account.archived_at),
       cards: calculatedCards,
       expenses: loadedExpenses,
       installments: loadedInstallments,
-      invoicePayments: (invoicePayments.data || []) as PersonalWalletInvoicePayment[],
-      payables: (payables.data || []) as PersonalWalletPayable[],
-      recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
-      recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
-      cardInvoiceDates: (cardInvoiceDates.data || []) as Array<{card_id:string;due_month:string;due_date:string|null}>,
+      invoicePayments: filterCurrentWalletRows((invoicePayments.data || []) as PersonalWalletInvoicePayment[], walletReset, 'invoicePayments'),
+      payables: filterCurrentWalletRows((payables.data || []) as PersonalWalletPayable[], walletReset, 'payables'),
+      recurringIncomes: filterCurrentWalletRows((recurringIncomes.data || []) as WalletRecurringIncome[], walletReset, 'recurringIncomes'),
+      recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
+      cardInvoiceDates: ((cardInvoiceDates.data || []) as Array<{card_id:string;due_month:string;due_date:string|null}>).filter(fact => calculatedCards.some(card => card.id === fact.card_id)),
     };
   },
 
   async load() {
+    const walletReset = await getActiveWalletReset();
     const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -406,10 +416,10 @@ export const personalWalletService = {
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
     ]);
     // Paginated reads fail by throwing; no partial snapshot is returned.
-    const loadedExpenses = (expenses.data || []) as PersonalWalletExpense[];
-    const loadedInstallments = (installments.data || []) as PersonalWalletExpenseInstallment[];
-    const rawCards = (cards.data || []) as PersonalWalletCard[];
-    const activeAccounts = ((accounts.data || []) as PersonalWalletAccount[])
+    const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
+    const loadedInstallments = filterCurrentWalletRows((installments.data || []) as PersonalWalletExpenseInstallment[], walletReset, 'installments');
+    const rawCards = filterCurrentWalletRows((cards.data || []) as PersonalWalletCard[], walletReset, 'cards');
+    const activeAccounts = filterCurrentWalletRows((accounts.data || []) as PersonalWalletAccount[], walletReset, 'accounts')
       .filter(account => !account.archived_at);
     // Two batched Storage requests replace a separate call for every image.
     const [cardImageUrls, accountImageUrls] = await Promise.all([
@@ -447,16 +457,30 @@ export const personalWalletService = {
       cards: cardsWithImages,
       expenses: loadedExpenses,
       installments: loadedInstallments,
-      invoicePayments: (invoicePayments.data || []) as PersonalWalletInvoicePayment[],
-      accountOperations: (accountOperations.data || []) as WalletAccountOperation[],
-      statementRows: (statementRows.data || []) as WalletStatementRow[],
-      payables: (payables.data || []) as PersonalWalletPayable[],
-      payablePayments: (payablePayments.data || []) as PersonalWalletPayablePayment[],
-      recurringIncomes: (recurringIncomes.data || []) as WalletRecurringIncome[],
-      recurringReceipts: (recurringReceipts.data || []) as WalletRecurringReceipt[],
-      recurringObligations: (recurringObligations.data || []) as WalletRecurringObligation[],
+      invoicePayments: filterCurrentWalletRows((invoicePayments.data || []) as PersonalWalletInvoicePayment[], walletReset, 'invoicePayments'),
+      accountOperations: filterCurrentWalletRows((accountOperations.data || []) as WalletAccountOperation[], walletReset, 'accountOperations'),
+      statementRows: filterCurrentWalletRows((statementRows.data || []) as WalletStatementRow[], walletReset, 'statementRows'),
+      payables: filterCurrentWalletRows((payables.data || []) as PersonalWalletPayable[], walletReset, 'payables'),
+      payablePayments: filterCurrentWalletRows((payablePayments.data || []) as PersonalWalletPayablePayment[], walletReset, 'payablePayments'),
+      recurringIncomes: filterCurrentWalletRows((recurringIncomes.data || []) as WalletRecurringIncome[], walletReset, 'recurringIncomes'),
+      recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
+      recurringObligations: filterCurrentWalletRows((recurringObligations.data || []) as WalletRecurringObligation[], walletReset, 'recurringObligations'),
       capitalSources: (capitalSources.data || []) as CapitalSource[],
     };
+  },
+
+  async getWalletResetArchive(): Promise<WalletResetArchive | null> {
+    return getActiveWalletReset();
+  },
+
+  async restartMyWallet(): Promise<void> {
+    const { data, error } = await supabase.rpc('personal_wallet_archive_for_restart');
+    if (error || !data) throw new Error(error?.message || 'Não foi possível reiniciar a Minha Carteira.');
+  },
+
+  async restoreMyWallet(): Promise<void> {
+    const { data, error } = await supabase.rpc('personal_wallet_restore_restart');
+    if (error || data !== true) throw new Error(error?.message || 'Não foi possível restaurar a carteira anterior.');
   },
 
   async recordAccountOperation(input: RecordWalletOperation) {

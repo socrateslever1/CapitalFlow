@@ -5,6 +5,7 @@ export type WalletReference = {
   source_id: string;
   target_kind: WalletReferenceKind;
   target_id: string;
+  allocated_amount?: number | null;
 };
 export type WalletResource = {
   id: string;

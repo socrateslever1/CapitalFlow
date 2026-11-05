@@ -1,14 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Link2, Loader2, RefreshCw } from 'lucide-react';
 import type { CapitalSource } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import {
-  decodeWalletReference,
   encodeWalletReference,
   getSourceWalletAvailability,
   type WalletReference,
+  type WalletReferenceKind,
   type WalletResource,
 } from '../../domain/sources/sourceWalletReference';
 
@@ -17,200 +18,245 @@ type Props = {
   activeUser?: { id: string; supervisor_id?: string | null } | null;
   onEditManual: (source: CapitalSource) => void;
 };
-
+type DraftOrigin = { selected: boolean; amount: string };
 type Snapshot = { accounts: WalletResource[]; cards: WalletResource[] };
+type OriginRow = WalletReference & { allocated_amount?: number | null };
 
-export const SourceWalletReferencePanel: React.FC<Props> = ({
-  sources, activeUser, onEditManual,
-}) => {
+export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUser, onEditManual }) => {
+  const source = sources[0] ?? null;
+  const sourceId = source?.id ?? '';
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [references, setReferences] = useState<WalletReference[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState<OriginRow[]>([]);
+  const [draft, setDraft] = useState<Record<string, DraftOrigin>>({});
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [allowed, setAllowed] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const mounted = useRef(true);
-  const allowed = !!activeUser && activeUser.id !== 'DEMO' && !activeUser.supervisor_id;
-  const userId = activeUser?.id || '';
-  const sourceIds = useMemo(() => sources.map(s => s.id).sort().join('|'), [sources]);
 
-  const load = useCallback(async () => {
-    if (!allowed) return;
-    setLoading(true);
-    setError('');
+  const load = useCallback(async (alive: () => boolean) => {
+    if (!activeUser || activeUser.id === 'DEMO' || !!activeUser.supervisor_id || !sourceId) {
+      if (alive()) { setAllowed(false); setLoading(false); }
+      return;
+    }
+    if (alive()) { setLoading(true); setError(''); }
     try {
-      const [wallet, response] = await Promise.all([
+      const permission = await supabase.rpc('can_manage_capital_source_wallet_origins');
+      if (permission.error) throw permission.error;
+      if (!permission.data) {
+        if (alive()) { setAllowed(false); setLoading(false); }
+        return;
+      }
+      const [wallet, result] = await Promise.all([
         personalWalletService.loadOverview(),
         supabase.from('capital_source_wallet_references')
-          .select('source_id,target_kind,target_id')
-          .order('source_id'),
+          .select('source_id,target_kind,target_id,allocated_amount')
+          .eq('source_id', sourceId),
       ]);
-      if (response.error) throw response.error;
-      const rows = (response.data || []) as WalletReference[];
-      if (!mounted.current) return;
+      if (result.error) throw result.error;
+      if (!alive()) return;
+      const rows = (result.data || []) as OriginRow[];
+      const next: Record<string, DraftOrigin> = {};
+      for (const row of rows) {
+        next[encodeWalletReference(row.target_kind, row.target_id)] = {
+          selected: true,
+          amount: row.allocated_amount == null
+            ? ''
+            : Number(row.allocated_amount).toFixed(2).replace('.', ','),
+        };
+      }
+      setAllowed(true);
       setSnapshot({ accounts: wallet.accounts, cards: wallet.cards });
-      setReferences(rows);
-      setDrafts(Object.fromEntries(rows.map(r => [
-        r.source_id, encodeWalletReference(r.target_kind, r.target_id),
-      ])));
+      setSaved(rows);
+      setDraft(next);
     } catch {
-      if (mounted.current) {
-        setError('Não foi possível consultar as origens disponíveis. Atualize a página e tente novamente.');
+      if (alive()) {
+        setError('Não foi possível carregar as origens. Verifique a conexão e tente novamente.');
       }
     } finally {
-      if (mounted.current) setLoading(false);
+      if (alive()) setLoading(false);
     }
-  }, [allowed, userId]);
+  }, [activeUser?.id, activeUser?.supervisor_id, sourceId]);
 
   useEffect(() => {
-    mounted.current = true;
-    void load();
-    return () => { mounted.current = false; };
-  }, [load, sourceIds]);
+    let mounted = true;
+    void load(() => mounted);
+    return () => { mounted = false; };
+  }, [load]);
 
-  const save = async (source: CapitalSource) => {
-    if (!allowed || loading || savingId) return;
-    const previous = references.find(ref => ref.source_id === source.id) || null;
-    const nextRaw = drafts[source.id] || '';
-    const previousRaw = previous ? encodeWalletReference(previous.target_kind, previous.target_id) : '';
-    if (nextRaw === previousRaw) return;
-    const next = nextRaw ? decodeWalletReference(nextRaw) : null;
-    if (nextRaw && !next) {
-      setError('Selecione uma origem válida.');
-      return;
-    }
-    if (next && !snapshot) {
-      setError('Os dados da Carteira não estão disponíveis.');
-      return;
-    }
-    if (next?.kind === 'ACCOUNT' &&
-        !snapshot?.accounts.some(account => account.id === next.id && !account.capital_source_id)) {
-      setError('Esta conta já está vinculada à sincronização financeira ou não está disponível.');
-      return;
-    }
-    if (next?.kind === 'CARD' &&
-        !snapshot?.cards.some(card => card.id === next.id && card.status === 'ACTIVE')) {
-      setError('Este cartão não está disponível.');
-      return;
-    }
-    if (!window.confirm(next
-      ? 'Associar esta fonte ao recurso selecionado? A associação apenas consulta disponibilidade; não cria movimentações nem substitui o saldo operacional.'
-      : 'Remover a referência e manter esta fonte independente?')) return;
+  const resources = useMemo(() => {
+    if (!snapshot) return [];
+    return [
+      ...snapshot.accounts
+        .filter(a => !a.capital_source_id)
+        .map(a => ({ ...a, kind: 'ACCOUNT' as const })),
+      ...snapshot.cards
+        .filter(c => c.status === 'ACTIVE')
+        .map(c => ({ ...c, kind: 'CARD' as const })),
+    ];
+  }, [snapshot]);
 
-    setSavingId(source.id);
+  const availableKeys = new Set(resources.map(r => encodeWalletReference(r.kind, r.id)));
+  const selectedKeys = Object.keys(draft).filter(key => draft[key].selected);
+  const hasChanges = (() => {
+    if (saved.length !== selectedKeys.length) return true;
+    return selectedKeys.some(key => {
+      const existing = saved.find(item => encodeWalletReference(item.target_kind, item.target_id) === key);
+      if (!existing) return true;
+      const raw = draft[key]?.amount.trim() ?? '';
+      if (!raw) return existing.allocated_amount != null;
+      try {
+        return parseWalletMoney(raw, 'o valor de referência') !== Number(existing.allocated_amount);
+      } catch { return true; }
+    });
+  })();
+
+  const updateDraft = (key: string, patch: Partial<DraftOrigin>) => {
+    setMessage('');
+    setError('');
+    setDraft(previous => ({
+      ...previous,
+      [key]: { selected: previous[key]?.selected ?? false, amount: previous[key]?.amount ?? '', ...patch },
+    }));
+  };
+
+  const save = async () => {
+    if (!source || !allowed || loading || saving || !snapshot) return;
     setError('');
     setMessage('');
+    const origins: Array<{ target_kind: WalletReferenceKind; target_id: string; allocated_amount: number | null }> = [];
     try {
-      const { data, error: rpcError } = await supabase.rpc('capital_source_set_wallet_reference', {
+      if (selectedKeys.length > 32) throw new Error('Selecione no máximo 32 origens.');
+      for (const key of selectedKeys) {
+        if (!availableKeys.has(key)) throw new Error('Remova o recurso indisponível antes de salvar.');
+        const resource = resources.find(item => encodeWalletReference(item.kind, item.id) === key);
+        if (!resource) throw new Error('Recurso indisponível.');
+        const raw = draft[key]?.amount.trim() ?? '';
+        const amount = raw === '' ? null : parseWalletMoney(raw, 'o valor de referência');
+        origins.push({
+          target_kind: resource.kind,
+          target_id: resource.id,
+          allocated_amount: amount,
+        });
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Confira os valores informados.');
+      return;
+    }
+
+    if (!window.confirm(
+      'Salvar ' + origins.length + ' origem(ns) para esta fonte? Os valores informados são referências, sem alterar saldos, limites ou contratos.',
+    )) return;
+
+    setSaving(true);
+    try {
+      const result = await supabase.rpc('capital_source_replace_wallet_origins', {
         p_source_id: source.id,
-        p_target_kind: next?.kind || null,
-        p_target_id: next?.id || null,
+        p_origins: origins,
       });
-      if (rpcError || data !== true) throw rpcError || new Error('Operação não confirmada.');
-      setMessage('Origem do recurso atualizada.');
-      await load();
+      if (result.error || result.data !== true) throw result.error || new Error('Confirmação não recebida.');
+      setMessage('Origens salvas com sucesso.');
+      await load(() => true);
     } catch {
-      setError('Não foi possível salvar a origem. Confira a propriedade do recurso e tente novamente.');
+      setError('Não foi possível salvar as origens. Confirme as permissões e tente novamente.');
     } finally {
-      if (mounted.current) setSavingId(null);
+      setSaving(false);
     }
   };
 
-  if (!allowed) return null;
+  if (!source || (!allowed && !loading && !error)) return null;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5" aria-label="Origem dos recursos das fontes">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <section className="rounded-xl border border-slate-700 bg-slate-900/60 p-3" aria-label="Origens dos recursos">
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="flex items-center gap-2 text-base font-bold text-white">
-            <Link2 size={18} className="text-blue-400" /> Origem dos recursos
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Link2 size={16} className="text-blue-400" /> Origem dos recursos
           </h2>
-          <p className="mt-1 text-xs leading-relaxed text-slate-300">
-            Escolha uma conta ou cartão da Minha Carteira para consultar sua disponibilidade,
-            ou mantenha o saldo informado manualmente. Nenhuma associação é automática.
+          <p className="mt-1 text-xs text-slate-400">
+            Selecione uma ou mais contas e cartões. Defina um valor para cada origem,
+            se desejar. O saldo desta fonte continua independente.
           </p>
         </div>
-        <button type="button" onClick={() => { void load(); }} disabled={loading || !!savingId}
-          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-700 px-3 text-xs text-slate-200 disabled:opacity-40">
-          <RefreshCw size={14} /> Atualizar
+        <button type="button" aria-label="Atualizar recursos"
+          disabled={loading || saving}
+          onClick={() => { void load(() => true); }}
+          className="min-h-9 min-w-9 rounded-lg border border-slate-700 p-2 text-slate-300 disabled:opacity-40">
+          <RefreshCw size={15}/>
         </button>
       </div>
-
-      {error && <p role="alert" className="mt-3 rounded-lg border border-rose-700/40 bg-rose-950/30 p-3 text-xs text-rose-200">{error}</p>}
-      {message && <p role="status" className="mt-3 text-xs text-emerald-300">{message}</p>}
-      {loading && <p className="mt-4 flex items-center gap-2 text-xs text-slate-300"><Loader2 size={15} className="animate-spin"/> Consultando recursos...</p>}
-
-      {!loading && snapshot && (
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {sources.map(source => {
-            const current = references.find(ref => ref.source_id === source.id) || null;
-            const selection = drafts[source.id] ?? (current ? encodeWalletReference(current.target_kind, current.target_id) : '');
-            const chosen = selection ? decodeWalletReference(selection) : null;
-            const effective = chosen
-              ? { source_id: source.id, target_kind: chosen.kind, target_id: chosen.id }
-              : null;
-            const availability = getSourceWalletAvailability(source, effective, snapshot.accounts, snapshot.cards);
-            const saved = current ? encodeWalletReference(current.target_kind, current.target_id) : '';
-            return (
-              <div key={source.id} className="min-w-0 space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 p-3.5">
-                <h3 className="break-words text-sm font-semibold text-white">{source.name}</h3>
-                <p className="text-xs text-slate-400">Saldo operacional: <strong className="text-white">{formatMoney(Number(source.balance))}</strong></p>
-                <label htmlFor={'wallet-origin-' + source.id} className="block text-xs font-medium text-slate-300">
-                  Recurso de referência
-                </label>
-                <select id={'wallet-origin-' + source.id}
-                  value={selection}
-                  onChange={e => setDrafts(old => ({ ...old, [source.id]: e.target.value }))}
-                  disabled={!!savingId}
-                  className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white disabled:opacity-50">
-                  <option value="">Independente — valor informado pelo usuário</option>
-                  {snapshot.accounts.filter(a => !a.capital_source_id).map(a => {
-                    const value = encodeWalletReference('ACCOUNT', a.id);
-                    const used = references.some(r => r.source_id !== source.id && r.target_kind === 'ACCOUNT' && r.target_id === a.id);
-                    return <option key={value} value={value} disabled={used}>Conta · {a.nickname}{used ? ' (já selecionada)' : ''}</option>;
-                  })}
-                  {snapshot.cards.filter(c => c.status === 'ACTIVE').map(c => {
-                    const value = encodeWalletReference('CARD', c.id);
-                    const used = references.some(r => r.source_id !== source.id && r.target_kind === 'CARD' && r.target_id === c.id);
-                    return <option key={value} value={value} disabled={used}>Cartão · {c.nickname}{used ? ' (já selecionado)' : ''}</option>;
-                  })}
-                  {saved && !(
-                    snapshot.accounts.some(a => encodeWalletReference('ACCOUNT', a.id) === saved && !a.capital_source_id) ||
-                    snapshot.cards.some(c => encodeWalletReference('CARD', c.id) === saved && c.status === 'ACTIVE')
-                  ) && <option value={saved}>Recurso anterior indisponível — altere a seleção</option>}
-                </select>
-                <p className="text-xs text-slate-300">
-                  {availability.label}: <strong className="text-white">{availability.amount === null ? 'Não disponível' : formatMoney(availability.amount)}</strong>
-                </p>
-                {availability.differs && (
-                  <p className="flex items-start gap-1.5 text-[11px] text-amber-300">
-                    <AlertCircle size={14} className="mt-0.5 shrink-0"/>
-                    O valor de referência difere do saldo operacional. Nenhuma conciliação é automática.
+      {error && <p role="alert" className="mt-2 rounded-lg bg-rose-950/50 p-2 text-xs text-rose-200">{error}</p>}
+      {message && <p role="status" className="mt-2 text-xs text-emerald-300">{message}</p>}
+      {loading ? <p className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+        <Loader2 size={14} className="animate-spin"/> Consultando recursos…
+      </p> : allowed && snapshot && (
+        <>
+          <div className="mt-3 space-y-2">
+            {resources.map(resource => {
+              const key = encodeWalletReference(resource.kind, resource.id);
+              const selected = draft[key]?.selected ?? false;
+              const availability = getSourceWalletAvailability(
+                source,
+                { source_id: source.id, target_kind: resource.kind, target_id: resource.id },
+                snapshot.accounts,
+                snapshot.cards,
+              );
+              return (
+                <div key={key} className="rounded-lg border border-slate-700/70 bg-slate-950/60 p-3">
+                  <label className="flex min-h-10 cursor-pointer items-center gap-3">
+                    <input type="checkbox" checked={selected} disabled={saving}
+                      onChange={event => updateDraft(key, { selected: event.target.checked })}
+                      className="h-5 w-5 accent-blue-500" />
+                    <span className="min-w-0 flex-1 break-words text-sm text-slate-100">
+                      {resource.kind === 'CARD' ? 'Cartão' : 'Conta'} · {resource.nickname}
+                    </span>
+                  </label>
+                  <p className="ml-8 text-xs text-slate-400">
+                    {availability.label}: {availability.amount == null ? 'Não disponível' : formatMoney(availability.amount)}
                   </p>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button type="button" onClick={() => { void save(source); }}
-                    disabled={!!savingId || selection === saved}
-                    className="min-h-10 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white disabled:opacity-40">
-                    {savingId === source.id ? 'Salvando...' : 'Salvar origem'}
-                  </button>
-                  {!selection && (
-                    <button type="button" onClick={() => onEditManual(source)}
-                      className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs text-slate-200">
-                      Alterar valor manual
-                    </button>
+                  {selected && (
+                    <label className="ml-8 mt-2 block text-xs text-slate-300">
+                      Valor associado (R$) · opcional
+                      <input type="text" inputMode="decimal"
+                        value={draft[key]?.amount ?? ''}
+                        disabled={saving}
+                        placeholder="Informar valor"
+                        aria-label={'Valor associado a ' + resource.nickname}
+                        onChange={event => updateDraft(key, { amount: event.target.value })}
+                        className="mt-1 min-h-11 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white outline-none focus:border-blue-500" />
+                    </label>
                   )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+            {saved.filter(row => !availableKeys.has(encodeWalletReference(row.target_kind,row.target_id))).map(row => {
+              const key = encodeWalletReference(row.target_kind,row.target_id);
+              return <label key={key} className="flex items-center gap-3 rounded-lg border border-amber-700/40 p-3 text-xs text-amber-300">
+                <input type="checkbox" checked={draft[key]?.selected ?? false}
+                  onChange={event => updateDraft(key, { selected: event.target.checked })}
+                  disabled={saving} className="h-5 w-5" />
+                Origem anterior indisponível — desmarque para remover
+              </label>;
+            })}
+            {resources.length === 0 && saved.length === 0 &&
+              <p className="text-xs text-slate-400">Nenhuma conta ou cartão elegível cadastrado na Minha Carteira.</p>}
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-400">{selectedKeys.length} origem(ns) selecionada(s)</p>
+            <button type="button" onClick={() => { void save(); }}
+              disabled={saving || !hasChanges}
+              className="min-h-11 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white disabled:opacity-40">
+              {saving ? 'Salvando…' : 'Salvar origens'}
+            </button>
+          </div>
+          <div className="mt-2 flex items-start gap-2 text-xs text-slate-400">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <p>Associação informativa. Não transfere dinheiro, não debita cartões e não altera contratos.</p>
+          </div>
+          {selectedKeys.length === 0 && <button type="button" onClick={() => onEditManual(source)}
+            className="mt-2 text-xs text-blue-400 underline">Editar valor independente da fonte</button>}
+        </>
       )}
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
-        Limite de cartão não é dinheiro em conta. A associação é apenas informativa: não lança compras,
-        não movimenta recursos e não altera automaticamente os contratos.
-      </p>
     </section>
   );
 };

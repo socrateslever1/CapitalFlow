@@ -6,6 +6,7 @@ import { calculateWalletBalance } from '../../components/wallet/walletBalanceDom
 import { getBankVisual, getCreditSummary } from '../../components/wallet/walletPresentation';
 import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../components/wallet/invoiceStatementDomain';
 import { getWalletSpendingOverview } from '../../features/wallet/domain/walletSpendingInsights';
+import { buildWalletTimeline } from '../../features/wallet/domain/walletTimeline';
 
 const source = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
 const start = source.indexOf('const money =');
@@ -16,10 +17,10 @@ const compiled = ts.transpileModule(source.slice(start, end), {
 }).outputText;
 const deriveOverview = new Function(
   'getBankVisual', 'getCreditSummary', 'getEffectiveInvoiceCycles',
-  'getInvoiceCycleDates', 'getWalletSpendingOverview', 'calculateWalletBalance',
+  'getInvoiceCycleDates', 'getWalletSpendingOverview', 'calculateWalletBalance', 'buildWalletTimeline',
   compiled + '\nreturn deriveOverview;',
 )(getBankVisual, getCreditSummary, getEffectiveInvoiceCycles,
-  getInvoiceCycleDates, getWalletSpendingOverview, calculateWalletBalance);
+  getInvoiceCycleDates, getWalletSpendingOverview, calculateWalletBalance, buildWalletTimeline);
 
 test('contas CASH com IDs diferentes permanecem na liquidez e projeção', () => {
   const accounts = [

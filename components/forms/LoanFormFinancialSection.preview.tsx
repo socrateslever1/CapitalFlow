@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { formatMoney, cleanNumberStr, parseCurrency } from '../../utils/formatters';
+import { FinancialCalculatorInput } from './FinancialCalculatorInput';
 
 export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: any) => void }> = ({ formData, setFormData }) => {
   const [mode, setMode] = useState<'RATE' | 'VALUE'>('RATE');
@@ -62,7 +63,7 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 ml-1">Valor dos juros</label>
             <div className="mt-1 flex items-center gap-2 h-12 rounded-lg bg-slate-950/70 border border-slate-800/80 px-4">
               <span className="text-slate-500 font-black">R$</span>
-              <input
+              <FinancialCalculatorInput
                 type="text"
                 inputMode="decimal"
                 value={valueInput}

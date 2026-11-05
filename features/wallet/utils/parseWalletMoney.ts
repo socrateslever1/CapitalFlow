@@ -19,9 +19,9 @@ function bounded(value: bigint, field: string): bigint {
   }
   return value;
 }
-function decimalToFixed(raw: string, field: string, isPercent: boolean): bigint {
-  const maxFraction = isPercent ? 8 : 2;
-  const grouped = /^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(raw);
+function decimalToFixed(raw: string, field: string, isPercent: boolean, precision: number): bigint {
+  const maxFraction = isPercent ? 8 : precision;
+  const grouped = new RegExp('^\\d{1,3}(?:\\.\\d{3})+(?:,\\d{1,' + maxFraction + '})?$').test(raw);
   const br = new RegExp('^\\d+(?:,\\d{1,' + maxFraction + '})?$').test(raw);
   const dot = new RegExp('^\\d+(?:\\.\\d{1,' + maxFraction + '})?$').test(raw);
   if (!grouped && !br && !dot) invalid(field);
@@ -30,7 +30,7 @@ function decimalToFixed(raw: string, field: string, isPercent: boolean): bigint 
   const parts = normalized.split('.');
   return bounded(BigInt(parts[0]) * SCALE + BigInt((parts[1] || '').padEnd(8, '0') || '0'), field);
 }
-function tokenize(input: string, field: string): Token[] {
+function tokenize(input: string, field: string, precision: number): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < input.length) {
@@ -44,7 +44,7 @@ function tokenize(input: string, field: string): Token[] {
     if (/\d/.test(char)) {
       const start = i;
       while (i < input.length && /[\d.,]/.test(input[i])) i++;
-      tokens.push({ kind: 'number', value: decimalToFixed(input.slice(start, i), field, input[i] === '%') });
+      tokens.push({ kind: 'number', value: decimalToFixed(input.slice(start, i), field, input[i] === '%', precision) });
       continue;
     }
     invalid(field);
@@ -52,8 +52,8 @@ function tokenize(input: string, field: string): Token[] {
   if (tokens.length > 128) invalid(field);
   return tokens;
 }
-function calculate(input: string, field: string): bigint {
-  const tokens = tokenize(input, field);
+function calculate(input: string, field: string, precision = 2): bigint {
+  const tokens = tokenize(input, field, precision);
   let pos = 0;
   let depth = 0;
   const peek = () => tokens[pos]?.kind;
@@ -133,4 +133,27 @@ export function formatWalletMoneyInput(raw: string): string {
   return parseWalletMoney(raw).toLocaleString('pt-BR', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   });
+}
+
+/** Calcula taxas até seis casas decimais sem arredondar operandos para centavos. */
+export function parseWalletRate(raw: string, field = 'taxa'): number {
+  const value = String(raw ?? '').trim();
+  if (!value || value.length > 256) invalid(field);
+  const fixed = calculate(value, field, 6);
+  if (fixed < 0n) throw new Error('Informe ' + field + ' válido, maior ou igual a zero.');
+  const rounded = (fixed + 50n) / 100n;
+  if (rounded > 999_999_999_999n) throw new Error('Informe ' + field + ' dentro do limite permitido.');
+  return Number(rounded) / 1_000_000;
+}
+
+/** Ajuste manual de saldo operacional; permite resultado negativo quando o domínio aceita. */
+export function parseWalletSignedMoney(raw: string, field = 'saldo'): number {
+  const value = String(raw ?? '').trim();
+  if (!value || value.length > 256) invalid(field);
+  const fixed = calculate(value, field);
+  const negative = fixed < 0n;
+  const absolute = negative ? -fixed : fixed;
+  const cents = (absolute + CENT / 2n) / CENT;
+  if (cents > MAX_CENTS) throw new Error('Informe ' + field + ' dentro do limite permitido.');
+  return (negative ? -1 : 1) * Number(cents) / 100;
 }

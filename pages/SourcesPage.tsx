@@ -10,6 +10,7 @@ import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SourceWalletReferencePanel } from '../components/sources/SourceWalletReferencePanel';
+import { FinancialCalculatorInput } from '../components/forms/FinancialCalculatorInput';
 import { supabase } from '../lib/supabase';
 import { personalWalletService } from '../services/personalWallet.service';
 import { buildSourceReferenceDisplay, type SourceReferenceDisplay } from '../domain/sources/sourceReferenceDisplay';
@@ -266,20 +267,20 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
           <div className="space-y-3">
             <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg">
               <p className="text-[10px] text-amber-200 uppercase font-bold text-center">
-                Atenção: Use apenas para correção de inventário. Para entradas/saídas, use as funções do sistema.
+                Informe o saldo real da fonte quando não houver histórico confiável. A correção não cria movimentações anteriores nem altera contratos.
               </p>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Novo Saldo Atual</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
+              <FinancialCalculatorInput
+                placeholder="0,00"
+                fieldLabel="saldo real"
+                signed
                 value={ui.editingSource.balance === 0 ? '' : ui.editingSource.balance}
                 onChange={e => ui.setEditingSource({
                   ...ui.editingSource,
-                  balance: e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
+                  balance: e.target.value
                 })}
                 className="w-full bg-slate-950 p-3.5 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
               />

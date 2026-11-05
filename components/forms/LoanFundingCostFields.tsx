@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { formatMoney, parseCurrency } from '../../utils/formatters';
+import { FinancialCalculatorInput } from './FinancialCalculatorInput';
 
 type Props = {
   principal: number;
@@ -74,7 +75,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Custo da operação (R$)
-        <input type="text" inputMode="decimal"
+        <FinancialCalculatorInput
           required={required} disabled={disabled} aria-label="Custo da operação em reais"
           value={editing === 'COST' ? costDraft : hasTotal ? cost.toFixed(2).replace('.', ',') : ''}
           onFocus={() => { setEditing('COST'); setCostDraft(hasTotal ? cost.toFixed(2).replace('.', ',') : ''); }}
@@ -85,7 +86,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
       </label>
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Taxa equivalente (%)
-        <input type="text" inputMode="decimal"
+        <FinancialCalculatorInput rate
           disabled={disabled} aria-label="Taxa da operação em porcentagem"
           value={editing === 'RATE' ? rateDraft : hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''}
           onFocus={() => { setEditing('RATE'); setRateDraft(hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''); }}
@@ -96,7 +97,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
       </label>
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Total cobrado no cartão (R$)
-        <input type="text" inputMode="decimal"
+        <FinancialCalculatorInput
           disabled={disabled} aria-label="Total cobrado no cartão em reais"
           value={editing === 'TOTAL' ? totalDraft : hasTotal ? (principal + cost).toFixed(2).replace('.', ',') : ''}
           onFocus={() => { setEditing('TOTAL'); setTotalDraft(hasTotal ? (principal + cost).toFixed(2).replace('.', ',') : ''); }}

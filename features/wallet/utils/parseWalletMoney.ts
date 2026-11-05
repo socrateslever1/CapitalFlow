@@ -121,7 +121,7 @@ export function parseWalletMoney(raw: string, field = 'valor'): number {
   const value = String(raw ?? '').trim();
   if (!value || value.length > 256) invalid(field);
   const fixed = calculate(value, field);
-  if (fixed < 0n) throw new Error('Informe ' + field + ' maior ou igual a zero.');
+  if (fixed < 0n) throw new Error('Informe ' + field + ' válido, maior ou igual a zero.');
   const cents = (fixed + CENT / 2n) / CENT;
   if (cents > MAX_CENTS) throw new Error('Informe ' + field + ' dentro do limite permitido.');
   return Number(cents) / 100;

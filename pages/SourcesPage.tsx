@@ -172,12 +172,6 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         ))}
       </div>
 
-      <SourceWalletReferencePanel
-        sources={sources}
-        activeUser={activeUser}
-        onEditManual={handleEditSource}
-      />
-
       {ui.editingSource && (
         <Modal
           onClose={() => ui.setEditingSource(null)}
@@ -217,6 +211,13 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                 className="w-full bg-slate-950 p-3.5 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
               />
             </div>
+
+            <SourceWalletReferencePanel
+              key={ui.editingSource.id}
+              sources={[ui.editingSource]}
+              activeUser={activeUser}
+              onEditManual={handleEditSource}
+            />
 
             <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-3">
               <label className="text-[10px] uppercase font-bold text-slate-400">Imagem da carteira</label>

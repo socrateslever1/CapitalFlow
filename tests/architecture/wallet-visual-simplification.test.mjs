@@ -42,7 +42,9 @@ test('one expense action lives in global FAB, not a duplicated overview toolbar'
 });
 
 test('overview account liquidity has a single dominant total and compact institution rows', () => {
-  assert(summary.includes('Saldo disponível nas contas'));
+  assert(summary.includes('multipleAccounts'));
+  assert(summary.includes('Saldo consolidado'));
+  assert(!summary.includes('Saldo disponível nas contas'));
   assert(summary.includes('<AccountCardStack compact'));
   assert(summary.includes("onNavigate('contas')"));
   assert(!summary.includes('Total livre para movimentação nas suas instituições'));
@@ -50,6 +52,9 @@ test('overview account liquidity has a single dominant total and compact institu
   assert(accounts.includes('min-h-12 items-center justify-between'));
   assert(accounts.includes('BankLogo'));
   assert(summary.includes('aria-label="Seus cartões"'));
+  assert(summary.includes('multipleCards'));
+  assert(summary.includes('h-[132px]'));
+  assert(!summary.includes('rounded-lg border border-slate-800/90 bg-slate-950/60 p-3'));
   assert(summary.includes('getCardSummaryDestination(card.id)'));
 });
 

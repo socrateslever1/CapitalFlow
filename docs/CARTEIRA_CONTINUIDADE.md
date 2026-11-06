@@ -494,6 +494,12 @@ O commit 04076d871124b55ba73248d656fce0d7584c1a87 passou nos testes, na compila�
 - O pacote de ícones proprietários permanece como etapa futura; nesta correção foram ajustados apenas tamanho, espaçamento e legibilidade dos ícones existentes.
 - Validação: `npx tsc --noEmit --pretty false`, `npm run build`, `npm run test:wallet-visual-next` e `git diff --check` passaram. Sem commit, branch ou publicação.
 
+## 05/11/2026 — Cards de notificação compactos
+
+- A altura dos cards foi reduzida com padding menor, ícone de 32px, espaçamento vertical enxuto e mensagem limitada a duas linhas.
+- O texto completo continua acessível ao abrir a notificação; a compactação não remove o conteúdo da notificação, apenas evita cards altos na lista.
+- O botão de remoção mantém alvo de toque separado e não é comprimido pelo texto.
+
 ## 05/11/2026 — Lista completa de fontes de capital e sugestão de ícone bancário
 
 - **Exibição integral das fontes no cadastro de contas (`CreateAccountModal.tsx`):**

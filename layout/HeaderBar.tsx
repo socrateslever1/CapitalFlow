@@ -114,16 +114,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             onOpen(notif);
           }
         }}
-        className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3.5 py-3 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
+        className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3 py-2.5 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
       >
-        <div className="pointer-events-none absolute inset-y-3 left-0 w-[3px] rounded-full bg-white/10" />
-        <div className="flex gap-3 items-start">
+        <div className="pointer-events-none absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-white/10" />
+        <div className="flex items-start gap-2.5">
           <div
-            className={`mt-0.5 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/5 shadow-inner ${getNotificationBg(
+            className={`mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-white/5 shadow-inner flex items-center justify-center ${getNotificationBg(
               notif.type
             )}`}
           >
-            <Bell size={15} className={getNotificationColor(notif.type)} />
+            <Bell size={14} strokeWidth={1.8} className={getNotificationColor(notif.type)} />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -132,7 +132,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 <p className="text-[12px] sm:text-[13px] font-black text-white tracking-tight leading-tight">
                   {notif.title}
                 </p>
-                <p className="text-[10px] sm:text-[11px] text-slate-400 mt-1 leading-relaxed break-words">
+                <p className="mt-0.5 line-clamp-2 break-words text-[10px] leading-snug text-slate-400 sm:text-[11px]">
                   {notif.message}
                 </p>
               </div>
@@ -144,7 +144,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               </span>
             </div>
 
-            <div className="mt-2.5 flex items-center justify-between gap-3">
+            <div className="mt-1.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`h-1.5 w-1.5 rounded-full ${toneDotClass}`} />
                 <span className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
@@ -158,10 +158,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   e.stopPropagation();
                   onRemove?.(notif.id);
                 }}
-                className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/70 flex items-center justify-center text-slate-500 hover:text-rose-400 hover:border-rose-500/20 transition-colors"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-950/70 text-slate-500 transition-colors hover:border-rose-500/20 hover:text-rose-400"
                 aria-label="Remover notificacao"
               >
-                <Trash2 size={13} />
+                <Trash2 size={13} strokeWidth={1.8} />
               </button>
             </div>
           </div>

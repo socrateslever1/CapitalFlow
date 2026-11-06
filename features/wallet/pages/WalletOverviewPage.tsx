@@ -63,7 +63,7 @@ const sourceAccount = (
 const isOpenPayable = (payable: PersonalWalletPayable) =>
   !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
 
-export const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
+const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   const month = today.slice(0, 7);
   const accounts = snapshot.accounts;
   const cards = snapshot.cards.filter(card => card.status !== 'CANCELED');
@@ -401,3 +401,6 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
 
 export const OverviewPage = WalletOverviewPage;
 export default WalletOverviewPage;
+
+// Reutilizado pelo relatório da Carteira sem duplicar as regras financeiras.
+export { deriveOverview };

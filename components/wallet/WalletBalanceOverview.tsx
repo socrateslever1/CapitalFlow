@@ -3,6 +3,7 @@ import { ArrowDownRight, ArrowUpRight, Landmark, ReceiptText, Scale, TrendingDow
 import type { PersonalWalletAccount, PersonalWalletPayable, WalletRecurringIncome } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { calculateWalletBalance } from './walletBalanceDomain';
+import { PrivateMoney, useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
 
 type WalletBalanceOverviewProps = {
   accounts: PersonalWalletAccount[];
@@ -14,6 +15,12 @@ type WalletBalanceOverviewProps = {
 };
 
 export const WalletBalanceOverview: React.FC<WalletBalanceOverviewProps> = (props) => {
+  const privacyHidden = useFinancialPrivacy();
+  if (privacyHidden) return <section aria-label="Balanço financeiro protegido"
+    className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+    <h2 className="text-base font-semibold text-white">Balanço Geral da Carteira</h2>
+    <p className="mt-2 text-sm text-slate-300">Valores e indicadores protegidos.</p>
+  </section>;
   const balance = calculateWalletBalance(props);
   const positive = balance.projectedBalance >= 0;
   return (
@@ -33,25 +40,25 @@ export const WalletBalanceOverview: React.FC<WalletBalanceOverviewProps> = (prop
         <div className="rounded-2xl border border-emerald-500/15 bg-emerald-950/20 p-4">
           <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-emerald-300"><ArrowUpRight size={16}/> Recursos disponíveis</h3>
           <div className="mt-3 space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><Landmark size={14}/> Saldos em conta</span><strong className="text-slate-100">{formatMoney(balance.accountBalance)}</strong></div>
-            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><Wallet size={14}/> Receitas a receber</span><strong className="text-slate-100">{formatMoney(balance.pendingRecurringIncome)}</strong></div>
+            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><Landmark size={14}/> Saldos em conta</span><strong className="text-slate-100"><PrivateMoney value={formatMoney(balance.accountBalance)}/></strong></div>
+            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><Wallet size={14}/> Receitas a receber</span><strong className="text-slate-100"><PrivateMoney value={formatMoney(balance.pendingRecurringIncome)}/></strong></div>
           </div>
-          <div className="mt-3 flex items-center justify-between border-t border-emerald-500/15 pt-3"><span className="text-xs font-bold text-emerald-300">Total de Recursos</span><strong className="text-base font-black text-emerald-300">{formatMoney(balance.totalResources)}</strong></div>
+          <div className="mt-3 flex items-center justify-between border-t border-emerald-500/15 pt-3"><span className="text-xs font-bold text-emerald-300">Total de Recursos</span><strong className="text-base font-black text-emerald-300"><PrivateMoney value={formatMoney(balance.totalResources)}/></strong></div>
         </div>
 
         <div className="rounded-2xl border border-rose-500/15 bg-rose-950/20 p-4">
           <h3 className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-rose-300"><ArrowDownRight size={16}/> Obrigações e dívidas</h3>
           <div className="mt-3 space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><ReceiptText size={14}/> Faturas abertas</span><strong className="text-slate-100">{formatMoney(balance.openCardInvoices)}</strong></div>
-            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><Scale size={14}/> Contas a pagar no mês</span><strong className="text-slate-100">{formatMoney(balance.monthPayables)}</strong></div>
+            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><ReceiptText size={14}/> Faturas abertas</span><strong className="text-slate-100"><PrivateMoney value={formatMoney(balance.openCardInvoices)}/></strong></div>
+            <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-400"><Scale size={14}/> Contas a pagar no mês</span><strong className="text-slate-100"><PrivateMoney value={formatMoney(balance.monthPayables)}/></strong></div>
           </div>
-          <div className="mt-3 flex items-center justify-between border-t border-rose-500/15 pt-3"><span className="text-xs font-bold text-rose-300">Total de Passivos</span><strong className="text-base font-black text-rose-300">{formatMoney(balance.totalLiabilities)}</strong></div>
+          <div className="mt-3 flex items-center justify-between border-t border-rose-500/15 pt-3"><span className="text-xs font-bold text-rose-300">Total de Passivos</span><strong className="text-base font-black text-rose-300"><PrivateMoney value={formatMoney(balance.totalLiabilities)}/></strong></div>
         </div>
       </div>
 
       <div className={`mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 ${positive ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}>
         <span className="text-xs font-bold text-slate-300">Saldo Projetado do Mês</span>
-        <strong className={`text-lg font-black ${positive ? 'text-emerald-300' : 'text-rose-300'}`}>{formatMoney(balance.projectedBalance)}</strong>
+        <strong className={`text-lg font-black ${positive ? 'text-emerald-300' : 'text-rose-300'}`}><PrivateMoney value={formatMoney(balance.projectedBalance)}/></strong>
       </div>
     </section>
   );

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarClock, BarChart3, CreditCard, Landmark, TrendingDown, TrendingUp } from 'lucide-react';
-import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
+import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import { formatMoney } from '../../../utils/formatters';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletPageFrame } from '../components/WalletPageFrame';
@@ -20,6 +20,7 @@ const DateOfCommitment: React.FC<{ value: string }> = ({ value }) => {
 };
 
 export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
+  const privacyHidden = useFinancialPrivacy();
   const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
   const [today, setToday] = useState(localDate);
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,12 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
       className="flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">
       <ArrowLeft size={15}/> Voltar
     </button>}>
-    {report && <>
+    {report && privacyHidden && <section aria-label="Relatório financeiro protegido"
+      className="rounded-xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-300">
+      Valores, categorias, percentuais e vencimentos estão ocultos.
+      Use o controle de privacidade para visualizar o relatório.
+    </section>}
+    {report && !privacyHidden && <>
       <section aria-label="Resumo financeiro do mês" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><BarChart3 size={17} className="text-blue-400"/> Visão do mês</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowRight, CreditCard, Landmark } from 'lucide-react';
-import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
+import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../../services/personalWallet.service';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { BankLogo } from '../../../components/wallet/BankLogo';
@@ -25,6 +25,7 @@ type WalletOverviewSummaryProps = {
 export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
   accounts, cards, accountBalance, currentInvoiceTotal, credit, onNavigate,
 }) => {
+  const privacyHidden = useFinancialPrivacy();
   const multipleAccounts = accounts.length > 1;
   const multipleCards = cards.length > 1;
 
@@ -36,14 +37,14 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
             <Landmark size={17} className="text-blue-400" aria-hidden="true"/>Contas
           </h3>
           <span className="text-xs text-slate-400">
-            {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}
+            {privacyHidden ? 'Contas protegidas' : `${accounts.length} ${accounts.length === 1 ? 'conta' : 'contas'}`}
           </span>
         </header>
         {multipleAccounts && (
           <div className="mt-2.5 flex items-baseline justify-between gap-2 rounded-lg bg-slate-950/60 px-2.5 py-2">
             <span className="text-xs text-slate-300">Saldo consolidado</span>
             <strong className={'text-base font-bold tabular-nums ' +
-              (accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300')}>
+              (privacyHidden ? 'text-slate-300' : accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300')}>
               <PrivateMoney value={formatMoney(accountBalance)}/>
             </strong>
           </div>
@@ -66,7 +67,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
             <CreditCard size={17} className="text-blue-400" aria-hidden="true"/>Cartões
           </h3>
           <span className="text-xs text-slate-400">
-            {cards.length} {cards.length === 1 ? 'ativo' : 'ativos'}
+            {privacyHidden ? 'Cartões protegidos' : `${cards.length} ${cards.length === 1 ? 'ativo' : 'ativos'}`}
           </span>
         </header>
         <div className="mt-2.5 flex flex-wrap items-baseline justify-between gap-2 text-xs">
@@ -79,22 +80,22 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
         {multipleCards && (
           <div className="mt-2.5 border-t border-slate-800 pt-2.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-slate-300">
-              <span>Disponível nos {cards.length} cartões</span>
+              <span>{privacyHidden ? 'Limite consolidado protegido' : `Disponível nos ${cards.length} cartões`}</span>
               <strong className="text-sm font-semibold tabular-nums text-emerald-300">
                 <PrivateMoney value={formatMoney(credit.available)}/>
               </strong>
             </div>
             <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
               <span>Limite utilizado</span>
-              <span className="tabular-nums">{Math.round(credit.percentage)}%</span>
+              <span className="tabular-nums">{privacyHidden ? '••••' : Math.round(credit.percentage) + '%'}</span>
             </div>
-            <div role="progressbar" aria-label="Uso consolidado do limite de crédito"
+            {!privacyHidden && <div role="progressbar" aria-label="Uso consolidado do limite de crédito"
               aria-valuemin={0} aria-valuemax={100}
               aria-valuenow={Math.min(100, Math.max(0, Math.round(credit.percentage)))}
               className="mt-1 h-1 overflow-hidden rounded-full bg-slate-800">
               <div className="h-full rounded-full bg-blue-500"
                 style={{width:`${Math.min(100, Math.max(0, credit.percentage))}%`}}/>
-            </div>
+            </div>}
           </div>
         )}
 
@@ -111,7 +112,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
               return (
                 <li key={card.id} className="min-w-0 shrink-0 basis-[min(78%,260px)] snap-start sm:basis-[min(48%,280px)]">
                   <button type="button" onClick={() => onNavigate(getCardSummaryDestination(card.id))}
-                    aria-label={`Abrir cartão ${card.nickname}, final ${card.last_four || 'não informado'}`}
+                    aria-label={privacyHidden ? 'Abrir cartão protegido' : `Abrir cartão ${card.nickname}, final ${card.last_four || 'não informado'}`}
                     className="group relative flex h-[132px] w-full flex-col justify-between overflow-hidden rounded-xl border border-white/15 bg-slate-950 p-3 text-left text-white shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 sm:h-[142px]"
                     style={{background:`linear-gradient(145deg, ${accent}, #0f172a 88%)`}}>
                     <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-32 w-32 rounded-full border border-white/10"/>
@@ -123,7 +124,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
                         <span className="min-w-0">
                           <strong className="block truncate text-sm font-semibold">{card.nickname}</strong>
                           <span className="block text-[10px] tracking-wider text-white/75">
-                            •••• {card.last_four || '----'}
+                            •••• {privacyHidden ? '••••' : card.last_four || '----'}
                           </span>
                         </span>
                       </span>

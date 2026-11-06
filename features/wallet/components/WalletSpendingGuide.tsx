@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight, BarChart3, CalendarClock, CreditCard, Lightbulb, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
 import { formatMoney } from '../../../utils/formatters';
+import { useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import type { SpendingOverview } from '../domain/walletSpendingInsights';
 
 /** Banking-style, read-only spending guidance. No RPCs or financial writes. */
@@ -17,6 +18,24 @@ export const WalletSpendingGuide: React.FC<{
   onNavigate: (path: string) => void;
 }> = ({ projectedBalance, creditPercent, cardCount, pendingCount, overdueCount = 0,
   overdueInvoiceCount = 0, dueSoonCount = 0, pendingIncome = 0, spending, onNavigate }) => {
+  const privacyHidden = useFinancialPrivacy();
+  // No percentages, category names, labels, amounts or aria-valuenow
+  // may reach the DOM when visual privacy is enabled.
+  if (privacyHidden) return <section aria-label="Saúde financeira protegida"
+    className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+        <Lightbulb size={18} className="text-cyan-300"/>Saúde financeira
+      </h3>
+      <button type="button" onClick={() => onNavigate('relatorio')}
+        className="min-h-10 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-blue-300">
+        <BarChart3 size={15} className="mr-1 inline"/> Relatório
+      </button>
+    </div>
+    <p className="mt-3 text-sm text-slate-300">
+      Indicadores, percentuais e gráficos ocultos pelo controle de privacidade.
+    </p>
+  </section>;
   const top = spending.categories[0];
   const hasCredit = cardCount > 0;
   const usage = Number.isFinite(creditPercent) ? Math.max(0, creditPercent) : 0;

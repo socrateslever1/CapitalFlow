@@ -721,11 +721,13 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                           className={`grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-blue-500/70 bg-blue-500/10' : 'border-slate-800 bg-slate-950/40 hover:bg-slate-800/70'}`}>
                           <span className="min-w-0">
                             <span className={`block text-xs font-bold ${active ? 'text-white' : 'text-slate-200'}`}>Fatura {competence}</span>
-                            <span className="mt-1 block text-[11px] text-slate-400">Vence {due}</span>
+                            <span className="mt-1 block text-[11px] text-slate-400">{hideFinancialValues ? 'Vencimento protegido' : 'Vence ' + due}</span>
                           </span>
                           <span className="text-right">
                             <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></span>
-                            <span className={`mt-1 block text-[10px] ${status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>{label}</span>
+                            <span className={`mt-1 block text-[10px] ${hideFinancialValues ? 'text-slate-400' : status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>
+   {hideFinancialValues ? 'Situação protegida' : label}
+ </span>
                           </span>
                         </button>
                       );

@@ -1,4 +1,4 @@
-import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
+import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight, CalendarClock, ChevronDown,
@@ -164,6 +164,7 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
 };
 
 export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) => {
+  const privacyHidden = useFinancialPrivacy();
   const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -257,9 +258,10 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           </p>
         </div>
         <span className={'rounded-full border px-3.5 py-1 text-xs sm:text-sm font-bold ' +
-          (deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
-            'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>
-          {deficit ? 'Déficit no mês' : 'Superávit no mês'}
+          (privacyHidden ? 'border-slate-700 bg-slate-950/50 text-slate-300' :
+           deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
+             'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>
+          {privacyHidden ? 'Indicador oculto' : deficit ? 'Déficit no mês' : 'Superávit no mês'}
         </span>
       </div>
 
@@ -273,12 +275,12 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <dt className="text-xs font-medium text-slate-300">Compromissos</dt>
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg"><PrivateMoney value={money(balance.totalLiabilities)} /></dd>
         </div>
-        <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
+        <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${privacyHidden ? 'bg-slate-950/30' : deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
           <dt className="text-xs font-semibold text-white">Projeção após compromissos</dt>
-          <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
+          <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
         </div>
       </dl>
-      <details className="group mt-3 border-t border-slate-800 pt-3">
+      {!privacyHidden && <details className="group mt-3 border-t border-slate-800 pt-3">
         <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-blue-300 hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
           Ver composição do balanço <ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180"/>
         </summary>
@@ -307,7 +309,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Projetado</span>
-                <strong className={`text-sm font-bold ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.facts.projected.amount ?? balance.projectedBalance)} /></strong>
+                <strong className={`text-sm font-bold ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.facts.projected.amount ?? balance.projectedBalance)} /></strong>
                 <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.projected.state} · {balance.facts.projected.origin}</span>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
@@ -321,7 +323,10 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
             </p>
           </div>
         </div>
-      </details>
+      </details>}
+      {privacyHidden && <p className="mt-3 text-xs text-slate-400">
+        Composição do balanço oculta pelo controle de privacidade.
+      </p>}
     </article>
 
     {/* 2. SEÇÃO COMPROMISSOS PRÓXIMOS */}
@@ -335,7 +340,9 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <span>Ver contas a pagar</span> <ArrowRight size={16}/>
         </button>
       </div>
-      <div className="mt-4 divide-y divide-slate-800">
+      {privacyHidden ? <p className="mt-4 rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+        Detalhes e vencimentos ocultos pelo controle de privacidade.
+      </p> : <div className="mt-4 divide-y divide-slate-800">
         {upcoming.length ? upcoming.map(item => {
           const overdue = item.dueDate < today;
           return (
@@ -372,7 +379,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
         }) : <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-300">
           Nenhum compromisso com vencimento informado nos próximos 45 dias.
         </p>}
-      </div>
+      </div>}
     </article>
 
     {quickModal?.mode === 'CASH_WALLET' && (

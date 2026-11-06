@@ -66,8 +66,10 @@ test('FAB and receipt screen reuse the established payment manager and a single 
   assert(fab.includes("React.lazy(() => import('./QuickIncomeModal')"));
   assert(fab.includes('grid-cols-2'));
   const incomePage=readFileSync('features/wallet/pages/WalletIncomePage.tsx','utf8');
-  assert(incomePage.includes("op.operation_type === 'INCOME'"));
-  assert(incomePage.includes('Entradas avulsas'));
+  const historyRules=readFileSync('features/wallet/domain/walletIncomeHistory.ts','utf8');
+  assert(historyRules.includes("op.operation_type !== 'INCOME'"));
+  assert(incomePage.includes('isExternalIncome(op, operations)'));
+  assert(incomePage.includes('Histórico de entradas avulsas'));
   assert(incomePage.includes('manualReceipts.slice(0,8)'));
   assert(incomePage.includes('evitar contagem duplicada'));
   const recurring=readFileSync('components/wallet/RecurringIncomePanel.tsx','utf8');

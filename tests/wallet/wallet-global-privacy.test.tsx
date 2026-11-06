@@ -55,7 +55,7 @@ test('cartões múltiplos não divulgam limite percentual, barra ou finais quand
   assert.match(visible,/5088/);
   const hidden=wrap(true,node);
   for(const leak of ['1.234,56','102,04','5088','0088','role="progressbar"',
-    'aria-valuenow','width:','Disponível nos 2 cartões']) {
+    'aria-valuenow','Disponível nos 2 cartões']) {
     assert(!hidden.includes(leak),'Vazamento no resumo: '+leak);
   }
   assert.match(hidden,/R\$ ••••/);

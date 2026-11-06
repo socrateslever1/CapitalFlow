@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight, CalendarClock, ChevronDown,
@@ -260,15 +261,15 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       <dl className="mt-4 grid min-w-0 grid-cols-2 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 sm:grid-cols-3">
         <div className="min-w-0 border-r border-slate-800 p-3 sm:p-4">
           <dt className="text-xs font-medium text-slate-300">Recursos</dt>
-          <dd className="mt-1 break-words text-base font-bold tabular-nums text-emerald-300 sm:text-lg">{money(balance.totalResources)}</dd>
+          <dd className="mt-1 break-words text-base font-bold tabular-nums text-emerald-300 sm:text-lg"><PrivateMoney value={money(balance.totalResources)} /></dd>
         </div>
         <div className="min-w-0 p-3 sm:border-r sm:border-slate-800 sm:p-4">
           <dt className="text-xs font-medium text-slate-300">Compromissos</dt>
-          <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg">{money(balance.totalLiabilities)}</dd>
+          <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg"><PrivateMoney value={money(balance.totalLiabilities)} /></dd>
         </div>
         <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
           <dt className="text-xs font-semibold text-white">Projeção após compromissos</dt>
-          <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}>{money(balance.projectedBalance)}</dd>
+          <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
         </div>
       </dl>
       <details className="group mt-3 border-t border-slate-800 pt-3">
@@ -279,15 +280,15 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <div className="min-w-0 lg:col-span-6">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><TrendingUp size={15}/> Origem dos recursos</h4>
             <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Saldos em conta</dt><dd className="font-semibold text-white">{money(balance.accountBalance)}</dd></div>
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Receitas a receber no mês</dt><dd className="font-semibold text-white">{money(balance.pendingRecurringIncome)}</dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Saldos em conta</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.accountBalance)} /></dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Receitas a receber no mês</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.pendingRecurringIncome)} /></dd></div>
             </dl>
           </div>
           <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-6 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
             <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-rose-300"><TrendingDown size={15}/> Origem dos compromissos</h4>
             <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Faturas com vencimento no mês</dt><dd className="font-semibold text-white">{money(balance.openCardInvoices)}</dd></div>
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Dívidas e contas do mês</dt><dd className="font-semibold text-white">{money(balance.monthPayables)}</dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Faturas com vencimento no mês</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.openCardInvoices)} /></dd></div>
+              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Dívidas e contas do mês</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.monthPayables)} /></dd></div>
             </dl>
           </div>
           <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-12">
@@ -295,17 +296,17 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
             <div className="mt-2 grid gap-2 sm:grid-cols-3 text-xs">
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Efetivo</span>
-                <strong className="text-sm font-bold text-emerald-300">{money(balance.facts.effective.amount ?? balance.accountBalance)}</strong>
+                <strong className="text-sm font-bold text-emerald-300"><PrivateMoney value={money(balance.facts.effective.amount ?? balance.accountBalance)} /></strong>
                 <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.effective.state} · {balance.facts.effective.origin}</span>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Projetado</span>
-                <strong className={`text-sm font-bold ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}>{money(balance.facts.projected.amount ?? balance.projectedBalance)}</strong>
+                <strong className={`text-sm font-bold ${deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.facts.projected.amount ?? balance.projectedBalance)} /></strong>
                 <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.projected.state} · {balance.facts.projected.origin}</span>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Receitas Pendentes</span>
-                <strong className="text-sm font-bold text-cyan-300">{money(balance.facts.pending.amount ?? balance.pendingRecurringIncome)}</strong>
+                <strong className="text-sm font-bold text-cyan-300"><PrivateMoney value={money(balance.facts.pending.amount ?? balance.pendingRecurringIncome)} /></strong>
                 <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.pending.state} · {balance.facts.pending.origin}</span>
               </div>
             </div>
@@ -357,7 +358,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
                   {overdue ? 'Vencido · ' : ''}{dateLabel(item.dueDate)}
                 </span>
                 <strong className="text-right text-base sm:text-lg font-bold text-white tracking-tight tabular-nums">
-                  {money(item.amount)}
+                  <PrivateMoney value={money(item.amount)} />
                 </strong>
               </div>
             </div>

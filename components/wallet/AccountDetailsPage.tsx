@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X } from 'lucide-react';
 import {
@@ -284,7 +285,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           </div>
           <div className="text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400">Saldo</p>
-            <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-emerald-400">{formatMoney(Number(account.balance))}</p>
+            <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-emerald-400"><PrivateMoney value={formatMoney(Number(account.balance))} /></p>
           </div>
         </div>
         {!editing && (capitalLinkState.status !== 'unlinked' || loanLimitAvailable !== null) && (
@@ -301,7 +302,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             )}
             {loanLimitAvailable !== null && loanLimitAvailable > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-950/25 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-cyan-200">
-                Limite de empréstimo disponível: {formatMoney(loanLimitAvailable)}
+                Limite de empréstimo disponível: <PrivateMoney value={formatMoney(loanLimitAvailable)} />
               </span>
             )}
             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
@@ -357,7 +358,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
               <div>
                 <span className="block text-[10px] uppercase text-slate-400">Saldo atual no app</span>
-                <strong className="text-sm text-white">{formatMoney(Number(account.balance || 0))}</strong>
+                <strong className="text-sm text-white"><PrivateMoney value={formatMoney(Number(account.balance || 0))} /></strong>
               </div>
               <div>
                 <span className="block text-[10px] uppercase text-slate-400">Ajuste calculado</span>
@@ -491,13 +492,13 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
                 <option value="">Nenhuma conta de origem vinculada</option>
                 {eligibleSources.map(source => (
                   <option key={source.id} value={source.id}>
-                    {source.name} · {formatMoney(Number(source.balance || 0))}
+                    {source.name} · <PrivateMoney value={formatMoney(Number(source.balance || 0))} />
                     {Math.round(Number(source.balance || 0) * 100) !== Math.round(Number(account.balance || 0) * 100) ? ' (saldos divergentes)' : ''}
                   </option>
                 ))}
               </select>
               <span className="text-[11px] font-normal text-slate-500">
-                Apenas fontes disponíveis e com o mesmo saldo ({formatMoney(Number(account.balance || 0))}) podem ser vinculadas.
+                Apenas fontes disponíveis e com o mesmo saldo (<PrivateMoney value={formatMoney(Number(account.balance || 0))} />) podem ser vinculadas.
               </span>
             </label>
           </div>

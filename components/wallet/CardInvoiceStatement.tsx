@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CalendarDays, FastForward, Pencil, ReceiptText, ShoppingBag, Tag, Trash2 } from 'lucide-react';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
@@ -188,7 +189,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
       </header>
 
       {hasOverride && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-100">A fatura inicial já inclui os gastos informados antes dela. Novos gastos entram conforme o ciclo do cartão.</p>}
-      {openingBalance > 0 && <article className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900 p-3 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-1 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200">{formatMoney(openingBalance)}</strong></article>}
+      {openingBalance > 0 && <article className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900 p-3 text-xs"><div><p className="font-semibold text-slate-200">Demais gastos da carga inicial</p><p className="mt-1 text-[10px] text-slate-400">Ainda sem detalhamento · fora da fatura deste ciclo</p></div><strong className="shrink-0 text-amber-200"><PrivateMoney value={formatMoney(openingBalance)} /></strong></article>}
 
       {!entries.length ? <p className="mt-3 rounded-lg border border-dashed border-slate-800 px-3 py-4 text-center text-xs text-slate-500">Nenhum lançamento ativo nesta fatura.</p> : (
         <div className="mt-3 max-h-56 divide-y divide-slate-800 overflow-y-auto pr-1 overscroll-contain lg:max-h-none">
@@ -212,7 +213,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500"><CalendarDays size={11} />{expense.expense_date.split('-').reverse().join('/')}<span>·</span><Tag size={11} />{expense.category}</p>
                 </div>
                 <div className="text-right">
-                  <strong className="block text-xs font-extrabold text-rose-300">{formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))}</strong>
+                  <strong className="block text-xs font-extrabold text-rose-300"><PrivateMoney value={formatMoney(Number(installment.amount) - Number(installment.paid_amount || 0))} /></strong>
                   {expense.entry_type === 'INVOICE_OVERRIDE' && onCancelConsolidation && <button type="button" onClick={() => setConfirmingConsolidation(expense)} disabled={cancelingConsolidation} className="mt-1 rounded-md border border-rose-500/30 px-2 py-1 text-[10px] text-rose-300 disabled:opacity-40">Cancelar consolidação</button>}
                   {expense.entry_type !== 'INVOICE_OVERRIDE' && <div className="mt-1 flex flex-wrap justify-end gap-1">
                     {canAdvance && (
@@ -288,17 +289,17 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
             <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 p-3 space-y-1 text-slate-200">
               <div className="flex justify-between">
                 <span>Selecionadas ({advancePreview.advancedBadgesLabel}):</span>
-                <strong>{formatMoney(advancePreview.advancedSum)}</strong>
+                <strong><PrivateMoney value={formatMoney(advancePreview.advancedSum)} /></strong>
               </div>
               {advancePreview.discountAmount > 0 && (
                 <div className="flex justify-between text-emerald-300">
                   <span>Desconto de antecipação:</span>
-                  <strong>- {formatMoney(advancePreview.discountAmount)}</strong>
+                  <strong>- <PrivateMoney value={formatMoney(advancePreview.discountAmount)} /></strong>
                 </div>
               )}
               <div className="flex justify-between border-t border-emerald-500/20 pt-1.5 text-sm font-bold text-white">
                 <span>Valor lançado nesta fatura:</span>
-                <strong className="text-emerald-300">{formatMoney(advancePreview.netAdvancedAmount)}</strong>
+                <strong className="text-emerald-300"><PrivateMoney value={formatMoney(advancePreview.netAdvancedAmount)} /></strong>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row-reverse pt-1">

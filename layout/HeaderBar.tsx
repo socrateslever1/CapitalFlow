@@ -551,7 +551,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
               <button
                 id="btn-stealth-desktop"
+                type="button"
                 onClick={toggleStealthMode}
+                aria-label={isStealthMode ? 'Mostrar valores financeiros' : 'Ocultar valores financeiros'}
+                aria-pressed={isStealthMode}
                 className={`p-3 rounded-lg transition-all shadow-lg group ${
                   isStealthMode
                     ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-indigo-500/20'
@@ -655,7 +658,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
               <button
                 id="btn-stealth-mobile"
+                type="button"
                 onClick={toggleStealthMode}
+                aria-label={isStealthMode ? 'Mostrar valores financeiros' : 'Ocultar valores financeiros'}
+                aria-pressed={isStealthMode}
                 className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all ${
                   isStealthMode
                     ? 'bg-gradient-to-br from-indigo-600 to-violet-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'

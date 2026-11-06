@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Copy, CreditCard, FileUp, Pencil, Plus, RotateCcw, Wifi } from 'lucide-react';
 import { copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
@@ -148,7 +149,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <Chip/>
-                      <div className="min-w-0 text-right"><small className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Limite disponível</small><strong className="block truncate text-sm font-black sm:text-base">{formatMoney(available)}</strong></div>
+                      <div className="min-w-0 text-right"><small className="block text-[8px] font-bold uppercase tracking-wider text-white/60">Limite disponível</small><strong className="block truncate text-sm font-black sm:text-base"><PrivateMoney value={formatMoney(available)} /></strong></div>
                       <Wifi size={18} className="shrink-0 rotate-90 opacity-80"/>
                     </div>
                     <button type="button" data-card-section="number" onPointerDown={event => event.stopPropagation()} onClick={event => { void handleCopyField('number', event); }} disabled={!selected.last_four} aria-label="Copiar apenas os quatro últimos dígitos do cartão" title="Copiar final do cartão" className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/15 bg-black/15 px-2.5 py-1.5 text-left transition hover:bg-black/25">

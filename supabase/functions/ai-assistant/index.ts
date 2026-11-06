@@ -7,17 +7,27 @@ const allowedOrigins = new Set([
   'https://capflow.pages.dev',
   'https://capitalflow.app',
   'https://www.capitalflow.app',
+  // Capacitor Android/iOS WebView and local development. Access still requires a valid JWT.
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
+  'ionic://localhost',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:3000',
 ]);
-const corsHeaders = (req: Request) => ({
-  'Access-Control-Allow-Origin': allowedOrigins.has(req.headers.get('origin') || '') ? req.headers.get('origin')! : defaultOrigin,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Vary': 'Origin',
-});
+const isAllowedOrigin = (origin: string | null): origin is string =>
+  Boolean(origin && (allowedOrigins.has(origin) || /^https:\/\/[a-z0-9-]{1,64}\.capflow\.pages\.dev$/.test(origin)));
+const corsHeaders = (req: Request) => {
+  const origin = req.headers.get('origin');
+  return {
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : defaultOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  };
+};
 
 type Intent = 'READ' | 'DRAFT' | 'CONFIRM' | 'FORBIDDEN' | 'UNKNOWN';
 type Provider = { id: string; kind: 'gemini' | 'openai'; model: string; baseUrl?: string; secretEnv: string };
@@ -40,25 +50,48 @@ function classifyIntent(text: string): { intent: Intent; permissionMode: Intent 
 }
 
 function parseProviders(): Provider[] {
-  const configured = Deno.env.get('AI_PROVIDER_POOL_JSON');
-  if (configured) {
+  // Provider keys are exclusively on the Edge Function. No secrets are sent to the browser.
+  const hasCredential = (provider: Provider) => Boolean(
+    Deno.env.get(provider.secretEnv) ||
+    (provider.kind === 'gemini' && provider.secretEnv === 'GEMINI_API_KEY' && Deno.env.get('GOOGLE_API_KEY'))
+  );
+  let configured: Provider[] = [];
+  const rawPool = Deno.env.get('AI_PROVIDER_POOL_JSON');
+  if (rawPool) {
     try {
-      const raw: unknown = JSON.parse(configured);
+      const raw: unknown = JSON.parse(rawPool);
       if (Array.isArray(raw)) {
-        const valid = raw.filter((item): item is Provider => {
+        configured = raw.filter((item): item is Provider => {
           if (!item || typeof item !== 'object') return false;
-          const x = item as Record<string, unknown>;
-          return typeof x.id === 'string' && x.id.length <= 60 &&
-            (x.kind === 'gemini' || x.kind === 'openai') &&
-            typeof x.model === 'string' && x.model.length <= 100 &&
-            typeof x.secretEnv === 'string' && /^[A-Z][A-Z0-9_]{2,63}$/.test(x.secretEnv) &&
-            (x.kind === 'gemini' || (typeof x.baseUrl === 'string' && x.baseUrl.startsWith('https://')));
-        });
-        if (valid.length) return valid.slice(0, 4);
+          const p = item as Record<string, unknown>;
+          return typeof p.id === 'string' && /^[a-zA-Z0-9_-]{1,60}$/.test(p.id) &&
+            (p.kind === 'gemini' || p.kind === 'openai') &&
+            typeof p.model === 'string' && p.model.length > 0 && p.model.length <= 100 &&
+            typeof p.secretEnv === 'string' && /^[A-Z][A-Z0-9_]{2,63}$/.test(p.secretEnv) &&
+            (p.kind === 'gemini' || (typeof p.baseUrl === 'string' && /^https:\/\/[^/]+/.test(p.baseUrl)));
+        }).slice(0, 4);
       }
-    } catch { console.error('[flux] invalid_provider_pool'); }
+    } catch { console.warn('[flux] provider_configuration_invalid'); }
   }
-  return [{ id: 'gemini-default', kind: 'gemini', model: Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash', secretEnv: 'GEMINI_API_KEY' }];
+  // Auto-discovery: existing secrets activate a real cross-provider fallback.
+  // Two Gemini models use the same key as a last resort; they do not bypass provider-wide quotas.
+  const discovered: Provider[] = [
+    { id: 'groq-fast', kind: 'openai', model: 'llama-3.1-8b-instant', baseUrl: 'https://api.groq.com/openai/v1', secretEnv: 'GROQ_API_KEY' },
+    { id: 'openrouter-free', kind: 'openai', model: 'openrouter/free', baseUrl: 'https://openrouter.ai/api/v1', secretEnv: 'OPENROUTER_API_KEY' },
+    { id: 'gemini-flash', kind: 'gemini', model: Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash', secretEnv: 'GEMINI_API_KEY' },
+    { id: 'gemini-lite', kind: 'gemini', model: 'gemini-3.5-flash-lite', secretEnv: 'GEMINI_API_KEY' },
+  ];
+  const available: Provider[] = [];
+  const signatures = new Set<string>();
+  for (const p of [...configured, ...discovered]) {
+    if (!hasCredential(p)) continue;
+    const signature = p.kind + ':' + p.model + ':' + p.secretEnv;
+    if (signatures.has(signature)) continue;
+    signatures.add(signature);
+    available.push(p);
+    if (available.length === 4) break;
+  }
+  return available;
 }
 
 type AssistantContext = {
@@ -336,7 +369,10 @@ async function callProvider(
     }));
     const payload: Record<string, unknown> = {
       systemInstruction: { parts: [{ text: systemInstruction }] },
-      contents, generationConfig: { maxOutputTokens: 900 },
+      contents, generationConfig: {
+        maxOutputTokens: 1500,
+        ...(provider.model.startsWith('gemini-3.') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+      },
     };
     if (allowTools) payload.tools = [{ functionDeclarations: [{
       name: 'consultar_dados_financeiros', description: TOOL_DESCRIPTION,
@@ -453,13 +489,21 @@ async function executeReadOnlyAgent(
     try {
       const area = queried?.area || inferredArea!;
       const context = queried?.data || await loadContext(client, userId, area, fresh);
-      return { response: generateDeterministicContextResponse(prompt, context),
+      // Prefer the requested financial category when generating a safe, model-free answer.
+      const fallbackSubject = area === 'cartoes' ? 'faturas e cartões'
+        : area === 'contas' ? 'saldo bancário e contas'
+        : area === 'fontes' ? 'fontes de capital'
+        : area === 'contratos' ? 'contratos e parcelas'
+        : area === 'compromissos' ? 'compromissos a pagar' : prompt;
+      return { response: generateDeterministicContextResponse(fallbackSubject, context),
         provider: 'flux-local', model: 'read-only-fallback', consulted: true };
     } catch {
       return { response: 'Os dados financeiros estão indisponíveis neste momento.', provider: 'flux-safe', model: 'unavailable', consulted: true };
     }
   }
-  return { response: 'O modelo de conversa está temporariamente indisponível. Tente novamente mais tarde.',
+  return { response: parseProviders().length === 0
+    ? 'O Flux não encontrou nenhum provedor de IA com credencial configurada no servidor.'
+    : 'Os provedores de IA estão indisponíveis ou atingiram o limite de uso. Tente novamente mais tarde.',
     provider: 'flux-safe', model: 'unavailable', consulted: false };
 }
 

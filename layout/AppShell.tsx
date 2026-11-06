@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, Megaphone, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
 import { HeaderBar } from './HeaderBar';
+import { FinancialPrivacyProvider } from '../contexts/FinancialPrivacyContext';
 import { PageBackProvider } from '../contexts/PageBackContext';
 import { ApplePageBackBar } from './ApplePageBackBar';
 import { isAppleMobile } from '../utils/appleMobile';
@@ -184,6 +185,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   }, [activeTab, title, location.pathname, location.search]);
 
   return (
+    <FinancialPrivacyProvider hidden={isStealthMode}>
     <PageBackProvider>
     <div className={`${isSupportOpen ? 'fixed inset-0 h-dvh' : 'relative'} cf-app-shell w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden`}>
       <HeaderBar
@@ -329,5 +331,6 @@ export const AppShell: React.FC<AppShellProps> = ({
         />
     </div>
     </PageBackProvider>
+    </FinancialPrivacyProvider>
   );
 };

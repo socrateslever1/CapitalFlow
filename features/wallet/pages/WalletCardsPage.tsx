@@ -1,3 +1,4 @@
+import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Camera, CreditCard } from 'lucide-react';
@@ -64,6 +65,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [scannerOpen, setScannerOpen] = useState(false);
   const [newExpense, setNewExpense] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
+  const hideFinancialValues = useFinancialPrivacy();
   const [overriding, setOverriding] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
@@ -650,8 +652,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             <div className="min-w-0">
               <strong className="block text-xs text-white">Valores informados pelo banco</strong>
               <p className="mt-1 text-[11px] text-slate-400">
-                {savedInvoiceFacts
-                  ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
+                {hideFinancialValues ? 'Valores ocultos' : savedInvoiceFacts ? 'Fatura ' + formatMoney(Number(savedInvoiceFacts.invoice_total ?? 0)) +
                     ' · Mínimo ' + (savedInvoiceFacts.minimum_payment === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.minimum_payment))) +
                     ' · Disponível ' + (savedInvoiceFacts.available_limit === null ? 'não informado' : formatMoney(Number(savedInvoiceFacts.available_limit)))
                   : 'Ainda não conferidos neste ciclo'}
@@ -679,7 +680,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             { label: savedInvoiceFacts?.available_limit == null ? 'Disponível estimado' : 'Disponível informado pelo banco', value: formatMoney(savedInvoiceFacts?.available_limit == null ? (creditPosition?.freeLimit || 0) : Number(savedInvoiceFacts.available_limit)), tone: 'positive' },
           ]}/>
           {selected && selectedIsOpeningCycle && (Number(selected.initial_future_installments_balance || 0) > 0 || Number(selected.opening_unallocated_amount || 0) > 0) && <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
-            {formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
+            <PrivateMoney value={formatMoney(Math.max(Number(selected.initial_future_installments_balance || 0), Number(selected.opening_unallocated_amount || 0)))} /> em gastos iniciais ainda sem detalhamento. Esse valor já está incluído no limite usado.
           </p>}
           <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4">
             <div className="mb-4 flex min-w-0 flex-col gap-3">
@@ -723,7 +724,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
                             <span className="mt-1 block text-[11px] text-slate-400">Vence {due}</span>
                           </span>
                           <span className="text-right">
-                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white">{formatMoney(cycle.amount)}</span>
+                            <span className="block whitespace-nowrap text-sm font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(cycle.amount)} /></span>
                             <span className={`mt-1 block text-[10px] ${status === 'OVERDUE' ? 'text-rose-300' : active ? 'text-blue-300' : 'text-slate-400'}`}>{label}</span>
                           </span>
                         </button>
@@ -813,12 +814,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"><span className="block text-[10px] text-slate-500">Somente conferência</span><strong className="text-sm text-emerald-300">{unlinkedStatementCount}</strong></div>
           <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2"><span className="block text-[10px] text-slate-500">Vinculados à fatura</span><strong className="text-sm text-cyan-300">{linkedStatementCount}</strong></div>
         </div>
-        <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><span className="text-slate-400">Total do extrato importado</span><strong className="text-white">{formatMoney(importedStatementTotal)}</strong></div>
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><span className="text-slate-400">Total do extrato importado</span><strong className="text-white"><PrivateMoney value={formatMoney(importedStatementTotal)} /></strong></div>
         <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] text-slate-400">
           <button type="button" onClick={() => setSelectedStatementRows(current => current.size === importedStatementRows.length ? new Set() : new Set(importedStatementRows.map(row => row.id)))} className="rounded border border-slate-700 px-2 py-1 hover:bg-slate-800">{selectedStatementRows.size === importedStatementRows.length ? 'Limpar seleção' : 'Selecionar todos'}</button>
           <button type="button" disabled={!selectedStatementRows.size} onClick={() => setPendingStatementDeletion({ ids: [...selectedStatementRows], count: selectedStatementRows.size })} className="rounded border border-rose-500/30 px-2 py-1 font-semibold text-rose-300 disabled:opacity-40">Excluir selecionados ({selectedStatementRows.size})</button>
         </div>
-        <div className="mt-3 max-h-80 divide-y divide-slate-800 overflow-y-auto">{importedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-500">{row.entry_date.split('-').reverse().join('/')} · {row.category} · {row.expense_id ? 'Vinculado à fatura' : 'Somente importado'}</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200">{formatMoney(row.amount)}</strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="rounded border border-rose-500/30 px-2 py-1 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
+        <div className="mt-3 max-h-80 divide-y divide-slate-800 overflow-y-auto">{importedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-500">{row.entry_date.split('-').reverse().join('/')} · {row.category} · {row.expense_id ? 'Vinculado à fatura' : 'Somente importado'}</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200"><PrivateMoney value={formatMoney(row.amount)} /></strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="rounded border border-rose-500/30 px-2 py-1 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
       </section>}
       {pendingStatementDeletion && <Modal compact title="Excluir item importado?" subtitle="Esta linha será removida apenas do extrato importado." icon={<AlertTriangle size={17}/>} onClose={() => { if (!deletingStatement) setPendingStatementDeletion(null); }}>
         <div className="space-y-4">

@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React from 'react';
 import { ArrowRight, CreditCard, Landmark } from 'lucide-react';
 import type { PersonalWalletAccount, PersonalWalletCard } from '../../../services/personalWallet.service';
@@ -22,7 +23,7 @@ export const WalletOverviewSummary: React.FC<{
       <div className="mt-3 border-b border-slate-800 pb-3">
         <p className="text-xs font-medium text-slate-300">Saldo disponível nas contas</p>
         <p className={`mt-1 break-words text-xl font-bold tracking-tight tabular-nums sm:text-2xl ${accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
-          {formatMoney(accountBalance)}
+          <PrivateMoney value={formatMoney(accountBalance)} />
         </p>
       </div>
       <div className="mt-1"><AccountCardStack compact accounts={accounts.slice(0,4)} onOpen={() => onNavigate('contas')}/></div>
@@ -38,11 +39,11 @@ export const WalletOverviewSummary: React.FC<{
       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="min-w-0 rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
           <dt className="text-sm font-semibold text-slate-300">Faturas do mês</dt>
-          <dd className="mt-1.5 break-words text-lg sm:text-xl font-bold tracking-tight tabular-nums text-white">{formatMoney(currentInvoiceTotal)}</dd>
+          <dd className="mt-1.5 break-words text-lg sm:text-xl font-bold tracking-tight tabular-nums text-white"><PrivateMoney value={formatMoney(currentInvoiceTotal)} /></dd>
         </div>
         <div className="min-w-0 rounded-lg border border-slate-800/90 bg-slate-950/60 p-3">
           <dt className="text-sm font-semibold text-slate-300">Limite disponível</dt>
-          <dd className="mt-1.5 break-words text-lg sm:text-xl font-bold tracking-tight tabular-nums text-emerald-300">{formatMoney(credit.available)}</dd>
+          <dd className="mt-1.5 break-words text-lg sm:text-xl font-bold tracking-tight tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(credit.available)} /></dd>
         </div>
       </dl>
       <div className="mt-4 flex items-center justify-between gap-3 text-xs text-slate-300"><span>Limite utilizado</span><strong className="tabular-nums text-slate-200">{Math.round(credit.percentage)}%</strong></div>
@@ -74,7 +75,7 @@ export const WalletOverviewSummary: React.FC<{
                 <span className="mt-2 flex items-end justify-between gap-2">
                   <span className="min-w-0">
                     <span className="block text-[11px] text-white/75">Disponível</span>
-                    <strong className="block break-words text-base font-semibold tabular-nums sm:text-lg">{formatMoney(available)}</strong>
+                    <strong className="block break-words text-base font-semibold tabular-nums sm:text-lg"><PrivateMoney value={formatMoney(available)} /></strong>
                   </span>
                   <span className="shrink-0 text-xs font-semibold text-white/90">{card.brand || 'Crédito'}</span>
                 </span>

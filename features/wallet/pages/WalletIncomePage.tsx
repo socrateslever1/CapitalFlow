@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useMemo, useState } from 'react';
 import { ArrowDownToLine, Plus, ReceiptText } from 'lucide-react';
 import type { UserProfile } from '../../../types';
@@ -44,7 +45,7 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
             </h3>
             <p className="mt-1 text-xs text-slate-300">Valores registrados nas suas contas em {month.slice(5,7)}/{month.slice(0,4)}.</p>
           </div>
-          <strong className="break-words text-xl font-bold tabular-nums text-emerald-300">{formatMoney(manualTotal)}</strong>
+          <strong className="break-words text-xl font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(manualTotal)} /></strong>
         </div>
         {manualReceipts.length ? <ul className="mt-4 divide-y divide-slate-800">
           {manualReceipts.slice(0,8).map(op => <li key={op.id} className="flex min-w-0 items-start justify-between gap-3 py-3">
@@ -54,7 +55,7 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
                 {op.operation_date.slice(0,10).split('-').reverse().join('/')} · {accountNames.get(op.to_account_id || '') || 'Conta arquivada'} · {op.category}
               </p>
             </div>
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-300">{formatMoney(Number(op.amount))}</span>
+            <span className="shrink-0 text-sm font-semibold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(Number(op.amount))} /></span>
           </li>)}
         </ul> : <p className="mt-4 flex items-start gap-2 rounded-lg bg-slate-950 px-3 py-3 text-xs text-slate-300">
           <ReceiptText size={16} className="shrink-0 text-slate-400"/>

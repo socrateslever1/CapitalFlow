@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useMemo } from 'react';
 import { ArrowUpRight, Wallet } from 'lucide-react';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
@@ -66,7 +67,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
                   <span className={compact ? '' : 'min-w-0 text-left'}>
                     {!compact && <span className="block text-xs text-slate-300">Saldo disponível</span>}
                     <strong className={`mt-0.5 block break-words font-bold tabular-nums ${compact ? 'text-sm sm:text-base' : 'text-base sm:text-lg'} ${balanceValue < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
-                      {formatMoney(balanceValue)}
+                      <PrivateMoney value={formatMoney(balanceValue)} />
                     </strong>
                   </span>
                   <ArrowUpRight size={17} aria-hidden="true" className="shrink-0 text-slate-400 transition-colors group-hover:text-blue-300" />
@@ -78,7 +79,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
       )}
       {!compact && accounts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-3 pt-4">
         <span className="text-sm font-semibold text-slate-200">Saldo consolidado</span>
-        <strong className={`text-right text-lg sm:text-xl font-extrabold tabular-nums ${total < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>{formatMoney(total)}</strong>
+        <strong className={`text-right text-lg sm:text-xl font-extrabold tabular-nums ${total < 0 ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={formatMoney(total)} /></strong>
       </div>}
     </section>
   );

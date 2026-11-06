@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React,{useState} from 'react';
 import {CalendarDays,CheckCircle2,Plus,Repeat,Save,Trash2,X} from 'lucide-react';
 import {PersonalWalletAccount,WalletRecurringIncome,personalWalletService} from '../../services/personalWallet.service';
@@ -34,7 +35,7 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
   {!active.length?<p className="rounded-xl border border-dashed border-slate-700 p-4 text-sm text-slate-300">Cadastre salário, aluguel recebido ou outro rendimento recorrente.</p>:<div className="divide-y divide-slate-800">{active.map(x=><div key={x.id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
    <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-semibold text-white">{x.description}</strong><p className="mt-0.5 text-xs sm:text-sm text-slate-300">{x.category} · dia {x.receipt_day} · {accounts.find(a=>a.id===x.destination_account_id)?.nickname||'Conta'}</p></div>
    <div className="ml-auto flex shrink-0 items-center gap-3">
-    <strong className="text-right text-sm sm:text-base font-bold tabular-nums text-emerald-300">{formatMoney(x.amount)}</strong>
+    <strong className="text-right text-sm sm:text-base font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(x.amount)} /></strong>
     <button type="button" disabled={busy||receivedIds.has(x.id)} onClick={()=>perform(()=>personalWalletService.postRecurringIncome(x.id,month,generateUUID()))}
       className="flex min-h-10 items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 disabled:opacity-50"><CheckCircle2 size={14}/>{receivedIds.has(x.id)?'Recebido':'Receber'}</button>
     <button type="button" disabled={busy} onClick={()=>perform(()=>personalWalletService.deactivateRecurringIncome(x.id))} aria-label={'Desativar '+x.description} className="rounded-lg p-2 text-slate-400 hover:text-rose-300"><Trash2 size={16}/></button>

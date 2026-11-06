@@ -1,3 +1,4 @@
+import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight, Plus, QrCode, Wallet } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -60,7 +61,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         <aside aria-label="Resumo e movimentações" className="order-1 min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 lg:order-2 lg:col-span-4">
           <p className="text-sm font-semibold text-slate-300">Liquidez em contas</p>
           <strong className={`mt-2 block break-words text-2xl font-bold tabular-nums tracking-tight ${totalBalance < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
-            {formatMoney(totalBalance)}
+            <PrivateMoney value={formatMoney(totalBalance)} />
           </strong>
           {balanceFacts && (
             <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-xs">

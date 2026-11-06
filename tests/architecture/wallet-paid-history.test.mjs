@@ -36,6 +36,10 @@ test('pagamento com cartão respeita ciclo do emissor, sem criar obrigação par
   const direct = read('supabase/migrations/20261106174500_wallet_card_payable_direct_due_date.sql');
   assert.match(direct, /personal_wallet_pay_payable_from_card/);
   assert.match(direct, /current_date,NULL,null,p_card_id/);
+  const descriptions = read('supabase/migrations/20261106182000_wallet_card_paid_creditor_description.sql');
+  assert.match(descriptions, /personal_wallet_pay_payable_from_card/);
+  assert.match(descriptions, /Pagamento com cartão:/);
+  assert.doesNotMatch(descriptions, /DELETE FROM public\.personal_wallet/);
 
   assert.doesNotMatch(sql, /DELETE FROM public\.personal_wallet/);
 });

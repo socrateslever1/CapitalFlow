@@ -692,3 +692,7 @@ A linha do tempo confundia a chave `due_month=YYYY-MM-01` de uma parcela com a d
 ### Ajuste complementar: pagamento integral com cartão
 
 A função `personal_wallet_pay_payable_from_card` também fornecia `current_date` como vencimento explícito. Foi corrigida via `20261106174500_wallet_card_payable_direct_due_date.sql` para deixar o cálculo automático do ciclo bancário atuar. As duas migrações do Supabase foram aplicadas. O evento específico de R$ 102,04 foi conciliado por vínculo de pagamento: principal R$ 97,19, juros R$ 4,85, despesa cartão R$ 102,04, compra em 05/11 e vencimento da fatura em 05/12/2026; a obrigação original manteve `PAID`, saldo zero. Somente `due_date` da despesa e `due_month` da parcela foram atualizados no registro comprovado. Nenhum saldo, lançamento ou pagamento foi excluído.
+
+### Rótulo da cobrança financiada
+
+As três rotinas de pagamento por cartão deixaram de escrever a descrição `Dívida: [credor]` para uma obrigação já quitada. Agora criam a despesa de cartão como `Pagamento com cartão: [credor]`, distinguindo o fato de pagar o credor da obrigação de quitar a fatura. Migration `20261106182000_wallet_card_paid_creditor_description.sql` aplicada ao Supabase. O lançamento histórico confirmado no PicPay de R$ 102,04 foi retitulado com a nova descrição, preservando identificadores, principal, juros, status, datas e auditoria. A movimentação bancária não foi repetida.

@@ -83,7 +83,9 @@ test('navegação de faturas apresenta linhas compactas e meses efetivamente reg
   assert.match(page, /aria-label="Faturas registradas"/);
   assert.match(page, /aria-pressed={active}/);
   assert.match(page, /Fatura {competence}/);
-  assert.match(page, /Vence {due}/);
+  assert.match(page, /'Vence ' \+ due/);
+  assert.match(page, /hideFinancialValues \? 'Vencimento protegido'/);
+  assert.match(page, /hideFinancialValues \? 'Situação protegida' : label/);
   assert.match(page, /Adicionar fatura/);
   assert.match(page, /resolveInvoiceMonthSelection\(/);
   assert.match(page, /dueMonth: statementMonth,/);

@@ -43,6 +43,28 @@ export type WalletBalanceFacts = {
   pending: WalletBalanceFact;
 };
 
+export const walletBalanceStateLabel: Record<WalletBalanceFactState, string> = {
+  EFFECTIVE: 'Efetivo',
+  OPENING: 'Inicial',
+  PROJECTED: 'Projetado',
+  RECONCILED: 'Conciliado',
+  IMPORTED: 'Importado',
+  PENDING: 'Pendente',
+  UNKNOWN: 'Não informado',
+};
+
+export const walletBalanceOriginLabel: Record<WalletBalanceFactOrigin, string> = {
+  CANONICAL: 'Registro financeiro',
+  MANUAL: 'Informado pelo usuário',
+  PROJECTION: 'Projeção',
+  BANK_IMPORT: 'Importação bancária',
+  PENDING_OPERATION: 'Operação pendente',
+  UNKNOWN: 'Origem não informada',
+};
+
+export const describeWalletBalanceFact = (item: WalletBalanceFact): string =>
+  walletBalanceStateLabel[item.state] + ' · ' + walletBalanceOriginLabel[item.origin];
+
 const finiteAmount = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 

@@ -8,8 +8,9 @@ const WalletAccountsPage = React.lazy(() => import('./pages/WalletAccountsPage')
 const WalletPayablesPage = React.lazy(() => import('./pages/WalletPayablesPage').then(m => ({ default: m.WalletPayablesPage })));
 const WalletIncomePage = React.lazy(() => import('./pages/WalletIncomePage').then(m => ({ default: m.WalletIncomePage })));
 const WalletChargePage = React.lazy(() => import('./pages/WalletChargePage').then(m => ({ default: m.WalletChargePage })));
+const WalletReportPage = React.lazy(() => import('./pages/WalletReportPage').then(m => ({ default: m.WalletReportPage })));
 
-export type WalletRouteKey = 'visao-geral' | 'cartoes' | 'contas' | 'dividas' | 'receitas' | 'cobranca';
+export type WalletRouteKey = 'visao-geral' | 'cartoes' | 'contas' | 'dividas' | 'receitas' | 'cobranca' | 'relatorio';
 export const WALLET_ROUTES: ReadonlyArray<{ key: WalletRouteKey; label: string }> = [
   { key: 'visao-geral', label: 'Visão geral' },
   { key: 'cartoes', label: 'Cartões' },
@@ -21,6 +22,7 @@ export const WALLET_ROUTES: ReadonlyArray<{ key: WalletRouteKey; label: string }
 
 export const getWalletRoute = (pathname: string): WalletRouteKey => {
   const segment = pathname.match(/^\/carteira\/([^/]+)/)?.[1] as WalletRouteKey | undefined;
+  if (segment === 'relatorio') return 'relatorio';
   return segment && WALLET_ROUTES.some(route => route.key === segment) ? segment : 'visao-geral';
 };
 
@@ -30,6 +32,7 @@ export const WalletRouteView: React.FC<{ route: WalletRouteKey; activeUser?: Use
     : route === 'dividas' ? <WalletPayablesPage activeUser={activeUser} onNavigate={onNavigate}/>
     : route === 'receitas' ? <WalletIncomePage activeUser={activeUser} onNavigate={onNavigate}/>
     : route === 'cobranca' ? <WalletChargePage activeUser={activeUser}/>
+    : route === 'relatorio' ? <WalletReportPage onNavigate={onNavigate}/>
     : <WalletOverviewPage activeUser={activeUser} onNavigate={onNavigate}/>;
   return <React.Suspense fallback={<div role="status" aria-label="Carregando seção da Carteira"
     className="grid gap-3 animate-pulse sm:grid-cols-2">

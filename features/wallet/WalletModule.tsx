@@ -17,7 +17,7 @@ const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry
   {onRetry && <button type="button" onClick={onRetry} className="mt-5 min-h-11 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Tentar novamente</button>}
 </section>;
 
-const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark };
+const navigationIcons = { 'visao-geral': LayoutDashboard, cartoes: CreditCard, contas: Landmark, dividas: CalendarClock, receitas: TrendingUp, cobranca: Landmark, relatorio: LayoutDashboard };
 
 const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUser }) => {
   const location = useLocation();

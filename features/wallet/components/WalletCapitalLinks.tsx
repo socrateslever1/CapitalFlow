@@ -3,7 +3,7 @@ import { AlertCircle, Link2, Loader2 } from 'lucide-react';
 import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
 import { personalWalletService } from '../../../services/personalWallet.service';
 import type { CapitalSource } from '../../../types';
-import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../domain/capitalLink';
+import { getCapitalLinkState, getAccountCapitalSourceChoices } from '../domain/capitalLink';
 
 type Props = {
   accounts: PersonalWalletAccount[];
@@ -24,9 +24,12 @@ export const WalletCapitalLinks: React.FC<Props> = ({
     const nextSourceId = rawSourceId || null;
     const currentSourceId = account.capital_source_id || null;
     if (currentSourceId === nextSourceId) return;
-    const nextSource = sources.find(source => source.id === nextSourceId);
-    if (nextSourceId && (!nextSource || Math.round(Number(nextSource.balance) * 100) !== Math.round(Number(account.balance) * 100))) {
-      setNotice({ error: true, message: 'A fonte precisa estar disponível e possuir o mesmo saldo da conta.' });
+    const choice = nextSourceId
+      ? getAccountCapitalSourceChoices(account, accounts, sources)
+        .find(item => item.source.id === nextSourceId)
+      : null;
+    if (nextSourceId && !choice?.selectable) {
+      setNotice({ error: true, message: 'Esta fonte não pode ser vinculada: ' + (choice?.reason || 'fonte indisponível') + '.' });
       return;
     }
     if (!window.confirm(nextSourceId
@@ -69,7 +72,7 @@ export const WalletCapitalLinks: React.FC<Props> = ({
           {accounts.map(account => {
             const state = getCapitalLinkState(account, sources);
             const warning = state.status === 'divergent' || state.status === 'unavailable';
-            const options = getEligibleAccountCapitalSources(account, accounts, sources);
+            const options = getAccountCapitalSourceChoices(account, accounts, sources);
             return (
               <li key={account.id} className="space-y-2 py-3 first:pt-0 last:pb-0">
                 <p className="break-words text-sm font-semibold text-white">{account.nickname}</p>
@@ -88,9 +91,9 @@ export const WalletCapitalLinks: React.FC<Props> = ({
                       className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-blue-400 disabled:opacity-60"
                     >
                       <option value="">Manter independente (sem vínculo)</option>
-                      {options.map(source => (
-                        <option key={source.id} value={source.id}>
-                          {source.name}{Math.round(Number(source.balance) * 100) !== Math.round(Number(account.balance) * 100) ? ' · saldos divergentes' : ''}
+                      {options.map(({ source, selectable, reason }) => (
+                        <option key={source.id} value={source.id} disabled={!selectable}>
+                          {source.name}{reason ? ' · ' + reason : ''}
                         </option>
                       ))}
                     </select>

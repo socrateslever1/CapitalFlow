@@ -12,22 +12,48 @@ export function getCapitalLinkState(account: PersonalWalletAccount, sources: Cap
   return { status: equal ? 'linked' as const : 'divergent' as const, source };
 }
 
-/** Apenas fontes com mesmo saldo podem ser vinculadas a contas.
- * Cartões representam crédito, não liquidez; vínculos antigos continuam visíveis
- * para que o titular possa diagnosticar ou desfazer uma associação inadequada.
+export type CapitalSourceLinkChoice = {
+  source: CapitalSource;
+  selectable: boolean;
+  reason: string | null;
+};
+
+/**
+ * Exibe TODAS as fontes ativas recebidas do Capital, sem confundir visibilidade
+ * com elegibilidade de vínculo. A validação financeira não pode ser burlada
+ * por um elemento de interface que simplesmente oculta as fontes inelegíveis.
  */
+export function getAccountCapitalSourceChoices(
+  account: PersonalWalletAccount,
+  accounts: PersonalWalletAccount[],
+  sources: CapitalSource[],
+): CapitalSourceLinkChoice[] {
+  return sources.map(source => {
+    if (source.id === account.capital_source_id) {
+      return { source, selectable: true, reason: null };
+    }
+    if (['CARD', 'MISTO'].includes(source.type)) {
+      return { source, selectable: false, reason: 'fonte de crédito ou mista' };
+    }
+    if (accounts.some(other => other.id !== account.id && other.capital_source_id === source.id)) {
+      return { source, selectable: false, reason: 'vinculada a outra conta' };
+    }
+    const walletBalance = Number(account.balance);
+    const sourceBalance = Number(source.balance);
+    if (!Number.isFinite(walletBalance) || !Number.isFinite(sourceBalance)
+      || Math.round(walletBalance * 100) !== Math.round(sourceBalance * 100)) {
+      return { source, selectable: false, reason: 'saldos diferentes' };
+    }
+    return { source, selectable: true, reason: null };
+  });
+}
+
+/** Elegíveis para movimentação financeira; não corresponde à lista exibida. */
 export function getEligibleAccountCapitalSources(
   account: PersonalWalletAccount,
   accounts: PersonalWalletAccount[],
   sources: CapitalSource[],
 ): CapitalSource[] {
-  return sources.filter(source => {
-    if (source.id === account.capital_source_id) return true;
-    if (['CARD', 'MISTO'].includes(source.type)) return false;
-    if (accounts.some(other => other.id !== account.id && other.capital_source_id === source.id)) return false;
-    const walletBalance = Number(account.balance);
-    const sourceBalance = Number(source.balance);
-    return Number.isFinite(walletBalance) && Number.isFinite(sourceBalance)
-      && Math.round(walletBalance * 100) === Math.round(sourceBalance * 100);
-  });
+  return getAccountCapitalSourceChoices(account, accounts, sources)
+    .filter(choice => choice.selectable).map(choice => choice.source);
 }

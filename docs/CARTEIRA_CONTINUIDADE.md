@@ -653,3 +653,14 @@ O commit 04076d871124b55ba73248d656fce0d7584c1a87 passou nos testes, na compila�
 - **Dados:** nenhuma alteração de saldos nem tabelas. Em perguntas financeiras, apenas as fontes necessárias são consultadas com cache de 12 s e controle de invalidação; os dados contábeis são sempre autoritativos no banco.
 - **Olho de privacidade:** `FinancialPrivacyProvider` recebe o estado já existente do cabeçalho e `PrivateMoney` substitui valores monetários visíveis pelos marcadores `R$ ••••` nas principais telas e extratos da Carteira, sem modificar cálculos ou entradas editáveis. Testes de SSR garantem ausência do valor real no HTML em modo oculto. Atenção: ocultação visual não substitui proteção de banco ou autenticação, e módulos legados ainda devem ser auditados para cobertura total.
 - **Qualidade:** `test:flux-agent` inclui validações para privacidade, origens Android, fallback de provedores e preservação do isolamento da sessão. O deploy da Edge Function deve incluir `index.ts` e `core.ts`, com `verify_jwt: true`; verificar o SHA web e o APK separadamente.
+
+## 06/11/2026 — refinamento pontual da Minha Carteira
+
+Escopo estrito: preservar a aparência atual, manter ações de lançamento exclusivamente no FAB, não alterar valores, contratos, dados bancários, funções RPC, RLS ou tabelas.
+
+1. **Integração com Capital:** o seletor exibe todas as fontes *ativas* que a Carteira recebeu. Fontes de cartão/mistas, com saldo diferente ou já vinculadas a outra conta aparecem identificadas, porém desabilitadas para novo vínculo. Fontes atualmente vinculadas continuam visíveis para permitir desvinculação. A função de elegibilidade financeira e a validação de vínculo são preservadas.
+2. **Português brasileiro:** os metadados de saldo `EFFECTIVE`/`CANONICAL` e demais estados têm rótulos de interface em português, sem alterar os códigos canônicos armazenados.
+3. **Relatório da Carteira:** atalho discreto na seção Saúde financeira, apontando para `/carteira/relatorio` (fora das cinco abas). A nova página de leitura usa `walletRepository.loadOverview()` e `deriveOverview()` já existentes, com resumo de contas, receitas previstas, faturas, outros compromissos, projeção, categorias e vencimentos próximos. Não há novas consultas por cartão/indicador e não há gravação financeira.
+4. **Flux mobile:** o avatar compacto diminui para 44 px com desenho interno de 24 px, preservando área tátil e o painel de conversa existente. Não adiciona animações invasivas ou um segundo FAB.
+
+Testes: `tests/wallet/wallet-capital-sources-display.test.ts` e `tests/architecture/wallet-report-access.test.mjs`; homologação visual em aparelho físico continua necessária.

@@ -12,7 +12,7 @@ const storageKey = (profileId: string) => 'cf_master_mascot_enabled:' + profileI
 const conversationKey = (profileId: string) => 'cf_master_mascot_conversation:' + profileId;
 
 const FluxMark: React.FC<{ thinking?: boolean }> = ({ thinking = false }) => (
-  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-8 w-8">
+  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-6 w-6">
     <path d="M11 21 7 17l4-5 5 3c2-1 4-2 8-2s6 1 8 2l5-3 4 5-4 4v10c0 7-5 11-13 11S11 38 11 31V21Z" fill="#0f2748" stroke="#60a5fa" strokeWidth="1.8" />
     <path d="M15 17c2-5 5-7 9-7s7 2 9 7" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" />
     <circle cx="18" cy="25" r="2" fill="#e0f2fe" />
@@ -174,7 +174,7 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
     <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-3 z-[var(--z-fab,500)] md:bottom-6 md:left-6">
       {open && (
         <section role="dialog" aria-label="Conversa com o Flux" aria-modal="false"
-          className="absolute bottom-14 left-0 flex h-[min(68dvh,33rem)] w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-700/90 bg-slate-950 shadow-2xl shadow-black/70">
+          className="absolute bottom-12 left-0 flex h-[min(68dvh,33rem)] w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-700/90 bg-slate-950 shadow-2xl shadow-black/70">
           <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800"><FluxMark thinking={busy}/></span>
@@ -223,7 +223,7 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
         </section>
       )}
       <button type="button" onClick={() => setOpen(current => !current)}
-        className={'flux-mascot grid h-12 w-12 place-items-center rounded-2xl border border-blue-500/40 bg-slate-900 text-blue-200 shadow-lg shadow-black/40 transition hover:bg-slate-800 ' +
+        className={'flux-mascot grid h-11 w-11 place-items-center rounded-xl border border-blue-500/40 bg-slate-900 text-blue-200 shadow-lg shadow-black/40 transition hover:bg-slate-800 ' +
           (busy ? 'flux-mascot-thinking' : 'flux-mascot-idle')}
         aria-label={open ? 'Fechar Flux' : 'Conversar com Flux'} aria-expanded={open} title="Flux">
         {busy ? <Loader2 size={23} className="animate-spin"/> : open ? <MessageCircle size={23}/> : <FluxMark/>}

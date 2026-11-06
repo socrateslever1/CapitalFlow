@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, CalendarClock, CreditCard, Lightbulb, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ArrowRight, BarChart3, CalendarClock, CreditCard, Lightbulb, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
 import { formatMoney } from '../../../utils/formatters';
 import type { SpendingOverview } from '../domain/walletSpendingInsights';
 
@@ -29,11 +29,18 @@ export const WalletSpendingGuide: React.FC<{
         <h3 className="flex items-center gap-2 text-base font-semibold text-white"><Lightbulb size={18} className="text-cyan-300"/>Saúde financeira</h3>
         <p className="mt-1 text-xs text-slate-300">Acompanhe despesas, vencimentos e receitas previstas.</p>
       </div>
+      <div className="flex items-center gap-2">
       <span className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${urgent
         ? 'border-amber-700/60 bg-amber-950/30 text-amber-200'
         : 'border-slate-700 bg-slate-950/40 text-slate-300'}`}>
         {urgent ? 'Exige atenção' : 'Acompanhamento'}
       </span>
+      <button type="button" onClick={() => onNavigate('relatorio')}
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 text-xs font-semibold text-blue-300 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        aria-label="Abrir relatório da Carteira">
+        <BarChart3 size={15}/> Relatório
+      </button>
+      </div>
     </header>
     <div className="mt-4 grid min-w-0 gap-5 lg:grid-cols-12">
       <div className="order-2 min-w-0 lg:order-1 lg:col-span-7">

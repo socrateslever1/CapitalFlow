@@ -27,7 +27,7 @@ import { calculateBalanceAdjustment, resolveQuickDateShortcuts } from '../../fea
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { generateUUID } from '../../utils/generators';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
-import { buildWalletBalanceFacts } from './walletBalanceDomain';
+import { describeWalletBalanceFact, buildWalletBalanceFacts } from './walletBalanceDomain';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -306,7 +306,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               </span>
             )}
             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
-              Fato: {accountBalanceFacts.effective.state} ({accountBalanceFacts.effective.origin})
+              Saldo: {describeWalletBalanceFact(accountBalanceFacts.effective)}
             </span>
           </div>
         )}

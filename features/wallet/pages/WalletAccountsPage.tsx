@@ -12,7 +12,7 @@ import { AccountMovementModal } from '../../../components/wallet/AccountMovement
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
 import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
-import { buildWalletBalanceFacts } from '../../../components/wallet/walletBalanceDomain';
+import { buildWalletBalanceFacts, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,7 +67,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/60 p-2 text-xs">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-slate-400">Origem:</span>
-                <span className="font-semibold text-emerald-300">{balanceFacts.effective.state} · {balanceFacts.effective.origin}</span>
+                <span className="font-semibold text-emerald-300">{describeWalletBalanceFact(balanceFacts.effective)}</span>
               </div>
               <p className="mt-0.5 text-[10px] text-slate-400">
                 Saldo contábil efetivo reconciliado por instituição.

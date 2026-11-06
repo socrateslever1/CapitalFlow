@@ -63,7 +63,7 @@ const sourceAccount = (
 const isOpenPayable = (payable: PersonalWalletPayable) =>
   !['PAID', 'CANCELED'].includes(payable.status) && Number(payable.outstanding_balance) > 0;
 
-const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
+export const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
   const month = today.slice(0, 7);
   const accounts = snapshot.accounts;
   const cards = snapshot.cards.filter(card => card.status !== 'CANCELED');

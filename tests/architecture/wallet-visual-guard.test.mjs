@@ -5,7 +5,9 @@ const summary = readFileSync('features/wallet/components/WalletOverviewSummary.t
 const moduleFile = readFileSync('features/wallet/WalletModule.tsx','utf8');
 test('wallet overview uses visual banking cards without altering data contracts', () => {
   assert(summary.includes('snap-x snap-mandatory'));
-  assert(summary.includes('aspect-[1.586/1]'));
+  assert(summary.includes('h-[132px]'), 'cartão compacto mantém apresentação visual');
+  assert(summary.includes('multipleCards'), 'consolidação só faz sentido com vários cartões');
+  assert(!summary.includes('aspect-[1.586/1]'), 'retrato alto antigo removido');
   assert(summary.includes('getCardSummaryDestination(card.id)'));
   assert(summary.includes('formatMoney(available)'));
   assert(summary.includes('card.last_four'));

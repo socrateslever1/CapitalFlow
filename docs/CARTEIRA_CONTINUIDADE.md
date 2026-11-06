@@ -688,3 +688,7 @@ A linha do tempo confundia a chave `due_month=YYYY-MM-01` de uma parcela com a d
 - Receitas: saldo inicial, estornos, ajustes e transferências com contraparte identificável não são receitas. Entradas avulsas concluídas ficam acessíveis apenas no **Histórico de entradas** (não são receitas a receber nem saldo disponível). O extrato preserva todos os lançamentos.
 - Avisos: distingue quantidade de **contas a pagar vencidas** de **faturas com vencimento anterior sem quitação registrada**; esta última não comprova inadimplência externa. Nada é automaticamente quitado sem evidência.
 - Testes `test:wallet-settlement` e `test:quality`; validar data de fatura em produção e comportamento em APK físico. Nenhuma exclusão ou recriação de registros prevista.
+
+### Ajuste complementar: pagamento integral com cartão
+
+A função `personal_wallet_pay_payable_from_card` também fornecia `current_date` como vencimento explícito. Foi corrigida via `20261106174500_wallet_card_payable_direct_due_date.sql` para deixar o cálculo automático do ciclo bancário atuar. As duas migrações do Supabase foram aplicadas. O evento específico de R$ 102,04 foi conciliado por vínculo de pagamento: principal R$ 97,19, juros R$ 4,85, despesa cartão R$ 102,04, compra em 05/11 e vencimento da fatura em 05/12/2026; a obrigação original manteve `PAID`, saldo zero. Somente `due_date` da despesa e `due_month` da parcela foram atualizados no registro comprovado. Nenhum saldo, lançamento ou pagamento foi excluído.

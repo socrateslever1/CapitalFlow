@@ -35,6 +35,14 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
   const [notice, setNotice] = useState('');
   const [conversationId, setConversationId] = useState(() => generateUUID());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const financialGeneration = useRef(0);
+  const lastFinancialReadGeneration = useRef(0);
+
+  useEffect(() => {
+    const invalidate = () => { financialGeneration.current += 1; };
+    window.addEventListener('capitalflow:wallet-updated', invalidate);
+    return () => window.removeEventListener('capitalflow:wallet-updated', invalidate);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,12 +145,20 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
     const requestId = generateUUID();
     const userAtStart = profileId;
     const turnsAtRequest = turns;
+    const requestedGeneration = financialGeneration.current;
+    const mustRefreshFinancialData = requestedGeneration !== lastFinancialReadGeneration.current;
     setMessage('');
     setMessages(current => [...current, { id: requestId + ':user', role: 'user' as const, text: value }].slice(-50));
     setBusy(true);
     setNotice('');
     try {
-      const reply = await askMasterAssistant({ message: value, conversationId, requestId, turns: turnsAtRequest });
+      const reply = await askMasterAssistant({
+        message: value, conversationId, requestId, turns: turnsAtRequest,
+        fresh: mustRefreshFinancialData,
+      });
+      if (reply.consultedFinancialData && financialGeneration.current === requestedGeneration) {
+        lastFinancialReadGeneration.current = requestedGeneration;
+      }
       if (profileRef.current !== userAtStart) return;
       setMessages(current => [...current, { id: requestId + ':assistant', role: 'assistant' as const, text: reply.response }].slice(-50));
     } catch {

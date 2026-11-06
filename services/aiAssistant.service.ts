@@ -89,7 +89,7 @@ export async function loadMasterAssistantHistory(conversationId: string): Promis
 /** Alerts are a manual, limited read and never start while the mascot is closed. */
 export async function loadMasterAssistantBriefing(): Promise<AssistantBriefingAlert[]> {
   const { data, error } = await supabase.functions.invoke<{ alerts?: AssistantBriefingAlert[]; error?: string }>('ai-assistant', {
-    body: { action: 'briefing' },
+    body: { action: 'briefing', fresh: true },
   });
   if (error) throw new Error((data as { error?: string } | null)?.error || 'Não foi possível consultar os alertas do Flux.');
   return data?.alerts || [];

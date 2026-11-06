@@ -1,30 +1,38 @@
-# Pool de provedores do mascote master
+# Flux — provedores de IA e continuidade (06/11/2026)
 
-O mascote usa a Edge Function `ai-assistant`. As chaves ficam somente nos Secrets das Edge Functions do Supabase; o navegador nunca recebe tokens.
+## Execução real
 
-## Configuração
+O Flux usa uma única Edge Function autenticada: `ai-assistant`. A LLM conduz a conversa com os últimos dez turnos mantidos em memória pelo React. Um erro em um provedor encaminha a mesma conversa ao seguinte, preservando mensagens e contexto financeiro já consultado. Não há chave de IA no navegador.
 
-No projeto Supabase `hzchchbxkhryextaymkn`, cadastre os secrets:
+A configuração opcional `AI_PROVIDER_POOL_JSON` define **ordem de tentativa**. Use apenas chaves criadas e autorizadas por você, guardadas em **Supabase Edge Function Secrets**. Nenhuma integração cria créditos ou ignora limites de provedores. Sem configuração, é usado `GEMINI_API_KEY` (ou `GOOGLE_API_KEY`) com o modelo `GEMINI_MODEL`/padrão `gemini-3.8-flash`.
 
-- `GEMINI_API_KEY` — já usado pelo fallback Gemini server-side.
-- `OPENAI_API_KEY` — opcional, somente se houver uma chave válida para o fallback.
-- `AI_PROVIDER_POOL_JSON` — opcional, com nomes de secrets, nunca valores:
+Exemplo para opções com modalidade gratuita sujeita a cotas e disponibilidade:
 
 ```json
 [
-  {"id":"gemini-primary","kind":"gemini","model":"gemini-3.8-flash","secretEnv":"GEMINI_API_KEY"},
-  {"id":"openai-fallback","kind":"openai","model":"gpt-5-mini","secretEnv":"OPENAI_API_KEY"}
+  {"id":"groq","kind":"openai","model":"llama-3.3-70b-versatile","baseUrl":"https://api.groq.com/openai/v1","secretEnv":"GROQ_API_KEY"},
+  {"id":"openrouter-free","kind":"openai","model":"openrouter/free","baseUrl":"https://openrouter.ai/api/v1","secretEnv":"OPENROUTER_API_KEY"},
+  {"id":"gemini","kind":"gemini","model":"gemini-2.5-flash","secretEnv":"GEMINI_API_KEY"}
 ]
 ```
 
-Quando `AI_PROVIDER_POOL_JSON` não existe, a função usa automaticamente `GEMINI_API_KEY`. Quando um provedor falha ou seu secret não está disponível, o próximo provedor é tentado e somente um código categórico é registrado.
+O roteador aceita até quatro provedores; cada tentativa tem limite de oito segundos. Falhas 429/5xx causam período de resfriamento de 30 segundos na instância; falhas de chave/endpoint causam 120 segundos. As instâncias não compartilham esse estado. O modelo gratuito roteado automaticamente pelo OpenRouter pode não oferecer *tool calling*; nesse caso o próximo provedor será tentado. Cotas, preços e identificadores de modelo precisam ser conferidos nas plataformas antes de configurar.
 
-## Ordem segura de ativação
+## Ferramentas de leitura do agente
 
-1. Cadastrar os secrets no painel Supabase, sem colocá-los no repositório.
-2. Configurar `AI_PROVIDER_POOL_JSON` com os nomes dos secrets.
-3. Fazer uma solicitação somente de leitura como master.
-4. Confirmar resposta HTTP 200 e consultar os logs sem expor prompt, token ou dados financeiros.
-5. Não habilitar ações de gravação: o mascote continua READ/DRAFT até existir confirmação financeira explícita.
+A ferramenta `consultar_dados_financeiros` aceita somente as áreas `geral`, `contas`, `cartoes`, `compromissos`, `fontes`, `contratos` e `alertas`. O identificador de usuário é obtido da sessão autenticada, nunca do modelo. A consulta usa as políticas RLS existentes, campos selecionados e limites de linhas. Não são expostos SQL, privilégios administrativos ou operações financeiras.
 
-Nenhuma chave ou resposta de provedor foi adicionada a este repositório.
+Se a intenção financeira é explícita, a ferramenta usa primeiro cache de 12 segundos e a LLM recebe contexto compacto em **uma chamada**. Se a intenção é ambígua, a própria LLM pode solicitar uma consulta; o controlador executa **no máximo uma leitura** e uma resposta final. O cache é isolado por usuário/área, temporário na instância Edge e nunca é tratado como fonte contábil oficial. A ação `fresh: true` força leitura. Não existe promessa de coerência imediata entre instâncias distribuídas; para pagamentos e outras decisões críticas, use as RPCs transacionais com leitura atual.
+
+Diálogo ordinário não carrega tabelas financeiras. As verificações de autenticação e autorização do Supabase permanecem em todas as mensagens — são custos necessários de segurança, não consultas ao ledger. O histórico recente é transportado em memória na sessão do aplicativo; mensagens comuns não são gravadas em `ai_assistant_requests`. O comando de histórico consulta sob demanda registros antigos já persistidos. Não há sincronização automática do novo histórico entre dispositivos.
+
+## MCP e Skills existentes
+
+O módulo MCP V1 e o registro de Skills não foram removidos nem declarados como agentes ativos no Flux. O novo controlador de ferramenta é uma integração de **consulta limitada dentro da Edge Function**. A futura unificação de Tools/Skills/MCP exige um gateway autenticado compatível com Deno, testes de isolamento e observabilidade. As Skills `FINANCIAL_WRITE` permanecem desabilitadas.
+
+## Verificação
+
+- `npm run test:flux-agent`: política de roteamento, limites de contexto e análise estrutural.
+- `npm run build`: compatibilidade de frontend TypeScript e Vite.
+- `npm run test:quality`: regressões gerais.
+- Verificação autenticada em produção ainda requer uma sessão master real; o deploy sozinho não comprova conversas multi-provedor.

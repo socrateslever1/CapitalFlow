@@ -632,3 +632,15 @@ O commit 04076d871124b55ba73248d656fce0d7584c1a87 passou nos testes, na compila�
   - O fallback de renderização de logos de fontes em `SourceCard` passou a priorizar `resolveBankLogo` do catálogo offline de SVGs antes do provedor externo, garantindo que fontes com nomes bancários exibam seu ícone com nitidez e sem falhas de conexão.
   - O select de fontes no snapshot da carteira (`personalWalletService.load`) inclui `logo_url`.
 - Nenhuma migration, tabela do ledger ou RPC financeira foi modificada.
+
+## 06/11/2026 — Flux com conversa em memória e agente limitado de leitura
+
+**Objetivo:** evitar que toda mensagem ao assistente faça um diagnóstico completo no Supabase, eliminar o balão intrusivo e preservar contexto entre modelos gratuitos quando devidamente configurados.
+
+- **UI:** `components/ai/MasterMascot.tsx` substitui balão fixo por botão discreto e painel responsivo sob demanda, sem briefing/histórico automáticos. Mensagens têm quebras corretas e a memória de curto prazo não é persistida em armazenamento local. O comando História lê registros antigos somente por ação do usuário.
+- **Frontend:** `services/aiAssistant.service.ts` deixa de executar `personalWalletService.load()` e consultas paralelas a contratos, fontes e clientes em caso de falha da IA. Encaminha até dez mensagens anteriores à Edge Function; falha de transporte é sinalizada sem fabricar saldos.
+- **Edge:** `supabase/functions/ai-assistant/index.ts` e `core.ts` implementam roteamento financeiro seletivo, cache temporário por proprietário e área (12 s), controlador de chamadas de ferramenta `READ_ONLY`, limite de uma leitura por turno, autenticação/autorização obrigatórias, contexto compacto e fallback determinístico para consultas financeiras. Conversas gerais não geram leituras de tabelas financeiras nem gravação por turno em `ai_assistant_requests`. O histórico persistido legado permanece disponível somente sob demanda.
+- **Provedores:** cada segredo pertence ao seu provedor; falhas de cota/timeout são encaminhadas ao próximo modelo sem perder histórico. Não há provisionamento automático de API keys nem garantia de cota gratuita. `AI_PROVIDER_POOL_JSON` controla a ordem, no máximo quatro provedores.
+- **Limites:** MCP/Skills atuais continuam módulos separados, somente leitura, sem execução financeira autônoma. A nova ferramenta da Edge é operacional, mas não significa que o host MCP tenha sido conectado. Cache Edge é por instância e *best effort*, jamais substitui a verificação transacional do ledger.
+- **Segurança:** nenhuma tabela ou migração financeira modificada; nenhuma operação de escrita ou segredo de provedor exposto ao cliente.
+- **Homologação:** ver `tests/ai/flux-agent-core.test.ts`, `tests/architecture/flux-agent-integration.test.mjs` e `docs/AI_PROVIDER_POOL.md`. Builds e deploy devem ser conferidos pelo SHA final; a sessão real e provedores não podem ser simulados sem credenciais autorizadas.

@@ -50,10 +50,11 @@ test('read-only financial guidance shows overdue, near-term risk and pending rec
   const spending = getWalletSpendingOverview([], '2026-10');
   const html = renderToStaticMarkup(React.createElement(WalletSpendingGuide,{
     projectedBalance:-140.25, creditPercent:85, cardCount:2,pendingCount:8,
-    overdueCount:3,dueSoonCount:2,pendingIncome:280.75,spending,onNavigate:()=>{},
+    overdueCount:3,overdueInvoiceCount:1,dueSoonCount:2,pendingIncome:280.75,spending,onNavigate:()=>{},
   }));
-  assert(html.includes('3 compromisso(s) vencido(s)'));
-  assert(html.includes('2 compromisso(s) vence(m)'));
+  assert(html.includes('3 conta(s) a pagar vencida(s)'));
+  assert(html.includes('1 fatura(s) com data de vencimento ultrapassada'));
+  assert(html.includes('2 fatura(s) ou obrigação(ões) vence(m)'));
   assert(html.includes('280,75'));
   assert(html.includes('Conferir receitas'));
   assert(html.includes('Exige atenção'));

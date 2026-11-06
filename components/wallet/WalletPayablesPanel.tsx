@@ -21,6 +21,11 @@ const badge={PENDING:'text-amber-300',PARTIAL:'text-blue-300',PAID:'text-emerald
 export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,saving,onCreate,showCreateButton=true,onPay})=>{
  const hideFinancialValues = useFinancialPrivacy();
  const summary=useMemo(()=>summarizePayables(payables),[payables]);
+ const [listMode,setListMode]=useState<'open'|'history'>('open');
+ const activePayables=useMemo(()=>payables.filter(p=>!['PAID','CANCELED'].includes(derivePayableStatus(p))),[payables]);
+ const historicalPayables=useMemo(()=>payables.filter(p=>['PAID','CANCELED'].includes(derivePayableStatus(p)))
+   .sort((a,b)=>String(b.paid_at||b.due_date||'').localeCompare(String(a.paid_at||a.due_date||''))),[payables]);
+ const visiblePayables=listMode==='open'?activePayables:historicalPayables;
  const [selected,setSelected]=useState<PersonalWalletPayable|null>(null);
  const [value,setValue]=useState('');
  const [source,setSource]=useState('');
@@ -83,14 +88,34 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
     {label:'Vencido',value:formatMoney(summary.overdue),tone:summary.overdue>0?'negative':undefined},
     {label:'Próximos 30 dias',value:formatMoney(summary.next30Days)},
   ]}/>
-  {!payables.length?<p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-400">Nenhuma dívida contraída cadastrada.</p>:<div className="grid gap-2 sm:grid-cols-2">{payables.map(p=>{
+  <div role="group" aria-label="Situação das contas a pagar" className="flex gap-2">
+    <button type="button" onClick={()=>setListMode('open')} aria-pressed={listMode==='open'}
+      className={'min-h-10 rounded-lg border px-3 text-xs font-semibold '+(listMode==='open'?'border-blue-500 bg-blue-950/40 text-blue-200':'border-slate-700 text-slate-300')}>
+      Em aberto ({activePayables.length})
+    </button>
+    <button type="button" onClick={()=>setListMode('history')} aria-pressed={listMode==='history'}
+      className={'min-h-10 rounded-lg border px-3 text-xs font-semibold '+(listMode==='history'?'border-emerald-500 bg-emerald-950/30 text-emerald-200':'border-slate-700 text-slate-300')}>
+      Histórico ({historicalPayables.length})
+    </button>
+  </div>
+  {!visiblePayables.length?<p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-xs text-slate-300">
+    {listMode==='open'?'Nenhuma conta a pagar em aberto.':'Nenhum compromisso liquidado ou cancelado no histórico.'}
+  </p>:<div className="grid gap-2 sm:grid-cols-2">{visiblePayables.map(p=>{
    const status=derivePayableStatus(p);return <article key={p.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
     <div className="flex items-start justify-between gap-2">
      <div className="flex min-w-0 items-center gap-2">{p.creditor_type==='COMPANY'?<Building2 size={18} className="shrink-0 text-slate-300"/>:<UserRound size={18} className="shrink-0 text-slate-300"/>}<div className="min-w-0"><strong className="block truncate text-sm text-white">{p.creditor_name}</strong><span className="block truncate text-xs text-slate-400">{p.description}</span></div></div>
      <span className={'text-[10px] font-bold '+badge[status]}>{labels[status]}</span>
     </div>
-    <div className="mt-3 flex items-end justify-between gap-2"><div><span className="block text-xs text-slate-400">Saldo devedor</span><strong className="text-base text-rose-300"><PrivateMoney value={formatMoney(p.outstanding_balance)} /></strong></div><div className="text-right text-xs text-slate-400">Total <PrivateMoney value={formatMoney(p.total_amount)} /><br/>Venc. {p.due_date||'não informado'}</div></div>
-    {!['PAID','CANCELED'].includes(status)&&<button type="button" onClick={()=>start(p)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white">Pagar dívida</button>}
+    <div className="mt-3 flex items-end justify-between gap-2"><div>
+      <span className="block text-xs text-slate-400">{status==='PAID'?'Valor quitado':status==='CANCELED'?'Valor cancelado':'Saldo devedor'}</span>
+      <strong className={'text-base '+(status==='PAID'?'text-emerald-300':status==='CANCELED'?'text-slate-400':'text-rose-300')}>
+        <PrivateMoney value={formatMoney(status==='PAID'?p.total_amount:p.outstanding_balance)} />
+      </strong>
+    </div><div className="text-right text-xs text-slate-400">
+      {status==='PAID' ? 'Quitado em '+String(p.paid_at||'').slice(0,10).split('-').reverse().join('/') : 'Total '+formatMoney(p.total_amount)}
+      <br/>Venc. {p.due_date||'não informado'}
+    </div></div>
+    {listMode==='open'&&!['PAID','CANCELED'].includes(status)&&<button type="button" onClick={()=>start(p)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white">Pagar dívida</button>}
    </article>;
   })}</div>}
   {selected&&<div role="dialog" aria-modal="true" aria-label="Pagar dívida" className="fixed inset-0 z-[2400] flex items-end justify-center bg-slate-950/85 sm:items-center sm:p-4">

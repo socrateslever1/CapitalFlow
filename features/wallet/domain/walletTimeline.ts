@@ -1,4 +1,6 @@
-export type WalletTimelineKind = 'TRANSFER' | 'OPERATION' | 'INSTALLMENT' | 'PAYABLE' | 'INVOICE_PAYMENT';
+import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
+import type { PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
+export type WalletTimelineKind = 'TRANSFER' | 'OPERATION' | 'INSTALLMENT' | 'PAYABLE' | 'INVOICE_PAYMENT' | 'CARD_INVOICE';
 export type WalletTimelineDirection = 'IN' | 'OUT' | 'NEUTRAL';
 export type WalletTimelineStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'SCHEDULED' | 'RECORDED';
 
@@ -84,6 +86,10 @@ export function buildWalletTimeline(input: {
   installments: InstallmentLike[];
   payables: PayableLike[];
   invoicePayments: InvoicePaymentLike[];
+  // When available, group card installments by their canonical invoice cycle.
+  // The first of the month is a database key, never the payment due date.
+  cards?: PersonalWalletCard[];
+  cardInvoiceDates?: Array<{ card_id: string; due_month: string; due_date: string | null }>;
   limit?: number;
 }): WalletTimelineEvent[] {
   const events: WalletTimelineEvent[] = [];
@@ -108,6 +114,41 @@ export function buildWalletTimeline(input: {
     });
   }
 
+  if (input.cards) {
+    // A card-financed payment belongs to a card invoice, not to a second
+    // outstanding payable. Group the invoice to avoid counting each installment
+    // as an independent overdue debt.
+    const exactDates = new Map((input.cardInvoiceDates || []).map(fact =>
+      [fact.card_id + ':' + String(fact.due_month).slice(0, 7), fact.due_date] as const));
+    for (const card of input.cards) {
+      if (card.status === 'CANCELED') continue;
+      const cycles = getEffectiveInvoiceCycles(
+        card.id, input.expenses as PersonalWalletExpense[],
+        input.installments as PersonalWalletExpenseInstallment[],
+      );
+      for (const cycle of cycles) {
+        if (cycle.amount <= 0) continue;
+        const explicit = exactDates.get(card.id + ':' + cycle.dueMonth.slice(0, 7));
+        if (!card.due_day && !explicit) continue;
+        const { dueDate } = getInvoiceCycleDates(
+          cycle.dueMonth, card.closing_day, card.due_day, explicit,
+        );
+        events.push({
+          id: 'invoice:' + card.id + ':' + cycle.dueMonth,
+          kind: 'CARD_INVOICE',
+          date: dueDate,
+          label: 'Fatura ' + card.nickname,
+          amount: Math.max(0, finiteMoney(cycle.amount)),
+          direction: 'OUT',
+          status: eventStatus(dueDate, input.referenceDate),
+          cardId: card.id,
+          dueMonth: cycle.dueMonth,
+        });
+      }
+    }
+  } else {
+    // Legacy callers without card metadata still get the historical row
+    // behavior. Such rows must not be called overdue based on YYYY-MM-01.
   const expenseById = new Map(input.expenses.map(expense => [expense.id, expense]));
   for (const installment of input.installments) {
     if (installment.status !== 'PENDING') continue;
@@ -124,11 +165,13 @@ export function buildWalletTimeline(input: {
       label: expense.description || 'Parcela do cartão',
       amount,
       direction: 'OUT',
-      status: eventStatus(date, input.referenceDate),
+      status: 'SCHEDULED',
       cardId: expense.card_id,
       installmentNumber: installment.installment_number,
       dueMonth,
     });
+  }
+
   }
 
   for (const payable of input.payables) {

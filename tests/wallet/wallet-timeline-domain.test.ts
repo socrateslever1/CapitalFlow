@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildWalletTimeline } from '../../features/wallet/domain/walletTimeline';
+import type { PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../services/personalWallet.service';
 
 test('mantém transferência entre carteiras neutra e ordena a linha do tempo', () => {
   const events = buildWalletTimeline({
@@ -20,7 +21,7 @@ test('mantém transferência entre carteiras neutra e ordena a linha do tempo', 
   assert.equal(events[0].status, 'SCHEDULED');
 });
 
-test('mostra somente o saldo restante de parcelas e marca vencimentos atrasados', () => {
+test('sem metadados do cartão, não inventa vencimento de parcela; cobrança real ainda pode vencer', () => {
   const events = buildWalletTimeline({
     referenceDate: '2026-11-04',
     operations: [],
@@ -38,7 +39,7 @@ test('mostra somente o saldo restante de parcelas e marca vencimentos atrasados'
   });
 
   assert.deepEqual(events.map(event => event.id), ['i-open', 'payable-1']);
-  assert.equal(events[0].status, 'OVERDUE');
+  assert.equal(events[0].status, 'SCHEDULED');
   assert.equal(events[0].amount, 75);
   assert.equal(events[1].status, 'OVERDUE');
   assert.equal(events[1].amount, 300);
@@ -55,4 +56,32 @@ test('não chama operação já lançada de pendente', () => {
     expenses: [], installments: [], payables: [], invoicePayments: [],
   });
   assert.equal(events[0].status, 'RECORDED');
+});
+
+test('R$ 102,04 de obrigação quitada pelo PicPay integra a fatura de dezembro, sem dívida artificial', () => {
+  const expense: PersonalWalletExpense = {
+    id: 'expense-102', description: 'Divida: Marlucia', amount: 102.04,
+    category: 'Aluguel', expense_date: '2026-11-05', due_date: '2026-12-05',
+    card_id: 'picpay', status: 'PENDING', installment_count: 1, entry_type: 'PURCHASE',
+  };
+  const installment: PersonalWalletExpenseInstallment = {
+    id: 'installment-102', expense_id: 'expense-102', installment_number: 1,
+    due_month: '2026-12-01', amount: 102.04, paid_amount: 0, status: 'PENDING',
+  };
+  const events = buildWalletTimeline({
+    referenceDate: '2026-11-06', operations: [], expenses: [expense],
+    installments: [installment],
+    cards: [{ id: 'picpay', nickname: 'PicPay', status: 'ACTIVE',
+      closing_day: 26, due_day: 5, credit_limit: 4000, initial_future_installments_balance: 0 } as PersonalWalletCard],
+    payables: [{ id: 'rent', description: 'Aluguel', creditor_name: 'Marlucia',
+      outstanding_balance: 0, due_date: '2026-11-05', status: 'PAID' }],
+    invoicePayments: [],
+  });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].label, 'Fatura PicPay');
+  assert.equal(events[0].kind, 'CARD_INVOICE');
+  assert.equal(events[0].amount, 102.04);
+  assert.equal(events[0].date, '2026-12-05');
+  assert.equal(events[0].status, 'SCHEDULED');
+  assert(!events.some(e => e.kind === 'PAYABLE' || e.status === 'OVERDUE'));
 });

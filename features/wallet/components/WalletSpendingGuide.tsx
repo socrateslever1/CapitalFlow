@@ -10,19 +10,20 @@ export const WalletSpendingGuide: React.FC<{
   cardCount: number;
   pendingCount: number;
   overdueCount?: number;
+  overdueInvoiceCount?: number;
   dueSoonCount?: number;
   pendingIncome?: number;
   spending: SpendingOverview;
   onNavigate: (path: string) => void;
 }> = ({ projectedBalance, creditPercent, cardCount, pendingCount, overdueCount = 0,
-  dueSoonCount = 0, pendingIncome = 0, spending, onNavigate }) => {
+  overdueInvoiceCount = 0, dueSoonCount = 0, pendingIncome = 0, spending, onNavigate }) => {
   const top = spending.categories[0];
   const hasCredit = cardCount > 0;
   const usage = Number.isFinite(creditPercent) ? Math.max(0, creditPercent) : 0;
   const comparison = spending.previousTotal > 0
     ? Math.round((spending.total - spending.previousTotal) / spending.previousTotal * 100)
     : null;
-  const urgent = overdueCount > 0 || projectedBalance < 0 || (cardCount > 0 && usage >= 80);
+  const urgent = overdueCount > 0 || overdueInvoiceCount > 0 || projectedBalance < 0 || (cardCount > 0 && usage >= 80);
   return <section aria-label="Ajuda para controlar gastos" className="min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
     <header className="flex flex-wrap items-start justify-between gap-2">
       <div>
@@ -87,11 +88,12 @@ export const WalletSpendingGuide: React.FC<{
       <aside className="order-1 min-w-0 border-b border-slate-800 pb-4 lg:order-2 lg:col-span-5 lg:border-b-0 lg:border-l lg:pb-0 lg:pl-5" aria-label="Orientações financeiras">
         <h4 className="text-sm font-semibold text-white">O que merece atenção</h4>
         <div className="mt-3 divide-y divide-slate-800">
-          {(overdueCount > 0 || dueSoonCount > 0) && <div className="flex gap-2 pb-3">
+          {(overdueCount > 0 || overdueInvoiceCount > 0 || dueSoonCount > 0) && <div className="flex gap-2 pb-3">
             <AlertTriangle size={17} className={`mt-0.5 shrink-0 ${overdueCount ? 'text-rose-300' : 'text-amber-300'}`}/>
             <p className="text-xs leading-relaxed text-slate-200">
-              {overdueCount ? `${overdueCount} compromisso(s) vencido(s). ` : ''}
-              {dueSoonCount ? `${dueSoonCount} compromisso(s) vence(m) nos próximos 7 dias.` : ''}
+              {overdueCount ? `${overdueCount} conta(s) a pagar vencida(s). ` : ''}
+              {overdueInvoiceCount ? `${overdueInvoiceCount} fatura(s) com data de vencimento ultrapassada e sem quitação registrada na Carteira. ` : ''}
+              {dueSoonCount ? `${dueSoonCount} fatura(s) ou obrigação(ões) vence(m) nos próximos 7 dias.` : ''}
             </p>
           </div>}
           <div className="flex gap-2 py-2 first:pt-0">
@@ -116,7 +118,7 @@ export const WalletSpendingGuide: React.FC<{
             <CalendarClock size={17} className="mt-0.5 shrink-0 text-cyan-300"/>
             <p className="text-xs leading-relaxed text-slate-200">
               {pendingCount
-                ? `${pendingCount >= 8 ? 'Pelo menos 8' : pendingCount} compromisso(s) exibido(s) vencidos ou com vencimento até 45 dias.`
+                ? `${pendingCount >= 8 ? 'Pelo menos 8' : pendingCount} fatura(s) ou obrigação(ões) exibida(s) com vencimento até 45 dias, incluindo datas anteriores.`
                 : 'Sem compromissos próximos identificados com data informada.'}
             </p>
           </div>

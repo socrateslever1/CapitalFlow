@@ -38,6 +38,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
       installments: data.installments || [],
       payables: data.payables || [],
       invoicePayments: data.invoicePayments || [],
+      cards: data.cards || [],
       limit: 15,
     });
   }, [data]);
@@ -107,16 +108,16 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
             {timelineEvents.map(event => (
               <div key={event.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 rounded-md bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-300">
-                    {event.date}
+                  <span className="mt-0.5 shrink-0 rounded-md bg-slate-800 px-2 py-0.5 font-mono text-xs text-slate-300">
+                    {event.date.slice(8, 10) + '/' + event.date.slice(5, 7) + '/' + event.date.slice(0, 4)}
                   </span>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-100">{event.label}</span>
-                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-800 text-slate-300">
+                      <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-800 text-slate-300">
                         {event.kind === 'PAYABLE' ? 'Conta a Pagar' :
                          event.kind === 'INSTALLMENT' ? 'Parcela' :
-                         event.kind === 'INVOICE_PAYMENT' ? 'Fatura' :
+                         (event.kind === 'INVOICE_PAYMENT' || event.kind === 'CARD_INVOICE') ? 'Fatura' :
                          event.kind === 'TRANSFER' ? 'Transferência' : 'Operação'}
                       </span>
                     </div>

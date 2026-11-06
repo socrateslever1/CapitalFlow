@@ -6,6 +6,7 @@ import { RecurringIncomePanel } from '../../../components/wallet/RecurringIncome
 import { formatMoney } from '../../../utils/formatters';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
+import { isExternalIncome } from '../domain/walletIncomeHistory';
 
 const QuickIncomeModal = React.lazy(() => import('../components/QuickIncomeModal').then(module => ({ default: module.QuickIncomeModal })));
 
@@ -17,6 +18,7 @@ const localMonth = () => {
 export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [quickIncomeOpen, setQuickIncomeOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const month = localMonth();
   const receivedIds = useMemo(() => new Set((data?.recurringReceipts || [])
     .filter(receipt => String(receipt.reference_month).slice(0, 7) === month)
@@ -24,9 +26,12 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
 
   // Only one-off INCOME operations; recurring RECEIPT and Capital repayment
   // remain in their respective canonical sections, avoiding double-counting.
-  const manualReceipts = useMemo(() => (data?.accountOperations || [])
-    .filter(op => op.operation_type === 'INCOME' && String(op.operation_date).slice(0,7) === month)
-    .sort((a,b) => String(b.operation_date).localeCompare(String(a.operation_date))), [data,month]);
+  const manualReceipts = useMemo(() => {
+    const operations = data?.accountOperations || [];
+    return operations.filter(op => String(op.operation_date).slice(0,7) === month
+      && isExternalIncome(op, operations))
+      .sort((a,b) => String(b.operation_date).localeCompare(String(a.operation_date)));
+  }, [data,month]);
   const manualTotal = manualReceipts.reduce((sum,op) => sum + Number(op.amount || 0),0);
   const accountNames = useMemo(() => new Map((data?.accounts || []).map(account => [account.id,account.nickname])),[data]);
 
@@ -37,13 +42,26 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
     </button>}
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <div className="space-y-4">
-      <section className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5" aria-label="Entradas comuns do mês">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
+        <div>
+          <p className="text-sm font-semibold text-white">Recebimentos</p>
+          <p className="text-xs text-slate-400">Somente os saldos das contas representam dinheiro disponível.</p>
+        </div>
+        <button type="button" aria-pressed={showHistory} onClick={()=>setShowHistory(value=>!value)}
+          className={'min-h-10 rounded-lg border px-3 text-xs font-semibold '+
+          (showHistory?'border-emerald-500 text-emerald-200':'border-slate-700 text-blue-300')}>
+          {showHistory?'Ocultar histórico':'Histórico de entradas'}
+        </button>
+      </div>
+      <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
+        receivedIds={receivedIds} onSaved={async () => { await refresh(); }}/>
+      {showHistory && <section className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5" aria-label="Entradas avulsas já realizadas">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-              <ArrowDownToLine size={17} className="text-emerald-300"/> Entradas avulsas
+              <ArrowDownToLine size={17} className="text-emerald-300"/> Histórico de entradas avulsas
             </h3>
-            <p className="mt-1 text-xs text-slate-300">Valores registrados nas suas contas em {month.slice(5,7)}/{month.slice(0,4)}.</p>
+            <p className="mt-1 text-xs text-slate-300">Valores efetivamente registrados em {month.slice(5,7)}/{month.slice(0,4)}, não disponíveis novamente.</p>
           </div>
           <strong className="break-words text-xl font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(manualTotal)} /></strong>
         </div>
@@ -59,17 +77,15 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
           </li>)}
         </ul> : <p className="mt-4 flex items-start gap-2 rounded-lg bg-slate-950 px-3 py-3 text-xs text-slate-300">
           <ReceiptText size={16} className="shrink-0 text-slate-400"/>
-          Nenhuma entrada avulsa registrada neste mês. Use o botão Receber valor para registrar.
+          Nenhuma receita avulsa externa registrada neste mês. Ajustes, estornos, saldos iniciais e transferências estão no extrato.
         </p>}
         {manualReceipts.length > 8 && <p className="mt-2 text-xs text-slate-300">
           Exibindo os oito recebimentos mais recentes. Consulte o extrato da conta para o histórico completo.
         </p>}
         <p className="mt-3 border-t border-slate-800 pt-3 text-xs text-slate-400">
-          Este valor não inclui pagamentos de clientes, transferências internas ou receitas recorrentes para evitar contagem duplicada.
+          Histórico de receitas já realizadas: não representa saldo a receber nem dinheiro ainda disponível. Saldos iniciais, ajustes, estornos e transferências internas são exibidos somente no extrato para evitar contagem duplicada.
         </p>
-      </section>
-      <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
-        receivedIds={receivedIds} onSaved={async () => { await refresh(); }}/>
+      </section>}
       {quickIncomeOpen && <React.Suspense fallback={<div role="status" className="fixed inset-0 z-[2000] grid place-items-center bg-slate-950/80 text-sm text-slate-100">Preparando recebimento...</div>}>
         <QuickIncomeModal onClose={() => { setQuickIncomeOpen(false); void refresh().catch(() => {}); }}/>
       </React.Suspense>}

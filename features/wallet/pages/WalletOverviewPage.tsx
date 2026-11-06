@@ -135,7 +135,10 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     .sort((first, second) =>
       first.dueDate.localeCompare(second.dueDate) || first.title.localeCompare(second.title),
     );
-  const overdueCount = allUpcoming.filter(item => item.dueDate < today).length;
+  // Outstanding card invoices and unpaid personal obligations have different
+  // legal/accounting meanings: do not label an invoice as a creditor's debt.
+  const overdueCount = openPayables.filter(item => item.dueDate < today).length;
+  const overdueInvoiceCount = invoiceList.filter(item => item.dueDate < today).length;
   const weekEnd = new Date(today + 'T12:00:00');
   weekEnd.setDate(weekEnd.getDate() + 7);
   const weekLimit = dayKey(weekEnd);
@@ -148,12 +151,14 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
     installments: snapshot.installments,
     payables: snapshot.payables,
     invoicePayments: snapshot.invoicePayments,
+    cards: snapshot.cards,
+    cardInvoiceDates: snapshot.cardInvoiceDates,
     limit: 8,
   });
 
   return {
     accounts, cards, accountBalance, institutionCount: institutionKeys.size,
-    credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, dueSoonCount,
+    credit, currentInvoiceTotal, balance, upcoming, spending, overdueCount, overdueInvoiceCount, dueSoonCount,
     timelineEvents,
   };
 };
@@ -236,7 +241,8 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
 
     <WalletSpendingGuide projectedBalance={balance.projectedBalance} creditPercent={credit.percentage}
       cardCount={cards.length} pendingCount={upcoming.length}
-      overdueCount={overview.overdueCount} dueSoonCount={overview.dueSoonCount}
+      overdueCount={overview.overdueCount} overdueInvoiceCount={overview.overdueInvoiceCount}
+      dueSoonCount={overview.dueSoonCount}
       pendingIncome={balance.pendingRecurringIncome} spending={overview.spending} onNavigate={onNavigate}/>
 
     {/* 1. SEÇÃO BALANÇO DO MÊS */}

@@ -11,6 +11,17 @@ const DEFAULT_HUB: AppTab[] = ['DOSSIER', 'SOURCES', 'LEGAL', 'PROFILE'] as AppT
 const CACHE_KEY = (profileId: string) => `cm_cache_${profileId}`;
 const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
 
+type AppCacheSnapshot = {
+  ts: number;
+  activeUser: UserProfile;
+  loans: Loan[];
+  clients: Client[];
+  sources: CapitalSource[];
+  staffMembers: UserProfile[];
+  navOrder: AppTab[];
+  hubOrder: AppTab[];
+};
+
 const sanitizeTabs = (tabs: unknown, fallback: AppTab[]) => normalizeMenuOrder(tabs, fallback);
 
 const persistNavigation = async (

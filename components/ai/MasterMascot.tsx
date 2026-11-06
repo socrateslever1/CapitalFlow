@@ -1,15 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Clock3, Loader2, MessageCircle, Power, RefreshCw, Send, X } from 'lucide-react';
+import { useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
+import { loadFluxMemory, saveFluxMemory, clearFluxMemory, type FluxMemoryMessage } from '../../services/ai/fluxLocalMemory';
+import { cueForNotification, mayShowFluxCue, type FinancialNotificationCue, type FluxCue } from './fluxCuePolicy';
 import type { UserProfile } from '../../types';
 import { askMasterAssistant, isMasterAssistantEnabled, loadMasterAssistantBriefing, loadMasterAssistantHistory, type AssistantTurn } from '../../services/aiAssistant.service';
 import { generateUUID } from '../../utils/generators';
 
 interface MasterMascotProps {
   activeUser: UserProfile | null;
+  notifications?: ReadonlyArray<FinancialNotificationCue>;
 }
 type Message = { id: string; role: 'user' | 'assistant'; text: string };
 const storageKey = (profileId: string) => 'cf_master_mascot_enabled:' + profileId;
 const conversationKey = (profileId: string) => 'cf_master_mascot_conversation:' + profileId;
+const cuePreferenceKey = (profileId: string) => 'cf_flux_balloons_enabled:' + profileId;
+const cueQuotaKey = (profileId: string) => 'cf_flux_balloon_quota:' + profileId;
+const localDay = () => {
+  const now = new Date();
+  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0')].join('-');
+};
 
 const FluxMark: React.FC<{ thinking?: boolean }> = ({ thinking = false }) => (
   <svg viewBox="0 0 48 48" aria-hidden="true" className="h-6 w-6">
@@ -21,15 +32,23 @@ const FluxMark: React.FC<{ thinking?: boolean }> = ({ thinking = false }) => (
   </svg>
 );
 
-export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
+export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser, notifications = [] }) => {
+  const privacyHidden = useFinancialPrivacy();
   const profileId = activeUser?.id || '';
   const profileRef = useRef(profileId);
   profileRef.current = profileId;
+  const authorizedProfileRef = useRef<string | null>(null);
+  const seenNotificationIds = useRef(new Set<string>());
+  const notificationListReady = useRef(false);
+  const cueStartedAt = useRef(Date.now());
   const [authorized, setAuthorized] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+  const [balloonsEnabled, setBalloonsEnabled] = useState(true);
+  const [cue, setCue] = useState<FluxCue | null>(null);
   const [busy, setBusy] = useState(false);
   const [auxBusy, setAuxBusy] = useState(false);
   const [notice, setNotice] = useState('');
@@ -46,25 +65,102 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
 
   useEffect(() => {
     let cancelled = false;
+    const user = activeUser;
+    authorizedProfileRef.current = null;
+    notificationListReady.current = false;
+    cueStartedAt.current = Date.now();
+    seenNotificationIds.current.clear();
     setOpen(false);
     setMessages([]);
     setMessage('');
     setNotice('');
+    setCue(null);
+    setHydrated(false);
     setAuthorized(false);
-    if (!activeUser || activeUser.accessLevel !== 'ADMIN') return;
-    const existing = localStorage.getItem(conversationKey(activeUser.id));
-    const id = existing || generateUUID();
-    localStorage.setItem(conversationKey(activeUser.id), id);
+    if (!user || user.accessLevel !== 'ADMIN') return;
+    const existing = localStorage.getItem(conversationKey(user.id));
+    const id = existing && /^[a-f0-9-]{36}$/i.test(existing) ? existing : generateUUID();
+    localStorage.setItem(conversationKey(user.id), id);
     setConversationId(id);
-    isMasterAssistantEnabled().then(result => {
-      if (cancelled) return;
-      setAuthorized(result);
-      setEnabled(result && localStorage.getItem(storageKey(activeUser.id)) !== 'off');
+    setBalloonsEnabled(localStorage.getItem(cuePreferenceKey(user.id)) !== 'off');
+    void isMasterAssistantEnabled().then(async allowed => {
+      if (cancelled || !allowed) return;
+      authorizedProfileRef.current = user.id;
+      setAuthorized(true);
+      setEnabled(localStorage.getItem(storageKey(user.id)) !== 'off');
+      try {
+        const remembered = await loadFluxMemory(user.id, id);
+        if (!cancelled && profileRef.current === user.id) {
+          setMessages(remembered);
+          setHydrated(true);
+        }
+      } catch {
+        if (!cancelled && profileRef.current === user.id) {
+          setNotice('Memória local indisponível; esta conversa funciona apenas nesta sessão.');
+          setHydrated(true);
+        }
+      }
     }).catch(() => {
       if (!cancelled) setAuthorized(false);
     });
     return () => { cancelled = true; };
   }, [activeUser?.id, activeUser?.accessLevel]);
+
+  // Only authenticated, hydrated conversations are saved. IndexedDB encrypts at rest.
+  useEffect(() => {
+    if (!hydrated || !authorized || authorizedProfileRef.current !== profileId) return;
+    void saveFluxMemory(profileId, conversationId, messages as FluxMemoryMessage[])
+      .catch(() => setNotice('Não foi possível atualizar a memória neste aparelho.'));
+  }, [hydrated, authorized, profileId, conversationId, messages]);
+
+  useEffect(() => {
+    if (!cue) return;
+    const expiry = window.setTimeout(() => setCue(null), 8_000);
+    return () => window.clearTimeout(expiry);
+  }, [cue]);
+
+  useEffect(() => {
+    if (!notificationListReady.current) {
+      seenNotificationIds.current = new Set(notifications.map(item => item.id));
+      notificationListReady.current = true;
+      return;
+    }
+    const fresh = notifications.filter(item => !seenNotificationIds.current.has(item.id) && item.createdAt >= cueStartedAt.current);
+    for (const item of fresh) seenNotificationIds.current.add(item.id);
+    if (seenNotificationIds.current.size > 250) {
+      seenNotificationIds.current = new Set(notifications.map(item => item.id));
+    }
+    if (!authorized || !hydrated || !enabled || authorizedProfileRef.current !== profileId || !fresh.length) return;
+    let quota: { day: string; count: number; last: number } = { day: localDay(), count: 0, last: 0 };
+    try {
+      const raw = JSON.parse(localStorage.getItem(cueQuotaKey(profileId)) || 'null') as Partial<typeof quota> | null;
+      if (raw?.day === quota.day) quota = {
+        day: quota.day,
+        count: Number.isFinite(raw.count) ? Math.max(0, Number(raw.count)) : 0,
+        last: Number.isFinite(raw.last) ? Math.max(0, Number(raw.last)) : 0,
+      };
+    } catch { /* Invalid preference is ignored, not displayed. */ }
+    const active = document.activeElement;
+    const editorOpen = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ||
+      Boolean(document.querySelector('[role="dialog"]:not([aria-label="Conversa com o Flux"])'));
+    if (!mayShowFluxCue({
+      now: Date.now(), lastShownAt: quota.last, shownToday: quota.count,
+      enabled: balloonsEnabled && authorized && enabled,
+      panelOpen: open, privacyHidden, pageVisible: !document.hidden, editorOpen,
+    })) return;
+    const candidate = fresh.map(cueForNotification).find((item): item is FluxCue => Boolean(item));
+    if (!candidate) return;
+    setCue(candidate);
+    try {
+      localStorage.setItem(cueQuotaKey(profileId), JSON.stringify({
+        day: localDay(), count: quota.count + 1, last: Date.now(),
+      }));
+    } catch { /* Quota is a convenience; no financial data is stored. */ }
+  }, [notifications, authorized, hydrated, enabled, profileId, open, privacyHidden, balloonsEnabled]);
+
+  useEffect(() => {
+    if (privacyHidden) { setCue(null); setOpen(false); }
+  }, [privacyHidden]);
 
   useEffect(() => {
     if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -94,13 +190,24 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
   };
 
   const newConversation = () => {
-    if (busy) return;
+    if (busy || !hydrated) return;
+    const previous = conversationId;
     const next = generateUUID();
+    setHydrated(false);
     localStorage.setItem(conversationKey(profileId), next);
     setConversationId(next);
     setMessages([]);
     setNotice('');
     setMessage('');
+    void clearFluxMemory(profileId, previous).catch(() => {})
+      .finally(() => { if (profileRef.current === profileId) setHydrated(true); });
+  };
+
+  const toggleBalloons = () => {
+    const next = !balloonsEnabled;
+    setBalloonsEnabled(next);
+    if (!next) setCue(null);
+    localStorage.setItem(cuePreferenceKey(profileId), next ? 'on' : 'off');
   };
 
   const requestHistory = async () => {
@@ -141,7 +248,7 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
 
   const send = async () => {
     const value = message.trim();
-    if (!enabled || !value || busy || !conversationId) return;
+    if (!enabled || !hydrated || !value || busy || !conversationId) return;
     const requestId = generateUUID();
     const userAtStart = profileId;
     const turnsAtRequest = turns;
@@ -159,7 +266,7 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
       if (reply.consultedFinancialData && financialGeneration.current === requestedGeneration) {
         lastFinancialReadGeneration.current = requestedGeneration;
       }
-      if (profileRef.current !== userAtStart) return;
+      if (profileRef.current !== userAtStart || conversationId !== localStorage.getItem(conversationKey(userAtStart))) return;
       setMessages(current => [...current, { id: requestId + ':assistant', role: 'assistant' as const, text: reply.response }].slice(-50));
     } catch {
       if (profileRef.current === userAtStart) {
@@ -190,6 +297,10 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
             <button type="button" onClick={newConversation} disabled={busy} className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 disabled:opacity-50">Nova conversa</button>
             <button type="button" onClick={() => void requestHistory()} disabled={busy || auxBusy} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] text-slate-400 hover:bg-slate-800 disabled:opacity-50"><Clock3 size={13}/> Histórico</button>
             <button type="button" onClick={() => void requestAlerts()} disabled={busy || auxBusy} className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] text-slate-400 hover:bg-slate-800 disabled:opacity-50"><RefreshCw size={13}/> Alertas</button>
+            <button type="button" onClick={toggleBalloons}
+              aria-pressed={balloonsEnabled} className="rounded-lg px-2 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800">
+              Balões: {balloonsEnabled ? 'ligados' : 'desligados'}
+            </button>
             <button type="button" onClick={toggle} className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] text-slate-400 hover:bg-slate-800"><Power size={13}/> {enabled ? 'Desativar' : 'Ativar'}</button>
           </div>
           <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3" aria-live="polite">
@@ -218,14 +329,21 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
                 <Send size={16}/>
               </button>
             </div>
-            <p className="mt-2 text-[10px] text-slate-500">Memória desta sessão. Dados financeiros não são gravados no navegador.</p>
+            <p className="mt-2 text-[10px] text-slate-500">Conversa cifrada neste aparelho por até 30 dias. Sem sincronização entre dispositivos.</p>
           </div>
         </section>
       )}
-      <button type="button" onClick={() => setOpen(current => !current)}
+      {cue && balloonsEnabled && !privacyHidden && !open && <div
+        role="status" className="absolute bottom-12 left-0 w-52 rounded-xl border border-slate-700 bg-slate-900 p-2.5 shadow-xl">
+        <button type="button" onClick={() => { setCue(null); setOpen(true); }}
+          className="block w-full text-left text-xs leading-snug text-slate-100">{cue.text}</button>
+        <button type="button" aria-label="Dispensar aviso do Flux" onClick={() => setCue(null)}
+          className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full border border-slate-700 bg-slate-900 text-slate-300"><X size={12}/></button>
+      </div>}
+      <button type="button" disabled={privacyHidden} onClick={() => { setCue(null); setOpen(current => !current); }}
         className={'flux-mascot grid h-11 w-11 place-items-center rounded-xl border border-blue-500/40 bg-slate-900 text-blue-200 shadow-lg shadow-black/40 transition hover:bg-slate-800 ' +
           (busy ? 'flux-mascot-thinking' : 'flux-mascot-idle')}
-        aria-label={open ? 'Fechar Flux' : 'Conversar com Flux'} aria-expanded={open} title="Flux">
+        aria-label={privacyHidden ? 'Mostre os valores para conversar com Flux' : open ? 'Fechar Flux' : 'Conversar com Flux'} aria-expanded={open} title="Flux">
         {busy ? <Loader2 size={23} className="animate-spin"/> : open ? <MessageCircle size={23}/> : <FluxMark/>}
       </button>
     </div>

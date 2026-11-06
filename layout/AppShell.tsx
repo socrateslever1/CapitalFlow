@@ -206,7 +206,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         addNotification={addNotification}
       />
 
-      <MasterMascot activeUser={activeUser} />
+      <MasterMascot activeUser={activeUser} notifications={notifications} />
 
       <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
       <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain pb-36 md:pb-12">

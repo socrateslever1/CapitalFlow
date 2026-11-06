@@ -3,32 +3,45 @@ import { supabase, getSynchronizedSession } from '../lib/supabase';
 import { Loan, Client, CapitalSource, UserProfile, SortOption, AppTab, LoanStatusFilter } from '../types';
 import { asString, asNumber } from '../utils/safe';
 import { filterDeletedLoans } from '../services/deletedContracts.service';
+import { DEFAULT_MOBILE_NAV, normalizeMenuOrder, normalizeMobileNavOrder,
+  readStoredNavigation, resolveNavigationPreferences, writeStoredNavigation } from '../layout/navigationPreferences';
 
 const DEFAULT_NAV: AppTab[] = ['DASHBOARD', 'CLIENTS'] as AppTab[];
 const DEFAULT_HUB: AppTab[] = ['DOSSIER', 'SOURCES', 'LEGAL', 'PROFILE'] as AppTab[];
 const CACHE_KEY = (profileId: string) => `cm_cache_${profileId}`;
 const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;
 
-const VALID_TABS = new Set<AppTab>([
-  'DASHBOARD', 'DOSSIER', 'CLIENTS', 'LEGAL', 'SOURCES', 'PROFILE', 'SETTINGS',
-  'CONTRACT_DETAILS', 'SIMULATOR', 'FLOW', 'LEGAL_DOCUMENT_EDITOR',
-  'EXTRATO', 'SUPPORT', 'REPORTS', 'MY_WALLET', 'PLATFORM_ADMIN',
-]);
+const sanitizeTabs = (tabs: unknown, fallback: AppTab[]) => normalizeMenuOrder(tabs, fallback);
 
-type AppCacheSnapshot = {
-  ts: number;
-  activeUser: UserProfile;
-  loans: Loan[];
-  clients: Client[];
-  sources: CapitalSource[];
-  staffMembers: UserProfile[];
-  navOrder: AppTab[];
-  hubOrder: AppTab[];
+const persistNavigation = async (
+  profileId: string,
+  data: {ui_nav_order?: AppTab[];ui_hub_order?: AppTab[];ui_mobile_nav_order?: AppTab[]},
+): Promise<void> => {
+  const response = await supabase.from('perfis').update(data)
+    .eq('id', profileId).select('id').maybeSingle();
+  if (response.error) throw new Error('Falha ao salvar menus: ' + response.error.message);
+  if (!response.data) throw new Error('O perfil não autorizou salvar a ordem dos menus.');
 };
 
-const sanitizeTabs = (tabs: any[] | undefined, fallback: AppTab[]) => {
-  const source = Array.isArray(tabs) && tabs.length > 0 ? tabs : fallback;
-  return Array.from(new Set(source.filter((tab) => tab && VALID_TABS.has(String(tab) as AppTab)))) as AppTab[];
+const retryPendingNavigation = async (profileId: string): Promise<void> => {
+  const current = readStoredNavigation(profileId);
+  if (current?.pendingDesktop && current.nav && current.hub) {
+    await persistNavigation(profileId, {
+      ui_nav_order: current.nav, ui_hub_order: current.hub,
+    });
+    const latest = readStoredNavigation(profileId);
+    if (latest?.pendingDesktop &&
+      JSON.stringify(latest.nav) === JSON.stringify(current.nav) &&
+      JSON.stringify(latest.hub) === JSON.stringify(current.hub))
+      writeStoredNavigation(profileId,{...latest,pendingDesktop:false});
+  }
+  const last = readStoredNavigation(profileId);
+  if (last?.pendingMobile && last.mobile) {
+    await persistNavigation(profileId,{ui_mobile_nav_order:last.mobile});
+    const latest = readStoredNavigation(profileId);
+    if (latest?.pendingMobile && JSON.stringify(latest.mobile) === JSON.stringify(last.mobile))
+      writeStoredNavigation(profileId,{...latest,pendingMobile:false});
+  }
 };
 
 const normalizeClients = (clients: any[] | undefined): Client[] =>
@@ -126,6 +139,7 @@ const mapProfileFromDB = (data: any): UserProfile => {
     targetProfit: asNumber(data.target_profit),
     ui_nav_order: navOrder,
     ui_hub_order: hubOrder,
+    ui_mobile_nav_order: normalizeMobileNavOrder(data.ui_mobile_nav_order),
     createdAt: data.created_at,
   };
 };
@@ -142,6 +156,7 @@ const DEMO_USER: UserProfile = {
   totalAvailableCapital: 50000,
   ui_nav_order: DEFAULT_NAV,
   ui_hub_order: DEFAULT_HUB,
+  ui_mobile_nav_order: [...DEFAULT_MOBILE_NAV],
   brandColor: '#2563eb',
   targetCapital: 100000,
 };
@@ -155,6 +170,7 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
   const [staffMembers, setStaffMembers] = useState<UserProfile[]>([]);
   const [navOrder, setNavOrder] = useState<AppTab[]>(DEFAULT_NAV);
   const [hubOrder, setHubOrder] = useState<AppTab[]>(DEFAULT_HUB);
+  const [mobileNavOrder, setMobileNavOrder] = useState<AppTab[]>([...DEFAULT_MOBILE_NAV]);
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -170,10 +186,16 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     const snapshot = cached || readCache(profileId);
     if (!snapshot?.activeUser) return false;
 
-    setActiveUser(snapshot.activeUser);
-    setProfileEditForm(snapshot.activeUser);
-    setNavOrder(sanitizeTabs(snapshot.navOrder, DEFAULT_NAV));
-    setHubOrder(sanitizeTabs(snapshot.hubOrder, DEFAULT_HUB));
+    const stored = readStoredNavigation(profileId);
+    const nav = sanitizeTabs(stored?.nav ?? snapshot.navOrder, DEFAULT_NAV);
+    const hub = sanitizeTabs(stored?.hub ?? snapshot.hubOrder, DEFAULT_HUB);
+    const mobile = normalizeMobileNavOrder(stored?.mobile ?? snapshot.activeUser.ui_mobile_nav_order);
+    const user = {...snapshot.activeUser, ui_nav_order:nav, ui_hub_order:hub, ui_mobile_nav_order:mobile};
+    setActiveUser(user);
+    setProfileEditForm(user);
+    setNavOrder(nav);
+    setHubOrder(hub);
+    setMobileNavOrder(mobile);
     setClients(normalizeClients(snapshot.clients));
     setSources(snapshot.sources || []);
     setLoans(filterDeletedForProfile(profileId, snapshot.loans, snapshot.activeUser));
@@ -190,6 +212,10 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     if (searchId === 'DEMO') {
       setActiveUser(DEMO_USER);
       setProfileEditForm(DEMO_USER);
+      const stored = readStoredNavigation('DEMO');
+      setNavOrder(sanitizeTabs(stored?.nav, DEFAULT_NAV));
+      setHubOrder(sanitizeTabs(stored?.hub, DEFAULT_HUB));
+      setMobileNavOrder(normalizeMobileNavOrder(stored?.mobile));
       setIsDataReady(true);
       return;
     }
@@ -216,10 +242,16 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
         const { syncService } = await import('../services/sync.service');
         const local = await syncService.getLocalData(ownerId);
 
-        setActiveUser(user);
-        setProfileEditForm(user);
-        setNavOrder(sanitizeTabs(user.ui_nav_order, DEFAULT_NAV));
-        setHubOrder(sanitizeTabs(user.ui_hub_order, DEFAULT_HUB));
+        const stored = readStoredNavigation(searchId);
+        const nav = sanitizeTabs(stored?.nav ?? user.ui_nav_order, DEFAULT_NAV);
+        const hub = sanitizeTabs(stored?.hub ?? user.ui_hub_order, DEFAULT_HUB);
+        const mobile = normalizeMobileNavOrder(stored?.mobile ?? user.ui_mobile_nav_order);
+        const updatedUser={...user,ui_nav_order:nav,ui_hub_order:hub,ui_mobile_nav_order:mobile};
+        setActiveUser(updatedUser);
+        setProfileEditForm(updatedUser);
+        setNavOrder(nav);
+        setHubOrder(hub);
+        setMobileNavOrder(mobile);
         setLoans(local.loans);
         setClients(local.clients);
         setSources(local.sources);
@@ -254,13 +286,15 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
 
       const user = mapProfileFromDB(profileData);
       const ownerId = profileData.owner_profile_id || profileData.supervisor_id || profileData.id;
-      const cleanNav = sanitizeTabs(user.ui_nav_order, DEFAULT_NAV);
-      const cleanHub = sanitizeTabs(user.ui_hub_order, DEFAULT_HUB);
-
-      setActiveUser(user);
-      setProfileEditForm(user);
-      setNavOrder(cleanNav);
-      setHubOrder(cleanHub);
+      const prefs=resolveNavigationPreferences(searchId,user,DEFAULT_NAV,DEFAULT_HUB);
+      const prepared={...user,ui_nav_order:prefs.nav,ui_hub_order:prefs.hub,ui_mobile_nav_order:prefs.mobile};
+      setActiveUser(prepared);
+      setProfileEditForm(prepared);
+      setNavOrder(prefs.nav);
+      setHubOrder(prefs.hub);
+      setMobileNavOrder(prefs.mobile);
+      if(prefs.pending?.pendingDesktop||prefs.pending?.pendingMobile)
+        void retryPendingNavigation(searchId).catch(()=>{ /* persist offline until next refresh */ });
 
       const { syncService } = await import('../services/sync.service');
       const { db } = await import('../services/offline/adminOfflineStore');
@@ -309,6 +343,9 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
   useEffect(() => {
     if (!activeProfileId || activeProfileId === 'undefined' || activeProfileId === 'null') {
       setActiveUser(null);
+      setNavOrder(DEFAULT_NAV);
+      setHubOrder(DEFAULT_HUB);
+      setMobileNavOrder([...DEFAULT_MOBILE_NAV]);
       setLoadError(null);
       setIsDataReady(false);
       return;
@@ -331,27 +368,34 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     };
   }, [activeProfileId, fetchFullData]);
 
-  const saveNavConfig = async (newNav: AppTab[], newHub: AppTab[]) => {
-    if (!activeUser) return;
+  const saveNavConfig = async (newNav: AppTab[], newHub: AppTab[]): Promise<void> => {
+    if(!activeUser)throw new Error('Entre na conta para editar os menus.');
+    const nav=sanitizeTabs(newNav,DEFAULT_NAV),hub=sanitizeTabs(newHub,DEFAULT_HUB);
+    const profileId=activeUser.id, stored=readStoredNavigation(profileId);
+    writeStoredNavigation(profileId,{...stored,nav,hub,pendingDesktop:profileId!=='DEMO'});
+    setNavOrder(nav);setHubOrder(hub);
+    setActiveUser(current=>current?.id===profileId?{...current,ui_nav_order:nav,ui_hub_order:hub}:current);
+    setProfileEditForm(current=>current?.id===profileId?{...current,ui_nav_order:nav,ui_hub_order:hub}:current);
+    if(profileId==='DEMO')return;
+    await persistNavigation(profileId,{ui_nav_order:nav,ui_hub_order:hub});
+    const latest=readStoredNavigation(profileId);
+    if(latest?.pendingDesktop&&JSON.stringify(latest.nav)===JSON.stringify(nav)&&
+      JSON.stringify(latest.hub)===JSON.stringify(hub))
+      writeStoredNavigation(profileId,{...latest,pendingDesktop:false});
+  };
 
-    const cleanNav = sanitizeTabs(newNav, DEFAULT_NAV);
-    const cleanHub = sanitizeTabs(newHub, DEFAULT_HUB);
-    const updatedUser = { ...activeUser, ui_nav_order: cleanNav, ui_hub_order: cleanHub };
-
-    setNavOrder(cleanNav);
-    setHubOrder(cleanHub);
-    setActiveUser(updatedUser);
-    if (profileEditForm?.id === activeUser.id) setProfileEditForm(updatedUser);
-
-    if (activeUser.id !== 'DEMO') {
-      const { error } = await supabase
-        .from('perfis')
-        .update({ ui_nav_order: cleanNav, ui_hub_order: cleanHub })
-        .eq('id', activeUser.id);
-      if (error) console.error(error);
-    }
-
-    localStorage.removeItem(CACHE_KEY(activeUser.id));
+  const saveMobileNavOrder = async (value: AppTab[]): Promise<void> => {
+    if(!activeUser)throw new Error('Entre na conta para personalizar a barra.');
+    const profileId=activeUser.id, mobile=normalizeMobileNavOrder(value);
+    const stored=readStoredNavigation(profileId);
+    writeStoredNavigation(profileId,{...stored,mobile,pendingMobile:profileId!=='DEMO'});
+    setMobileNavOrder(mobile);
+    setActiveUser(current=>current?.id===profileId?{...current,ui_mobile_nav_order:mobile}:current);
+    if(profileId==='DEMO')return;
+    await persistNavigation(profileId,{ui_mobile_nav_order:mobile});
+    const latest=readStoredNavigation(profileId);
+    if(latest?.pendingMobile&&JSON.stringify(latest.mobile)===JSON.stringify(mobile))
+      writeStoredNavigation(profileId,{...latest,pendingMobile:false});
   };
 
   return {
@@ -362,6 +406,8 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
     staffMembers, systemUsers: staffMembers,
     navOrder,
     hubOrder,
+    mobileNavOrder,
+    saveMobileNavOrder,
     isLoadingData, setIsLoadingData,
     isDataReady,
     loadError, setLoadError,

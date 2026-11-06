@@ -99,6 +99,7 @@ export interface UserProfile {
   phone?: string;
   ui_nav_order?: AppTab[];
   ui_hub_order?: AppTab[];
+  ui_mobile_nav_order?: AppTab[];
   supervisor_id?: string;
   photo?: string;
   totalAvailableCapital?: number;

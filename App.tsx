@@ -123,6 +123,8 @@ export const App: React.FC = () => {
     setLoadError,
     navOrder,
     hubOrder,
+    mobileNavOrder,
+    saveMobileNavOrder,
     saveNavConfig,
   } = useAppState(activeProfileId, handleLogout);
 
@@ -488,7 +490,9 @@ export const App: React.FC = () => {
             isStealthMode={ui.isStealthMode}
             toggleStealthMode={() => ui.setIsStealthMode(!ui.isStealthMode)}
             onOpenSupport={() => ui.openModal('SUPPORT_CHAT')}
-            navOrder={visibleHubOrder}
+            navOrder={navOrder}
+            mobileNavOrder={mobileNavOrder}
+            saveMobileNavOrder={saveMobileNavOrder}
             onGoBack={goBack}
             isInHub={isInHub}
             title={activeTab === 'CONTRACT_DETAILS' ? loans.find(l => l.id === ui.selectedLoanId)?.debtorName : undefined}

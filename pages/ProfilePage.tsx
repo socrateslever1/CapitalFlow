@@ -62,7 +62,7 @@ interface ProfilePageProps {
   fileInputExcelRef: React.RefObject<HTMLInputElement>;
   navOrder: AppTab[];
   hubOrder: AppTab[];
-  saveNavConfig: (nav: AppTab[], hub: AppTab[]) => void;
+  saveNavConfig: (nav: AppTab[], hub: AppTab[]) => Promise<void>;
   goBack?: () => void;
 }
 
@@ -95,6 +95,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [menuSaving, setMenuSaving] = useState(false);
 
   const handleExport = async (format: 'EXCEL' | 'CSV') => {
     if (loans.length === 0) {
@@ -141,11 +142,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  const moveTab = (
+  const moveTab = async (
     tab: AppTab,
     from: 'NAV' | 'HUB',
     direction: 'UP' | 'DOWN' | 'SWAP'
-  ) => {
+  ): Promise<void> => {
+    if (menuSaving) return;
+    setMenuSaving(true);
     let newNav = [...navOrder];
     let newHub = [...hubOrder];
 
@@ -169,7 +172,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       }
     }
 
-    saveNavConfig(newNav, newHub);
+    try {
+      await saveNavConfig(newNav, newHub);
+      showToast('Ordem dos menus salva.', 'success');
+    } catch {
+      showToast('Ordem guardada neste navegador. Sincronização pendente.', 'warning');
+    } finally {
+      setMenuSaving(false);
+    }
   };
 
   if (!profileEditForm) return null;
@@ -962,21 +972,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <span className="text-xs font-bold text-white uppercase">
                           {getTabLabel(tab)}
                         </span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => moveTab(tab, 'NAV', 'UP')}
+                            onClick={() => void moveTab(tab, 'NAV', 'UP')} disabled={menuSaving}
                             className="p-1.5 hover:bg-slate-800 rounded"
                           >
                             <ArrowUp size={12} />
                           </button>
                           <button
-                            onClick={() => moveTab(tab, 'NAV', 'DOWN')}
+                            onClick={() => void moveTab(tab, 'NAV', 'DOWN')} disabled={menuSaving}
                             className="p-1.5 hover:bg-slate-800 rounded"
                           >
                             <ArrowDown size={12} />
                           </button>
                           <button
-                            onClick={() => moveTab(tab, 'NAV', 'SWAP')}
+                            onClick={() => void moveTab(tab, 'NAV', 'SWAP')} disabled={menuSaving}
                             className="p-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded"
                             title="Mover para o Menu Lateral"
                           >
@@ -1004,19 +1014,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         </span>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => moveTab(tab, 'HUB', 'UP')}
+                            onClick={() => void moveTab(tab, 'HUB', 'UP')} disabled={menuSaving}
                             className="p-1.5 hover:bg-slate-800 rounded"
                           >
                             <ArrowUp size={12} />
                           </button>
                           <button
-                            onClick={() => moveTab(tab, 'HUB', 'DOWN')}
+                            onClick={() => void moveTab(tab, 'HUB', 'DOWN')} disabled={menuSaving}
                             className="p-1.5 hover:bg-slate-800 rounded"
                           >
                             <ArrowDown size={12} />
                           </button>
                           <button
-                            onClick={() => moveTab(tab, 'HUB', 'SWAP')}
+                            onClick={() => void moveTab(tab, 'HUB', 'SWAP')} disabled={menuSaving}
                             className="p-1.5 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded"
                             title="Mover para a Barra"
                           >

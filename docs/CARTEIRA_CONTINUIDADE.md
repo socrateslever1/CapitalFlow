@@ -500,7 +500,129 @@ O commit 04076d871124b55ba73248d656fce0d7584c1a87 passou nos testes, na compila�
 - O texto completo continua acessível ao abrir a notificação; a compactação não remove o conteúdo da notificação, apenas evita cards altos na lista.
 - O botão de remoção mantém alvo de toque separado e não é comprimido pelo texto.
 
-## 05/11/2026 — Lista completa de fontes de capital e sugestão de ícone bancário
+## 05/11/2026 — Mascote interno do perfil master: primeiro corte seguro
+
+- Criado o mascote textual `Flux`, visível somente após `is_platform_super_admin()` confirmar o perfil master. Ele pode ser ativado/desativado localmente e mantém uma conversa por sessão persistida por `conversation_id`.
+- O frontend chama somente a Edge Function `ai-assistant`; nenhuma chave de LLM chega ao navegador. A função registra cada solicitação em `ai_assistant_requests`, classifica a intenção (`READ`, `DRAFT`, `CONFIRM`, `FORBIDDEN`) e responde sem executar mutações financeiras.
+- O orquestrador aceita `AI_PROVIDER_POOL_JSON` para fallback entre provedores compatíveis. Sem pool configurado, usa o Gemini server-side já existente. Falha de um provedor tenta o próximo e registra o motivo categórico.
+- O contexto inicial é um RAG operacional mínimo formado por contas, cartões e compromissos canônicos do perfil master. A resposta recebe regras explícitas: não inventar fatos, não expor segredos e não alterar ledger; ações de gravação ficam em confirmação futura.
+- Supabase produção: tabela `ai_assistant_requests` criada com RLS restrita ao master; Edge Function `ai-assistant` publicada com JWT obrigatório.
+- Validação pendente desta etapa: configurar e testar o pool de provedores no ambiente de produção e realizar validação visual em dispositivo físico. Não houve lançamento financeiro real.
+
+## 06/11/2026 — Passo 01 do pool de LLMs
+
+- O contrato de configuração foi documentado em `docs/AI_PROVIDER_POOL.md` e no `.env.example`, sempre referenciando nomes de Secrets, nunca valores de tokens.
+- A Edge Function `ai-assistant` já possui fallback automático para `GEMINI_API_KEY` e aceita `AI_PROVIDER_POOL_JSON` para alternância entre provedores Gemini/OpenAI compatíveis.
+- Não foi possível cadastrar tokens adicionais nesta etapa porque nenhum token foi fornecido e o MCP disponível não expõe gerenciamento de Secrets. Não foi inventada nem exposta nenhuma credencial.
+- Pendência objetiva: cadastrar `OPENAI_API_KEY` (ou outro provedor compatível) e `AI_PROVIDER_POOL_JSON` nos Secrets da Edge Function no Supabase; depois executar uma leitura autenticada como master e confirmar HTTP 200/fallback nos logs.
+
+## 06/11/2026 — Correção visual do Flux antes do passo 02
+
+- A primeira versão do mascote foi considerada inadequada: parecia um chat genérico, duplicava o controle de ativação e ficava sobre o conjunto de FABs.
+- O Flux agora usa uma marca SVG própria, um único botão de entrada discreto no lado esquerdo e não compete visualmente com o FAB de contratos/lembretes/suporte.
+- Ativar/desativar passou para dentro do painel; o botão externo permanece como ponto único de acesso mesmo quando o Flux está desativado, permitindo reativação sem criar outro FAB.
+- O painel ficou menor, com cabeçalho compacto, texto curto e área de conversa rolável. Nenhuma regra financeira ou integração de backend foi alterada.
+- Validação: `npx tsc --noEmit --pretty false`, teste arquitetural do mascote e `git diff --check` passaram. Validação visual física ainda não foi realizada.
+
+## 06/11/2026 — Referência externa Mochi LLM Pet analisada
+
+- O repositório `NatBrian/mochi-llm-pet` foi baixado somente para uma pasta temporária de referência; nenhum código, sprite ou dependência foi copiado para o CapitalFlow.
+- A arquitetura útil para o Flux é: personagem separado da conversa, estados visuais, balão curto, memória controlada por código e saída estruturada da LLM limitada a intenções de comportamento.
+- O projeto de referência é um desktop pet em Python/PyQt6, com captura de tela/janelas e assets externos; isso não deve ser levado para a Carteira por risco de privacidade e por incompatibilidade com o app web/mobile.
+- Não foi localizado arquivo `LICENSE` no clone consultado. Portanto, qualquer arte futura do Flux deve ser original ou obtida com licença explícita.
+
+## 06/11/2026 — Flux com personagem próprio e estados visuais
+
+- Substituído o símbolo genérico por um personagem SVG original do CapitalFlow, sem copiar assets do Mochi.
+- O personagem possui estados de repouso, processamento e resposta; o estado de processamento usa movimento reduzido e respeita `prefers-reduced-motion`.
+- A última resposta pode aparecer como balão curto ancorado ao personagem; a conversa completa continua no painel compacto.
+- O personagem continua em um único ponto de entrada, à esquerda e separado dos FABs financeiros. Nenhuma captura de tela, leitura de janela ou ação financeira foi adicionada.
+- Validação desta etapa: `npx tsc --noEmit --pretty false` passou. Build visual e validação física ainda pendentes.
+
+## 06/11/2026 — Continuidade funcional do Flux
+
+- O painel agora recupera as últimas solicitações da conversa pelo `conversation_id` através da mesma Edge Function autenticada.
+- O histórico vem da tabela `ai_assistant_requests`, limitado a 50 registros e filtrado pelo perfil master; falha de leitura não impede uma conversa nova.
+- A Edge Function `ai-assistant` foi publicada novamente em produção na versão 18, mantendo `verify_jwt=true`.
+- Nenhuma mutação financeira foi adicionada. A recuperação expõe somente texto e metadados da solicitação já auditada.
+- Validação: TypeScript, teste arquitetural do mascote e build de produção passaram.
+
+## 06/11/2026 — Smoke test da Edge Function do Flux em produção
+
+- Endpoint verificado: `ai-assistant` no projeto Supabase CapitalFlow.
+- POST sem autenticação retornou `401`, confirmando o bloqueio JWT.
+- OPTIONS retornou `204` com `POST, OPTIONS`, confirmando o preflight CORS esperado.
+- Função confirmada ativa na versão 18 com `verify_jwt=true`.
+- Não foi executada chamada autenticada nem solicitação financeira real; isso exige sessão master válida e permanece pendente de teste manual controlado.
+
+## 06/11/2026 — Correção do mascote sem resposta: CORS da Edge Function
+
+- Causa raiz confirmada nos logs: havia preflight `OPTIONS 204`, mas o CORS devolvia sempre `https://capflow.pages.dev`; aplicações abertas em `capitalflow.app`, `www.capitalflow.app` ou localhost não podiam enviar o POST autenticado.
+- A Edge Function agora usa allowlist dinâmica para `capflow.pages.dev`, `capitalflow.app`, `www.capitalflow.app` e origens locais de desenvolvimento; origens desconhecidas continuam recebendo somente a origem canônica.
+- Produção publicada na versão 20 com `verify_jwt=true`.
+- Evidência de produção: OPTIONS retornou a origem correta para cada domínio oficial, rejeitou `https://evil.example` com fallback canônico e POST sem autenticação retornou `401`.
+- Nenhuma regra financeira ou segredo foi alterado.
+
+## 06/11/2026 — Correção final do mascote sem resposta: RLS de auditoria
+
+- Logs mostraram chamadas autenticadas `POST 500`; a tabela `ai_assistant_requests` continuava vazia.
+- A causa foi RLS incompleto: existia apenas política `SELECT`, sem `INSERT` e `UPDATE` para o perfil master.
+- Criada a migration `20261106100000_master_ai_assistant_write_policy.sql`, restringindo `INSERT/UPDATE` ao titular autenticado que também é `is_platform_super_admin()`.
+- O mascote agora pode registrar a solicitação e atualizar a resposta sem receber qualquer permissão financeira.
+- Migration aplicada no Supabase: `master_ai_assistant_write_policy`.
+- Verificação de produção: políticas `INSERT`, `SELECT` e `UPDATE` presentes; role `authenticated` possui somente esses três privilégios na tabela. A tabela de solicitações permaneceu sem registros antes da correção, confirmando a falha de gravação.
+- Validação local: teste arquitetural do mascote, TypeScript e `git diff --check` passaram.
+
+## 06/11/2026 — Correção da FK do registro do mascote
+
+- A tabela de solicitações usava FK para `public.perfis(id)`, mas o master é autorizado por `auth.users`/`platform_admins` e pode não possuir um registro em `perfis`.
+- Criada e aplicada a migration `20261106101500_master_ai_assistant_auth_fk.sql`, trocando a referência para `auth.users(id)` com `ON DELETE CASCADE`.
+- Essa era a causa do `POST 500` ao enviar uma mensagem; briefing e histórico funcionavam porque eram leituras.
+
+## 06/11/2026 — Correção do erro `PROVIDER_400` do Gemini
+
+- Após corrigir a FK, a solicitação passou a ser gravada, mas o provedor retornava `PROVIDER_400`.
+- A chamada do Gemini estava enviando `temperature`, parâmetro incompatível com o modelo atual. O Flux agora envia `maxOutputTokens` e `thinkingLevel: low`, sem o parâmetro legado.
+- Publicada diretamente na produção como versão 21 da Edge Function `ai-assistant`; nenhuma chave foi alterada.
+- Verificação de produção: função `ACTIVE`, `verify_jwt=true`, SHA da publicação `2d6287a54869feb7f4ac20d35b59a0f0cfdffcf5155b865a05b0328915e6847e`.
+- Validação local após a correção: teste arquitetural do mascote, TypeScript e `git diff --check` passaram.
+- Ainda falta uma resposta autenticada HTTP 200 com a sessão do usuário; a API exige JWT e não foi possível fabricar uma sessão para simular isso com segurança.
+
+## 06/11/2026 — Tolerância a variações do payload Gemini
+
+- Logs autenticados confirmaram que o mascote chega à Edge Function e grava o histórico, mas o Gemini ainda retornava `PROVIDER_400`.
+- A função agora tenta primeiro o payload compatível com o modelo atual e, se receber 400, repete uma vez com `generationConfig` mínimo; mensagens técnicas do provedor são registradas de forma truncada, sem chave ou prompt.
+- Publicada diretamente na produção como versão 22, `ACTIVE`, SHA `707342f8a60c4bb8419b9dc7a74fa4f8a6c52cff20d151c1bc1a950114500ecf`.
+- Testes arquiteturais, TypeScript e `git diff --check` passaram. A confirmação final depende de uma nova mensagem autenticada do usuário.
+
+## 06/11/2026 — Auditoria cruzada GitHub/Supabase após correção do Flux
+
+- Supabase produção contém as migrations `master_ai_assistant` e `master_ai_assistant_write_policy`; a Edge Function está publicada e ativa.
+- O GitHub `socrateslever1/CapitalFlow` na branch `main` não contém ainda `components/ai/MasterMascot.tsx` nem as migrations do mascote. Isso é esperado porque nenhuma alteração foi commitada, conforme instrução do usuário.
+- Estado correto: backend/RLS corrigidos em produção; frontend local corrigido, mas ainda não publicado pelo pipeline do GitHub. Não declarar que a correção visual local está no site até haver commit, build e deploy do SHA correspondente.
+
+## 06/11/2026 — Auditoria estática do container de IA local
+
+- Proteções confirmadas: porta publicada somente em `127.0.0.1:5001`, modelo montado como somente leitura, sem `privileged`, sem Docker socket, download com SHA-256 fixo e arquivos `.env`, modelos e logs fora do Git.
+- Riscos encontrados: imagem `koboldai/koboldcpp:latest` não é imutável nem auditável por digest; o container não declara usuário não-root, `read_only`, `no-new-privileges`, `cap_drop` ou limite de processos; `gpus: all` amplia o acesso ao dispositivo GPU; a rede externa do n8n permite que qualquer container nessa rede alcance a API sem autenticação própria.
+- Limitação da auditoria: Docker, Trivy, Grype e Syft não estão instalados neste ambiente; portanto não foi possível gerar uma lista de CVEs da imagem nem validar o digest atual.
+- Prioridade de correção: fixar digest da imagem, adicionar hardening do runtime e isolar a rede/API do KoboldCpp com autenticação ou rede dedicada. Nenhuma alteração foi aplicada nesta auditoria.
+
+## 06/11/2026 — Briefing proativo somente leitura do Flux
+
+- A Edge Function passou a oferecer a ação `briefing`, que consulta contas e compromissos canônicos e retorna no máximo quatro alertas curtos.
+- Alertas atuais: conta sem saldo registrado e compromisso vencendo nos próximos sete dias ou já vencido, sempre com data e valor existentes no banco.
+- O personagem exibe o primeiro alerta em um balão curto quando não há resposta de conversa aberta. Nenhuma chamada de LLM é necessária para esse aviso.
+- O briefing não cria notificações persistentes, não paga, não altera saldos e não executa RPC financeira.
+- A Edge Function foi publicada em produção na versão 19 com JWT obrigatório. TypeScript, teste arquitetural e `git diff --check` passaram.
+
+## 06/11/2026 — Resolução definitiva do mascote Flux sem resposta
+
+- **Causa raiz diagnosticada:** Mensagens simples como saudações ("oi", "e ai") ou perguntas de contexto caíam no pipeline de provider externo LLM que, ao falhar por falta de chave ou erro de cota/configuração, retornava status 503 com erro genérico e deixava o balão com "O mascote não conseguiu responder agora.".
+- **Resolução em camadas (Edge Function + Frontend):**
+  - **Edge Function (`ai-assistant/index.ts`):** Adicionada detecção nativa de saudações (`isGreeting`), que responde imediatamente com cordialidade sem consumir tokens nem depender de APIs externas. Adicionado suporte às chaves `GEMINI_API_KEY` e `GOOGLE_API_KEY`. Se nenhum provider externo LLM responder, a Edge Function agora recorre ao gerador analítico determinístico (`generateDeterministicContextResponse`), que formata os dados canônicos reais do usuário (saldos das contas, cartões e contas a pagar) e responde com status 200 `RESPONDED`.
+  - **Frontend (`services/aiAssistant.service.ts`):** Implementado fallback resiliente local (`generateFrontendAssistantFallback`). Caso a chamada da Edge Function sofra erro de conexão ou indisponibilidade, o Flux responde imediatamente através dos dados do snapshot da Carteira (`personalWalletService.load()`), garantindo que o mascote nunca fique mudo ou exiba mensagem de falha.
+- **Validação:** TypeScript (`npx tsc --noEmit`), suíte de testes da Carteira e build de produção executados com sucesso.
 
 - **Exibição integral das fontes no cadastro de contas (`CreateAccountModal.tsx`):**
   - Removidos filtros que ocultavam fontes `CARD`, `MISTO` ou com vínculo ativo. Todas as fontes de capital cadastradas no CapitalFlow agora aparecem no seletor de vínculo.

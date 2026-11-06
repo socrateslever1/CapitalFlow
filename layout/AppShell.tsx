@@ -7,6 +7,7 @@ import { PageBackProvider } from '../contexts/PageBackContext';
 import { ApplePageBackBar } from './ApplePageBackBar';
 import { isAppleMobile } from '../utils/appleMobile';
 import { BottomNav } from './BottomNav';
+import { MasterMascot } from '../components/ai/MasterMascot';
 import { UserProfile, Client } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
@@ -202,6 +203,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenSupport={onOpenSupport}
         addNotification={addNotification}
       />
+
+      <MasterMascot activeUser={activeUser} />
 
       <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
       <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain pb-36 md:pb-12">

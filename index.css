@@ -265,6 +265,24 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
   100% { transform: rotate(0); }
 }
 
+@keyframes flux-idle {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-3px) rotate(1deg); }
+}
+
+@keyframes flux-thinking {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px) scale(1.04); }
+}
+
+.flux-mascot-idle svg { animation: flux-idle 3.2s ease-in-out infinite; }
+.flux-mascot-thinking svg { animation: flux-thinking 0.8s ease-in-out infinite; }
+.flux-mascot-ready { border-color: rgb(52 211 153 / 0.6); }
+
+@media (prefers-reduced-motion: reduce) {
+  .flux-mascot-idle svg, .flux-mascot-thinking svg { animation: none; }
+}
+
 .animate-bell {
   animation: bell-ring 1.5s ease-in-out infinite;
   transform-origin: top center;

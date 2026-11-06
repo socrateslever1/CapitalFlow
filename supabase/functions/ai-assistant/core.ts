@@ -26,6 +26,7 @@ export function inferFinancialArea(text: string, previous: AssistantTurn[] = [])
     const lastUser = [...previous].reverse().find(item => item.role === 'user');
     if (lastUser) normalized = normalized + ' ' + normalize(lastUser.content);
   }
+  if (/sem consultar (?:meus |minhas |os meus |as minhas )?dados/.test(normalized)) return null;
   if (/(o que (e|sao)|explique|conceito|diferenca|sem consultar|teoria)/.test(normalized) &&
       !/(meu|minha|meus|minhas|me|do capitalflow|da carteira)/.test(normalized)) return null;
   if (/(diagnostico (financeiro|geral|completo)|panorama financeiro|resumo (da operacao|financeiro|completo)|situacao financeira|saude financeira)/.test(normalized)) return 'geral';
@@ -33,7 +34,7 @@ export function inferFinancialArea(text: string, previous: AssistantTurn[] = [])
   if (/(fonte de capital|fontes de capital|capital disponivel|capital alocado|saldo das fontes)/.test(normalized)) return 'fontes';
   if (/(cartao|cartoes|fatura|limite de credito|nubank|c6|mercado pago)/.test(normalized)) return 'cartoes';
   if (/(compromiss|contas a pagar|boleto|venciment|divida pessoal|pagamento pendente)/.test(normalized)) return 'compromissos';
-  if (/(minha carteira|saldo bancario|saldo (da|das|de|em) conta|extrato bancario|saldo do banco|conta corrente|conta poupanca)/.test(normalized)) return 'contas';
+  if (/(minha carteira|saldo bancario|saldo (das? )?(minhas? )?contas?|contas bancarias|extrato bancario|saldo do banco|conta corrente|conta poupanca)/.test(normalized)) return 'contas';
   return null;
 }
 

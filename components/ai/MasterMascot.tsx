@@ -138,16 +138,16 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser }) => {
     const userAtStart = profileId;
     const turnsAtRequest = turns;
     setMessage('');
-    setMessages(current => [...current, { id: requestId + ':user', role: 'user', text: value }].slice(-50));
+    setMessages(current => [...current, { id: requestId + ':user', role: 'user' as const, text: value }].slice(-50));
     setBusy(true);
     setNotice('');
     try {
       const reply = await askMasterAssistant({ message: value, conversationId, requestId, turns: turnsAtRequest });
       if (profileRef.current !== userAtStart) return;
-      setMessages(current => [...current, { id: requestId + ':assistant', role: 'assistant', text: reply.response }].slice(-50));
+      setMessages(current => [...current, { id: requestId + ':assistant', role: 'assistant' as const, text: reply.response }].slice(-50));
     } catch {
       if (profileRef.current === userAtStart) {
-        setMessages(current => [...current, { id: requestId + ':error', role: 'assistant', text: 'Não foi possível responder agora.' }].slice(-50));
+        setMessages(current => [...current, { id: requestId + ':error', role: 'assistant' as const, text: 'Não foi possível responder agora.' }].slice(-50));
       }
     } finally {
       if (profileRef.current === userAtStart) setBusy(false);

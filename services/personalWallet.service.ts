@@ -123,6 +123,18 @@ export type PersonalWalletPayablePayment = {
   paid_at: string;
 };
 
+export type PersonalWalletPayablePaymentSource = {
+  id: string;
+  payment_id: string;
+  source_kind: 'ACCOUNT' | 'CARD';
+  account_id: string | null;
+  card_id: string | null;
+  expense_id: string | null;
+  principal_amount: number;
+  interest_rate: number;
+  interest_amount: number;
+};
+
 export type PersonalWalletExpense = {
   id: string;
   description: string;
@@ -401,7 +413,7 @@ export const personalWalletService = {
 
   async load() {
     const walletReset = await getActiveWalletReset();
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
@@ -411,6 +423,9 @@ export const personalWalletService = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_statement_rows').select('*').order('entry_date', { ascending: false }).order('id', { ascending: false }).range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_payables').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_payable_payments').select('id,payable_id,account_id,card_id,amount,proof_path,paid_at').order('paid_at', { ascending: false }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_payable_payment_sources')
+        .select('id,payment_id,source_kind,account_id,card_id,expense_id,principal_amount,interest_rate,interest_amount')
+        .order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_incomes').select('*').order('receipt_day', { ascending: true }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -450,6 +465,11 @@ export const personalWalletService = {
         ...(rawCard.image_path ? { image_url: cardImageUrls.get(rawCard.image_path) || null } : {}),
       };
     });
+    const visiblePayablePayments = filterCurrentWalletRows(
+      (payablePayments.data || []) as PersonalWalletPayablePayment[], walletReset, 'payablePayments');
+    const visiblePaymentIds = new Set(visiblePayablePayments.map(payment => payment.id));
+    const visiblePaymentSources = ((payablePaymentSources.data || []) as PersonalWalletPayablePaymentSource[])
+      .filter(source => visiblePaymentIds.has(source.payment_id));
     const accountsWithImages = activeAccounts.map(account => account.image_path
       ? { ...account, image_url: accountImageUrls.get(account.image_path) || null }
       : account);
@@ -462,7 +482,8 @@ export const personalWalletService = {
       accountOperations: filterCurrentWalletRows((accountOperations.data || []) as WalletAccountOperation[], walletReset, 'accountOperations'),
       statementRows: filterCurrentWalletRows((statementRows.data || []) as WalletStatementRow[], walletReset, 'statementRows'),
       payables: filterCurrentWalletRows((payables.data || []) as PersonalWalletPayable[], walletReset, 'payables'),
-      payablePayments: filterCurrentWalletRows((payablePayments.data || []) as PersonalWalletPayablePayment[], walletReset, 'payablePayments'),
+      payablePayments: visiblePayablePayments,
+      payablePaymentSources: visiblePaymentSources,
       recurringIncomes: filterCurrentWalletRows((recurringIncomes.data || []) as WalletRecurringIncome[], walletReset, 'recurringIncomes'),
       recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
       recurringObligations: filterCurrentWalletRows((recurringObligations.data || []) as WalletRecurringObligation[], walletReset, 'recurringObligations'),

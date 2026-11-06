@@ -10,6 +10,7 @@ import { WalletPageFrame } from '../components/WalletPageFrame';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
 import { parseWalletMoney } from '../utils/parseWalletMoney';
 import { formatMoney } from '../../../utils/formatters';
+import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import { buildWalletTimeline } from '../domain/walletTimeline';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { useWalletDraft } from '../hooks/useWalletDraft';
@@ -37,7 +38,10 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
       expenses: data.expenses || [],
       installments: data.installments || [],
       payables: data.payables || [],
+      payablePayments: data.payablePayments || [],
+      payablePaymentSources: data.payablePaymentSources || [],
       invoicePayments: data.invoicePayments || [],
+      accounts: data.accounts || [],
       cards: data.cards || [],
       limit: 15,
     });
@@ -116,11 +120,27 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
                       <span className="text-sm font-medium text-slate-100">{event.label}</span>
                       <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-slate-800 text-slate-300">
                         {event.kind === 'PAYABLE' ? 'Conta a Pagar' :
+                         event.kind === 'PAYABLE_PAYMENT' ? 'Quitação' :
                          event.kind === 'INSTALLMENT' ? 'Parcela' :
                          (event.kind === 'INVOICE_PAYMENT' || event.kind === 'CARD_INVOICE') ? 'Fatura' :
-                         event.kind === 'TRANSFER' ? 'Transferência' : 'Operação'}
+                         event.kind === 'TRANSFER' ? 'Transferência interna' : 'Operação'}
                       </span>
                     </div>
+                    {event.kind === 'PAYABLE_PAYMENT' && event.sources && (
+                      <ul aria-label="Origens do pagamento" className="mt-2 space-y-1 text-xs text-slate-300">
+                        {event.sources.map((source, index) => (
+                          <li key={index} className="flex flex-wrap items-baseline gap-1.5">
+                            <span>{source.label}:</span>
+                            <span><PrivateMoney value={formatMoney(source.principal)}/></span>
+                            {source.cardInterest > 0 && (
+                              <span className="text-slate-400">
+                                (juros na fatura: <PrivateMoney value={formatMoney(source.cardInterest)}/>)
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     {(event.installmentNumber || event.dueMonth) && (
                       <p className="text-xs text-slate-400">
                         {event.installmentNumber ? `Parcela ${event.installmentNumber}` : ''}
@@ -143,7 +163,7 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
                      event.status === 'SCHEDULED' ? 'Agendado' : 'Pendente'}
                   </span>
                   <span className="font-mono text-sm font-semibold text-white">
-                    {formatMoney(event.amount)}
+                    <PrivateMoney value={formatMoney(event.amount)}/>
                   </span>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
-import type { PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
-export type WalletTimelineKind = 'TRANSFER' | 'OPERATION' | 'INSTALLMENT' | 'PAYABLE' | 'INVOICE_PAYMENT' | 'CARD_INVOICE';
+import type { PersonalWalletAccount, PersonalWalletCard, PersonalWalletExpense, PersonalWalletExpenseInstallment, PersonalWalletPayablePayment, PersonalWalletPayablePaymentSource } from '../../../services/personalWallet.service';
+export type WalletTimelineKind = 'TRANSFER' | 'OPERATION' | 'INSTALLMENT' | 'PAYABLE' | 'PAYABLE_PAYMENT' | 'INVOICE_PAYMENT' | 'CARD_INVOICE';
 export type WalletTimelineDirection = 'IN' | 'OUT' | 'NEUTRAL';
 export type WalletTimelineStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'SCHEDULED' | 'RECORDED';
 
@@ -16,6 +16,12 @@ export type WalletTimelineEvent = {
   cardId?: string | null;
   installmentNumber?: number;
   dueMonth?: string | null;
+  sources?: Array<{
+    kind: 'ACCOUNT' | 'CARD';
+    label: string;
+    principal: number;
+    cardInterest: number;
+  }>;
 };
 
 type OperationLike = {
@@ -86,6 +92,9 @@ export function buildWalletTimeline(input: {
   installments: InstallmentLike[];
   payables: PayableLike[];
   invoicePayments: InvoicePaymentLike[];
+  payablePayments?: PersonalWalletPayablePayment[];
+  payablePaymentSources?: PersonalWalletPayablePaymentSource[];
+  accounts?: PersonalWalletAccount[];
   // When available, group card installments by their canonical invoice cycle.
   // The first of the month is a database key, never the payment due date.
   cards?: PersonalWalletCard[];
@@ -97,13 +106,76 @@ export function buildWalletTimeline(input: {
     input.operations.map(operation => operation.request_id).filter(Boolean),
   );
 
+  const payablesById = new Map(input.payables.map(payable => [payable.id, payable]));
+  const accountsById = new Map((input.accounts || []).map(account => [account.id, account]));
+  const cardsById = new Map((input.cards || []).map(card => [card.id, card]));
+  const sourceRowsByPayment = new Map<string, PersonalWalletPayablePaymentSource[]>();
+  for (const source of input.payablePaymentSources || []) {
+    const rows = sourceRowsByPayment.get(source.payment_id) || [];
+    rows.push(source);
+    sourceRowsByPayment.set(source.payment_id, rows);
+  }
+  const accountedOperationIds = new Set<string>();
+
+  for (const payment of input.payablePayments || []) {
+    const payable = payablesById.get(payment.payable_id);
+    if (!payable) continue;
+    const date = String(payment.paid_at).slice(0, 10);
+    const linkedSources = sourceRowsByPayment.get(payment.id) || [];
+    const allocated = linkedSources.reduce((sum, row) => sum + finiteMoney(row.principal_amount), 0);
+    // Never present an incomplete source allocation as though it were audited.
+    const complete = linkedSources.length > 0 && Math.abs(allocated - finiteMoney(payment.amount)) <= 0.01;
+    const sources = complete ? linkedSources.map(row => ({
+      kind: row.source_kind,
+      label: row.source_kind === 'CARD'
+        ? 'Cartão ' + (cardsById.get(row.card_id || '')?.nickname || 'não identificado')
+        : 'Conta ' + (accountsById.get(row.account_id || '')?.nickname || 'não identificada'),
+      principal: finiteMoney(row.principal_amount),
+      cardInterest: row.source_kind === 'CARD' ? finiteMoney(row.interest_amount) : 0,
+    })) : undefined;
+
+    // The payment RPC also produces an account ledger operation. Showing both
+    // as separate creditor payments makes the user believe they paid twice.
+    if (complete) for (const row of linkedSources) {
+      if (row.source_kind !== 'ACCOUNT' || !row.account_id) continue;
+      const matching = input.operations.find(op =>
+        !accountedOperationIds.has(op.id)
+        && op.operation_type === 'PAYMENT'
+        && op.from_account_id === row.account_id
+        && String(op.operation_date).slice(0, 10) === date
+        && Math.abs(finiteMoney(op.amount) - finiteMoney(row.principal_amount)) < 0.01
+        && op.description.trim().toLocaleLowerCase('pt-BR') ===
+          ('Pagamento: ' + payable.creditor_name).toLocaleLowerCase('pt-BR'));
+      if (matching) accountedOperationIds.add(matching.id);
+    }
+
+    events.push({
+      id: 'payable-payment:' + payment.id,
+      kind: 'PAYABLE_PAYMENT',
+      date,
+      label: 'Quitação: ' + payable.creditor_name,
+      amount: Math.abs(finiteMoney(payment.amount)),
+      direction: 'OUT',
+      status: 'PAID',
+      sources,
+    });
+  }
+
   for (const operation of input.operations) {
+    if (accountedOperationIds.has(operation.id)) continue;
     const date = String(operation.occurred_at || operation.operation_date).slice(0, 10);
+    const internalTransfer = operation.operation_type === 'TRANSFER'
+      ? [accountsById.get(operation.from_account_id || '')?.nickname,
+          accountsById.get(operation.to_account_id || '')?.nickname]
+      : [];
+    const label = internalTransfer.length === 2 && internalTransfer.every(Boolean)
+      ? 'Transferência interna: ' + internalTransfer.join(' → ')
+      : operation.description || 'Movimentação';
     events.push({
       id: operation.id,
       kind: operation.operation_type === 'TRANSFER' ? 'TRANSFER' : 'OPERATION',
       date,
-      label: operation.description || 'Movimentação',
+      label,
       amount: Math.abs(finiteMoney(operation.amount)),
       direction: operationDirection(operation.operation_type),
       // Uma operação já lançada é um fato contábil registrado. “Pendente” é

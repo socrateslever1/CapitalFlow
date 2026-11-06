@@ -43,3 +43,18 @@ test('pagamento com cartão respeita ciclo do emissor, sem criar obrigação par
 
   assert.doesNotMatch(sql, /DELETE FROM public\.personal_wallet/);
 });
+
+test('fontes da quitação são carregadas sob RLS e somadas sem contabilizar uma segunda saída', () => {
+  const service = read('services/personalWallet.service.ts');
+  const timeline = read('features/wallet/domain/walletTimeline.ts');
+  const screen = read('features/wallet/pages/WalletPayablesPage.tsx');
+  assert.match(service, /personal_wallet_payable_payment_sources/);
+  assert.match(service, /visiblePaymentIds\.has\(source\.payment_id\)/);
+  assert.match(timeline, /linkedSources\.reduce/);
+  assert.match(timeline, /PAYABLE_PAYMENT/);
+  assert.match(timeline, /accountedOperationIds\.add\(matching\.id\)/);
+  assert.match(screen, /payablePaymentSources: data\.payablePaymentSources/);
+  assert.match(screen, /Origens do pagamento/);
+  assert.match(screen, /PrivateMoney value=\{formatMoney\(source\.principal\)\}/);
+  assert.doesNotMatch(timeline, /supabase\.rpc|supabase\.from/);
+});

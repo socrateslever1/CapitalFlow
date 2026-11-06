@@ -21,6 +21,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WalletFileInboxPlugin.class);
         registerPlugin(CapitalFlowApkInstallerPlugin.class);
+        registerPlugin(WalletBankNotificationsPlugin.class);
         super.onCreate(savedInstanceState);
 
         configureSystemBarInsets();

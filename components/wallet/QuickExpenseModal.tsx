@@ -32,6 +32,13 @@ export interface QuickExpenseModalProps {
   initialAccountId?: string | null;
   defaultAccountId?: string | null;
   initialDueMonth?: string | null;
+  notificationPrefill?: {
+    amountCents: number;
+    description: string;
+    date: string;
+    requestId: string;
+  };
+  requireExplicitDestination?: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }
@@ -85,6 +92,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   initialAccountId,
   defaultAccountId,
   initialDueMonth,
+  notificationPrefill,
+  requireExplicitDestination = false,
   onClose,
   onSaved,
 }) => {
@@ -95,16 +104,20 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     initialMode || defaultMethod || (resolvedAccountId ? 'ACCOUNT' : activeCards.length > 0 ? 'CARD' : 'ACCOUNT');
 
   const [paymentMode, setPaymentMode] = useState<'CARD' | 'ACCOUNT'>(defaultMode);
-  const [amountFormatted, setAmountFormatted] = useState<string>('');
+  const [amountFormatted, setAmountFormatted] = useState<string>(
+    notificationPrefill
+      ? (notificationPrefill.amountCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '',
+  );
   const [amountMode, setAmountMode] = useState<CardExpenseAmountMode>('INSTALLMENT');
-  const [description, setDescription] = useState<string>('');
-  const [expenseDate, setExpenseDate] = useState<string>(todayIso);
+  const [description, setDescription] = useState<string>(notificationPrefill?.description || '');
+  const [expenseDate, setExpenseDate] = useState<string>(notificationPrefill?.date || todayIso);
   const [category, setCategory] = useState<string>('Alimentação');
   const [selectedCardId, setSelectedCardId] = useState<string>(
-    resolvedCardId || activeCards[0]?.id || '',
+    requireExplicitDestination ? '' : resolvedCardId || activeCards[0]?.id || '',
   );
   const [selectedAccountId, setSelectedAccountId] = useState<string>(
-    resolvedAccountId || accounts[0]?.id || '',
+    requireExplicitDestination ? '' : resolvedAccountId || accounts[0]?.id || '',
   );
   const [conditionMode, setConditionMode] = useState<'CASH' | 'INSTALLMENTS'>('CASH');
   const [startInstallment, setStartInstallment] = useState<string>('1');
@@ -117,7 +130,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
   const [saving, setSaving] = useState<boolean>(false);
   const [persisted, setPersisted] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  const requestIdRef = useRef<string>(generateUUID());
+  const requestIdRef = useRef<string>(notificationPrefill?.requestId || generateUUID());
 
   const resetIdempotencyKey = () => {
     requestIdRef.current = generateUUID();

@@ -144,6 +144,13 @@ jobs:
           grep -q 'registerPlugin(CapitalFlowApkInstallerPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
           test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
           test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowInstallStatusReceiver.java
+          # Reader lives in Android, not in the WebView.
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletBankNotificationStore.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletBankNotificationListenerService.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletBankNotificationsPlugin.java
+          grep -q 'registerPlugin(WalletBankNotificationsPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'android:name=".WalletBankNotificationListenerService"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' android/app/src/main/AndroidManifest.xml
           grep -q 'android:name=".CapitalFlowInstallStatusReceiver"' android/app/src/main/AndroidManifest.xml
           grep -q 'android:exported="false"' android/app/src/main/AndroidManifest.xml
           grep -q 'session.commit(pending.getIntentSender())' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java

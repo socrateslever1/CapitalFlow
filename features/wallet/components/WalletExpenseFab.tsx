@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowDownToLine, ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
+import { ArrowDownToLine, BellRing, ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
@@ -76,6 +76,9 @@ export const WalletExpenseFab: React.FC = () => {
         </button>
         <button role="menuitem" type="button" onClick={() => goToAction('/carteira/dividas?acao=novo-compromisso')} className={menuItemClass}>
           <ClipboardList size={17} className="shrink-0 text-amber-300"/>Compromisso
+        </button>
+        <button role="menuitem" type="button" onClick={() => goToAction('/carteira/notificacoes')} className={menuItemClass + ' col-span-2'}>
+          <BellRing size={17} className="shrink-0 text-blue-300"/>Notificações bancárias
         </button>
       </div>}
     </div>

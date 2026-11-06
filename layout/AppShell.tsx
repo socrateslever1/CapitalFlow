@@ -9,6 +9,7 @@ import { ApplePageBackBar } from './ApplePageBackBar';
 import { isAppleMobile } from '../utils/appleMobile';
 import { BottomNav } from './BottomNav';
 import { MasterMascot } from '../components/ai/MasterMascot';
+import { bindBankNotificationsProfile } from '../features/wallet/bankNotificationsBridge';
 import { UserProfile, Client } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
@@ -60,6 +61,12 @@ export const AppShell: React.FC<AppShellProps> = ({
   const mainRef = useRef<HTMLElement | null>(null);
   const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
+  // Keep native notification suggestions bound to the signed-in profile.
+  // Logout/replacement disables capture and destroys the previous user's pending queue.
+  useEffect(() => {
+    void bindBankNotificationsProfile(activeUser?.id || null).catch(() => {});
+    return () => { void bindBankNotificationsProfile(null).catch(() => {}); };
+  }, [activeUser?.id]);
   const walletModuleRoute = activeTab === 'MY_WALLET' || location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
   const totalUnread = unreadSupport;
   const isSupportOpen = activeModal?.type === 'SUPPORT_CHAT';

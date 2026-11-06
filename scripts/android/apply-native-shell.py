@@ -67,6 +67,9 @@ shutil.copyfile(source, target)
 shutil.copyfile(root / "native/android/WalletFileInboxPlugin.java", target.with_name("WalletFileInboxPlugin.java"))
 shutil.copyfile(root / "native/android/CapitalFlowApkInstallerPlugin.java", target.with_name("CapitalFlowApkInstallerPlugin.java"))
 shutil.copyfile(root / "native/android/CapitalFlowInstallStatusReceiver.java", target.with_name("CapitalFlowInstallStatusReceiver.java"))
+shutil.copyfile(root / "native/android/WalletBankNotificationStore.java", target.with_name("WalletBankNotificationStore.java"))
+shutil.copyfile(root / "native/android/WalletBankNotificationListenerService.java", target.with_name("WalletBankNotificationListenerService.java"))
+shutil.copyfile(root / "native/android/WalletBankNotificationsPlugin.java", target.with_name("WalletBankNotificationsPlugin.java"))
 
 # Retain the old constrained FileProvider for compatibility with previous
 # native shells. The updater now stages through PackageInstaller.Session.
@@ -95,6 +98,21 @@ receiver = '''
 '''
 if 'android:name=".CapitalFlowInstallStatusReceiver"' not in text:
     text = text.replace(application_close, receiver + application_close, 1)
+# Android system binds only after the user manually approves notification access.
+bank_listener = '''
+        <service
+            android:name=".WalletBankNotificationListenerService"
+            android:label="Importação de notificações financeiras"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+'''
+if 'android:name=".WalletBankNotificationListenerService"' not in text:
+    text = text.replace(application_close, bank_listener + application_close, 1)
 if 'android.permission.REQUEST_INSTALL_PACKAGES' not in text:
     text = text.replace('<application',
         '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>\n    <application', 1)

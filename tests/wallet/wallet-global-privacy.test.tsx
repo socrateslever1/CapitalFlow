@@ -15,9 +15,9 @@ const accounts: PersonalWalletAccount[] = [
 ];
 const cards: PersonalWalletCard[] = [
   { id:'card1', nickname:'Cartão teste', issuer:'Banco teste', brand:'Mastercard', last_four:'5088',
-    credit_limit:3000, used_limit:2345.12, closing_day:26, due_day:5, status:'ACTIVE' },
+    credit_limit:3000, used_limit:2345.12, current_bill:102.04, closing_day:26, due_day:5, status:'ACTIVE' },
   { id:'card2', nickname:'Outro cartão', issuer:'Outro banco', brand:'Visa', last_four:'0088',
-    credit_limit:1500, used_limit:100, closing_day:15, due_day:22, status:'ACTIVE' },
+    credit_limit:1500, used_limit:100, current_bill:0, closing_day:15, due_day:22, status:'ACTIVE' },
 ];
 const spending = {
   total:108.34, count:2, previousTotal:53.21,

@@ -490,7 +490,8 @@ export const App: React.FC = () => {
             isStealthMode={ui.isStealthMode}
             toggleStealthMode={() => ui.setIsStealthMode(!ui.isStealthMode)}
             onOpenSupport={() => ui.openModal('SUPPORT_CHAT')}
-            navOrder={navOrder}
+            navOrder={visibleHubOrder}
+            desktopNavOrder={navOrder}
             mobileNavOrder={mobileNavOrder}
             saveMobileNavOrder={saveMobileNavOrder}
             onGoBack={goBack}

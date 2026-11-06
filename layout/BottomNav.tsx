@@ -41,7 +41,7 @@ const labelFor = (tab: AppTab): string => ({
 } as Partial<Record<AppTab,string>>)[tab] ?? tab;
 
 export const BottomNav: React.FC<BottomNavProps> = ({
-  activeTab, setActiveTab, mobileNavOrder, saveMobileNavOrder,
+  activeTab, setActiveTab, mobileNavOrder, saveMobileNavOrder, navOrder,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
@@ -172,7 +172,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           (editing ? 'select-none' : 'cursor-grab')}
         style={{ WebkitOverflowScrolling: 'touch', touchAction: editing ? 'none' : 'pan-x' }}
       >
-        {draftOrder.map(tab => (
+        {draftOrder.filter(tab => tab !== 'MY_WALLET' || navOrder.includes('MY_WALLET')).map(tab => (
           <button key={tab} type="button" data-mobile-nav-tab={tab}
             aria-label={editing ? 'Arrastar '+ labelFor(tab) : labelFor(tab)}
             aria-current={!editing && activeTab === tab ? 'page' : undefined}

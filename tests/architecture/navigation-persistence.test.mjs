@@ -30,6 +30,9 @@ test('a preferência móvel é separada da configuração desktop, com RLS exist
  assert.doesNotMatch(migration,/DROP TABLE|DISABLE ROW LEVEL SECURITY/);
  const app=read('App.tsx'),shell=read('layout/AppShell.tsx');
  assert.match(app,/mobileNavOrder=\{mobileNavOrder\}/);
+ assert.match(app,/desktopNavOrder=\{navOrder\}/);
+ assert.match(app,/navOrder=\{visibleHubOrder\}/);
+ assert.match(shell,/navOrder=\{desktopNavOrder\}/);
  assert.match(shell,/saveMobileNavOrder=\{saveMobileNavOrder\}/);
  const types=read('types.ts');
  assert.match(types,/ui_mobile_nav_order\?: AppTab\[\]/);

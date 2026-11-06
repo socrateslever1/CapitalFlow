@@ -82,11 +82,8 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   const existingCards = providedCards && providedCards.length > 0 ? providedCards : loadedCards;
 
   const eligibleCapitalSources = useMemo(
-    () => capitalSources.filter(source =>
-      !['CARD', 'MISTO'].includes(source.type) &&
-      !existingAccounts.some(account => account.capital_source_id === source.id)
-    ),
-    [capitalSources, existingAccounts],
+    () => [...capitalSources].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [capitalSources],
   );
 
   const [accountType, setAccountType] = useState<string>(initialAccountType);
@@ -274,6 +271,12 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
 
       // 3. Se houver vínculo com Fonte de Capital, invoca personal_wallet_link_capital_source
       if (capitalSourceId) {
+        const previousLinkedAccount = existingAccounts.find(
+          account => account.capital_source_id === capitalSourceId && account.id !== created.id,
+        );
+        if (previousLinkedAccount) {
+          await personalWalletService.linkCapitalSource(previousLinkedAccount.id, null);
+        }
         await personalWalletService.linkCapitalSource(created.id, capitalSourceId);
       }
 
@@ -491,11 +494,17 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 className={inputClass}
               >
                 <option value="">Não vincular a uma fonte de empréstimos</option>
-                {eligibleCapitalSources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name} · Saldo: {formatMoney(Number(source.balance || 0))}
-                  </option>
-                ))}
+                {eligibleCapitalSources.map((source) => {
+                  const linkedAccount = existingAccounts.find(account => account.capital_source_id === source.id);
+                  const isCardOrMixed = ['CARD', 'MISTO'].includes(source.type);
+                  return (
+                    <option key={source.id} value={source.id}>
+                      {source.name} · Saldo: {formatMoney(Number(source.balance || 0))}
+                      {isCardOrMixed ? ` · ${source.type === 'CARD' ? 'Cartão' : 'Misto'}` : ''}
+                      {linkedAccount ? ` (vinculada a ${linkedAccount.nickname})` : ''}
+                    </option>
+                  );
+                })}
               </select>
               <span className="mt-1 block text-[11px] font-normal text-slate-400">
                 Sincroniza automaticamente desembolsos de empréstimos e recebimentos de parcelas com esta conta. Fontes de cartão de crédito ficam separadas por representarem limite, não saldo em conta.

@@ -390,31 +390,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 shadow-inner"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 shadow-inner"
                 style={{ backgroundColor: `${primaryColor}18` }}
               >
-                <Bell size={15} style={{ color: primaryColor }} />
+                <Bell size={18} strokeWidth={1.8} style={{ color: primaryColor }} />
               </div>
               <div className="min-w-0">
-                <h3 className="text-[13px] font-black uppercase tracking-[0.16em] text-white">
-                  Central de Alertas
+                <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">
+                  Alertas
                 </h3>
-                <p className="mt-0.5 text-[10px] text-slate-400 font-bold tracking-[0.08em]">
-                  Painel rápido do que precisa da sua atenção
-                </p>
               </div>
             </div>
-            <p className="mt-3 text-[9px] text-slate-500 font-black uppercase tracking-[0.18em]">
-              {notifications.length === 0
-                ? 'Sem alertas pendentes'
-                : `${notifications.length} alerta${notifications.length > 1 ? 's' : ''} carregado${notifications.length > 1 ? 's' : ''}`}
-            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {notifications.length > 0 && (
               <>
                 <span
-                  className="rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]"
+                  className="min-w-8 rounded-full border px-2 py-1 text-center text-[10px] font-black tabular-nums"
                   style={{
                     color: primaryColor,
                     backgroundColor: `${primaryColor}14`,
@@ -429,21 +421,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     e.stopPropagation();
                     clearAllNotifications?.();
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-rose-500/10 text-rose-500 transition-all hover:bg-rose-500 hover:text-white"
                   aria-label="Limpar todas as notificações"
-                  title="Limpar Todas"
+                  title="Limpar alertas"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={15} strokeWidth={1.8} />
                 </button>
               </>
             )}
             <button
               type="button"
               onClick={() => setShowNotifications(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-slate-900/60 text-slate-500 hover:text-white transition-all hover:rotate-90"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-900/60 text-slate-500 transition-all hover:text-white hover:rotate-90"
               aria-label="Fechar notificações"
             >
-              <X size={15} />
+              <X size={16} strokeWidth={1.8} />
             </button>
           </div>
         </div>

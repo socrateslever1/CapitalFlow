@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/formatters';
 import { Modal } from '../ui/Modal';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 import { resolveAuthenticatedStorageUrl } from '../../utils/storageUrl';
+import { resolveBankLogo } from '../../utils/bankLogoRegistry';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
 import type { SourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
 
@@ -67,7 +68,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     console.warn('[source-logo] Falha ao autorizar logo:', error);
                 }
             }
-            if (!cancelled) setLogoUrl(getBankLogoUrl(source.name));
+            const bankLogo = resolveBankLogo(source.name);
+            if (!cancelled) setLogoUrl(bankLogo || getBankLogoUrl(source.name));
         };
 
         resolveLogo();

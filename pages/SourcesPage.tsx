@@ -8,6 +8,7 @@ import { SourceCard } from '../components/cards/SourceCard';
 import { filesService } from '../services/files.service';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
+import { resolveBankLogo } from '../utils/bankLogoRegistry';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SourceWalletReferencePanel } from '../components/sources/SourceWalletReferencePanel';
 import { FinancialCalculatorInput } from '../components/forms/FinancialCalculatorInput';
@@ -314,8 +315,16 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 border-dashed shrink-0">
-                  <ImageIcon size={24} className="text-slate-500" />
+                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 overflow-hidden shrink-0">
+                  {resolveBankLogo(ui.editingSource.name) ? (
+                    <img
+                      src={resolveBankLogo(ui.editingSource.name)!}
+                      alt={`Logo ${ui.editingSource.name}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon size={24} className="text-slate-500" />
+                  )}
                 </div>
               )}
 

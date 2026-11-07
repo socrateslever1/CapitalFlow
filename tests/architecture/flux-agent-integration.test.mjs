@@ -15,8 +15,10 @@ test('Flux panel does not cover the wallet with proactive bubble or eager reads'
 test('transport fallback never loads all finance tables or silently invents a number', () => {
   const service = read('services/aiAssistant.service.ts');
   assert.match(service, /supabase\.functions\.invoke/);
+  const transport = read('services/ai/fluxTransport.ts');
   assert.doesNotMatch(service, /personalWalletService\.load\(|supabase\.from\('contratos'\)/);
-  assert.match(service, /Nenhuma consulta financeira adicional foi iniciada/);
+  assert.doesNotMatch(transport, /personalWalletService|supabase\.from\(|supabase\.rpc\(/);
+  assert.match(transport, /Nenhuma consulta financeira adicional foi iniciada/);
 });
 test('read-only agent has bounded financial access and supports provider failover with history', () => {
   const edge = read('supabase/functions/ai-assistant/index.ts');
@@ -32,4 +34,10 @@ test('read-only agent has bounded financial access and supports provider failove
   assert.doesNotMatch(edge, /supabase\.rpc\('personal_wallet_pay_invoice|personal_wallet_create_expense/);
   assert.match(core, /allowedFinancialArea/);
   assert.match(core, /slice\(-12\)/);
+});
+test('transport failures surface the real HTTP status instead of a generic message', () => {
+  const service = read('services/aiAssistant.service.ts');
+  assert.match(service, /readFunctionsError\(error\)/);
+  assert.match(service, /describeFluxTransportFailure/);
+  assert.match(service, /transportStatus: failure\.status/);
 });

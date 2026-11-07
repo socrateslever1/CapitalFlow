@@ -345,6 +345,29 @@ function buildSystemInstruction(intent: Intent, context: unknown) {
 
 type ProviderAnswer = { text: string | null; toolArea: FinancialArea | null };
 const providerCoolingUntil = new Map<string, number>();
+// Model names change often; when the configured Gemini model returns 404, discover one the key can use.
+let discoveredGeminiModels: { expiresAt: number; models: string[] } | null = null;
+async function listGeminiModels(apiKey: string): Promise<string[]> {
+  if (discoveredGeminiModels && Date.now() < discoveredGeminiModels.expiresAt) return discoveredGeminiModels.models;
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+    headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(5_000),
+  });
+  if (!response.ok) { await response.body?.cancel(); return []; }
+  const data = await response.json();
+  const models = (Array.isArray(data?.models) ? data.models : [])
+    .filter((m: { name?: unknown; supportedGenerationMethods?: unknown }) =>
+      typeof m.name === 'string' && Array.isArray(m.supportedGenerationMethods) &&
+      m.supportedGenerationMethods.includes('generateContent') &&
+      /flash/.test(m.name) && !/(image|tts|audio|live|embedding|vision|exp)/.test(m.name))
+    .map((m: { name: string }) => m.name.replace(/^models\//, ''))
+    .sort((a: string, b: string) => {
+      const rank = (n: string) => (/preview/.test(n) ? 1 : 0) + (/lite/.test(n) ? 0.5 : 0);
+      const version = (n: string) => Number((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+      return rank(a) - rank(b) || version(b) - version(a);
+    });
+  discoveredGeminiModels = { expiresAt: Date.now() + 6 * 60 * 60_000, models };
+  return models;
+}
 const TOOL_DESCRIPTION = 'Consulte somente registros financeiros do usuário autenticado, selecionando uma área. Sem alterações.';
 const TOOL_AREAS = ['geral', 'contas', 'cartoes', 'compromissos', 'fontes', 'contratos', 'alertas'];
 const TOOL_SCHEMA = {
@@ -378,10 +401,21 @@ async function callProvider(
       name: 'consultar_dados_financeiros', description: TOOL_DESCRIPTION,
       parameters: { type: 'OBJECT', properties: { area: { type: 'STRING', enum: TOOL_AREAS } }, required: ['area'] },
     }] }];
-    const response = await fetch(endpoint, {
+    let response = await fetch(endpoint, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(payload), signal: AbortSignal.timeout(8_000),
     });
+    if (response.status === 404) {
+      await response.body?.cancel();
+      const fallbackModel = (await listGeminiModels(apiKey)).find(name => name !== provider.model);
+      if (!fallbackModel) throw new Error('PROVIDER_404');
+      console.warn('[flux] gemini_model_not_found', provider.model, '->', fallbackModel);
+      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' +
+        encodeURIComponent(fallbackModel) + ':generateContent', {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload), signal: AbortSignal.timeout(8_000),
+      });
+    }
     if (!response.ok) { await response.body?.cancel(); throw new Error('PROVIDER_' + response.status); }
     const data = await response.json();
     const parts = data?.candidates?.[0]?.content?.parts;

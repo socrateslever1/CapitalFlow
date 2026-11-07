@@ -41,3 +41,9 @@ test('transport failures surface the real HTTP status instead of a generic messa
   assert.match(service, /describeFluxTransportFailure/);
   assert.match(service, /transportStatus: failure\.status/);
 });
+test('Gemini 404 falls back to a model discovered for the same key', () => {
+  const edge = read('supabase/functions/ai-assistant/index.ts');
+  assert.match(edge, /listGeminiModels\(apiKey\)/);
+  assert.match(edge, /response\.status === 404/);
+  assert.match(edge, /supportedGenerationMethods\.includes\('generateContent'\)/);
+});

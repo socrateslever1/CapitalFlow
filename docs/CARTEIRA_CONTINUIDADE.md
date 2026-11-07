@@ -1,3 +1,14 @@
+## 07/11/2026 — Crítica Impeccable da Carteira: idioma, datas e privacidade
+- **Origem:** crítica de UX (`impeccable critique`) da Minha Carteira sobre o código da `main` após o merge `d6c1d2c`. Execução degradada: avaliação em contexto único, sem detector automático (motor do Impeccable não baixou por falta de rede) e sem navegador; análise feita somente pelo código-fonte.
+- **Já resolvido antes desta revisão (confirmado no código):** a Carteira não remonta mais a página a cada evento realtime (`WalletModule` apenas dispara `capitalflow:wallet-updated`); a projeção do mês considera somente faturas com vencimento no mês corrente.
+- **Corrigido:**
+  - `WalletOverviewPage`: o bloco de origem do balanço exibia códigos internos (`EFFECTIVE · CANONICAL`) e o identificador técnico `(WalletBalanceFacts)`. Agora usa `describeWalletBalanceFact` (ex.: `Efetivo · Registro financeiro`), igual às páginas de Contas e Detalhe da conta.
+  - `WalletPayablesPanel`: `Total` da dívida e `Falta distribuir` não respeitavam o modo privacidade; passam por `PrivateMoney`. O vencimento aparecia em ISO (`2026-11-10`) e agora aparece em `dd/mm/aaaa`.
+  - `RecurringObligationsPanel`: total mensal e valor de cada recorrência passam por `PrivateMoney`.
+- **Sem alteração de domínio:** nenhuma RPC, migration, ledger, cálculo de fatura, pagamento, estorno ou RLS foi tocado. Apenas apresentação.
+- **Teste:** `tests/wallet/wallet-critique-regressions.test.ts`, incluído em `test:wallet-privacy`.
+- **Pendências observadas e não corrigidas:** cerca de 90 textos de 7–10px em `components/wallet`, alguns em `text-slate-500` (contraste abaixo de 4.5:1 em fundo `slate-950`); poucos estados `focus-visible` em `components/wallet` (6 ocorrências para ~140 `onClick`); exclusões de lançamentos usam `window.confirm`. Nenhuma validação visual em navegador ou celular físico foi feita.
+
 ## 05/11/2026 — Reinicialização reversível exclusiva da Minha Carteira
 - **Autorização:** usuário solicitou iniciar **somente sua Minha Carteira** do zero, sem modificar dados do núcleo CapitalFlow (fontes, contratos, empréstimos, parcelas, cobranças). Nenhuma exclusão física ou regravação dos saldos históricos.
 - **Escopo:** contas, cartões, despesas, parcelas de despesas, operações de conta, faturas, pagamentos, contas a pagar, importações, rendimentos/receitas recorrentes e obrigações recorrentes anteriores são ocultados da **carteira ativa**, preservados integralmente no banco.

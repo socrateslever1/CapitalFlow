@@ -10,7 +10,7 @@ import type {
 } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
 import { BankLogo } from '../../../components/wallet/BankLogo';
-import { calculateWalletBalance } from '../../../components/wallet/walletBalanceDomain';
+import { calculateWalletBalance, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
 import { getEffectiveInvoiceCycles, getInvoiceCycleDates } from '../../../components/wallet/invoiceStatementDomain';
 import { getBankVisual, getCreditSummary } from '../../../components/wallet/walletPresentation';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
@@ -300,22 +300,22 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
             </dl>
           </div>
           <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-12">
-            <p className="text-[11px] font-semibold text-slate-300">Auditoria dos fatos do balanço (WalletBalanceFacts):</p>
+            <p className="text-xs font-semibold text-slate-300">Origem dos valores do balanço</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-3 text-xs">
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Efetivo</span>
                 <strong className="text-sm font-bold text-emerald-300"><PrivateMoney value={money(balance.facts.effective.amount ?? balance.accountBalance)} /></strong>
-                <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.effective.state} · {balance.facts.effective.origin}</span>
+                <span className="mt-0.5 block text-[10px] text-slate-400">{describeWalletBalanceFact(balance.facts.effective)}</span>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Projetado</span>
                 <strong className={`text-sm font-bold ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.facts.projected.amount ?? balance.projectedBalance)} /></strong>
-                <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.projected.state} · {balance.facts.projected.origin}</span>
+                <span className="mt-0.5 block text-[10px] text-slate-400">{describeWalletBalanceFact(balance.facts.projected)}</span>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
                 <span className="block text-[10px] uppercase tracking-wide text-slate-400">Receitas Pendentes</span>
                 <strong className="text-sm font-bold text-cyan-300"><PrivateMoney value={money(balance.facts.pending.amount ?? balance.pendingRecurringIncome)} /></strong>
-                <span className="mt-0.5 block text-[10px] text-slate-400">{balance.facts.pending.state} · {balance.facts.pending.origin}</span>
+                <span className="mt-0.5 block text-[10px] text-slate-400">{describeWalletBalanceFact(balance.facts.pending)}</span>
               </div>
             </div>
             <p className="mt-2 text-[10px] text-slate-400">

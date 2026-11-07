@@ -1,5 +1,5 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
-import React,{useMemo,useState,useRef} from 'react';
+import React,{useEffect,useMemo,useState,useRef} from 'react';
 import {Building2,CheckCircle2,FileUp,HandCoins,Plus,UserRound,X} from 'lucide-react';
 import {PersonalWalletAccount,PersonalWalletCard,PersonalWalletPayable} from '../../services/personalWallet.service';
 import {formatMoney} from '../../utils/formatters';
@@ -59,6 +59,14 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
  const splitDistributed=splitSources.reduce((sum,line)=>{try{return sum+parseWalletMoney(line.amount||'0');}catch{return sum;}},0);
  const splitRemaining=Math.max(0,parseWalletMoney(paymentTotal||'0')-splitDistributed);
  const reset=()=>{setSelected(null);setValue('');setSource('');setAccountSource('');setCardSource('');setSplitMode(false);setAccountAmount('');setCardAmount('');setCardInterestRate('');setPaymentTotal('');setSplitSources([]);setReceipt(null);setError('');request.current=generateUUID();};
+ useEffect(() => {
+  if (!selected) return;
+  const onKeyDown = (event: KeyboardEvent) => {
+   if (event.key === 'Escape' && !saving) reset();
+  };
+  window.addEventListener('keydown', onKeyDown);
+  return () => window.removeEventListener('keydown', onKeyDown);
+ }, [selected, saving]);
  const start=(p:PersonalWalletPayable)=>{
   setSelected(p);setValue(String(p.outstanding_balance));setPaymentTotal(String(p.outstanding_balance));setAccountAmount('');setCardAmount('');setCardInterestRate('');setAccountSource(p.origin_type==='ACCOUNT'&&p.origin_account_id?'account:'+p.origin_account_id:'');setCardSource(p.origin_type==='CARD'&&p.origin_card_id?'card:'+p.origin_card_id:'');setSplitSources([{kind:'ACCOUNT',id:p.origin_account_id||'',amount:'',interestRate:''},{kind:'CARD',id:p.origin_card_id||'',amount:'',interestRate:''}]);setSplitMode(false);setError('');
   request.current=generateUUID();
@@ -112,8 +120,8 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
         <PrivateMoney value={formatMoney(status==='PAID'?p.total_amount:p.outstanding_balance)} />
       </strong>
     </div><div className="text-right text-xs text-slate-400">
-      {status==='PAID' ? 'Quitado em '+String(p.paid_at||'').slice(0,10).split('-').reverse().join('/') : 'Total '+formatMoney(p.total_amount)}
-      <br/>Venc. {p.due_date||'não informado'}
+      {status==='PAID' ? 'Quitado em '+String(p.paid_at||'').slice(0,10).split('-').reverse().join('/') : <>Total <PrivateMoney value={formatMoney(p.total_amount)} /></>}
+      <br/>Venc. {p.due_date?String(p.due_date).slice(0,10).split('-').reverse().join('/'):'não informado'}
     </div></div>
     {listMode==='open'&&!['PAID','CANCELED'].includes(status)&&<button type="button" onClick={()=>start(p)} className="mt-3 w-full rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white">Pagar dívida</button>}
    </article>;
@@ -127,12 +135,12 @@ export const WalletPayablesPanel:React.FC<Props>=({payables,accounts,cards,savin
       <div className="rounded-2xl border border-blue-500/30 bg-blue-950/25 p-4">
         <div className="flex items-end justify-between gap-3"><label className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-wide text-blue-200">Total necessário<FinancialCalculatorInput required value={paymentTotal} onCommit={setPaymentTotal} fieldLabel="total necessário" placeholder="0,00" className="mt-1 w-full border-blue-500/40 bg-slate-950 p-2 text-lg font-bold text-white"/></label><div className="text-right text-xs text-slate-400"><span className="block">Distribuído</span><strong className="text-emerald-300"><PrivateMoney value={formatMoney(splitDistributed)} /></strong></div></div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className={`h-full rounded-full ${splitRemaining===0?'bg-emerald-400':'bg-amber-400'}`} style={{width:`${Math.min(100,splitDistributed/Math.max(0.01,parseWalletMoney(paymentTotal||'0'))*100)}%`}}/></div>
-        <div className="mt-1 text-right text-[11px] text-slate-400">{splitRemaining>0?`Falta distribuir ${formatMoney(splitRemaining)}`:'Total distribuído'}</div>
+        <div className="mt-1 text-right text-[11px] text-slate-400">{splitRemaining>0?<>Falta distribuir <PrivateMoney value={formatMoney(splitRemaining)} /></>:'Total distribuído'}</div>
       </div>
       <div className="space-y-2">
       {splitSources.map((line,index)=>{ const base=parseWalletMoney(line.amount||'0'); const rate=Number(String(line.interestRate||'0').replace(',','.')); const charge=line.kind==='CARD'&&Number.isFinite(rate)?base+base*rate/100:base; return <div key={index} className="min-w-0 rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-        <div className="flex items-center gap-2"><select aria-label={`Tipo da fonte ${index+1}`} value={line.kind} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,kind:e.target.value as 'ACCOUNT'|'CARD',id:'',interestRate:e.target.value==='CARD'?row.interestRate:''}:row))} className="w-28 shrink-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="ACCOUNT">Conta</option><option value="CARD">Cartão</option></select><select aria-label={`Fonte ${index+1}`} value={line.id} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,id:e.target.value}:row))} className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="">Escolha a fonte</option>{(line.kind==='ACCOUNT'?accounts:cards.filter(c=>c.status==='ACTIVE')).map(item=><option key={item.id} value={item.id}>{item.nickname}</option>)}</select>{splitSources.length>1&&<button type="button" onClick={()=>setSplitSources(rows=>rows.filter((_,i)=>i!==index))} className="shrink-0 p-1 text-xs font-semibold text-rose-300" aria-label={`Remover fonte ${index+1}`}>×</button>}</div>
-        <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2"><label className="min-w-0 text-[11px] text-slate-400">Valor<FinancialCalculatorInput value={line.amount} onCommit={next=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,amount:next}:row))} fieldLabel="parte do pagamento" placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-white"/></label>{line.kind==='CARD'?<label className="min-w-0 text-[11px] text-slate-400">Juros (%)<input value={line.interestRate} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,interestRate:e.target.value}:row))} placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"/></label>:<div className="self-end rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-500">Sem juros</div>}</div>
+        <div className="flex items-center gap-2"><select aria-label={`Tipo da fonte ${index+1}`} value={line.kind} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,kind:e.target.value as 'ACCOUNT'|'CARD',id:'',interestRate:e.target.value==='CARD'?row.interestRate:''}:row))} className="w-28 shrink-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="ACCOUNT">Conta</option><option value="CARD">Cartão</option></select><select aria-label={`Fonte ${index+1}`} value={line.id} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,id:e.target.value}:row))} className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"><option value="">Escolha a fonte</option>{(line.kind==='ACCOUNT'?accounts:cards.filter(c=>c.status==='ACTIVE')).map(item=><option key={item.id} value={item.id}>{item.nickname}</option>)}</select>{splitSources.length>1&&<button type="button" onClick={()=>setSplitSources(rows=>rows.filter((_,i)=>i!==index))} className="flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md p-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-950/30" aria-label={`Remover fonte ${index+1}`}>×</button>}</div>
+        <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2"><label className="min-w-0 text-[11px] text-slate-400">Valor<FinancialCalculatorInput value={line.amount} onCommit={next=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,amount:next}:row))} fieldLabel="parte do pagamento" placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-white"/></label>{line.kind==='CARD'?<label className="min-w-0 text-[11px] text-slate-400">Juros (%)<input value={line.interestRate} onChange={e=>setSplitSources(rows=>rows.map((row,i)=>i===index?{...row,interestRate:e.target.value}:row))} placeholder="0,00" className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-white"/></label>:<div className="self-end rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-400">Sem juros</div>}</div>
         {line.kind==='CARD'&&<div className="mt-2 flex items-center justify-between rounded-lg bg-amber-950/30 px-2 py-1.5 text-xs text-amber-200"><span>Total na fatura</span><strong><PrivateMoney value={formatMoney(charge)} /></strong></div>}
       </div>; })}
       </div>

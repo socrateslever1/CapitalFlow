@@ -29,7 +29,7 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
-import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan, type CardExpenseAmountMode } from '../utils/cardInstallmentPlan';
+import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
 import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection } from '../utils/minhasFinancasWalletTools';
 import { businessDateInManaus } from '../../../utils/businessDate';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
@@ -37,9 +37,6 @@ import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvo
 import type { InvoiceRemainderAction } from '../../../components/wallet/PayInvoiceModal';
 import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
-
-const CARD_EXPENSE_CATEGORIES = ['Compras', 'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Moradia', 'Assinaturas', 'Outros'];
-const CARD_INSTALLMENT_OPTIONS = ['1', '2', '3', '4', '6', '10', '12'];
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,7 +60,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [thirdPartyCard, setThirdPartyCard] = useState(false);
   const ownerDefaults = useWalletOwnerDefaults(activeUser, creating);
   const [scannerOpen, setScannerOpen] = useState(false);
-  const [newExpense, setNewExpense] = useState(false);
   const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
   const hideFinancialValues = useFinancialPrivacy();
   const [overriding, setOverriding] = useState(false);
@@ -99,10 +95,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     closing_day: '', account_id: '', cardholder_name:'', expiry_month:'', expiry_year:'',
   });
   const [newLinkedAccountNickname, setNewLinkedAccountNickname] = useState('');
-
-  const [expenseForm, setExpenseForm] = useState({
-    description: '', amount: '', category: 'Compras', installment_count: '1',
-  });
   const availableCards = useMemo(() => (data?.cards || []).filter(card => card.status !== 'CANCELED'), [data]);
   const displayedCards = useMemo(
     () => getCardsForDisplay(availableCards, requestedCardId),
@@ -620,21 +612,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     } finally { setSaving(false); }
   };
 
-  const createExpense = async (event: React.FormEvent) => {
-    event.preventDefault(); if (!selected || saving) return; setSaving(true); setNotice('');
-    try {
-      await personalWalletService.createExpense({
-        description: expenseForm.description, amount: Number(expenseForm.amount),
-        category: expenseForm.category, expense_date: new Date().toLocaleDateString('en-CA'),
-        card_id: selected.id, status: 'PENDING', installment_count: Number(expenseForm.installment_count),
-      });
-      await refresh(); setNewExpense(false);
-      setExpenseForm({ description: '', amount: '', category: 'Compras', installment_count: '1' });
-    } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Falha ao lançar despesa.'); }
-    finally { setSaving(false); }
-  };
   return <WalletPageFrame title="Cartões e faturas" description="Acompanhe o limite, confira cada ciclo e organize seus pagamentos."
-    error={error || notice} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
+    error={error} notice={notice} noticeTone={notice.includes('reconhecido com sucesso') ? 'info' : 'error'} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <>
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 lg:sticky lg:top-6 lg:col-span-5">
@@ -812,16 +791,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         <h3 className="text-sm font-bold text-white">Extrato importado do PDF</h3>
         <p className="mt-1 text-xs text-slate-400">Registros para conferência. Estes itens não são somados novamente ao limite ou à fatura.</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"><span className="block text-[10px] text-slate-500">Lançamentos</span><strong className="text-sm text-white">{importedStatementRows.length}</strong></div>
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"><span className="block text-[10px] text-slate-500">Somente conferência</span><strong className="text-sm text-emerald-300">{unlinkedStatementCount}</strong></div>
-          <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2"><span className="block text-[10px] text-slate-500">Vinculados à fatura</span><strong className="text-sm text-cyan-300">{linkedStatementCount}</strong></div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2"><span className="block text-[10px] text-slate-400">Lançamentos</span><strong className="text-sm text-white">{importedStatementRows.length}</strong></div>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2"><span className="block text-[10px] text-slate-400">Somente conferência</span><strong className="text-sm text-emerald-300">{unlinkedStatementCount}</strong></div>
+          <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2"><span className="block text-[10px] text-slate-400">Vinculados à fatura</span><strong className="text-sm text-cyan-300">{linkedStatementCount}</strong></div>
         </div>
         <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><span className="text-slate-400">Total do extrato importado</span><strong className="text-white"><PrivateMoney value={formatMoney(importedStatementTotal)} /></strong></div>
         <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] text-slate-400">
-          <button type="button" onClick={() => setSelectedStatementRows(current => current.size === importedStatementRows.length ? new Set() : new Set(importedStatementRows.map(row => row.id)))} className="rounded border border-slate-700 px-2 py-1 hover:bg-slate-800">{selectedStatementRows.size === importedStatementRows.length ? 'Limpar seleção' : 'Selecionar todos'}</button>
-          <button type="button" disabled={!selectedStatementRows.size} onClick={() => setPendingStatementDeletion({ ids: [...selectedStatementRows], count: selectedStatementRows.size })} className="rounded border border-rose-500/30 px-2 py-1 font-semibold text-rose-300 disabled:opacity-40">Excluir selecionados ({selectedStatementRows.size})</button>
+          <button type="button" onClick={() => setSelectedStatementRows(current => current.size === importedStatementRows.length ? new Set() : new Set(importedStatementRows.map(row => row.id)))} className="min-h-8 rounded border border-slate-700 px-2.5 py-1.5 hover:bg-slate-800">{selectedStatementRows.size === importedStatementRows.length ? 'Limpar seleção' : 'Selecionar todos'}</button>
+          <button type="button" disabled={!selectedStatementRows.size} onClick={() => setPendingStatementDeletion({ ids: [...selectedStatementRows], count: selectedStatementRows.size })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 font-semibold text-rose-300 disabled:opacity-40">Excluir selecionados ({selectedStatementRows.size})</button>
         </div>
-        <div className="mt-3 max-h-80 divide-y divide-slate-800 overflow-y-auto">{importedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-500">{row.entry_date.split('-').reverse().join('/')} · {row.category} · {row.expense_id ? 'Vinculado à fatura' : 'Somente importado'}</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200"><PrivateMoney value={formatMoney(row.amount)} /></strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="rounded border border-rose-500/30 px-2 py-1 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
+        <div className="mt-3 max-h-80 divide-y divide-slate-800 overflow-y-auto">{importedStatementRows.map(row => <article key={row.id} className="flex items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-start gap-2"><input type="checkbox" aria-label={`Selecionar ${row.description}`} className="mt-0.5 h-4 w-4 accent-blue-600" checked={selectedStatementRows.has(row.id)} onChange={() => setSelectedStatementRows(current => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next; })} /><div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-200">{row.description}</p><p className="mt-1 text-[10px] text-slate-400">{row.entry_date.split('-').reverse().join('/')} · {row.category} · {row.expense_id ? 'Vinculado à fatura' : 'Somente importado'}</p></div></div><div className="flex shrink-0 items-center gap-2"><strong className="text-xs text-slate-200"><PrivateMoney value={formatMoney(row.amount)} /></strong><button type="button" onClick={() => setPendingStatementDeletion({ ids: [row.id], count: 1 })} className="min-h-8 rounded border border-rose-500/30 px-2.5 py-1.5 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/10">Excluir</button></div></article>)}</div>
       </section>}
       {pendingStatementDeletion && <Modal compact title="Excluir item importado?" subtitle="Esta linha será removida apenas do extrato importado." icon={<AlertTriangle size={17}/>} onClose={() => { if (!deletingStatement) setPendingStatementDeletion(null); }}>
         <div className="space-y-4">
@@ -957,7 +936,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         </div>
        </form>
       </Modal>}
-      {mayInitializeExisting && !creating && !newExpense && selected && <section className="rounded-2xl border border-amber-700/25 bg-slate-900 p-4">
+      {mayInitializeExisting && !creating && selected && <section className="rounded-2xl border border-amber-700/25 bg-slate-900 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-white">Cartão já estava em uso?</h3>
@@ -976,59 +955,6 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           </button>
         </form>}
       </section>}
-      {newExpense && selected && <form onSubmit={event => { void createExpense(event); }}
-        className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2">
-        <h3 className="sm:col-span-2 text-sm font-bold text-white">Nova despesa em {selected.nickname}</h3>
-        {(['description','amount','category','installment_count'] as const).map(field =>
-          <label key={field} className="space-y-1 text-xs text-slate-300">
-            {({description:'Descrição',amount:'Valor',category:'Categoria',installment_count:'Parcelas'} as const)[field]}
-            <input required type={field === 'amount' || field === 'installment_count' ? 'number':'text'}
-              min={field === 'installment_count' ? 1 : undefined} step={field === 'amount' ? '0.01' : undefined}
-              value={expenseForm[field]} onChange={e => setExpenseForm(v => ({ ...v, [field]: e.target.value }))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/></label>)}
-        <div className="space-y-1.5 sm:col-span-2">
-          <span className="block text-[11px] font-semibold text-slate-400">Categorias rápidas</span>
-          <div className="flex flex-wrap gap-1.5">
-            {CARD_EXPENSE_CATEGORIES.map(category => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setExpenseForm(v => ({ ...v, category }))}
-                className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                  expenseForm.category === category
-                    ? 'border-blue-500 bg-blue-600/25 text-blue-100'
-                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <span className="block text-[11px] font-semibold text-slate-400">Parcelamento rápido</span>
-          <div className="flex flex-wrap gap-1.5">
-            {CARD_INSTALLMENT_OPTIONS.map(option => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setExpenseForm(v => ({ ...v, installment_count: option }))}
-                className={`rounded-lg border px-2.5 py-1 text-xs font-bold transition ${
-                  expenseForm.installment_count === option
-                    ? 'border-emerald-500 bg-emerald-600/25 text-emerald-100'
-                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                {option === '1' ? 'À vista (1x)' : `${option}x`}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex gap-2 sm:col-span-2">
-          <button type="button" onClick={() => setNewExpense(false)} className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-white">Cancelar</button>
-          <button type="submit" disabled={saving} className="rounded-xl bg-blue-600 px-4 py-3 text-xs font-bold text-white disabled:opacity-50">Registrar despesa</button>
-        </div>
-      </form>}
       {invoiceFactsModalOpen && selected && <Modal title="Valores reais da fatura"
         subtitle={selected.nickname + ' · ' + (statementMonth || '').slice(0,7)}
         onClose={()=>setInvoiceFactsModalOpen(false)}>

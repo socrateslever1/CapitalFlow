@@ -54,7 +54,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
                 : 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-100'
             }`}>
             <Icon size={17} aria-hidden="true"/>
-            <span className="sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.label}</span>
+            <span className="max-w-full truncate sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.label}</span>
             <span className="hidden sm:inline">{item.label}</span>
           </button>
         );

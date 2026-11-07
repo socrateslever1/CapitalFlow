@@ -27,7 +27,7 @@
     "test:ui-copy": "node tests/architecture/ui-copy-check.mjs",
     "test:bank-notifications": "node --test tests/architecture/android-bank-notifications.test.mjs",
     "test:navigation-persistence": "tsx --test tests/navigation/mobile-navigation.test.ts && node --test tests/architecture/navigation-persistence.test.mjs",
-    "test:wallet-privacy": "tsx --test tests/wallet/wallet-global-privacy.test.tsx tests/wallet/wallet-purchase-invoice-distinction.test.ts",
+    "test:wallet-privacy": "tsx --test tests/wallet/wallet-global-privacy.test.tsx tests/wallet/wallet-purchase-invoice-distinction.test.ts tests/wallet/wallet-critique-regressions.test.ts",
     "test:wallet-settlement": "tsx --test tests/wallet/wallet-timeline-domain.test.ts tests/wallet/wallet-income-history.test.ts && node --test tests/architecture/wallet-paid-history.test.mjs",
     "test:quality": "npm run test:ai-security && npm run test:flux-agent && npm run test:bank-notifications && npm run test:navigation-persistence && npm run test:wallet-settlement && npm run test:wallet-privacy && npm run test:wallet-rpc-deployment && npm run build && npm run test:financial && npm run test:payment-offers && npm run test:partial-payment-display && npm run test:monthly-balance && npm run test:financial-forgiveness && npm run test:skills && npm run test:tools && npm run test:mcp && npm run test:evals && npm run test:architecture && npm run test:ui-copy && npm run test:automation && npm run test:android-workflow && npm run test:wallet-module && npm run test:wallet-overview && npm run test:wallet-pages && npm run test:wallet-overview-localization && npm run test:wallet-card-opening && npm run test:wallet-pin && npm run test:wallet-invoice-cycle && npm run test:wallet-empty-fields && npm run test:app-updates && npm run test:auth-mobile-layout && npm run test:native-navigation && npm run test:ledger-presentation && npm run test:tablet-layout && npm run test:wallet-money-apk && npm run test:native-apk-update && npm run test:notification-bell && npm run test:android-update-messages && npm run test:wallet-visual && npm run test:wallet-statement-import && npm run test:wallet-visual-next && npm run test:wallet-import-contract && npm run test:wallet-visual-simplification && npm run test:wallet-loading && npm run test:wallet-fast-path && npm run test:wallet-onboarding-schema && npm run test:wallet-native-inbox && npm run test:wallet-receipts && npm run test:android-release-resilience && npm run test:public-app-links",
     "test:db": "node tests/db/run-local-db-tests.mjs",
@@ -70,8 +70,6 @@
     "test:wallet-rpc-deployment": "node --test tests/architecture/wallet-rpc-deployment.test.mjs"
   },
   "dependencies": {
-    "@capacitor/app": "^7.1.0",
-    "@capacitor/core": "^7.0.0",
     "@google/genai": "^1.34.0",
     "@modelcontextprotocol/server": "^2.2.0",
     "@supabase/supabase-js": "2.110.7",
@@ -88,6 +86,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.562.0",
+    "pdfjs-dist": "5.4.296",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -96,8 +95,7 @@
     "recharts": "^3.6.0",
     "sonner": "^2.0.7",
     "tinymce": "^8.3.2",
-    "zod": "^4.6.5",
-    "pdfjs-dist": "5.4.296"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.13",
@@ -111,5 +109,9 @@
   },
   "overrides": {
     "uuid": "11.1.1"
+  },
+  "optionalDependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0"
   }
 }

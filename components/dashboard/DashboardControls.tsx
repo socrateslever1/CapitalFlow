@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { ShieldAlert, ArrowDownWideNarrow, Search, X, Users, ChevronDown, AlertTriangle, RefreshCw, CheckCircle2, DollarSign, Archive, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { ShieldAlert, ArrowDownWideNarrow, Search, X, Users, ChevronDown, AlertTriangle, RefreshCw, CheckCircle2, DollarSign, Archive, Download, FileSpreadsheet, FileText, Loader2, SlidersHorizontal, Plus } from 'lucide-react';
 import { SortOption, UserProfile, Loan, CapitalSource } from '../../types';
 import { translateFilter } from '../../utils/translationHelpers';
 import { exportLoansToExcel, exportLoansToCSV } from '../../utils/loanExport';
@@ -29,6 +29,7 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
     const [isSortOpen, setIsSortOpen] = useState(false);
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
+    const [isToolsExpanded, setIsToolsExpanded] = useState(false);
 
     const handleExport = async (format: 'EXCEL' | 'CSV') => {
         if (!filteredLoans || filteredLoans.length === 0) {
@@ -113,41 +114,77 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                 </div>
             )}
 
-            <div className="flex items-center gap-3 w-full">
-                <div className="flex gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 w-full">
+                {/* Controles de Busca, Ordenação e Exportação com botão de expansão no mobile */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* Botão híbrido (+) no mobile que expande/recolhe os utilitários na mesma linha */}
                     <button
-                        onClick={() => { setIsSearchOpen(!isSearchOpen); setIsSortOpen(false); setIsExportOpen(false); }}
-                        className={`p-2.5 rounded-lg border transition-all ${isSearchOpen ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
-                        title="Buscar"
+                        type="button"
+                        onClick={() => {
+                            const next = !isToolsExpanded;
+                            setIsToolsExpanded(next);
+                            if (!next) {
+                                setIsSearchOpen(false);
+                                setIsSortOpen(false);
+                                setIsExportOpen(false);
+                            }
+                        }}
+                        className={`sm:hidden p-2.5 rounded-lg border transition-all flex items-center justify-center ${
+                            isToolsExpanded || isSearchOpen || isSortOpen || isExportOpen
+                                ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20'
+                                : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'
+                        }`}
+                        title={isToolsExpanded ? 'Ocultar opções de busca e ordenação' : 'Abrir busca, ordenação e exportação'}
+                        aria-label="Opções e ferramentas"
+                        aria-expanded={isToolsExpanded}
                     >
-                        <Search size={18} />
+                        {isToolsExpanded ? (
+                            <X size={18} className="transition-transform duration-200" />
+                        ) : (
+                            <SlidersHorizontal size={18} className="transition-transform duration-200" />
+                        )}
                     </button>
-                    <button
-                        onClick={() => { setIsSortOpen(!isSortOpen); setIsSearchOpen(false); setIsExportOpen(false); }}
-                        className={`p-2.5 rounded-lg border transition-all ${isSortOpen ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
-                        title="Ordenar"
-                    >
-                        <ArrowDownWideNarrow size={18} />
-                    </button>
-                    <button
-                        onClick={() => { setIsExportOpen(!isExportOpen); setIsSearchOpen(false); setIsSortOpen(false); }}
-                        disabled={isExporting}
-                        className={`p-2.5 rounded-lg border transition-all ${isExportOpen ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-emerald-400'}`}
-                        title="Exportar contratos filtrados (Excel/CSV)"
-                    >
-                        {isExporting ? <Loader2 size={18} className="animate-spin text-emerald-400" /> : <Download size={18} />}
-                    </button>
+
+                    {/* As 3 opções: abertas diretamente em desktop, e animadas/expandidas para a direita no mobile */}
+                    <div className={`${isToolsExpanded ? 'flex' : 'hidden'} sm:flex items-center gap-1.5 animate-in slide-in-from-left-2 duration-150`}>
+                        <button
+                            onClick={() => { setIsSearchOpen(!isSearchOpen); setIsSortOpen(false); setIsExportOpen(false); }}
+                            className={`p-2.5 rounded-lg border transition-all ${isSearchOpen ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            title="Buscar por nome ou CPF/CNPJ"
+                            aria-label="Buscar"
+                        >
+                            <Search size={18} />
+                        </button>
+                        <button
+                            onClick={() => { setIsSortOpen(!isSortOpen); setIsSearchOpen(false); setIsExportOpen(false); }}
+                            className={`p-2.5 rounded-lg border transition-all ${isSortOpen ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                            title="Ordenar contratos"
+                            aria-label="Ordenar"
+                        >
+                            <ArrowDownWideNarrow size={18} />
+                        </button>
+                        <button
+                            onClick={() => { setIsExportOpen(!isExportOpen); setIsSearchOpen(false); setIsSortOpen(false); }}
+                            disabled={isExporting}
+                            className={`p-2.5 rounded-lg border transition-all ${isExportOpen ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-emerald-400'}`}
+                            title="Exportar contratos filtrados (Excel/CSV)"
+                            aria-label="Exportar contratos"
+                        >
+                            {isExporting ? <Loader2 size={18} className="animate-spin text-emerald-400" /> : <Download size={18} />}
+                        </button>
+                    </div>
                 </div>
 
+                {/* Carrossel de filtros: fica na mesma linha com rolagem horizontal suave */}
                 <div
                     ref={scrollRef}
                     onMouseDown={handleMouseDown}
                     onMouseLeave={handleMouseLeave}
                     onMouseUp={handleMouseUp}
                     onMouseMove={handleMouseMove}
-                    className={`flex-1 overflow-x-auto no-scrollbar select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing'}`}
+                    className={`flex-1 overflow-x-auto no-scrollbar select-none touch-pan-x ${isDragging ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing'}`}
                 >
-                    <div className="flex gap-2 p-1.5 bg-slate-900/50 border border-slate-800/80 rounded-lg w-max">
+                    <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 bg-slate-900/60 border border-slate-800/80 rounded-lg w-max">
                         {[
                           { id: 'TODOS', icon: <Users size={14} className="text-blue-400" /> },
                           { id: 'ATRASADOS', icon: <AlertTriangle size={14} className="text-amber-400" /> },
@@ -165,7 +202,7 @@ export const DashboardControls: React.FC<DashboardControlsProps> = ({
                                         setStatusFilter(filter.id as any);
                                     }
                                 }}
-                                className={`p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-2 pointer-events-auto min-w-[42px] ${statusFilter === filter.id ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
+                                className={`px-3 py-2 sm:p-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto min-w-[38px] sm:min-w-[42px] ${statusFilter === filter.id ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-700'}`}
                                 title={translateFilter(filter.id)}
                             >
                                 {filter.icon}

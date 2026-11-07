@@ -1,10 +1,10 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 
 export const WalletPageFrame: React.FC<{
-  title: string; description: string; error?: string; loading?: boolean;
+  title: string; description: string; error?: string; notice?: string; noticeTone?: 'info' | 'error'; loading?: boolean;
   onRefresh?: () => void; actions?: React.ReactNode; children: React.ReactNode;
-}> = ({ title, description, error, loading, onRefresh, actions, children }) => (
+}> = ({ title, description, error, notice, noticeTone = 'error', loading, onRefresh, actions, children }) => (
   <section className="w-full min-w-0 space-y-4 pb-24 sm:space-y-5 lg:pb-10">
     <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-2 pb-1 sm:items-center">
       <div className="min-w-0">
@@ -20,8 +20,17 @@ export const WalletPageFrame: React.FC<{
       </div>
     </header>
     {error && <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-700/40 bg-rose-950/20 p-4 text-xs text-rose-200">
-      <AlertTriangle size={16}/>{error}
+      <AlertTriangle size={16} className="shrink-0"/>{error}
     </div>}
+    {notice && (noticeTone === 'info' ? (
+      <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-xs text-emerald-200">
+        <CheckCircle2 size={16} className="shrink-0 text-emerald-400"/>{notice}
+      </div>
+    ) : (
+      <div role="alert" className="flex items-center gap-2 rounded-xl border border-rose-700/40 bg-rose-950/20 p-4 text-xs text-rose-200">
+        <AlertTriangle size={16} className="shrink-0"/>{notice}
+      </div>
+    ))}
     {loading ? <div role="status" aria-label="Carregando carteira" className="grid animate-pulse gap-4 motion-reduce:animate-none lg:grid-cols-2">
       <div className="h-56 rounded-2xl bg-slate-900"/><div className="h-56 rounded-2xl bg-slate-900"/>
     </div> : children}

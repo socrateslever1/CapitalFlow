@@ -53,6 +53,10 @@ typography:
     fontSize: "0.75rem"
     fontWeight: 700
     lineHeight: "1rem"
+  caption-compact:
+    fontSize: "11px"
+    fontWeight: 600
+    lineHeight: 1.35
   status-label:
     fontSize: "10px"
     fontWeight: 900

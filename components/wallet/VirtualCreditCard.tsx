@@ -151,8 +151,19 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
     <div className={`w-full max-w-sm mx-auto select-none ${className}`}>
       {/* Container do Cartão com Aspect Ratio padrão ISO 7810 (1.586 : 1) */}
       <div
+        role={interactive ? 'button' : undefined}
+        tabIndex={interactive ? 0 : undefined}
+        aria-pressed={interactive ? isFlipped : undefined}
+        aria-label={interactive ? (isFlipped ? 'Mostrar frente do cartão' : 'Mostrar verso do cartão') : undefined}
         onClick={() => interactive && setIsFlipped(!isFlipped)}
-        className={`relative aspect-[1.586/1] w-full rounded-2xl p-5 sm:p-6 shadow-2xl transition-all duration-500 transform cursor-pointer border border-white/10 overflow-hidden bg-gradient-to-br ${theme.gradient}`}
+        onKeyDown={(event) => {
+          if (!interactive || event.target !== event.currentTarget) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setIsFlipped((value) => !value);
+          }
+        }}
+        className={`relative aspect-[1.586/1] w-full rounded-2xl p-5 sm:p-6 shadow-2xl transition-all duration-500 motion-reduce:transition-none transform cursor-pointer border border-white/10 overflow-hidden bg-gradient-to-br focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${theme.gradient}`}
         style={{
           boxShadow: '0 20px 35px -10px rgba(0, 0, 0, 0.6), 0 0 20px 2px rgba(255, 255, 255, 0.05) inset',
         }}
@@ -174,7 +185,7 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
                     {card.issuer || theme.logoText}
                   </span>
                 )}
-                <span className="text-[9px] font-bold uppercase tracking-widest text-white/60 bg-black/20 px-2 py-0.5 rounded-full border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 bg-black/25 px-2 py-0.5 rounded-full border border-white/15">
                   {card.nickname}
                 </span>
               </div>
@@ -213,7 +224,7 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
               </div>
 
               {/* Ícone sutil contactless ou categoria */}
-              <span className="text-[10px] font-bold tracking-widest uppercase text-white/50">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-white/75">
                 {theme.category}
               </span>
             </div>
@@ -233,12 +244,12 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
                     <button
                       type="button"
                       onClick={(e) => { void handleCopy('number', e); }}
-                      className="p-1 rounded text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                      className="flex min-h-8 min-w-8 items-center justify-center p-1.5 rounded text-white/80 hover:text-white hover:bg-white/15 transition-colors"
                       disabled={!card.last_four}
                       aria-label="Copiar apenas os quatro últimos dígitos do cartão"
                       title="Copiar final do cartão"
                     >
-                      {copied === 'number' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                      {copied === 'number' ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                     </button>
                   </div>
                 )}
@@ -246,8 +257,8 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
 
               {/* Linha inferior: Nome do Titular e Validade */}
               <div className="flex items-end justify-between mt-2 pt-1 border-t border-white/10">
-                <button type="button" disabled={!card.cardholder_name} aria-label="Copiar titular do cartão" onClick={e => { void handleCopy('holder', e); }} className="min-w-0 pr-2 text-left disabled:opacity-75">
-                  <span className="block text-[8px] uppercase tracking-wider text-white/50 font-semibold">
+                <button type="button" disabled={!card.cardholder_name} aria-label="Copiar titular do cartão" onClick={e => { void handleCopy('holder', e); }} className="min-h-8 min-w-0 pr-2 text-left disabled:opacity-75">
+                  <span className="block text-[10px] uppercase tracking-wider text-white/80 font-semibold">
                     Titular · copiar
                   </span>
                   <span className="block font-mono text-xs sm:text-sm font-bold tracking-wider uppercase text-white truncate drop-shadow">
@@ -255,8 +266,8 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
                   </span>
                 </button>
 
-                <button type="button" disabled={effectiveExp === '—'} aria-label="Copiar validade do cartão" onClick={e => { void handleCopy('expiry', e); }} className="text-right shrink-0 disabled:opacity-75">
-                  <span className="block text-[8px] uppercase tracking-wider text-white/50 font-semibold">
+                <button type="button" disabled={effectiveExp === '—'} aria-label="Copiar validade do cartão" onClick={e => { void handleCopy('expiry', e); }} className="min-h-8 text-right shrink-0 disabled:opacity-75">
+                  <span className="block text-[10px] uppercase tracking-wider text-white/80 font-semibold">
                     Validade · copiar
                   </span>
                   <span className="block font-mono text-xs sm:text-sm font-bold tracking-wider text-white drop-shadow">
@@ -275,28 +286,28 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
             {/* Faixa de Assinatura e CVV */}
             <div className="my-auto space-y-2">
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-8 bg-slate-200/90 rounded px-2 flex items-center justify-between text-slate-800 font-mono text-xs italic shadow-inner">
-                  <span className="text-[9px] text-slate-500 font-sans not-italic">Assinatura autorizada</span>
+                <div className="flex-1 h-8 bg-slate-200/95 rounded px-2 flex items-center justify-between text-slate-800 font-mono text-xs italic shadow-inner">
+                  <span className="text-[10px] text-slate-600 font-sans not-italic">Assinatura autorizada</span>
                   <span className="font-bold tracking-wider">{effectiveHolder.slice(0, 15)}</span>
                 </div>
                 <div className="h-8 bg-white rounded px-2.5 flex items-center justify-center font-mono font-black text-slate-950 text-xs shadow-inner">
                   {effectiveCvv}
                 </div>
               </div>
-              <p className="text-[8px] text-white/60 leading-tight">
+              <p className="text-[10px] text-white/80 leading-tight">
                 Código de segurança (CVC/CVV) de 3 dígitos para transações online e verificações.
               </p>
             </div>
 
             {/* Rodapé com Informações de Suporte e Bandeira */}
-            <div className="flex items-end justify-between pt-2 border-t border-white/10 text-[9px] text-white/70">
+            <div className="flex items-end justify-between pt-2 border-t border-white/10 text-[10px] text-white/80">
               <div>
                 <p className="font-bold text-white">{card.issuer || 'Emissor Bancário'}</p>
-                <p className="text-[8px] text-white/50">Fecha dia {card.closing_day || '—'} · Vence dia {card.due_day || '—'}</p>
+                <p className="text-[10px] text-white/75">Fecha dia {card.closing_day || '—'} · Vence dia {card.due_day || '—'}</p>
               </div>
 
               <div className="text-right">
-                <span className="text-[8px] text-white/50 block">Limite Total</span>
+                <span className="text-[10px] text-white/75 block">Limite Total</span>
                 <strong className="text-xs font-bold text-white">{formatMoney(card.credit_limit)}</strong>
               </div>
             </div>
@@ -305,7 +316,7 @@ export const VirtualCreditCard: React.FC<VirtualCreditCardProps> = ({
 
         {/* Indicador interativo para virar o cartão */}
         {interactive && (
-          <div className="absolute bottom-2 right-2 z-20 opacity-40 hover:opacity-100 transition-opacity flex items-center gap-1 text-[8px] text-white bg-black/40 px-2 py-0.5 rounded-full pointer-events-none">
+          <div className="absolute bottom-2 right-2 z-20 opacity-60 hover:opacity-100 transition-opacity flex items-center gap-1 text-[10px] text-white bg-black/50 px-2 py-0.5 rounded-full pointer-events-none">
             <RotateCw size={10} />
             <span>Toque para virar</span>
           </div>

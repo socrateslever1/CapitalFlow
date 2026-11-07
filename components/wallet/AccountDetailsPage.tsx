@@ -327,7 +327,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
               <QrCode size={16}/> Gerar cobrança
             </button>
           </div>
-          {account.notes && <p className="truncate text-[11px] text-slate-500" title={account.notes}>{account.notes}</p>}
+          {account.notes && <p className="truncate text-[11px] text-slate-400" title={account.notes}>{account.notes}</p>}
         </div>}
       </div>
       {pixChargeOpen && account.pix_key && <WalletPixCharge accounts={accounts} initialAccountId={account.id} recipient={ownerName || account.nickname} city={ownerCity} onClose={()=>setPixChargeOpen(false)} onSaved={onSaved} />}
@@ -497,7 +497,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
                   </option>
                 ))}
               </select>
-              <span className="text-[11px] font-normal text-slate-500">
+              <span className="text-[11px] font-normal text-slate-400">
                 Apenas fontes disponíveis e com o mesmo saldo (<PrivateMoney value={formatMoney(Number(account.balance || 0))} />) podem ser vinculadas.
               </span>
             </label>

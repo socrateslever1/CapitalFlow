@@ -219,7 +219,6 @@ body[data-capacitor-android="true"] .cf-auth-viewport {
       transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1),
       box-shadow 0.22s ease,
       border-color 0.2s ease;
-    will-change: transform;
   }
 
   .responsive-card:hover {

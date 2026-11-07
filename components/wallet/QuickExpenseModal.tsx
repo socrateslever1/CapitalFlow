@@ -273,6 +273,17 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
 
   const isCardInstallments = paymentMode === 'CARD' && conditionMode === 'INSTALLMENTS';
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saving, onClose]);
+
   return (
     <div
       role="dialog"
@@ -304,7 +315,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             disabled={saving}
             onClick={onClose}
             aria-label="Fechar"
-            className="rounded-full bg-slate-800 p-2 text-slate-400 hover:text-white"
+            className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-slate-800 p-2 text-slate-400 hover:text-white"
           >
             <X size={16} />
           </button>
@@ -333,7 +344,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
               }`}
             >
               <CreditCard size={15} />
-              <span>💳 Cartão de Crédito</span>
+              <span>Cartão de Crédito</span>
             </button>
             <button
               type="button"
@@ -350,7 +361,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
               }`}
             >
               <Landmark size={15} />
-              <span>🏦 Conta Bancária / PIX</span>
+              <span>Conta Bancária / PIX</span>
             </button>
           </div>
 
@@ -551,7 +562,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                       }} className="shrink-0 rounded-lg p-1.5 text-slate-300 hover:bg-slate-800">
                         <ChevronLeft size={15}/>
                       </button>
-                      <label className="relative min-w-0 flex-1 cursor-pointer px-1 text-center">
+                      <label className="relative min-w-0 flex-1 cursor-pointer rounded-md px-1 text-center focus-within:ring-2 focus-within:ring-blue-400">
                         <span className="block truncate text-xs font-bold text-cyan-200">{resolvedCycle.label}</span>
                         <input type="month" aria-label="Selecionar mês de pagamento da fatura"
                           value={resolvedCycle.monthInputValue}

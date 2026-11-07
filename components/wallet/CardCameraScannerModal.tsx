@@ -66,6 +66,17 @@ export const CardCameraScannerModal: React.FC<Props> = ({ onClose, onCardRecogni
     return () => stopCamera();
   }, [facingMode]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [busy, onClose]);
+
   const toggleCamera = () => {
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
@@ -176,7 +187,7 @@ export const CardCameraScannerModal: React.FC<Props> = ({ onClose, onCardRecogni
 
                 {/* Laser de Escaneamento Animado */}
                 {busy && (
-                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_12px_#22d3ee] animate-bounce" />
+                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_12px_#22d3ee] animate-pulse motion-reduce:animate-none" />
                 )}
 
                 <div className="flex justify-between items-end">

@@ -637,7 +637,7 @@ export const useAppNotifications = ({
           title: 'Carteira com saldo crítico',
           message: `${source.name || 'Carteira'} está com ${formatMoney(balance)} disponível. Evite novas saídas ou faça um aporte.`,
           type: 'error',
-          isPersistent: true,
+          isPersistent: false,
           item_type: 'carteira',
           item_id: source.id
         });

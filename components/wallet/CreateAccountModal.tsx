@@ -412,6 +412,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             <label className={labelClass}>
               Tipo de Conta
               <select
+                disabled={isPhysicalWallet}
                 value={accountType}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -420,11 +421,16 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                 }}
                 className={inputClass}
               >
-                <option value="CHECKING">Conta Corrente</option>
-                <option value="PAYMENT">Conta de Pagamento</option>
-                <option value="SAVINGS">Poupança</option>
-                <option value="CASH">Carteira Física (Dinheiro)</option>
-                <option value="INVESTMENT">Investimento</option>
+                {isPhysicalWallet ? (
+                  <option value="CASH">Carteira Física (Dinheiro)</option>
+                ) : (
+                  <>
+                    <option value="CHECKING">Conta Corrente</option>
+                    <option value="PAYMENT">Conta de Pagamento</option>
+                    <option value="SAVINGS">Poupança</option>
+                    <option value="INVESTMENT">Investimento</option>
+                  </>
+                )}
               </select>
             </label>
 
@@ -526,51 +532,56 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
             </label>
           </div>
 
-          {!isPhysicalWallet && <div className="space-y-3 border-t border-slate-800 pt-3">
-            <div className="rounded-lg border border-slate-700/70 bg-slate-950/50 p-3">
-              <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-slate-200">
-                <input type="checkbox" checked={thirdPartyAccount} className="h-4 w-4 accent-blue-600"
-                  onChange={event => {
-                    const thirdParty = event.target.checked;
-                    setThirdPartyAccount(thirdParty);
-                    setBankDetails(previous => ({
-                      ...previous,
-                      holder_name: thirdParty ? '' : ownerDefaults.name || previous.holder_name,
-                      holder_document: thirdParty ? '' : ownerDefaults.document || previous.holder_document,
-                    }));
-                  }}/>
-                Conta de outra pessoa
-              </label>
-              <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                {thirdPartyAccount
-                  ? 'Informe o titular desta conta. Os dados não serão copiados do seu perfil.'
-                  : 'Nome e documento são sugeridos a partir do perfil CapitalFlow. Confira antes de salvar.'}
-              </p>
+          {!isPhysicalWallet && <details className="rounded-xl border border-slate-800 bg-slate-950/50" open={thirdPartyAccount || Boolean(linkedCardId)}>
+            <summary className="cursor-pointer px-3 py-3 text-xs font-semibold text-blue-200">
+              Mais opções bancárias (opcional): titular, dados da conta e cartão vinculado
+            </summary>
+            <div className="space-y-3 border-t border-slate-800 p-3">
+              <div className="rounded-lg border border-slate-700/70 bg-slate-950/50 p-3">
+                <label className="flex min-h-10 cursor-pointer items-center gap-2 text-sm text-slate-200">
+                  <input type="checkbox" checked={thirdPartyAccount} className="h-4 w-4 accent-blue-600"
+                    onChange={event => {
+                      const thirdParty = event.target.checked;
+                      setThirdPartyAccount(thirdParty);
+                      setBankDetails(previous => ({
+                        ...previous,
+                        holder_name: thirdParty ? '' : ownerDefaults.name || previous.holder_name,
+                        holder_document: thirdParty ? '' : ownerDefaults.document || previous.holder_document,
+                      }));
+                    }}/>
+                  Conta de outra pessoa
+                </label>
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  {thirdPartyAccount
+                    ? 'Informe o titular desta conta. Os dados não serão copiados do seu perfil.'
+                    : 'Nome e documento são sugeridos a partir do perfil CapitalFlow. Confira antes de salvar.'}
+                </p>
+              </div>
+              <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>
+              <fieldset className="space-y-3 border-t border-slate-800 pt-4">
+                <legend className="px-1 text-sm font-semibold text-slate-200">Cartão de crédito desta conta</legend>
+                <select value={linkedCardId} onChange={event => setLinkedCardId(event.target.value)} className={inputClass} aria-label="Cartão vinculado à conta">
+                  <option value="">Conta independente, sem cartão vinculado</option>
+                  {existingCards.filter(card => card.status !== 'CANCELED' && !card.account_id).map(card => (
+                    <option key={card.id} value={card.id}>{card.nickname}{card.last_four ? ` · •••• ${card.last_four}` : ''}</option>
+                  ))}
+                  <option value="__create__">+ Criar novo cartão vinculado agora</option>
+                </select>
+                {linkedCardId === '__create__' && <div className="grid gap-3 sm:grid-cols-2">
+                  <label className={labelClass}>Nome do cartão
+                    <input required maxLength={120} value={newCardNickname} onChange={event => setNewCardNickname(event.target.value)} placeholder="Ex.: Cartão principal" className={inputClass}/>
+                  </label>
+                  <label className={labelClass}>Limite de crédito (R$)
+                    <FinancialCalculatorInput value={newCardLimit} onCommit={setNewCardLimit} fieldLabel="limite do cartão" placeholder="Ex.: 1.500,00" className={inputClass}/>
+                  </label>
+                  <label className={labelClass}>Final do cartão (opcional)
+                    <input inputMode="numeric" maxLength={4} value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
+                  </label>
+                </div>}
+                <p className="text-[11px] leading-relaxed text-slate-400">Escolha um cartão existente para vincular ou crie o cartão junto com esta conta. Se não selecionar nada, conta e cartão permanecem independentes.</p>
+              </fieldset>
             </div>
-            <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>
-            <fieldset className="space-y-3 border-t border-slate-800 pt-4">
-              <legend className="px-1 text-sm font-semibold text-slate-200">Cartão de crédito desta conta</legend>
-              <select value={linkedCardId} onChange={event => setLinkedCardId(event.target.value)} className={inputClass} aria-label="Cartão vinculado à conta">
-                <option value="">Conta independente, sem cartão vinculado</option>
-                {existingCards.filter(card => card.status !== 'CANCELED' && !card.account_id).map(card => (
-                  <option key={card.id} value={card.id}>{card.nickname}{card.last_four ? ` · •••• ${card.last_four}` : ''}</option>
-                ))}
-                <option value="__create__">+ Criar novo cartão vinculado agora</option>
-              </select>
-              {linkedCardId === '__create__' && <div className="grid gap-3 sm:grid-cols-2">
-                <label className={labelClass}>Nome do cartão
-                  <input required maxLength={120} value={newCardNickname} onChange={event => setNewCardNickname(event.target.value)} placeholder="Ex.: Cartão principal" className={inputClass}/>
-                </label>
-                <label className={labelClass}>Limite de crédito (R$)
-                  <FinancialCalculatorInput value={newCardLimit} onCommit={setNewCardLimit} fieldLabel="limite do cartão" placeholder="Ex.: 1.500,00" className={inputClass}/>
-                </label>
-                <label className={labelClass}>Final do cartão (opcional)
-                  <input inputMode="numeric" maxLength={4} value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
-                </label>
-              </div>}
-              <p className="text-[11px] leading-relaxed text-slate-400">Escolha um cartão existente para vincular ou crie o cartão junto com esta conta. Se não selecionar nada, conta e cartão permanecem independentes.</p>
-            </fieldset>
-          </div>}
+          </details>}
           {error && (
             <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
               {error}

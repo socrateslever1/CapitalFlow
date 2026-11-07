@@ -52,7 +52,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
                   <span
                     aria-hidden="true"
                     className="h-7 w-0.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: isCash ? '#f59e0b' : visual.accent }}
+                    style={{ backgroundColor: visual.accent }}
                   />
                   <span className={`flex shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950 ${compact ? 'h-9 w-9' : 'h-10 w-10'}`}>
                     {isCash ? <Wallet size={20} className="text-amber-300" /> : <BankLogo name={account.bank_name} alternateName={account.nickname} size="sm" />}

@@ -22,7 +22,7 @@ function getNetworkIps() {
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = Number(process.env.PORT) || 3005;
   const isProduction = process.env.NODE_ENV === "production";
   const httpServer = http.createServer(app);
 

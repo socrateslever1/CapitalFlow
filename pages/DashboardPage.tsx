@@ -186,7 +186,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-8 lg:gap-y-8">
           <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 lg:contents lg:space-y-0 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
               <div data-dashboard-filters className="min-w-0 space-y-6 sm:space-y-8 lg:col-start-1 lg:row-start-1">
-              <DashboardAlerts loans={loans} sources={sources} />
               <DashboardControls
                 statusFilter={statusFilter} setStatusFilter={setStatusFilter}
                 sortOption={sortOption} setSortOption={setSortOption}
@@ -243,14 +242,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </div>
 
           <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 lg:contents lg:space-y-0 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
-              <div data-dashboard-indicator-heading className="flex items-center justify-between px-2 lg:col-start-2 lg:row-start-1 lg:self-start">
-                  <h2 className="text-[10px] font-black uppercase text-slate-500">Indicadores</h2>
+              <div data-dashboard-indicator-heading className="flex items-center justify-between px-3 py-2 bg-slate-900/60 border border-slate-800/80 rounded-lg lg:col-start-2 lg:row-start-1 lg:self-stretch">
+                  <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                          <TrendingUp size={14} />
+                      </div>
+                      <div className="flex flex-col">
+                          <h2 className="text-xs font-black uppercase tracking-wider text-slate-200 leading-none">Balanço Financeiro</h2>
+                          <span className="text-[9px] font-semibold text-slate-400">Indicadores operacionais</span>
+                      </div>
+                  </div>
                   <button
                     onClick={loanCtrl.handleRecalculateAll}
                     disabled={ui.isProcessingPayment}
-                    className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-500 hover:text-blue-400 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-50"
+                    title="Recalcular indicadores e juros em tempo real"
                   >
-                    <RefreshCw size={10} className={ui.isProcessingPayment ? 'animate-spin' : ''} />
+                    <RefreshCw size={11} className={ui.isProcessingPayment ? 'animate-spin' : ''} />
                     Recalcular
                   </button>
               </div>

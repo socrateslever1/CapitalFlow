@@ -58,3 +58,9 @@ test('App integra o modulo sem manter a pagina legada como raiz', () => {
   assert.match(app, /WalletModule/);
   assert.doesNotMatch(app, /const PersonalWalletPage = lazy/);
 });
+
+test('visao geral oferece pilha e cadastro de contas bancarias', () => {
+  const page = readFileSync('pages/PersonalWalletPage.tsx', 'utf8');
+  assert.match(page, /moduleView === 'overview'[\s\S]*AccountCardStack/);
+  assert.match(page, /moduleView === 'overview'[\s\S]*openForm\('ACCOUNT'\)[\s\S]*Cadastrar conta/);
+});

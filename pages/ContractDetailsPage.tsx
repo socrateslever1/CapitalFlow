@@ -103,7 +103,7 @@ export const ContractDetailsPage: React.FC<ContractDetailsPageProps> = ({
         status,
         statusColor,
         nextDueDateDisplay
-    } = useContractDetailsState({ loanId, loans, onPayment });
+    } = useContractDetailsState({ loanId, loans, onPayment, onAgreementPayment });
 
     const [isPixModalOpen, setIsPixModalOpen] = React.useState(false);
 

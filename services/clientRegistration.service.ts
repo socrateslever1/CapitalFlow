@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { supabasePortal } from '../lib/supabasePortal';
+import { buildPublicAppUrl, normalizeShareableAppUrl } from '../utils/publicAppUrl';
 
 async function request(body: FormData | Record<string, unknown>, authenticated = false) {
   if (authenticated) {
@@ -30,18 +31,7 @@ async function request(body: FormData | Record<string, unknown>, authenticated =
   }
 }
 
-export function normalizeOriginUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (typeof window === 'undefined') return url;
-
-  try {
-    const parsed = new URL(url);
-    const currentOrigin = window.location.origin;
-    return `${currentOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch {
-    return url;
-  }
-}
+export const normalizeOriginUrl = normalizeShareableAppUrl;
 
 export const clientRegistrationService = {
   async createLink(profileId: string) {
@@ -57,8 +47,7 @@ export const clientRegistrationService = {
 
     const token = String(data?.token || '');
     if (!token) throw new Error('O banco não retornou o token de cadastro.');
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
-    return { token, url: `${origin}/?cadastro=${encodeURIComponent(token)}` };
+    return { token, url: buildPublicAppUrl('/', { cadastro: token }) };
   },
 
   async getLink(token: string) {

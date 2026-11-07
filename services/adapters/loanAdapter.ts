@@ -256,6 +256,9 @@ export function mapLoanFromDB(
     customDocuments: asArray(l?.customDocuments),
 
     isArchived: !!(l?.is_archived ?? l?.isArchived),
+    archiveReason: l?.archive_reason ?? l?.archiveReason ?? null,
+    archiveNote: l?.archive_note ?? l?.archiveNote ?? null,
+    archivedAt: l?.archived_at ?? l?.archivedAt ?? null,
     skipWeekends: collectionDaysMode === 'SKIP_WEEKEND',
     collectionDaysMode,
 

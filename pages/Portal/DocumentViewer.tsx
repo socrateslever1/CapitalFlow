@@ -35,7 +35,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const [canSign, setCanSign] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [role, setRole] = useState('DEVEDOR');
+  const role = 'DEVEDOR';
   const [signerName, setSignerName] = useState('');
   const [signerDoc, setSignerDoc] = useState('');
   const [missingValues, setMissingValues] = useState<any>({});
@@ -46,7 +46,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   useEffect(() => {
     loadDocument();
     // eslint-disable-next-line
-  }, [docId, token]);
+  }, [docId, token, code]);
 
   const loadDocument = async () => {
     try {
@@ -56,7 +56,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       const doc = await legalDocumentService.getDoc(token, code, docId);
       setDocument(doc);
 
-      const check = await legalDocumentService.missingFields(docId);
+      const check = await legalDocumentService.missingFields(token, code, docId);
       setMissingFields(check?.missing || []);
       setCanSign(!!check?.can_sign);
     } catch (err: any) {
@@ -233,17 +233,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
               </div>
             )}
 
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full mb-2 p-2 bg-slate-800 text-white text-xs rounded"
-            >
-              <option value="DEVEDOR">Devedor</option>
-              <option value="TESTEMUNHA_1">Testemunha 1</option>
-              <option value="TESTEMUNHA_2">Testemunha 2</option>
-              <option value="AVALISTA">Avalista</option>
-              <option value="CREDOR">Credor</option>
-            </select>
+            <p className="mb-3 rounded-lg border border-slate-700 p-3 text-xs text-slate-200">
+              Assinatura do devedor. Os demais participantes devem utilizar seu próprio link.
+            </p>
 
             <input
               type="text"

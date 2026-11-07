@@ -4,6 +4,7 @@ import { buildChargeLink, getBankVisual, getCreditSummary, groupWalletByBank } f
 
 test('usa identidade conhecida e fallback estável sem imagem externa', () => {
   assert.equal(getBankVisual('Nubank').accent, '#820ad1');
+  assert.equal(getBankVisual('RecargaPay').accent, '#0ea5e9');
   assert.equal(getBankVisual('Banco Inventado').accent, getBankVisual('Banco Inventado').accent);
   assert.match(getBankVisual('Banco Inventado').monogram, /^[A-Z]{1,2}$/);
 });
@@ -11,11 +12,19 @@ test('usa identidade conhecida e fallback estável sem imagem externa', () => {
 test('normaliza aliases comerciais na mesma instituição', () => {
   assert.equal(getBankVisual('Nu').key, 'nubank');
   assert.equal(getBankVisual('Nu Pagamentos').key, 'nubank');
+  assert.equal(getBankVisual('Recarga Pay').key, 'recargapay');
   const groups = groupWalletByBank(
     [{ id: 'a1', nickname: 'Principal', bank_name: 'Nubank', balance: 10 }],
     [{ id: 'c1', nickname: 'Roxo', issuer: 'Nu', account_id: null }],
   );
   assert.equal(groups.length, 1);
+});
+
+test('usa identidade neutra e legível para carteira física', () => {
+  const visual = getBankVisual('carteira-fisica');
+  assert.equal(visual.key, 'cash');
+  assert.equal(visual.name, 'Carteira física');
+  assert.equal(visual.accent, '#b7791f');
 });
 
 test('consolida limite utilizado e disponível sem percentuais inválidos', () => {
@@ -24,6 +33,16 @@ test('consolida limite utilizado e disponível sem percentuais inválidos', () =
     { credit_limit: 0, used_limit: 0 },
   ]), { total: 1000, used: 250, available: 750, percentage: 25 });
   assert.equal(getCreditSummary([{ credit_limit: 0, used_limit: 10 }]).percentage, 0);
+});
+
+test('excesso de um cartão não consome o limite disponível de outro', () => {
+  const summary = getCreditSummary([
+    { credit_limit: 100, used_limit: 150 },
+    { credit_limit: 100, used_limit: 0 },
+  ]);
+  assert.equal(summary.total, 200);
+  assert.equal(summary.used, 150);
+  assert.equal(summary.available, 100);
 });
 
 test('agrupa cartão vinculado na conta e mantém cartão independente', () => {

@@ -10,6 +10,7 @@ import { clientPreContractService } from '../services/clientPreContract.service'
 import { witnessService } from '../features/legal/services/witness.service';
 import { supabase } from '../lib/supabase';
 import { getOrCreatePortalLink } from '../utils/portalLink';
+import { buildPublicAppUrl } from '../utils/publicAppUrl';
 import { copyToClipboard } from '../utils/clipboard';
 import { Tooltip } from '../components/ui/Tooltip';
 import { ClientLegalDocumentsPanel } from '../features/legal/components/ClientLegalDocumentsPanel';
@@ -165,7 +166,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         const code = (existingLoan as any).portalCode || (existingLoan as any).portal_shortcode || (existingLoan as any).portalShortcode;
         
         if (token && code) {
-          const portalUrl = `${window.location.origin}/?portal=${encodeURIComponent(token)}&portal_code=${encodeURIComponent(code)}`;
+          const portalUrl = buildPublicAppUrl('/', { portal: String(token), portal_code: String(code) });
           await copyToClipboard(portalUrl);
           showToast(`Link do portal de ${formatShortName(client.name)} copiado com sucesso!`, 'success');
           return;

@@ -37,7 +37,7 @@ export interface CapitalSource {
   profile_id: string;
   name: string;
   balance: number;
-  type: 'PROPRIO' | 'TERCEIROS' | 'MISTO';
+  type: 'PROPRIO' | 'TERCEIROS' | 'MISTO' | 'BANK' | 'CARD' | 'CASH' | 'WALLET' | 'CAIXA' | 'Caixa';
   description?: string;
   logo_url?: string;
   created_at?: string;
@@ -99,6 +99,7 @@ export interface UserProfile {
   phone?: string;
   ui_nav_order?: AppTab[];
   ui_hub_order?: AppTab[];
+  ui_mobile_nav_order?: AppTab[];
   supervisor_id?: string;
   photo?: string;
   totalAvailableCapital?: number;
@@ -339,6 +340,9 @@ export interface Loan {
   capitalOnlyRecovery?: boolean;
   interestFreeInstallment?: boolean;
   isArchived?: boolean;
+  archiveReason?: import('./domain/credit/archivePolicy').ArchiveReason | null;
+  archiveNote?: string | null;
+  archivedAt?: string | null;
   skipWeekends?: boolean;
   collectionDaysMode?: CollectionDaysMode;
   clientAvatarUrl?: string;

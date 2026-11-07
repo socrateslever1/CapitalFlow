@@ -43,12 +43,12 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
 }) => {
     const {
         originalInst, isFixedTerm, isFixedTermDone, isZeroBalance, isLateInst, isPrepaid, isActionDisabled, isPaid,
-        statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, isFullyFinalized
+        statusColor, statusText, displayDueDate, paidUntilDate, realIndex, showProgress, debt, displayDebt, isFullyFinalized, recordedBalance
     } = vm;
 
     const isRenegotiated = originalInst.status === 'RENEGOCIADO';
     const hasActiveOffer = isPaymentOfferActive(originalInst);
-    const displayedAmount = isPaid ? getInstallmentPaidAmount(originalInst) : debt.total;
+    const displayedAmount = isPaid ? getInstallmentPaidAmount(originalInst) : displayDebt.total;
 
     const containerClasses = `responsive-card rounded-lg border flex flex-col justify-between h-full ${
         isRenegotiated ? 'bg-slate-900/80 border-slate-700/50' :
@@ -77,7 +77,7 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
     }
 
     return (
-        <div id={originalInst.id} className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-3 py-2.5 rounded-lg border transition-all ${
+        <div id={originalInst.id} className={`flex flex-col gap-3 px-3 py-2.5 rounded-lg border transition-all ${
             isRenegotiated ? 'bg-slate-900/80 border-slate-700/50 opacity-60' :
             isPaid || isZeroBalance ? 'bg-emerald-500/5 border-emerald-500/10 opacity-60' :
             isLateInst ? 'bg-rose-500/5 border-rose-500/20' :
@@ -109,15 +109,19 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-x-1.5 gap-y-0.5 mt-0.5 flex-wrap">
-                        <p className="text-[9px] text-slate-500 font-medium flex items-center gap-1">
-                            {displayDueDate ? formatBRDate(displayDueDate) : 'N/A'}
+                    <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap">
+                        <p
+                            className={`text-[11px] font-semibold leading-tight ${isLateInst && !isPaid ? 'text-rose-300' : 'text-slate-300'}`}
+                            aria-label={`Vencimento ${displayDueDate ? formatBRDate(displayDueDate) : 'não informado'}`}
+                        >
+                            <span className="text-[9px] font-black uppercase tracking-wide text-slate-500">Vencimento</span>{' '}
+                            {displayDueDate ? formatBRDate(displayDueDate) : 'Não informado'}
                         </p>
-                        {!isPaid && debt.total > originalInst.amount && (
+                        {!isPaid && !recordedBalance && displayDebt.lateFee > 0.005 && (
                             <>
                                 <span className="text-slate-700">•</span>
                                 <p className="text-[8px] text-rose-400/80 font-bold leading-tight">
-                                    +{formatMoney(debt.total - originalInst.amount, isStealthMode)} juros
+                                    Encargos por atraso: {formatMoney(displayDebt.lateFee, isStealthMode)}
                                 </p>
                             </>
                         )}
@@ -130,10 +134,21 @@ const InstallmentCardComponent: React.FC<InstallmentCardProps> = ({
                             </>
                         )}
                     </div>
+                    {recordedBalance && !isPaid && (
+                        <div className="mt-2 space-y-1 rounded-md border border-blue-500/20 bg-blue-500/5 p-2 text-[10px] leading-relaxed">
+                            <p className="font-semibold text-blue-200">Saldo registrado após o último recebimento</p>
+                            <p className="text-slate-300">
+                                Já recebido: {formatMoney(Number(originalInst.paidTotal || 0), isStealthMode)}.
+                                Capital ainda devido: {formatMoney(displayDebt.principal, isStealthMode)}.
+                                Encargos ainda registrados: {formatMoney(displayDebt.interest + displayDebt.lateFee, isStealthMode)}.
+                            </p>
+                            <p className="text-slate-500">Novos encargos, se aplicáveis, serão conferidos antes de confirmar outro recebimento.</p>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className="w-full sm:w-auto flex items-center justify-end gap-2 shrink-0">
+            <div className="w-full min-w-0 flex items-center justify-stretch gap-2">
                 <InstallmentCardAction
                     isDisabled={isActionDisabled}
                     isFullyFinalized={isFullyFinalized}

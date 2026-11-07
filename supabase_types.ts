@@ -3118,6 +3118,7 @@ export type Database = {
           total_available_capital: number | null
           ui_hub_order: Json | null
           ui_nav_order: Json | null
+          ui_mobile_nav_order: Json | null
           updated_at: string | null
           user_id: string | null
           usuario_email: string
@@ -3164,6 +3165,7 @@ export type Database = {
           total_available_capital?: number | null
           ui_hub_order?: Json | null
           ui_nav_order?: Json | null
+          ui_mobile_nav_order?: Json | null
           updated_at?: string | null
           user_id?: string | null
           usuario_email: string
@@ -3210,6 +3212,7 @@ export type Database = {
           total_available_capital?: number | null
           ui_hub_order?: Json | null
           ui_nav_order?: Json | null
+          ui_mobile_nav_order?: Json | null
           updated_at?: string | null
           user_id?: string | null
           usuario_email?: string

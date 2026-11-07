@@ -1,9 +1,11 @@
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
-import React, { useMemo } from 'react';
-import { Wallet, CalendarX, Clock, CreditCard, Landmark, AlertTriangle, CalendarDays, ChevronDown, ArrowDownRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Wallet, CalendarX, Clock, CreditCard, Landmark, CalendarDays, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
+import { LoanFundingCostFields } from './LoanFundingCostFields';
+import { FinancialCalculatorInput } from './FinancialCalculatorInput';
 import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
 
 const MULTI_SOURCE_CREATION_ENABLED = false;
@@ -62,12 +64,15 @@ interface LoanFormFinancialSectionProps {
 export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> = ({
   sources, formData, setFormData, isDailyModality, fixedDuration, setFixedDuration, manualFirstDueDate, setManualFirstDueDate, isEditing
 }) => {
+  const [editingCustomerInstallment, setEditingCustomerInstallment] = useState(false);
+  const [customerInstallmentDraft, setCustomerInstallmentDraft] = useState('');
+
   const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
   const strongInputClass = `${inputClass} font-bold`;
   const dateInputClass = `${inputClass} px-4 font-black text-base tabular-nums [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer`;
 
   const selectedSource = sources.find(s => s.id === formData.sourceId);
-  const isCardSource = selectedSource?.type === 'MISTO';
+  const isCardSource = selectedSource?.type === 'CARD' || selectedSource?.type === 'MISTO';
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
   const fundingPaymentMethod = formData.fundingPaymentMethod || 'CREDIT_CARD';
   const interestFreeInstallment = isInstallmentFixed && formData.interestFreeInstallment === true;
@@ -114,17 +119,6 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
     : fundingAllocations.reduce((sum: number, allocation: any) => sum + (parseFloat(String(allocation.amount || '').replace(',', '.')) || 0), 0);
   const hasMultipleSources = fundingAllocations.length > 1;
 
-  const fundingCostDisplay = useMemo(() => {
-      const principal = parseFloat(formData.principal) || 0;
-      const totalPayable = parseFloat(formData.fundingTotalPayable) || 0;
-      if (totalPayable > principal) {
-          return {
-              cost: totalPayable - principal,
-              isValid: true
-          };
-      }
-      return { cost: 0, isValid: totalPayable === 0 };
-  }, [formData.principal, formData.fundingTotalPayable]);
 
   const fixedInstallmentDisplay = useMemo(() => {
       const principal = parseFloat(formData.principal) || 0;
@@ -149,7 +143,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
       const customerInstallment = interestFreeInstallment ? principal / count : baseForClient * (1 + margin / 100);
       const customerTotal = interestFreeInstallment ? principal : customerInstallment * count;
-      return { count, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
+      return { count, baseForClient, bankInstallment, bankTotal, customerInstallment, customerTotal, profit: customerTotal - bankTotal };
   }, [formData.principal, formData.fundingInstallmentsCount, formData.fundingTotalPayable, formData.fundingMonthlyRate, formData.fundingInstallmentValue, formData.customerMarginPercent, formData.fundingCalculationMode, formData.fundingOperatorAbsorbsInterest, interestFreeInstallment, fundingPaymentMethod]);
 
   return (
@@ -193,7 +187,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                     finePercent: current.finePercent,
                     dailyInterestPercent: current.dailyInterestPercent,
                     customerMarginPercent: enabled ? '0' : (current.customerMarginPercent === '0' ? '30' : current.customerMarginPercent),
-                    fundingOperatorAbsorbsInterest: enabled ? true : current.fundingOperatorAbsorbsInterest,
+                    fundingOperatorAbsorbsInterest: enabled ? true : false,
                   };
                 });
               }}
@@ -297,19 +291,33 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         <div className={`grid ${isInstallmentFixed ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'} gap-4`}>
           <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{isEditing ? 'Capital atual' : 'Principal'}</label>
-            <input required type="number" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
+            <FinancialCalculatorInput required type="text" min="0.01" step="0.01" value={formData.principal || ''} onChange={e => {
               const principal = cleanNumberStr(e.target.value);
               setFormData((current: any) => {
-                if (current.billingCycle !== 'INSTALLMENT_FIXED' || (current.fundingPaymentMethod || 'CREDIT_CARD') !== 'CREDIT_CARD') return { ...current, principal };
-                const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
+                if (isEditing) return { ...current, principal };
+                if (current.billingCycle === 'INSTALLMENT_FIXED' && (current.fundingPaymentMethod || 'CREDIT_CARD') === 'CREDIT_CARD') {
+                  const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                  return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { principal });
+                }
+                // Quando o capital muda, conserva o custo absoluto que o usuário informou.
+                if (isCardSource && current.fundingTotalPayable !== '' && current.fundingTotalPayable != null) {
+                  const oldPrincipal = parseFundingInput(current.principal);
+                  const oldCost = Math.max(0, parseFundingInput(current.fundingTotalPayable) - oldPrincipal);
+                  const newPrincipal = parseFundingInput(principal);
+                  return {
+                    ...current, principal,
+                    fundingTotalPayable: formatMoneyInput(newPrincipal + oldCost),
+                    fundingFeePercent: newPrincipal > 0 ? formatRateInput(oldCost / newPrincipal * 100) : '',
+                  };
+                }
+                return { ...current, principal };
               });
             }} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
             {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{periodicRateLabel}</label>
-            <input required type="number" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+            <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
           </div>}
         </div>
 
@@ -356,11 +364,11 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
-                <input type="number" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
-                <input type="number" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
         </div>
 
@@ -368,7 +376,19 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
             <div className="flex items-center justify-between gap-3"><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Fonte de capital</label>{MULTI_SOURCE_CREATION_ENABLED && !isEditing && <button type="button" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: [...(current.fundingAllocations || []), { sourceId: sources.find((source) => source.id !== current.sourceId)?.id || sources[0]?.id || '', amount: '' }] }))} className="flex items-center gap-1 rounded-md border border-purple-500/30 px-2 py-1.5 text-[9px] font-black uppercase text-purple-300"><Plus size={12} /> Adicionar fonte</button>}</div>
             <div className="space-y-2">
               {fundingAllocations.map((allocation: any, index: number) => <div key={`${allocation.sourceId}-${index}`} className="flex gap-2">
-                <div className="relative group min-w-0 flex-1"><select value={allocation.sourceId || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], sourceId: event.target.value }; return { ...current, sourceId: index === 0 ? event.target.value : current.sourceId, fundingAllocations: next }; })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.type === 'MISTO' ? 'Misto' : `R$ ${Number(source.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
+                <div className="relative group min-w-0 flex-1"><select value={allocation.sourceId || ''} onChange={(event) => setFormData((current: any) => {
+                  const next = [...(current.fundingAllocations || fundingAllocations)];
+                  next[index] = { ...next[index], sourceId: event.target.value };
+                  const chosen = sources.find(source => source.id === event.target.value);
+                  const cardOrigin = chosen?.type === 'CARD' || chosen?.type === 'MISTO';
+                  return {
+                    ...current,
+                    sourceId: index === 0 ? event.target.value : current.sourceId,
+                    fundingAllocations: next,
+                    ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
+                      ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
+                  };
+                })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.type === 'MISTO' ? 'Misto' : `R$ ${Number(source.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
                 {hasMultipleSources && <input type="number" min="0.01" step="0.01" value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], amount: event.target.value }; return { ...current, fundingAllocations: next }; })} placeholder="Valor" className="w-28 rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 text-xs font-bold text-white outline-none focus:border-purple-500/50" />}
                 {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
               </div>)}
@@ -399,7 +419,9 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                               fundingTotalPayable: current.principal || '',
                               fundingMonthlyRate: '0',
                               fundingOperatorAbsorbsInterest: true,
-                            } : {}),
+                            } : {
+                              fundingOperatorAbsorbsInterest: current.interestFreeInstallment === true ? true : false,
+                            }),
                           }))}
                           className={`flex min-h-10 items-center justify-center gap-2 rounded-md border px-2 text-[9px] font-black transition-colors ${selected ? 'border-blue-400/50 bg-blue-500/15 text-white' : 'border-transparent text-slate-500 hover:text-slate-200'}`}
                         >
@@ -441,10 +463,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                       })} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === mode ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
                     </div>
                     {formData.fundingCalculationMode === 'RATE'
-                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><input type="number" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div>
+                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div>
                       : formData.fundingCalculationMode === 'INSTALLMENT'
-                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div>
-                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><input type="number" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>}
+                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div>
+                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>}
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
@@ -466,41 +488,110 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
                 {isInstallmentFixed ? (
                     <div className="space-y-5">
-                        {fundingPaymentMethod === 'CREDIT_CARD' && <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
-                            {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
-                              const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
-                              const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
-                              return { ...synchronized, fundingCalculationMode: mode };
-                            })} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === mode ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
-                        </div>}
+                        {fundingPaymentMethod === 'CREDIT_CARD' && (
+                          <>
+                            <div className="grid grid-cols-3 bg-slate-900/80 p-1 rounded-lg border border-slate-800/60">
+                                {(['TOTAL', 'INSTALLMENT', 'RATE'] as FundingCalculationMode[]).map((mode) => <button key={mode} type="button" onClick={() => setFormData((current: any) => {
+                                  const currentMode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
+                                  const synchronized = synchronizeFundingValues(current, currentMode, getFundingSourceValue(current, currentMode));
+                                  return { ...synchronized, fundingCalculationMode: mode };
+                                })} className={`py-2.5 rounded-lg text-[9px] font-black uppercase tracking-wide transition-all duration-200 ${formData.fundingCalculationMode === mode ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-md shadow-rose-950/50' : 'text-slate-400 hover:text-slate-200'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
+                            </div>
+
+                            <div className="space-y-1.5 rounded-lg border border-slate-800/80 bg-slate-900/45 p-2.5">
+                              <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">Ajuste dos juros do cartão no empréstimo</p>
+                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                                <button
+                                  type="button"
+                                  aria-pressed={!formData.fundingOperatorAbsorbsInterest}
+                                  onClick={() => setFormData((current: any) => ({ ...current, fundingOperatorAbsorbsInterest: false }))}
+                                  className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-all ${!formData.fundingOperatorAbsorbsInterest ? 'border-rose-500/50 bg-rose-500/15 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:text-slate-200'}`}
+                                >
+                                  <span className="text-[9px] font-black uppercase">Repassar juros do cartão ao cliente</span>
+                                  <span className="mt-0.5 text-[8px] leading-tight text-slate-300">Sua margem (%) incide sobre a parcela já com a taxa do cartão.</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-pressed={formData.fundingOperatorAbsorbsInterest === true}
+                                  onClick={() => setFormData((current: any) => ({ ...current, fundingOperatorAbsorbsInterest: true }))}
+                                  className={`flex flex-col items-start rounded-md border px-3 py-2 text-left transition-all ${formData.fundingOperatorAbsorbsInterest === true ? 'border-purple-500/50 bg-purple-500/15 text-white' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:text-slate-200'}`}
+                                >
+                                  <span className="text-[9px] font-black uppercase">Absorver juros do cartão no lucro</span>
+                                  <span className="mt-0.5 text-[8px] leading-tight text-slate-300">Sua margem (%) incide apenas sobre o principal emprestado.</span>
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Quantidade de parcelas</label><input type="number" min="1" value={formData.fundingInstallmentsCount || ''} onChange={e => setFormData((current: any) => {
                               const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
                               return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
                             })} className={strongInputClass}/></div>
-                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><input type="number" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><input type="number" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>)}
-                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><input type="number" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
+                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>)}
+                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
+                            <div>
+                              <label className="text-[9px] text-emerald-400 font-black uppercase ml-2">Definir parcela do cliente (R$)</label>
+                              <FinancialCalculatorInput
+                                type="text"
+                                placeholder="Ex.: 150,00"
+                                value={editingCustomerInstallment ? customerInstallmentDraft : (fixedInstallmentDisplay.customerInstallment > 0 ? fixedInstallmentDisplay.customerInstallment.toFixed(2).replace('.', ',') : '')}
+                                onFocus={() => {
+                                  setEditingCustomerInstallment(true);
+                                  setCustomerInstallmentDraft(fixedInstallmentDisplay.customerInstallment > 0 ? fixedInstallmentDisplay.customerInstallment.toFixed(2).replace('.', ',') : '');
+                                }}
+                                onBlur={() => setEditingCustomerInstallment(false)}
+                                onChange={e => {
+                                  const raw = e.target.value.replace(/[^0-9.,]/g, '');
+                                  setCustomerInstallmentDraft(raw);
+                                  const targetInstallment = parseFloat(cleanNumberStr(raw));
+                                  const base = fixedInstallmentDisplay.baseForClient;
+                                  if (!Number.isFinite(targetInstallment) || targetInstallment <= 0 || base <= 0) return;
+                                  const nextMargin = Math.max(0, ((targetInstallment / base) - 1) * 100);
+                                  setFormData((current: any) => ({
+                                    ...current,
+                                    customerMarginPercent: formatRateInput(nextMargin),
+                                  }));
+                                }}
+                                className={`${strongInputClass} border-emerald-500/30 focus:border-emerald-500/60`}
+                              />
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">{fundingPaymentMethod === 'CREDIT_CARD' ? 'Parcela do cartão' : 'Débito base'}</p><p className="font-black text-white mt-1">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</p></div>
+                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">{fundingPaymentMethod === 'CREDIT_CARD' ? 'Parcela do cartão' : 'Débito base'}</p><p className="font-black text-white mt-1 tabular-nums">{formatMoney(fixedInstallmentDisplay.bankInstallment)}</p></div>
                             <div className="grid grid-cols-2 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
                               <div className="min-w-0 pr-3">
                                 <p className="text-[9px] font-black uppercase text-slate-500">Parcela cliente</p>
-                                <p className="mt-1 font-black text-emerald-400">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
+                                <p className="mt-1 font-black text-emerald-400 tabular-nums">{formatMoney(fixedInstallmentDisplay.customerInstallment)}</p>
                               </div>
                               <div className="min-w-0 border-l border-slate-800 pl-3">
                                 <p className="text-[9px] font-black uppercase text-slate-500">Total cliente</p>
-                                <p className="mt-1 font-black text-white">{formatMoney(fixedInstallmentDisplay.customerTotal)}</p>
+                                <p className="mt-1 font-black text-white tabular-nums">{formatMoney(fixedInstallmentDisplay.customerTotal)}</p>
                               </div>
                             </div>
-                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Lucro previsto</p><p className="font-black text-purple-400 mt-1">{formatMoney(fixedInstallmentDisplay.profit)}</p></div>
+                            <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-3"><p className="text-[9px] uppercase font-black text-slate-500">Lucro previsto</p><p className={`font-black mt-1 tabular-nums ${fixedInstallmentDisplay.profit < 0 ? 'text-rose-400' : 'text-purple-400'}`}>{formatMoney(fixedInstallmentDisplay.profit)}</p></div>
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total a pagar à fonte</label><input type="number" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => setFormData({...formData, fundingTotalPayable: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
-                      <div className="rounded-lg bg-slate-900/70 border border-slate-800 p-4"><p className="text-[9px] uppercase font-black text-slate-500">Custo da captação</p><p className={`mt-1 font-black ${fundingCostDisplay.isValid ? 'text-rose-400' : 'text-slate-400'}`}>{formatMoney(fundingCostDisplay.cost)}</p></div>
-                    </div>
+                    <LoanFundingCostFields
+                      principal={principalValue}
+                      totalPayable={String(formData.fundingTotalPayable ?? '')}
+                      feePercent={String(formData.fundingFeePercent ?? '')}
+                      customerRate={String(formData.interestRate ?? '')}
+                      required={!isEditing && selectedSource?.type === 'CARD'}
+                      disabled={isEditing || principalValue <= 0}
+                      onAdjustCustomerRate={(nextRate) => setFormData((current: any) => ({
+                        ...current,
+                        interestRate: nextRate,
+                      }))}
+                      onChange={(total, rate) => setFormData((current: any) => ({
+                        ...current,
+                        fundingTotalPayable: total,
+                        fundingFeePercent: rate,
+                        fundingPaymentMethod: 'CREDIT_CARD',
+                        fundingCalculationMode: 'TOTAL',
+                      }))}
+                    />
                 )}
             </div>
         )}

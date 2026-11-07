@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v12-launch-surface';
+const CACHE_NAME = 'capitalflow-v13-user-approved-updates';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/brand/capitalflow-mark-dark.svg', '/brand/capitalflow-loader.svg'];
 
 const isCacheableAsset = (href) => {
@@ -44,7 +44,7 @@ const cacheAppShell = async () => {
 };
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheAppShell().then(() => self.skipWaiting()));
+  event.waitUntil(cacheAppShell());
 });
 
 self.addEventListener('activate', (event) => {
@@ -74,6 +74,9 @@ self.addEventListener('fetch', (event) => {
   const isNavigate = request.mode === 'navigate';
   const url = new URL(request.url);
   const isSameOrigin = url.origin === self.location.origin;
+  // APK is a binary download, never an app navigation or an offline shell.
+  // Bypass the service worker so Cloudflare streams it straight to the browser.
+  if (isSameOrigin && url.pathname === '/api/android/apk') return;
   const isDevAsset =
     url.pathname.startsWith('/node_modules/') ||
     url.pathname.startsWith('/@vite') ||

@@ -1,11 +1,14 @@
 import { Loan, Installment, LoanStatus } from '../../../types';
 import { getDaysDiff, formatBRDate, parseDateOnlyUTC, todayDateOnlyUTC } from '../../../utils/dateHelpers';
 import { calculateTotalDue, getInstallmentStatusLogic } from '../../../domain/finance/calculations';
+import { getDisplayedInstallmentDebt } from '../../../domain/finance/displayedBalance';
 
 export interface InstallmentViewModel {
     originalInst: Installment;
     realIndex: number;
     debt: ReturnType<typeof calculateTotalDue>;
+    recordedBalance: boolean;
+    displayDebt: ReturnType<typeof calculateTotalDue>;
     displayDueDate: string;
     paidUntilDate: string;
     daysDiff: number;
@@ -55,9 +58,14 @@ export const prepareInstallmentViewModel = (
     const isInstPaid = inst.status === LoanStatus.PAID || totalRemaining <= 0.05;
 
     const rawDebt = calculateTotalDue(loan, inst);
+    const { debt: displayedRawDebt, recorded: recordedBalance } = getDisplayedInstallmentDebt(loan, inst);
     const debt = isSettledContract || isInstPaid
         ? { ...rawDebt, principal: 0, interest: 0, lateFee: 0, total: 0 }
         : rawDebt;
+    // Apresentação registrada não altera a prévia e as opções financeiras.
+    const displayDebt = isSettledContract || isInstPaid
+        ? { ...displayedRawDebt, principal: 0, interest: 0, lateFee: 0, total: 0 }
+        : displayedRawDebt;
 
     // Status de Atraso real: Se a data passou e não está pago nem renegociado
     const isLateInst = daysDiff > 0 && !isInstPaid && !isRenegotiated;
@@ -142,6 +150,8 @@ export const prepareInstallmentViewModel = (
 
     return {
         originalInst: inst,
+        recordedBalance,
+        displayDebt,
         realIndex,
         debt,
         displayDueDate,

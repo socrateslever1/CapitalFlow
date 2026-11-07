@@ -1,6 +1,7 @@
 import { CapitalSource } from '../../../types';
 import { LoanFormState } from './loanForm.mapper';
 import { translateBillingCycle } from '../../../utils/translationHelpers';
+import { parseCurrency } from '../../../utils/formatters';
 import { validateFundingAllocations } from '../../../domain/finance/fundingAllocations';
 
 export const validateLoanForm = (
@@ -67,6 +68,19 @@ export const validateLoanForm = (
 
   if (!formData.sourceId) {
     return { isValid: false, error: "Erro: A Carteira de Origem é obrigatória." };
+  }
+
+  const fundingSource = sources.find(source => source.id === formData.sourceId);
+  const isCreditCardSource = fundingSource?.type === 'CARD';
+  const hasFundingTotal = String(formData.fundingTotalPayable ?? '').trim() !== '';
+  if (!isEditing && isCreditCardSource && formData.billingCycle !== 'INSTALLMENT_FIXED' && !hasFundingTotal) {
+    return { isValid: false, error: 'Informe o custo do cartão. Se a operação não teve taxa, digite zero.' };
+  }
+  if (hasFundingTotal && !isEditing) {
+    const fundingTotal = parseCurrency(formData.fundingTotalPayable);
+    if (!Number.isFinite(fundingTotal) || fundingTotal < principal - 0.005) {
+      return { isValid: false, error: 'O total financiado não pode ser menor que o capital entregue ao cliente.' };
+    }
   }
 
   if (formData.fundingAllocations?.length) {

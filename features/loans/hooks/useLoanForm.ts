@@ -8,6 +8,7 @@ import { toStorageReference } from '../../../utils/storageUrl';
 import { isTestSource } from '../../../utils/testSource';
 import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
+import { formatContractSaveError } from '../domain/contractSaveError';
 import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
 import { deriveFundingValues, FundingCalculationMode } from '../../../domain/finance/installmentFunding';
@@ -34,6 +35,8 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
   const [formNotice, setFormNotice] = useState<{ type: 'error' | 'info' | 'success'; message: string } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const submissionInFlightRef = useRef(false);
+  const pendingNewLoanIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -212,6 +215,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionInFlightRef.current) return;
     setFormNotice(null);
     const requestedPrincipal = Number(String(formData.principal || '').replace(',', '.')) || 0;
     const currentPrincipal = Number(initialData?.principal || 0);
@@ -240,6 +244,7 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         }
     }
 
+    submissionInFlightRef.current = true;
     setIsSubmitting(true);
     try {
         const loanPayload = mapFormToLoan(
@@ -252,6 +257,12 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
             userProfile?.id || '',
             manualFirstDueDate
         );
+        if (!initialData) {
+            // Preserva o ID nas tentativas: evita criar outro contrato se a primeira
+            // gravação tiver sido concluída parcialmente e a resposta se perder.
+            if (pendingNewLoanIdRef.current) loanPayload.id = pendingNewLoanIdRef.current;
+            else pendingNewLoanIdRef.current = loanPayload.id;
+        }
 
         const principalIncrease = !!initialData && calculateAdditionalCapital(requestedPrincipal, currentPrincipal) > 0;
         const hasActiveAgreement = !!initialData && ['EM_ACORDO', 'IN_AGREEMENT'].includes(String(initialData.status || '').toUpperCase());
@@ -285,8 +296,9 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
         await onAdd(loanPayload);
     } catch (err: any) {
         console.error("Erro interno no formulário:", err);
-        setFormNotice({ type: 'error', message: err?.message || 'Não foi possível preparar o contrato. Confira os dados e tente novamente.' });
+        setFormNotice({ type: 'error', message: formatContractSaveError(err) });
     } finally {
+        submissionInFlightRef.current = false;
         setIsSubmitting(false);
     }
   };

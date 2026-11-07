@@ -11,6 +11,12 @@
   "orientation": "portrait-primary",
   "icons": [
     {
+      "src": "/brand/capitalflow-app-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
       "src": "/icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
@@ -35,13 +41,21 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["finance", "business"],
+  "categories": [
+    "finance",
+    "business"
+  ],
   "shortcuts": [
     {
       "name": "Novo Contrato",
       "short_name": "Novo",
       "url": "/?action=new_loan",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

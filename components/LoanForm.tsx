@@ -11,7 +11,7 @@ import { LoanFormDocumentsSection } from './forms/LoanFormDocumentsSection';
 import { LoanFormActions } from './forms/LoanFormActions';
 
 interface LoanFormProps {
-  onAdd: (loan: Loan) => void;
+  onAdd: (loan: Loan) => void | Promise<void>;
   onCancel: () => void;
   initialData?: Loan | null;
   clients: Client[];
@@ -21,6 +21,7 @@ interface LoanFormProps {
 
 export const LoanForm: React.FC<LoanFormProps> = (props) => {
   const formId = React.useId();
+  const noticeRef = React.useRef<HTMLDivElement>(null);
   const {
     formData, setFormData,
     fixedDuration, setFixedDuration,
@@ -33,6 +34,12 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
     handleFileUpload, toggleDocVisibility, removeDoc,
     handleSubmit
   } = useLoanForm(props);
+
+  React.useEffect(() => {
+    if (formNotice?.type === 'error') {
+      noticeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }, [formNotice]);
 
   return (
     <>
@@ -57,7 +64,7 @@ export const LoanForm: React.FC<LoanFormProps> = (props) => {
 
             <form id={formId} onSubmit={handleSubmit} className="space-y-10">
               {formNotice && (
-                <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${formNotice.type === 'error' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : formNotice.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-blue-500/30 bg-blue-500/10 text-blue-200'}`}>
+                <div ref={noticeRef} role={formNotice.type === 'error' ? 'alert' : 'status'} className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${formNotice.type === 'error' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : formNotice.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-blue-500/30 bg-blue-500/10 text-blue-200'}`}>
                   <div className="mt-0.5 shrink-0">
                     {formNotice.type === 'error' ? <AlertCircle size={17}/> : formNotice.type === 'success' ? <CheckCircle2 size={17}/> : <Info size={17}/>}
                   </div>

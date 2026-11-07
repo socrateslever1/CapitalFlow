@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Loan, LoanStatus } from "../../../types";
-import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from "../../../components/ui/Modal";
-import { Calculator, CheckCircle2, AlertTriangle, Hash, DollarSign, Percent, TrendingUp } from "lucide-react";
+import { Modal } from "../../../components/ui/Modal";
+import { Calculator, CheckCircle2, AlertTriangle } from "lucide-react";
 import { simulateAgreement, CalculationMode, InterestApplicationMode, InterestBaseMode } from "../logic/calculations";
+import { buildAgreementBreakdown, parseAgreementInteger, parseAgreementMoney, parseAgreementRate } from "../logic/agreementInputs";
 import { formatMoney } from "../../../utils/formatters";
 import { agreementService } from "../services/agreementService";
 import { legalService } from "../../legal/services/legalService";
@@ -81,15 +82,16 @@ const buildRenegotiationDebtSnapshot = (loans: Loan[]) => {
 export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, activeUser, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
     const [flowMode, setFlowMode] = useState<'INSTALLMENT_AGREEMENT' | 'NORMAL_UNIFICATION' | 'CAPITAL_ONLY_OPEN'>('INSTALLMENT_AGREEMENT');
-    const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_COM_JUROS');
-    const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_INSTALLMENTS');
+    const [type, setType] = useState<'PARCELADO_COM_JUROS' | 'PARCELADO_SEM_JUROS'>('PARCELADO_SEM_JUROS');
+    const [calculationMode, setCalculationMode] = useState<CalculationMode>('BY_VALUE_AND_COUNT');
 
-    const [installmentValue, setInstallmentValue] = useState<number | string>(0);
-    const [installmentsCount, setInstallmentsCount] = useState<number | string>(1);
-    const [interestRate, setInterestRate] = useState<number | string>(5);
-    const [gracePeriod, setGracePeriod] = useState<number | string>(0);
-    const [discount, setDiscount] = useState<number | string>(0);
-    const [downPayment, setDownPayment] = useState<number | string>(0);
+    const [installmentValue, setInstallmentValue] = useState('');
+    const [installmentsCount, setInstallmentsCount] = useState('');
+    const [interestRate, setInterestRate] = useState('');
+    const [gracePeriod, setGracePeriod] = useState('');
+    const [discount, setDiscount] = useState('');
+    const [downPayment, setDownPayment] = useState('');
+    const [formError, setFormError] = useState<string | null>(null);
 
     const [firstDueDate, setFirstDueDate] = useState('');
     const [totalDebt, setTotalDebt] = useState(0);
@@ -120,13 +122,14 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         try {
-            setFirstDueDate(tomorrow.toISOString().split('T')[0]);
+            setFirstDueDate(`${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`);
         } catch (e) {
             setFirstDueDate(new Date().toISOString().split('T')[0]);
         }
     }, [loans]);
 
     const handleSimulate = () => {
+        setFormError(null);
         if (flowMode !== 'INSTALLMENT_AGREEMENT') {
             setStep(2);
             return;
@@ -134,14 +137,78 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
         const baseDebtForAgreement = finalType === 'PARCELADO_SEM_JUROS' || interestBaseMode === 'CAPITAL_ONLY' ? principalDebt : totalDebt;
+        const count = parseAgreementInteger(installmentsCount, 60);
+        const amount = parseAgreementMoney(installmentValue);
+        const rate = interestRate.trim() ? parseAgreementRate(interestRate) : 0;
+        const grace = gracePeriod.trim() ? parseAgreementInteger(gracePeriod, 365) : 0;
+        const entry = downPayment.trim() ? parseAgreementMoney(downPayment) : 0;
+        const reduction = discount.trim() ? parseAgreementMoney(discount) : 0;
+        const needsCount = calculationMode !== 'BY_INSTALLMENT_VALUE';
+        const needsValue = calculationMode !== 'BY_INSTALLMENTS';
+        const rateApplicable = finalType === 'PARCELADO_COM_JUROS';
+        const validDate = /^\d{4}-\d{2}-\d{2}$/.test(firstDueDate)
+            && !Number.isNaN(Date.parse(firstDueDate + 'T00:00:00Z'))
+            && new Date(firstDueDate + 'T00:00:00Z').toISOString().slice(0, 10) === firstDueDate;
+
+        if (baseDebtForAgreement <= 0 || !Number.isFinite(baseDebtForAgreement)) {
+            setFormError('Este contrato não possui saldo disponível para a modalidade escolhida.');
+            return;
+        }
+        if (needsCount && (count === null || count < 1)) {
+            setFormError('Informe de 1 a 60 parcelas.');
+            return;
+        }
+        if (needsValue && (amount === null || amount <= 0)) {
+            setFormError('Informe um valor válido para cada parcela, por exemplo 200,00.');
+            return;
+        }
+        if (rateApplicable && (rate === null || rate <= 0)) {
+            setFormError('Informe uma taxa de juros válida, maior que zero, ou escolha Sem juros.');
+            return;
+        }
+        if (grace === null || entry === null || reduction === null) {
+            setFormError('Revise os valores da entrada, desconto ou carência. Use, por exemplo, 1.000,00.');
+            return;
+        }
+        if (entry + (calculationMode === 'BY_VALUE_AND_COUNT' ? 0 : reduction) > baseDebtForAgreement + 0.001) {
+            setFormError('A entrada e o desconto não podem superar o valor usado como base do acordo.');
+            return;
+        }
+        if (!validDate) {
+            setFormError('Informe uma data válida para o primeiro vencimento.');
+            return;
+        }
+
         const result = simulateAgreement({
-            totalDebt, type: finalType, installmentsCount: installmentsCount as number, installmentValue: installmentValue as number, calculationMode,
-            interestRate: interestRate as number, firstDueDate, frequency, gracePeriod: gracePeriod as number, discount: discount as number, downPayment: downPayment as number,
+            totalDebt,
+            type: finalType,
+            installmentsCount: count ?? 0,
+            installmentValue: amount ?? 0,
+            calculationMode,
+            interestRate: rateApplicable ? (rate ?? 0) : 0,
+            firstDueDate,
+            frequency,
+            gracePeriod: grace,
+            discount: calculationMode === 'BY_VALUE_AND_COUNT' ? 0 : reduction,
+            downPayment: entry,
             baseDebtForAgreement,
             interestApplicationMode,
-            interestBaseMode
+            interestBaseMode: finalType === 'PARCELADO_SEM_JUROS' ? 'CAPITAL_ONLY' : interestBaseMode,
         });
-        setSimulation(result);
+        if (!result.installments.length || result.installments.length > 60 || result.installments.some(item => !(item.amount > 0))) {
+            setFormError('Essas condições não produzem um parcelamento válido de até 60 parcelas. Revise o valor e a quantidade.');
+            return;
+        }
+        const proposedTotal = result.negotiatedTotal + entry;
+        if (finalType === 'PARCELADO_SEM_JUROS' && proposedTotal > principalDebt + 0.009) {
+            setFormError('O total proposto ultrapassa o principal restante. Reduza o valor ou escolha uma modalidade com juros.');
+            return;
+        }
+        if (!Number.isFinite(proposedTotal) || proposedTotal <= 0) {
+            setFormError('O acordo deve possuir um valor total maior que zero.');
+            return;
+        }
+        setSimulation({ ...result, debtSnapshot: { totalDebt, principalDebt } });
         setStep(2);
     };
 
@@ -150,6 +217,20 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
         setIsSaving(true);
         const finalType = calculationMode === 'BY_VALUE_AND_COUNT' ? 'PARCELADO_SEM_JUROS' : type;
         const currentDebtSnapshot = buildRenegotiationDebtSnapshot(loans);
+        if (flowMode === 'INSTALLMENT_AGREEMENT' && simulation?.debtSnapshot && (
+            Math.abs(currentDebtSnapshot.totalDebt - simulation.debtSnapshot.totalDebt) > 0.009 ||
+            Math.abs(currentDebtSnapshot.principalDebt - simulation.debtSnapshot.principalDebt) > 0.009
+        )) {
+            setIsSaving(false);
+            setFormError('O saldo do contrato mudou. Revise as condições e simule novamente.');
+            setStep(1);
+            return;
+        }
+        const financialBreakdown = simulation && flowMode === 'INSTALLMENT_AGREEMENT'
+            ? buildAgreementBreakdown(currentDebtSnapshot.totalDebt, currentDebtSnapshot.principalDebt, simulation.negotiatedTotal, parseAgreementMoney(downPayment) ?? 0)
+            : null;
+        const implicitPrincipalDiscount = finalType === 'PARCELADO_SEM_JUROS' && calculationMode === 'BY_VALUE_AND_COUNT'
+            ? (financialBreakdown?.reducedPrincipal ?? 0) : 0;
 
         try {
             if (flowMode === 'CAPITAL_ONLY_OPEN') {
@@ -294,35 +375,26 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                 return;
             }
 
-            const oldInstallmentIds = loans.flatMap(l => (l.installments || []).map(i => i.id));
-            if (oldInstallmentIds.length > 0) {
-                const { error: updateError } = await supabase
-                    .from('parcelas')
-                    .update({ status: LoanStatus.RENEGOCIADO })
-                    .in('id', oldInstallmentIds);
-                if (updateError) throw new Error(`Falha ao marcar parcelas antigas como renegociadas: ${updateError.message}`);
-            }
-
             const commonAgreementData = {
                 type: finalType,
                 totalDebtAtNegotiation: Number(currentDebtSnapshot.totalDebt.toFixed(2)),
                 negotiatedTotal: simulation.negotiatedTotal,
-                interestRate: finalType === 'PARCELADO_COM_JUROS' ? (Number(interestRate) || 0) : 0,
+                interestRate: finalType === 'PARCELADO_COM_JUROS' ? (parseAgreementRate(interestRate) ?? 0) : 0,
                 principal_base: Number(currentDebtSnapshot.principalDebt.toFixed(2)),
                 interest_base: Number(currentDebtSnapshot.interestDebt.toFixed(2)),
                 late_fee_base: Number(currentDebtSnapshot.lateFeeDebt.toFixed(2)),
                 installmentsCount: simulation.installments.length,
                 frequency,
                 startDate: new Date().toISOString(),
-                gracePeriod: Number(gracePeriod) || 0,
-                discount: Number(discount) || 0,
-                downPayment: Number(downPayment) || 0,
+                gracePeriod: parseAgreementInteger(gracePeriod, 365) ?? 0,
+                discount: calculationMode === 'BY_VALUE_AND_COUNT' ? implicitPrincipalDiscount : (parseAgreementMoney(discount) ?? 0),
+                downPayment: parseAgreementMoney(downPayment) ?? 0,
                 calculation_mode: calculationMode,
                 interest_application_mode: interestApplicationMode,
                 interest_base_mode: finalType === 'PARCELADO_SEM_JUROS' ? 'CAPITAL_ONLY' : interestBaseMode,
-                installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (Number(installmentValue) || 0) : (simulation.installments[0]?.amount || 0),
+                installment_value: calculationMode !== 'BY_INSTALLMENTS' ? (parseAgreementMoney(installmentValue) ?? 0) : (simulation.installments[0]?.amount || 0),
                 calculation_result: simulation.calculationResult,
-                notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(Number(downPayment) || 0)}, desconto de ${formatMoney(Number(discount) || 0)}.`
+                notes: `Acordo (${calculationMode}) com entrada de ${formatMoney(parseAgreementMoney(downPayment) ?? 0)}, desconto no principal de ${formatMoney(calculationMode === 'BY_VALUE_AND_COUNT' ? implicitPrincipalDiscount : (parseAgreementMoney(discount) ?? 0))} e encargos dispensados de ${formatMoney(finalType === 'PARCELADO_SEM_JUROS' ? (financialBreakdown?.waivedCharges ?? 0) : 0)}.`
             };
 
             {
@@ -369,6 +441,21 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
                     activeUser.id
                 );
 
+                // Somente congela parcelas ainda abertas após o novo acordo ter sido criado.
+                // Parcelas já pagas permanecem históricas e não podem ser reclassificadas.
+                const openInstallmentIds = loans.flatMap(loan =>
+                    (loan.installments || [])
+                        .filter(inst => ['PENDENTE', 'ATRASADO', 'PENDING', 'LATE'].includes(String(inst.status || '').toUpperCase()))
+                        .map(inst => safeUUID(inst.id))
+                        .filter((id): id is string => id !== null)
+                );
+                if (openInstallmentIds.length > 0) {
+                    const { error: statusError } = await supabase.from('parcelas')
+                        .update({ status: LoanStatus.RENEGOCIADO })
+                        .in('id', openInstallmentIds);
+                    if (statusError) throw new Error('Falha ao atualizar as parcelas anteriores ao acordo.');
+                }
+
                 for (const loan of loans.slice(1)) {
                     const previousStatus = String(loan.status || LoanStatus.ATIVO);
                     const legacyNote =
@@ -395,7 +482,7 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
 
         } catch (e: any) {
             console.error("Erro detalhado na renegociação:", e);
-            alert("Erro ao criar acordo/unificação: " + (e.message || "Erro desconhecido"));
+            alert("Não foi possível concluir a operação. Confira a situação atual do contrato antes de tentar novamente.");
         } finally {
             setIsSaving(false);
         }
@@ -403,12 +490,12 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
     const operationWarning = (() => {
 
         if (flowMode === 'NORMAL_UNIFICATION') {
-            return `Ao confirmar, ${mainLoanLabel} sera o contrato principal. O saldo atual vira a nova base e a cobranca normal continua.`;
+            return `Ao confirmar, ${mainLoanLabel} será o contrato principal. O saldo atual será a nova base e a cobrança normal continuará.`;
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
             return loans.length > 1
-                ? 'Ao confirmar, todos os contratos selecionados ficarao em Somente Capital: apenas principal restante, sem juros/mora.'
-                : 'Ao confirmar, este contrato ficara em Somente Capital: apenas principal restante, sem juros/mora.';
+                ? 'Ao confirmar, os contratos selecionados continuarão abertos, cobrando apenas o principal restante, sem juros ou mora.'
+                : 'Ao confirmar, este contrato continuará aberto, cobrando apenas o principal restante, sem juros ou mora.';
         }
         return loans.length > 1
             ? `Ao confirmar, ${mainLoanLabel} será o contrato principal do acordo parcelado e os demais ficarão como legado histórico.`
@@ -420,178 +507,271 @@ export const RenegotiationModal: React.FC<RenegotiationModalProps> = ({ loans, a
             if (loansWithActiveAgreement.length > 0) {
                 return 'Bloqueado: existe contrato com acordo ativo na selecao. A unificacao normal so aceita contratos sem acordo.';
             }
-            return 'Junta os contratos no contrato principal e mantem a cobranca normal de juros/mora conforme a modalidade.';
+            return 'Agrupa os contratos e mantém a cobrança normal dos juros e encargos previstos.';
         }
         if (flowMode === 'CAPITAL_ONLY_OPEN') {
-            return 'Mantem os contratos abertos, ignora juros/mora e usa somente o principal restante.';
+            return 'Mantém o contrato aberto, sem criar parcelas novas, cobrando apenas o principal restante.';
         }
-        return 'Cria acordo parcelado. Use quando quiser novo cronograma, entrada, desconto ou juros negociados.';
+        return 'Cria parcelas conforme o valor negociado.';
     })();
 
     const displayedDebtTotal = flowMode === 'CAPITAL_ONLY_OPEN' ? principalDebt : totalDebt;
-    const displayedDebtLabel = flowMode === 'CAPITAL_ONLY_OPEN' ? 'Capital a Recuperar' : 'Divida Total Calculada';
+    const displayedDebtLabel = flowMode === 'CAPITAL_ONLY_OPEN' ? 'Capital a recuperar' : 'Saldo devedor atual';
+
+    const fieldClass = 'mt-1 h-11 w-full min-w-0 rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 text-sm font-semibold text-slate-100 outline-none transition-colors duration-150 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30';
+    const labelClass = 'block text-xs font-medium text-slate-300';
+    const choiceClass = 'min-h-10 rounded-lg border px-2.5 py-2 text-xs font-semibold transition-colors duration-150 motion-reduce:transition-none';
+    const activeChoice = 'border-blue-400/60 bg-blue-500/15 text-blue-100';
+    const passiveChoice = 'border-slate-700 bg-slate-900/40 text-slate-300 hover:border-slate-500';
+    const previewValue = parseAgreementMoney(installmentValue);
+    const previewCount = parseAgreementInteger(installmentsCount, 60);
+    const previewEntry = downPayment.trim() ? parseAgreementMoney(downPayment) : 0;
+    const previewTotal = calculationMode === 'BY_VALUE_AND_COUNT' && previewValue !== null
+        && previewValue > 0 && previewCount !== null && previewCount > 0 && previewEntry !== null
+        ? Math.round((previewValue * previewCount + previewEntry) * 100) / 100 : null;
+    const draftBreakdown = previewTotal !== null
+        ? buildAgreementBreakdown(totalDebt, principalDebt, previewTotal - (previewEntry ?? 0), previewEntry ?? 0)
+        : null;
+    const simulatedBreakdown = simulation && flowMode === 'INSTALLMENT_AGREEMENT'
+        ? buildAgreementBreakdown(totalDebt, principalDebt, simulation.negotiatedTotal, parseAgreementMoney(downPayment) ?? 0)
+        : null;
 
     return (
-        <Modal onClose={onClose} title={loans.length > 1 ? `Unificar ${loans.length} Contratos` : "Acordo de Inadimplência"} size="lg" busy={isSaving} onBack={step === 2 ? () => setStep(1) : onClose}
-          footer={step === 1 ? <button type="button" disabled={flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked} onClick={handleSimulate} className={modalPrimaryActionClass}><Calculator size={16} /> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Simular Acordo' : 'Continuar'}</button> : <>
-            <button type="button" onClick={handleConfirm} disabled={isSaving} className={modalPrimaryActionClass}>{isSaving ? 'Processando...' : <><CheckCircle2 size={16} /> Confirmar</>}</button>
-            <button type="button" onClick={() => setStep(1)} disabled={isSaving} className={modalSecondaryActionClass}>Revisar condições</button>
-          </>}>
-            <div className="space-y-6">
+        <Modal
+            onClose={onClose}
+            title={loans.length > 1 ? `Unificar ${loans.length} contratos` : 'Renegociar dívida'}
+            size="lg"
+            busy={isSaving}
+            onBack={step === 2 ? () => setStep(1) : onClose}
+            footerMode="custom"
+            footer={
+                <div className="flex w-full items-center gap-2">
+                    {step === 1 ? (
+                        <button type="button" disabled={isSaving || (flowMode === 'NORMAL_UNIFICATION' && normalUnificationBlocked)} onClick={handleSimulate}
+                            className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-blue-500 disabled:opacity-50">
+                            <Calculator size={16} aria-hidden="true" /> {flowMode === 'INSTALLMENT_AGREEMENT' ? 'Revisar acordo' : 'Continuar'}
+                        </button>
+                    ) : (
+                        <>
+                            <button type="button" onClick={() => setStep(1)} disabled={isSaving}
+                                className="min-h-11 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200">Editar</button>
+                            <button type="button" onClick={handleConfirm} disabled={isSaving}
+                                className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors duration-150 hover:bg-blue-500 disabled:opacity-50">
+                                <CheckCircle2 size={16} aria-hidden="true" /> {isSaving ? 'Salvando...' : 'Confirmar acordo'}
+                            </button>
+                        </>
+                    )}
+                    <button type="button" onClick={onClose} disabled={isSaving}
+                        className="min-h-11 rounded-lg px-2.5 text-xs font-medium text-slate-400 hover:text-slate-100 disabled:opacity-50">Fechar</button>
+                </div>
+            }
+        >
+            <div className="space-y-4 pb-2">
                 {step === 1 && (
-                    <div className="space-y-4 animate-in slide-in-from-right">
-                         <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 text-center">
-                            <p className="text-[10px] uppercase font-black text-slate-500">{displayedDebtLabel}</p>
-                            <p className="text-3xl font-black text-rose-500">{formatMoney(displayedDebtTotal)}</p>
-                            {loans.length > 1 && <p className="text-[10px] text-slate-400 mt-2">Somando {loans.length} contratos selecionados</p>}
-                            {loans.length > 1 && <p className="text-[10px] text-blue-300 mt-2">Contrato principal: <b>{mainLoanLabel}</b></p>}
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
-                                <p className="text-[8px] font-black uppercase text-slate-500">Principal</p>
-                                <p className="text-[11px] font-black text-white">{formatMoney(principalDebt)}</p>
+                    <>
+                        <section aria-label="Saldo atual" className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-3.5">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <span className="text-xs font-medium text-slate-400">{displayedDebtLabel}</span>
+                                <strong className="text-xl font-semibold tabular-nums text-slate-100">{formatMoney(displayedDebtTotal)}</strong>
                             </div>
-                            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
-                                <p className="text-[8px] font-black uppercase text-slate-500">Juros</p>
-                                <p className="text-[11px] font-black text-blue-400">{formatMoney(interestDebt)}</p>
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-800 pt-2 text-xs text-slate-400">
+                                <span>Principal: <b className="text-slate-200">{formatMoney(principalDebt)}</b></span>
+                                <span>Juros e encargos: <b className="text-slate-200">{formatMoney(interestDebt + lateFeeDebt)}</b></span>
                             </div>
-                            <div className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-center">
-                                <p className="text-[8px] font-black uppercase text-slate-500">Mora/Multa</p>
-                                <p className="text-[11px] font-black text-rose-400">{formatMoney(lateFeeDebt)}</p>
-                            </div>
-                        </div>
+                            {loans.length > 1 && <p className="mt-2 text-xs text-slate-400">{loans.length} contratos · Principal: {mainLoanLabel}</p>}
+                        </section>
 
                         {loansWithActiveAgreement.length > 0 && (
-                            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                <p className="text-[9px] font-black uppercase text-amber-300">Acordo ativo detectado</p>
-                                <p className="mt-1 text-[10px] font-bold text-amber-100">
-                                    {loansWithActiveAgreement.length} contrato(s) selecionado(s) tem acordo ativo. Unificacao normal bloqueada para nao misturar acordo com saldo original.
-                                </p>
-                            </div>
+                            <p role="alert" className="rounded-lg border border-amber-600/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                                Há acordo ativo em {loansWithActiveAgreement.length} contrato(s). A unificação normal fica indisponível.
+                            </p>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <button onClick={() => setFlowMode('INSTALLMENT_AGREEMENT')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'INSTALLMENT_AGREEMENT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Parcelar</p></button>
-                            {loans.length > 1 && <button disabled={normalUnificationBlocked} onClick={() => !normalUnificationBlocked && setFlowMode('NORMAL_UNIFICATION')} className={`p-3 rounded-lg border text-center transition-all disabled:cursor-not-allowed disabled:opacity-40 ${flowMode === 'NORMAL_UNIFICATION' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Unificar Normal</p></button>}
-                            <button onClick={() => setFlowMode('CAPITAL_ONLY_OPEN')} className={`p-3 rounded-lg border text-center transition-all ${flowMode === 'CAPITAL_ONLY_OPEN' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="text-[9px] font-bold uppercase">Somente Capital</p></button>
-                        </div>
-
-                        <p className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] font-bold text-slate-400">
-                            {flowHelp}
-                        </p>
-
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-2">
-                            <button onClick={() => setCalculationMode('BY_INSTALLMENTS')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_INSTALLMENTS' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Hash size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Parcelas</p></button>
-                            <button onClick={() => setCalculationMode('BY_INSTALLMENT_VALUE')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_INSTALLMENT_VALUE' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><DollarSign size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Por Valor</p></button>
-                            <button onClick={() => setCalculationMode('BY_VALUE_AND_COUNT')} className={`p-3 rounded-lg border text-center transition-all ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><Percent size={16} className="mx-auto mb-1"/><p className="text-[9px] font-bold uppercase">Valor + Qtd</p></button>
-                        </div>}
-
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && calculationMode !== 'BY_VALUE_AND_COUNT' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <button onClick={() => setType('PARCELADO_COM_JUROS')} className={`p-4 rounded-lg border transition-all ${type === 'PARCELADO_COM_JUROS' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Parcelado c/ Juros</p><p className="text-[9px] opacity-70">Recalcula dívida com nova taxa</p></button>
-                                <button onClick={() => setType('PARCELADO_SEM_JUROS')} className={`p-4 rounded-lg border transition-all ${type === 'PARCELADO_SEM_JUROS' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}><p className="font-bold text-xs uppercase mb-1">Sem Juros</p><p className="text-[9px] opacity-70">Renegocia somente o capital</p></button>
+                        <section className="space-y-2" aria-label="Tipo de negociação">
+                            <p className="text-xs font-semibold text-slate-200">O que deseja fazer?</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button type="button" aria-pressed={flowMode === 'INSTALLMENT_AGREEMENT'} onClick={() => { setFlowMode('INSTALLMENT_AGREEMENT'); setFormError(null); }}
+                                    className={choiceClass + ' ' + (flowMode === 'INSTALLMENT_AGREEMENT' ? activeChoice : passiveChoice)}>Criar parcelas</button>
+                                <button type="button" aria-pressed={flowMode === 'CAPITAL_ONLY_OPEN'} onClick={() => { setFlowMode('CAPITAL_ONLY_OPEN'); setFormError(null); }}
+                                    className={choiceClass + ' ' + (flowMode === 'CAPITAL_ONLY_OPEN' ? activeChoice : passiveChoice)}>Só capital, sem parcelas</button>
                             </div>
+                            {loans.length > 1 && (
+                                <button type="button" disabled={normalUnificationBlocked} aria-pressed={flowMode === 'NORMAL_UNIFICATION'}
+                                    onClick={() => { setFlowMode('NORMAL_UNIFICATION'); setFormError(null); }}
+                                    className={choiceClass + ' w-full disabled:cursor-not-allowed disabled:opacity-40 ' + (flowMode === 'NORMAL_UNIFICATION' ? activeChoice : passiveChoice)}>
+                                    Unificar contratos sem novo parcelamento
+                                </button>
+                            )}
+                            {flowMode !== 'INSTALLMENT_AGREEMENT' && <p className="text-xs leading-relaxed text-slate-400">{flowHelp}</p>}
+                        </section>
+
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && (
+                            <>
+                                <section className="space-y-2" aria-label="Condições do parcelamento">
+                                    <p className="text-xs font-semibold text-slate-200">Como definir as parcelas?</p>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <button type="button" aria-pressed={calculationMode === 'BY_VALUE_AND_COUNT'}
+                                            onClick={() => { setCalculationMode('BY_VALUE_AND_COUNT'); setType('PARCELADO_SEM_JUROS'); setFormError(null); }}
+                                            className={choiceClass + ' ' + (calculationMode === 'BY_VALUE_AND_COUNT' ? activeChoice : passiveChoice)}>Valor + quantidade</button>
+                                        <button type="button" aria-pressed={calculationMode === 'BY_INSTALLMENTS'}
+                                            onClick={() => { setCalculationMode('BY_INSTALLMENTS'); setFormError(null); }}
+                                            className={choiceClass + ' ' + (calculationMode === 'BY_INSTALLMENTS' ? activeChoice : passiveChoice)}>Só quantidade</button>
+                                        <button type="button" aria-pressed={calculationMode === 'BY_INSTALLMENT_VALUE'}
+                                            onClick={() => { setCalculationMode('BY_INSTALLMENT_VALUE'); setFormError(null); }}
+                                            className={choiceClass + ' ' + (calculationMode === 'BY_INSTALLMENT_VALUE' ? activeChoice : passiveChoice)}>Só valor</button>
+                                    </div>
+                                    <p className="text-xs leading-relaxed text-slate-400">
+                                        {calculationMode === 'BY_VALUE_AND_COUNT'
+                                            ? 'Defina o valor e o número de parcelas. A soma será o novo valor negociado, dispensando juros e encargos anteriores.'
+                                            : calculationMode === 'BY_INSTALLMENTS'
+                                            ? 'Informe quantas parcelas deseja. O sistema calcula o valor de cada uma.'
+                                            : 'Informe quanto deseja receber por parcela. O sistema calcula a quantidade necessária.'}
+                                    </p>
+                                </section>
+
+                                {calculationMode !== 'BY_VALUE_AND_COUNT' && (
+                                    <div className="grid grid-cols-2 gap-2" aria-label="Cobrança de juros">
+                                        <button type="button" aria-pressed={type === 'PARCELADO_SEM_JUROS'} onClick={() => { setType('PARCELADO_SEM_JUROS'); setFormError(null); }}
+                                            className={choiceClass + ' ' + (type === 'PARCELADO_SEM_JUROS' ? activeChoice : passiveChoice)}>Parcelar só o capital</button>
+                                        <button type="button" aria-pressed={type === 'PARCELADO_COM_JUROS'} onClick={() => { setType('PARCELADO_COM_JUROS'); setFormError(null); }}
+                                            className={choiceClass + ' ' + (type === 'PARCELADO_COM_JUROS' ? activeChoice : passiveChoice)}>Adicionar juros</button>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    {calculationMode !== 'BY_INSTALLMENTS' && (
+                                        <label className={labelClass}>Valor de cada parcela (R$)
+                                            <input type="text" inputMode="decimal" autoComplete="off" placeholder="Ex.: 200,00" value={installmentValue}
+                                                onChange={event => { setInstallmentValue(event.target.value); setFormError(null); }}
+                                                className={fieldClass} />
+                                        </label>
+                                    )}
+                                    {calculationMode !== 'BY_INSTALLMENT_VALUE' && (
+                                        <label className={labelClass}>Quantidade de parcelas
+                                            <input type="text" inputMode="numeric" autoComplete="off" placeholder="Ex.: 5" value={installmentsCount}
+                                                onChange={event => { setInstallmentsCount(event.target.value); setFormError(null); }}
+                                                className={fieldClass} />
+                                        </label>
+                                    )}
+                                    <label className={labelClass}>Periodicidade
+                                        <select value={frequency} onChange={event => setFrequency(event.target.value as typeof frequency)} className={fieldClass}>
+                                            <option value="MONTHLY">Mensal</option>
+                                            <option value="BIWEEKLY">Quinzenal</option>
+                                            <option value="WEEKLY">Semanal</option>
+                                        </select>
+                                    </label>
+                                    <label className={labelClass}>Primeiro vencimento
+                                        <input type="date" value={firstDueDate} onChange={event => { setFirstDueDate(event.target.value); setFormError(null); }}
+                                            className={fieldClass} />
+                                    </label>
+                                </div>
+
+                                {calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && (
+                                    <section className="space-y-3 rounded-lg border border-slate-700/60 p-3" aria-label="Juros negociados">
+                                        <label className={labelClass}>Taxa de juros (%)
+                                            <input type="text" inputMode="decimal" placeholder="Ex.: 2,5" value={interestRate}
+                                                onChange={event => { setInterestRate(event.target.value); setFormError(null); }} className={fieldClass} />
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <label className={labelClass}>Aplicação dos juros
+                                                <select value={interestApplicationMode} onChange={event => setInterestApplicationMode(event.target.value as InterestApplicationMode)} className={fieldClass}>
+                                                    <option value="TOTAL_ONCE">Uma vez</option><option value="MONTHLY_SIMPLE">Mensal, simples</option>
+                                                </select>
+                                            </label>
+                                            <label className={labelClass}>Base de cálculo
+                                                <select value={interestBaseMode} onChange={event => setInterestBaseMode(event.target.value as InterestBaseMode)} className={fieldClass}>
+                                                    <option value="TOTAL_DEBT">Dívida atual</option><option value="CAPITAL_ONLY">Só capital</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                    </section>
+                                )}
+
+                                <details className="group rounded-lg border border-slate-700/60 px-3 py-2.5">
+                                    <summary className="cursor-pointer select-none text-xs font-semibold text-slate-300">
+                                        Outras condições: entrada, {calculationMode === 'BY_VALUE_AND_COUNT' ? '' : 'desconto, '}carência
+                                    </summary>
+                                    <div className="mt-3 grid grid-cols-2 gap-3">
+                                        <label className={labelClass}>Entrada (R$)
+                                            <input type="text" inputMode="decimal" placeholder="Opcional" value={downPayment}
+                                                onChange={event => { setDownPayment(event.target.value); setFormError(null); }} className={fieldClass} />
+                                        </label>
+                                        {calculationMode !== 'BY_VALUE_AND_COUNT' && (
+                                            <label className={labelClass}>Desconto (R$)
+                                                <input type="text" inputMode="decimal" placeholder="Opcional" value={discount}
+                                                    onChange={event => { setDiscount(event.target.value); setFormError(null); }} className={fieldClass} />
+                                            </label>
+                                        )}
+                                        <label className={labelClass}>Carência (dias)
+                                            <input type="text" inputMode="numeric" placeholder="Opcional" value={gracePeriod}
+                                                onChange={event => { setGracePeriod(event.target.value); setFormError(null); }} className={fieldClass} />
+                                        </label>
+                                    </div>
+                                </details>
+
+                                {previewTotal !== null && calculationMode === 'BY_VALUE_AND_COUNT' && draftBreakdown && (
+                                    <section aria-live="polite" className="rounded-xl border border-blue-500/25 bg-blue-500/10 p-3">
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <span className="text-xs text-slate-300">Total proposto para receber</span>
+                                            <strong className="text-lg font-semibold tabular-nums text-white">{formatMoney(previewTotal)}</strong>
+                                        </div>
+                                        <p className="mt-1 text-xs text-slate-300">{previewCount} parcelas de {formatMoney(previewValue ?? 0)}{(previewEntry ?? 0) > 0 ? ' + entrada de ' + formatMoney(previewEntry ?? 0) : ''}</p>
+                                        {draftBreakdown.exceedsPrincipal
+                                            ? <p className="mt-2 text-xs text-amber-200">O total supera o principal. Esta proposta não é compatível com cobrança somente do capital.</p>
+                                            : <p className="mt-2 text-xs text-slate-300">Encargos dispensados: {formatMoney(draftBreakdown.waivedCharges)}{draftBreakdown.reducedPrincipal > 0 ? ' · Abatimento adicional do principal: ' + formatMoney(draftBreakdown.reducedPrincipal) : ''}</p>}
+                                    </section>
+                                )}
+                            </>
                         )}
-
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-2 gap-4">
-                            {calculationMode === 'BY_INSTALLMENTS' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
-                            {calculationMode === 'BY_INSTALLMENT_VALUE' && <div><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
-                            {calculationMode === 'BY_VALUE_AND_COUNT' && <><div key="val"><label className="text-[10px] uppercase font-bold text-slate-500">Valor da Parcela (R$)</label><input type="number" step="0.01" value={installmentValue} onChange={e => setInstallmentValue(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div><div key="qtd"><label className="text-[10px] uppercase font-bold text-slate-500">Nº Parcelas</label><input type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div></>}
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Periodicidade</label><select value={frequency} onChange={e => setFrequency(e.target.value as any)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none"><option value="MONTHLY">Mensal</option><option value="BIWEEKLY">Quinzenal</option><option value="WEEKLY">Semanal</option></select></div>
-                        </div>}
-
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && calculationMode !== 'BY_VALUE_AND_COUNT' && type === 'PARCELADO_COM_JUROS' && <div className="space-y-3">
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Taxa de Juros (%)</label><input type="number" step="0.1" value={interestRate} onChange={e => setInterestRate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Aplicar Juros</label><select value={interestApplicationMode} onChange={e => setInterestApplicationMode(e.target.value as InterestApplicationMode)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none"><option value="TOTAL_ONCE">Total do acordo</option><option value="MONTHLY_SIMPLE">Ao mês pelo prazo</option></select></div>
-                                <div><label className="text-[10px] uppercase font-bold text-slate-500">Base do Cálculo</label><select value={interestBaseMode} onChange={e => setInterestBaseMode(e.target.value as InterestBaseMode)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none"><option value="TOTAL_DEBT">Dívida atual</option><option value="CAPITAL_ONLY">Somente capital</option></select></div>
-                            </div>
-                        </div>}
-
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div className="grid grid-cols-3 gap-4">
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Desconto (R$)</label><input type="number" value={discount} onChange={e => setDiscount(e.target.value)} disabled={calculationMode === 'BY_VALUE_AND_COUNT'} className={`w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none ${calculationMode === 'BY_VALUE_AND_COUNT' ? 'opacity-50' : ''}`} /></div>
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Entrada (R$)</label><input type="number" value={downPayment} onChange={e => setDownPayment(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>
-                            <div><label className="text-[10px] uppercase font-bold text-slate-500">Carência (Dias)</label><input type="number" value={gracePeriod} onChange={e => setGracePeriod(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>
-                        </div>}
-
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && <div><label className="text-[10px] uppercase font-bold text-slate-500">1º Vencimento</label><input type="date" value={firstDueDate || ''} onChange={e => setFirstDueDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-white font-bold outline-none" /></div>}
-
-
-                    </div>
+                        {formError && <p role="alert" className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs leading-relaxed text-rose-200">{formError}</p>}
+                    </>
                 )}
 
                 {step === 2 && (simulation || flowMode !== 'INSTALLMENT_AGREEMENT') && (
-                    <div className="space-y-4 animate-in slide-in-from-right">
-                        {flowMode !== 'INSTALLMENT_AGREEMENT' && (
-                            <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                                <p className="text-[10px] uppercase font-bold text-slate-500">Operação Selecionada</p>
-                                <p className="text-xl font-black text-white mt-1">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificação normal sem parcelamento' : 'Somente Capital em aberto'}</p>
-                                <p className="text-[10px] text-slate-400 mt-2">{flowMode === 'NORMAL_UNIFICATION' ? 'Os contratos serao consolidados no principal. O saldo atual vira a nova base e a cobranca normal continua.' : 'A cobranca passa a considerar apenas o principal restante, sem juros/mora.'}</p>
-                            </div>
-                        )}
-                        {flowMode === 'INSTALLMENT_AGREEMENT' && (
-                        <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                            <div className="flex justify-between items-end mb-4">
-                                <div>
-                                    <p className="text-[10px] uppercase font-bold text-slate-500">Novo Total</p>
-                                    <p className="text-2xl font-black text-white">{formatMoney(simulation.negotiatedTotal)}</p>
-
-                                    {/* Exibição de Ganhos/Perdas */}
-                                    {simulation.calculationResult && (
-                                        <div className={`mt-2 p-2 rounded-lg border flex items-center gap-2 animate-in fade-in slide-in-from-left duration-300 ${
-                                            simulation.calculationResult === 'DISCOUNT'
-                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                                                : simulation.calculationResult === 'INCREASE'
-                                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                                                : 'bg-slate-800 border-slate-700 text-slate-400'
-                                        }`}>
-                                            {simulation.calculationResult === 'DISCOUNT' ? (
-                                                <>
-                                                    <CheckCircle2 size={12} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">
-                                                        Economia de {formatMoney(simulation.diffAmount)}
-                                                    </span>
-                                                </>
-                                            ) : simulation.calculationResult === 'INCREASE' ? (
-                                                <>
-                                                    <TrendingUp size={12} />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider">
-                                                        Acréscimo de {formatMoney(simulation.diffAmount)}
-                                                    </span>
-                                                </>
-                                            ) : (
-                                                <span className="text-[10px] font-black uppercase tracking-wider">
-                                                    Valor mantido
-                                                </span>
-                                            )}
-                                        </div>
+                    <div className="space-y-3">
+                        {flowMode === 'INSTALLMENT_AGREEMENT' && simulation ? (
+                            <>
+                                <div className="rounded-xl border border-slate-700/60 bg-slate-950/50 p-4">
+                                    <p className="text-xs text-slate-400">Novo valor negociado</p>
+                                    <strong className="mt-1 block text-2xl font-semibold tabular-nums text-white">
+                                        {formatMoney(simulatedBreakdown?.agreedTotal ?? simulation.negotiatedTotal)}
+                                    </strong>
+                                    <p className="mt-1 text-xs text-slate-300">
+                                        {simulation.installments.length} parcela(s) · {frequency === 'MONTHLY' ? 'Mensal' : frequency === 'WEEKLY' ? 'Semanal' : 'Quinzenal'}
+                                    </p>
+                                    {type === 'PARCELADO_SEM_JUROS' || calculationMode === 'BY_VALUE_AND_COUNT' ? (
+                                        <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                                            Juros e encargos dispensados: {formatMoney(simulatedBreakdown?.waivedCharges ?? 0)}.
+                                            {(simulatedBreakdown?.reducedPrincipal ?? 0) > 0 && ' Abatimento adicional do principal: ' + formatMoney(simulatedBreakdown.reducedPrincipal) + '.'}
+                                        </p>
+                                    ) : (
+                                        <p className="mt-2 text-xs text-slate-300">
+                                            Diferença em relação à dívida atual: {formatMoney(Math.abs(totalDebt - (simulatedBreakdown?.agreedTotal ?? 0)))}
+                                            {totalDebt >= (simulatedBreakdown?.agreedTotal ?? 0) ? ' a menos' : ' a mais'}.
+                                        </p>
                                     )}
+                                    <p className="mt-1 text-xs text-slate-400">Acordo sujeito à confirmação. Nenhuma parcela foi alterada nesta simulação.</p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] uppercase font-bold text-slate-500">Parcelas</p>
-                                    <p className="text-xl font-bold text-blue-400">{simulation.installments.length}x {formatMoney(simulation.installments[0]?.amount || 0)}</p>
+                                <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-slate-700/60 p-2">
+                                    {simulation.installments.map((installment: { number: number; dueDate: string; amount: number }) => (
+                                        <div key={installment.number} className="flex items-center justify-between gap-2 rounded-md bg-slate-950/40 px-2.5 py-2 text-xs">
+                                            <span className="text-slate-400">{installment.number}ª parcela · {new Date(installment.dueDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</span>
+                                            <strong className="tabular-nums text-slate-100">{formatMoney(installment.amount)}</strong>
+                                        </div>
+                                    ))}
                                 </div>
+                            </>
+                        ) : (
+                            <div className="rounded-xl border border-slate-700/60 p-4">
+                                <p className="text-sm font-semibold text-slate-100">{flowMode === 'NORMAL_UNIFICATION' ? 'Unificar sem parcelamento' : 'Recuperar somente capital sem criar parcelas'}</p>
+                                <p className="mt-2 text-xs leading-relaxed text-slate-300">{flowHelp}</p>
                             </div>
-
-                            <div className="space-y-2">
-                                {simulation.installments.map((inst: any) => (
-                                    <div key={inst.number} className="flex justify-between items-center bg-slate-900 p-2 rounded-lg text-xs">
-                                        <span className="text-slate-400 font-bold">{inst.number}ª</span>
-                                        <span className="text-slate-500">{new Date(inst.dueDate).toLocaleDateString()}</span>
-                                        <span className="text-white font-bold">{formatMoney(inst.amount)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
                         )}
-
-                        <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg flex items-start gap-3">
-                            <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-1"/>
-                            <p className="text-[10px] text-amber-200 leading-relaxed"><b>Atenção:</b> {operationWarning}</p>
+                        <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5">
+                            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-300" aria-hidden="true" />
+                            <p className="text-xs leading-relaxed text-amber-100">{operationWarning}</p>
                         </div>
-
-
+                        {formError && <p role="alert" className="text-xs text-rose-300">{formError}</p>}
                     </div>
                 )}
             </div>

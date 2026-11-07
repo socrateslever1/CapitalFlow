@@ -31,3 +31,4 @@ dist-ssr
 
 # Cópias locais: não versionar bases, credenciais e exports de produção.
 /backups/
+/capitalflow/CapitalFlow/

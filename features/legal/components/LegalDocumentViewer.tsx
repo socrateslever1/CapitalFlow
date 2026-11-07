@@ -7,6 +7,7 @@ import { LegalDocumentRecord } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
 import { sanitizeRichHtml } from '../../../utils/sanitizeHtml';
+import { buildPublicAppUrl } from '../../../utils/publicAppUrl';
 
 interface LegalDocumentViewerProps {
   documentId: string;
@@ -215,7 +216,7 @@ export const LegalDocumentViewer: React.FC<LegalDocumentViewerProps> = ({
               <div className="flex items-center gap-4 p-3 bg-white/5 rounded-lg border border-white/5">
                 <div className="bg-white p-1 rounded">
                   <QRCodeSVG
-                    value={`${window.location.origin}/verify/${documentId}`}
+                    value={buildPublicAppUrl(`/verify/${encodeURIComponent(documentId)}`, {})}
                     size={64}
                     level="H"
                   />

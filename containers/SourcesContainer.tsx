@@ -57,7 +57,9 @@ export const SourcesContainer: React.FC<SourcesContainerProps> = ({
       <PixDepositModal
         isOpen={!!pixSourceId}
         onClose={closePixDeposit}
+        source={sources.find(item => item.id === pixSourceId) || null}
         sourceId={pixSourceId}
+        activeUser={activeUser}
         onSuccess={onRefresh}
       />
     </>

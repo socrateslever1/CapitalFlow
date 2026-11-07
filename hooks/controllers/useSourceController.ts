@@ -192,13 +192,21 @@ export const useSourceController = (
         ui.setEditingSource(null);
         return;
       }
-      const { error } = await supabase.from('fontes').update({
+      // A atualização precisa confirmar a linha alterada: RLS pode afetar zero linhas sem erro.
+      const { data: updated, error } = await supabase.from('fontes').update({
         balance: newBalance,
         logo_url: logoUrl
-      }).eq('id', ui.editingSource.id);
+      }).eq('id', ui.editingSource.id)
+        .eq('profile_id', ownerId)
+        .select('id,balance')
+        .maybeSingle();
       if (error) throw error;
+      if (!updated || updated.id !== ui.editingSource.id ||
+          Math.abs(Number(updated.balance) - newBalance) > 0.005) {
+        throw new Error('O banco não confirmou o novo saldo. Nenhuma correção foi considerada concluída.');
+      }
 
-      showToast('Inventário da fonte atualizado!', 'success');
+      showToast('Saldo real da fonte confirmado!', 'success');
 
       ui.setEditingSource(null);
       await fetchFullData(ownerId); // ✅ recarrega pelo DONO

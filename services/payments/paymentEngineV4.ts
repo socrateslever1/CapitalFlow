@@ -33,6 +33,7 @@ export type FinancialOperationInput = {
   caixaLivreId?: string | null;
   reason?: string | null;
   expectedPreview?: FinancialOperationResult | null;
+  receiptDestinationAccountId?: string | null;
 };
 
 export type FinancialOperationResult = {
@@ -201,11 +202,23 @@ export async function executeFinancialOperation(
   }
 
   const signature = requestSignature(input);
+  const loanId = safeUUID(input.loanId);
+  if (!loanId) throw new Error('Contrato inválido.');
   const existing = requestInFlight.get(signature);
   if (existing) return existing;
 
   const { idempotencyKey, storageKey } = getStableFinancialRequestKey(signature);
   const request = (async () => {
+    if (input.receiptDestinationAccountId) {
+      const { error: destinationError } = await supabase.rpc('personal_wallet_set_receipt_destination', {
+        p_idempotency_key: idempotencyKey,
+        p_loan_id: loanId,
+        p_account_id: safeUUID(input.receiptDestinationAccountId),
+      });
+      if (destinationError) {
+        throw new Error('Não foi possível confirmar a conta de destino da Carteira: ' + destinationError.message);
+      }
+    }
     const { data, error } = await supabase.rpc(isRecurringReceiptOperation(input.operationType) ? 'process_recurring_receipt_v4' : 'process_financial_operation_v4', {
       p_idempotency_key: idempotencyKey,
       ...(isRecurringReceiptOperation(input.operationType) ? recurringReceiptArgs(input) : rpcArgs(input)),

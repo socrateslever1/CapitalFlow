@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Loader2, Save, X } from 'lucide-react';
 import type { PersonalWalletExpense, UpdatePersonalWalletExpense } from '../../services/personalWallet.service';
+import { generateUUID } from '../../utils/generators';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 type ExpenseEditModalProps = {
   expense: PersonalWalletExpense;
   compact?: boolean;
   onClose: () => void;
-  onSave: (input: UpdatePersonalWalletExpense) => Promise<void>;
+  onSave: (input: UpdatePersonalWalletExpense, requestId: string) => Promise<void>;
 };
 
 export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, compact = false, onClose, onSave }) => {
+  const requestId = useRef(generateUUID());
   const [description, setDescription] = useState(expense.description);
   const [amount, setAmount] = useState(String(Number(expense.amount).toFixed(2)).replace('.', ','));
   const [category, setCategory] = useState(expense.category || 'Outros');
@@ -27,9 +31,11 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const parsedAmount = Number(amount.replace(/\s/g, '').replace(/\./g, '').replace(',', '.'));
     if (!description.trim()) return setError('Informe a descrição do lançamento.');
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return setError('Informe um valor válido.');
+    let parsedAmount: number;
+    try { parsedAmount = parseWalletMoney(amount, 'valor do lançamento'); }
+    catch (reason) { return setError(reason instanceof Error ? reason.message : 'Valor inválido.'); }
+    if (parsedAmount <= 0) return setError('Informe um valor maior que zero.');
     setSaving(true);
     setError('');
     try {
@@ -41,7 +47,7 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
         expenseDate,
         dueDate: dueDate || null,
         notes: notes.trim() || null,
-      });
+      }, requestId.current);
       onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o lançamento.');
@@ -71,7 +77,7 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs font-bold text-slate-300">Valor
-              <input inputMode="decimal" required value={amount} onChange={(e) => setAmount(e.target.value)} className={`${fieldClass} mt-1.5`} />
+              <FinancialCalculatorInput required value={amount} onCommit={setAmount} fieldLabel="valor do lançamento" className={`${fieldClass} mt-1.5`} />
             </label>
             <label className="block text-xs font-bold text-slate-300">Categoria
               <input maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} className={`${fieldClass} mt-1.5`} />
@@ -81,13 +87,15 @@ export const ExpenseEditModal: React.FC<ExpenseEditModalProps> = ({ expense, com
             <label className="block text-xs font-bold text-slate-300">Data da compra
               <span className="relative mt-1.5 block"><CalendarDays className="pointer-events-none absolute left-3 top-3 text-slate-500" size={15} /><input type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} className={`${fieldClass} pl-9`} /></span>
             </label>
-            {!compact && <label className="block text-xs font-bold text-slate-300">Primeiro vencimento
+            {compact ? <label className="block text-xs font-bold text-slate-300">Mês da fatura
+              <input type="month" required value={dueDate.slice(0, 7)} onChange={(e) => setDueDate(e.target.value ? e.target.value + '-01' : '')} className={`${fieldClass} mt-1.5`} />
+            </label> : <label className="block text-xs font-bold text-slate-300">Primeiro vencimento
               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={`${fieldClass} mt-1.5`} />
             </label>}
           </div>
-          {!compact && <label className="block text-xs font-bold text-slate-300">Observações
+          <label className="block text-xs font-bold text-slate-300">Observações
             <textarea maxLength={2000} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={`${fieldClass} mt-1.5 resize-none`} />
-          </label>}
+          </label>
         </div>
 
         {error && <p role="alert" className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</p>}

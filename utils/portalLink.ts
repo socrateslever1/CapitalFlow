@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { generateUUID } from './generators';
+import { buildPublicAppUrl } from './publicAppUrl';
 
 /**
  * Gera (ou reutiliza) link único do portal para um contrato
@@ -46,5 +47,5 @@ export async function getOrCreatePortalLink(loanId: string): Promise<string> {
   }
 
   // 3) monta URL final OBRIGATÓRIA com code
-  return `${window.location.origin}/?portal=${token}&portal_code=${shortcode}`;
+  return buildPublicAppUrl('/', { portal: token, portal_code: shortcode });
 }

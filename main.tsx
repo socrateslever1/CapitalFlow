@@ -1,9 +1,39 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useNavigate } from 'react-router-dom';
 import { App } from './App';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
+import { Capacitor } from '@capacitor/core';
+import { hasIncomingWalletFile } from './features/wallet/walletFileInboxBridge';
+
+/** Opening a Gmail attachment starts the relevant wallet route, including cold launch. */
+const NativeWalletImportRouter: React.FC = () => {
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+    let active = true;
+    const check = async () => {
+      try {
+        if (active && await hasIncomingWalletFile()) {
+          navigate('/carteira/cartoes', { replace: false });
+        }
+      } catch { /* The inbox displays its own read error after wallet opens. */ }
+    };
+    void check();
+    window.addEventListener('capitalflow:file-arrived', check);
+    window.addEventListener('focus', check);
+    return () => { active = false; window.removeEventListener('capitalflow:file-arrived', check);
+      window.removeEventListener('focus', check); };
+  }, [navigate]);
+  return null;
+};
+
+// Android WebView is positioned below system bars by the native window.
+// CSS safe-area padding on the body would add a second blank top strip.
+if (typeof document !== 'undefined' && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+  document.body.dataset.capacitorAndroid = 'true';
+}
 
 console.log('CapitalFlow: Booting main.tsx...');
 if (typeof window !== 'undefined') {
@@ -62,6 +92,7 @@ if (isDevCacheResetting) {
     <React.StrictMode>
       <AppErrorBoundary>
         <BrowserRouter>
+          <NativeWalletImportRouter />
           <App />
         </BrowserRouter>
       </AppErrorBoundary>
@@ -82,15 +113,12 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
   });
 }
 
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
-  let reloadingForUpdate = false;
+// O Capacitor serve o bundle de https://localhost; o SW da versao SaaS nao deve
+// interceptar rotas locais nem disputar o ciclo de atualizacao do APK.
+const isNativeCapacitor = typeof window !== 'undefined' &&
+  Boolean((window as any).Capacitor?.isNativePlatform?.());
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloadingForUpdate) return;
-    reloadingForUpdate = true;
-    window.location.reload();
-  });
-
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD && !isNativeCapacitor) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data?.type === 'PUSH_NAVIGATE' && typeof event.data?.url === 'string') {
       const target = new URL(event.data.url, window.location.origin);
@@ -105,31 +133,14 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
     }
   });
 
-  const activateWaitingWorker = (registration: ServiceWorkerRegistration) => {
-    if (registration.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    }
-  };
-
   const registerServiceWorker = async () => {
     try {
       const registration = await navigator.serviceWorker.register('/service-worker.js', {
         updateViaCache: 'none',
       });
 
-      activateWaitingWorker(registration);
+      // Keep new service workers waiting until the user chooses "Atualizar página".
       await registration.update().catch(() => undefined);
-
-      registration.addEventListener('updatefound', () => {
-        const worker = registration.installing;
-        if (!worker) return;
-
-        worker.addEventListener('statechange', () => {
-          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            worker.postMessage({ type: 'SKIP_WAITING' });
-          }
-        });
-      });
 
       const checkForUpdate = () => {
         if (document.visibilityState !== 'visible') return;

@@ -3,9 +3,6 @@ import { supabase } from '../lib/supabase';
 import { UserProfile, Loan, CapitalSource } from '../types';
 import { generateUUID } from '../utils/generators';
 import { isUUID, safeUUID } from '../utils/uuid';
-import {
-  isCapitalOnlyRecoveryLoan,
-} from '../utils/capitalOnlyRecovery';
 import { clearStableFinancialRequestKey, getStableFinancialRequestKey } from './payments/paymentEngineV4';
 import { validateFundingAllocations } from '../domain/finance/fundingAllocations';
 import { calculateAdditionalCapital, canReceiveCapitalAdvance } from '../domain/finance/capitalAdvance';
@@ -42,6 +39,15 @@ const extractMissingColumn = (error: any): string | null => {
   );
 };
 
+const OPTIONAL_CONTRACT_COLUMNS = new Set([
+  'funding_total_payable', 'funding_cost', 'funding_provider',
+  'funding_fee_percent', 'funding_calculation_mode', 'funding_installments_count',
+  'funding_monthly_rate', 'funding_installment_value', 'funding_payment_method',
+  'customer_margin_percent', 'customer_installment_value', 'customer_total_payable',
+  'policies_snapshot', 'cliente_foto_url', 'skip_weekends', 'interest_free_installment',
+  'original_principal',
+]);
+
 const isSchemaColumnError = (error: any) => {
   const message = String(error?.message || error?.details || error || '').toLowerCase();
   return message.includes('does not exist') || message.includes('schema cache') || message.includes('could not find');
@@ -59,7 +65,7 @@ const runContractMutationWithSchemaFallback = async (
     if (!error) return;
 
     const missingColumn = extractMissingColumn(error);
-    if (!missingColumn || removedColumns.has(missingColumn) || !(missingColumn in nextPayload) || !isSchemaColumnError(error)) {
+    if (!missingColumn || !OPTIONAL_CONTRACT_COLUMNS.has(missingColumn) || removedColumns.has(missingColumn) || !(missingColumn in nextPayload) || !isSchemaColumnError(error)) {
       throw new Error(error.message || String(error));
     }
 
@@ -182,6 +188,13 @@ export const contractsService = {
     // ✅ ownerId = dono da conta (supervisor) ou o próprio usuário
     const ownerId = safeUUID((activeUser as any).supervisor_id) || safeUUID(activeUser.id);
     if (!ownerId) throw new Error('Perfil inválido.');
+
+    if (!editingLoan && !safeUUID(loan.sourceId)) {
+      throw new Error('Selecione uma fonte de capital para emitir o contrato.');
+    }
+    if (!editingLoan && !_sources.some(source => safeUUID(source.id) === safeUUID(loan.sourceId))) {
+      throw new Error('A fonte de capital selecionada não está disponível. Atualize a lista e escolha uma fonte válida.');
+    }
 
     let finalClientId = safeUUID(loan.clientId);
 
@@ -312,12 +325,8 @@ export const contractsService = {
       principal,
       original_principal: editingLoan ? originalPrincipal : principal,
       interest_rate: interestRate,
-      juros_mensal_percent: interestRate,
-      juros_aplicado: interestRate,
       fine_percent: finePercent,
-      multa_percent: finePercent,
       daily_interest_percent: dailyInterestPercent,
-      mora_diaria_percent: dailyInterestPercent,
 
       billing_cycle: loan.billingCycle,
       amortization_type: loan.amortizationType,
@@ -555,7 +564,7 @@ export const contractsService = {
       if (safeSrcId && !options?.skipTransaction) {
         await adjustSourceBalanceSafe(safeSrcId, -principal);
 
-        await supabase.from('transacoes').insert({
+        const { error: initialEntryError } = await supabase.from('transacoes').insert({
           id: generateUUID(),
           loan_id: safeUUID(loanId),
           profile_id: safeUUID(ownerId),
@@ -569,6 +578,9 @@ export const contractsService = {
           category: 'INVESTIMENTO',
           notes: 'Empréstimo Inicial',
         });
+        if (initialEntryError) {
+          throw new Error('O contrato pode ter sido gravado, mas a movimentação inicial falhou. Confira o contrato e a fonte de capital antes de tentar novamente.');
+        }
       }
     }
 
@@ -589,22 +601,24 @@ export const contractsService = {
     return data;
   },
 
-  async assertClientCanBorrow(loan: Loan, existingLoans: Loan[]) {
-    if (isCapitalOnlyRecoveryLoan(loan)) {
-      throw new Error('Cliente marcado como Somente Capital nao pode receber novo emprestimo.');
-    }
-
-    const doc = onlyDigits(loan.debtorDocument);
-    const name = String(loan.debtorName || '').trim().toLowerCase();
-    const blocked = existingLoans.some((existing) => {
-      if (!isCapitalOnlyRecoveryLoan(existing)) return false;
-      if (loan.clientId && existing.clientId === loan.clientId) return true;
-      if (doc && !isUnknownDocument(doc) && onlyDigits(existing.debtorDocument) === doc) return true;
-      return !!name && String(existing.debtorName || '').trim().toLowerCase() === name;
+  async assertClientCanBorrow(loan: Loan, _existingLoans: Loan[]) {
+    const document = onlyDigits(loan.debtorDocument);
+    const { data, error } = await supabase.rpc('assess_client_credit_v1', {
+      p_client_id: safeUUID(loan.clientId),
+      p_document: document.length === 11 || document.length === 14 ? document : null,
     });
-
-    if (blocked) {
-      throw new Error('Cliente marcado como Somente Capital nao pode receber novo emprestimo.');
+    if (error) {
+      console.error('[ContractsService] Erro ao verificar situação de crédito:', error);
+      throw new Error('Não foi possível verificar o histórico de crédito nesta conta. Atualize o sistema antes de emitir.');
+    }
+    if (!data || !['ALLOW', 'BLOCK', 'REVIEW'].includes(data.status)) {
+      throw new Error('Não foi possível confirmar a situação do cliente. Nenhum contrato foi emitido.');
+    }
+    if (data.status === 'BLOCK') {
+      throw new Error('Há uma pendência de pagamento confirmada nesta conta. Regularize o histórico antes de conceder novo crédito.');
+    }
+    if (data.status === 'REVIEW') {
+      throw new Error('Há contrato arquivado sem classificação suficiente. Revise o motivo do arquivamento antes de emitir novo crédito.');
     }
   },
 

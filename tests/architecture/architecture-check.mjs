@@ -286,7 +286,7 @@ if (/from\(['"]personal_wallet_expenses['"]\)\.insert/.test(personalWalletServic
 for (const required of ['personal_wallet_create_expense', 'personal_wallet_set_expense_status', 'personal_wallet_pay_invoice']) {
   if (!personalWalletService.includes(required)) failures.push(`personalWallet.service.ts -> RPC ausente: ${required}`);
 }
-for (const required of ['selectedInvoiceDueMonth', 'Pagar parte ou total', 'invoicePayments', 'Despesas recentes']) {
+for (const required of ['selectedInvoiceDueMonth', 'invoicePayments', '<CardInvoiceStatement', '<WalletPayablesPanel']) {
   if (!personalWalletPage.includes(required)) failures.push(`PersonalWalletPage.tsx -> seÃ§Ã£o obrigatÃ³ria ausente: ${required}`);
 }
 const accountDetailsPage = read('components', 'wallet', 'AccountDetailsPage.tsx');
@@ -303,14 +303,17 @@ for (const required of ["personal_wallet_record_account_operation", "personal_wa
   if (!walletAccountMigration.includes(required)) failures.push(`Minha Carteira -> falta protecao transacional: ${required}`);
 }
 
-for (const tab of ['ACCOUNTS', 'EXPENSES', 'INVOICES', 'PAYABLES']) {
-  if (!personalWalletPage.includes(`goToTab(tab)`) || !personalWalletPage.includes(`['${tab}'`)) failures.push(`Carteira -> navegação de ${tab} ausente`);
+const walletModuleRoutes = read('features', 'wallet', 'routes.tsx');
+for (const route of ['visao-geral', 'cartoes', 'contas', 'dividas', 'receitas', 'cobranca']) {
+  if (!walletModuleRoutes.includes(`key: '${route}'`)) failures.push(`Carteira -> sub-rota modular ausente: ${route}`);
+}
+for (const component of ['<BankStack', '<AccountCardStack', '<WalletPayablesPanel', '<RecurringIncomePanel']) {
+  if (!personalWalletPage.includes(component)) failures.push(`Carteira -> componente funcional ausente: ${component}`);
 }
 const bankStack = read('components', 'wallet', 'BankStack.tsx');
-const walletSheet = read('components', 'wallet', 'WalletCardsSheet.tsx');
 if (!personalWalletPage.includes('<BankStack') || personalWalletPage.includes("activeTab === 'CARDS'")) failures.push('Carteira -> pilha real obrigatória sem lista duplicada');
-if (!bankStack.includes('absolute inset-x-0 top-0') || !bankStack.includes('WalletCardsSheet')) failures.push('Carteira -> pilha sobreposta ou bottom sheet ausente');
-if (!walletSheet.includes('aria-modal="true"') || !walletSheet.includes('Você usou')) failures.push('Carteira -> bottom sheet sem resumo acessível');
+if (!bankStack.includes('absolute inset-x-0 top-0') || !bankStack.includes('rotateY(${isFlipped ? 180 : 0}deg)')) failures.push('Carteira -> pilha sobreposta ou verso giratorio ausente');
+if (bankStack.includes('WalletCardsSheet')) failures.push('Carteira -> painel intermediario de uso do credito ainda presente');
 for (const required of ['openAccountDetails(account.id)', 'AccountDetailsPage', 'selectedAccountId']) {
   if (!personalWalletPage.includes(required)) failures.push(`Minha Carteira -> navegacao da conta ausente: ${required}`);
 }

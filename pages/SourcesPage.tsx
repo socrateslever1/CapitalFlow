@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import PixDepositModal from "../components/modals/PixDepositModal";
 import { CapitalSource, Loan } from "../types";
 import { Plus, Wallet, Upload, Image as ImageIcon, Link2 } from 'lucide-react';
@@ -8,7 +8,14 @@ import { SourceCard } from '../components/cards/SourceCard';
 import { filesService } from '../services/files.service';
 import { resolveAuthenticatedStorageUrl } from '../utils/storageUrl';
 import { normalizeWalletImageReference } from '../utils/imageUrl';
+import { resolveBankLogo } from '../utils/bankLogoRegistry';
 import { PageHeader } from '../components/ui/PageHeader';
+import { SourceWalletReferencePanel } from '../components/sources/SourceWalletReferencePanel';
+import { FinancialCalculatorInput } from '../components/forms/FinancialCalculatorInput';
+import { supabase } from '../lib/supabase';
+import { personalWalletService } from '../services/personalWallet.service';
+import { buildSourceReferenceDisplay, type SourceReferenceDisplay } from '../domain/sources/sourceReferenceDisplay';
+import type { WalletReference } from '../domain/sources/sourceWalletReference';
 
 interface SourcesPageProps {
   sources: CapitalSource[];
@@ -38,6 +45,58 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   const [logoUrlInput, setLogoUrlInput] = useState('');
   const [logoUrlError, setLogoUrlError] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const saveOriginsRef = useRef<(() => Promise<boolean>) | null>(null);
+  const [sourceReferences, setSourceReferences] = useState<Record<string, SourceReferenceDisplay>>({});
+  const [sourceReferenceError, setSourceReferenceError] = useState(false);
+  const walletOwnerId: string = activeUser?.id || '';
+  const isPrimaryOwner = walletOwnerId !== '' && walletOwnerId !== 'DEMO' && !activeUser?.supervisor_id;
+
+  const refreshSourceReferences = useCallback(async (isActive: () => boolean) => {
+    if (!isPrimaryOwner) {
+      if (isActive()) { setSourceReferences({}); setSourceReferenceError(false); }
+      return;
+    }
+    try {
+      const permission = await supabase.rpc('can_manage_capital_source_wallet_origins');
+      if (permission.error) throw permission.error;
+      if (permission.data !== true) {
+        if (isActive()) { setSourceReferences({}); setSourceReferenceError(false); }
+        return;
+      }
+      const [wallet, rows] = await Promise.all([
+        personalWalletService.loadOverview(),
+        supabase.from('capital_source_wallet_references')
+          .select('source_id,target_kind,target_id,allocated_amount'),
+      ]);
+      if (rows.error) throw rows.error;
+      const refs = (rows.data || []) as WalletReference[];
+      const next: Record<string, SourceReferenceDisplay> = {};
+      for (const ref of refs) {
+        const sourceRefs = refs.filter(item => item.source_id === ref.source_id);
+        if (next[ref.source_id]) continue;
+        const display = buildSourceReferenceDisplay(sourceRefs, wallet.accounts, wallet.cards);
+        if (display) next[ref.source_id] = display;
+      }
+      if (isActive()) { setSourceReferences(next); setSourceReferenceError(false); }
+    } catch {
+      if (isActive()) {
+        setSourceReferenceError(true);
+      }
+    }
+  }, [isPrimaryOwner, walletOwnerId]);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => { void refreshSourceReferences(() => active); };
+    refresh();
+    window.addEventListener('capitalflow:source-origins-updated', refresh);
+    window.addEventListener('capitalflow:wallet-updated', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('capitalflow:source-origins-updated', refresh);
+      window.removeEventListener('capitalflow:wallet-updated', refresh);
+    };
+  }, [refreshSourceReferences]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,10 +192,20 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   };
 
   const saveSourceEdit = async () => {
-    if (isSavingEdit) return;
+    if (isSavingEdit || !ui.editingSource) return;
     setIsSavingEdit(true);
     try {
-      await handleUpdateSourceBalance();
+      // A confirmação no banco é obrigatória antes de fechar a edição.
+      if (saveOriginsRef.current && !(await saveOriginsRef.current())) return;
+
+      const previous = sources.find(source => source.id === ui.editingSource.id);
+      const balanceChanged = previous && Number(previous.balance) !== Number(ui.editingSource.balance);
+      const logoChanged = previous && String(previous.logo_url ?? '') !== String(ui.editingSource.logo_url ?? '');
+      if (balanceChanged || logoChanged) {
+        await handleUpdateSourceBalance();
+      } else {
+        ui.setEditingSource(null);
+      }
     } finally {
       setIsSavingEdit(false);
     }
@@ -157,7 +226,13 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         </button>}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      {sourceReferenceError && isPrimaryOwner && (
+        <p role="alert" className="text-xs text-amber-300">
+          Não foi possível atualizar os valores associados da Minha Carteira.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {sources.map(source => (
           <SourceCard
             key={source.id}
@@ -167,6 +242,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
             onEdit={handleEditSource}
             onDelete={(id) => openConfirmation({ type: 'DELETE_SOURCE', target: id })}
             isStealthMode={isStealthMode}
+            referenceDisplay={sourceReferences[source.id] ?? null}
           />
         ))}
       </div>
@@ -192,24 +268,32 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
           <div className="space-y-3">
             <div className="bg-amber-900/20 border border-amber-500/30 p-3 rounded-lg">
               <p className="text-[10px] text-amber-200 uppercase font-bold text-center">
-                Atenção: Use apenas para correção de inventário. Para entradas/saídas, use as funções do sistema.
+                Informe o saldo real da fonte quando não houver histórico confiável. A correção não cria movimentações anteriores nem altera contratos.
               </p>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-[10px] uppercase font-bold text-slate-500 ml-1">Novo Saldo Atual</label>
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
+              <FinancialCalculatorInput
+                placeholder="0,00"
+                fieldLabel="saldo real"
+                signed
                 value={ui.editingSource.balance === 0 ? '' : ui.editingSource.balance}
                 onChange={e => ui.setEditingSource({
                   ...ui.editingSource,
-                  balance: e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.')
+                  balance: e.target.value
                 })}
                 className="w-full bg-slate-950 p-3.5 rounded-lg text-white text-xl font-bold outline-none border border-slate-800 focus:border-blue-500 transition-colors"
               />
             </div>
+
+            <SourceWalletReferencePanel
+              key={ui.editingSource.id}
+              sources={[ui.editingSource]}
+              activeUser={activeUser}
+              onEditManual={handleEditSource}
+              saveRef={saveOriginsRef}
+            />
 
             <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-3">
               <label className="text-[10px] uppercase font-bold text-slate-400">Imagem da carteira</label>
@@ -231,8 +315,16 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 border-dashed shrink-0">
-                  <ImageIcon size={24} className="text-slate-500" />
+                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 overflow-hidden shrink-0">
+                  {resolveBankLogo(ui.editingSource.name) ? (
+                    <img
+                      src={resolveBankLogo(ui.editingSource.name)!}
+                      alt={`Logo ${ui.editingSource.name}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon size={24} className="text-slate-500" />
+                  )}
                 </div>
               )}
 

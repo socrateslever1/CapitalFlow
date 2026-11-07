@@ -18,7 +18,7 @@ interface ProfileContainerProps {
   fileCtrl: any;
   navOrder: AppTab[];
   hubOrder: AppTab[];
-  saveNavConfig: (nav: AppTab[], hub: AppTab[]) => void;
+  saveNavConfig: (nav: AppTab[], hub: AppTab[]) => Promise<void>;
   goBack?: () => void;
 }
 

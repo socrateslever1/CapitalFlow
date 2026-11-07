@@ -9,9 +9,11 @@ import { ReceiptModal } from './ReceiptModal';
 import { MessageHubModal } from './MessageHubModal';
 import { AIAssistantModal } from './AIAssistantModal';
 import { NoteWrapper } from './ModalWrappers';
-import { Copy, KeyRound, User, Camera, ShieldCheck, MapPin, Mail, Hash, Loader2, CalendarX } from 'lucide-react';
+import { Copy, KeyRound, User, Camera, ShieldCheck, MapPin, Mail, Hash, Loader2, CalendarX, Sparkles } from 'lucide-react';
 import { maskPhone, maskDocument, capitalizeName } from '../../utils/formatters';
 import { resolveProfitBalance } from '../../utils/profitBalance';
+import { findBankBrand, resolveBankLogo } from '../../utils/bankLogoRegistry';
+import { BankLogo } from '../wallet/BankLogo';
 
 export const ClientModals = () => {
     const { activeModal, closeModal, ui, clientCtrl } = useModal();
@@ -164,13 +166,56 @@ export const FinanceModals = () => {
 
     return (
         <>
-            {activeModal?.type === 'SOURCE_FORM' && (
+            {activeModal?.type === 'SOURCE_FORM' && (() => {
+                const detectedBrand = findBankBrand(ui.sourceForm.name);
+                const detectedLogo = resolveBankLogo(ui.sourceForm.name);
+                return (
                 <Modal onClose={closeModal} title="Configuração de Fundo" busy={ui.isSaving} footer={<button onClick={sourceCtrl.handleSaveSource} disabled={ui.isSaving} className={modalPrimaryActionClass}>{ui.isSaving ? 'Sincronizando...' : 'Salvar Fonte'}</button>}>
                     <div className="space-y-5">
                         <div>
                             <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">Identificação</label>
-                            <input type="text" placeholder="Nome da Fonte" className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800 focus:border-blue-500 transition-all" value={ui.sourceForm.name || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, name: e.target.value})} />
+                            <input
+                                type="text"
+                                placeholder="Ex: Nubank, Itaú, Banco Inter, Bradesco..."
+                                className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800 focus:border-blue-500 transition-all"
+                                value={ui.sourceForm.name || ''}
+                                onChange={e => {
+                                    const nextName = e.target.value;
+                                    const autoBrand = findBankBrand(nextName);
+                                    ui.setSourceForm({
+                                        ...ui.sourceForm,
+                                        name: nextName,
+                                        ...(autoBrand ? { type: 'BANK' } : {}),
+                                    });
+                                }}
+                            />
                         </div>
+
+                        {detectedBrand && (
+                            <div className="flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-950/20 p-3">
+                                <BankLogo name={detectedBrand.name} size="md" />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <Sparkles size={13} className="text-blue-400" />
+                                        <span className="text-xs font-bold text-white">Banco identificado: {detectedBrand.name}</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400">O ícone oficial deste banco será aplicado automaticamente na fonte.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        ui.setSourceForm({
+                                            ...ui.sourceForm,
+                                            name: detectedBrand.name,
+                                            type: 'BANK',
+                                        });
+                                    }}
+                                    className="shrink-0 rounded-lg border border-blue-500/40 bg-blue-600/30 px-3 py-1.5 text-xs font-bold text-blue-200 transition hover:bg-blue-600/50"
+                                >
+                                    Usar {detectedBrand.name}
+                                </button>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -186,8 +231,19 @@ export const FinanceModals = () => {
                         </div>
 
                         <div>
-                            <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">URL do Ícone / Logo (Opcional)</label>
-                            <input type="text" placeholder="https://..." className="w-full bg-slate-950 p-4 rounded-lg text-white outline-none border border-slate-800 focus:border-blue-500 transition-all" value={ui.sourceForm.logo_url || ''} onChange={e => ui.setSourceForm({...ui.sourceForm, logo_url: e.target.value})} />
+                            <label className="text-[10px] uppercase text-slate-500 font-black ml-1 mb-2 block">Ícone / Logo da Carteira</label>
+                            <div className="flex items-center gap-3">
+                                <BankLogo name={ui.sourceForm.name} customImage={ui.sourceForm.logo_url || undefined} size="md" />
+                                <div className="flex-1">
+                                    <input
+                                        type="text"
+                                        placeholder={detectedBrand ? `Ícone oficial do ${detectedBrand.name} ativo (ou informe URL HTTPS)` : "https://... (opcional)"}
+                                        className="w-full bg-slate-950 p-3.5 rounded-lg text-white outline-none border border-slate-800 focus:border-blue-500 transition-all text-xs"
+                                        value={ui.sourceForm.logo_url || ''}
+                                        onChange={e => ui.setSourceForm({...ui.sourceForm, logo_url: e.target.value})}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* NOVO: DESIGNAR CARTEIRA A OPERADOR (EXCLUSIVIDADE) */}
@@ -214,7 +270,8 @@ export const FinanceModals = () => {
 
                     </div>
                 </Modal>
-            )}
+                );
+            })()}
 
             {activeModal?.type === 'ADD_FUNDS' && (
                 <Modal onClose={closeModal} title={`Aporte: ${activeModal.payload.name}`} busy={financeBusy} footer={<button onClick={() => runFinanceAction(sourceCtrl.handleAddFunds)} disabled={financeBusy} className={modalPrimaryActionClass}>Confirmar Aporte</button>}>

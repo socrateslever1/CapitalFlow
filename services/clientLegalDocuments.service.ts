@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { generateUUID } from '../utils/generators';
+import { buildPublicAppUrl } from '../utils/publicAppUrl';
 import { createLegalSnapshot, generateSHA256 } from '../utils/crypto';
 import { generateMutuoPreDesembolsoHTML } from '../features/legal/templates/MutuoPreDesembolsoTemplate';
 
@@ -80,9 +81,8 @@ export const clientLegalDocumentsService = {
 
     const rows = docs || [];
     const signatures = await countSignatures(rows.map((row: any) => String(row.id)));
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://capflow.pages.dev';
     const portalUrl = client?.portal_token && client?.access_code
-      ? `${origin}/?portal=${encodeURIComponent(String(client.portal_token))}&portal_code=${encodeURIComponent(String(client.access_code))}`
+      ? buildPublicAppUrl('/', { portal: String(client.portal_token), portal_code: String(client.access_code) })
       : null;
 
     return Promise.all(rows.map(async (row: any) => {

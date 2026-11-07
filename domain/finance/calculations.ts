@@ -220,6 +220,44 @@ export const calculateTotalDue = (loan: Loan, inst: Installment, referenceDate?:
     } as CalculationResult;
   }
 
+  const isAgrInst = !!((inst as any)?.agreementId || (inst as any)?.acordo_id || (inst as any)?.agreement_id);
+  if (isAgrInst) {
+    const rawInst: any = inst;
+    const paidAmount = Number(rawInst.paidAmount ?? rawInst.paid_amount ?? 0);
+    const amount = Number(rawInst.amount ?? rawInst.valor ?? 0);
+    const principal = round(Math.max(0, amount - paidAmount));
+    const isPaid = isAgreementInstallmentPaid(rawInst, loan?.status);
+    const lateFee = isPaid ? 0 : calculateAgreementInstallmentLateFee(rawInst);
+    const legalInterest = Number(rawInst.legalInterestAmount ?? 0);
+    return {
+      total: round(principal + lateFee + legalInterest),
+      principal,
+      interest: legalInterest,
+      lateFee,
+      finePart: lateFee,
+      moraPart: 0,
+    } as CalculationResult;
+  }
+
+  if (hasActiveAgreement(loan) && Array.isArray(loan.activeAgreement?.installments) && loan.activeAgreement.installments.length > 0) {
+    const agreement = loan.activeAgreement;
+    const targetInst: any = agreement.installments.find(i => !isAgreementInstallmentPaid(i)) || agreement.installments[0];
+    const paidAmount = Number(targetInst.paidAmount ?? targetInst.paid_amount ?? 0);
+    const amount = Number(targetInst.amount ?? targetInst.valor ?? 0);
+    const principal = round(Math.max(0, amount - paidAmount));
+    const isPaid = isAgreementInstallmentPaid(targetInst, loan?.status);
+    const lateFee = isPaid ? 0 : calculateAgreementInstallmentLateFee(targetInst);
+    const legalInterest = Number(targetInst.legalInterestAmount ?? 0);
+    return {
+      total: round(principal + lateFee + legalInterest),
+      principal,
+      interest: legalInterest,
+      lateFee,
+      finePart: lateFee,
+      moraPart: 0,
+    } as CalculationResult;
+  }
+
   const policySnapshot: any = loan.policiesSnapshot || {};
   if (policySnapshot.normalUnificationFrozen) {
     const rawInst: any = inst;

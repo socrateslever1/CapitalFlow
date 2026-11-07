@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   TrendingUp,
   Plus,
@@ -25,6 +26,11 @@ import { Tooltip } from '../components/ui/Tooltip';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { resolveNotificationTarget } from '../utils/notificationRouting';
+import { notificationService } from '../services/notification.service';
+import { AndroidApkNotice } from '../components/system/AndroidApkNotice';
+import { AndroidNativeUpdateNotice } from '../components/system/AndroidNativeUpdateNotice';
+import { AppUpdateBanner } from '../components/system/AppUpdateBanner';
+import { pushSubscriptionService } from '../services/pushSubscription.service';
 
 interface HeaderBarProps {
   activeTab: string;
@@ -108,16 +114,16 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
             onOpen(notif);
           }
         }}
-        className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3.5 py-3 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
+        className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(8,15,30,0.98))] px-3 py-2.5 shadow-[0_16px_32px_-24px_rgba(0,0,0,0.9)]"
       >
-        <div className="pointer-events-none absolute inset-y-3 left-0 w-[3px] rounded-full bg-white/10" />
-        <div className="flex gap-3 items-start">
+        <div className="pointer-events-none absolute inset-y-2.5 left-0 w-[3px] rounded-full bg-white/10" />
+        <div className="flex items-start gap-2.5">
           <div
-            className={`mt-0.5 w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/5 shadow-inner ${getNotificationBg(
+            className={`mt-0.5 h-8 w-8 shrink-0 rounded-lg border border-white/5 shadow-inner flex items-center justify-center ${getNotificationBg(
               notif.type
             )}`}
           >
-            <Bell size={15} className={getNotificationColor(notif.type)} />
+            <Bell size={14} strokeWidth={1.8} className={getNotificationColor(notif.type)} />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -126,7 +132,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                 <p className="text-[12px] sm:text-[13px] font-black text-white tracking-tight leading-tight">
                   {notif.title}
                 </p>
-                <p className="text-[10px] sm:text-[11px] text-slate-400 mt-1 leading-relaxed break-words">
+                <p className="mt-0.5 line-clamp-2 break-words text-[10px] leading-snug text-slate-400 sm:text-[11px]">
                   {notif.message}
                 </p>
               </div>
@@ -138,7 +144,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
               </span>
             </div>
 
-            <div className="mt-2.5 flex items-center justify-between gap-3">
+            <div className="mt-1.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className={`h-1.5 w-1.5 rounded-full ${toneDotClass}`} />
                 <span className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
@@ -152,10 +158,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
                   e.stopPropagation();
                   onRemove?.(notif.id);
                 }}
-                className="h-7 w-7 rounded-full border border-white/5 bg-slate-950/70 flex items-center justify-center text-slate-500 hover:text-rose-400 hover:border-rose-500/20 transition-colors"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-950/70 text-slate-500 transition-colors hover:border-rose-500/20 hover:text-rose-400"
                 aria-label="Remover notificacao"
               >
-                <Trash2 size={13} />
+                <Trash2 size={13} strokeWidth={1.8} />
               </button>
             </div>
           </div>
@@ -180,6 +186,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   clearAllNotifications,
   onNavigate,
   onOpenSupport,
+  addNotification,
 }) => {
   const scrollRef = useRef<HTMLElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -187,13 +194,35 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const handleTestPush = async () => {
+    const granted = await notificationService.requestPermission();
+    if (granted) {
+      if (activeUser?.id) {
+        await pushSubscriptionService.register(activeUser.id);
+      }
+      await notificationService.notify(
+        'CapitalFlow Notificações',
+        'Notificações push ativas! Você receberá alertas de faturas, pagamentos e cobranças.'
+      );
+      addNotification?.({
+        title: 'Notificações push ativas',
+        message: 'O alerta de teste foi emitido com sucesso para este dispositivo.',
+        type: 'success',
+      });
+    } else {
+      alert('Permissão de notificações não foi concedida no navegador. Ative as permissões nas configurações do site.');
+    }
+  };
   const mobileNotificationRef = useRef<HTMLDivElement>(null);
+  const mobileNotificationPanelRef = useRef<HTMLDivElement>(null);
   const desktopNotificationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const isMobileClickOutside =
-        mobileNotificationRef.current && !mobileNotificationRef.current.contains(event.target as Node);
+        mobileNotificationRef.current && !mobileNotificationRef.current.contains(event.target as Node) &&
+        !mobileNotificationPanelRef.current?.contains(event.target as Node);
       const isDesktopClickOutside =
         desktopNotificationRef.current && !desktopNotificationRef.current.contains(event.target as Node);
 
@@ -336,10 +365,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   const renderNotificationList = (isMobile = false) => (
     <motion.div
+      ref={isMobile ? mobileNotificationPanelRef : undefined}
+      role="dialog"
+      aria-label="Central de Alertas"
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-      className={`absolute ${isMobile ? 'fixed inset-x-3 top-20' : 'top-full right-0 mt-3 w-[22rem]'} max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-6rem)] sm:max-h-[28rem] flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl z-[1100] ring-1 ring-white/10`}
+      className={`${isMobile ? 'md:hidden fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1600]' : 'absolute top-full right-0 mt-3 w-[22rem] max-h-[min(28rem,calc(100dvh-7rem))] z-[1100]'} max-w-[calc(100vw-1.5rem)] min-h-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl ring-1 ring-white/10`}
       style={{
         boxShadow: `0 28px 80px -26px ${primaryColor}30, 0 28px 90px -28px rgba(0,0,0,0.82)`,
       }}
@@ -358,31 +390,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 shadow-inner"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 shadow-inner"
                 style={{ backgroundColor: `${primaryColor}18` }}
               >
-                <Bell size={15} style={{ color: primaryColor }} />
+                <Bell size={18} strokeWidth={1.8} style={{ color: primaryColor }} />
               </div>
               <div className="min-w-0">
-                <h3 className="text-[13px] font-black uppercase tracking-[0.16em] text-white">
-                  Central de Alertas
+                <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">
+                  Alertas
                 </h3>
-                <p className="mt-0.5 text-[10px] text-slate-400 font-bold tracking-[0.08em]">
-                  Painel rápido do que precisa da sua atenção
-                </p>
               </div>
             </div>
-            <p className="mt-3 text-[9px] text-slate-500 font-black uppercase tracking-[0.18em]">
-              {notifications.length === 0
-                ? 'Sem alertas pendentes'
-                : `${notifications.length} alerta${notifications.length > 1 ? 's' : ''} carregado${notifications.length > 1 ? 's' : ''}`}
-            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {notifications.length > 0 && (
               <>
                 <span
-                  className="rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em]"
+                  className="min-w-8 rounded-full border px-2 py-1 text-center text-[10px] font-black tabular-nums"
                   style={{
                     color: primaryColor,
                     backgroundColor: `${primaryColor}14`,
@@ -397,35 +421,39 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     e.stopPropagation();
                     clearAllNotifications?.();
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-all"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-rose-500/10 text-rose-500 transition-all hover:bg-rose-500 hover:text-white"
                   aria-label="Limpar todas as notificações"
-                  title="Limpar Todas"
+                  title="Limpar alertas"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={15} strokeWidth={1.8} />
                 </button>
               </>
             )}
             <button
               type="button"
               onClick={() => setShowNotifications(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/5 bg-slate-900/60 text-slate-500 hover:text-white transition-all hover:rotate-90"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/5 bg-slate-900/60 text-slate-500 transition-all hover:text-white hover:rotate-90"
               aria-label="Fechar notificações"
             >
-              <X size={15} />
+              <X size={16} strokeWidth={1.8} />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2 custom-scrollbar">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y px-2 py-2 custom-scrollbar"
+        style={{ WebkitOverflowScrolling: "touch", overflowWrap: "anywhere" }}>
+        <AppUpdateBanner placement="notifications" />
+        <AndroidNativeUpdateNotice placement="notifications" />
+        <AndroidApkNotice placement="notifications" />
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-white/5 bg-slate-900/80 shadow-inner">
               <Bell size={20} className="text-slate-600" />
             </div>
-            <p className="text-sm text-slate-200 font-black tracking-tight">Tudo em dia</p>
+            <p className="text-sm text-slate-200 font-black tracking-tight">Sem outras notificações</p>
             <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-              Quando algo novo chegar, ele entra em fila aqui sem inflar o painel.
+              Os avisos de versões permanecem acima, mesmo após você adiá-los.
             </p>
           </div>
         ) : (
@@ -453,8 +481,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   );
 
   return (
-    <header id="app-header" className="sticky top-0 z-[1000] shrink-0 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 pt-safe">
-      <div id="header-container" className="max-w-[1920px] mx-auto px-2 sm:px-6 min-h-[4rem] sm:min-h-[5rem] py-2 sm:py-3 flex flex-wrap items-center justify-between gap-y-2 sm:gap-y-3">
+    <header id="app-header" className="sticky top-0 z-[1000] shrink-0 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
+      <div id="header-container" className="max-w-[1500px] mx-auto px-3 sm:px-6 min-h-[3.75rem] sm:min-h-[4.25rem] py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-y-2 sm:gap-y-3">
         <div id="header-main-row" className="flex flex-wrap items-center justify-between w-full gap-2 sm:gap-6">
           <div id="header-left-section" className="flex items-center gap-3 sm:gap-6 order-1">
             <div id="menu-button-container" className="hidden md:flex items-center">
@@ -477,15 +505,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-lg flex items-center justify-center shadow-lg transition-transform flex-shrink-0 group-hover:scale-110"
                 style={{ backgroundColor: primaryColor }}
               >
-                {activeUser?.logoUrl ? (
-                  <img
-                    src={activeUser.logoUrl}
-                    className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <TrendingUp className="text-white w-4 h-4 sm:w-6 sm:h-6" />
-                )}
+                <img
+                  src={activeUser?.logoUrl || '/brand/capitalflow-app-icon.svg'}
+                  alt="CapitalFlow"
+                  className="h-full w-full rounded-lg object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div id="title-wrapper">
                 <h1 id="app-title" className="text-sm sm:text-2xl font-black tracking-tighter uppercase leading-none text-white">
@@ -526,7 +551,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
               <button
                 id="btn-stealth-desktop"
+                type="button"
                 onClick={toggleStealthMode}
+                aria-label={isStealthMode ? 'Mostrar valores financeiros' : 'Ocultar valores financeiros'}
+                aria-pressed={isStealthMode}
                 className={`p-3 rounded-lg transition-all shadow-lg group ${
                   isStealthMode
                     ? 'bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-indigo-500/20'
@@ -540,7 +568,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <div className="relative" ref={desktopNotificationRef}>
                 <button
                   id="btn-notifications-desktop"
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  type="button"
+                  aria-label="Abrir ou fechar a Central de Alertas"
+                  aria-expanded={showNotifications}
+                  onClick={() => setShowNotifications((open) => !open)}
                   className={`p-3 rounded-lg transition-all shadow-lg group relative ${
                     showNotifications
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-500/20'
@@ -567,7 +598,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             onPointerDown={handlePointerDown}
             onPointerUp={handlePointerUp}
             onPointerMove={handlePointerMove}
-            className={`hidden md:flex w-full xl:w-auto xl:flex-1 order-3 xl:order-2 bg-slate-900/50 backdrop-blur-md p-1.5 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide xl:mx-4 mt-3 xl:mt-0 ${
+            className={`hidden md:flex w-full lg:w-auto lg:flex-1 order-3 lg:order-2 bg-slate-900/50 backdrop-blur-md p-1 rounded-lg border border-slate-800/50 gap-1 overflow-x-auto scrollbar-hide lg:mx-2 mt-2 lg:mt-0 min-w-0 ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab'
             }`}
             style={{ WebkitOverflowScrolling: 'touch' }}
@@ -580,7 +611,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     onClick={() => {
                       if (!hasDragged) setActiveTab(tab);
                     }}
-                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'text-white shadow-xl shadow-blue-500/20'
                         : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
@@ -597,12 +628,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               })}
           </nav>
 
-          <div id="header-right-section" className="flex items-center gap-1.5 sm:gap-3 order-2 xl:order-3">
+          <div id="header-right-section" className="flex items-center gap-1.5 sm:gap-3 order-2 lg:order-3 shrink-0">
             <div id="mobile-actions" className="flex items-center gap-1.5 sm:gap-2 md:hidden">
               <div className="relative" ref={mobileNotificationRef}>
                 <button
                   id="btn-notifications-mobile"
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  type="button"
+                  aria-label="Abrir ou fechar a Central de Alertas"
+                  aria-expanded={showNotifications}
+                  onClick={() => setShowNotifications((open) => !open)}
                   className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all relative ${
                     showNotifications
                       ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/20'
@@ -616,12 +650,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </span>
                   )}
                 </button>
-                <AnimatePresence>{showNotifications && renderNotificationList(true)}</AnimatePresence>
+                {typeof document !== 'undefined' && createPortal(
+                  <AnimatePresence>{showNotifications && renderNotificationList(true)}</AnimatePresence>,
+                  document.body
+                )}
               </div>
 
               <button
                 id="btn-stealth-mobile"
+                type="button"
                 onClick={toggleStealthMode}
+                aria-label={isStealthMode ? 'Mostrar valores financeiros' : 'Ocultar valores financeiros'}
+                aria-pressed={isStealthMode}
                 className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all ${
                   isStealthMode
                     ? 'bg-gradient-to-br from-indigo-600 to-violet-700 border-indigo-500 text-white shadow-lg shadow-indigo-500/20'

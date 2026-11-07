@@ -3,11 +3,14 @@ import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, CheckCircle2, MessageSquare, Plus, ArrowLeft, LayoutDashboard, Users, Briefcase, Wallet, PiggyBank, Calendar, Calculator, ArrowRightLeft, Megaphone, User, Menu, ShieldCheck, FileText, X } from 'lucide-react';
 import { HeaderBar } from './HeaderBar';
+import { FinancialPrivacyProvider } from '../contexts/FinancialPrivacyContext';
 import { PageBackProvider } from '../contexts/PageBackContext';
 import { ApplePageBackBar } from './ApplePageBackBar';
 import { isAppleMobile } from '../utils/appleMobile';
 import { BottomNav } from './BottomNav';
-import { UserProfile, Client } from '../types';
+import { MasterMascot } from '../components/ai/MasterMascot';
+import { bindBankNotificationsProfile } from '../features/wallet/bankNotificationsBridge';
+import { UserProfile, Client, AppTab } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
 import { InAppNotification } from '../hooks/useAppNotifications';
@@ -34,6 +37,9 @@ interface AppShellProps {
   toggleStealthMode: () => void;
   onOpenSupport?: () => void;
   navOrder: string[];
+  desktopNavOrder: string[];
+  mobileNavOrder: AppTab[];
+  saveMobileNavOrder: (order: AppTab[]) => Promise<void>;
   onGoBack?: () => void;
   isInHub?: boolean;
   title?: string;
@@ -49,7 +55,7 @@ interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
-  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients
+  children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, desktopNavOrder, mobileNavOrder, saveMobileNavOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients
 }) => {
   const remindersState = useReminders(activeUser?.id);
   const [unreadSupport, setUnreadSupport] = useState(0);
@@ -58,6 +64,13 @@ export const AppShell: React.FC<AppShellProps> = ({
   const mainRef = useRef<HTMLElement | null>(null);
   const previousViewRef = useRef<{ activeTab: string; pathname: string; search: string } | null>(null);
   const location = useLocation();
+  // Keep native notification suggestions bound to the signed-in profile.
+  // Logout/replacement disables capture and destroys the previous user's pending queue.
+  useEffect(() => {
+    void bindBankNotificationsProfile(activeUser?.id || null).catch(() => {});
+    return () => { void bindBankNotificationsProfile(null).catch(() => {}); };
+  }, [activeUser?.id]);
+  const walletModuleRoute = activeTab === 'MY_WALLET' || location.pathname === '/carteira' || location.pathname.startsWith('/carteira/');
   const totalUnread = unreadSupport;
   const isSupportOpen = activeModal?.type === 'SUPPORT_CHAT';
 
@@ -182,8 +195,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   }, [activeTab, title, location.pathname, location.search]);
 
   return (
+    <FinancialPrivacyProvider hidden={isStealthMode}>
     <PageBackProvider>
-    <div className={`${isSupportOpen ? 'fixed inset-0 h-dvh' : 'relative h-screen h-dvh'} w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden`}>
+    <div className={`${isSupportOpen ? 'fixed inset-0 h-dvh' : 'relative'} cf-app-shell w-full bg-slate-950 text-slate-100 font-sans selection:bg-blue-600/30 flex flex-col overflow-hidden`}>
       <HeaderBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -193,7 +207,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onNewLoan={onNewLoan}
         isStealthMode={isStealthMode}
         toggleStealthMode={toggleStealthMode}
-        navOrder={navOrder}
+        navOrder={desktopNavOrder}
         notifications={notifications}
         removeNotification={removeNotification}
         clearAllNotifications={clearAllNotifications}
@@ -202,14 +216,16 @@ export const AppShell: React.FC<AppShellProps> = ({
         addNotification={addNotification}
       />
 
+      <MasterMascot activeUser={activeUser} notifications={notifications} />
+
       <ApplePageBackBar onBack={onGoBack} isHome={activeTab === 'DASHBOARD'} />
       <main ref={mainRef} className="flex-1 overflow-y-auto touch-pan-y overflow-x-hidden [-webkit-overflow-scrolling:touch] overscroll-y-contain pb-36 md:pb-12">
-        <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="w-full max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5">
           {children}
         </div>
       </main>
 
-      {activeUser && !activeModal && !isSupportOpen && (
+      {activeUser && !activeModal && !isSupportOpen && !walletModuleRoute && (
         <div className="fab-action-container fixed bottom-22 md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col gap-2.5 items-center mb-safe">
           {/* Botão sutil para recolher/expandir botões flutuantes */}
           <button
@@ -319,11 +335,14 @@ export const AppShell: React.FC<AppShellProps> = ({
           onOpenNav={onOpenNav}
           onNewLoan={onNewLoan}
           navOrder={navOrder}
+          mobileNavOrder={mobileNavOrder}
+          saveMobileNavOrder={saveMobileNavOrder}
           primaryColor={activeUser?.brandColor}
           isStaff={!!activeUser?.supervisor_id}
           onGoBack={isInHub ? onGoBack : undefined}
         />
     </div>
     </PageBackProvider>
+    </FinancialPrivacyProvider>
   );
 };

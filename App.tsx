@@ -14,6 +14,8 @@ import { usePersistedTab } from './hooks/usePersistedTab';
 import { useControllers } from './hooks/useControllers';
 import { useAppNotifications } from './hooks/useAppNotifications';
 import { useExitGuard } from './hooks/useExitGuard';
+import { ExitConfirmDialog } from './components/system/ExitConfirmDialog';
+import { Capacitor } from '@capacitor/core';
 import { useNavigationStack } from './hooks/useNavigationStack';
 import { isAppleMobile } from './utils/appleMobile';
 import { Toaster } from 'sonner';
@@ -121,6 +123,8 @@ export const App: React.FC = () => {
     setLoadError,
     navOrder,
     hubOrder,
+    mobileNavOrder,
+    saveMobileNavOrder,
     saveNavConfig,
   } = useAppState(activeProfileId, handleLogout);
 
@@ -140,8 +144,9 @@ export const App: React.FC = () => {
   }, [setActiveTab, routerNavigate]);
 
   const openNavHub = useCallback(() => ui.setShowNavHub(true), [ui.setShowNavHub]);
-  const { goBack: goBackLegacy, goBackPage, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
-  const goBack = isAppleMobile() ? goBackPage : goBackLegacy;
+  const { goBack: goBackLegacy, goBackPage, canGoBackPage, isInHub } = useNavigationStack(activeTab, handleSetActiveTab, openNavHub);
+  const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  const goBack = isAppleMobile() || isNativeAndroid ? goBackPage : goBackLegacy;
 
   // ✅ Prevenção de loop: evita que a página de contrato seja reaberta após fechar manual
   const processedPathRef = useRef('');
@@ -302,7 +307,23 @@ export const App: React.FC = () => {
     }, 3500);
   }, [activeUser, fetchFullData, showToast, ui?.extraDocUploadLoanId, ui?.promissoriaUploadLoanId]);
 
-  useExitGuard(activeUser, activeTab, setActiveTab, isPublicView, showToast, ui);
+  const { showExitConfirm, cancelExit, confirmExit } = useExitGuard(
+    activeUser, activeTab, handleSetActiveTab, isPublicView, showToast, ui,
+    { pathname: location.pathname, navigate: routerNavigate, goBackTab: goBackPage, canGoBackTab: canGoBackPage },
+  );
+
+  // When React Router pops from a Wallet URL to the root, restore the tab
+  // beneath the Wallet instead of showing a blank wallet on '/'.
+  const previousPathnameRef = useRef(location.pathname);
+  useEffect(() => {
+    const previousPathname = previousPathnameRef.current;
+    previousPathnameRef.current = location.pathname;
+    if (previousPathname.startsWith('/carteira') &&
+        location.pathname === '/' &&
+        activeTab === 'MY_WALLET') {
+      goBackPage();
+    }
+  }, [location.pathname, activeTab, goBackPage]);
 
   useEffect(() => {
     if (activeUser && !isPublicView) {
@@ -398,6 +419,7 @@ export const App: React.FC = () => {
         }}
         mobileOffset={{ bottom: '80px' }}
       />
+      <ExitConfirmDialog open={showExitConfirm} onCancel={cancelExit} onConfirm={confirmExit} />
       {isInvitePath ? (
         <>
           {window.location.pathname === '/invite' && <InvitePage />}
@@ -469,6 +491,9 @@ export const App: React.FC = () => {
             toggleStealthMode={() => ui.setIsStealthMode(!ui.isStealthMode)}
             onOpenSupport={() => ui.openModal('SUPPORT_CHAT')}
             navOrder={visibleHubOrder}
+            desktopNavOrder={navOrder}
+            mobileNavOrder={mobileNavOrder}
+            saveMobileNavOrder={saveMobileNavOrder}
             onGoBack={goBack}
             isInHub={isInHub}
             title={activeTab === 'CONTRACT_DETAILS' ? loans.find(l => l.id === ui.selectedLoanId)?.debtorName : undefined}
@@ -482,12 +507,15 @@ export const App: React.FC = () => {
             onCloseSupport={ui.closeModal}
             clients={clients}
           >
+            <Suspense fallback={<div role="status" className="p-6 text-sm text-slate-400">Carregando página…</div>}>
             {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
             <div
               key="dashboard-view"
               className={activeTab === 'DASHBOARD' ? 'block' : 'hidden'}
             >
               <DashboardContainer
+                profileId={activeProfileId || ''}
+                onOpenReports={() => handleSetActiveTab('REPORTS')}
                 loans={loans}
                 sources={sources}
                 activeUser={activeUser}
@@ -642,6 +670,11 @@ export const App: React.FC = () => {
                   transition={{ duration: 0.1, ease: 'linear' }}
                 >
                   <ReportsPage
+                    profileId={activeProfileId || ''}
+                    onOpenLoan={(loanId) => {
+                      ui.setSelectedLoanId(loanId);
+                      navigate(`/contrato/${loanId}`);
+                    }}
                     loans={loans}
                     sources={sources}
                     activeUser={activeUser}
@@ -740,11 +773,15 @@ export const App: React.FC = () => {
                     onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
                     onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
                     onArchive={(l) => loanCtrl.openConfirmation({
-                        type: 'ARCHIVE',
+                        type: l.isArchived ? 'RECLASSIFY_ARCHIVE' : 'ARCHIVE',
                         target: l,
-                        showRefundOption: true,
-                        title: 'Arquivar Contrato?',
-                        message: 'O contrato sairá da lista ativa, mas poderá ser restaurado depois.'
+                        showRefundOption: false,
+                        archiveReason: l.archiveReason || '',
+                        archiveNote: l.archiveNote || '',
+                        title: l.isArchived ? 'Motivo do arquivamento' : 'Arquivar contrato',
+                        message: l.isArchived
+                          ? 'Ajuste o registro sem modificar o histórico financeiro.'
+                          : 'O contrato sairá da lista ativa e poderá ser restaurado depois.'
                     })}
                     onRestore={(l) => loanCtrl.openConfirmation({
                         type: 'RESTORE',
@@ -834,12 +871,15 @@ export const App: React.FC = () => {
               )}
             </>
 
+            </Suspense>
             <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={visibleHubOrder} />
           </AppShell>
         </AppGate>
 
         <div className="relative z-[9999]">
-          <ModalHost />
+          <Suspense fallback={<div role="status" className="fixed bottom-4 right-4 rounded-lg bg-slate-900 p-3 text-sm text-white">Carregando…</div>}>
+            <ModalHost />
+          </Suspense>
 
             {operatorUploadStatus.state !== 'IDLE' && (
               <div className={`fixed bottom-5 left-1/2 z-[10000] flex -translate-x-1/2 items-center gap-2 rounded-lg border px-4 py-3 text-xs font-black uppercase shadow-2xl ${

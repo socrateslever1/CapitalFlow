@@ -62,8 +62,10 @@ export const legalDocumentService = {
   /**
    * Verifica campos faltantes antes de assinar
    */
-  async missingFields(docId: string) {
-    const { data, error } = await supabasePortal.rpc('rpc_doc_missing_fields', {
+  async missingFields(token: string, code: string, docId: string) {
+    const { data, error } = await supabasePortal.rpc('portal_document_signing_check_v1', {
+      p_token: token,
+      p_shortcode: code,
       p_documento_id: docId,
     });
 
@@ -132,7 +134,11 @@ export const legalDocumentService = {
     if (error)
       throw new Error(error.message || 'Falha ao assinar documento.');
 
-    return Array.isArray(data) ? data[0] : data ?? { ok: true };
+    const confirmation = Array.isArray(data) ? data[0] : data;
+    if (!confirmation || confirmation.success !== true) {
+      throw new Error(confirmation?.message || 'Documento não assinado. Verifique os dados.');
+    }
+    return confirmation;
   },
 
   /**

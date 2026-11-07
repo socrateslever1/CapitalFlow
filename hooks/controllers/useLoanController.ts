@@ -10,6 +10,7 @@ import { maintenanceService } from '../../services/maintenance.service';
 import type { Loan, UserProfile, CapitalSource, Client, LedgerEntry } from '../../types';
 import { isCapitalOnlyRecoveryLoan, withCapitalOnlyRecoveryState } from '../../utils/capitalOnlyRecovery';
 import { markDeletedContract, markDeletedContracts } from '../../services/deletedContracts.service';
+import { validateArchiveClassification } from '../../domain/credit/archivePolicy';
 
 const isUUID = (v: any) =>
   typeof v === 'string' &&
@@ -52,6 +53,7 @@ export const useLoanController = (
   showToast: (msg: string, type?: 'success' | 'error') => void
 ) => {
   const capitalOnlyUpdatesInFlight = useRef(new Set<string>());
+  const confirmationInFlight = useRef(false);
   const getOwnerId = () => safeOwnerId(activeUser);
 
   const applyLocalActionResult = async (type: string, targetId: string) => {
@@ -116,11 +118,8 @@ export const useLoanController = (
     }
   };
 
-  const handleSaveLoan = async (loan: Loan) => {
-    if (!activeUser) {
-      showToast('Entre novamente para salvar o contrato.', 'error');
-      return;
-    }
+  const handleSaveLoan = async (loan: Loan): Promise<void> => {
+    if (!activeUser) throw new Error('Entre novamente para salvar o contrato.');
 
     if (activeUser.id === 'DEMO') {
       demoService.handleSaveLoan(loan, ui.editingLoan, sources, setSources, loans, setLoans, showToast);
@@ -130,24 +129,26 @@ export const useLoanController = (
     }
 
     const ownerId = getOwnerId();
-    if (!ownerId) {
-      showToast('Perfil inválido. Refaça o login.', 'error');
-      return;
-    }
+    if (!ownerId) throw new Error('Perfil inválido. Refaça o login.');
 
     try {
-      if (!ui.editingLoan) {
-        await contractsService.assertClientCanBorrow(loan, loans);
-      }
-
+      if (!ui.editingLoan) await contractsService.assertClientCanBorrow(loan, loans);
       await contractsService.saveLoan(loan, activeUser, sources, ui.editingLoan);
-      showToast(ui.editingLoan ? 'Contrato Atualizado!' : 'Contrato Salvo!', 'success');
-      ui.closeModal();
-      ui.setEditingLoan(null);
+    } catch (error) {
+      console.error('[LoanController] Falha na persistência do contrato:', error);
+      // Propaga a falha ao formulário: não se pode sinalizar sucesso sem confirmação do banco.
+      throw error;
+    }
+
+    // A persistência terminou; erro na sincronização da lista não desfaz a gravação.
+    showToast(ui.editingLoan ? 'Contrato atualizado!' : 'Contrato salvo!', 'success');
+    ui.closeModal();
+    ui.setEditingLoan(null);
+    try {
       await fetchFullData(ownerId);
-    } catch (e: any) {
-      console.error('Erro ao salvar contrato:', e);
-      showToast('Não foi possível salvar o contrato. Confira os dados e tente novamente.', 'error');
+    } catch (error) {
+      console.error('[LoanController] Contrato salvo, mas falhou a atualização da lista:', error);
+      showToast('Contrato salvo. Não foi possível atualizar a lista; recarregue a página para visualizar.', 'error');
     }
   };
 
@@ -240,10 +241,11 @@ export const useLoanController = (
   };
 
   const openConfirmation = (config: any) => {
-    ui.setRefundChecked(true);
+    // No implicit movement of cash when archiving or deleting a contract.
+    ui.setRefundChecked(false);
 
     // Exibe estorno por padrão em DELETE/ARCHIVE
-    const shouldShowRefund = config.type === 'DELETE' || config.type === 'ARCHIVE';
+    const shouldShowRefund = config.type === 'DELETE';
 
     ui.setConfirmation({
       ...config,
@@ -254,7 +256,16 @@ export const useLoanController = (
   };
 
   const executeConfirmation = async () => {
-    if (!ui.confirmation || !activeUser) return;
+    if (!ui.confirmation || !activeUser || confirmationInFlight.current) return;
+    if (['ARCHIVE', 'RECLASSIFY_ARCHIVE'].includes(ui.confirmation.type)) {
+      const validation = validateArchiveClassification(ui.confirmation.archiveReason, ui.confirmation.archiveNote);
+      if (validation) {
+        showToast(validation, 'error');
+        return;
+      }
+    }
+    confirmationInFlight.current = true;
+    ui.setIsSaving(true);
 
     if (activeUser.id === 'DEMO') {
       demoService.executeAction(
@@ -269,15 +280,20 @@ export const useLoanController = (
         showToast
       );
       ui.closeModal();
+      confirmationInFlight.current = false;
+      ui.setIsSaving(false);
       return;
     }
 
     const ownerId = getOwnerId();
     if (!ownerId) {
       showToast('Perfil inválido. Refaça o login.', 'error');
+      confirmationInFlight.current = false;
+      ui.setIsSaving(false);
       return;
     }
 
+    let succeeded = false;
     try {
       // Se tiver callback de confirmação personalizada, executa e encerra
       if (ui.confirmation.onConfirm) {
@@ -285,7 +301,7 @@ export const useLoanController = (
           if (ui.confirmation.successMessage) {
               showToast(ui.confirmation.successMessage, 'success');
           }
-          ui.closeModal();
+          succeeded = true;
           return;
       }
 
@@ -313,28 +329,35 @@ export const useLoanController = (
           activeUser,
           sources,
           refundChecked: ui.confirmation.showRefundOption ? ui.refundChecked : false,
+          archiveReason: ui.confirmation.archiveReason,
+          archiveNote: ui.confirmation.archiveNote,
         });
 
         await applyLocalActionResult(ui.confirmation.type, targetId);
         showToast(msg, 'success');
       }
+      succeeded = true;
     } catch (err: any) {
       if (!String(ui.confirmation.type || '').includes('DELETE_CLIENT')) {
         showToast('Erro ao executar ação: ' + (err?.message || 'desconhecido'), 'error');
       }
     } finally {
-      ui.closeModal();
+      confirmationInFlight.current = false;
+      ui.setIsSaving(false);
+      if (succeeded) ui.closeModal();
       
       // ✅ Se o alvo da ação era o contrato selecionado, limpa-o e volta pro início
-      if (ui.selectedLoanId && (typeof ui.confirmation.target === 'string' ? ui.confirmation.target === ui.selectedLoanId : ui.confirmation.target?.id === ui.selectedLoanId)) {
+      if (succeeded && ui.selectedLoanId && (typeof ui.confirmation.target === 'string' ? ui.confirmation.target === ui.selectedLoanId : ui.confirmation.target?.id === ui.selectedLoanId)) {
         ui.setSelectedLoanId(null);
         // Não podemos usar routerNavigate direto aqui sem o hook, mas o App.tsx cuidará da limpeza de URL ao ver selectedLoanId=null se ajustarmos
       }
       
-      try {
-        await fetchFullData(ownerId);
-      } catch (syncErr) {
-        console.warn('[LoanController] Acao concluida, mas a sincronizacao posterior falhou:', syncErr);
+      if (succeeded) {
+        try {
+          await fetchFullData(ownerId);
+        } catch (syncErr) {
+          console.warn('[LoanController] Acao concluida, mas a sincronizacao posterior falhou:', syncErr);
+        }
       }
     }
   };

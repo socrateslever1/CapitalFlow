@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+const read = path => readFileSync(path, 'utf8');
+
+test('contas quitadas saem do ativo, mas permanecem no histórico sem alterar dados', () => {
+  const panel = read('components/wallet/WalletPayablesPanel.tsx');
+  assert.match(panel, /activePayables/);
+  assert.match(panel, /historicalPayables/);
+  assert.match(panel, /visiblePayables=listMode==='open'\?activePayables:historicalPayables/);
+  assert.match(panel, /Nenhuma conta a pagar em aberto/);
+  assert.match(panel, /Histórico \(\{historicalPayables\.length\}\)/);
+  assert.doesNotMatch(panel, /deletePayable|supabase\.from\(/);
+});
+test('alertas distinguem dívidas vencidas de faturas sem quitação registrada', () => {
+  const summary = read('features/wallet/pages/WalletOverviewPage.tsx');
+  const guide = read('features/wallet/components/WalletSpendingGuide.tsx');
+  assert.match(summary, /overdueCount = openPayables\.filter/);
+  assert.match(summary, /overdueInvoiceCount = invoiceList\.filter/);
+  assert.match(guide, /fatura\(s\) com data de vencimento ultrapassada/);
+  assert.doesNotMatch(guide, /compromisso\(s\) vencido\(s\)/);
+});
+test('histórico de receita não é tratado como saldo disponível', () => {
+  const screen = read('features/wallet/pages/WalletIncomePage.tsx');
+  assert.match(screen, /isExternalIncome\(op, operations\)/);
+  assert.match(screen, /Histórico de entradas avulsas/);
+  assert.match(screen, /showHistory && <section/);
+  assert.match(screen, /não representam dinheiro disponível|representa dinheiro disponível|representam dinheiro disponível|dinheiro disponível/);
+});
+test('pagamento com cartão respeita ciclo do emissor, sem criar obrigação paralela', () => {
+  const sql = read('supabase/migrations/20261106170000_wallet_card_financed_payment_due_date.sql');
+  assert.match(sql, /private\.wallet_card_first_due_date/);
+  assert.match(sql, /p_expense_date > v_close_date/);
+  assert.match(sql, /current_date,NULL,null,v_id/);
+  assert.match(sql, /current_date, NULL, null, p_card_id/);
+  const direct = read('supabase/migrations/20261106174500_wallet_card_payable_direct_due_date.sql');
+  assert.match(direct, /personal_wallet_pay_payable_from_card/);
+  assert.match(direct, /current_date,NULL,null,p_card_id/);
+  const descriptions = read('supabase/migrations/20261106182000_wallet_card_paid_creditor_description.sql');
+  assert.match(descriptions, /personal_wallet_pay_payable_from_card/);
+  assert.match(descriptions, /Pagamento com cartão:/);
+  assert.doesNotMatch(descriptions, /DELETE FROM public\.personal_wallet/);
+
+  assert.doesNotMatch(sql, /DELETE FROM public\.personal_wallet/);
+});
+
+test('fontes da quitação são carregadas sob RLS e somadas sem contabilizar uma segunda saída', () => {
+  const service = read('services/personalWallet.service.ts');
+  const timeline = read('features/wallet/domain/walletTimeline.ts');
+  const screen = read('features/wallet/pages/WalletPayablesPage.tsx');
+  assert.match(service, /personal_wallet_payable_payment_sources/);
+  assert.match(service, /visiblePaymentIds\.has\(source\.payment_id\)/);
+  assert.match(timeline, /linkedSources\.reduce/);
+  assert.match(timeline, /PAYABLE_PAYMENT/);
+  assert.match(timeline, /accountedOperationIds\.add\(matching\.id\)/);
+  assert.match(screen, /payablePaymentSources: data\.payablePaymentSources/);
+  assert.match(screen, /Origens do pagamento/);
+  assert.match(screen, /PrivateMoney value=\{formatMoney\(source\.principal\)\}/);
+  assert.doesNotMatch(timeline, /supabase\.rpc|supabase\.from/);
+});

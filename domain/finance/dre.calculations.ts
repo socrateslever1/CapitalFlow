@@ -6,6 +6,7 @@ export interface DreResult {
   principalRecovered: number;
   investment: number;
   grossRevenue: number;
+  fundingExpenses: number;
   netResult: number;
   cashFlow: number;
 }
@@ -26,7 +27,8 @@ export const classifyLedgerEntry = (t: LedgerEntry): OperationClassification => 
   return 'OUTRO';
 };
 
-export const calculateFlowDre = (transactions: LedgerEntry[]): DreResult => {
+export const calculateFlowDre = (transactions: LedgerEntry[], fundingExpenses = 0): DreResult => {
+  if (!Number.isFinite(fundingExpenses) || fundingExpenses < 0) throw new RangeError('Custo de captação inválido.');
   let interestReceived = 0;
   let lateFeeReceived = 0;
   let principalRecovered = 0;
@@ -45,7 +47,7 @@ export const calculateFlowDre = (transactions: LedgerEntry[]): DreResult => {
   });
 
   const grossRevenue = interestReceived + lateFeeReceived;
-  const netResult = grossRevenue;
+  const netResult = Math.round((grossRevenue - fundingExpenses + Number.EPSILON) * 100) / 100;
   const cashFlow = (grossRevenue + principalRecovered) - investment;
 
   return { 
@@ -54,6 +56,7 @@ export const calculateFlowDre = (transactions: LedgerEntry[]): DreResult => {
     principalRecovered, 
     investment, 
     grossRevenue, 
+    fundingExpenses,
     netResult, 
     cashFlow 
   };

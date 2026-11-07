@@ -5,7 +5,9 @@ import { formatMoney } from '../../utils/formatters';
 import { Modal } from '../ui/Modal';
 import { translateBillingCycle } from '../../utils/translationHelpers';
 import { resolveAuthenticatedStorageUrl } from '../../utils/storageUrl';
+import { resolveBankLogo } from '../../utils/bankLogoRegistry';
 import { getActiveSourceLoans } from '../../domain/sources/sourceLoans';
+import type { SourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
 
 interface SourceCardProps {
     source: CapitalSource;
@@ -14,6 +16,7 @@ interface SourceCardProps {
     onAddFunds: (source: CapitalSource) => void;
     onDelete: (id: string) => void;
     isStealthMode?: boolean;
+    referenceDisplay?: SourceReferenceDisplay | null;
 }
 
 const getBankLogoUrl = (name: string): string | null => {
@@ -46,7 +49,7 @@ const getBankLogoUrl = (name: string): string | null => {
     return null;
 };
 
-export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onDelete, isStealthMode }) => {
+export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onDelete, isStealthMode, referenceDisplay }) => {
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [imgError, setImgError] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
@@ -65,7 +68,8 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     console.warn('[source-logo] Falha ao autorizar logo:', error);
                 }
             }
-            if (!cancelled) setLogoUrl(getBankLogoUrl(source.name));
+            const bankLogo = resolveBankLogo(source.name);
+            if (!cancelled) setLogoUrl(bankLogo || getBankLogoUrl(source.name));
         };
 
         resolveLogo();
@@ -74,8 +78,9 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     const activeLoans = useMemo(() => getActiveSourceLoans(loans, source.id), [loans, source.id]);
     const activeContractsCount = activeLoans.length;
-    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : source.type === 'MISTO' ? CreditCard : Wallet;
-    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : source.type === 'MISTO' ? 'text-rose-500' : 'text-purple-500';
+    const extraReferenceCount = Math.max(0, (referenceDisplay?.entries.length || 0) - 1);
+    const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : ['MISTO', 'CARD'].includes(source.type) ? CreditCard : Wallet;
+    const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : ['MISTO', 'CARD'].includes(source.type) ? 'text-rose-500' : 'text-purple-500';
 
     const handleUpdateLogo = () => {
         onEdit(source);
@@ -83,7 +88,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     return (
         <>
-            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col h-full">
+            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
                 <div className={`absolute -top-1 -right-1 p-2 opacity-5 transition-opacity group-hover:opacity-10 ${colorClass}`}>
                     <DefaultIcon size={32} />
                 </div>
@@ -111,7 +116,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                             <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
                             <div className="flex items-center gap-1.5 mt-1 min-w-0">
                                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">
-                                    {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : 'Outro'}
+                                    {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
                                 </p>
                                 <span className="w-0.5 h-0.5 bg-slate-700 rounded-full shrink-0"></span>
                                 <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline whitespace-nowrap">
@@ -131,7 +136,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                                {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : 'Outro'}
+                                {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
                             </p>
                             <span className="w-0.5 h-0.5 bg-slate-700 rounded-full"></span>
                             <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline">
@@ -140,8 +145,29 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         </div>
                     </div>
 
-                    <div className="mt-auto">
-                        <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
+                    <div>
+                        {referenceDisplay ? (
+                            <div className="mb-2 flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
+                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">Valor associado</p>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                    <p className="text-sm font-black tabular-nums text-blue-300">
+                                        {referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
+                                    </p>
+                                    {extraReferenceCount > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDetails(true)}
+                                            className="inline-flex min-h-5 items-center rounded border border-blue-400/30 bg-blue-500/10 px-1 text-[9px] font-black text-blue-300 transition-colors hover:bg-blue-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                            aria-label={`Ver mais ${extraReferenceCount} recurso${extraReferenceCount === 1 ? '' : 's'} associado${extraReferenceCount === 1 ? '' : 's'}`}
+                                        >
+                                            +{extraReferenceCount}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
+                        )}
                         <button onClick={(e) => { e.stopPropagation(); onAddFunds(source); }} className="w-full py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-500 rounded-lg text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 shadow-sm">
                             <PlusCircle size={10}/> Adicionar Saldo
                         </button>
@@ -165,8 +191,14 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     <div className="space-y-3">
                         <div className="flex justify-between items-center bg-gradient-to-r from-slate-950 to-slate-900 p-3 rounded-xl border border-slate-800">
                             <div>
-                                <p className="text-[10px] text-slate-500 uppercase font-bold">Saldo Atual</p>
+                                <p className="text-[10px] text-slate-500 uppercase font-bold">{source.type === 'CARD' ? 'Crédito operacional informado' : 'Saldo atual'}</p>
                                 <p className={`text-xl font-black ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
+                                {referenceDisplay && (
+                                    <div className="mt-2">
+                                        <p className="text-[10px] font-semibold text-slate-400">Valor associado à Minha Carteira</p>
+                                        <p className="text-sm font-bold text-blue-300">{referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}</p>
+                                    </div>
+                                )}
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] text-slate-500 uppercase font-bold">Contratos Ativos</p>

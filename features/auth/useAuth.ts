@@ -7,6 +7,7 @@ import { playNotificationSound } from '../../utils/notificationSound';
 import { onlyDigits } from '../../utils/formatters';
 import { isDev } from '../../utils/isDev';
 import { isUUID, safeUUID } from '../../utils/uuid';
+import { clearWalletVaultSession } from '../wallet/domain/walletVaultSession';
 
 type SavedProfile = {
   id: string;
@@ -388,6 +389,7 @@ export const useAuth = () => {
         if (isDev) console.log('[AUTH EVENT]', ev, 'session?', !!session);
 
         if (ev === 'TOKEN_REFRESH_FAILED') {
+          clearWalletVaultSession();
           const localProfileId = readLocalProfileId();
           if (localProfileId) {
             setActiveProfileId(localProfileId);
@@ -400,6 +402,7 @@ export const useAuth = () => {
         }
 
         if (ev === 'SIGNED_OUT') {
+          clearWalletVaultSession();
           const localProfileId = readLocalProfileId();
           if (localProfileId) {
             setActiveProfileId(localProfileId);
@@ -411,10 +414,13 @@ export const useAuth = () => {
           return;
         }
 
+        // A renovação do token não reinicializa o aplicativo.
+        // SIGNED_IN também ocorre ao refocar a aba: só refazer o boot se
+        // ainda não houver um perfil salvo. O login explícito trata trocas de conta.
         if (ev === 'SIGNED_IN' || ev === 'TOKEN_REFRESHED') {
-          if (session?.user) {
-            if (isDev) console.log('[AUTH] Sessão ativa, garantindo perfil...');
-            boot();
+          if (ev === 'SIGNED_IN' && session?.user && !readLocalProfileId()) {
+            if (isDev) console.log('[AUTH] Sessão nova; resolvendo perfil...');
+            void boot();
           }
           window.dispatchEvent(new Event('cm_auth_restored'));
         }
@@ -613,6 +619,7 @@ export const useAuth = () => {
   };
 
   const handleLogout = useCallback(async () => {
+    clearWalletVaultSession();
     if (isDev) console.log('[AUTH] Executando logout...');
     setActiveProfileId(null);
     setBootFinished(true);

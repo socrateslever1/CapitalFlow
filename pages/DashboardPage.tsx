@@ -12,6 +12,7 @@ import { AIBalanceInsight } from '../features/dashboard/AIBalanceInsight';
 import { formatMoney } from '../utils/formatters';
 import { groupLoansByClient } from '../domain/dashboard/loanGrouping';
 import { NativeDonutChart, NativeTrendChart } from '../components/dashboard/NativeDashboardCharts';
+import { MonthlyBalanceReport } from '../features/reports/components/MonthlyBalanceReport';
 import type { InstallmentPaymentHandler } from '../components/cards/components/InstallmentReceiptModel';
 
 const getDashboardColumnCount = () => {
@@ -90,6 +91,8 @@ interface DashboardPageProps {
   sources: CapitalSource[];
   filteredLoans: Loan[];
   stats: any;
+  profileId: string;
+  onOpenReports?: () => void;
   activeUser: UserProfile | null;
   staffMembers: UserProfile[];
   selectedStaffId: string;
@@ -139,7 +142,7 @@ interface DashboardPageProps {
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
-  loans, sources, filteredLoans, stats, activeUser, staffMembers, selectedStaffId, onStaffChange,
+  loans, sources, filteredLoans, stats, activeUser, profileId, onOpenReports, staffMembers, selectedStaffId, onStaffChange,
   mobileDashboardTab, setMobileDashboardTab, statusFilter, setStatusFilter, sortOption, setSortOption,
   searchTerm, setSearchTerm, selectedLoanId, setSelectedLoanId, onEdit, onMessage, onArchive, onRestore,
   onDelete, onActivate, onNote, onPortalLink, onUploadPromissoria, onUploadDoc, onViewPromissoria,
@@ -180,8 +183,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
-          <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
+      <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-8 lg:gap-y-8">
+          <div className={`flex-1 min-w-0 space-y-6 sm:space-y-8 lg:contents lg:space-y-0 ${mobileDashboardTab === 'BALANCE' ? 'hidden md:block' : ''}`}>
+              <div data-dashboard-filters className="min-w-0 space-y-6 sm:space-y-8 lg:col-start-1 lg:row-start-1">
               <DashboardAlerts loans={loans} sources={sources} />
               <DashboardControls
                 statusFilter={statusFilter} setStatusFilter={setStatusFilter}
@@ -195,7 +199,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 filteredLoans={filteredLoans}
                 sources={sources}
               />
+              </div>
 
+              <div data-dashboard-contracts className="min-w-0 lg:col-start-1 lg:row-start-2">
               {/* Lista de Contratos: Renderização Agrupada */}
               {groupedLoans.length > 0 ? (
                   <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2 2xl:grid-cols-3 cf-cards-flash">
@@ -233,10 +239,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       </p>
                   </div>
               )}
+              </div>
           </div>
 
-          <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
-              <div className="flex items-center justify-between px-2">
+          <aside className={`w-full lg:w-80 shrink-0 min-w-0 space-y-5 sm:space-y-6 lg:contents lg:space-y-0 ${mobileDashboardTab === 'CONTRACTS' ? 'hidden md:block' : ''}`}>
+              <div data-dashboard-indicator-heading className="flex items-center justify-between px-2 lg:col-start-2 lg:row-start-1 lg:self-start">
                   <h2 className="text-[10px] font-black uppercase text-slate-500">Indicadores</h2>
                   <button
                     onClick={loanCtrl.handleRecalculateAll}
@@ -248,6 +255,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </button>
               </div>
 
+              <div data-dashboard-indicators className="min-w-0 space-y-5 sm:space-y-6 lg:col-start-2 lg:row-start-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
 
                   {/* CARD CAPITAL NA RUA */}
@@ -336,6 +344,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   <ProfitCard variant="compact" balance={stats.interestBalance} onWithdraw={() => ui.openModal('WITHDRAW')} isStealthMode={isStealthMode} />
               </div>
 
+              {activeUser?.id === profileId && profileId && (
+                <div className="space-y-2" data-dashboard-balance>
+                  <MonthlyBalanceReport profileId={profileId} loans={loans} sources={sources}
+                    compact isStealthMode={isStealthMode} onOpenLoan={id=>onNavigate(`/contrato/${id}`)} />
+                  {onOpenReports && <button type="button" onClick={onOpenReports}
+                    className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600/10 px-3 py-2 text-xs font-bold text-blue-300">
+                    Histórico mensal completo <BarChart3 size={15}/>
+                  </button>}
+                </div>
+              )}
+
               <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col items-center shadow-xl group hover:border-slate-700 transition-all">
                   <div className="flex items-center justify-between w-full mb-6">
                       <h3 className="card-title font-black uppercase text-slate-500 group-hover:text-slate-400 transition-colors flex items-center gap-3">
@@ -364,6 +383,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
 
               <AIBalanceInsight loans={loans} sources={sources} activeUser={activeUser} />
+              </div>
           </aside>
       </div>
     </div>

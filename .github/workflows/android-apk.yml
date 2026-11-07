@@ -2,12 +2,60 @@ name: CapitalFlow Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'capacitor.config.json'
+      - 'index.css'
+      - 'brand.css'
+      - 'features/**'
+      - 'containers/**'
+      - 'contexts/**'
+      - 'hooks/**'
+      - 'layout/**'
+      - 'services/**'
+      - 'utils/**'
+      - 'src/**'
+      - 'assets/**'
+      - 'types.ts'
+      - 'tests/**'
+      - '.github/workflows/android-apk.yml'
+      - 'android/**'
+      - 'native/android/**'
+      - 'assets/branding/**'
+      - 'scripts/android/**'
+      - 'main.tsx'
+      - 'index.html'
+      - 'App.tsx'
+      - 'lib/**'
+      - 'components/**'
+      - 'pages/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
   push:
     branches: [main]
     paths:
       - 'capacitor.config.json'
+      - 'index.css'
+      - 'brand.css'
+      - 'features/**'
+      - 'containers/**'
+      - 'contexts/**'
+      - 'hooks/**'
+      - 'layout/**'
+      - 'services/**'
+      - 'utils/**'
+      - 'src/**'
+      - 'assets/**'
+      - 'types.ts'
+      - 'tests/**'
       - '.github/workflows/android-apk.yml'
       - 'android/**'
+      - 'native/android/**'
+      - 'assets/branding/**'
+      - 'scripts/android/**'
       - 'main.tsx'
       - 'index.html'
       - 'App.tsx'
@@ -20,11 +68,13 @@ on:
       - 'vite.config.ts'
 
 permissions:
-  contents: read
+  contents: write  # Only main pushes may publish the public test release.
+  actions: read   # Read the complete Quality Gates conclusion for this exact SHA.
 
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  # Never interrupt an active APK/checksum publication with a newer push.
+  cancel-in-progress: false
 
 jobs:
   android-debug:
@@ -42,7 +92,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Configure Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
       - name: Install locked dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -54,15 +104,103 @@ jobs:
         run: npm install --no-save --package-lock=false --no-audit --no-fund @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
       - name: Validate architecture and financial invariants
         run: npm run test:quality
+      - name: Audit production dependencies before Android distribution
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify invoice regressions outside the general quality suite
+        run: |
+          npm run test:wallet-invoice-cycle
+          node --test tests/architecture/wallet-invoice-editor-regression.test.mjs tests/architecture/wallet-issuer-invoice-atomic.test.mjs
       - name: Build application bundle
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
+      - name: Verify native Android back-button plugin installed
+        run: |
+          node -e "require.resolve('@capacitor/app')"
+          node -e "require.resolve('@capacitor/core')"
       - name: Generate and synchronize native Android project
         run: |
+          # Em CI esta pasta so contem documentacao; o projeto nativo e gerado a cada build.
+          # Nao apagar arquivos locais do desenvolvedor: este comando roda apenas no runner descartavel.
+          rm -rf android
           npx cap add android
           npx cap sync android
+          # Verify Capacitor includes the native App plugin that handles hardware back.
+          node -e "const plugins=require('./android/app/src/main/assets/capacitor.plugins.json'); if(!Array.isArray(plugins)||!plugins.some(p=>p.pkg==='@capacitor/app')) { console.error('Capacitor App plugin not registered on Android'); process.exit(1); }"
+          test -s android/app/src/main/assets/public/index.html
+          test -s android/app/src/main/assets/public/manifest.json
+      - name: Install native Android navigation and system-bar policy
+        run: |
+          python3 scripts/android/apply-native-shell.py
+          grep -q 'android:enableOnBackInvokedCallback="false"' android/app/src/main/AndroidManifest.xml
+          # Gmail and Android Files must be able to open OFX/PDF with the signed APK.
+          grep -q 'Abrir fatura no CapitalFlow' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.VIEW' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.intent.action.SEND' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletFileInboxPlugin.java
+          grep -q 'registerPlugin(WalletFileInboxPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          # The signed installer must be handled inside Capacitor, never an external browser.
+          grep -q 'registerPlugin(CapitalFlowApkInstallerPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowInstallStatusReceiver.java
+          # Reader lives in Android, not in the WebView.
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletBankNotificationStore.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletBankNotificationListenerService.java
+          test -s android/app/src/main/java/com/socrateslever/capitalflow/WalletBankNotificationsPlugin.java
+          grep -q 'registerPlugin(WalletBankNotificationsPlugin.class)' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'android:name=".WalletBankNotificationListenerService"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.BIND_NOTIFICATION_LISTENER_SERVICE' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:name=".CapitalFlowInstallStatusReceiver"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:exported="false"' android/app/src/main/AndroidManifest.xml
+          grep -q 'session.commit(pending.getIntentSender())' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          grep -q 'STATUS_PENDING_USER_ACTION' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowInstallStatusReceiver.java
+          grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION' android/app/src/main/AndroidManifest.xml
+          grep -q 'USER_ACTION_NOT_REQUIRED' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          grep -q 'capitalflowapk' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/xml/capitalflow_apk_file_paths.xml
+          grep -q 'verifyPackageAndCertificate' android/app/src/main/java/com/socrateslever/capitalflow/CapitalFlowApkInstallerPlugin.java
+          grep -q 'getOnBackPressedDispatcher()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          # Android 15/16 edge-to-edge: native padding, zeroing before WebView.
+          grep -q 'configureSystemBarInsets()' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'WindowCompat.setDecorFitsSystemWindows' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'WindowInsetsCompat.Type.displayCutout' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+          grep -q 'Insets.NONE' android/app/src/main/java/com/socrateslever/capitalflow/MainActivity.java
+      - name: Install official CapitalFlow icon into Android installer
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/capitalflow-icon-venv"
+          "$RUNNER_TEMP/capitalflow-icon-venv/bin/pip" install --disable-pip-version-check --no-cache-dir Pillow==11.3.0 CairoSVG==2.8.2
+          "$RUNNER_TEMP/capitalflow-icon-venv/bin/python" scripts/android/install_launcher_icon.py
+          # Android Package Manager reads the launcher manifest resource directly.
+          grep -q 'android:icon="@mipmap/cf_launcher"' android/app/src/main/AndroidManifest.xml
+          grep -q 'android:roundIcon="@mipmap/cf_launcher_round"' android/app/src/main/AndroidManifest.xml
+          test -s android/app/src/main/res/mipmap-xxxhdpi/cf_launcher.png
+          test -s android/app/src/main/res/mipmap-xxxhdpi/cf_launcher_round.png
+          test -s android/app/src/main/res/mipmap-anydpi-v26/cf_launcher.xml
+          test -s android/app/src/main/res/drawable-xxxhdpi/cf_launcher_foreground.png
+          test -s android/app/src/main/res/drawable-xxxhdpi/cf_launcher_monochrome.png
+          "$RUNNER_TEMP/capitalflow-icon-venv/bin/python" - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          res = Path('android/app/src/main/res')
+          scales = {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}
+          for density, scale in scales.items():
+              for name in ('cf_launcher.png', 'cf_launcher_round.png'):
+                  p = res / f'mipmap-{density}' / name
+                  with Image.open(p) as i:
+                      assert i.size == (round(48 * scale), round(48 * scale)), p
+              for name in ('cf_launcher_foreground.png', 'cf_launcher_monochrome.png'):
+                  p = res / f'drawable-{density}' / name
+                  with Image.open(p) as i:
+                      assert i.size == (round(108 * scale), round(108 * scale)), p
+                      assert i.getbbox(), f'Blank Android launcher asset: {p}'
+          # Default Capacitor vector and branded PNG must never share a resource name.
+          for xml in res.glob('drawable*/cf_launcher_foreground.xml'):
+              raise AssertionError(f'Conflicting vector drawable overrides CF: {xml}')
+          print('All 20 CF PNG resources use unique launcher names')
+          PY
       - name: Assemble Android debug APK
         working-directory: android
         run: bash gradlew assembleDebug --no-daemon
@@ -79,6 +217,14 @@ jobs:
           signer="$(find "${ANDROID_HOME:?}/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$signer"
           "$signer" verify "$apk"
+          # Inspect the compiled Android badge, not merely source PNG files:
+          # an "anydpi" Capacitor vector can override a correctly generated PNG.
+          aapt="$(find "${ANDROID_HOME:?}/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/cf-debug-badging.txt"
+          grep -Eq "application: .*icon='res/.*/cf_launcher([.]png|[.]xml)'" "$RUNNER_TEMP/cf-debug-badging.txt"
+          unzip -Z -1 "$apk" | grep -Eq '^res/mipmap-anydpi-v26/cf_launcher[.]xml$'
+          unzip -Z -1 "$apk" | grep -Eq '^res/drawable-xxxhdpi-v4/cf_launcher_foreground[.]png$'
           sha256sum "$apk" > "$apk.sha256"
       - name: Publish verified APK and checksum
         uses: actions/upload-artifact@v4
@@ -89,3 +235,231 @@ jobs:
             android/app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 30
+
+      # APKs debug sao exclusivos para diagnostico interno do Actions.
+      # NUNCA publicar no link de download: o certificado temporario muda por runner.
+      # O primeiro APK publico e gerado apenas apos configurar os quatro segredos de assinatura.
+
+      # Release signing MUST use the same owner-managed keystore for every version.
+      # GitHub-hosted runners generate a different debug certificate each time.
+      - name: Check permanent Android signing credentials
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        id: signing
+        shell: bash
+        env:
+          CF_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          CF_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          CF_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          CF_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$CF_KEYSTORE_B64" && -n "$CF_STORE_PASSWORD" && -n "$CF_KEY_ALIAS" && -n "$CF_KEY_PASSWORD" ]]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+            if [[ "$GITHUB_EVENT_NAME" = "push" && "$GITHUB_REF" = "refs/heads/main" ]]; then
+              echo '::error::Assinatura de producao nao configurada. Defina os 4 segredos ANDROID_RELEASE_* antes de publicar na main.'
+              exit 1
+            fi
+            echo '::warning::Assinatura de producao nao configurada neste ensaio. O APK debug nao e uma release publica.'
+          fi
+
+      - name: Require complete Quality Gates for the exact source commit
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/android/release-safety.mjs quality "$GITHUB_REPOSITORY" "$GITHUB_SHA"
+
+      - name: Set monotonic versionCode for Android release
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          path = pathlib.Path('android/app/build.gradle')
+          source = path.read_text(encoding='utf-8')
+          version_code = 100000 + int(os.environ['GITHUB_RUN_NUMBER'])
+          updated, count = re.subn(r'(?m)^(\s*)versionCode\s+\d+\s*$', lambda m: f'{m.group(1)}versionCode {version_code}', source)
+          if count != 1:
+              raise SystemExit('Expected exactly one Android versionCode in generated Gradle')
+          updated, count = re.subn(r'(?m)^(\s*)versionName\s+"[^"]*"\s*$', lambda m: f'{m.group(1)}versionName "1.0.{os.environ["GITHUB_RUN_NUMBER"]}"', updated)
+          if count != 1:
+              raise SystemExit('Expected exactly one Android versionName in generated Gradle')
+          path.write_text(updated, encoding='utf-8')
+          print(f'Android release versionCode = {version_code}')
+          PY
+
+      - name: Compile Android release package
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        working-directory: android
+        run: bash gradlew assembleRelease --no-daemon
+
+      - name: Sign and verify Android release APK with permanent certificate
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        shell: bash
+        env:
+          CF_KEYSTORE_B64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          CF_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+          CF_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          CF_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          store="$RUNNER_TEMP/capitalflow-release.jks"
+          aligned="$RUNNER_TEMP/CapitalFlow-Android-aligned.apk"
+          unsigned="android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          mkdir -p "$RUNNER_TEMP/capitalflow-signed"
+          signed="$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk"
+          trap 'rm -f "$store" "$aligned"' EXIT
+          printf '%s' "$CF_KEYSTORE_B64" | base64 --decode > "$store"
+          test -s "$unsigned"
+          keytool -list -keystore "$store" -storepass:env CF_STORE_PASSWORD -alias "$CF_KEY_ALIAS" >/dev/null
+
+          zipalign="$(find "${ANDROID_HOME:?}/build-tools" -type f -name zipalign | sort -V | tail -n 1)"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$zipalign" && test -x "$apksigner"
+          "$zipalign" -p -f 4 "$unsigned" "$aligned"
+          "$apksigner" sign --ks "$store" --ks-key-alias "$CF_KEY_ALIAS" \
+            --ks-pass env:CF_STORE_PASSWORD --key-pass env:CF_KEY_PASSWORD \
+            --out "$signed" "$aligned"
+          "$apksigner" verify --verbose --print-certs "$signed"
+          if "$apksigner" verify --print-certs "$signed" | grep -qi 'CN=Android Debug'; then
+            echo '::error::Debug certificate cannot be used for production releases.'
+            exit 1
+          fi
+          "$zipalign" -c 4 "$signed"
+          unzip -t -q "$signed" >/dev/null
+          (
+            cd "$RUNNER_TEMP/capitalflow-signed"
+            sha256sum CapitalFlow-Android.apk > CapitalFlow-Android.apk.sha256
+          )
+          echo 'APK signed with the owner-managed keystore and verified by apksigner.'
+
+      - name: Publish update-compatible APK with immutable signing identity
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          signed="$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk"
+          checksum="$RUNNER_TEMP/capitalflow-signed/CapitalFlow-Android.apk.sha256"
+          test -s "$signed" && test -s "$checksum"
+          apksigner="$(find "${ANDROID_HOME:?}/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -x "$apksigner" && test -x "$aapt"
+
+          certificate() {
+            # apksigner (Android SDK) may label the v3 certificate as "V3.0 Signer:"
+            # instead of "Signer #1". Compare the digest itself, not its label.
+            "$apksigner" verify --verbose --print-certs "$1" \
+              | sed -nE 's/^.*certificate SHA-256 digest: ([0-9a-fA-F]{64}).*/\1/p' \
+              | head -n 1 | tr '[:upper:]' '[:lower:]'
+          }
+          version_code() {
+            "$aapt" dump badging "$1" \
+              | sed -nE "s/.*versionCode='([0-9]+)'.*/\\1/p" | head -1
+          }
+          package_name() {
+            "$aapt" dump badging "$1" \
+              | sed -nE "s/^package: name='([^']+)'.*/\\1/p" | head -1
+          }
+          new_cert="$(certificate "$signed")"
+          new_code="$(version_code "$signed")"
+          new_package="$(package_name "$signed")"
+          test -n "$new_cert" && [[ "$new_code" =~ ^[0-9]+$ ]]
+          test "$new_package" = 'com.socrateslever.capitalflow'
+
+          # Preserve the public link already shared with users, but publish only
+          # signed release APKs at that URL. Compare against prior signed releases,
+          # never against old randomly-signed debug previews.
+          reference_tag="android-signed-beta"
+          metadata="$RUNNER_TEMP/android-prior-release.json"
+          release_state="$(node scripts/android/release-safety.mjs lookup "$GITHUB_REPOSITORY" "$reference_tag" "$metadata")"
+          if [[ "$release_state" = present ]]; then
+            asset_state="$(node scripts/android/release-safety.mjs has-apk "$metadata")"
+            if [[ "$asset_state" = present ]]; then
+              mkdir -p "$RUNNER_TEMP/capitalflow-prior-release"
+              gh release download "$reference_tag" --repo "$GITHUB_REPOSITORY" \
+                --pattern 'CapitalFlow-Android.apk' \
+                --dir "$RUNNER_TEMP/capitalflow-prior-release"
+              previous="$RUNNER_TEMP/capitalflow-prior-release/CapitalFlow-Android.apk"
+              prior_cert="$(certificate "$previous")"
+              prior_code="$(version_code "$previous")"
+              prior_package="$(package_name "$previous")"
+              new_sha="$(sha256sum "$signed" | cut -d ' ' -f 1)"
+              prior_sha="$(sha256sum "$previous" | cut -d ' ' -f 1)"
+              # Same versionCode is recoverable only for exactly the same signed bytes.
+              node scripts/android/release-safety.mjs compare \
+                "$new_package" "$new_cert" "$new_code" "$new_sha" \
+                "$prior_package" "$prior_cert" "$prior_code" "$prior_sha"
+            fi
+          fi
+          cat > "$RUNNER_TEMP/android-signed-notes.md" <<EOF
+          CapitalFlow Android — APK assinado com certificado permanente.
+
+          Origem: commit ${GITHUB_SHA}
+          versionCode: ${new_code}
+          Pacote: ${new_package}
+
+          Instale a partir deste link para receber atualizacoes com o mesmo
+          certificado nas proximas versoes. A migracao de qualquer APK DEBUG
+          anterior exige desinstalacao unica apos conferir dados sincronizados
+          e backup local; certificados Android nao sao intercambiaveis.
+          A assinatura nao significa aprovacao pela Play Store ou Samsung.
+          EOF
+          # android-preview is the original public link; both tags now contain
+          # the exact same signed binary and SHA-256 checksum.
+          for tag in android-signed-beta android-preview; do
+            release_state="$(node scripts/android/release-safety.mjs lookup "$GITHUB_REPOSITORY" "$tag" "$RUNNER_TEMP/release-$tag.json")"
+            if [[ "$release_state" = absent ]]; then
+              gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+                --target "$GITHUB_SHA" --title "CapitalFlow Android — beta assinada" \
+                --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"
+            fi
+            # GitHub API may return transient HTTP 500 after updating only one
+            # asset, leaving APK/checksum inconsistent. Retry the complete
+            # upload, then verify remote bytes *before* updating release notes.
+            uploaded=false
+            for attempt in 1 2 3 4 5; do
+              if gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+                "$signed" "$checksum"; then
+                uploaded=true
+                break
+              fi
+              echo "::warning::Tentativa $attempt/5 de upload para $tag falhou."
+              sleep $((attempt * 3))
+            done
+            if [[ "$uploaded" != true ]]; then
+              echo "::error::Upload da release falhou apos cinco tentativas."
+              exit 1
+            fi
+            verify_dir="$RUNNER_TEMP/verify-release-$tag"
+            mkdir -p "$verify_dir"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern 'CapitalFlow-Android.apk*' --dir "$verify_dir" --clobber
+            cmp "$checksum" "$verify_dir/CapitalFlow-Android.apk.sha256"
+            expected_sha="$(sha256sum "$signed" | cut -d ' ' -f 1)"
+            actual_sha="$(sha256sum "$verify_dir/CapitalFlow-Android.apk" | cut -d ' ' -f 1)"
+            if [[ "$actual_sha" != "$expected_sha" ]]; then
+              echo "::error::Arquivo publicado difere da release assinada localmente."
+              exit 1
+            fi
+            edited=false
+            for attempt in 1 2 3 4 5; do
+              if gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+                --title "CapitalFlow Android — beta assinada" \
+                --prerelease --notes-file "$RUNNER_TEMP/android-signed-notes.md"; then
+                edited=true
+                break
+              fi
+              echo "::warning::Falha temporaria ao atualizar notas ($attempt/5)."
+              sleep $((attempt * 3))
+            done
+            if [[ "$edited" != true ]]; then
+              echo "::error::Falha ao atualizar metadados da release."
+              exit 1
+            fi
+          done
+          echo "APK atualizado com certificado SHA-256 $new_cert e versionCode $new_code"

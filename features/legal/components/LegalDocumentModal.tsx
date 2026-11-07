@@ -7,6 +7,7 @@ import { legalService } from "../services/legalService";
 import { safeUUID } from "../../../utils/uuid";
 import { Printer, Scale, FileSignature, Loader2, ShieldCheck, Check, FileText, Activity, Users, User, Copy, MessageSquare, Link } from "lucide-react";
 import { LegalReportView } from './LegalReportView';
+import { buildPublicAppUrl } from '../../../utils/publicAppUrl';
 
 interface LegalDocumentModalProps {
     agreement: Agreement;
@@ -70,10 +71,11 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
 
     const getLinkForRole = (role: string, index?: number) => {
         if (!docRecord) return '';
-        const baseUrl = window.location.origin;
-        let url = `${baseUrl}/?legal_sign=${docRecord.public_access_token}&role=${role}`;
-        if (index !== undefined) url += `&idx=${index}`;
-        return url;
+        return buildPublicAppUrl('/', {
+            legal_sign: docRecord.public_access_token,
+            role,
+            ...(index !== undefined ? { idx: index } : {}),
+        });
     };
 
     const copyLink = (role: string, index?: number) => {

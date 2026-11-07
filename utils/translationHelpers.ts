@@ -6,6 +6,8 @@ export const translateTransactionType = (type: string): string => {
     NOVO_APORTE: 'Novo Aporte',
     PAYMENT_FULL: 'Quitação',
     PAYMENT_PARTIAL: 'Recebimento Parcial',
+    PAYMENT_RECEIVED: 'Recebimento registrado',
+    PAYMENT_IN: 'Entrada recebida',
     PAYMENT: 'Recebimento',
     FULL: 'Quitação Total',
     CUSTOM: 'Personalizado',
@@ -16,6 +18,19 @@ export const translateTransactionType = (type: string): string => {
     renewal: 'Renovação',
     ADJUSTMENT: 'Ajuste',
     ESTORNO: 'Estorno',
+    ESTORNO_INVALIDADO: 'Estorno invalidado',
+    REVERSAL: 'Estorno de recebimento',
+    PROFIT_WITHDRAWAL: 'Retirada de lucro',
+    PARTIAL_RENEWAL: 'Renovação parcial',
+    CAPITALIZATION: 'Capitalização',
+    FORGIVENESS: 'Dispensa de encargos',
+    AGREEMENT_SCHEDULE_REBUILT: 'Parcelas do acordo reorganizadas',
+    AGREEMENT_SCHEDULE_RECONCILED: 'Parcelas do acordo conciliadas',
+    REFUND_SOURCE_CHANGE: 'Alteração da fonte de devolução',
+    UNIFICATION_REPAIR: 'Correção de unificação',
+    PRINCIPAL_CORRECTION_REDUCTION: 'Redução do capital',
+    FINANCEIRO: 'Movimentação financeira',
+    RECONCILIATION: 'Conciliação',
     SYSTEM: 'Sistema',
     AUDIT: 'Auditoria',
     AGREEMENT_PAYMENT: 'Recebimento de Acordo',
@@ -51,10 +66,9 @@ export const translateTransactionType = (type: string): string => {
 
   if (translations[type]) return translations[type];
 
-  return String(type || '')
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  // Nunca exponha códigos internos em inglês quando o tipo é desconhecido.
+  // O identificador original permanece no histórico para auditoria.
+  return 'Movimentação registrada';
 };
 
 export const translateLoanStatus = (status: string): string => {

@@ -1,11 +1,5 @@
-export const GEMINI_API_KEY_HELP =
-  'Chave da API do Gemini não configurada. Configure VITE_GOOGLE_API_KEY no arquivo .env.local.';
-
-export const getGeminiApiKey = () =>
-  import.meta.env.VITE_GOOGLE_API_KEY ||
-  import.meta.env.VITE_GEMINI_API_KEY ||
-  process.env.GEMINI_API_KEY ||
-  '';
-
+/** Legacy guard: provider keys must not be embedded in a browser or APK bundle. */
+export const GEMINI_API_KEY_HELP = 'O serviço de IA precisa ser configurado no servidor.';
+export const getGeminiApiKey = (): string => '';
 export const isGeminiConfigError = (value?: string) =>
-  Boolean(value?.toLowerCase().includes('chave da api do gemini'));
+  Boolean(value?.toLowerCase().includes('serviço de ia'));

@@ -40,8 +40,8 @@ export const ExtratoPage = () => {
     };
 
     return (
-        <div className="flex gap-6 animate-in fade-in duration-300 font-sans pb-24">
-            <div className="flex-1 space-y-6">
+        <div className="mx-auto w-full max-w-[1500px] min-w-0 space-y-4 animate-in fade-in duration-300 font-sans pb-24">
+            <div className="min-w-0 space-y-4">
                 <ExtratoHeader onOpenAi={() => setIsAiOpen(true)} />
                 <ExtratoPeriodSelector 
                     month={selectedMonth} 
@@ -53,7 +53,7 @@ export const ExtratoPage = () => {
                 />
 
                 <div className="flex-1">
-                    <div className="max-w-5xl mx-auto space-y-6 flex flex-col h-full">
+                    <div className="w-full min-w-0 space-y-4 flex flex-col">
                         <ExtratoCards dre={dre} variations={variations} activeFilter={activeFilter} onFilterChange={setActiveFilter} />
                         <ExtratoCompositionSection dre={dre} />
                         <ExtratoOperationsList 
@@ -67,7 +67,7 @@ export const ExtratoPage = () => {
                 </div>
             </div>
             {isAiOpen && (
-                <div className="w-96 shrink-0 h-[calc(100vh-100px)] sticky top-6">
+                <div className="fixed right-3 top-[max(1rem,env(safe-area-inset-top))] z-[1900] h-[calc(100dvh-2rem)] w-[min(25rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 shadow-2xl">
                     <ExtratoAIPanel onClose={() => setIsAiOpen(false)} context={aiContext} />
                 </div>
             )}

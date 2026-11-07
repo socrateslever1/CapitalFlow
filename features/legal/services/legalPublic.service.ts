@@ -3,6 +3,7 @@ import { supabase } from '../../../lib/supabase';
 import { LegalDocumentParams } from '../../../types';
 import { legalValidityService } from './legalValidity.service';
 import { safeUUID } from '../../../utils/uuid';
+import { buildPublicAppUrl } from '../../../utils/publicAppUrl';
 
 const normalizeSignatureRole = (value: string | null | undefined) => {
   const role = String(value || '').trim().toUpperCase();
@@ -59,7 +60,7 @@ export const legalPublicService = {
       throw new Error('Documento sem token publico de assinatura.');
     }
 
-    return `${window.location.origin}/?legal_sign=${accessToken}`;
+    return buildPublicAppUrl('/', { legal_sign: accessToken });
   },
 
   /**
@@ -195,8 +196,8 @@ export const legalPublicService = {
     });
 
     const rpcPayload = Array.isArray(signResult) ? signResult[0] : signResult;
-    if (insertError || rpcPayload?.success === false) {
-      throw new Error(rpcPayload?.message || insertError?.message || 'Falha ao registrar assinatura.');
+    if (insertError || rpcPayload?.success !== true) {
+      throw new Error(rpcPayload?.message || insertError?.message || 'Assinatura não confirmada. Confira os dados.');
     }
 
     return true;

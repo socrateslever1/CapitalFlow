@@ -1,8 +1,9 @@
 // services/ledger/ledgerActions.ts
 import { supabase } from '../../lib/supabase';
 import { Loan, UserProfile, CapitalSource } from '../../types';
-import { getOwnerId, toNumber } from './ledgerHelpers';
-import { logArchive, logRestore } from './ledgerAudit';
+import { getOwnerId } from './ledgerHelpers';
+import { logRestore } from './ledgerAudit';
+import { validateArchiveClassification, type ArchiveReason } from '../../domain/credit/archivePolicy';
 import { isUUID, safeUUID } from '../../utils/uuid';
 import { markDeletedContract } from '../deletedContracts.service';
 
@@ -30,39 +31,25 @@ const isAlreadyDeletedContractError = (error: any) => {
 };
 
 export async function executeLedgerAction(params: {
-  type: 'DELETE' | 'ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'ACTIVATE';
+  type: 'DELETE' | 'ARCHIVE' | 'RECLASSIFY_ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'ACTIVATE';
   targetId: string;
   loan?: Loan;
   activeUser: UserProfile;
   sources: CapitalSource[];
   refundChecked: boolean;
+  archiveReason?: ArchiveReason | '';
+  archiveNote?: string;
 }) {
-  const { type, targetId, loan, activeUser, sources, refundChecked } = params;
+  const { type, targetId, loan, activeUser, sources, refundChecked, archiveReason, archiveNote } = params;
   if (!activeUser?.id) throw new Error('Usuario nao autenticado');
   if (activeUser.id === 'DEMO') return 'Acao realizada (Demo)';
 
   const ownerId = getOwnerId(activeUser);
   if (!isUUID(ownerId)) return 'Acao realizada (Demo/Invalido)';
 
-  if (refundChecked && loan && loan.sourceId && type === 'ARCHIVE') {
-    const remainingPrincipal = (loan.installments || []).reduce(
-      (sum: number, i: any) => sum + toNumber(i.principalRemaining),
-      0
-    );
-
-    if (remainingPrincipal > 0) {
-      const source = sources.find((s) => s.id === loan.sourceId);
-      if (source) {
-        const { syncService } = await import('../sync.service');
-        await syncService.enqueueOperation({
-          table: 'fontes',
-          operation: 'UPDATE',
-          data: { id: safeUUID(source.id), balance: toNumber(source.balance) + remainingPrincipal },
-          id: safeUUID(source.id)
-        });
-      }
-    }
-  }
+  // Archiving is a reversible visibility change, never a cash movement.
+  // A previous implementation credited remaining principal to the source on
+  // archive without a corresponding immutable payment event. Do not repeat it.
 
   if (type === 'DELETE') {
     const loanId = safeUUID(targetId);
@@ -126,11 +113,26 @@ export async function executeLedgerAction(params: {
     return 'Cliente e todos os seus contratos foram removidos.';
   }
 
-  if (type === 'ARCHIVE') {
-    const { syncService } = await import('../sync.service');
-    await syncService.enqueueOperation({ table: 'contratos', operation: 'UPDATE', data: { id: safeUUID(targetId), is_archived: true }, id: safeUUID(targetId) });
-    await logArchive(ownerId, targetId, loan?.sourceId);
-    return 'Contrato Arquivado.';
+  if (type === 'ARCHIVE' || type === 'RECLASSIFY_ARCHIVE') {
+    const message = validateArchiveClassification(archiveReason, archiveNote);
+    if (message) throw new Error(message);
+    const loanId = safeUUID(targetId);
+    if (!loanId) throw new Error('Contrato não identificado.');
+    const { data, error } = await supabase.rpc('classify_contract_archive_v1', {
+      p_loan_id: loanId,
+      p_reason: archiveReason,
+      p_note: String(archiveNote ?? '').trim() || null,
+    });
+    if (error) {
+      console.error('[LedgerActions] Erro ao salvar classificação:', error);
+      throw new Error('Não foi possível salvar a classificação. Verifique sua conexão.');
+    }
+    if (!data?.ok || data.reason !== archiveReason) {
+      throw new Error('Não foi possível confirmar o arquivamento.');
+    }
+    return type === 'RECLASSIFY_ARCHIVE'
+      ? 'Motivo do arquivamento atualizado.'
+      : 'Contrato arquivado com motivo registrado.';
   }
 
   if (type === 'RESTORE') {

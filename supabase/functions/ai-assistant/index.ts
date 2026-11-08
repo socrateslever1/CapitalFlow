@@ -18,7 +18,9 @@ const allowedOrigins = new Set([
   'http://127.0.0.1:3000',
 ]);
 const isAllowedOrigin = (origin: string | null): origin is string =>
-  Boolean(origin && (allowedOrigins.has(origin) || /^https:\/\/[a-z0-9-]{1,64}\.capflow\.pages\.dev$/.test(origin)));
+  Boolean(origin && (allowedOrigins.has(origin) || /^https:\/\/[a-z0-9-]{1,64}\.capflow\.pages\.dev$/.test(origin) ||
+    // Local dev server falls back from :3000 up to :3010 when the port is busy. JWT is still required.
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{2,5})?$/.test(origin)));
 const corsHeaders = (req: Request) => {
   const origin = req.headers.get('origin');
   return {

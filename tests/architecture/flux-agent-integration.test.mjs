@@ -47,3 +47,13 @@ test('Gemini 404 falls back to a model discovered for the same key', () => {
   assert.match(edge, /response\.status === 404/);
   assert.match(edge, /supportedGenerationMethods\.includes\('generateContent'\)/);
 });
+test('CORS accepts the local dev server on fallback ports only for localhost', () => {
+  const edge = read('supabase/functions/ai-assistant/index.ts');
+  const m = edge.match(/\/\^https\?:\\\/\\\/\(localhost\|127\\\.0\\\.0\\\.1\)\(:\\d\{2,5\}\)\?\$\//);
+  assert.ok(m, 'localhost any-port rule present');
+  const re = new RegExp(m[0].slice(1, -1));
+  assert.ok(re.test('http://localhost:3004'));
+  assert.ok(re.test('http://127.0.0.1:3001'));
+  assert.ok(!re.test('http://localhost.evil.com'));
+  assert.ok(!re.test('https://evil.com'));
+});

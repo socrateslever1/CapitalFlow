@@ -57,3 +57,9 @@ test('CORS accepts the local dev server on fallback ports only for localhost', (
   assert.ok(!re.test('http://localhost.evil.com'));
   assert.ok(!re.test('https://evil.com'));
 });
+test('provider failures are reported as sanitized codes, never raw provider bodies', () => {
+  const edge = read('supabase/functions/ai-assistant/index.ts');
+  assert.match(edge, /failures\.push\(provider\.id \+ ': ' \+ code\.replace\(\/\[\^A-Za-z0-9_\]\/g, ''\)/);
+  assert.match(edge, /Diagnóstico: /);
+  assert.match(edge, /fallbackModel\.startsWith\('gemini-3'\)/);
+});

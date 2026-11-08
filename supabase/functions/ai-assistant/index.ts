@@ -412,10 +412,12 @@ async function callProvider(
       const fallbackModel = (await listGeminiModels(apiKey)).find(name => name !== provider.model);
       if (!fallbackModel) throw new Error('PROVIDER_404');
       console.warn('[flux] gemini_model_not_found', provider.model, '->', fallbackModel);
+      const generationConfig = { maxOutputTokens: 1500,
+        ...(fallbackModel.startsWith('gemini-3') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
       response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' +
         encodeURIComponent(fallbackModel) + ':generateContent', {
         method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(payload), signal: AbortSignal.timeout(8_000),
+        body: JSON.stringify({ ...payload, generationConfig }), signal: AbortSignal.timeout(8_000),
       });
     }
     if (!response.ok) { await response.body?.cancel(); throw new Error('PROVIDER_' + response.status); }
@@ -480,8 +482,12 @@ async function executeReadOnlyAgent(
         provider: 'flux-safe', model: 'unavailable', consulted: true };
     }
   }
+  const failures: string[] = [];
   for (const provider of parseProviders()) {
-    if (Date.now() < (providerCoolingUntil.get(provider.id) || 0)) continue;
+    if (Date.now() < (providerCoolingUntil.get(provider.id) || 0)) {
+      failures.push(provider.id + ': em pausa após erro recente');
+      continue;
+    }
     try {
       const first = queried
         ? { text: null, toolArea: queried.area }
@@ -519,6 +525,7 @@ async function executeReadOnlyAgent(
         providerCoolingUntil.set(provider.id, Date.now() + (/401|403|404|MISSING_PROVIDER_KEY/.test(code) ? 120_000 : 30_000));
       }
       console.warn('[flux] provider_unavailable', provider.id, code.slice(0, 42));
+      failures.push(provider.id + ': ' + code.replace(/[^A-Za-z0-9_]/g, '').slice(0, 42));
     }
   }
   if (queried || inferredArea) {
@@ -539,7 +546,8 @@ async function executeReadOnlyAgent(
   }
   return { response: parseProviders().length === 0
     ? 'O Flux não encontrou nenhum provedor de IA com credencial configurada no servidor.'
-    : 'Os provedores de IA estão indisponíveis ou atingiram o limite de uso. Tente novamente mais tarde.',
+    : 'Os provedores de IA estão indisponíveis ou atingiram o limite de uso. Tente novamente mais tarde.' +
+      (failures.length ? ' Diagnóstico: ' + failures.slice(0, 4).join('; ') + '.' : ''),
     provider: 'flux-safe', model: 'unavailable', consulted: false };
 }
 

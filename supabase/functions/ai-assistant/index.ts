@@ -378,6 +378,21 @@ const TOOL_SCHEMA = {
   }, required: ['area'], additionalProperties: false,
 };
 
+// Builds PROVIDER_<status>[_<REASON>] from the provider's error body. Only an uppercase enum is kept,
+// never free text, so keys or prompts can't leak into logs or the chat.
+async function providerError(response: Response): Promise<Error> {
+  let reason = '';
+  try {
+    const body = await response.json();
+    const err = body?.error ?? body;
+    const detail = Array.isArray(err?.details)
+      ? err.details.find((d: { reason?: unknown }) => typeof d?.reason === 'string')?.reason : null;
+    const raw = detail || err?.status || err?.code || err?.type || '';
+    reason = String(raw).toUpperCase().replace(/[^A-Z_]/g, '').slice(0, 30);
+  } catch { /* corpo não-JSON */ }
+  return new Error('PROVIDER_' + response.status + (reason ? '_' + reason : ''));
+}
+
 async function callProvider(
   provider: Provider, turns: Array<{ role: 'user' | 'assistant'; content: string }>,
   systemInstruction: string, allowTools: boolean,
@@ -386,7 +401,7 @@ async function callProvider(
     (provider.kind === 'gemini' && provider.secretEnv === 'GEMINI_API_KEY' ? Deno.env.get('GOOGLE_API_KEY') : null);
   if (!apiKey) throw new Error('MISSING_PROVIDER_KEY');
   if (provider.kind === 'gemini') {
-    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+    let endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
       encodeURIComponent(provider.model) + ':generateContent';
     const contents = turns.map(item => ({
       role: item.role === 'assistant' ? 'model' : 'user',
@@ -414,13 +429,28 @@ async function callProvider(
       console.warn('[flux] gemini_model_not_found', provider.model, '->', fallbackModel);
       const generationConfig = { maxOutputTokens: 1500,
         ...(fallbackModel.startsWith('gemini-3') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
-      response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' +
-        encodeURIComponent(fallbackModel) + ':generateContent', {
+      endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+        encodeURIComponent(fallbackModel) + ':generateContent';
+      response = await fetch(endpoint, {
         method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({ ...payload, generationConfig }), signal: AbortSignal.timeout(8_000),
       });
     }
-    if (!response.ok) { await response.body?.cancel(); throw new Error('PROVIDER_' + response.status); }
+    if (response.status === 400) {
+      const firstError = await providerError(response);
+      // A model may reject the optional thinking/tool settings; retry once with the plain request.
+      if (/API_KEY|PERMISSION|BILLING/.test(firstError.message)) throw firstError;
+      const generationConfig = { maxOutputTokens: 1500 };
+      const plain: Record<string, unknown> = { ...payload, generationConfig };
+      delete plain.tools;
+      console.warn('[flux] gemini_retry_plain', firstError.message);
+      response = await fetch(endpoint, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(plain), signal: AbortSignal.timeout(8_000),
+      });
+      if (!response.ok) throw await providerError(response);
+    }
+    if (!response.ok) throw await providerError(response);
     const data = await response.json();
     const parts = data?.candidates?.[0]?.content?.parts;
     if (!Array.isArray(parts)) throw new Error('EMPTY_PROVIDER_RESPONSE');
@@ -449,7 +479,7 @@ async function callProvider(
     method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + apiKey },
     body: JSON.stringify(payload), signal: AbortSignal.timeout(8_000),
   });
-  if (!response.ok) { await response.body?.cancel(); throw new Error('PROVIDER_' + response.status); }
+  if (!response.ok) throw await providerError(response);
   const data = await response.json();
   const choice = data?.choices?.[0]?.message;
   const toolCall = choice?.tool_calls?.find((call: { function?: { name?: string } }) =>

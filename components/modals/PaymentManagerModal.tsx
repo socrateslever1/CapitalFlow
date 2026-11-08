@@ -14,6 +14,7 @@ import { ReceiptRemainderDecision } from './payment/ReceiptRemainderDecision';
 import { useModal } from '../../contexts/ModalContext';
 import { InstallmentPixCopyBox } from './payment/InstallmentPixCopyBox';
 import { personalWalletService, type PersonalWalletAccount } from '../../services/personalWallet.service';
+import { platformAdminService } from '../../services/platformAdmin.service';
 
 interface PaymentManagerModalProps {
     data: {loan: Loan, inst: Installment, calculations: any} | null;
@@ -60,6 +61,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [walletAccounts, setWalletAccounts] = useState<PersonalWalletAccount[]>([]);
     const [walletAccountsLoaded, setWalletAccountsLoaded] = useState(false);
+    const [isWalletReceiptAdmin, setIsWalletReceiptAdmin] = useState(false);
     const [receiptDestinationAccountId, setReceiptDestinationAccountId] = useState('');
     const [businessAction, setBusinessAction] = useState<ReceiptBusinessAction>('CAPITALIZE_REMAINDER');
     const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
@@ -80,10 +82,20 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     useEffect(() => {
         let active = true;
         setWalletAccountsLoaded(false);
+        setIsWalletReceiptAdmin(false);
         setReceiptDestinationAccountId('');
         if (!data?.loan?.id) return () => { active = false; };
-        void personalWalletService.loadOverview()
-            .then(snapshot => {
+        void platformAdminService.isSuperAdmin()
+            .then(async (allowed) => {
+                if (!active) return;
+                if (!allowed) {
+                    setWalletAccounts([]);
+                    setIsWalletReceiptAdmin(false);
+                    setWalletAccountsLoaded(true);
+                    return;
+                }
+                setIsWalletReceiptAdmin(true);
+                const snapshot = await personalWalletService.loadOverview();
                 if (!active) return;
                 setWalletAccounts(snapshot.accounts.filter(account => !account.archived_at));
                 setWalletAccountsLoaded(true);
@@ -91,6 +103,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             .catch(() => {
                 if (!active) return;
                 setWalletAccounts([]);
+                setIsWalletReceiptAdmin(false);
                 setWalletAccountsLoaded(true);
             });
         return () => { active = false; };
@@ -157,8 +170,12 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const handleConfirmWrapper = async () => {
         const val = safeParse(avAmount);
         if (val <= 0) return;
+        if (!walletAccountsLoaded) {
+            setPreviewError('Aguarde a verificação do recebimento antes de continuar.');
+            return;
+        }
         const availableReceiptAccounts = walletAccounts.filter(account => !account.capital_source_id);
-        if (!walletAccountsLoaded || !receiptDestinationAccountId || !availableReceiptAccounts.some(account => account.id === receiptDestinationAccountId)) {
+        if (isWalletReceiptAdmin && (!receiptDestinationAccountId || !availableReceiptAccounts.some(account => account.id === receiptDestinationAccountId))) {
             setPreviewError('Escolha uma conta da Carteira sem vínculo de Capital para receber capital + juros.');
             return;
         }
@@ -189,7 +206,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             }
             return;
         }
-        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview, receiptDestinationAccountId);
+        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview, isWalletReceiptAdmin ? receiptDestinationAccountId : null);
     };
 
     const toggleInterestAutoFill = () => {
@@ -272,15 +289,17 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                     </select>
                                 </div>
 
-                                <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
-                                    <label className="text-[10px] font-black uppercase text-slate-500 block mb-2">Destino na Carteira</label>
-                                    <select required value={receiptDestinationAccountId} onChange={event => setReceiptDestinationAccountId(event.target.value)} disabled={!walletAccountsLoaded || isProcessing} className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm font-bold text-white outline-none focus:border-blue-500 disabled:opacity-60">
-                                        <option value="">Escolha a conta que receberá o total</option>
-                                        {walletAccounts.filter(account => !account.capital_source_id).map(account => <option key={account.id} value={account.id}>{account.nickname} · saldo {formatMoney(account.balance)}</option>)}
-                                    </select>
-                                    <p className="mt-2 text-[11px] text-slate-400">Entrada única: capital + juros.</p>
-                                    {walletAccounts.some(account => account.capital_source_id) && <p className="mt-1 text-[11px] text-amber-300">Contas já vinculadas a Capital não aparecem para evitar duplicidade.</p>}
-                                </div>
+                                {isWalletReceiptAdmin && (
+                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
+                                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-2">Destino na Carteira</label>
+                                        <select required value={receiptDestinationAccountId} onChange={event => setReceiptDestinationAccountId(event.target.value)} disabled={!walletAccountsLoaded || isProcessing} className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm font-bold text-white outline-none focus:border-blue-500 disabled:opacity-60">
+                                            <option value="">Escolha a conta que receberá o total</option>
+                                            {walletAccounts.filter(account => !account.capital_source_id).map(account => <option key={account.id} value={account.id}>{account.nickname} · saldo {formatMoney(account.balance)}</option>)}
+                                        </select>
+                                        <p className="mt-2 text-[11px] text-slate-400">Entrada única: capital + juros.</p>
+                                        {walletAccounts.some(account => account.capital_source_id) && <p className="mt-1 text-[11px] text-amber-300">Contas já vinculadas a Capital não aparecem para evitar duplicidade.</p>}
+                                    </div>
+                                )}
 
                                 <InstallmentPixCopyBox
                                     loan={loan}

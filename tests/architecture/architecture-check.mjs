@@ -390,6 +390,9 @@ const walletRepoSource = read('features', 'wallet', 'services', 'walletRepositor
 if (!walletRepoSource.includes("supabase.rpc('is_platform_super_admin')")) {
   failures.push('walletRepository.ts -> getAccess nao exige verificacao de superadministrador');
 }
+if (!paymentManagerModal.includes('platformAdminService.isSuperAdmin()') || !paymentManagerModal.includes('isWalletReceiptAdmin')) {
+  failures.push('PaymentManagerModal.tsx -> Destino na Carteira deve ser exclusivo do superadministrador e nao pode bloquear outros usuarios');
+}
 
 for (const forbidden of [
   'applyPaymentDirectFallback',

@@ -97,6 +97,8 @@ test('contract receipts require an explicit wallet destination and preserve clie
   const statement=readFileSync('components/wallet/accountStatementDomain.ts','utf8');
   assert.match(modal,/Destino na Carteira/);
   assert.match(modal,/capital \+ juros/);
+  assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
+  assert.match(modal,/isWalletReceiptAdmin/);
   assert.match(controller,/receiptDestinationAccountId/);
   assert.match(payments,/personal_wallet_set_receipt_destination/);
   assert.match(engine,/p_idempotency_key: idempotencyKey/);

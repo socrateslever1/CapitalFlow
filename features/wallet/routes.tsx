@@ -40,5 +40,5 @@ export const WalletRouteView: React.FC<{ route: WalletRouteKey; activeUser?: Use
     className="grid gap-3 animate-pulse sm:grid-cols-2">
       <div className="h-40 rounded-xl bg-slate-900"/>
       <div className="h-40 rounded-xl bg-slate-900"/>
-    </div>}>{view}</React.Suspense>;
+    </div>}><div key={route} className="cf-page-enter">{view}</div></React.Suspense>;
 };

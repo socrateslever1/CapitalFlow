@@ -55,6 +55,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     if (!editing) setDraftOrder(normalizeMobileNavOrder(mobileNavOrder));
   }, [mobileNavOrder, editing]);
 
+  useEffect(() => {
+    if (editing || !scrollRef.current) return;
+    const activeButton = scrollRef.current.querySelector<HTMLElement>(`[data-mobile-nav-tab="${activeTab}"]`);
+    activeButton?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [activeTab, editing]);
+
   const enterEdit = () => {
     setDraftOrder(normalizeMobileNavOrder(mobileNavOrder));
     setNotice('');
@@ -168,7 +174,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         onPointerMove={onScrollPointerMove}
         onPointerUp={onScrollPointerUp}
         onPointerCancel={() => { scrollingRef.current = null; }}
-        className={'flex items-center gap-2 overflow-x-auto hide-scrollbar px-4 py-2 ' +
+        className={'flex items-center gap-2 overflow-x-auto hide-scrollbar pl-4 pr-10 py-2 scroll-smooth ' +
           (editing ? 'select-none' : 'cursor-grab')}
         style={{ WebkitOverflowScrolling: 'touch', touchAction: editing ? 'none' : 'pan-x' }}
       >
@@ -184,13 +190,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               if (editing || scrollingRef.current?.moved) { event.preventDefault(); scrollingRef.current = null; return; }
               setActiveTab(tab);
             }}
-            className={'flex min-w-[64px] shrink-0 flex-col items-center gap-1 rounded-lg p-2 transition-colors ' +
+            className={'flex min-w-[64px] shrink-0 flex-col items-center gap-1 rounded-xl p-2 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ' +
               (editing ? 'cursor-grab touch-none border border-dashed border-slate-600 active:bg-slate-800' :
-                activeTab === tab ? 'bg-slate-900/70 text-white' : 'text-slate-500')}
+                activeTab === tab ? 'bg-blue-600/15 ring-1 ring-blue-500/30 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200')}
             style={editing ? { touchAction: 'none' } : undefined}
           >
             {iconFor(tab, activeTab === tab)}
-            <span className={'w-full truncate text-center text-[9px] font-bold uppercase ' +
+            <span className={'w-full truncate text-center text-[10px] font-bold uppercase tracking-tight transition-colors duration-200 ' +
               (activeTab === tab ? 'text-white' : '')}>{labelFor(tab)}</span>
           </button>
         ))}

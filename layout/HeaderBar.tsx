@@ -368,12 +368,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
       ref={isMobile ? mobileNotificationPanelRef : undefined}
       role="dialog"
       aria-label="Central de Alertas"
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      data-safe-bottom="bottom-[calc(5.25rem+env(safe-area-inset-bottom))]"
+      initial={{ opacity: 0, y: -8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-      className={`${isMobile ? 'md:hidden fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[1600]' : 'absolute top-full right-0 mt-3 w-[22rem] max-h-[min(28rem,calc(100dvh-7rem))] z-[1100]'} max-w-[calc(100vw-1.5rem)] min-h-0 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-slate-950/96 backdrop-blur-2xl ring-1 ring-white/10`}
+      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+      className={`${
+        isMobile
+          ? 'md:hidden fixed inset-x-3 sm:inset-x-6 top-[calc(3.85rem+env(safe-area-inset-top))] ml-auto w-[min(21rem,calc(100vw-1.5rem))] h-fit max-h-[calc(68dvh-env(safe-area-inset-top))] z-[1600] origin-top-right'
+          : 'absolute top-full right-0 mt-2.5 w-[22rem] h-fit max-h-[min(28rem,calc(100dvh-7rem))] z-[1100] origin-top-right'
+      } min-h-0 flex flex-col overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-950/98 backdrop-blur-2xl ring-1 ring-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(37,99,235,0.2)]`}
       style={{
-        boxShadow: `0 28px 80px -26px ${primaryColor}30, 0 28px 90px -28px rgba(0,0,0,0.82)`,
+        boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 30px ${primaryColor}35`,
       }}
     >
       <div
@@ -574,7 +580,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   onClick={() => setShowNotifications((open) => !open)}
                   className={`p-3 rounded-lg transition-all shadow-lg group relative ${
                     showNotifications
-                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-500/20'
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-[0_0_20px_rgba(37,99,235,0.6)] ring-2 ring-blue-400/50 scale-105'
                       : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
@@ -611,10 +617,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     onClick={() => {
                       if (!hasDragged) setActiveTab(tab);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'text-white shadow-xl shadow-blue-500/20'
-                        : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                     }`}
                     style={{
                       background: isActive
@@ -639,8 +645,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   onClick={() => setShowNotifications((open) => !open)}
                   className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-lg flex items-center justify-center border transition-all relative ${
                     showNotifications
-                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                      : 'bg-slate-900 border-slate-700 text-slate-400'
+                      ? 'bg-gradient-to-br from-blue-600 to-blue-700 border-blue-400 text-white shadow-[0_0_20px_rgba(37,99,235,0.6)] ring-2 ring-blue-400/50 scale-105'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                   }`}
                 >
                   <Bell size={16} className={notifications.length > 0 ? 'animate-bell' : ''} />

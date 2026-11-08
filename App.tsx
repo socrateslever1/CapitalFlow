@@ -511,7 +511,7 @@ export const App: React.FC = () => {
             {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
             <div
               key="dashboard-view"
-              className={activeTab === 'DASHBOARD' ? 'block' : 'hidden'}
+              className={activeTab === 'DASHBOARD' ? 'block cf-page-enter' : 'hidden'}
             >
               <DashboardContainer
                 profileId={activeProfileId || ''}
@@ -543,10 +543,10 @@ export const App: React.FC = () => {
               {activeTab === 'CLIENTS' && (
                 <motion.div
                   key="clients-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <ClientsContainer
                     profileId={activeUser?.id || ''}
@@ -568,10 +568,10 @@ export const App: React.FC = () => {
               {activeTab === 'DOSSIER' && (
                 <motion.div
                   key="statement-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <FinancialStatementPage
                     profileId={activeProfileId || activeUser?.id || ''}
@@ -591,10 +591,10 @@ export const App: React.FC = () => {
               {activeTab === 'SOURCES' && (
                 <motion.div
                   key="sources-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <SourcesContainer
                     loans={loans}
@@ -613,10 +613,10 @@ export const App: React.FC = () => {
               {activeTab === 'PROFILE' && activeUser && (
                 <motion.div
                   key="profile-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <ProfileContainer
                     activeUser={activeUser}
@@ -641,10 +641,10 @@ export const App: React.FC = () => {
               {activeTab === 'LEGAL' && (
                 <motion.div
                   key="legal-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <LegalContainer
                     loans={loans}
@@ -664,10 +664,10 @@ export const App: React.FC = () => {
               {activeTab === 'REPORTS' && (
                 <motion.div
                   key="reports-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <ReportsPage
                     profileId={activeProfileId || ''}
@@ -684,13 +684,25 @@ export const App: React.FC = () => {
               )}
 
               {activeTab === 'MY_WALLET' && (
-                <motion.div key="wallet-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <motion.div
+                  key="wallet-view"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                >
                   <WalletModule activeUser={activeUser} />
                 </motion.div>
               )}
 
               {activeTab === 'PLATFORM_ADMIN' && isPlatformSuperAdmin && (
-                <motion.div key="platform-admin-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <motion.div
+                  key="platform-admin-view"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                >
                   <PlatformAdminPage />
                 </motion.div>
               )}
@@ -700,10 +712,10 @@ export const App: React.FC = () => {
               {activeTab === 'SUPPORT' && activeUser && (
                 <motion.div
                   key="support-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <OperatorSupportChat activeUser={activeUser} onClose={() => setActiveTab('DASHBOARD')} />
                 </motion.div>
@@ -712,10 +724,10 @@ export const App: React.FC = () => {
               {activeTab === 'SETTINGS' && (
                 <motion.div
                   key="settings-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <SettingsPage />
                 </motion.div>
@@ -724,10 +736,10 @@ export const App: React.FC = () => {
               {activeTab === 'CONTRACT_DETAILS' && ui.selectedLoanId && (
                 <motion.div
                   key="contract-details-view"
-                  initial={{ opacity: 0, y: 5 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <ContractDetailsPage
                     loanId={ui.selectedLoanId}
@@ -845,10 +857,10 @@ export const App: React.FC = () => {
               {activeTab === 'SIMULATOR' && (
                 <motion.div
                   key="sim-view"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.1, ease: 'linear' }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
                 >
                   <SimulatorPanel
                     onClose={goBack}

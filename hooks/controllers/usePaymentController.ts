@@ -119,6 +119,7 @@ export const usePaymentController = (
         type: paymentType,
       });
       ui.openModal('RECEIPT');
+      window.dispatchEvent(new CustomEvent('capitalflow:payment-recorded'));
 
       if (typeof navigator === 'undefined' || navigator.onLine) {
         void fetchFullData(ownerId).catch((syncError) => {

@@ -155,6 +155,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               type: result.paymentType || 'PAYMENT'
           });
           ui.openModal('RECEIPT');
+          window.dispatchEvent(new CustomEvent('capitalflow:payment-recorded'));
           onRefresh();
           return true;
       } catch (e: any) {

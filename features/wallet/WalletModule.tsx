@@ -48,7 +48,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           <button key={item.key} type="button"
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.key)} aria-label={item.label}
-            className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 border-b-2 px-0.5 py-2 text-[11px] font-medium transition-colors sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+            className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 border-b-2 px-0.5 py-2 text-[11px] font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
               active
                 ? 'border-blue-500 bg-blue-500/10 font-semibold text-white'
                 : 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-100'

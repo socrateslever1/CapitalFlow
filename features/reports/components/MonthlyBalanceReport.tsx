@@ -42,6 +42,16 @@ export const MonthlyBalanceReport: React.FC<Props> = ({profileId,loans,sources,i
   const [selectedMonth,setSelectedMonth] = useState(currentMonth);
   const [showEntries,setShowEntries] = useState(false);
   useEffect(() => {
+    const handleUpdate = () => setReload(r => r + 1);
+    window.addEventListener('capitalflow:payment-recorded', handleUpdate);
+    window.addEventListener('capitalflow:wallet-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('capitalflow:payment-recorded', handleUpdate);
+      window.removeEventListener('capitalflow:wallet-updated', handleUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     setStatus('loading');
     setError('');

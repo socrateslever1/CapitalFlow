@@ -65,6 +65,9 @@ export const walletRepository = {
     }, options.force === true);
   },
   async getAccess(userId: string) {
+    const { data: isSuperAdmin, error: adminError } = await supabase.rpc('is_platform_super_admin');
+    if (adminError) throw new Error(adminError.message);
+    if (!isSuperAdmin) return { active: false, settings: {} };
     const { data, error } = await supabase
       .from('user_modulos')
       .select('ativo,configuracoes')

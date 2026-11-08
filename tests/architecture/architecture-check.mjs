@@ -194,7 +194,7 @@ const paymentEngineV4 = read('services', 'payments', 'paymentEngineV4.ts');
 const installmentGrid = read('components', 'cards', 'components', 'InstallmentGrid.tsx');
 const paymentManagerModal = read('components', 'modals', 'PaymentManagerModal.tsx');
 if (!paymentService.includes('const paymentDateStr = toISODateOnlyUTC(paymentDate)') ||
-    !paymentManagerModal.includes('paymentDate: toISODateOnlyUTC(realPaymentDate)')) {
+  !paymentManagerModal.includes('paymentDate: toISODateOnlyUTC(realPaymentDate)')) {
   failures.push('recebimento -> prévia e execução devem usar a mesma data civil local');
 }
 const ledgerReverse = read('services', 'ledger', 'ledgerReverse.ts');
@@ -328,35 +328,35 @@ const accountChanges = accountUpdateMethod.split('const changes =')[1]?.split('c
 if (!accountChanges || /\bbalance\s*:|\bused_limit\s*:|\bcurrent_bill\s*:/.test(accountChanges)) {
   failures.push('Minha Carteira -> edicao cadastral nao pode alterar saldo ou limites');
 }
-const walletV7Migration = read('supabase','migrations','20261025121000_wallet_v7_integrated_assets_recurring_payables.sql');
-const recurringPanel = read('components','wallet','RecurringIncomePanel.tsx');
-const payablesPanel = read('components','wallet','WalletPayablesPanel.tsx');
-const pixCharge = read('components','wallet','WalletPixCharge.tsx');
-for(const required of ['personal_wallet_recurring_incomes','personal_wallet_recurring_receipts',
-  'personal_wallet_create_linked_assets','personal_wallet_pay_payable_from_card',
-  'personal_wallet_post_recurring_income','ENABLE ROW LEVEL SECURITY',
-  'CREATE POLICY recurring_income_owner_all','pg_advisory_xact_lock','primary_color']) {
-  if(!walletV7Migration.includes(required)) failures.push('Carteira V7 -> migration incompleta: '+required);
+const walletV7Migration = read('supabase', 'migrations', '20261025121000_wallet_v7_integrated_assets_recurring_payables.sql');
+const recurringPanel = read('components', 'wallet', 'RecurringIncomePanel.tsx');
+const payablesPanel = read('components', 'wallet', 'WalletPayablesPanel.tsx');
+const pixCharge = read('components', 'wallet', 'WalletPixCharge.tsx');
+for (const required of ['personal_wallet_recurring_incomes', 'personal_wallet_recurring_receipts',
+  'personal_wallet_create_linked_assets', 'personal_wallet_pay_payable_from_card',
+  'personal_wallet_post_recurring_income', 'ENABLE ROW LEVEL SECURITY',
+  'CREATE POLICY recurring_income_owner_all', 'pg_advisory_xact_lock', 'primary_color']) {
+  if (!walletV7Migration.includes(required)) failures.push('Carteira V7 -> migration incompleta: ' + required);
 }
-for(const required of ['createHybridAssets','createRecurringIncome','postRecurringIncome',
+for (const required of ['createHybridAssets', 'createRecurringIncome', 'postRecurringIncome',
   'personal_wallet_pay_payable_from_card']) {
-  if(!personalWalletService.includes(required)) failures.push('Carteira V7 -> servico incompleto: '+required);
+  if (!personalWalletService.includes(required)) failures.push('Carteira V7 -> servico incompleto: ' + required);
 }
-for(const required of ['<RecurringIncomePanel','linked_card_nickname',
-  "link_mode==='new'",'origin_card_id','lg:col-span-7','lg:col-span-5']) {
-  if(!personalWalletPage.includes(required)) failures.push('Carteira V7 -> UI ausente: '+required);
+for (const required of ['<RecurringIncomePanel', 'linked_card_nickname',
+  "link_mode==='new'", 'origin_card_id', 'lg:col-span-7', 'lg:col-span-5']) {
+  if (!personalWalletPage.includes(required)) failures.push('Carteira V7 -> UI ausente: ' + required);
 }
-if(personalWalletPage.includes('CVC / CVV') || personalWalletPage.includes('form.card_number')) {
+if (personalWalletPage.includes('CVC / CVV') || personalWalletPage.includes('form.card_number')) {
   failures.push('Carteira V7 -> cadastro de numero completo/CVC proibido');
 }
-if(!recurringPanel.includes('postRecurringIncome') || !recurringPanel.includes('Previsto/mês')) {
+if (!recurringPanel.includes('postRecurringIncome') || !recurringPanel.includes('Previsto/mês')) {
   failures.push('Carteira V7 -> receitas recorrentes nao operacionais');
 }
-if(!payablesPanel.includes('cardId') || !payablesPanel.includes('onPay(')) {
+if (!payablesPanel.includes('cardId') || !payablesPanel.includes('onPay(')) {
   failures.push('Carteira V7 -> pagamento de divida sem escolha de origem');
 }
-if(!pixCharge.includes('QRCodeSVG') || !pixCharge.includes("value={description}") ||
-   !pixCharge.includes('Copiar Código PIX')) {
+if (!pixCharge.includes('QRCodeSVG') || !pixCharge.includes("value={description}") ||
+  !pixCharge.includes('Copiar Código PIX')) {
   failures.push('Carteira V7 -> gerador PIX incompleto');
 }
 
@@ -376,6 +376,19 @@ if (!bottomNav.includes("navOrder.includes('MY_WALLET')")) {
 }
 if (!app.includes('navOrder={visibleHubOrder}')) {
   failures.push('App.tsx -> acesso exclusivo da carteira nÃ£o foi propagado ao menu responsivo');
+}
+if (!app.includes("activeTab === 'MY_WALLET' && isPlatformSuperAdmin")) {
+  failures.push('App.tsx -> renderizacao da Minha Carteira nao esta condicionada a isPlatformSuperAdmin');
+}
+if (!app.includes("['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)")) {
+  failures.push('App.tsx -> redirecionamento de seguranca nao bloqueia MY_WALLET para usuarios comuns');
+}
+if (!app.includes("const visibleHubOrder = isPlatformSuperAdmin")) {
+  failures.push('App.tsx -> visibleHubOrder nao condiciona MY_WALLET ao superadministrador');
+}
+const walletRepoSource = read('features', 'wallet', 'services', 'walletRepository.ts');
+if (!walletRepoSource.includes("supabase.rpc('is_platform_super_admin')")) {
+  failures.push('walletRepository.ts -> getAccess nao exige verificacao de superadministrador');
 }
 
 for (const forbidden of [
@@ -571,7 +584,7 @@ for (const rpc of [
 }
 
 if (!skillGateway.includes('skill_get_profitability_v1')
-    || !profitabilityReadModelMigration.includes('skill_get_profitability_v1')) {
+  || !profitabilityReadModelMigration.includes('skill_get_profitability_v1')) {
   failures.push('Skills READ_ONLY -> RPC autorizada ausente: skill_get_profitability_v1');
 }
 
@@ -644,8 +657,8 @@ for (const required of [
   }
 }
 if (!n8nToolsFunction.includes('mode: "SHADOW"') ||
-    !n8nToolsFunction.includes('n8n_ai_intent_events') ||
-    !n8nToolsFunction.includes('n8n_ai_conversation_states')) {
+  !n8nToolsFunction.includes('n8n_ai_intent_events') ||
+  !n8nToolsFunction.includes('n8n_ai_conversation_states')) {
   failures.push('capitalflow-n8n-tools -> roteamento shadow não está integrado');
 }
 for (const required of ['CONVERSATION', 'greeting', 'payment_link_request', 'identify_client', 'dispute_amount', 'consultar_rentabilidade']) {
@@ -697,21 +710,21 @@ for (const doc of ['AI_TOOLS.md', 'MCP.md']) {
   if (!fs.existsSync(path.join(root, 'docs', doc))) failures.push(`documentação ausente: docs/${doc}`);
 }
 
-const recurringSchema = read('supabase','migrations','20261025134000_wallet_recurring_obligation_schema.sql');
-const recurringRpcs = read('supabase','migrations','20261025134100_wallet_recurring_obligation_rpcs.sql');
-const recurringUi = read('components','wallet','RecurringObligationsPanel.tsx');
-const walletService = read('services','personalWallet.service.ts');
-const walletPage = read('pages','PersonalWalletPage.tsx');
-for (const guard of ['ENABLE ROW LEVEL SECURITY','UNIQUE(owner_user_id,obligation_id,reference_month)','revoke all','owner_user_id=auth.uid()']) {
-  if (!recurringSchema.toLowerCase().includes(guard.toLowerCase())) failures.push('Recorrência -> esquema sem garantia: '+guard);
+const recurringSchema = read('supabase', 'migrations', '20261025134000_wallet_recurring_obligation_schema.sql');
+const recurringRpcs = read('supabase', 'migrations', '20261025134100_wallet_recurring_obligation_rpcs.sql');
+const recurringUi = read('components', 'wallet', 'RecurringObligationsPanel.tsx');
+const walletService = read('services', 'personalWallet.service.ts');
+const walletPage = read('pages', 'PersonalWalletPage.tsx');
+for (const guard of ['ENABLE ROW LEVEL SECURITY', 'UNIQUE(owner_user_id,obligation_id,reference_month)', 'revoke all', 'owner_user_id=auth.uid()']) {
+  if (!recurringSchema.toLowerCase().includes(guard.toLowerCase())) failures.push('Recorrência -> esquema sem garantia: ' + guard);
 }
-for (const guard of ['personal_wallet_create_recurring_obligation','personal_wallet_generate_recurring_obligations','pg_advisory_xact_lock','personal_wallet_set_recurring_obligation_active']) {
-  if (!recurringRpcs.includes(guard)) failures.push('Recorrência -> RPC ausente: '+guard);
+for (const guard of ['personal_wallet_create_recurring_obligation', 'personal_wallet_generate_recurring_obligations', 'pg_advisory_xact_lock', 'personal_wallet_set_recurring_obligation_active']) {
+  if (!recurringRpcs.includes(guard)) failures.push('Recorrência -> RPC ausente: ' + guard);
 }
 if (!recurringRpcs.includes('v_created:=v_created+1') || recurringRpcs.includes('update public.personal_wallet_accounts set balance'))
   failures.push('Recorrência -> não deve alterar saldo automaticamente');
-for (const guard of ['createRecurringObligation','generateRecurringObligations','setRecurringObligationActive','recurringObligations']) {
-  if (!walletService.includes(guard)) failures.push('Recorrência -> serviço incompleto: '+guard);
+for (const guard of ['createRecurringObligation', 'generateRecurringObligations', 'setRecurringObligationActive', 'recurringObligations']) {
+  if (!walletService.includes(guard)) failures.push('Recorrência -> serviço incompleto: ' + guard);
 }
 if (!walletPage.includes('<RecurringObligationsPanel') || !recurringUi.includes('Gerar vencimentos dos próximos 3 meses'))
   failures.push('Recorrência -> módulo da carteira incompleto');

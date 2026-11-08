@@ -6,6 +6,7 @@ import { App } from './App';
 import { AppErrorBoundary } from './components/system/AppErrorBoundary';
 import { Capacitor } from '@capacitor/core';
 import { hasIncomingWalletFile } from './features/wallet/walletFileInboxBridge';
+import { platformAdminService } from './services/platformAdmin.service';
 
 /** Opening a Gmail attachment starts the relevant wallet route, including cold launch. */
 const NativeWalletImportRouter: React.FC = () => {
@@ -15,17 +16,19 @@ const NativeWalletImportRouter: React.FC = () => {
     let active = true;
     const check = async () => {
       try {
-        if (active && await hasIncomingWalletFile()) {
-          navigate('/carteira/cartoes', { replace: false });
-        }
-      } catch { /* The inbox displays its own read error after wallet opens. */ }
-    };
-    void check();
-    window.addEventListener('capitalflow:file-arrived', check);
-    window.addEventListener('focus', check);
-    return () => { active = false; window.removeEventListener('capitalflow:file-arrived', check);
-      window.removeEventListener('focus', check); };
-  }, [navigate]);
+          if (active && await hasIncomingWalletFile() && await platformAdminService.isSuperAdmin()) {
+            navigate('/carteira/cartoes', { replace: false });
+          }
+        } catch { /* The inbox displays its own read error after wallet opens. */ }
+      };
+      void check();
+      window.addEventListener('capitalflow:file-arrived', check);
+      window.addEventListener('focus', check);
+      return () => {
+        active = false; window.removeEventListener('capitalflow:file-arrived', check);
+        window.removeEventListener('focus', check);
+      };
+    }, [navigate]);
   return null;
 };
 

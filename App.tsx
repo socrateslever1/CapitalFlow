@@ -25,7 +25,7 @@ import { notificationService } from './services/notification.service';
 import { pushSubscriptionService } from './services/pushSubscription.service';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { isDev } from './utils/isDev';
-import { Agreement, AgreementInstallment, LedgerEntry, Loan } from './types';
+import { Agreement, AgreementInstallment, AppTab, LedgerEntry, Loan } from './types';
 import { agreementService } from './features/agreements/services/agreementService';
 import { ModalProvider } from './contexts/ModalContext';
 import { ModalHost } from './components/modals/ModalHost';
@@ -167,60 +167,6 @@ export const App: React.FC = () => {
   // ✅ view pública: portalToken OU rota pública de campanha OU assinatura pública
   const isPublicView = hasPortalAccessParams || !!portalToken || !!legalSignToken || !!clientRegistrationToken;
 
-  useEffect(() => {
-    // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
-    if (location.pathname === processedPathRef.current) return;
-
-    if (isWalletPath && activeTab !== 'MY_WALLET') {
-      processedPathRef.current = location.pathname;
-      setActiveTab('MY_WALLET');
-    } else if (contractIdFromUrl && activeTab !== 'CONTRACT_DETAILS') {
-      processedPathRef.current = location.pathname;
-      ui.setSelectedLoanId(contractIdFromUrl);
-      handleSetActiveTab('CONTRACT_DETAILS');
-    } else if (legalIdFromUrl) {
-      processedPathRef.current = location.pathname;
-      ui.setSelectedLoanId(legalIdFromUrl);
-      if (activeTab !== 'LEGAL') {
-        handleSetActiveTab('LEGAL');
-      }
-    } else if (!contractIdFromUrl && !legalIdFromUrl) {
-      // Se limpou o path manualmente ou via back, e ainda estava na aba de detalhes, volta pro dashboard
-      if (activeTab === 'CONTRACT_DETAILS' || activeTab === 'LEGAL') {
-        handleSetActiveTab('DASHBOARD');
-      }
-      processedPathRef.current = location.pathname;
-    }
-  }, [contractIdFromUrl, legalIdFromUrl, isWalletPath, activeTab, handleSetActiveTab, location.pathname, setActiveTab]);
-
-  const navigate = (path: string) => {
-    routerNavigate(path);
-  };
-
-  usePersistedTab(activeTab, handleSetActiveTab);
-
-  const controllers = useControllers(
-    activeUser,
-    ui,
-    loans,
-    setLoans,
-    clients,
-    setClients,
-    sources,
-    setSources,
-    setActiveUser,
-    setIsLoadingData,
-    fetchFullData,
-    () => Promise.resolve(),
-    handleLogout,
-    showToast,
-    profileEditForm,
-    setProfileEditForm
-  );
-
-  const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, aiCtrl, adminCtrl } =
-    controllers;
-
   const [isPlatformSuperAdmin, setIsPlatformSuperAdmin] = useState(false);
   const [isPlatformAccessChecked, setIsPlatformAccessChecked] = useState(false);
   useEffect(() => {
@@ -238,244 +184,312 @@ export const App: React.FC = () => {
   }, [activeUser]);
 
   useEffect(() => {
-    if (isPlatformAccessChecked && !isPlatformSuperAdmin && activeTab === 'PLATFORM_ADMIN') {
+    // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
+    if (location.pathname === processedPathRef.current) return;
+
+    if (isWalletPath && activeTab !== 'MY_WALLET') {
+      if (isPlatformSuperAdmin) {
+        processedPathRef.current = location.pathname;
+        setActiveTab('MY_WALLET');
+      } else if (isPlatformAccessChecked) {
+        processedPathRef.current = location.pathname;
+        routerNavigate('/', { replace: true });
+        handleSetActiveTab('DASHBOARD');
+      }
+    } else if (contractIdFromUrl && activeTab !== 'CONTRACT_DETAILS') {
+      processedPathRef.current = location.pathname;
+      ui.setSelectedLoanId(contractIdFromUrl);
+      handleSetActiveTab('CONTRACT_DETAILS');
+    } else if (legalIdFromUrl) {
+      processedPathRef.current = location.pathname;
+      ui.setSelectedLoanId(legalIdFromUrl);
+      if (activeTab !== 'LEGAL') {
+        handleSetActiveTab('LEGAL');
+      }
+    } else if (!contractIdFromUrl && !legalIdFromUrl) {
+      // Se limpou o path manualmente ou via back, e ainda estava na aba de detalhes, volta pro dashboard
+      if (activeTab === 'CONTRACT_DETAILS' || activeTab === 'LEGAL') {
+        handleSetActiveTab('DASHBOARD');
+      }
+      processedPathRef.current = location.pathname;
+    }
+}, [contractIdFromUrl, legalIdFromUrl, isWalletPath, isPlatformSuperAdmin, isPlatformAccessChecked, activeTab, handleSetActiveTab, location.pathname, routerNavigate, setActiveTab]);
+
+const navigate = (path: string) => {
+  routerNavigate(path);
+};
+
+usePersistedTab(activeTab, handleSetActiveTab);
+
+const controllers = useControllers(
+  activeUser,
+  ui,
+  loans,
+  setLoans,
+  clients,
+  setClients,
+  sources,
+  setSources,
+  setActiveUser,
+  setIsLoadingData,
+  fetchFullData,
+  () => Promise.resolve(),
+  handleLogout,
+  showToast,
+  profileEditForm,
+  setProfileEditForm
+);
+
+const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, aiCtrl, adminCtrl } =
+  controllers;
+
+useEffect(() => {
+    if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
+      if (location.pathname === '/carteira' || location.pathname.startsWith('/carteira/')) {
+        routerNavigate('/', { replace: true });
+      }
       handleSetActiveTab('DASHBOARD');
     }
-  }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin]);
+  }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin, location.pathname, routerNavigate]);
 
-  const visibleHubOrder = Array.from(new Set([
-    ...hubOrder,
-    'MY_WALLET' as any,
-    ...(isPlatformSuperAdmin ? ['PLATFORM_ADMIN' as any] : []),
-  ]));
+const filterRestrictedTabs = useCallback(
+  (tabs: AppTab[]) =>
+    tabs.filter((tab) => isPlatformSuperAdmin || (tab !== 'MY_WALLET' && tab !== 'PLATFORM_ADMIN')),
+  [isPlatformSuperAdmin]
+);
 
-  const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
-    const client = (clients as any[]).find((item: any) => item.id === clientId)
-      || (clients as any[]).find((item: any) => String(item.name || item.nome || '').trim().toLowerCase() === String(clientName || '').trim().toLowerCase());
-    const clientAny = client as any;
+const visibleNavOrder = filterRestrictedTabs(navOrder);
+const visibleHubOrder = isPlatformSuperAdmin
+  ? Array.from(new Set([...hubOrder, 'MY_WALLET' as any, 'PLATFORM_ADMIN' as any]))
+  : filterRestrictedTabs(hubOrder);
 
-    setClientSearchTerm(clientAny?.name || clientAny?.nome || clientName || '');
-    handleSetActiveTab('CLIENTS');
+const handleOpenClientFromDashboard = useCallback((clientId: string | null | undefined, clientName: string) => {
+  const client = (clients as any[]).find((item: any) => item.id === clientId)
+    || (clients as any[]).find((item: any) => String(item.name || item.nome || '').trim().toLowerCase() === String(clientName || '').trim().toLowerCase());
+  const clientAny = client as any;
 
-    if (client) {
-      setTimeout(() => clientCtrl.openClientModal(client), 0);
-    } else {
-      showToast('Cliente nao encontrado no cadastro.', 'warning');
-    }
-  }, [clients, clientCtrl, handleSetActiveTab, setClientSearchTerm, showToast]);
+  setClientSearchTerm(clientAny?.name || clientAny?.nome || clientName || '');
+  handleSetActiveTab('CLIENTS');
 
-  const { notifications, removeNotification, clearAllNotifications, addNotification } = useAppNotifications({
-    loans,
-    sources,
-    activeUser,
-    showToast,
-    setActiveTab,
-    setSelectedLoanId: ui.setSelectedLoanId,
-    onDataChanged: () => {
-      if (activeProfileId) fetchFullData(activeProfileId);
-    },
-    disabled: isPublicView,
+  if (client) {
+    setTimeout(() => clientCtrl.openClientModal(client), 0);
+  } else {
+    showToast('Cliente nao encontrado no cadastro.', 'warning');
+  }
+}, [clients, clientCtrl, handleSetActiveTab, setClientSearchTerm, showToast]);
+
+const { notifications, removeNotification, clearAllNotifications, addNotification } = useAppNotifications({
+  loans,
+  sources,
+  activeUser,
+  showToast,
+  setActiveTab,
+  setSelectedLoanId: ui.setSelectedLoanId,
+  onDataChanged: () => {
+    if (activeProfileId) fetchFullData(activeProfileId);
+  },
+  disabled: isPublicView,
+});
+
+const handleOperatorFileUpload = useCallback(async (
+  file: File | undefined,
+  kind: 'PROMISSORIA' | 'CONFISSAO',
+  input?: HTMLInputElement | null
+) => {
+  if (!file) return;
+
+  setOperatorUploadStatus({
+    state: 'UPLOADING',
+    message: `Enviando ${kind === 'PROMISSORIA' ? 'promissoria' : 'documento'}...`,
   });
 
-  const handleOperatorFileUpload = useCallback(async (
-    file: File | undefined,
-    kind: 'PROMISSORIA' | 'CONFISSAO',
-    input?: HTMLInputElement | null
-  ) => {
-    if (!file) return;
+  const result = kind === 'PROMISSORIA'
+    ? await filesService.handlePromissoriaUpload(file, activeUser, String(ui?.promissoriaUploadLoanId), showToast, fetchFullData)
+    : await filesService.handleExtraDocUpload(file, activeUser, String(ui?.extraDocUploadLoanId), 'CONFISSAO', showToast, fetchFullData);
 
-    setOperatorUploadStatus({
-      state: 'UPLOADING',
-      message: `Enviando ${kind === 'PROMISSORIA' ? 'promissoria' : 'documento'}...`,
-    });
+  if (input) input.value = '';
 
-    const result = kind === 'PROMISSORIA'
-      ? await filesService.handlePromissoriaUpload(file, activeUser, String(ui?.promissoriaUploadLoanId), showToast, fetchFullData)
-      : await filesService.handleExtraDocUpload(file, activeUser, String(ui?.extraDocUploadLoanId), 'CONFISSAO', showToast, fetchFullData);
+  setOperatorUploadStatus({
+    state: result?.success ? 'SUCCESS' : 'ERROR',
+    message: result?.success ? 'Arquivo carregado com sucesso.' : (result?.message || 'Falha ao carregar arquivo.'),
+  });
 
-    if (input) input.value = '';
+  window.setTimeout(() => {
+    setOperatorUploadStatus((current) => (
+      current.state === 'UPLOADING' ? current : { state: 'IDLE', message: '' }
+    ));
+  }, 3500);
+}, [activeUser, fetchFullData, showToast, ui?.extraDocUploadLoanId, ui?.promissoriaUploadLoanId]);
 
-    setOperatorUploadStatus({
-      state: result?.success ? 'SUCCESS' : 'ERROR',
-      message: result?.success ? 'Arquivo carregado com sucesso.' : (result?.message || 'Falha ao carregar arquivo.'),
-    });
+const { showExitConfirm, cancelExit, confirmExit } = useExitGuard(
+  activeUser, activeTab, handleSetActiveTab, isPublicView, showToast, ui,
+  { pathname: location.pathname, navigate: routerNavigate, goBackTab: goBackPage, canGoBackTab: canGoBackPage },
+);
 
-    window.setTimeout(() => {
-      setOperatorUploadStatus((current) => (
-        current.state === 'UPLOADING' ? current : { state: 'IDLE', message: '' }
-      ));
-    }, 3500);
-  }, [activeUser, fetchFullData, showToast, ui?.extraDocUploadLoanId, ui?.promissoriaUploadLoanId]);
+// When React Router pops from a Wallet URL to the root, restore the tab
+// beneath the Wallet instead of showing a blank wallet on '/'.
+const previousPathnameRef = useRef(location.pathname);
+useEffect(() => {
+  const previousPathname = previousPathnameRef.current;
+  previousPathnameRef.current = location.pathname;
+  if (previousPathname.startsWith('/carteira') &&
+    location.pathname === '/' &&
+    activeTab === 'MY_WALLET') {
+    goBackPage();
+  }
+}, [location.pathname, activeTab, goBackPage]);
 
-  const { showExitConfirm, cancelExit, confirmExit } = useExitGuard(
-    activeUser, activeTab, handleSetActiveTab, isPublicView, showToast, ui,
-    { pathname: location.pathname, navigate: routerNavigate, goBackTab: goBackPage, canGoBackTab: canGoBackPage },
-  );
-
-  // When React Router pops from a Wallet URL to the root, restore the tab
-  // beneath the Wallet instead of showing a blank wallet on '/'.
-  const previousPathnameRef = useRef(location.pathname);
-  useEffect(() => {
-    const previousPathname = previousPathnameRef.current;
-    previousPathnameRef.current = location.pathname;
-    if (previousPathname.startsWith('/carteira') &&
-        location.pathname === '/' &&
-        activeTab === 'MY_WALLET') {
-      goBackPage();
-    }
-  }, [location.pathname, activeTab, goBackPage]);
-
-  useEffect(() => {
-    if (activeUser && !isPublicView) {
-      notificationService.requestPermission().then((granted) => {
-        if (granted) {
-          void pushSubscriptionService.register(activeUser.id);
-        }
-      });
-    }
-  }, [activeUser, isPublicView]);
-
-  // ✅ MONITOR DE CONEXÃO: Tenta processar fila de escrita quando a rede volta
-  useEffect(() => {
-    const handleOnline = async () => {
-      console.log('[NETWORK] Conexão restabelecida. Processando fila de sincronização...');
-      try {
-        const { syncService } = await import('./services/sync.service');
-        await syncService.processQueue();
-      } catch (e) {
-        console.error('[NETWORK] Falha ao processar fila após volta da rede:', e);
+useEffect(() => {
+  if (activeUser && !isPublicView) {
+    notificationService.requestPermission().then((granted) => {
+      if (granted) {
+        void pushSubscriptionService.register(activeUser.id);
       }
-    };
-
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
-  const effectiveSelectedStaffId =
-    activeUser && (activeUser.accessLevel === 'OPERATOR' || (activeUser as any).accessLevel === 2) ? activeUser.id : selectedStaffId;
-
-  const isInitializing = !bootFinished || (!!activeProfileId && !activeUser && !loadError) || (!!activeUser && !isDataReady);
-
-  if (isDev) {
-    console.log('[APP_STATE]', {
-      bootFinished,
-      activeProfileId: !!activeProfileId,
-      activeUser: !!activeUser,
-      loadError,
-      authLoadError,
-      isInitializing,
-      path: window.location.pathname,
-      isPublicView,
-      legalSignToken: !!legalSignToken
     });
   }
+}, [activeUser, isPublicView]);
 
-  // ✅ Agora SIM pode retornar rotas públicas (depois dos hooks)
-  if (clientRegistrationToken) return (
-    <Suspense fallback={<LoadingScreen />}>
-      <ClientRegistrationPage token={clientRegistrationToken} />
-    </Suspense>
-  );
-  if (legalSignToken) return (
-    <Suspense fallback={<LoadingScreen />}>
-      <PublicSignaturePage />
-    </Suspense>
-  );
+// ✅ MONITOR DE CONEXÃO: Tenta processar fila de escrita quando a rede volta
+useEffect(() => {
+  const handleOnline = async () => {
+    console.log('[NETWORK] Conexão restabelecida. Processando fila de sincronização...');
+    try {
+      const { syncService } = await import('./services/sync.service');
+      await syncService.processQueue();
+    } catch (e) {
+      console.error('[NETWORK] Falha ao processar fila após volta da rede:', e);
+    }
+  };
 
-  if (hasPortalAccessParams && portalToken === null) {
-    return <LoadingScreen />;
-  }
+  window.addEventListener('online', handleOnline);
+  return () => window.removeEventListener('online', handleOnline);
+}, []);
 
-  if (hasPortalAccessParams && isPortalReceipt) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <PortalReceiptViewer />
-      </Suspense>
-    );
-  }
+const effectiveSelectedStaffId =
+  activeUser && (activeUser.accessLevel === 'OPERATOR' || (activeUser as any).accessLevel === 2) ? activeUser.id : selectedStaffId;
 
-  if (isInitializing && !isPublicView && !isInvitePath) {
-    return <LoadingScreen />;
-  }
+const isInitializing = !bootFinished || (!!activeProfileId && !activeUser && !loadError) || (!!activeUser && !isDataReady);
 
+if (isDev) {
+  console.log('[APP_STATE]', {
+    bootFinished,
+    activeProfileId: !!activeProfileId,
+    activeUser: !!activeUser,
+    loadError,
+    authLoadError,
+    isInitializing,
+    path: window.location.pathname,
+    isPublicView,
+    legalSignToken: !!legalSignToken
+  });
+}
+
+// ✅ Agora SIM pode retornar rotas públicas (depois dos hooks)
+if (clientRegistrationToken) return (
+  <Suspense fallback={<LoadingScreen />}>
+    <ClientRegistrationPage token={clientRegistrationToken} />
+  </Suspense>
+);
+if (legalSignToken) return (
+  <Suspense fallback={<LoadingScreen />}>
+    <PublicSignaturePage />
+  </Suspense>
+);
+
+if (hasPortalAccessParams && portalToken === null) {
+  return <LoadingScreen />;
+}
+
+if (hasPortalAccessParams && isPortalReceipt) {
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <Toaster
-        theme="dark"
-        position="top-right"
-        expand={false}
-        visibleToasts={3}
-        richColors
-        closeButton
-        toastOptions={{
-          style: {
-            background: 'rgba(15, 23, 42, 0.9)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            color: '#fff',
-            fontSize: '13px',
-            borderRadius: '12px',
-          },
-        }}
-        mobileOffset={{ bottom: '80px' }}
-      />
-      <ExitConfirmDialog open={showExitConfirm} onCancel={cancelExit} onConfirm={confirmExit} />
-      {isInvitePath ? (
-        <>
-          {window.location.pathname === '/invite' && <InvitePage />}
-          {window.location.pathname === '/setup-password' && <SetupPasswordPage />}
-        </>
-      ) : (
-        <ModalProvider
-          activeModal={ui?.activeModal}
-          openModal={ui?.openModal}
-          closeModal={ui?.closeModal}
-          ui={ui}
+      <PortalReceiptViewer />
+    </Suspense>
+  );
+}
+
+if (isInitializing && !isPublicView && !isInvitePath) {
+  return <LoadingScreen />;
+}
+
+return (
+  <Suspense fallback={<LoadingScreen />}>
+    <Toaster
+      theme="dark"
+      position="top-right"
+      expand={false}
+      visibleToasts={3}
+      richColors
+      closeButton
+      toastOptions={{
+        style: {
+          background: 'rgba(15, 23, 42, 0.9)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          color: '#fff',
+          fontSize: '13px',
+          borderRadius: '12px',
+        },
+      }}
+      mobileOffset={{ bottom: '80px' }}
+    />
+    <ExitConfirmDialog open={showExitConfirm} onCancel={cancelExit} onConfirm={confirmExit} />
+    {isInvitePath ? (
+      <>
+        {window.location.pathname === '/invite' && <InvitePage />}
+        {window.location.pathname === '/setup-password' && <SetupPasswordPage />}
+      </>
+    ) : (
+      <ModalProvider
+        activeModal={ui?.activeModal}
+        openModal={ui?.openModal}
+        closeModal={ui?.closeModal}
+        ui={ui}
+        activeUser={activeUser}
+        clients={clients}
+        sources={sources}
+        loans={loans}
+        isLoadingData={isLoadingData || authLoading}
+        loanCtrl={loanCtrl}
+        clientCtrl={clientCtrl}
+        sourceCtrl={sourceCtrl}
+        paymentCtrl={paymentCtrl}
+        profileCtrl={profileCtrl}
+        adminCtrl={adminCtrl}
+        fileCtrl={fileCtrl}
+        aiCtrl={aiCtrl}
+        showToast={showToast}
+        fetchFullData={fetchFullData}
+        handleLogout={handleLogout}
+      >
+        <AppGate
+          portalToken={portalToken}
+          portalCode={portalCode}
+          legalSignToken={legalSignToken}
+          activeProfileId={activeProfileId}
           activeUser={activeUser}
-          clients={clients}
-          sources={sources}
-          loans={loans}
           isLoadingData={isLoadingData || authLoading}
-          loanCtrl={loanCtrl}
-          clientCtrl={clientCtrl}
-          sourceCtrl={sourceCtrl}
-          paymentCtrl={paymentCtrl}
-          profileCtrl={profileCtrl}
-          adminCtrl={adminCtrl}
-          fileCtrl={fileCtrl}
-          aiCtrl={aiCtrl}
+          loadError={loadError || authLoadError}
+          loginUser={loginUser}
+          setLoginUser={setLoginUser}
+          loginPassword={loginPassword}
+          setLoginPassword={setLoginPassword}
+          submitLogin={() => submitLogin(showToast)}
+          submitTeamLogin={(params, toastArg) => submitTeamLogin(params, toastArg)}
+          savedProfiles={savedProfiles}
+          handleSelectSavedProfile={handleSelectSavedProfile}
+          handleRemoveSavedProfile={handleRemoveSavedProfile}
           showToast={showToast}
-          fetchFullData={fetchFullData}
+          setIsLoadingData={setIsLoadingData}
+          toast={toast}
+          reauthenticate={reauthenticate}
+          onReauthSuccess={() => {
+            setLoadError(null);
+            if (activeProfileId) fetchFullData(activeProfileId);
+          }}
           handleLogout={handleLogout}
         >
-          <AppGate
-            portalToken={portalToken}
-            portalCode={portalCode}
-            legalSignToken={legalSignToken}
-            activeProfileId={activeProfileId}
-            activeUser={activeUser}
-            isLoadingData={isLoadingData || authLoading}
-            loadError={loadError || authLoadError}
-            loginUser={loginUser}
-            setLoginUser={setLoginUser}
-            loginPassword={loginPassword}
-            setLoginPassword={setLoginPassword}
-            submitLogin={() => submitLogin(showToast)}
-            submitTeamLogin={(params, toastArg) => submitTeamLogin(params, toastArg)}
-            savedProfiles={savedProfiles}
-            handleSelectSavedProfile={handleSelectSavedProfile}
-            handleRemoveSavedProfile={handleRemoveSavedProfile}
-            showToast={showToast}
-            setIsLoadingData={setIsLoadingData}
-            toast={toast}
-            reauthenticate={reauthenticate}
-            onReauthSuccess={() => {
-              setLoadError(null);
-              if (activeProfileId) fetchFullData(activeProfileId);
-            }}
-            handleLogout={handleLogout}
-          >
-            <AppShell
+          <AppShell
             toast={toast}
             clearToast={clearToast}
             activeTab={activeTab}
@@ -508,283 +522,283 @@ export const App: React.FC = () => {
             clients={clients}
           >
             <Suspense fallback={<div role="status" className="p-6 text-sm text-slate-400">Carregando página…</div>}>
-            {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
-            <div
-              key="dashboard-view"
-              className={activeTab === 'DASHBOARD' ? 'block cf-page-enter' : 'hidden'}
-            >
-              <DashboardContainer
-                profileId={activeProfileId || ''}
-                onOpenReports={() => handleSetActiveTab('REPORTS')}
-                loans={loans}
-                sources={sources}
-                activeUser={activeUser}
-                staffMembers={staffMembers}
-                selectedStaffId={effectiveSelectedStaffId}
-                setSelectedStaffId={setSelectedStaffId}
-                mobileDashboardTab={ui.mobileDashboardTab}
-                setMobileDashboardTab={ui.setMobileDashboardTab}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                ui={ui}
-                loanCtrl={loanCtrl}
-                fileCtrl={fileCtrl}
-                showToast={showToast}
-                isLoadingData={isLoadingData}
-                onRefresh={() => fetchFullData(activeUser?.id || '')}
-                onNavigate={navigate}
-                onOpenClient={handleOpenClientFromDashboard}
-              />
-            </div>
+              {/* Dashboard - Persistente para manter scroll ao voltar de detalhes */}
+              <div
+                key="dashboard-view"
+                className={activeTab === 'DASHBOARD' ? 'block cf-page-enter' : 'hidden'}
+              >
+                <DashboardContainer
+                  profileId={activeProfileId || ''}
+                  onOpenReports={() => handleSetActiveTab('REPORTS')}
+                  loans={loans}
+                  sources={sources}
+                  activeUser={activeUser}
+                  staffMembers={staffMembers}
+                  selectedStaffId={effectiveSelectedStaffId}
+                  setSelectedStaffId={setSelectedStaffId}
+                  mobileDashboardTab={ui.mobileDashboardTab}
+                  setMobileDashboardTab={ui.setMobileDashboardTab}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  ui={ui}
+                  loanCtrl={loanCtrl}
+                  fileCtrl={fileCtrl}
+                  showToast={showToast}
+                  isLoadingData={isLoadingData}
+                  onRefresh={() => fetchFullData(activeUser?.id || '')}
+                  onNavigate={navigate}
+                  onOpenClient={handleOpenClientFromDashboard}
+                />
+              </div>
 
-            <>
-              {activeTab === 'CLIENTS' && (
-                <motion.div
-                  key="clients-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <ClientsContainer
-                    profileId={activeUser?.id || ''}
-                    clients={clients}
-                    loans={loans}
-                    clientSearchTerm={clientSearchTerm}
-                    setClientSearchTerm={setClientSearchTerm}
-                    clientCtrl={clientCtrl}
-                    loanCtrl={loanCtrl}
-                    showToast={showToast}
-                    ui={ui}
-                    isStealthMode={ui.isStealthMode}
-                    onRefresh={() => fetchFullData(activeUser?.id || '')}
-                    activeUser={activeUser}
-                  />
-                </motion.div>
-              )}
+              <>
+                {activeTab === 'CLIENTS' && (
+                  <motion.div
+                    key="clients-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <ClientsContainer
+                      profileId={activeUser?.id || ''}
+                      clients={clients}
+                      loans={loans}
+                      clientSearchTerm={clientSearchTerm}
+                      setClientSearchTerm={setClientSearchTerm}
+                      clientCtrl={clientCtrl}
+                      loanCtrl={loanCtrl}
+                      showToast={showToast}
+                      ui={ui}
+                      isStealthMode={ui.isStealthMode}
+                      onRefresh={() => fetchFullData(activeUser?.id || '')}
+                      activeUser={activeUser}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'DOSSIER' && (
-                <motion.div
-                  key="statement-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <FinancialStatementPage
-                    profileId={activeProfileId || activeUser?.id || ''}
-                    loans={loans}
-                    sources={sources}
-                    isStealthMode={ui.isStealthMode}
-                    isLoading={isLoadingData}
-                    onRefresh={() => activeProfileId ? fetchFullData(activeProfileId) : Promise.resolve()}
-                    onOpenLoan={(loanId) => {
-                      ui.setSelectedLoanId(loanId);
-                      navigate(`/contrato/${loanId}`);
-                    }}
-                  />
-                </motion.div>
-              )}
+                {activeTab === 'DOSSIER' && (
+                  <motion.div
+                    key="statement-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <FinancialStatementPage
+                      profileId={activeProfileId || activeUser?.id || ''}
+                      loans={loans}
+                      sources={sources}
+                      isStealthMode={ui.isStealthMode}
+                      isLoading={isLoadingData}
+                      onRefresh={() => activeProfileId ? fetchFullData(activeProfileId) : Promise.resolve()}
+                      onOpenLoan={(loanId) => {
+                        ui.setSelectedLoanId(loanId);
+                        navigate(`/contrato/${loanId}`);
+                      }}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'SOURCES' && (
-                <motion.div
-                  key="sources-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <SourcesContainer
-                    loans={loans}
-                    sources={sources}
-                    ui={ui}
-                    sourceCtrl={sourceCtrl}
-                    loanCtrl={loanCtrl}
-                    goBack={goBack}
-                    isStealthMode={ui.isStealthMode}
-                    activeUser={activeUser}
-                    onRefresh={() => fetchFullData(activeUser?.id || '')}
-                  />
-                </motion.div>
-              )}
+                {activeTab === 'SOURCES' && (
+                  <motion.div
+                    key="sources-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <SourcesContainer
+                      loans={loans}
+                      sources={sources}
+                      ui={ui}
+                      sourceCtrl={sourceCtrl}
+                      loanCtrl={loanCtrl}
+                      goBack={goBack}
+                      isStealthMode={ui.isStealthMode}
+                      activeUser={activeUser}
+                      onRefresh={() => fetchFullData(activeUser?.id || '')}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'PROFILE' && activeUser && (
-                <motion.div
-                  key="profile-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <ProfileContainer
-                    activeUser={activeUser}
-                    clients={clients}
-                    loans={loans}
-                    sources={sources}
-                    ui={ui}
-                    profileCtrl={profileCtrl}
-                    handleLogout={handleLogout}
-                    showToast={showToast}
-                    profileEditForm={profileEditForm}
-                    setProfileEditForm={setProfileEditForm}
-                    fileCtrl={fileCtrl}
-                    navOrder={navOrder}
-                    hubOrder={visibleHubOrder}
-                    saveNavConfig={saveNavConfig}
-                    goBack={goBack}
-                  />
-                </motion.div>
-              )}
+                {activeTab === 'PROFILE' && activeUser && (
+                  <motion.div
+                    key="profile-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <ProfileContainer
+                      activeUser={activeUser}
+                      clients={clients}
+                      loans={loans}
+                      sources={sources}
+                      ui={ui}
+                      profileCtrl={profileCtrl}
+                      handleLogout={handleLogout}
+                      showToast={showToast}
+                      profileEditForm={profileEditForm}
+                      setProfileEditForm={setProfileEditForm}
+                      fileCtrl={fileCtrl}
+                      navOrder={visibleNavOrder}
+                      hubOrder={visibleHubOrder}
+                      saveNavConfig={saveNavConfig}
+                      goBack={goBack}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'LEGAL' && (
-                <motion.div
-                  key="legal-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <LegalContainer
-                    loans={loans}
-                    sources={sources}
-                    activeUser={activeUser}
-                    ui={ui}
-                    loanCtrl={loanCtrl}
-                    fileCtrl={fileCtrl}
-                    showToast={showToast}
-                    onRefresh={() => fetchFullData(activeUser?.id || '')}
-                    goBack={goBack}
-                    onNavigate={navigate}
-                  />
-                </motion.div>
-              )}
+                {activeTab === 'LEGAL' && (
+                  <motion.div
+                    key="legal-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <LegalContainer
+                      loans={loans}
+                      sources={sources}
+                      activeUser={activeUser}
+                      ui={ui}
+                      loanCtrl={loanCtrl}
+                      fileCtrl={fileCtrl}
+                      showToast={showToast}
+                      onRefresh={() => fetchFullData(activeUser?.id || '')}
+                      goBack={goBack}
+                      onNavigate={navigate}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'REPORTS' && (
-                <motion.div
-                  key="reports-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <ReportsPage
-                    profileId={activeProfileId || ''}
-                    onOpenLoan={(loanId) => {
-                      ui.setSelectedLoanId(loanId);
-                      navigate(`/contrato/${loanId}`);
-                    }}
-                    loans={loans}
-                    sources={sources}
-                    activeUser={activeUser}
-                    isStealthMode={ui.isStealthMode}
-                  />
-                </motion.div>
-              )}
+                {activeTab === 'REPORTS' && (
+                  <motion.div
+                    key="reports-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <ReportsPage
+                      profileId={activeProfileId || ''}
+                      onOpenLoan={(loanId) => {
+                        ui.setSelectedLoanId(loanId);
+                        navigate(`/contrato/${loanId}`);
+                      }}
+                      loans={loans}
+                      sources={sources}
+                      activeUser={activeUser}
+                      isStealthMode={ui.isStealthMode}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'MY_WALLET' && (
-                <motion.div
-                  key="wallet-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <WalletModule activeUser={activeUser} />
-                </motion.div>
-              )}
+                  { activeTab === 'MY_WALLET' && isPlatformSuperAdmin && (
+                    <motion.div
+                      key="wallet-view"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                    >
+                      <WalletModule activeUser={activeUser} />
+                    </motion.div>
+                  )}
 
-              {activeTab === 'PLATFORM_ADMIN' && isPlatformSuperAdmin && (
-                <motion.div
-                  key="platform-admin-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <PlatformAdminPage />
-                </motion.div>
-              )}
+                {activeTab === 'PLATFORM_ADMIN' && isPlatformSuperAdmin && (
+                  <motion.div
+                    key="platform-admin-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <PlatformAdminPage />
+                  </motion.div>
+                )}
 
-              {/* Removido tab SUPPORT não autorizada */}
+                {/* Removido tab SUPPORT não autorizada */}
 
-              {activeTab === 'SUPPORT' && activeUser && (
-                <motion.div
-                  key="support-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <OperatorSupportChat activeUser={activeUser} onClose={() => setActiveTab('DASHBOARD')} />
-                </motion.div>
-              )}
+                {activeTab === 'SUPPORT' && activeUser && (
+                  <motion.div
+                    key="support-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <OperatorSupportChat activeUser={activeUser} onClose={() => setActiveTab('DASHBOARD')} />
+                  </motion.div>
+                )}
 
-              {activeTab === 'SETTINGS' && (
-                <motion.div
-                  key="settings-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <SettingsPage />
-                </motion.div>
-              )}
+                {activeTab === 'SETTINGS' && (
+                  <motion.div
+                    key="settings-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <SettingsPage />
+                  </motion.div>
+                )}
 
-              {activeTab === 'CONTRACT_DETAILS' && ui.selectedLoanId && (
-                <motion.div
-                  key="contract-details-view"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <ContractDetailsPage
-                    loanId={ui.selectedLoanId}
-                    loans={loans}
-                    sources={sources}
-                    activeUser={activeUser}
-                    showToast={showToast}
-                    onBack={() => {
-                      if (window.location.pathname.startsWith('/contrato/')) {
-                        routerNavigate('/', { replace: true });
-                      }
-                      goBack();
-                    }}
-                    onPayment={async (forgive, date, amount, realDate, interest, contextOverride, lateFeeForgiven) => {
-                      await paymentCtrl.handlePayment(forgive, date, amount, realDate, interest, undefined, undefined, contextOverride, lateFeeForgiven);
-                    }}
-                    isProcessing={ui.isProcessingPayment}
-                    onOpenMessage={(l) => {
-                      ui.setMessageModalLoan(l);
-                      ui.openModal('MESSAGE_HUB');
+                {activeTab === 'CONTRACT_DETAILS' && ui.selectedLoanId && (
+                  <motion.div
+                    key="contract-details-view"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <ContractDetailsPage
+                      loanId={ui.selectedLoanId}
+                      loans={loans}
+                      sources={sources}
+                      activeUser={activeUser}
+                      showToast={showToast}
+                      onBack={() => {
+                        if (window.location.pathname.startsWith('/contrato/')) {
+                          routerNavigate('/', { replace: true });
+                        }
+                        goBack();
+                      }}
+                      onPayment={async (forgive, date, amount, realDate, interest, contextOverride, lateFeeForgiven) => {
+                        await paymentCtrl.handlePayment(forgive, date, amount, realDate, interest, undefined, undefined, contextOverride, lateFeeForgiven);
+                      }}
+                      isProcessing={ui.isProcessingPayment}
+                      onOpenMessage={(l) => {
+                        ui.setMessageModalLoan(l);
+                        ui.openModal('MESSAGE_HUB');
 
-                      // Marca como cobrado se houver atraso detectado
-                      const hasLate = l.installments?.some(i =>
-                        i.status !== 'PAID' &&
-                        i.status !== 'PAGO' &&
-                        new Date(i.dueDate) < new Date()
-                      );
+                        // Marca como cobrado se houver atraso detectado
+                        const hasLate = l.installments?.some(i =>
+                          i.status !== 'PAID' &&
+                          i.status !== 'PAGO' &&
+                          new Date(i.dueDate) < new Date()
+                        );
 
-                      if (hasLate) {
-                        contractsService.markAsBilled(l.id, l.billing_count || 0).then(() => {
-                          fetchFullData(activeUser?.id || '');
-                        }).catch(err => {
-                          if (isDev) console.error('[AUTO_BILL] Erro:', err);
-                        });
-                      }
-                    }}
-                    onRenegotiate={(l) => {
+                        if (hasLate) {
+                          contractsService.markAsBilled(l.id, l.billing_count || 0).then(() => {
+                            fetchFullData(activeUser?.id || '');
+                          }).catch(err => {
+                            if (isDev) console.error('[AUTO_BILL] Erro:', err);
+                          });
+                        }
+                      }}
+                      onRenegotiate={(l) => {
                         const loans = Array.isArray(l) ? l : [l];
                         ui.setRenegotiationModalLoans(loans);
                         ui.openModal('RENEGOTIATION', loans[0]);
-                    }}
-                    onOpenLegalDocument={(l) => navigate(`/legal/editor/${l.id}`)}
-                    onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
-                    onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
-                    onArchive={(l) => loanCtrl.openConfirmation({
+                      }}
+                      onOpenLegalDocument={(l) => navigate(`/legal/editor/${l.id}`)}
+                      onExportExtrato={(l) => loanCtrl.handleExportExtrato(l)}
+                      onEdit={(l) => { ui.setEditingLoan(l); ui.openModal('LOAN_FORM', l); }}
+                      onArchive={(l) => loanCtrl.openConfirmation({
                         type: l.isArchived ? 'RECLASSIFY_ARCHIVE' : 'ARCHIVE',
                         target: l,
                         showRefundOption: false,
@@ -794,94 +808,94 @@ export const App: React.FC = () => {
                         message: l.isArchived
                           ? 'Ajuste o registro sem modificar o histórico financeiro.'
                           : 'O contrato sairá da lista ativa e poderá ser restaurado depois.'
-                    })}
-                    onRestore={(l) => loanCtrl.openConfirmation({
+                      })}
+                      onRestore={(l) => loanCtrl.openConfirmation({
                         type: 'RESTORE',
                         target: l,
                         title: 'Restaurar Contrato?',
                         message: 'O contrato voltará para a lista de contratos ativos.'
-                    })}
-                    onDelete={(l) => loanCtrl.openConfirmation({
+                      })}
+                      onDelete={(l) => loanCtrl.openConfirmation({
                         type: 'DELETE',
                         target: l,
                         showRefundOption: true,
                         title: 'Excluir Permanentemente?',
                         message: 'Todos os dados, parcelas e histórico serão apagados para sempre.'
-                    })}
-                    onReverseTransaction={loanCtrl.openReverseTransaction}
-                    onOpenReceipt={(transaction: LedgerEntry, loan: Loan) => {
-                      ui.setShowReceipt({
-                        loan,
-                        inst: {
-                          id: transaction.installmentId || transaction.id,
-                          dueDate: transaction.date,
-                          amount: Number(transaction.amount || 0),
-                          status: 'PAID'
-                        },
-                        amountPaid: Math.abs(Number(transaction.amount || 0)),
-                        type: transaction.type || 'PAYMENT'
-                      });
-                      ui.openModal('RECEIPT');
-                    }}
-                    onActivate={loanCtrl.handleActivateLoan}
-                    onAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => {
-                      if (!activeUser) return;
-                      const paidAmount = Number(amount ?? inst.amount) || 0;
-                      try {
+                      })}
+                      onReverseTransaction={loanCtrl.openReverseTransaction}
+                      onOpenReceipt={(transaction: LedgerEntry, loan: Loan) => {
+                        ui.setShowReceipt({
+                          loan,
+                          inst: {
+                            id: transaction.installmentId || transaction.id,
+                            dueDate: transaction.date,
+                            amount: Number(transaction.amount || 0),
+                            status: 'PAID'
+                          },
+                          amountPaid: Math.abs(Number(transaction.amount || 0)),
+                          type: transaction.type || 'PAYMENT'
+                        });
+                        ui.openModal('RECEIPT');
+                      }}
+                      onActivate={loanCtrl.handleActivateLoan}
+                      onAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment, amount?: number, forgiveLateFee?: boolean) => {
+                        if (!activeUser) return;
+                        const paidAmount = Number(amount ?? inst.amount) || 0;
+                        try {
                           await agreementService.processPayment(agreement, inst, paidAmount, loan.sourceId, activeUser, forgiveLateFee);
                           showToast("Parcela do acordo recebida!", "success");
                           ui.setShowReceipt({ loan, inst: { ...inst, agreementId: agreement.id }, amountPaid: paidAmount, type: 'AGREEMENT_PAYMENT' });
                           ui.openModal('RECEIPT');
                           fetchFullData(activeUser?.id || '');
-                      } catch (e: any) {
+                        } catch (e: any) {
                           showToast("Erro ao processar pagamento: " + e.message, "error");
-                      }
-                    }}
-                    onReverseAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => {
-                      if (!activeUser) return;
-                      try {
+                        }
+                      }}
+                      onReverseAgreementPayment={async (loan: Loan, agreement: Agreement, inst: AgreementInstallment) => {
+                        if (!activeUser) return;
+                        try {
                           await agreementService.reversePayment(agreement, inst, activeUser);
                           showToast("Pagamento estornado com sucesso!", "success");
                           fetchFullData(activeUser?.id || '');
-                      } catch (e: any) {
+                        } catch (e: any) {
                           showToast("Erro ao estornar pagamento: " + e.message, "error");
-                      }
-                    }}
-                    onRefresh={() => fetchFullData(activeUser?.id || '')}
-                    onNavigate={navigate}
-                    isStealthMode={ui.isStealthMode}
-                  />
-                </motion.div>
-              )}
+                        }
+                      }}
+                      onRefresh={() => fetchFullData(activeUser?.id || '')}
+                      onNavigate={navigate}
+                      isStealthMode={ui.isStealthMode}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'SIMULATOR' && (
-                <motion.div
-                  key="sim-view"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <SimulatorPanel
-                    onClose={goBack}
-                    activeUser={activeUser}
-                    clients={clients}
-                    sources={sources}
-                    showToast={showToast}
-                    fetchFullData={fetchFullData}
-                    isStealthMode={ui.isStealthMode}
-                  />
-                </motion.div>
-              )}
+                {activeTab === 'SIMULATOR' && (
+                  <motion.div
+                    key="sim-view"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <SimulatorPanel
+                      onClose={goBack}
+                      activeUser={activeUser}
+                      clients={clients}
+                      sources={sources}
+                      showToast={showToast}
+                      fetchFullData={fetchFullData}
+                      isStealthMode={ui.isStealthMode}
+                    />
+                  </motion.div>
+                )}
 
-              {activeTab === 'FLOW' && activeUser && (
-                <motion.div key="flow-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1, ease: 'linear' }}>
-                  <FlowModal
-                    loans={loans}
-                  />
-                </motion.div>
-              )}
-            </>
+                {activeTab === 'FLOW' && activeUser && (
+                  <motion.div key="flow-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1, ease: 'linear' }}>
+                    <FlowModal
+                      loans={loans}
+                    />
+                  </motion.div>
+                )}
+              </>
 
             </Suspense>
             <NavHubController ui={ui} setActiveTab={handleSetActiveTab} activeUser={activeUser} hubOrder={visibleHubOrder} />
@@ -893,36 +907,35 @@ export const App: React.FC = () => {
             <ModalHost />
           </Suspense>
 
-            {operatorUploadStatus.state !== 'IDLE' && (
-              <div className={`fixed bottom-5 left-1/2 z-[10000] flex -translate-x-1/2 items-center gap-2 rounded-lg border px-4 py-3 text-xs font-black uppercase shadow-2xl ${
-                operatorUploadStatus.state === 'UPLOADING'
-                  ? 'border-amber-500/30 bg-slate-900 text-amber-300'
-                  : operatorUploadStatus.state === 'SUCCESS'
-                    ? 'border-emerald-500/30 bg-slate-900 text-emerald-300'
-                    : 'border-rose-500/30 bg-slate-900 text-rose-300'
+          {operatorUploadStatus.state !== 'IDLE' && (
+            <div className={`fixed bottom-5 left-1/2 z-[10000] flex -translate-x-1/2 items-center gap-2 rounded-lg border px-4 py-3 text-xs font-black uppercase shadow-2xl ${operatorUploadStatus.state === 'UPLOADING'
+                ? 'border-amber-500/30 bg-slate-900 text-amber-300'
+                : operatorUploadStatus.state === 'SUCCESS'
+                  ? 'border-emerald-500/30 bg-slate-900 text-emerald-300'
+                  : 'border-rose-500/30 bg-slate-900 text-rose-300'
               }`}>
-                {operatorUploadStatus.state === 'UPLOADING' && <Loader2 size={16} className="animate-spin" />}
-                <span>{operatorUploadStatus.message}</span>
-              </div>
-            )}
+              {operatorUploadStatus.state === 'UPLOADING' && <Loader2 size={16} className="animate-spin" />}
+              <span>{operatorUploadStatus.message}</span>
+            </div>
+          )}
 
-            <input
-              type="file"
-              ref={ui?.promissoriaFileInputRef}
-              className="hidden"
-              accept="image/*,application/pdf"
-              onChange={(e) => handleOperatorFileUpload(e.target.files?.[0] as File, 'PROMISSORIA', e.currentTarget)}
-            />
-            <input
-              type="file"
-              ref={ui?.extraDocFileInputRef}
-              className="hidden"
-              accept="image/*,application/pdf"
-              onChange={(e) => handleOperatorFileUpload(e.target.files?.[0] as File, 'CONFISSAO', e.currentTarget)}
-            />
-          </div>
-        </ModalProvider>
-      )}
-    </Suspense>
-  );
+          <input
+            type="file"
+            ref={ui?.promissoriaFileInputRef}
+            className="hidden"
+            accept="image/*,application/pdf"
+            onChange={(e) => handleOperatorFileUpload(e.target.files?.[0] as File, 'PROMISSORIA', e.currentTarget)}
+          />
+          <input
+            type="file"
+            ref={ui?.extraDocFileInputRef}
+            className="hidden"
+            accept="image/*,application/pdf"
+            onChange={(e) => handleOperatorFileUpload(e.target.files?.[0] as File, 'CONFISSAO', e.currentTarget)}
+          />
+        </div>
+      </ModalProvider>
+    )}
+  </Suspense>
+);
 };

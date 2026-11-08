@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { AssistantTurn } from '../supabase/functions/ai-assistant/core';
+import { describeFluxTransportFailure, readFunctionsError } from './ai/fluxTransport';
 
 export type AssistantIntent = 'READ' | 'DRAFT' | 'CONFIRM' | 'FORBIDDEN' | 'UNKNOWN';
 export type { AssistantTurn };
@@ -13,6 +14,9 @@ export interface AssistantReply {
   provider?: string;
   model?: string;
   consultedFinancialData?: boolean;
+  /** Present only on transport failures: HTTP status (null = server unreachable) and diagnostic code. */
+  transportStatus?: number | null;
+  transportCode?: string;
 }
 
 export interface AssistantHistoryItem {
@@ -51,6 +55,7 @@ export async function askMasterAssistant(input: {
   turns?: AssistantTurn[];
   fresh?: boolean;
 }): Promise<AssistantReply> {
+  let failure = describeFluxTransportFailure(null);
   try {
     const { data, error } = await supabase.functions.invoke<AssistantReply>('ai-assistant', {
       body: {
@@ -61,20 +66,28 @@ export async function askMasterAssistant(input: {
         fresh: input.fresh === true,
       },
     });
-    if (error || !data || typeof data.response !== 'string' || !data.response.trim())
-      throw new Error('FLUX_UNAVAILABLE');
-    return data;
+    if (!error && data && typeof data.response === 'string' && data.response.trim()) return data;
+    if (error) {
+      const { status, serverError } = await readFunctionsError(error);
+      failure = describeFluxTransportFailure(status, serverError);
+    } else {
+      failure = describeFluxTransportFailure(200);
+    }
   } catch {
-    return {
-      requestId: input.requestId,
-      conversationId: input.conversationId,
-      intent: 'UNKNOWN',
-      permissionMode: 'READ',
-      response: 'O Flux está temporariamente indisponível. Nenhuma consulta financeira adicional foi iniciada.',
-      provider: 'flux-safe',
-      model: 'transport-fallback',
-    };
+    failure = describeFluxTransportFailure(null);
   }
+  console.warn('[flux] transport_failure', failure.code, failure.status);
+  return {
+    requestId: input.requestId,
+    conversationId: input.conversationId,
+    intent: 'UNKNOWN',
+    permissionMode: 'READ',
+    response: failure.message,
+    provider: 'flux-safe',
+    model: 'transport-fallback',
+    transportStatus: failure.status,
+    transportCode: failure.code,
+  };
 }
 
 /** Historical database reads happen only when the user explicitly asks for them. */
@@ -82,7 +95,11 @@ export async function loadMasterAssistantHistory(conversationId: string): Promis
   const { data, error } = await supabase.functions.invoke<{ history?: AssistantHistoryItem[]; error?: string }>('ai-assistant', {
     body: { action: 'history', conversationId },
   });
-  if (error) throw new Error((data as { error?: string } | null)?.error || 'Não foi possível carregar o histórico do Flux.');
+  if (error) {
+    const { status, serverError } = await readFunctionsError(error);
+    throw new Error(describeFluxTransportFailure(status, serverError).message.replace(/ Nenhuma consulta.*$/, '') ||
+      'Não foi possível carregar o histórico do Flux.');
+  }
   return data?.history || [];
 }
 
@@ -91,6 +108,10 @@ export async function loadMasterAssistantBriefing(): Promise<AssistantBriefingAl
   const { data, error } = await supabase.functions.invoke<{ alerts?: AssistantBriefingAlert[]; error?: string }>('ai-assistant', {
     body: { action: 'briefing', fresh: true },
   });
-  if (error) throw new Error((data as { error?: string } | null)?.error || 'Não foi possível consultar os alertas do Flux.');
+  if (error) {
+    const { status, serverError } = await readFunctionsError(error);
+    throw new Error(describeFluxTransportFailure(status, serverError).message.replace(/ Nenhuma consulta.*$/, '') ||
+      'Não foi possível consultar os alertas do Flux.');
+  }
   return data?.alerts || [];
 }

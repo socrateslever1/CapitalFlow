@@ -63,3 +63,9 @@ test('provider failures are reported as sanitized codes, never raw provider bodi
   assert.match(edge, /Diagnóstico: /);
   assert.match(edge, /fallbackModel\.startsWith\('gemini-3'\)/);
 });
+test('provider errors keep only an uppercase reason enum and Gemini 400 retries once without optional settings', () => {
+  const edge = read('supabase/functions/ai-assistant/index.ts');
+  assert.match(edge, /toUpperCase\(\)\.replace\(\/\[\^A-Z_\]\/g, ''\)\.slice\(0, 30\)/);
+  assert.match(edge, /gemini_retry_plain/);
+  assert.doesNotMatch(edge, /throw new Error\('PROVIDER_' \+ response\.status\);/);
+});

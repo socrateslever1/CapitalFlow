@@ -123,7 +123,28 @@ function literalText(node, sf) {
 }
 
 /** Varre o frontend e devolve [{file, line, text, words}]. */
-export function findEnglishUiText(base = process.cwd(), roots = SCAN_ROOTS) {
+// Áreas já 100% traduzidas: aqui nenhum texto visível pode ficar fixo no código (nem em português);
+// tudo passa pelo dicionário i18n/locales. Ao traduzir uma nova área, acrescente o arquivo aqui.
+export const TRANSLATED_FILES = [
+  'features/auth/AuthScreen.tsx',
+  'features/auth/useAuth.ts',
+  'components/settings/LoginLanguageSwitcher.tsx',
+  'components/settings/LanguageSelector.tsx',
+];
+const BRAND_LITERALS = new Set(['Capital', 'Flow', 'CapitalFlow']);
+
+const anyFixedText = (text) => {
+  const clean = String(text).replace(/\$\{[^}]*\}|\{[^}]*\}/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!/\p{L}{2}/u.test(clean) || BRAND_LITERALS.has(clean)) return [];
+  return [clean];
+};
+
+/** Textos visíveis escritos direto no código das áreas já traduzidas. */
+export function findHardcodedUiText(base = process.cwd(), files = TRANSLATED_FILES) {
+  return findEnglishUiText(base, files, anyFixedText);
+}
+
+export function findEnglishUiText(base = process.cwd(), roots = SCAN_ROOTS, detector = englishWordsIn) {
   const findings = [];
   const files = roots.flatMap(r => listFiles(r, base)).filter(f => !IGNORED_FILES.some(rx => rx.test(f)));
   for (const file of files) {
@@ -132,7 +153,7 @@ export function findEnglishUiText(base = process.cwd(), roots = SCAN_ROOTS) {
     const rel = relative(base, file).split(sep).join('/');
     const report = (node, text) => {
       if (/i18n-ignore/.test(source.slice(Math.max(0, node.getFullStart() - 120), node.getStart(sf)))) return;
-      const words = englishWordsIn(text);
+      const words = detector(text);
       if (!words.length) return;
       const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
       findings.push({ file: rel, line: line + 1, text: text.replace(/\s+/g, ' ').trim().slice(0, 120), words });
@@ -166,7 +187,7 @@ export function findEnglishUiText(base = process.cwd(), roots = SCAN_ROOTS) {
   return findings;
 }
 
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/').replace(/^([A-Za-z]):/, '/$1:')}` || process.argv[1]?.endsWith('englishUiText.mjs')) {
+if (process.argv[1]?.replace(/\\/g, '/').endsWith('scripts/i18n/englishUiText.mjs')) {
   const found = findEnglishUiText();
   for (const f of found) console.log(`${f.file}:${f.line}  "${f.text}"  [${f.words.join(', ')}]`);
   console.log(`\nTotal: ${found.length} texto(s) em inglês encontrados.`);

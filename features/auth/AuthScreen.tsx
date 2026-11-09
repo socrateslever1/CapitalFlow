@@ -18,6 +18,9 @@ import {
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
 import { maskDocument, onlyDigits } from '../../utils/formatters';
+import { translate } from '../../i18n';
+import { useI18n } from '../../i18n/useI18n';
+import { LoginLanguageSwitcher } from '../../components/settings/LoginLanguageSwitcher';
 
 const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('run.app');
 
@@ -145,7 +148,7 @@ const useInviteFlow = (showToast: any) => {
       try {
         const { data, error } = await fetchInviteByToken(token);
         if (error || !data) {
-          showToast('Convite inválido ou expirado.', 'error');
+          showToast(translate('auth.invite.invalid'), 'error');
           localStorage.removeItem('cm_invite_token');
           setInviteToken(null);
           return;
@@ -193,7 +196,7 @@ const useMemberActivation = (
     setErrorText('');
 
     if (!form.name.trim() || !form.email.trim() || !form.document || !form.accessCode) {
-      setErrorText('Preencha todos os campos.');
+      setErrorText(translate('auth.fillAll'));
       return;
     }
 
@@ -205,7 +208,7 @@ const useMemberActivation = (
       const email = normalizeEmailAddress(form.email);
 
       if (!isEmailAddressValid(email)) {
-        throw new Error('Digite um e-mail válido para ativar o convidado, sem aspas ou espaços ocultos.');
+        throw new Error(translate('auth.invite.invalidEmail'));
       }
 
       // PIN real do app (4 dígitos).
@@ -241,14 +244,14 @@ const useMemberActivation = (
 
           if (signInError) {
             if (signInError.message?.toLowerCase().includes('rate limit')) {
-              throw new Error('Muitas tentativas. Por favor, aguarde alguns minutos antes de tentar novamente.');
+              throw new Error(translate('auth.tooManyAttempts'));
             }
-            throw new Error('Este e-mail já está em uso com outra senha ou o limite de segurança foi atingido.');
+            throw new Error(translate('auth.emailInUse'));
           }
           authUid = signInData.user?.id || '';
         } else {
           if (signUpError.message?.toLowerCase().includes('rate limit')) {
-            throw new Error('Muitas tentativas. Por favor, aguarde alguns minutos.');
+            throw new Error(translate('auth.tooManyAttempts'));
           }
           throw signUpError;
         }
@@ -256,12 +259,12 @@ const useMemberActivation = (
         authUid = signUpData.user?.id || '';
       }
 
-      if (!authUid) throw new Error('Falha crítica ao obter identificador de segurança.');
+      if (!authUid) throw new Error(translate('auth.securityIdFailed'));
 
       // 3) Aguarda a sessao autenticar e atualiza o perfil criado pelo trigger do banco
       const hasSessionForProfileWrite = await ensureProfileWriteSession(email, authPass);
       if (!hasSessionForProfileWrite) {
-        throw new Error('A conta foi criada, mas a sessao segura ainda nao foi liberada. Confirme o e-mail ou faca login novamente para concluir a ativacao.');
+        throw new Error(translate('auth.invite.sessionPending'));
       }
 
       const profileUpdated = await updateExistingProfileRow(authUid, {
@@ -282,12 +285,12 @@ const useMemberActivation = (
       });
 
       if (!profileUpdated) {
-        throw new Error('O perfil ainda esta sendo preparado pelo sistema. Aguarde alguns segundos e tente novamente.');
+        throw new Error(translate('auth.invite.profilePreparing'));
       }
 
       await finalizeInvite(inviteData.id, 'ACCEPTED');
       localStorage.removeItem('cm_invite_token');
-      showToast('Conta ativada!', 'success');
+      showToast(translate('auth.invite.activated'), 'success');
 
       // Login do fluxo de equipe continua com PIN 4.
       await submitTeamLogin({ document: cleanDoc, phone: cleanPhone, code: pin }, showToast);
@@ -309,7 +312,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.password) {
-      showToast('Preencha os campos obrigatórios.', 'error');
+      showToast(translate('auth.fillRequired'), 'error');
       return;
     }
 
@@ -319,7 +322,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
       const email = normalizeEmailAddress(form.email);
 
       if (!isEmailAddressValid(email)) {
-        throw new Error('Digite um e-mail válido para criar a conta.');
+        throw new Error(translate('auth.invalidEmailCreate'));
       }
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -329,7 +332,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error('Erro ao gerar credenciais.');
+      if (!authData.user) throw new Error(translate('auth.credentialsFailed'));
 
       const hasSessionForProfileWrite = await ensureProfileWriteSession(email, form.password.trim());
 
@@ -346,11 +349,11 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
         });
 
         if (!profileUpdated) {
-          throw new Error('Conta criada no Auth, mas o perfil ainda nao foi provisionado. Tente novamente em instantes.');
+          throw new Error(translate('auth.profileNotProvisioned'));
         }
       }
 
-      showToast('Conta criada! Verifique seu e-mail.', 'success');
+      showToast(translate('auth.accountCreated'), 'success');
       setIsCreatingProfile(false);
     } catch (e: any) {
       showToast(e.message, 'error');
@@ -368,10 +371,10 @@ const useRecoveryAndSupport = (setIsRecoveringPassword: any, showToast: any, sup
   const handleHelpSupport = (type: 'password' | 'access') => {
     const number = supportNumber || import.meta.env.VITE_SUPPORT_PHONE || '';
     if (!number) {
-      showToast('Número de suporte não configurado. Por favor, tente novamente mais tarde.', 'error');
+      showToast(translate('auth.supportNotConfigured'), 'error');
       return;
     }
-    const msg = type === 'password' ? 'Olá, esqueci minha senha no CapitalFlow.' : 'Olá, não consigo acessar minha conta.';
+    const msg = translate(type === 'password' ? 'auth.supportMessagePassword' : 'auth.supportMessageAccess');
     window.open(`https://wa.me/${number}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -379,12 +382,12 @@ const useRecoveryAndSupport = (setIsRecoveringPassword: any, showToast: any, sup
     if (!form.email.trim()) return;
     const email = normalizeEmailAddress(form.email);
     if (!isEmailAddressValid(email)) {
-      showToast('Digite um e-mail válido para recuperar a senha.', 'error');
+      showToast(translate('auth.invalidEmailRecovery'), 'error');
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) showToast(error.message, 'error');
-    else showToast('E-mail de recuperação enviado!', 'success');
+    else showToast(translate('auth.recoverySent'), 'success');
     setIsRecoveringPassword(false);
   };
 
@@ -415,14 +418,16 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, onCancel }: any) => (
+const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, onCancel }: any) => {
+  const { t } = useI18n();
+  return (
   <div className="space-y-4 pb-24">
     <div className="relative z-10 text-center mb-6">
       <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-lg shadow-lg shadow-blue-600/20 mb-4">
         <UserPlus className="text-white w-8 h-8" />
       </div>
-      <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Ativar Acesso</h1>
-      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Você está entrando em: Equipe</p>
+      <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-1">{t('auth.invite.title')}</h1>
+      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{t('auth.invite.joining')}</p>
     </div>
 
     {errorText && (
@@ -436,21 +441,21 @@ const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, 
       <input
         type="text"
         className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
-        placeholder="Nome Completo"
+        placeholder={t('auth.invite.fullName')}
         value={form.name || ''}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
       />
       <input
         type="email"
         className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
-        placeholder="Seu E-mail"
+        placeholder={t('auth.emailPlaceholder')}
         value={form.email || ''}
         onChange={(e) => setForm({ ...form, email: normalizeEmailAddress(e.target.value) })}
       />
       <input
         type="text"
         className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
-        placeholder="CPF"
+        placeholder={t('auth.invite.document')}
         value={form.document || ''}
         onChange={(e) => setForm({ ...form, document: maskDocument(e.target.value) })}
       />
@@ -458,7 +463,7 @@ const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, 
         type="text"
         maxLength={4}
         className="w-full bg-slate-800/50 p-4 rounded-lg text-white outline-none border border-slate-700 text-sm font-bold"
-        placeholder="Crie um PIN de 4 dígitos"
+        placeholder={t('auth.invite.pin')}
         value={form.accessCode || ''}
         onChange={(e) => setForm({ ...form, accessCode: onlyDigits(e.target.value) })}
       />
@@ -469,14 +474,15 @@ const InviteActivationView = ({ form, setForm, onConfirm, isLoading, errorText, 
       disabled={isLoading}
       className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
     >
-      {isLoading ? <Loader2 className="animate-spin" /> : 'Ativar e Entrar'}
+      {isLoading ? <Loader2 className="animate-spin" /> : t('auth.invite.activate')}
     </button>
 
     <button onClick={onCancel} className="w-full py-2 text-slate-500 text-[10px] font-black uppercase">
-      Cancelar
+      {t('auth.cancel')}
     </button>
   </div>
-);
+  );
+};
 
 const LoginView = ({
   loginUser,
@@ -494,7 +500,9 @@ const LoginView = ({
   setIsRecoveringPassword,
   handleDemoMode,
   handleGoogleLogin
-}: any) => (
+}: any) => {
+  const { t } = useI18n();
+  return (
   <div className="cf-auth-form flex min-w-0 flex-col gap-5 sm:gap-6">
     <div className="flex flex-col gap-3 animate-in fade-in">
       <div className="flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 px-3 transition-colors focus-within:border-blue-500">
@@ -503,11 +511,11 @@ const LoginView = ({
         </div>
         <input
           type="email"
-          aria-label="Seu e-mail"
+          aria-label={t('auth.emailLabel')}
           autoComplete="email"
           inputMode="email"
           className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-400"
-          placeholder="Seu E-mail"
+          placeholder={t('auth.emailPlaceholder')}
           value={loginUser || ''}
           onChange={(e) => setLoginUser(e.target.value)}
         />
@@ -519,17 +527,17 @@ const LoginView = ({
         </div>
         <input
           type={showPassword ? 'text' : 'password'}
-          aria-label="Senha"
+          aria-label={t('auth.password')}
           autoComplete="current-password"
           className="min-w-0 flex-1 bg-transparent text-base font-semibold text-white outline-none placeholder:text-slate-400"
-          placeholder="Senha"
+          placeholder={t('auth.password')}
           value={loginPassword || ''}
           onChange={(e) => setLoginPassword(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submitLogin()}
         />
         <button
           type="button"
-          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+          aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
           onClick={() => setShowPassword(!showPassword)}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
         >
@@ -545,7 +553,7 @@ const LoginView = ({
         disabled={isLoading}
         className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-black uppercase text-white shadow-lg transition-all hover:bg-blue-500 active:scale-[0.99] disabled:opacity-60"
       >
-        {isLoading ? <Loader2 className="animate-spin" /> : 'Entrar'}
+        {isLoading ? <Loader2 className="animate-spin" /> : t('auth.signIn')}
       </button>
 
       <button
@@ -554,7 +562,7 @@ const LoginView = ({
         disabled={isLoading}
         className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 text-xs font-black uppercase text-slate-900 shadow-lg transition-all hover:bg-slate-100 active:scale-[0.99] disabled:opacity-60"
       >
-        <GoogleIcon /> Entrar com Google
+        <GoogleIcon /> {t('auth.signInGoogle')}
       </button>
     </div>
 
@@ -564,20 +572,20 @@ const LoginView = ({
         onClick={() => setIsCreatingProfile(true)}
         className="min-h-11 rounded-xl bg-slate-800 px-2 py-2 text-[11px] font-black uppercase text-slate-300 transition-colors hover:bg-slate-700"
       >
-        Criar Conta
+        {t('auth.createAccount')}
       </button>
       <button
         type="button"
         onClick={() => setIsRecoveringPassword(true)}
         className="min-h-11 rounded-xl bg-slate-800 px-2 py-2 text-[11px] font-black uppercase text-slate-300 transition-colors hover:bg-slate-700"
       >
-        Esqueci Senha
+        {t('auth.forgotPassword')}
       </button>
     </div>
 
     {savedProfiles.length > 0 && (
       <div className="pt-2">
-        <p className="text-[10px] text-slate-500 font-bold uppercase mb-2 text-center">Salvos</p>
+        <p className="text-[10px] text-slate-500 font-bold uppercase mb-2 text-center">{t('auth.saved')}</p>
         <div className="flex flex-col gap-2">
           {savedProfiles.map((p: any) => (
             <div
@@ -592,6 +600,8 @@ const LoginView = ({
                 <p className="text-xs font-bold text-white truncate">{p.name}</p>
               </div>
               <button
+                type="button"
+                aria-label={t('auth.removeSaved', { name: p.name })}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleRemoveSavedProfile(p.id);
@@ -610,10 +620,11 @@ const LoginView = ({
       onClick={handleDemoMode}
       className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-600/50 px-3 text-[11px] font-black uppercase text-emerald-500 transition-all hover:bg-emerald-600/10"
     >
-      <Beaker size={14} /> Modo Demonstração
+      <Beaker size={14} /> {t('auth.demoMode')}
     </button>
   </div>
-);
+  );
+};
 
 /**
  * 4. COMPONENTE PRINCIPAL
@@ -633,6 +644,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   toast,
   supportNumber
 }) => {
+  const { t } = useI18n();
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -694,9 +706,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
       <div className="cf-auth-panel relative my-auto flex w-full min-w-0 max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">
         <div className="pointer-events-none absolute inset-0 rounded-2xl bg-blue-600/5 blur-3xl"></div>
+        <LoginLanguageSwitcher className="cf-auth-language absolute left-3 top-3 z-20 sm:left-4 sm:top-4" />
         <button
           type="button"
-          aria-label="Abrir ajuda"
+          aria-label={t('auth.openHelp')}
           onClick={() => setShowHelpModal(true)}
           className="cf-auth-help absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-slate-800/60 text-slate-400 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 sm:right-4 sm:top-4"
         >
@@ -722,7 +735,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <h1 className="cf-auth-title mb-1 text-[26px] font-black uppercase leading-tight tracking-tight text-white sm:text-2xl">
                 Capital<span className="text-blue-500">Flow</span>
               </h1>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Acesso Restrito</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{t('auth.restrictedAccess')}</p>
             </div>
 
             {!isCreatingProfile && !isRecoveringPassword && (
@@ -747,58 +760,58 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
             {isCreatingProfile && (
               <div className="animate-in slide-in-from-right duration-300 space-y-4">
-                <h3 className="text-center text-white font-black uppercase text-sm">Nova Conta</h3>
+                <h3 className="text-center text-white font-black uppercase text-sm">{t('auth.newAccount')}</h3>
                 <input
                   type="text"
-                  placeholder="Seu Nome"
+                  placeholder={t('auth.yourName')}
                   className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={createForm.name || ''}
                   onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                 />
                 <input
                   type="email"
-                  placeholder="E-mail"
+                  placeholder={t('auth.email')}
                   className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={createForm.email || ''}
                   onChange={(e) => setCreateForm({ ...createForm, email: normalizeEmailAddress(e.target.value) })}
                 />
                 <input
                   type="password"
-                  placeholder="Senha"
+                  placeholder={t('auth.password')}
                   className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={createForm.password || ''}
                   onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                 />
                 <button onClick={handleCreateProfile} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs">
-                  Criar Perfil
+                  {t('auth.createProfile')}
                 </button>
                 <button
                   onClick={handleGoogleLogin}
                   className="w-full py-4 bg-white hover:bg-slate-100 text-slate-900 rounded-lg font-black uppercase text-xs flex items-center justify-center gap-3 transition-all active:scale-95"
                 >
-                  <GoogleIcon /> Criar com Google
+                  <GoogleIcon /> {t('auth.createWithGoogle')}
                 </button>
                 <button onClick={() => setIsCreatingProfile(false)} className="w-full text-slate-500 text-[10px] uppercase font-bold">
-                  Voltar
+                  {t('auth.back')}
                 </button>
               </div>
             )}
 
             {isRecoveringPassword && (
               <div className="animate-in slide-in-from-left duration-300 space-y-4">
-                <h3 className="text-center text-white font-black uppercase text-sm">Recuperar</h3>
+                <h3 className="text-center text-white font-black uppercase text-sm">{t('auth.recover')}</h3>
                 <input
                   type="email"
-                  placeholder="Seu e-mail cadastrado"
+                  placeholder={t('auth.registeredEmail')}
                   className="w-full bg-slate-800 p-4 rounded-lg text-white outline-none"
                   value={recoveryForm.email || ''}
                   onChange={(e) => setRecoveryForm({ ...recoveryForm, email: normalizeEmailAddress(e.target.value) })}
                 />
                 <button onClick={handleRecovery} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs">
-                  Enviar E-mail
+                  {t('auth.sendEmail')}
                 </button>
                 <button onClick={() => setIsRecoveringPassword(false)} className="w-full text-slate-500 text-[10px] uppercase font-bold">
-                  Voltar
+                  {t('auth.back')}
                 </button>
               </div>
             )}
@@ -807,20 +820,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       </div>
 
       {showHelpModal && (
-        <Modal onClose={() => setShowHelpModal(false)} title="Suporte">
+        <Modal onClose={() => setShowHelpModal(false)} title={t('auth.support')}>
           <div className="space-y-4">
             <button
               onClick={() => handleHelpSupport('password')}
               className="w-full p-4 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between hover:bg-slate-800 transition-all"
             >
-              <span className="text-sm font-bold text-white">Esqueci a Senha</span>
+              <span className="text-sm font-bold text-white">{t('auth.helpForgotPassword')}</span>
               <ChevronRight size={16} className="text-slate-500" />
             </button>
             <button
               onClick={() => handleHelpSupport('access')}
               className="w-full p-4 bg-slate-900 border border-slate-800 rounded-lg flex items-center justify-between hover:bg-slate-800 transition-all"
             >
-              <span className="text-sm font-bold text-white">Não consigo entrar</span>
+              <span className="text-sm font-bold text-white">{t('auth.helpCantSignIn')}</span>
               <ChevronRight size={16} className="text-slate-500" />
             </button>
           </div>

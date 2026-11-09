@@ -1,0 +1,19 @@
+# HTTPS automático (certificado gratuito Let's Encrypt) para o n8n do CapitalFlow.
+{$N8N_DOMAIN} {
+	encode gzip
+
+	# Único endereço público: o botão "Cobrar agora" do CapitalFlow avisa o n8n por aqui.
+	# Ele só antecipa a busca de cobranças já enfileiradas e autorizadas pelo backend.
+	@gatilhoCobranca path /webhook/capitalflow-manual-collections-trigger
+	handle @gatilhoCobranca {
+		reverse_proxy n8n:5678
+	}
+
+	# Todo o resto (painel do n8n) pede usuário e senha antes de abrir.
+	handle {
+		basic_auth {
+			{$PAINEL_USUARIO} {$PAINEL_SENHA_HASH}
+		}
+		reverse_proxy n8n:5678
+	}
+}

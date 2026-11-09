@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { englishWordsIn, findEnglishUiText } from '../../scripts/i18n/englishUiText.mjs';
+import { englishWordsIn, findEnglishUiText, findHardcodedUiText, TRANSLATED_FILES } from '../../scripts/i18n/englishUiText.mjs';
 import { ptBR } from '../../i18n/locales/pt-BR';
 import { en } from '../../i18n/locales/en';
 import { es } from '../../i18n/locales/es';
@@ -63,4 +63,26 @@ test('avisos de erro passam pelo tradutor e o seletor de idioma está no Perfil'
   assert.match(readFileSync('hooks/useToast.ts', 'utf8'), /translateServerMessage\(rawMsg\)/);
   assert.match(readFileSync('pages/ProfilePage.tsx', 'utf8'), /<LanguageSelector /);
   assert.match(readFileSync('index.html', 'utf8'), /<html lang="pt-br"/i);
+});
+
+test('áreas já traduzidas não têm texto fixo no código (tudo vem do dicionário)', () => {
+  assert.ok(TRANSLATED_FILES.includes('features/auth/AuthScreen.tsx'));
+  const found = findHardcodedUiText();
+  const report = found.map(f => `  ${f.file}:${f.line}  "${f.text}"`).join('\n');
+  assert.equal(found.length, 0, `Texto fixo em área traduzida (use t('chave') e o dicionário):\n${report}`);
+});
+
+test('tela de login tem o botão de idioma e o login fica completo nos três idiomas', () => {
+  const auth = readFileSync('features/auth/AuthScreen.tsx', 'utf8');
+  assert.match(auth, /<LoginLanguageSwitcher /);
+  const authKeys = Object.keys(ptBR).filter(key => key.startsWith('auth.'));
+  assert.ok(authKeys.length >= 60, 'dicionário do login incompleto');
+  const sameInBoth = new Set(['auth.email']); // "E-mail" se escreve igual em português e inglês
+  for (const key of authKeys) {
+    if (sameInBoth.has(key)) continue;
+    assert.notEqual(en[key as keyof typeof en], ptBR[key as keyof typeof ptBR], `inglês igual ao português em ${key}`);
+  }
+  assert.equal(translate('auth.signIn', undefined, 'en'), 'Sign in');
+  assert.equal(translate('auth.signIn', undefined, 'es'), 'Ingresar');
+  assert.equal(translate('auth.welcome', { name: 'Ana' }, 'pt-BR'), 'Bem-vindo, Ana!');
 });

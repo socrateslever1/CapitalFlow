@@ -1,0 +1,98 @@
+# CapitalFlow — cobrança automática 24h em servidor na nuvem (VPS).
+# Sobe: n8n (orquestra), WAHA (WhatsApp), Redis (estado das conversas) e Caddy (HTTPS automático).
+# Guia passo a passo: docs/SERVIDOR_NUVEM_COBRANCA.md
+#
+# Regras de segurança:
+# - Só o Caddy fica exposto à internet (portas 80/443). WAHA, Redis e o n8n ficam na rede interna.
+# - O painel do n8n exige usuário/senha do Caddy; apenas o gatilho "Cobrar agora" é público,
+#   e ele só antecipa a busca de cobranças que o backend já enfileirou.
+# - Versões fixas (sem "latest"), conforme docs/capitalflow-n8n.md.
+# - Nunca envie o arquivo .env para o GitHub.
+
+name: capitalflow-cobranca
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      N8N_DOMAIN: ${N8N_DOMAIN:?Defina N8N_DOMAIN no .env}
+      PAINEL_USUARIO: ${PAINEL_USUARIO:?Defina PAINEL_USUARIO no .env}
+      PAINEL_SENHA_HASH: ${PAINEL_SENHA_HASH:?Defina PAINEL_SENHA_HASH no .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - n8n
+    networks: [cobranca]
+
+  n8n:
+    image: n8nio/n8n:1.50.0
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_DOMAIN}
+      N8N_PROTOCOL: https
+      N8N_PORT: "5678"
+      WEBHOOK_URL: https://${N8N_DOMAIN}/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?Defina N8N_ENCRYPTION_KEY no .env}
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false" # os workflows leem os segredos abaixo via $env
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      GENERIC_TIMEZONE: ${TZ:-America/Manaus}
+      TZ: ${TZ:-America/Manaus}
+      CAPITALFLOW_PROFILE_ID: ${CAPITALFLOW_PROFILE_ID:?Defina CAPITALFLOW_PROFILE_ID no .env}
+      CAPITALFLOW_N8N_SECRET: ${CAPITALFLOW_N8N_SECRET:?Defina CAPITALFLOW_N8N_SECRET no .env}
+      WAHA_API_KEY: ${WAHA_API_KEY:?Defina WAHA_API_KEY no .env}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ../n8n/workflows:/workflows:ro
+    depends_on:
+      - waha
+      - redis
+    networks: [cobranca]
+
+  waha:
+    # Use a MESMA imagem e versão que funcionam hoje no seu computador (veja o guia, passo 4).
+    image: ${WAHA_IMAGE:?Defina WAHA_IMAGE no .env com a versão usada no seu computador}
+    restart: unless-stopped
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      WHATSAPP_API_KEY: ${WAHA_API_KEY}
+      WHATSAPP_RESTART_ALL_SESSIONS: "true"
+      TZ: ${TZ:-America/Manaus}
+      # Atendimento por WhatsApp (workflow "CapitalFlow - Atendimento WhatsApp"): só ative quando
+      # esse workflow estiver ligado no n8n. Endereço interno, não passa pela internet.
+      WHATSAPP_HOOK_URL: ${WAHA_HOOK_URL:-}
+      WHATSAPP_HOOK_EVENTS: ${WAHA_HOOK_EVENTS:-message}
+    ports:
+      # Só acessível de dentro do servidor (127.0.0.1). Para ler o QR Code, use o túnel SSH do guia.
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    networks:
+      cobranca:
+        aliases: [waha] # os workflows chamam http://waha:3000
+
+  redis:
+    image: redis:7.2.5-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?Defina REDIS_PASSWORD no .env}"]
+    volumes:
+      - redis_data:/data
+    networks: [cobranca]
+
+volumes:
+  caddy_data:
+  caddy_config:
+  n8n_data:
+  waha_sessions:
+  waha_media:
+  redis_data:
+
+networks:
+  cobranca:

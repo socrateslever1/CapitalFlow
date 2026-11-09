@@ -8,6 +8,7 @@ import { onlyDigits } from '../../utils/formatters';
 import { isDev } from '../../utils/isDev';
 import { isUUID, safeUUID } from '../../utils/uuid';
 import { clearWalletVaultSession } from '../wallet/domain/walletVaultSession';
+import { translate, translateServerMessage } from '../../i18n';
 
 type SavedProfile = {
   id: string;
@@ -53,11 +54,11 @@ const mapLoginError = (err: any) => {
 
   // Tratamento específico para falhas críticas de serviço (Supabase)
   if (raw.includes('/auth/v1/token')) {
-    return 'Falha ao validar acesso com o servidor de autenticação (Supabase). Tente novamente em instantes.';
+    return translate('auth.err.authServer');
   }
   
   if (raw.includes('/rest/v1/perfis') || raw.includes('/rest/v1/rpc/check_')) {
-    return 'O servidor de dados está demorando para responder. Verifique sua conexão ou tente recarregar a página.';
+    return translate('auth.err.dataServer');
   }
 
   if (
@@ -66,7 +67,7 @@ const mapLoginError = (err: any) => {
     l.includes('load failed') ||
     l.includes('connection error')
   ) {
-    return 'Falha de conexão com os servidores. Verifique sua internet ou VPN.';
+    return translate('auth.err.connection');
   }
 
   if (raw.startsWith('AUTH_SIGNIN_FAILED:')) {
@@ -79,18 +80,19 @@ const mapLoginError = (err: any) => {
 
   const l2 = raw.toLowerCase();
 
-  if (l2.includes('invalid login')) return 'Usuário ou senha inválidos.';
-  if (l2.includes('invalid_credentials')) return 'Usuário ou senha inválidos.';
-  if (l2.includes('email not confirmed')) return 'E-mail não confirmado.';
+  if (l2.includes('invalid login')) return translate('auth.err.invalidCredentials');
+  if (l2.includes('invalid_credentials')) return translate('auth.err.invalidCredentials');
+  if (l2.includes('email not confirmed')) return translate('auth.err.emailNotConfirmed');
   if (l2.includes('refresh token not found') || l2.includes('invalid refresh token')) {
-    return 'Sessão expirada. Faça login novamente.';
+    return translate('auth.err.sessionExpired');
   }
 
   if (l2.includes('lock') && l2.includes('stole')) {
-    return 'Conflito de sessão detectado. O sistema está se recuperando automaticamente...';
+    return translate('auth.err.sessionConflict');
   }
 
-  return raw || 'Erro desconhecido no login.';
+  // Mensagens desconhecidas (geralmente em inglês) passam pelo tradutor de erros técnicos.
+  return raw ? translateServerMessage(raw) : translate('auth.err.unknown');
 };
 
 const readLocalProfileId = () => {
@@ -444,7 +446,7 @@ export const useAuth = () => {
       setActiveProfileId(profileId);
       trackAccess(profileId);
       localStorage.setItem('cm_session', JSON.stringify({ profileId, ts: Date.now() }));
-      showToast(`Bem-vindo, ${profileName}!`, 'success');
+      showToast(translate('auth.welcome', { name: profileName }), 'success');
       playNotificationSound();
       window.dispatchEvent(new Event('cm_auth_restored'));
       return;
@@ -463,7 +465,7 @@ export const useAuth = () => {
     localStorage.setItem('cm_saved_profiles', JSON.stringify(updated));
     localStorage.setItem('cm_session', JSON.stringify({ profileId, ts: Date.now() }));
 
-    showToast(`Bem-vindo, ${profileName}!`, 'success');
+    showToast(translate('auth.welcome', { name: profileName }), 'success');
     playNotificationSound();
 
     window.dispatchEvent(new Event('cm_auth_restored'));
@@ -477,7 +479,7 @@ export const useAuth = () => {
       const userInput = loginUser.trim();
       const pass = loginPassword.trim();
       
-      if (!userInput || !pass) throw new Error('Preencha e-mail e senha.');
+      if (!userInput || !pass) throw new Error(translate('auth.fillEmailPassword'));
 
       requestBrowserNotificationPermission();
 
@@ -485,7 +487,7 @@ export const useAuth = () => {
       let authPass = pass.length < 6 ? pass.padEnd(6, '0') : pass;
 
       if (!userInput.includes('@')) {
-        throw new Error('O login deve ser realizado com seu e-mail cadastrado.');
+        throw new Error(translate('auth.loginWithEmail'));
       }
 
       try {
@@ -505,7 +507,7 @@ export const useAuth = () => {
 
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
-      if (!uid) throw new Error('Sessão inválida.');
+      if (!uid) throw new Error(translate('auth.invalidSession'));
 
       const { data: profile } = await supabase
         .from('perfis')
@@ -536,7 +538,7 @@ export const useAuth = () => {
     try {
       const cleanDoc = onlyDigits(params.document);
       const cleanCode = params.code.trim();
-      if (!cleanDoc || !cleanCode) throw new Error('Preencha todos os campos.');
+      if (!cleanDoc || !cleanCode) throw new Error(translate('auth.fillAll'));
 
       const { data: loginData, error: loginError } = await supabase.rpc('resolve_team_login', {
         p_document: cleanDoc,
@@ -544,11 +546,11 @@ export const useAuth = () => {
       });
 
       if (loginError) throw loginError;
-      if (!loginData) throw new Error('Dados de acesso à equipe incorretos.');
+      if (!loginData) throw new Error(translate('auth.teamInvalid'));
 
       const profile = loginData as any;
       const authEmail = (loginData as any).auth_email;
-      if (!authEmail) throw new Error('Este perfil não possui e-mail vinculado para autenticação segura.');
+      if (!authEmail) throw new Error(translate('auth.noLinkedEmail'));
 
       const authPass = cleanCode.length < 6 ? cleanCode.padEnd(6, '0') : cleanCode;
 
@@ -556,8 +558,8 @@ export const useAuth = () => {
         body: { profile_id: profile.id, email: authEmail, password: authPass },
       });
 
-      if (fnError) throw new Error('Serviço de autenticação indisponível no momento.');
-      if (!fnData?.ok) throw new Error(fnData?.error || 'Falha ao sincronizar credenciais de acesso.');
+      if (fnError) throw new Error(translate('auth.serviceUnavailable'));
+      if (!fnData?.ok) throw new Error(fnData?.error || translate('auth.syncFailed'));
 
       await ensureAuthSession(authEmail, authPass);
       handleLoginSuccess(profile, showToast);
@@ -575,11 +577,11 @@ export const useAuth = () => {
       setActiveProfileId(p.id);
       trackAccess(p.id);
       localStorage.setItem('cm_session', JSON.stringify({ profileId: p.id, ts: Date.now() }));
-      showToast(`Bem-vindo de volta, ${p.name}!`, 'success');
+      showToast(translate('auth.welcomeBack', { name: p.name }), 'success');
       playNotificationSound();
       window.dispatchEvent(new Event('cm_auth_restored'));
     } else {
-      showToast('Sessão de segurança expirada. Digite sua senha.', 'warning');
+      showToast(translate('auth.securitySessionExpired'), 'warning');
       setLoginUser(p.email);
       window.dispatchEvent(new Event('cm_auth_lost'));
     }
@@ -648,10 +650,10 @@ export const useAuth = () => {
   }, []);
 
   const reauthenticate = async (password: string) => {
-    if (!activeProfileId) throw new Error('Nenhum perfil ativo.');
+    if (!activeProfileId) throw new Error(translate('auth.noActiveProfile'));
 
     const profile = savedProfiles.find((p) => p.id === activeProfileId);
-    if (!profile?.email) throw new Error('E-mail do perfil não encontrado. Faça login novamente.');
+    if (!profile?.email) throw new Error(translate('auth.profileEmailMissing'));
 
     await supabase.auth.signOut().catch(() => {});
     await ensureAuthSession(profile.email, password);

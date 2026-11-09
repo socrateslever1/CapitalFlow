@@ -28,9 +28,11 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-mo
 import { resolveNotificationTarget } from '../utils/notificationRouting';
 import { notificationService } from '../services/notification.service';
 import { AndroidApkNotice } from '../components/system/AndroidApkNotice';
-import { AndroidNativeUpdateNotice } from '../components/system/AndroidNativeUpdateNotice';
+import { AndroidNativeUpdateNotice, useAndroidNativeUpdateAvailable } from '../components/system/AndroidNativeUpdateNotice';
 import { AppUpdateBanner } from '../components/system/AppUpdateBanner';
 import { pushSubscriptionService } from '../services/pushSubscription.service';
+import { registerDialogBack } from '../utils/dialogNavigation';
+import { useI18n } from '../i18n/useI18n';
 
 interface HeaderBarProps {
   activeTab: string;
@@ -188,12 +190,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenSupport,
   addNotification,
 }) => {
+  const i18n = useI18n();
   const scrollRef = useRef<HTMLElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const hasNativeApkUpdate = useAndroidNativeUpdateAvailable();
+  const alertBadgeCount = notifications.length + (hasNativeApkUpdate ? 1 : 0);
+
+  useEffect(() => {
+    setShowNotifications(false);
+  }, [activeTab]);
 
   const handleTestPush = async () => {
     const granted = await notificationService.requestPermission();
@@ -232,6 +241,25 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     };
     if (showNotifications) {
       document.addEventListener('mousedown', handleClickOutside);
+      const backGuard = registerDialogBack(() => setShowNotifications(false));
+      const handleAppBack = (event: Event) => {
+        event.preventDefault();
+        setShowNotifications(false);
+      };
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setShowNotifications(false);
+        }
+      };
+      window.addEventListener('capitalflow:back', handleAppBack);
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        backGuard.dispose();
+        window.removeEventListener('capitalflow:back', handleAppBack);
+        window.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -302,34 +330,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
 
-  const getTabLabel = (tab: string) => {
-    switch (tab) {
-      case 'DASHBOARD':
-        return 'Painel';
-      case 'DOSSIER':
-        return 'Extrato';
-      case 'CLIENTS':
-        return 'Clientes';
-      case 'SOURCES':
-        return 'Capital';
-      case 'SIMULATOR':
-        return 'Simulador';
-      case 'FLOW':
-        return 'Extrato';
-      case 'LEGAL':
-        return 'Jurídico';
-      case 'PROFILE':
-        return 'Perfil';
-      case 'MY_WALLET':
-        return 'Minha Carteira';
-      case 'PLATFORM_ADMIN':
-        return 'Administração';
-      case 'HUB':
-        return 'Menu';
-      default:
-        return tab;
-    }
-  };
+  // Nomes das abas vêm do sistema de idiomas; nunca exibe o código interno (ex.: "SUPPORT").
+  const getTabLabel = (tab: string) => i18n.tab(tab);
 
   const primaryColor = activeUser?.brandColor || '#2563eb';
 
@@ -584,10 +586,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800'
                   }`}
                 >
-                  <Bell size={20} className={notifications.length > 0 ? 'animate-bell' : ''} />
-                  {notifications.length > 0 && (
+                  <Bell size={20} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
+                  {alertBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full ring-4 ring-slate-950">
-                      {notifications.length}
+                      {alertBadgeCount}
                     </span>
                   )}
                 </button>
@@ -649,10 +651,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <Bell size={16} className={notifications.length > 0 ? 'animate-bell' : ''} />
-                  {notifications.length > 0 && (
+                  <Bell size={16} className={alertBadgeCount > 0 ? 'animate-bell' : ''} />
+                  {alertBadgeCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[7px] sm:text-[8px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center rounded-full ring-2 ring-slate-950">
-                      {notifications.length}
+                      {alertBadgeCount}
                     </span>
                   )}
                 </button>

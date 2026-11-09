@@ -128,7 +128,7 @@ export const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ agreemen
                             <Loader2 className="animate-spin text-indigo-600" />
                         </div>
                     ) : viewMode === 'DOC' ? (
-                        <iframe srcDoc={htmlContent} className="w-full h-full border-none" title="Legal View" />
+                        <iframe srcDoc={htmlContent} className="w-full h-full border-none" title="Visualização do documento jurídico" />
                     ) : viewMode === 'SIGNATURES' ? (
                         <div className="bg-slate-900 h-full p-6 space-y-4 overflow-y-auto custom-scrollbar">
                             <div className="bg-slate-950 p-5 rounded-lg border border-slate-800">

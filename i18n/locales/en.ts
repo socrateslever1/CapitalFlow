@@ -1,0 +1,41 @@
+import type { MessageKey } from './pt-BR';
+
+/** English dictionary. Must contain exactly the same keys as pt-BR (enforced by TypeScript). */
+export const en: Record<MessageKey, string> = {
+  'language.label': 'Language',
+  'language.description': 'Language for menus and system messages. Amounts, dates and currency follow the Brazilian format.',
+  'language.saved': 'Language changed to English.',
+  'language.partial': 'Translations are being expanded gradually; screens not yet translated remain in Portuguese.',
+
+  'nav.DASHBOARD': 'Dashboard',
+  'nav.DOSSIER': 'Statement',
+  'nav.CLIENTS': 'Clients',
+  'nav.LEGAL': 'Legal',
+  'nav.SOURCES': 'Capital',
+  'nav.PROFILE': 'Profile',
+  'nav.SETTINGS': 'Settings',
+  'nav.CONTRACT_DETAILS': 'Contract details',
+  'nav.SIMULATOR': 'Simulator',
+  'nav.FLOW': 'Statement',
+  'nav.LEGAL_DOCUMENT_EDITOR': 'Document editor',
+  'nav.EXTRATO': 'Statement',
+  'nav.SUPPORT': 'Chat',
+  'nav.REPORTS': 'Reports',
+  'nav.MY_WALLET': 'My Wallet',
+  'nav.PLATFORM_ADMIN': 'Administration',
+  'nav.HUB': 'Menu',
+  'navShort.MY_WALLET': 'Wallet',
+
+  'errors.network': 'No connection to the server. Check your internet and try again.',
+  'errors.invalidLogin': 'Incorrect e-mail or password.',
+  'errors.emailNotConfirmed': 'Confirm your e-mail before signing in.',
+  'errors.sessionExpired': 'Your session has expired. Please sign in again.',
+  'errors.permission': 'You do not have permission for this action.',
+  'errors.duplicate': 'This record already exists.',
+  'errors.timeout': 'The server took too long to respond. Please try again.',
+  'errors.linkedRecord': 'This record is linked to other data and cannot be changed this way.',
+  'errors.invalidData': 'Some of the data entered is invalid. Please review the fields.',
+  'errors.rateLimit': 'Too many attempts in a row. Wait a moment and try again.',
+  'errors.server': 'The server could not complete the operation. Try again shortly.',
+  'errors.generic': 'The operation could not be completed. Please try again.',
+};

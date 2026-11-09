@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { toast as sonnerToast } from 'sonner';
+import { translateServerMessage } from '../i18n';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -36,8 +37,10 @@ export const useToast = () => {
   }, []);
 
   const showToast = useCallback(
-    (msg: string, type: ToastType = 'success') => {
+    (rawMsg: string, type: ToastType = 'success') => {
       playBeep(type);
+      // Erros técnicos (Supabase, rede, navegador) chegam em inglês: exibe no idioma do usuário.
+      const msg = type === 'error' || type === 'warning' ? translateServerMessage(rawMsg) : rawMsg;
       
       const options = {
         duration: type === 'error' ? 5000 : 3000,

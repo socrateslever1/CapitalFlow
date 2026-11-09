@@ -39,6 +39,8 @@ import { AsaasConfig } from '../features/profile/components/AsaasConfig';
 import { InfinitePayConfig } from '../features/profile/components/InfinitePayConfig';
 import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
 import { ProfileExportReports } from '../features/profile/components/ProfileExportReports';
+import { LanguageSelector } from '../components/settings/LanguageSelector';
+import { useI18n } from '../i18n/useI18n';
 
 interface ProfilePageProps {
   activeUser: UserProfile;
@@ -88,6 +90,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   goBack,
 }) => {
   const { backupRestoreRef, auditLogs } = useProfilePageLogic(loans);
+  const i18n = useI18n();
 
   const [activeSection, setActiveSection] = useState<
     'GENERAL' | 'FINANCE' | 'PAYMENTS' | 'EXPORT' | 'DATA' | 'INTERFACE' | 'SECURITY' | 'SYSTEM' | 'DANGER'
@@ -119,28 +122,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     }
   };
 
-  const getTabLabel = (tab: AppTab) => {
-    switch (tab) {
-      case 'DASHBOARD':
-        return 'Painel';
-      case 'DOSSIER':
-        return 'Extrato';
-      case 'CLIENTS':
-        return 'Clientes';
-      case 'SOURCES':
-        return 'Fundos';
-      case 'LEGAL':
-        return 'Jurídico';
-      case 'PROFILE':
-        return 'Perfil';
-      case 'MY_WALLET':
-        return 'Minha Carteira';
-      case 'PLATFORM_ADMIN':
-        return 'Administração';
-      default:
-        return tab;
-    }
-  };
+  // Mesmos nomes do menu superior, vindos do sistema de idiomas.
+  const getTabLabel = (tab: AppTab) => i18n.tab(tab);
 
   const moveTab = async (
     tab: AppTab,
@@ -487,7 +470,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 <div className="space-y-4">
                   <div>
                     <label className="text-[10px] font-black text-slate-500 uppercase ml-1">
-                      Nome de Acesso (Username)
+                      Nome de acesso (usuário)
                     </label>
                     <input
                       type="text"
@@ -950,6 +933,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {/* INTERFACE */}
           {activeSection === 'INTERFACE' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right">
+              <LanguageSelector onChanged={message => showToast(message, 'success')} />
               <div className="flex items-center gap-3 text-purple-500 mb-4">
                 <LayoutGrid size={24} />
                 <h3 className="text-lg font-black uppercase">

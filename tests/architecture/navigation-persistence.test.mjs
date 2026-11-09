@@ -37,3 +37,10 @@ test('a preferência móvel é separada da configuração desktop, com RLS exist
  const types=read('types.ts');
  assert.match(types,/ui_mobile_nav_order\?: AppTab\[\]/);
 });
+test('modo organizar da barra móvel oculta botões flutuantes que cobririam Concluir/Cancelar', () => {
+ const nav=read('layout/BottomNav.tsx'),css=read('index.css'),mascot=read('components/ai/MasterMascot.tsx');
+ assert.match(nav,/data-editing=\{editing \? 'true' : undefined\}/);
+ assert.match(mascot,/className="fab-mascot fixed/);
+ assert.match(css,/\.bottom-nav-mobile\[data-editing="true"\]\) \.fab-action-container/);
+ assert.match(css,/\.bottom-nav-mobile\[data-editing="true"\]\) \.fab-mascot/);
+});

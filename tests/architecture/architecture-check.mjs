@@ -393,6 +393,14 @@ if (!walletRepoSource.includes("supabase.rpc('is_platform_super_admin')")) {
 if (!paymentManagerModal.includes('platformAdminService.isSuperAdmin()') || !paymentManagerModal.includes('isWalletReceiptAdmin')) {
   failures.push('PaymentManagerModal.tsx -> Destino na Carteira deve ser exclusivo do superadministrador e nao pode bloquear outros usuarios');
 }
+const appNotificationsHook = read('hooks', 'useAppNotifications.ts');
+if (appNotificationsHook.includes('Carteira com saldo cr')) {
+  failures.push('useAppNotifications.ts -> notificacao automatica de Carteira com saldo critico foi removida e nao deve existir');
+}
+const headerBarSource = read('layout', 'HeaderBar.tsx');
+if (!headerBarSource.includes('registerDialogBack(() => setShowNotifications(false))') || !headerBarSource.includes('useAndroidNativeUpdateAvailable')) {
+  failures.push('HeaderBar.tsx -> sino de notificacoes deve interceptar voltar nativo quando expandido e refletir atualizacao nativa no badge');
+}
 
 for (const forbidden of [
   'applyPaymentDirectFallback',

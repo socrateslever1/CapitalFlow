@@ -1,0 +1,41 @@
+import type { MessageKey } from './pt-BR';
+
+/** Diccionario en español. Debe tener exactamente las mismas claves que pt-BR (verificado por TypeScript). */
+export const es: Record<MessageKey, string> = {
+  'language.label': 'Idioma',
+  'language.description': 'Idioma de los menús y mensajes del sistema. Montos, fechas y moneda siguen el formato brasileño.',
+  'language.saved': 'Idioma cambiado a español.',
+  'language.partial': 'Las traducciones se amplían gradualmente; las pantallas aún no traducidas siguen en portugués.',
+
+  'nav.DASHBOARD': 'Panel',
+  'nav.DOSSIER': 'Extracto',
+  'nav.CLIENTS': 'Clientes',
+  'nav.LEGAL': 'Jurídico',
+  'nav.SOURCES': 'Capital',
+  'nav.PROFILE': 'Perfil',
+  'nav.SETTINGS': 'Configuración',
+  'nav.CONTRACT_DETAILS': 'Detalles del contrato',
+  'nav.SIMULATOR': 'Simulador',
+  'nav.FLOW': 'Extracto',
+  'nav.LEGAL_DOCUMENT_EDITOR': 'Editor de documentos',
+  'nav.EXTRATO': 'Extracto',
+  'nav.SUPPORT': 'Chat',
+  'nav.REPORTS': 'Informes',
+  'nav.MY_WALLET': 'Mi Billetera',
+  'nav.PLATFORM_ADMIN': 'Administración',
+  'nav.HUB': 'Menú',
+  'navShort.MY_WALLET': 'Billetera',
+
+  'errors.network': 'Sin conexión con el servidor. Verifique internet e intente nuevamente.',
+  'errors.invalidLogin': 'Correo o contraseña incorrectos.',
+  'errors.emailNotConfirmed': 'Confirme su correo antes de ingresar.',
+  'errors.sessionExpired': 'Su sesión expiró. Ingrese nuevamente.',
+  'errors.permission': 'No tiene permiso para esta acción.',
+  'errors.duplicate': 'Este registro ya existe.',
+  'errors.timeout': 'El servidor tardó en responder. Intente nuevamente.',
+  'errors.linkedRecord': 'Este registro está vinculado a otros datos y no puede cambiarse así.',
+  'errors.invalidData': 'Algún dato informado no es válido. Revise los campos.',
+  'errors.rateLimit': 'Demasiados intentos seguidos. Espere un momento e intente nuevamente.',
+  'errors.server': 'El servidor no pudo completar la operación. Intente nuevamente en unos instantes.',
+  'errors.generic': 'No fue posible completar la operación. Intente nuevamente.',
+};

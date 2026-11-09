@@ -398,14 +398,14 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({ initialContent, 
                             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => runCommand('bold')} className={BUTTON} title="Negrito"><Bold size={16} /></button>
                             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => runCommand('italic')} className={BUTTON} title="Italico"><Italic size={16} /></button>
                             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => runCommand('underline')} className={BUTTON} title="Sublinhado"><Underline size={16} /></button>
-                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => runCommand('removeFormat')} className={`${BUTTON} text-rose-500 hover:bg-rose-50`} title="Limpar formatacao"><Eraser size={16} /></button>
+                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => runCommand('removeFormat')} className={`${BUTTON} text-rose-500 hover:bg-rose-50`} title="Limpar formatação"><Eraser size={16} /></button>
                         </div>
 
                         <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-300 shadow-sm ml-2">
                             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyAlignment('left')} className={`${BUTTON} ${activeAlign === 'left' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : ''}`} title="Esquerda"><AlignLeft size={16} /></button>
                             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyAlignment('center')} className={`${BUTTON} ${activeAlign === 'center' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : ''}`} title="Centro"><AlignCenter size={16} /></button>
                             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyAlignment('right')} className={`${BUTTON} ${activeAlign === 'right' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : ''}`} title="Direita"><AlignRight size={16} /></button>
-                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyAlignment('justify')} className={`${BUTTON} text-[10px] font-black px-2 ${activeAlign === 'justify' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : ''}`} title="Justificar">Just.</button>
+                            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyAlignment('justify')} className={`${BUTTON} text-[10px] font-black px-2 ${activeAlign === 'justify' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : ''}`} title="Justificar">Justif.</button>
                         </div>
 
                         <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-300 shadow-sm ml-2">

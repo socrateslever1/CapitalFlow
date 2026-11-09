@@ -278,7 +278,7 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser, notifica
   };
 
   return (
-    <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-3 z-[var(--z-fab,500)] md:bottom-6 md:left-6">
+    <div className="fab-mascot fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-3 z-[var(--z-fab,500)] md:bottom-6 md:left-6">
       {open && (
         <section role="dialog" aria-label="Conversa com o Flux" aria-modal="false"
           className="absolute bottom-12 left-0 flex h-[min(68dvh,33rem)] w-[min(25rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-700/90 bg-slate-950 shadow-2xl shadow-black/70">

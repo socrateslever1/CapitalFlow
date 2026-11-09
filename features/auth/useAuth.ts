@@ -151,7 +151,8 @@ export const useAuth = () => {
 
     if (error) {
       throw new Error(
-        `AUTH_SIGNIN_FAILED: ${JSON.stringify({
+        // i18n-ignore: código interno; humanizado em português na tradução de erros de login acima.
+        `AUTH_SIGNIN_FAILED:${JSON.stringify({
           message: error.message,
           status: (error as any).status,
           code: (error as any).code,

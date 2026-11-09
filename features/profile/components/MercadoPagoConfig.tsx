@@ -157,13 +157,13 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
         {/* CLIENT ID */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
-            <span>Client ID</span>
+            <span>Client ID <span className="normal-case font-semibold text-slate-600">(identificação do aplicativo)</span></span>
           </label>
           <input
             type="text"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            placeholder="Insira o Client ID"
+            placeholder="Cole o Client ID do Mercado Pago"
             className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
           />
         </div>
@@ -171,13 +171,13 @@ export const MercadoPagoConfig: React.FC<MercadoPagoConfigProps> = ({ profileId,
         {/* CLIENT SECRET */}
         <div>
           <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center justify-between mb-2">
-            <span>Client Secret</span>
+            <span>Client Secret <span className="normal-case font-semibold text-slate-600">(chave secreta do aplicativo)</span></span>
           </label>
           <input
             type="password"
             value={clientSecret}
             onChange={(e) => setClientSecret(e.target.value)}
-            placeholder="Insira o Client Secret"
+            placeholder="Cole o Client Secret do Mercado Pago"
             className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 text-white font-mono text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
           />
         </div>

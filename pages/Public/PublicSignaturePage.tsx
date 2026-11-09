@@ -502,7 +502,7 @@ export const PublicSignaturePage = () => {
                         <iframe
                             srcDoc={`<html><body style="margin:0;padding:0;background:#fff;">${htmlContent}</body></html>`}
                             className="w-full h-[1122px] border-none"
-                            title="Contrato View"
+                            title="Visualização do contrato"
                         />
                     </div>
                     {/* CONFIDENTIALity TAG & PRINT BUTTON */}

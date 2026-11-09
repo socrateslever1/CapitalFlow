@@ -9,7 +9,6 @@ import { getInstallmentStatusLogic } from '../domain/finance/calculations';
 import { playNotificationSound } from '../utils/notificationSound';
 import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
-import { filterOperationalSources } from '../utils/testSource';
 import { repairMojibake } from '../utils/textEncoding';
 
 export interface InAppNotification {
@@ -138,6 +137,13 @@ export const useAppNotifications = ({
   const todayISO = () => new Date().toISOString().split('T')[0];
 
   const isStaleLoadedNotification = (item: InAppNotification) => {
+    if (
+      item.item_type === 'carteira' ||
+      item.title.toLowerCase().includes('saldo crítico') ||
+      item.title.toLowerCase().includes('saldo critico')
+    ) {
+      return true;
+    }
     const metadata = item.metadata || {};
     if (metadata.notification_rule === BILLING_NOTIFICATION_RULE) {
       return metadata.milestone_date !== todayISO();
@@ -347,6 +353,7 @@ export const useAppNotifications = ({
         },
         (payload) => {
           const mapped = mapDbNotification(payload.new);
+          if (isStaleLoadedNotification(mapped)) return;
           if (isDismissed(mapped.item_type, mapped.item_id)) return;
           queueRef.current.push(mapped);
           flushQueue();
@@ -624,25 +631,6 @@ export const useAppNotifications = ({
         }
       });
     }
-
-    // C) Saldo Crítico (Risco Operacional)
-    filterOperationalSources(sources || []).forEach((source: any) => {
-      if (!source?.id) return;
-      const balance = Number(source.balance || 0);
-
-      // Alerta apenas se cair abaixo de 50 reais (Extrema urgencia de caixa)
-      if (balance < 50 && balance > -1000) {
-        if (isDismissed('carteira', source.id)) return;
-        addNotification({
-          title: 'Carteira com saldo crítico',
-          message: `${source.name || 'Carteira'} está com ${formatMoney(balance)} disponível. Evite novas saídas ou faça um aporte.`,
-          type: 'error',
-          isPersistent: false,
-          item_type: 'carteira',
-          item_id: source.id
-        });
-      }
-    });
   };
 
   useEffect(() => {

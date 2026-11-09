@@ -13,7 +13,7 @@ export const Calculator: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         const result = new Function('return ' + display)();
         setDisplay(result.toString());
       } catch {
-        setDisplay('Error');
+        setDisplay('Erro');
       }
     } else {
       setDisplay(display === '0' ? value : display + value);

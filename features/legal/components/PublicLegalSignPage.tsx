@@ -141,7 +141,7 @@ export const PublicLegalSignPage: React.FC<PublicLegalSignPageProps> = ({ token 
                             </div>
                         </div>
                     )}
-                    <iframe srcDoc={htmlContent} className="w-full h-[900px] border-none" title="Contrato View" />
+                    <iframe srcDoc={htmlContent} className="w-full h-[900px] border-none" title="Visualização do contrato" />
                 </div>
             </div>
 

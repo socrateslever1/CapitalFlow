@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import type { AppTab } from '../types';
 import { moveMobileTab, normalizeMobileNavOrder } from './navigationPreferences';
+import { navLabel } from '../i18n';
+import { useI18n } from '../i18n/useI18n';
 
 interface BottomNavProps {
   activeTab: string;
@@ -34,15 +36,13 @@ const iconFor = (tab: AppTab, active: boolean): React.ReactNode => {
     default: return <LayoutGrid size={size} className={cls}/>;
   }
 };
-const labelFor = (tab: AppTab): string => ({
-  DASHBOARD: 'Painel', DOSSIER: 'Extrato', CLIENTS: 'Clientes',
-  SOURCES: 'Capital', MY_WALLET: 'Carteira', SIMULATOR: 'Simulador',
-  LEGAL: 'Jurídico', SUPPORT: 'Chat',
-} as Partial<Record<AppTab,string>>)[tab] ?? tab;
+// Nomes curtos das abas vêm do sistema de idiomas (i18n/locales).
+const labelFor = (tab: AppTab): string => navLabel(tab, { short: true });
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab, setActiveTab, mobileNavOrder, saveMobileNavOrder, navOrder,
 }) => {
+  useI18n(); // re-renderiza os nomes das abas quando o idioma muda
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -145,7 +145,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   return (
-    <div className="bottom-nav-mobile md:hidden fixed bottom-0 inset-x-0 z-[var(--z-nav,200)] border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl pb-safe">
+    <div data-editing={editing ? 'true' : undefined} className="bottom-nav-mobile md:hidden fixed bottom-0 inset-x-0 z-[var(--z-nav,200)] border-t border-slate-800 bg-slate-950/95 backdrop-blur-xl pb-safe">
       {editing ? (
         <div className="flex min-h-10 items-center justify-between gap-2 border-b border-slate-800 px-3 py-1">
           <span className="text-[11px] font-semibold text-slate-300">Arraste os ícones para organizar</span>

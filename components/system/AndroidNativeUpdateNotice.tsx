@@ -15,6 +15,14 @@ type InAppInstaller = {
   consumeInstallStatus: () => Promise<NativeInstallStatus>;
 };
 const apkInstaller = registerPlugin<InAppInstaller>('CapitalFlowApkInstaller');
+
+let sharedUpdate: Update | null = null;
+const updateSubscribers = new Set<(next: Update | null) => void>();
+function publishSharedUpdate(next: Update | null) {
+  sharedUpdate = next;
+  updateSubscribers.forEach((listener) => listener(next));
+}
+
 export function parseSignedAndroidRelease(payload: unknown, installedCode: number): Update | null {
   if (!payload || typeof payload !== 'object') return null;
   const data = payload as { body?: unknown; assets?: Array<{ name?: unknown; browser_download_url?: unknown }> };
@@ -32,10 +40,75 @@ export function parseSignedAndroidRelease(payload: unknown, installedCode: numbe
   }
 }
 
+export function useAndroidNativeUpdateAvailable(): boolean {
+  const [available, setAvailable] = useState<boolean>(() =>
+    Boolean(sharedUpdate && !isReleaseNoticeDismissed('android-update', String(sharedUpdate.versionCode)))
+  );
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+    let active = true;
+    let inFlight = false;
+    let lastCheck = 0;
+    let resumeListener: { remove: () => Promise<void> } | null = null;
+
+    const syncFromShared = (next: Update | null) => {
+      if (!active) return;
+      setAvailable(Boolean(next && !isReleaseNoticeDismissed('android-update', String(next.versionCode))));
+    };
+    updateSubscribers.add(syncFromShared);
+
+    const checkRelease = async (force = false) => {
+      if (!navigator.onLine || inFlight || (!force && Date.now() - lastCheck < 60_000)) return;
+      inFlight = true;
+      lastCheck = Date.now();
+      try {
+        const info = await App.getInfo();
+        const installedCode = Number(info.build);
+        if (!Number.isSafeInteger(installedCode) || installedCode < 1) return;
+        const response = await fetch(RELEASE_API, {
+          headers: { Accept: 'application/vnd.github+json' },
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const next = parseSignedAndroidRelease(await response.json(), installedCode);
+        publishSharedUpdate(next);
+      } catch {
+        // Sem internet não se mostra uma versão não confirmada.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void checkRelease(true);
+    const interval = window.setInterval(() => { void checkRelease(false); }, 60_000);
+    void App.addListener('resume', () => {
+      void checkRelease(true);
+    }).then(handle => {
+      if (!active) { void handle.remove(); return; }
+      resumeListener = handle;
+    }).catch(() => {});
+    const onOnline = () => { void checkRelease(true); };
+    window.addEventListener('online', onOnline);
+
+    return () => {
+      active = false;
+      updateSubscribers.delete(syncFromShared);
+      window.clearInterval(interval);
+      window.removeEventListener('online', onOnline);
+      if (resumeListener) void resumeListener.remove();
+    };
+  }, []);
+
+  return available;
+}
+
 /** Native APK update discovery: compare the signed release versionCode with App.getInfo().build. */
 export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }> = () => {
-  const [update, setUpdate] = useState<Update | null>(null);
-  const [hidden, setHidden] = useState(false);
+  const [update, setUpdate] = useState<Update | null>(() => sharedUpdate);
+  const [hidden, setHidden] = useState<boolean>(() =>
+    sharedUpdate ? isReleaseNoticeDismissed('android-update', String(sharedUpdate.versionCode)) : false
+  );
   const [installing, setInstalling] = useState(false);
   const [installError, setInstallError] = useState<string|null>(null);
   const [installNotice, setInstallNotice] = useState<string|null>(null);
@@ -45,6 +118,13 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
     let listener: { remove: () => Promise<void> } | null = null;
     let inFlight = false;
     let lastCheck = 0;
+
+    const onSharedUpdate = (next: Update | null) => {
+      if (!active) return;
+      setUpdate(next);
+      setHidden(next ? isReleaseNoticeDismissed('android-update', String(next.versionCode)) : false);
+    };
+    updateSubscribers.add(onSharedUpdate);
 
     const readInstallStatus = async () => {
       try {
@@ -80,8 +160,7 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
         if (!response.ok) return;
         const next = parseSignedAndroidRelease(await response.json(), installedCode);
         if (active) {
-          setUpdate(next);
-          setHidden(next ? isReleaseNoticeDismissed('android-update', String(next.versionCode)) : false);
+          publishSharedUpdate(next);
         }
       } catch {
         // Sem internet não se mostra uma versão não confirmada.
@@ -104,6 +183,7 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
     window.addEventListener('online', onOnline);
     return () => {
       active = false;
+      updateSubscribers.delete(onSharedUpdate);
       window.removeEventListener('online', onOnline);
       if (listener) void listener.remove();
     };
@@ -130,6 +210,7 @@ export const AndroidNativeUpdateNotice: React.FC<{ placement: 'notifications' }>
     if (!update) return;
     dismissReleaseNotice('android-update', String(update.versionCode));
     setHidden(true);
+    publishSharedUpdate(sharedUpdate);
   };
 
   if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android' || !update || hidden) return null;

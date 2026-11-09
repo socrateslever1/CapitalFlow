@@ -15,7 +15,9 @@ export function formatLiveBrazilianMoney(raw: string, selectionStart: number): L
   // Não transformar 123.45 silenciosamente em R$ 12.345,00.
   if (firstComma < 0 && /^\d+\.\d{1,2}$/.test(raw)) return null;
   const rawIntegerPart = firstComma < 0 ? raw : raw.slice(0, firstComma);
-  if (rawIntegerPart.includes('.') && !/^\d{1,3}(?:\.\d{3})+$/.test(rawIntegerPart)) return null;
+  // Existing grouping dots may become temporarily misplaced while inserting a digit.
+  // Normalize the integer part and reapply grouping atomically; never reinterpret cents.
+  if (rawIntegerPart.includes('.') && firstComma < 0 && !/^\d{1,3}(?:\.\d{3})+$/.test(rawIntegerPart)) return null;
   const integerRaw = (firstComma < 0 ? raw : raw.slice(0, firstComma)).replace(/\./g, '');
   const fractionRaw = firstComma < 0 ? '' : raw.slice(firstComma + 1);
   if (!/^\d+$/.test(integerRaw) || !/^\d{0,2}$/.test(fractionRaw)) return null;

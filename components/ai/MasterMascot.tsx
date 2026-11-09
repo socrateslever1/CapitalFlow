@@ -176,7 +176,8 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser, notifica
   }, [open]);
 
   const turns = useMemo<AssistantTurn[]>(() => messages
-    .filter(item => !item.id.endsWith(':error'))
+    .filter(item => !item.id.endsWith(':error') &&
+      !/^(Os provedores de IA estão indisponíveis|O Flux não conseguiu se conectar|O serviço do Flux respondeu com erro)/.test(item.text))
     .slice(-10)
     .map(item => ({ role: item.role, content: item.text.slice(0, 1500) })), [messages]);
 
@@ -267,7 +268,8 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser, notifica
         lastFinancialReadGeneration.current = requestedGeneration;
       }
       if (profileRef.current !== userAtStart || conversationId !== localStorage.getItem(conversationKey(userAtStart))) return;
-      setMessages(current => [...current, { id: requestId + ':assistant', role: 'assistant' as const, text: reply.response }].slice(-50));
+      const isFailureReply = reply.model === 'transport-fallback' || reply.model === 'unavailable';
+      setMessages(current => [...current, { id: requestId + (isFailureReply ? ':error' : ':assistant'), role: 'assistant' as const, text: reply.response }].slice(-50));
     } catch {
       if (profileRef.current === userAtStart) {
         setMessages(current => [...current, { id: requestId + ':error', role: 'assistant' as const, text: 'Não foi possível responder agora.' }].slice(-50));

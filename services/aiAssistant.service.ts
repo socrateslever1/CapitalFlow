@@ -44,6 +44,22 @@ export async function isMasterAssistantEnabled(): Promise<boolean> {
   return !error && data === true;
 }
 
+function isLocalGreetingOrHelp(text: string): boolean {
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,]+/g, '').trim();
+  if (normalized.length > 42) return false;
+  return /^(oi|ola|e ai|e aew|eai|opa|fala|bom dia|boa tarde|boa noite|tudo bem|como vai|ola tudo bem|oi tudo bem|flux|quem e voce|o que voce faz|quais suas capacidades|ajuda|me ajuda|como funciona)$/i.test(normalized);
+}
+
+function buildCanonicalFallbackPrompt(text: string): string {
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/(fatura|cartao|cartoes|limite|nubank|c6|picpay|mercado pago)/.test(normalized)) return 'fatura e cartoes';
+  if (/(compromiss|contas a pagar|boleto|venciment|divida pessoal|pagar)/.test(normalized)) return 'compromissos a pagar';
+  if (/(fonte|fontes|caixa livre|capital disponivel)/.test(normalized)) return 'fontes de capital';
+  if (/(saldo|conta|contas|dinheiro|extrato|banco|minha carteira|recargapay)/.test(normalized)) return 'saldo bancario';
+  if (/(contrat|emprestim|parcela|inadimplen|atras|receb|devendo|devedor|client|lucro|juros)/.test(normalized)) return 'contratos e parcelas';
+  return 'diagnostico financeiro completo';
+}
+
 /**
  * Short-term conversation lives in React memory and travels between providers.
  * On transport failure, NEVER trigger a full wallet+contracts read as fallback.
@@ -57,16 +73,42 @@ export async function askMasterAssistant(input: {
 }): Promise<AssistantReply> {
   let failure = describeFluxTransportFailure(null);
   try {
+    const cleanTurns = (input.turns || []).slice(-10);
     const { data, error } = await supabase.functions.invoke<AssistantReply>('ai-assistant', {
       body: {
         message: input.message,
         conversationId: input.conversationId,
         requestId: input.requestId,
-        turns: (input.turns || []).slice(-10),
+        turns: cleanTurns,
         fresh: input.fresh === true,
       },
     });
-    if (!error && data && typeof data.response === 'string' && data.response.trim()) return data;
+    if (!error && data && typeof data.response === 'string' && data.response.trim()) {
+      if (data.model === 'unavailable' && data.response.startsWith('Os provedores de IA estão indisponíveis')) {
+        if (isLocalGreetingOrHelp(input.message)) {
+          return {
+            ...data,
+            response: 'Olá! Sou o Flux, seu assistente financeiro do CapitalFlow. Posso consultar seu diagnóstico completo, contratos e parcelas em atraso, fontes de capital, contas da Minha Carteira, faturas de cartões e compromissos. O que você deseja verificar agora?',
+            provider: 'flux-local',
+            model: 'conversational-fallback',
+          };
+        }
+        const retryPrompt = buildCanonicalFallbackPrompt(input.message);
+        const retry = await supabase.functions.invoke<AssistantReply>('ai-assistant', {
+          body: {
+            message: retryPrompt,
+            conversationId: input.conversationId,
+            requestId: input.requestId,
+            turns: [],
+            fresh: input.fresh === true,
+          },
+        });
+        if (!retry.error && retry.data && typeof retry.data.response === 'string' && retry.data.response.trim() && retry.data.model !== 'unavailable') {
+          return retry.data;
+        }
+      }
+      return data;
+    }
     if (error) {
       const { status, serverError } = await readFunctionsError(error);
       failure = describeFluxTransportFailure(status, serverError);

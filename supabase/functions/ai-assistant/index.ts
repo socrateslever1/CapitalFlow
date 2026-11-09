@@ -78,10 +78,19 @@ function parseProviders(): Provider[] {
   // Auto-discovery: existing secrets activate a real cross-provider fallback.
   // Two Gemini models use the same key as a last resort; they do not bypass provider-wide quotas.
   const discovered: Provider[] = [
+    { id: 'groq-70b', kind: 'openai', model: 'llama-3.3-70b-versatile', baseUrl: 'https://api.groq.com/openai/v1', secretEnv: 'GROQ_API_KEY' },
     { id: 'groq-fast', kind: 'openai', model: 'llama-3.1-8b-instant', baseUrl: 'https://api.groq.com/openai/v1', secretEnv: 'GROQ_API_KEY' },
+    { id: 'groq-backup', kind: 'openai', model: 'llama-3.3-70b-versatile', baseUrl: 'https://api.groq.com/openai/v1', secretEnv: 'GROQ_API_KEY_2' },
+    { id: 'cerebras-free', kind: 'openai', model: 'llama-3.3-70b', baseUrl: 'https://api.cerebras.ai/v1', secretEnv: 'CEREBRAS_API_KEY' },
+    { id: 'sambanova-free', kind: 'openai', model: 'Meta-Llama-3.3-70B-Instruct', baseUrl: 'https://api.sambanova.ai/v1', secretEnv: 'SAMBANOVA_API_KEY' },
+    { id: 'mistral-free', kind: 'openai', model: 'mistral-small-latest', baseUrl: 'https://api.mistral.ai/v1', secretEnv: 'MISTRAL_API_KEY' },
     { id: 'openrouter-free', kind: 'openai', model: 'openrouter/free', baseUrl: 'https://openrouter.ai/api/v1', secretEnv: 'OPENROUTER_API_KEY' },
-    { id: 'gemini-flash', kind: 'gemini', model: Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash', secretEnv: 'GEMINI_API_KEY' },
-    { id: 'gemini-lite', kind: 'gemini', model: 'gemini-3.5-flash-lite', secretEnv: 'GEMINI_API_KEY' },
+    { id: 'openrouter-llama', kind: 'openai', model: 'meta-llama/llama-3.3-70b-instruct:free', baseUrl: 'https://openrouter.ai/api/v1', secretEnv: 'OPENROUTER_API_KEY' },
+    { id: 'openrouter-backup', kind: 'openai', model: 'openrouter/free', baseUrl: 'https://openrouter.ai/api/v1', secretEnv: 'OPENROUTER_API_KEY_2' },
+    { id: 'gemini-flash-2', kind: 'gemini', model: 'gemini-2.5-flash', secretEnv: 'GEMINI_API_KEY_2' },
+    { id: 'gemini-flash-3', kind: 'gemini', model: 'gemini-2.5-flash', secretEnv: 'GEMINI_API_KEY_3' },
+    { id: 'gemini-flash', kind: 'gemini', model: Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash', secretEnv: 'GEMINI_API_KEY' },
+    { id: 'gemini-lite', kind: 'gemini', model: 'gemini-2.0-flash', secretEnv: 'GEMINI_API_KEY' }, // fallback: gemini-3.5-flash-lite
   ];
   const available: Provider[] = [];
   const signatures = new Set<string>();
@@ -91,7 +100,7 @@ function parseProviders(): Provider[] {
     if (signatures.has(signature)) continue;
     signatures.add(signature);
     available.push(p);
-    if (available.length === 4) break;
+    if (available.length === 8) break;
   }
   return available;
 }
@@ -351,24 +360,47 @@ const providerCoolingUntil = new Map<string, number>();
 let discoveredGeminiModels: { expiresAt: number; models: string[] } | null = null;
 async function listGeminiModels(apiKey: string): Promise<string[]> {
   if (discoveredGeminiModels && Date.now() < discoveredGeminiModels.expiresAt) return discoveredGeminiModels.models;
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
-    headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(5_000),
-  });
-  if (!response.ok) { await response.body?.cancel(); return []; }
-  const data = await response.json();
-  const models = (Array.isArray(data?.models) ? data.models : [])
-    .filter((m: { name?: unknown; supportedGenerationMethods?: unknown }) =>
-      typeof m.name === 'string' && Array.isArray(m.supportedGenerationMethods) &&
-      m.supportedGenerationMethods.includes('generateContent') &&
-      /flash/.test(m.name) && !/(image|tts|audio|live|embedding|vision|exp)/.test(m.name))
-    .map((m: { name: string }) => m.name.replace(/^models\//, ''))
-    .sort((a: string, b: string) => {
-      const rank = (n: string) => (/preview/.test(n) ? 1 : 0) + (/lite/.test(n) ? 0.5 : 0);
-      const version = (n: string) => Number((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
-      return rank(a) - rank(b) || version(b) - version(a);
+  const defaults = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+      headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(5_000),
     });
-  discoveredGeminiModels = { expiresAt: Date.now() + 6 * 60 * 60_000, models };
-  return models;
+    if (!response.ok) { await response.body?.cancel(); return defaults; }
+    const data = await response.json();
+    const models = (Array.isArray(data?.models) ? data.models : [])
+      .filter((m: { name?: unknown; supportedGenerationMethods?: unknown }) =>
+        typeof m.name === 'string' && Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent') &&
+        /flash/.test(m.name) && !/(image|tts|audio|live|embedding|vision|exp)/.test(m.name))
+      .map((m: { name: string }) => m.name.replace(/^models\//, ''))
+      .sort((a: string, b: string) => {
+        const rank = (n: string) => (/preview/.test(n) ? 1 : 0) + (/lite/.test(n) ? 0.5 : 0);
+        const version = (n: string) => Number((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+        return rank(a) - rank(b) || version(b) - version(a);
+      });
+    const combined = Array.from(new Set([...models, ...defaults]));
+    discoveredGeminiModels = { expiresAt: Date.now() + 6 * 60 * 60_000, models: combined };
+    return combined;
+  } catch {
+    return defaults;
+  }
+}
+
+function buildGeminiContents(turns: Array<{ role: 'user' | 'assistant'; content: string }>) {
+  const normalized: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+  for (const item of turns) {
+    const text = item.content.trim();
+    if (!text) continue;
+    const role: 'user' | 'model' = item.role === 'assistant' ? 'model' : 'user';
+    if (normalized.length === 0 && role === 'model') continue;
+    const prev = normalized[normalized.length - 1];
+    if (prev && prev.role === role) {
+      prev.parts[0].text = (prev.parts[0].text + '\n\n' + text).slice(0, 3000);
+    } else {
+      normalized.push({ role, parts: [{ text }] });
+    }
+  }
+  return normalized.length > 0 ? normalized : [{ role: 'user' as const, parts: [{ text: 'Olá' }] }];
 }
 const TOOL_DESCRIPTION = 'Consulte somente registros financeiros do usuário autenticado, selecionando uma área. Sem alterações.';
 const TOOL_AREAS = ['geral', 'contas', 'cartoes', 'compromissos', 'fontes', 'contratos', 'alertas'];
@@ -403,15 +435,11 @@ async function callProvider(
   if (provider.kind === 'gemini') {
     let endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
       encodeURIComponent(provider.model) + ':generateContent';
-    const contents = turns.map(item => ({
-      role: item.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: item.content }],
-    }));
+    const contents = buildGeminiContents(turns);
     const payload: Record<string, unknown> = {
       systemInstruction: { parts: [{ text: systemInstruction }] },
       contents, generationConfig: {
         maxOutputTokens: 1500,
-        ...(provider.model.startsWith('gemini-3.') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
       },
     };
     if (allowTools) payload.tools = [{ functionDeclarations: [{
@@ -427,8 +455,9 @@ async function callProvider(
       const fallbackModel = (await listGeminiModels(apiKey)).find(name => name !== provider.model);
       if (!fallbackModel) throw new Error('PROVIDER_404');
       console.warn('[flux] gemini_model_not_found', provider.model, '->', fallbackModel);
+      const useThinking = fallbackModel.startsWith('gemini-3') && /thinking/.test(fallbackModel);
       const generationConfig = { maxOutputTokens: 1500,
-        ...(fallbackModel.startsWith('gemini-3') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
+        ...(useThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) };
       endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
         encodeURIComponent(fallbackModel) + ':generateContent';
       response = await fetch(endpoint, {
@@ -440,15 +469,39 @@ async function callProvider(
       const firstError = await providerError(response);
       // A model may reject the optional thinking/tool settings; retry once with the plain request.
       if (/API_KEY|PERMISSION|BILLING/.test(firstError.message)) throw firstError;
+      const fallbackModel = (await listGeminiModels(apiKey)).find(name => name !== provider.model) || 'gemini-2.0-flash';
       const generationConfig = { maxOutputTokens: 1500 };
       const plain: Record<string, unknown> = { ...payload, generationConfig };
       delete plain.tools;
-      console.warn('[flux] gemini_retry_plain', firstError.message);
+      console.warn('[flux] gemini_retry_plain', firstError.message, '->', fallbackModel);
       response = await fetch(endpoint, {
         method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(plain), signal: AbortSignal.timeout(8_000),
       });
+      if (response.status === 404 || response.status === 400) {
+        await response.body?.cancel();
+        endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+          encodeURIComponent(fallbackModel) + ':generateContent';
+        response = await fetch(endpoint, {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify(plain), signal: AbortSignal.timeout(8_000),
+        });
+      }
       if (!response.ok) throw await providerError(response);
+    }
+    if (response.status === 429 || response.status === 402) {
+      await response.body?.cancel();
+      const liteFallback = (await listGeminiModels(apiKey)).find(
+        name => name !== provider.model && (/lite|1\.5-flash/.test(name))
+      ) || 'gemini-1.5-flash';
+      if (liteFallback !== provider.model) {
+        endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+          encodeURIComponent(liteFallback) + ':generateContent';
+        response = await fetch(endpoint, {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+          body: JSON.stringify(payload), signal: AbortSignal.timeout(8_000),
+        });
+      }
     }
     if (!response.ok) throw await providerError(response);
     const data = await response.json();
@@ -514,7 +567,8 @@ async function executeReadOnlyAgent(
   }
   const failures: string[] = [];
   for (const provider of parseProviders()) {
-    if (Date.now() < (providerCoolingUntil.get(provider.id) || 0)) {
+    if (Date.now() < (providerCoolingUntil.get(provider.id) || 0) ||
+        Date.now() < (providerCoolingUntil.get('key:' + provider.secretEnv) || 0)) {
       failures.push(provider.id + ': em pausa após erro recente');
       continue;
     }
@@ -551,26 +605,63 @@ async function executeReadOnlyAgent(
       const code = error instanceof Error ? error.message : 'PROVIDER_ERROR';
       if (code === 'FINANCIAL_CONTEXT_UNAVAILABLE')
         return { response: 'Não consegui consultar seus dados neste momento. Nenhum valor foi presumido.', provider: 'flux-safe', model: 'unavailable', consulted: true };
-      if (/PROVIDER_(429|5\d\d|401|403|404)|MISSING_PROVIDER_KEY|AbortError|TimeoutError/.test(code)) {
-        providerCoolingUntil.set(provider.id, Date.now() + (/401|403|404|MISSING_PROVIDER_KEY/.test(code) ? 120_000 : 30_000));
+      if (/PROVIDER_(402|429|5\d\d|401|403|404)|MISSING_PROVIDER_KEY|AbortError|TimeoutError/.test(code)) {
+        const cooldownMs = /401|402|403|404|MISSING_PROVIDER_KEY/.test(code) ? 120_000 : 30_000;
+        providerCoolingUntil.set(provider.id, Date.now() + cooldownMs);
+        if (/401|402|403|MISSING_PROVIDER_KEY/.test(code)) {
+          providerCoolingUntil.set('key:' + provider.secretEnv, Date.now() + cooldownMs);
+        }
       }
       console.warn('[flux] provider_unavailable', provider.id, code.slice(0, 42));
       failures.push(provider.id + ': ' + code.replace(/[^A-Za-z0-9_]/g, '').slice(0, 42));
     }
   }
-  if (queried || inferredArea) {
+  if (!queried && !inferredArea) {
     try {
-      const area = queried?.area || inferredArea!;
-      const context = queried?.data || await loadContext(client, userId, area, fresh);
-      // Prefer the requested financial category when generating a safe, model-free answer.
-      const fallbackSubject = area === 'cartoes' ? 'faturas e cartões'
-        : area === 'contas' ? 'saldo bancário e contas'
-        : area === 'fontes' ? 'fontes de capital'
-        : area === 'contratos' ? 'contratos e parcelas'
-        : area === 'compromissos' ? 'compromissos a pagar' : prompt;
-      return { response: generateDeterministicContextResponse(fallbackSubject, context),
-        provider: 'flux-local', model: 'read-only-fallback', consulted: true };
+      const freeRes = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          messages: [
+            { role: 'system', content: buildSystemInstruction(intent, null) },
+            ...dialogue.slice(-6).map(item => ({ role: item.role, content: item.content })),
+          ],
+        }),
+        signal: AbortSignal.timeout(7_000),
+      });
+      if (freeRes.ok) {
+        const freeData = await freeRes.json();
+        const freeText = typeof freeData?.choices?.[0]?.message?.content === 'string'
+          ? freeData.choices[0].message.content.trim()
+          : '';
+        if (freeText) {
+          return { response: freeText, provider: 'cascade-free', model: 'openai-free', consulted: false };
+        }
+      }
     } catch {
+      /* Segue para o motor analítico local se o endpoint gratuito oscilar. */
+    }
+  }
+  if (isGreeting(prompt)) {
+    return {
+      response: 'Olá! Sou o Flux, seu assistente financeiro do CapitalFlow. Posso consultar seu diagnóstico completo, contratos e parcelas em atraso, fontes de capital, contas da Minha Carteira, faturas de cartões e compromissos. O que você deseja verificar agora?',
+      provider: 'flux-local', model: 'conversational-fallback', consulted: false,
+    };
+  }
+  try {
+    const area = queried?.area || inferredArea || 'geral';
+    const context = queried?.data || await loadContext(client, userId, area, fresh);
+    // Prefer the requested financial category when generating a safe, model-free answer.
+    const fallbackSubject = area === 'cartoes' ? 'faturas e cartões'
+      : area === 'contas' ? 'saldo bancário e contas'
+      : area === 'fontes' ? 'fontes de capital'
+      : area === 'contratos' ? 'contratos e parcelas'
+      : area === 'compromissos' ? 'compromissos a pagar' : prompt;
+    return { response: generateDeterministicContextResponse(fallbackSubject, context),
+      provider: 'flux-local', model: 'read-only-fallback', consulted: true };
+  } catch {
+    if (queried || inferredArea) {
       return { response: 'Os dados financeiros estão indisponíveis neste momento.', provider: 'flux-safe', model: 'unavailable', consulted: true };
     }
   }

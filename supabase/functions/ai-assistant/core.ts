@@ -29,12 +29,13 @@ export function inferFinancialArea(text: string, previous: AssistantTurn[] = [])
   if (/sem consultar (?:meus |minhas |os meus |as minhas )?dados/.test(normalized)) return null;
   if (/(o que (e|sao)|explique|conceito|diferenca|sem consultar|teoria)/.test(normalized) &&
       !/(meu|minha|meus|minhas|me|do capitalflow|da carteira)/.test(normalized)) return null;
-  if (/(diagnostico (financeiro|geral|completo)|panorama financeiro|resumo (da operacao|financeiro|completo)|situacao financeira|saude financeira)/.test(normalized)) return 'geral';
-  if (/(contrat|emprestim|parcela|inadimplen|atrasad|rentabilidad|juros|recebive|client|credito concedido)/.test(normalized)) return 'contratos';
-  if (/(fonte de capital|fontes de capital|capital disponivel|capital alocado|saldo das fontes)/.test(normalized)) return 'fontes';
-  if (/(cartao|cartoes|fatura|limite de credito|nubank|c6|mercado pago)/.test(normalized)) return 'cartoes';
+  if (/(diagnostico|panorama|resumo|situacao|saude|relatorio|visao geral|como esta (o |meu )?(capitalflow|capital flow|caixa|sistema)|balanco)/.test(normalized)) return 'geral';
+  if (/(contrat|emprestim|parcela|inadimplen|atrasad|rentabilidad|juros|recebive|receber|devendo|devedor|client|credito concedido|lucro)/.test(normalized)) return 'contratos';
+  if (/(fonte de capital|fontes de capital|minhas fontes|capital disponivel|capital alocado|saldo das fontes|caixa livre)/.test(normalized)) return 'fontes';
+  if (/(cartao|cartoes|fatura|limite de credito|nubank|c6|mercado pago|picpay)/.test(normalized)) return 'cartoes';
   if (/(compromiss|contas a pagar|boleto|venciment|divida pessoal|pagamento pendente)/.test(normalized)) return 'compromissos';
-  if (/(minha carteira|saldo bancario|saldo (das? )?(minhas? )?contas?|contas bancarias|extrato bancario|saldo do banco|conta corrente|conta poupanca)/.test(normalized)) return 'contas';
+  if (/(minha carteira|saldo bancario|meu saldo|qual o saldo|quanto tenho|saldo (das? )?(minhas? )?contas?|contas bancarias|extrato bancario|saldo do banco|conta corrente|conta poupanca|recarregapay|recargapay)/.test(normalized)) return 'contas';
+  if (/(alerta|alertas|avisos|pendencia|pendencias)/.test(normalized)) return 'alertas';
   return null;
 }
 

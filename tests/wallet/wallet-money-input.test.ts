@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { formatLiveBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -43,4 +44,42 @@ test('mobile browser offers the signed APK directly, native app never prompts it
   assert(!source.includes('sessionStorage'), 'session-scoped preferences must not reshow the popup');
   assert(header.includes('<AndroidApkNotice placement="notifications" />'));
   assert(!shell.includes('<AndroidApkNotice placement="banner" />'));
+});
+
+test('digits advance reais without moving the fixed decimal or thousands separators', () => {
+  let value = '';
+  let caret = 0;
+  for (const [digit, expected] of [
+    ['1', '1,00'], ['0', '10,00'], ['0', '100,00'],
+    ['0', '1.000,00'], ['0', '10.000,00'], ['0', '100.000,00'],
+  ] as const) {
+    const next = formatLiveBrazilianMoney(value.slice(0, caret) + digit + value.slice(caret), caret + 1);
+    assert.ok(next, 'mask should accept a new digit');
+    ({ value, caret } = next);
+    assert.equal(value, expected);
+    assert.equal(caret, value.indexOf(','));
+  }
+  assert.equal(parseWalletMoney(value), 100000);
+});
+
+test('manual cents and pasted Brazilian values preserve both centavos and caret', () => {
+  assert.deepEqual(formatLiveBrazilianMoney('1.234,56', 8), { value: '1.234,56', caret: 8 });
+  assert.deepEqual(formatLiveBrazilianMoney('1234,5', 6), { value: '1.234,50', caret: 7 });
+  assert.deepEqual(formatLiveBrazilianMoney('0001,50', 4), { value: '1,50', caret: 1 });
+  assert.deepEqual(formatLiveBrazilianMoney('', 0), { value: '', caret: 0 });
+  for (const ambiguous of ['1,234', '123.45', '1,,00', 'R$ 1', '1.2.3']) {
+    assert.equal(formatLiveBrazilianMoney(ambiguous, ambiguous.length), null, ambiguous);
+  }
+});
+
+test('calculator UI has one unobtrusive operator control per field and no duplicate fx badge', () => {
+  const input = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
+  const expense = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
+  assert(input.includes('formatLiveBrazilianMoney(raw, input.selectionStart'));
+  assert(input.includes('aria-label="Operadores de cálculo"'));
+  assert(!input.includes('>ƒx</button>'));
+  assert(!expense.includes('>fx</span>'));
+  assert.equal((expense.match(/<FinancialCalculatorInput/g) || []).length, 1);
+  const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
+  assert(cards.includes('formatLiveBrazilianMoney(input.value,input.selectionStart'));
 });

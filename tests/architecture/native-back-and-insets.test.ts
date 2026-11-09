@@ -42,9 +42,12 @@ test('only Capacitor Android receives hardware back; button exits only after exp
 
 test('native button plugin is in the bundle and checked after Capacitor sync', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.match(pkg.dependencies['@capacitor/app'], /^\^7\./);
-  assert.match(pkg.dependencies['@capacitor/core'], /^\^7\./);
+  assert.match(pkg.optionalDependencies['@capacitor/app'], /^\^8\./);
+  assert.match(pkg.optionalDependencies['@capacitor/core'], /^\^8\./);
   const workflow = read('.github/workflows/android-apk.yml');
+  assert.match(workflow, /@capacitor\/core@8\.6\.0/);
+  assert.match(workflow, /@capacitor\/android@8\.6\.0/);
+  assert.match(workflow, /@capacitor\/app@8\.1\.2/);
   assert.match(workflow, /npx cap sync android/);
   assert.match(workflow, /capacitor\.plugins\.json/);
   assert.match(workflow, /p\.pkg==='@capacitor\/app'/);

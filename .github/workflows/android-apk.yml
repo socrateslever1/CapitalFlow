@@ -101,7 +101,7 @@ jobs:
             npm install --no-audit --no-fund
           fi
       - name: Install Capacitor Android toolchain
-        run: npm install --no-save --package-lock=false --no-audit --no-fund @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @capacitor/core@8.6.0 @capacitor/cli@8.6.0 @capacitor/android@8.6.0 @capacitor/app@8.1.2
       - name: Validate architecture and financial invariants
         run: npm run test:quality
       - name: Audit production dependencies before Android distribution

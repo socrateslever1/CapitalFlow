@@ -7,7 +7,7 @@ import {
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
-import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 import { getInvoiceCycleDates, getPurchaseInvoiceMonth } from './invoiceStatementDomain';
 import {
@@ -419,8 +419,6 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
                   fieldLabel="valor da despesa" placeholder="0,00" aria-label="Valor; aceita cálculos digitados"
                   className="min-w-0 flex-1 border-0 bg-transparent py-2 text-2xl font-bold tracking-tight text-white outline-none placeholder:text-slate-600"
                 />
-                <span title="Digite +, -, *, / ou % no próprio valor"
-                  className="shrink-0 rounded-md bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-400">fx</span>
               </div>
               {/[+\-×÷*/%()]/.test(amountFormatted) && amountValue > 0 && (
                 <p role="status" className="mt-1.5 text-right text-xs font-semibold tabular-nums text-emerald-300">

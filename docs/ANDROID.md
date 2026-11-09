@@ -21,7 +21,7 @@ O APK é **debug**, adequado para instalação e teste; não é uma versão assi
 
 ```bash
 npm ci
-npm install --no-save --package-lock=false @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
+npm install --no-save --package-lock=false @capacitor/core@8.6.0 @capacitor/cli@8.6.0 @capacitor/android@8.6.0 @capacitor/app@8.1.2
 npm run build
 npx cap add android
 npx cap sync android

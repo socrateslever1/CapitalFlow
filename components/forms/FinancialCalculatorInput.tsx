@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { formatLiveBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -22,6 +23,12 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [operatorsOpen, setOperatorsOpen] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+  const displayValue = () => {
+    const raw = String(value ?? '');
+    if (!raw || rate || signed) return raw;
+    try { return parseWalletMoney(raw, fieldLabel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    catch { return raw; }
+  };
 
   const commit = () => {
     const raw = draft.trim();
@@ -73,16 +80,41 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           type="text"
           inputMode="decimal"
           disabled={disabled}
-          value={editing ? draft : String(value ?? '')}
-          onChange={e => { setDraft(e.target.value); setError(''); e.currentTarget.setCustomValidity(''); }}
+          value={editing ? draft : displayValue()}
+          onChange={e => {
+            const input = e.currentTarget;
+            const raw = input.value;
+            if (!rate && !signed && /^[\d.,]*$/.test(raw)) {
+              const next = formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);
+              if (!next) return;
+              setDraft(next.value);
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+            } else {
+              setDraft(raw);
+            }
+            setError('');
+            input.setCustomValidity('');
+          }}
           onFocus={e => {
-            setDraft(String(value ?? ''));
+            setDraft(displayValue());
             setEditing(true);
             onFocus?.(e);
           }}
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+            if (!rate && !signed && (e.key === 'Backspace' || e.key === 'Delete')) {
+              const input = e.currentTarget;
+              const separator = input.value.indexOf(',');
+              if (separator >= 0 && input.selectionStart === input.selectionEnd &&
+                  ((e.key === 'Backspace' && input.selectionStart === separator + 1) ||
+                   (e.key === 'Delete' && input.selectionStart === separator))) {
+                e.preventDefault();
+                input.setSelectionRange(separator, separator);
+              }
+            }
             onKeyDown?.(e);
           }}
           aria-invalid={!!error}
@@ -90,9 +122,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
         />
         <button type="button" disabled={disabled} aria-label="Operadores de cálculo"
           onPointerDown={e => e.preventDefault()}
-          onClick={() => { if (!editing) { setDraft(String(value ?? '')); setEditing(true); } setOperatorsOpen(v => !v); ref.current?.focus(); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-slate-800 px-2 py-1 text-xs font-semibold text-blue-300"
-        >ƒx</button>
+          onClick={() => { if (!editing) { setDraft(displayValue()); setEditing(true); } setOperatorsOpen(v => !v); ref.current?.focus(); }}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-xs font-semibold text-slate-500 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+        ><span aria-hidden="true">±</span></button>
       </div>
       {editing && operatorsOpen && (
         <div className="mt-1 flex flex-wrap gap-1" aria-label="Operadores matemáticos">

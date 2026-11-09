@@ -29,6 +29,7 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
+import { formatLiveBrazilianMoney } from '../utils/liveBrazilianMoneyInput';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
 import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection } from '../utils/minhasFinancasWalletTools';
 import { businessDateInManaus } from '../../../utils/businessDate';
@@ -852,7 +853,16 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           Limite total (R$, opcional)
           <input name="wallet-card-credit-limit" autoComplete="off" inputMode="decimal" placeholder="Pode informar ou importar pela fatura depois"
             value={cardForm.credit_limit}
-            onChange={e=>{requestId.current=generateUUID();setCardForm(v=>({...v,credit_limit:e.target.value}));}}
+            onChange={e=>{
+              const input=e.currentTarget;
+              const next=formatLiveBrazilianMoney(input.value,input.selectionStart ?? input.value.length);
+              if(!next)return;
+              requestId.current=generateUUID();
+              setCardForm(v=>({...v,credit_limit:next.value}));
+              requestAnimationFrame(()=>{
+                if(document.activeElement===input)input.setSelectionRange(next.caret,next.caret);
+              });
+            }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>
         <p className="sm:col-span-2 text-xs leading-relaxed text-slate-400">

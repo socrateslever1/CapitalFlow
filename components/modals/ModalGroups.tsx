@@ -1,5 +1,8 @@
 
 import React from 'react';
+import { platformAdminService } from '../../services/platformAdmin.service';
+import { walletRepository } from '../../features/wallet/services/walletRepository';
+import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { useModal } from '../../contexts/ModalContext';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { PaymentManagerModal } from './PaymentManagerModal';
@@ -154,6 +157,31 @@ export const FinanceModals = () => {
     const { activeModal, closeModal, ui, sourceCtrl, paymentCtrl, activeUser, sources, showToast } = useModal();
     const staffMembers = ui.staffMembers || [];
     const [financeBusy, setFinanceBusy] = React.useState(false);
+    const [withdrawAccountId, setWithdrawAccountId] = React.useState('');
+    const [withdrawWalletAccounts, setWithdrawWalletAccounts] = React.useState<PersonalWalletAccount[]>([]);
+    const [withdrawWalletMaster, setWithdrawWalletMaster] = React.useState(false);
+    const [withdrawWalletError, setWithdrawWalletError] = React.useState('');
+    React.useEffect(() => {
+        let active = true;
+        setWithdrawAccountId('');
+        setWithdrawWalletAccounts([]);
+        setWithdrawWalletMaster(false);
+        setWithdrawWalletError('');
+        if (activeModal?.type !== 'WITHDRAW') return () => { active = false; };
+        void platformAdminService.isSuperAdmin().then(async allowed => {
+            if (!active || !allowed) return;
+            setWithdrawWalletMaster(true);
+            try {
+                const overview = await walletRepository.loadOverview();
+                if (active) setWithdrawWalletAccounts(overview.accounts.filter(a => !a.archived_at));
+            } catch {
+                if (active) setWithdrawWalletError('Contas indisponíveis. O saque padrão continua disponível.');
+            }
+        }).catch(() => {
+            if (active) setWithdrawWalletError('Não foi possível verificar suas contas pessoais.');
+        });
+        return () => { active = false; };
+    }, [activeModal?.type]);
     const financeLock = React.useRef(false);
     const runFinanceAction = async (action: () => Promise<void>) => {
         if (financeLock.current) return;
@@ -288,7 +316,7 @@ export const FinanceModals = () => {
 
             {activeModal?.type === 'WITHDRAW' && (
                 <Modal onClose={closeModal} title="Resgatar Lucros" busy={financeBusy} footer={<button
-                            onClick={() => runFinanceAction(sourceCtrl.handleWithdrawProfit)} disabled={financeBusy}
+                            onClick={() => runFinanceAction(() => sourceCtrl.handleWithdrawProfit(withdrawAccountId || null))} disabled={financeBusy}
                             className={modalPrimaryActionClass}
                         >
                             Confirmar Resgate
@@ -320,13 +348,30 @@ export const FinanceModals = () => {
                                 <select
                                     className="w-full bg-slate-950/50 p-4 rounded-lg text-white font-bold outline-none border border-slate-800 focus:border-emerald-500/50 focus:bg-slate-900 transition-all cursor-pointer appearance-none"
                                     value={ui.withdrawSourceId || ''}
-                                    onChange={e => ui.setWithdrawSourceId(e.target.value)}
+                                    onChange={e => { ui.setWithdrawSourceId(e.target.value); if (e.target.value) setWithdrawAccountId(''); }}
                                 >
                                     <option value="">Selecione o destino...</option>
                                     <option value="EXTERNAL_WITHDRAWAL">Saque Externo (Dinheiro/PIX)</option>
                                     {sources.map((s: any) => <option key={s.id} value={s.id}>Reinvestir em: {s.name}</option>)}
                                 </select>
                             </div>
+                            {withdrawWalletMaster && (
+                                <div className="space-y-2">
+                                    <label htmlFor="withdraw-wallet-destination" className="block text-sm font-semibold text-white">Enviar para conta da Minha Carteira (opcional)</label>
+                                    <select id="withdraw-wallet-destination" value={withdrawAccountId}
+                                        onChange={e => { setWithdrawAccountId(e.target.value); if (e.target.value) ui.setWithdrawSourceId(''); }}
+                                        disabled={financeBusy}
+                                        aria-describedby="withdraw-wallet-destination-help"
+                                        className="min-h-12 w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60">
+                                        <option value="">Padrão · não enviar para conta</option>
+                                        {withdrawWalletAccounts.map(account => (
+                                            <option key={account.id} value={account.id}>{account.nickname}</option>
+                                        ))}
+                                    </select>
+                                    <p id="withdraw-wallet-destination-help" className="text-xs leading-relaxed text-slate-300">A conta escolhida recebe o valor integral. Sem seleção, o resgate mantém o destino padrão definido acima.</p>
+                                    {withdrawWalletError && <p role="status" className="text-xs text-amber-300">{withdrawWalletError}</p>}
+                                </div>
+                            )}
                         </div>
 
 

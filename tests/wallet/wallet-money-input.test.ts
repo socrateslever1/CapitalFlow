@@ -92,7 +92,7 @@ test('financial fields start blank and can be cleared without trapping the decim
   assert.match(input, /if \(!raw\) \{/);
   assert.match(input, /onCommit\?\.\(''\)/);
   assert.match(input, /if \(Number\(raw\.replace\(',', '\.'\)\) === 0\) return ''/);
-  assert.match(input, /e\.currentTarget\.select\(\)/);
+  assert.match(input, /focusedInput\.select\(\)/);
   assert.match(input, /const remaining = integerDigits\.slice\(0, -1\)/);
   assert.doesNotMatch(input, /input\.setSelectionRange\(separator, separator\)/);
   assert.match(bank, /Number\(value\[key as keyof BankAccountDetails\]\) === 0 \? ''/);

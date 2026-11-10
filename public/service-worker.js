@@ -34,7 +34,7 @@ const extractAssetUrls = (html) => {
 // O app instalado em um APK usa seus arquivos locais. Este cache é apenas
 // para o navegador/PWA. Dados bancários, sessões e APIs nunca são pré-cacheados.
 const isImmutableBundleAsset = (pathname) =>
-  /^\/assets\/[^/?]+-[A-Za-z0-9_-]{8,}\.(?:js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(pathname);
+  /^\/assets\/[^/?]+-[A-Za-z0-9_-]{8,}\.(?:m?js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(pathname);
 const isAllowedStaticAsset = (pathname) => isImmutableBundleAsset(pathname) ||
   /^\/(?:brand|brand-assets|images|assets\/aistudio)\/[A-Za-z0-9/_-]+\.(?:png|jpe?g|webp|svg|woff2?)$/i.test(pathname);
 

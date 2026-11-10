@@ -14,6 +14,8 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
   const all = JSON.parse(read('dist/app-precache.json'));
   const wallet = JSON.parse(read('dist/wallet-precache.json'));
   assert.equal(all.version, wallet.version);
+  assert.ok(all.assets.some(file => file.endsWith('.mjs')),
+    'the PDF worker and other module workers must be downloaded with the frontend');
   assert.ok(all.assets.includes('/brand/capitalflow-app-icon.svg'),
     'the PWA must download public brand assets on first launch');
   assert.ok(all.assets.includes('/images/infinitepay.png'),
@@ -23,9 +25,9 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
     assert.ok(all.assets.includes(asset), 'wallet file missing from full app: ' + asset);
   }
   const builtScripts = readdirSync('dist/assets')
-    .filter(name => name.endsWith('.js') || name.endsWith('.css'))
+    .filter(name => name.endsWith('.js') || name.endsWith('.mjs') || name.endsWith('.css'))
     .map(name => '/assets/' + name).sort();
-  assert.deepEqual(all.assets.filter(name => name.endsWith('.js') || name.endsWith('.css')).sort(),
+  assert.deepEqual(all.assets.filter(name => name.endsWith('.js') || name.endsWith('.mjs') || name.endsWith('.css')).sort(),
     builtScripts, 'every compiled JS/CSS chunk, including lazy modules, must be in the precache');
 
   assert.match(vite, /entry\.dynamicImports/);

@@ -68,7 +68,7 @@ function walletAssetsManifestPlugin(buildId: string): Plugin {
       const allStaticAssets = Object.values(bundle)
         .map(entry => entry.fileName)
         .filter(name => name.startsWith('assets/') &&
-          /\.(?:js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(name))
+          /\.(?:m?js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(name))
         .map(name => '/' + name)
         .sort();
       // Public branding and local illustrations are also part of the

@@ -20,7 +20,7 @@ test('card expense sheet is detached from clipped wallet panels and keeps its ow
 test('accounts list exposes direct expense action on phone and desktop with explicit account destination', () => {
   const accounts = read('features/wallet/pages/WalletAccountsPage.tsx');
   assert.match(accounts, /const \[expenseOpen, setExpenseOpen\] = useState\(false\)/);
-  assert.ok((accounts.match(/Registrar despesa/g) || []).length >= 3);
+  assert.equal((accounts.match(/Registrar despesa/g) || []).length, 1, 'only one direct account expense action');
   assert.match(accounts, /expenseOpen && <QuickExpenseModal/);
   assert.match(accounts, /initialMode="ACCOUNT"/);
   assert.match(accounts, /initialAccountId=\{data\.accounts\.length === 1 \? data\.accounts\[0\]\.id : null\}/);

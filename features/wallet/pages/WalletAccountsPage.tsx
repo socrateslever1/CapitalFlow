@@ -82,10 +82,6 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
 
           {/* No desktop, as ações ficam integradas ao card lateral de resumo para evitar botões soltos e espaço vazio */}
           <div className="mt-5 hidden space-y-2.5 border-t border-slate-800 pt-4 lg:block">
-            <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
-              <ReceiptText size={17}/> Registrar despesa
-            </button>
             <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <ArrowLeftRight size={17}/> Transferir / Movimentar
@@ -128,10 +124,6 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         {/* 3. Ações abaixo da lista no celular + Integração com Capital na coluna lateral */}
         <div className="order-3 min-w-0 space-y-4 lg:order-3 lg:col-span-4">
           <div className="grid gap-2.5 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:hidden">
-            <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
-              <ReceiptText size={18}/> Registrar despesa
-            </button>
             <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <ArrowLeftRight size={18}/> Transferir / Movimentar

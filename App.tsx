@@ -262,6 +262,12 @@ useEffect(() => {
     if (cancelled || document.visibilityState !== 'visible') return;
     void import('./features/wallet/WalletModule').catch(() => undefined);
     void import('./features/wallet/pages/WalletOverviewPage').catch(() => undefined);
+    // Preload one user-scoped overview snapshot after the main dashboard
+    // becomes usable. The canonical repository keeps it in memory only
+    // (25-second TTL, invalidated on updates and realtime notifications).
+    void import('./features/wallet/services/walletRepository')
+      .then(({ walletRepository }) => walletRepository.loadOverview())
+      .catch(() => undefined);
   };
   const timer = window.setTimeout(preload, 2500);
   return () => {

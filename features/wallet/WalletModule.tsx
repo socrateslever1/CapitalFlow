@@ -40,22 +40,28 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         title={<>Minha <span className="text-blue-500">Carteira</span></>}
         subtitle="Contas, cartões e compromissos"/>
     </div>
-    <nav aria-label="Navegação da Carteira" className="mb-4 grid w-full min-w-0 grid-cols-5 border-b border-slate-800/80 sm:flex sm:gap-1">
+    <nav aria-label="Navegação da Carteira"
+      className="mb-4 grid w-full min-w-0 grid-cols-5 gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5">
       {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
+        const mobileLabel = item.key === 'visao-geral' ? 'Geral'
+          : item.key === 'contas' ? 'Contas'
+          : item.key === 'dividas' ? 'Pagar'
+          : item.label;
         return (
           <button key={item.key} type="button"
             aria-current={active ? 'page' : undefined}
             onClick={() => go(item.key)} aria-label={item.label}
-            className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 border-b-2 px-0.5 py-2 text-[11px] font-medium transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
+            className={`group flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-2 text-center transition-colors duration-150 active:scale-[0.98] sm:min-h-11 sm:flex-row sm:gap-2 sm:px-4 sm:py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400 ${
               active
-                ? 'border-blue-500 bg-blue-500/10 font-semibold text-white'
-                : 'border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-100'
+                ? 'bg-blue-600/20 text-blue-100 ring-1 ring-inset ring-blue-500/50'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}>
-            <Icon size={17} aria-hidden="true"/>
-            <span className="max-w-full truncate sm:hidden">{item.key === 'visao-geral' ? 'Geral' : item.label}</span>
-            <span className="hidden sm:inline">{item.label}</span>
+            <Icon size={18} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true"
+              className={active ? 'text-blue-300' : 'text-slate-400 group-hover:text-slate-200'}/>
+            <span className="whitespace-nowrap text-[10px] font-semibold leading-tight sm:hidden">{mobileLabel}</span>
+            <span className="hidden whitespace-nowrap text-sm font-semibold sm:inline">{item.label}</span>
           </button>
         );
       })}

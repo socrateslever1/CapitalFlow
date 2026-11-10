@@ -62,6 +62,40 @@ function walletAssetsManifestPlugin(buildId: string): Plugin {
         fileName: 'wallet-precache.json',
         source: JSON.stringify({ version: buildId, assets: [...files].sort() }) + '\n',
       });
+      // Every emitted frontend chunk is downloaded once after the app starts.
+      // The wallet-only manifest remains for backwards compatibility; the
+      // full manifest includes lazy-loaded routes, images and fonts.
+      const allStaticAssets = Object.values(bundle)
+        .map(entry => entry.fileName)
+        .filter(name => name.startsWith('assets/') &&
+          /\.(?:js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(name))
+        .map(name => '/' + name)
+        .sort();
+      // Public branding and local illustrations are also part of the
+      // installable frontend. Never include HTML, application data or APIs.
+      const publicStaticFiles: string[] = [];
+      const visitStaticDirectory = (relative: string) => {
+        const absolute = path.resolve('./public', relative);
+        if (!fs.existsSync(absolute)) return;
+        for (const item of fs.readdirSync(absolute, { withFileTypes: true })) {
+          const child = path.posix.join(relative, item.name);
+          if (item.isDirectory()) visitStaticDirectory(child);
+          else if (item.isFile() && /\.(?:png|jpe?g|webp|svg|woff2?)$/i.test(item.name)) {
+            publicStaticFiles.push('/' + child);
+          }
+        }
+      };
+      for (const directory of ['brand', 'brand-assets', 'images', 'assets/aistudio']) {
+        visitStaticDirectory(directory);
+      }
+      this.emitFile({
+        type: 'asset',
+        fileName: 'app-precache.json',
+        source: JSON.stringify({
+          version: buildId,
+          assets: [...new Set([...allStaticAssets, ...publicStaticFiles])].sort(),
+        }) + '\n',
+      });
     },
   };
 }

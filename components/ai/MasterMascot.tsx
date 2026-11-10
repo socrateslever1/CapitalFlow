@@ -6,6 +6,8 @@ import { cueForNotification, mayShowFluxCue, type FinancialNotificationCue, type
 import type { UserProfile } from '../../types';
 import { askMasterAssistant, isMasterAssistantEnabled, loadMasterAssistantBriefing, loadMasterAssistantHistory, type AssistantTurn } from '../../services/aiAssistant.service';
 import { generateUUID } from '../../utils/generators';
+import { registerDialogBack } from '../../utils/dialogNavigation';
+import { Capacitor } from '@capacitor/core';
 
 interface MasterMascotProps {
   activeUser: UserProfile | null;
@@ -166,13 +168,52 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser, notifica
     if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [open, messages, notice]);
 
+  // Flux is the topmost navigable surface. Android native back, the PWA
+  // back dispatcher and ordinary browser history must close it before the
+  // application can navigate or offer to exit.
   useEffect(() => {
     if (!open) return;
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+    const registration = registerDialogBack(() => setOpen(false));
+    const onAppBack = (event: Event) => {
+      event.preventDefault();
+      setOpen(false);
     };
-    window.addEventListener('keydown', onEscape);
-    return () => window.removeEventListener('keydown', onEscape);
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setOpen(false);
+    };
+    const isOrdinaryBrowser = !Capacitor.isNativePlatform() &&
+      !window.matchMedia('(display-mode: standalone)').matches;
+    // A same-URL history entry lets Chrome's Back gesture dismiss the panel.
+    // It is not a page exit and never invokes the browser leave-site dialog.
+    const overlayMarker = generateUUID();
+    if (isOrdinaryBrowser) {
+      window.history.pushState(
+        { ...window.history.state, cfFluxOverlay: overlayMarker },
+        '', window.location.href,
+      );
+    }
+    const onPopState = () => {
+      if (isOrdinaryBrowser) setOpen(false);
+    };
+    window.addEventListener('capitalflow:back', onAppBack);
+    window.addEventListener('keydown', onEscape, true);
+    if (isOrdinaryBrowser) window.addEventListener('popstate', onPopState);
+    return () => {
+      registration.dispose();
+      window.removeEventListener('capitalflow:back', onAppBack);
+      window.removeEventListener('keydown', onEscape, true);
+      if (isOrdinaryBrowser) {
+        window.removeEventListener('popstate', onPopState);
+        // X, avatar, disabling Flux or a privacy toggle closes the synthetic
+        // entry too; browser Back has already consumed it in the other case.
+        if (window.history.state?.cfFluxOverlay === overlayMarker) {
+          window.history.back();
+        }
+      }
+    };
   }, [open]);
 
   const turns = useMemo<AssistantTurn[]>(() => messages

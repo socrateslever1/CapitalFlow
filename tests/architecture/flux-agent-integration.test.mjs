@@ -69,3 +69,17 @@ test('provider errors keep only an uppercase reason enum and Gemini 400 retries 
   assert.match(edge, /gemini_retry_plain/);
   assert.doesNotMatch(edge, /throw new Error\('PROVIDER_' \+ response\.status\);/);
 });
+
+test('Flux closes on native/PWA back and Chrome history back without a browser exit prompt', () => {
+  const flux = read('components/ai/MasterMascot.tsx');
+  const guard = read('hooks/useExitGuard.ts');
+  assert.match(flux, /registerDialogBack\(\(\) => setOpen\(false\)\)/);
+  assert.match(flux, /addEventListener\('capitalflow:back', onAppBack\)/);
+  assert.match(flux, /history\.pushState\(/);
+  assert.match(flux, /cfFluxOverlay: overlayMarker/);
+  assert.match(flux, /addEventListener\('popstate', onPopState\)/);
+  assert.match(flux, /history\.back\(\)/);
+  assert.match(guard, /if \(requestDialogBack\(\)\) return/);
+  assert.doesNotMatch(guard, /addEventListener\('beforeunload'/);
+  assert.doesNotMatch(guard, /event\.returnValue\s*=/);
+});

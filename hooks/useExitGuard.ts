@@ -149,17 +149,10 @@ export const useExitGuard = (
     return () => window.removeEventListener('popstate', onPopState);
   }, [isNativeAndroid, isPublicView, !!activeUser]);
 
-  // Keep the SaaS browser confirmation on actual tab closure/reload. Android
-  // exit is handled by our explicit dialog and must not trigger beforeunload.
-  useEffect(() => {
-    if (isNativeAndroid || !activeUser || isPublicView) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [activeUser, isNativeAndroid, isPublicView]);
+  // Never use Chrome's generic "Sair do site?" confirmation for routine
+  // navigation. Native Android exits through the app's own confirmation;
+  // overlays are dismissed by their registered back handlers. Browsers do
+  // not permit replacing the tab-close confirmation with custom UI.
 
   // Preserve the existing protection against accidental browser refreshes.
   useEffect(() => {

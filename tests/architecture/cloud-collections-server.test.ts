@@ -6,7 +6,7 @@ import test from 'node:test';
 import { resolveManualCollectionTriggerUrl } from '../../services/n8nManualCollectionTrigger.service';
 
 const compose = readFileSync('automation/server/docker-compose.yml', 'utf8');
-const caddy = readFileSync('automation/server/Caddyfile', 'utf8');
+const caddy = readFileSync('automation/server/Caddyfile', 'utf8').replace(/\r\n/g, '\n');
 const envExample = readFileSync('automation/server/.env.example', 'utf8');
 
 test('versões fixas: nenhuma imagem "latest" no servidor', () => {

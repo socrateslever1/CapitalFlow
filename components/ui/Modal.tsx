@@ -23,22 +23,40 @@ interface ModalProps {
   footerMode?: 'default' | 'custom';
   /** Narrow visual override for a specific modal without changing the shared shell. */
   panelClassName?: string;
+  /** Delays onClose briefly so the dialog can leave without interrupting focus/scroll handling. */
+  animateClose?: boolean;
 }
 const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' };
 let openDialogs = 0;
 let previousOverflow = '';
 let previousOverscroll = '';
 
-export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default', panelClassName = '' }) => {
+export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, icon, children, footer, compact = false, size = compact ? 'md' : 'lg', busy = false, cancelLabel = 'Cancelar', footerMode = 'default', panelClassName = '', animateClose = false }) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
+  const closingRef = useRef(false);
+  const [isClosing, setIsClosing] = useState(false);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const callbacks = useRef({ onClose, onBack, busy });
   callbacks.current = { onClose, onBack, busy };
   const originFocus = useRef(typeof document !== 'undefined' ? document.activeElement : null);
   const [viewport, setViewport] = useState<{ height: number; top: number } | null>(null);
-  const close = () => { if (!callbacks.current.busy) callbacks.current.onClose(); };
-  const back = () => { if (!callbacks.current.busy) (callbacks.current.onBack || callbacks.current.onClose)(); };
+  const requestClose = (callback: () => void) => {
+    if (callbacks.current.busy || closingRef.current) return;
+    if (!animateClose || typeof window === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      callback();
+      return;
+    }
+    closingRef.current = true;
+    setIsClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      closeTimer.current = null;
+      callback();
+    }, 200);
+  };
+  const close = () => requestClose(() => callbacks.current.onClose());
+  const back = () => requestClose(() => (callbacks.current.onBack || callbacks.current.onClose)());
 
   useEffect(() => {
     const update = () => {
@@ -84,6 +102,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
     };
     document.addEventListener('keydown', handleKey);
     return () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
       registration.dispose();
       document.removeEventListener('keydown', handleKey);
       if (--openDialogs === 0) {
@@ -102,14 +121,15 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
       aria-labelledby={titleId}
       aria-busy={busy}
       data-modal-open="true"
-      className="fixed inset-0 z-[2000] flex min-h-0 flex-col justify-end overflow-hidden bg-slate-950/85 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4 motion-reduce:transition-none"
+      data-modal-state={isClosing ? 'closing' : 'open'}
+      className={`fixed inset-0 z-[2000] flex min-h-0 flex-col justify-end overflow-hidden bg-slate-950/85 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${isClosing && animateClose ? 'opacity-0' : 'opacity-100'}`}
       style={viewport ? { top: viewport.top, height: viewport.height, bottom: 'auto' } : undefined}
       onClick={event => event.stopPropagation()}
     >
       <div
         ref={panelRef}
         data-dialog-panel
-        className={`group flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-0 border-slate-800 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150 motion-reduce:animate-none ${widths[size]} ${panelClassName}`}
+        className={`group flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-0 border-slate-800 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[min(90dvh,960px)] sm:rounded-2xl sm:border motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-[0.98] motion-safe:duration-220 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:transition-[transform,opacity] motion-safe:duration-200 motion-safe:ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none motion-reduce:transition-none ${isClosing && animateClose ? 'translate-y-2 scale-[0.98] opacity-0' : 'translate-y-0 scale-100 opacity-100'} ${widths[size]} ${panelClassName}`}
       >
         <header className="relative flex shrink-0 flex-col items-start gap-2 overflow-hidden border-b border-slate-800/80 bg-gradient-to-r from-blue-950/50 via-slate-900 to-emerald-950/30 px-4 sm:px-6 py-3.5 sm:py-4">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" />
@@ -127,7 +147,7 @@ export const Modal: React.FC<ModalProps> = ({ onClose, onBack, title, subtitle, 
               onClick={close}
               disabled={busy}
               aria-label="Fechar"
-              className="rounded-full bg-slate-800/80 p-1.5 text-slate-400 hover:text-white transition-colors shrink-0"
+              className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-full bg-slate-800/80 text-slate-400 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400"
             >
               <XCircle size={18} />
             </button>

@@ -102,6 +102,10 @@ test('contract receipts provide an optional destination without changing the def
   assert.match(modal,/walletAccounts\.map\(account/);
   assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
   assert.match(modal,/isWalletReceiptAdmin/);
+  assert.match(modal,/animateClose/);
+  assert.match(modal,/Total após ajustes/);
+  assert.match(modal,/formatMoney\(payableTotal\)/);
+  assert.match(modal,/const \{ activeUser: modalActiveUser, sources: modalSources \} = useModal\(\)/);
   assert.match(controller,/receiptDestinationAccountId/);
   assert.match(payments,/personal_wallet_set_receipt_destination/);
   assert.match(engine,/p_idempotency_key: idempotencyKey/);

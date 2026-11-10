@@ -7,7 +7,7 @@ import { parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
 import { FlexibleDailyScreen } from './payment/FlexibleDailyScreen';
 import { usePaymentManagerState, ForgivenessMode } from './payment/hooks/usePaymentManagerState';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
-import { formatMoney } from '../../utils/formatters';
+import { formatMoney, parseCurrency } from '../../utils/formatters';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialOperationType, type FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../services/payments/receiptDecision';
 import { ReceiptRemainderDecision } from './payment/ReceiptRemainderDecision';
@@ -45,6 +45,7 @@ interface PaymentManagerModalProps {
 export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     data, onClose, isProcessing, paymentType, setPaymentType, avAmount, setAvAmount, onConfirm, onOpenMessage
 }) => {
+    const { activeUser: modalActiveUser, sources: modalSources } = useModal();
     const [lateFeeForgiven, setLateFeeForgiven] = useState(0);
     const {
         manualDateStr, setManualDateStr,
@@ -130,25 +131,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
     const { loan, calculations } = data;
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
-
-    let modalActiveUser: any = null;
-    let modalSources: any[] = [];
-    try {
-        const modalCtx = useModal();
-        modalActiveUser = modalCtx?.activeUser || null;
-        modalSources = modalCtx?.sources || [];
-    } catch {
-        // Safe fallback if not inside ModalProvider
-    }
     const currentSource = modalSources.find((s: any) => s.id === loan.sourceId) || null;
 
-    const safeParse = (val: string) => {
-        if (!val) return 0;
-        const str = String(val).trim();
-        if (str.includes('.') && str.includes(',')) return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
-        if (str.includes(',')) return parseFloat(str.replace(',', '.')) || 0;
-        return parseFloat(str) || 0;
-    };
+    const safeParse = (val: string) => parseCurrency(val);
 
     const amountEntering = safeParse(avAmount);
     const effectiveLateFeeDue = Math.max(0, debtBreakdown.fine + debtBreakdown.dailyMora - lateFeeForgiven);
@@ -258,7 +243,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     };
 
     return (
-        <Modal onClose={onClose} title="Recebimento" subtitle={loan.debtorName} icon={<DollarSign size={22} />} size="xl" busy={isProcessing}
+        <Modal onClose={onClose} title="Recebimento" subtitle={loan.debtorName} icon={<DollarSign size={22} />} size="xl" busy={isProcessing} animateClose
           footer={<div className="flex gap-2">
             <button type="button" aria-label="Abrir mensagem" onClick={() => onOpenMessage(loan)} disabled={isProcessing} className="min-h-11 shrink-0 rounded-lg border border-slate-700 px-3 text-slate-400"><MessageSquare size={18} /></button>
             <button type="button" onClick={handleConfirmWrapper} disabled={isProcessing || isPreviewing || !avAmount || safeParse(avAmount) <= 0} className={modalPrimaryActionClass}>
@@ -280,7 +265,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                     <div className="flex justify-between items-center text-xs border-b border-slate-800/50 pb-2"><span className="text-slate-400 font-bold uppercase">Capital Principal</span><span className="text-white font-bold">{formatMoney(debtBreakdown.principal)}</span></div>
                                     <div className={`flex justify-between items-center text-xs border-b border-slate-800/50 pb-2 ${forgivesInterest ? 'line-through opacity-50' : ''}`}><span className="text-blue-400 font-bold uppercase flex items-center gap-1"><TrendingUp size={12}/> Lucro (Juros)</span><span className="text-blue-400 font-bold">{formatMoney(debtBreakdown.interest)}</span></div>
                                     {(calculations.lateFee > 0) && <><div className={`flex justify-between items-center text-xs ${forgivesFine ? 'line-through opacity-50' : ''}`}><span className="text-rose-400 font-bold uppercase flex items-center gap-1"><AlertTriangle size={12}/> Multa Fixa</span><span className="text-rose-400 font-bold">{formatMoney(debtBreakdown.fine)}</span></div><div className={`flex justify-between items-center text-xs ${forgivesMora ? 'line-through opacity-50' : ''}`}><span className="text-orange-400 font-bold uppercase flex items-center gap-1"><Clock size={12}/> Juros Mora</span><span className="text-orange-400 font-bold">{formatMoney(debtBreakdown.dailyMora)}</span></div></>}
-                                    <div className="flex justify-between items-center text-sm pt-1"><span className="text-slate-200 font-black uppercase">Total Final</span><span className="text-emerald-400 font-black">{formatMoney(debtBreakdown.total)}</span></div>
+                                    <div className="flex justify-between items-center text-sm pt-1"><span className="text-slate-200 font-black uppercase">Total após ajustes</span><span className="text-emerald-400 font-black">{formatMoney(payableTotal)}</span></div>
                                 </div>
                             </div>
 

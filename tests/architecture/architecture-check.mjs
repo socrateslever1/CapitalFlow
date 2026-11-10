@@ -134,6 +134,20 @@ for (const page of [
   }
 }
 
+const clientsPage = read('pages', 'ClientsPage.tsx');
+if (!clientsPage.includes('parseCurrency(preContractForm.amount)')) {
+  failures.push('ClientsPage.tsx -> pré-contrato deve aceitar moeda brasileira via parser canônico');
+}
+if (!clientsPage.includes('inputMode="decimal"') || !clientsPage.includes('type="text"')) {
+  failures.push('ClientsPage.tsx -> valor do pré-contrato deve usar teclado decimal e texto para aceitar vírgula');
+}
+if (clientsPage.includes('className={`h-[145px]')) {
+  failures.push('ClientsPage.tsx -> cards de clientes não podem ter altura fixa no mobile');
+}
+if (!clientsPage.includes('onKeyDown={(event) =>')) {
+  failures.push('ClientsPage.tsx -> card de cliente deve ser operável por teclado');
+}
+
 const shellLayout = read('layout', 'AppShell.tsx');
 const headerBar = read('layout', 'HeaderBar.tsx');
 const supportChat = read('features', 'support', 'OperatorSupportChat.tsx');

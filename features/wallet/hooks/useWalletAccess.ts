@@ -10,7 +10,7 @@ export type WalletAccessState =
 
 export const useWalletAccess = (): WalletAccessState => {
   const [state, setState] = useState<WalletAccessState>({ status: 'loading', settings: {} });
-  const checkRef = useRef<() => Promise<void>>(async () => {});
+  const checkRef = useRef<() => Promise<void>>(async () => { });
   const retry = useCallback(() => { void checkRef.current(); }, []);
   useEffect(() => {
     let mounted = true;
@@ -20,13 +20,26 @@ export const useWalletAccess = (): WalletAccessState => {
       if (!mounted) return Promise.resolve();
       if (pending) return pending;
       pending = (async () => {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data.user?.id) throw error || new Error('Sessão não encontrada. Entre novamente.');
-        const access = await walletRepository.getAccess(data.user.id);
+        let userId: string | undefined;
+        try {
+          const { data, error } = await supabase.auth.getUser();
+          if (error || !data.user?.id) throw error || new Error('Sessão não encontrada. Entre novamente.');
+          userId = data.user.id;
+        } catch (authReason) {
+          const authNetworkFailure = authReason instanceof TypeError ||
+            (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+            /failed to fetch|network|networkerror|load failed|fetch failed|connection/i.test(String((authReason as { message?: unknown } | null)?.message || authReason));
+          if (authNetworkFailure && typeof supabase.auth.getSession === 'function') {
+            const sessionRes = await supabase.auth.getSession();
+            userId = sessionRes?.data?.session?.user?.id;
+          }
+          if (!userId) throw authReason;
+        }
+        const access = await walletRepository.getAccess(userId);
         if (mounted) {
           setState(access.active
-            ? { status: 'active', settings: access.settings, userId: data.user.id }
-            : { status: 'inactive', settings: access.settings, userId: data.user.id });
+            ? { status: 'active', settings: access.settings, userId }
+            : { status: 'inactive', settings: access.settings, userId });
         }
       })().catch(reason => {
         if (!mounted) return;

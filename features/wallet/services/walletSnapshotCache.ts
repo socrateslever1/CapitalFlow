@@ -23,6 +23,18 @@ export class WalletSnapshotCache<T> {
     this.pending = null;
   }
 
+  peek(ownerId: string): T | null {
+    if (this.ownerId !== ownerId || !this.cached || Date.now() >= this.cached.expiresAt) {
+      return null;
+    }
+    return this.cached.value;
+  }
+
+  prime(ownerId: string, value: T): void {
+    this.switchOwner(ownerId);
+    this.cached = { value, expiresAt: Date.now() + this.ttlMs };
+  }
+
   load(ownerId: string, loader: () => Promise<T>, force = false): Promise<T> {
     this.switchOwner(ownerId);
     if (!force && this.cached && Date.now() < this.cached.expiresAt) {

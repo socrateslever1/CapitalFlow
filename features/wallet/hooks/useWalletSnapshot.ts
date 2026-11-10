@@ -19,10 +19,19 @@ export function useWalletSnapshot() {
   }, []);
   useEffect(() => {
     let active = true;
+    let hasCachedData = false;
+    void walletRepository.peekCachedFull().then(cached => {
+      if (active && cached) {
+        hasCachedData = true;
+        setData(current => current ?? cached);
+        setLoading(false);
+        setError('');
+      }
+    });
     walletRepository.load().then(result => {
       if (active) { setData(result); setError(''); }
     }).catch(cause => {
-      if (active) setError(cause instanceof Error ? cause.message : 'Falha ao carregar a carteira.');
+      if (active && !hasCachedData) setError(cause instanceof Error ? cause.message : 'Falha ao carregar a carteira.');
     }).finally(() => { if (active) setLoading(false); });
     const onChange = () => {
       void walletRepository.load({ force: true }).then(result => {

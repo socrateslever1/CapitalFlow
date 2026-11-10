@@ -39,25 +39,47 @@ export interface AssistantBriefingAlert {
   text: string;
 }
 
+const MASTER_CHECK_TTL_MS = 5 * 60_000;
+const MASTER_STORAGE_KEY = 'cf_flux_master_enabled';
+let masterCheckCache: { userId: string | null; allowed: boolean; expiresAt: number } | null = null;
+
 export async function isMasterAssistantEnabled(): Promise<boolean> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData?.session?.user?.id || null;
+  const now = Date.now();
+  if (masterCheckCache && masterCheckCache.userId === userId && now < masterCheckCache.expiresAt) {
+    return masterCheckCache.allowed;
+  }
+  if (userId && typeof sessionStorage !== 'undefined') {
+    try {
+      const raw = sessionStorage.getItem(MASTER_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { userId?: string; allowed?: boolean; expiresAt?: number };
+        if (parsed.userId === userId && typeof parsed.allowed === 'boolean' && Number(parsed.expiresAt) > now) {
+          masterCheckCache = { userId, allowed: parsed.allowed, expiresAt: Number(parsed.expiresAt) };
+          return parsed.allowed;
+        }
+      }
+    } catch { /* ignora cache inválido no sessionStorage */ }
+  }
   const { data, error } = await supabase.rpc('is_platform_super_admin');
-  return !error && data === true;
+  const allowed = !error && data === true;
+  if (!error) {
+    const expiresAt = now + MASTER_CHECK_TTL_MS;
+    masterCheckCache = { userId, allowed, expiresAt };
+    if (userId && typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify({ userId, allowed, expiresAt }));
+      } catch { /* sessionStorage opcional */ }
+    }
+  }
+  return allowed;
 }
 
 function isLocalGreetingOrHelp(text: string): boolean {
   const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[?!.,]+/g, '').trim();
   if (normalized.length > 42) return false;
   return /^(oi|ola|e ai|e aew|eai|opa|fala|bom dia|boa tarde|boa noite|tudo bem|como vai|ola tudo bem|oi tudo bem|flux|quem e voce|o que voce faz|quais suas capacidades|ajuda|me ajuda|como funciona)$/i.test(normalized);
-}
-
-function buildCanonicalFallbackPrompt(text: string): string {
-  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  if (/(fatura|cartao|cartoes|limite|nubank|c6|picpay|mercado pago)/.test(normalized)) return 'fatura e cartoes';
-  if (/(compromiss|contas a pagar|boleto|venciment|divida pessoal|pagar)/.test(normalized)) return 'compromissos a pagar';
-  if (/(fonte|fontes|caixa livre|capital disponivel)/.test(normalized)) return 'fontes de capital';
-  if (/(saldo|conta|contas|dinheiro|extrato|banco|minha carteira|recargapay)/.test(normalized)) return 'saldo bancario';
-  if (/(contrat|emprestim|parcela|inadimplen|atras|receb|devendo|devedor|client|lucro|juros)/.test(normalized)) return 'contratos e parcelas';
-  return 'diagnostico financeiro completo';
 }
 
 /**
@@ -84,28 +106,13 @@ export async function askMasterAssistant(input: {
       },
     });
     if (!error && data && typeof data.response === 'string' && data.response.trim()) {
-      if (data.model === 'unavailable' && data.response.startsWith('Os provedores de IA estão indisponíveis')) {
-        if (isLocalGreetingOrHelp(input.message)) {
-          return {
-            ...data,
-            response: 'Olá! Sou o Flux, seu assistente financeiro do CapitalFlow. Posso consultar seu diagnóstico completo, contratos e parcelas em atraso, fontes de capital, contas da Minha Carteira, faturas de cartões e compromissos. O que você deseja verificar agora?',
-            provider: 'flux-local',
-            model: 'conversational-fallback',
-          };
-        }
-        const retryPrompt = buildCanonicalFallbackPrompt(input.message);
-        const retry = await supabase.functions.invoke<AssistantReply>('ai-assistant', {
-          body: {
-            message: retryPrompt,
-            conversationId: input.conversationId,
-            requestId: input.requestId,
-            turns: [],
-            fresh: input.fresh === true,
-          },
-        });
-        if (!retry.error && retry.data && typeof retry.data.response === 'string' && retry.data.response.trim() && retry.data.model !== 'unavailable') {
-          return retry.data;
-        }
+      if (data.model === 'unavailable' && isLocalGreetingOrHelp(input.message)) {
+        return {
+          ...data,
+          response: 'Olá! Sou o Flux, assistente master do CapitalFlow. Posso fazer o diagnóstico completo, consultar fontes, contratos, parcelas em atraso, contas da carteira, cartões e compromissos. O que você deseja verificar?',
+          provider: 'flux-local',
+          model: 'conversational-fallback',
+        };
       }
       return data;
     }

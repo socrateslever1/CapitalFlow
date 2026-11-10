@@ -29,8 +29,8 @@ export function inferFinancialArea(text: string, previous: AssistantTurn[] = [])
   if (/sem consultar (?:meus |minhas |os meus |as minhas )?dados/.test(normalized)) return null;
   if (/(o que (e|sao)|explique|conceito|diferenca|sem consultar|teoria)/.test(normalized) &&
       !/(meu|minha|meus|minhas|me|do capitalflow|da carteira)/.test(normalized)) return null;
-  if (/(diagnostico|panorama|resumo|situacao|saude|relatorio|visao geral|como esta (o |meu )?(capitalflow|capital flow|caixa|sistema)|balanco)/.test(normalized)) return 'geral';
-  if (/(contrat|emprestim|parcela|inadimplen|atrasad|rentabilidad|juros|recebive|receber|devendo|devedor|client|credito concedido|lucro)/.test(normalized)) return 'contratos';
+  if (/(diagnostico|panorama|resumo|situacao|saude|relatorio|visao geral|como esta (o |meu )?(capitalflow|capital flow|caixa|sistema)|balanco|melhorar|otimizar|gargalo|pontos? de atencao|o que temos)/.test(normalized)) return 'geral';
+  if (/(contrat|emprestim|parcela|inadimplen|atrasad|rentabilidad|juros|recebive|receber|devendo|devedor|client|credito concedido|lucro|quem deve)/.test(normalized)) return 'contratos';
   if (/(fonte de capital|fontes de capital|minhas fontes|capital disponivel|capital alocado|saldo das fontes|caixa livre)/.test(normalized)) return 'fontes';
   if (/(cartao|cartoes|fatura|limite de credito|nubank|c6|mercado pago|picpay)/.test(normalized)) return 'cartoes';
   if (/(compromiss|contas a pagar|boleto|venciment|divida pessoal|pagamento pendente)/.test(normalized)) return 'compromissos';

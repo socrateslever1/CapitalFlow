@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
-import { formatMoney, formatShortName, maskPhone, maskDocument } from '../utils/formatters';
+import { formatMoney, formatShortName, maskPhone, maskDocument, parseCurrency } from '../utils/formatters';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
@@ -277,8 +277,8 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     if (!preContractClient || !activeUser) return;
     setPreContractBusy(true);
     try {
-      const amount = Number(preContractForm.amount);
-      if (isNaN(amount) || amount <= 0) throw new Error('Valor inválido.');
+      const amount = parseCurrency(preContractForm.amount);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Valor inválido.');
 
       if (preContractForm.witness1Name.trim()) {
         witnessService.save({ id: '', name: preContractForm.witness1Name, document: preContractForm.witness1Doc }, profileId).catch(() => {});
@@ -439,8 +439,17 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`h-[145px] self-start overflow-hidden bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col justify-between ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`min-h-[145px] self-start overflow-hidden bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={isBulkDeleteMode ? `Selecionar ${formatShortName(client.name)}` : `Abrir ficha de ${formatShortName(client.name)}`}
                     onClick={isBulkDeleteMode ? () => toggleClientSelection(client.id) : () => setSelectedClient(client)}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      if (isBulkDeleteMode) toggleClientSelection(client.id);
+                      else setSelectedClient(client);
+                    }}
                 >
                     {isBulkDeleteMode && (
                         <div className="absolute top-3 right-3 text-blue-500 z-10">
@@ -470,29 +479,29 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                         </div>
 
                         {!isBulkDeleteMode && (
-                            <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex basis-full justify-end gap-1.5 sm:basis-auto sm:shrink-0" onClick={(e) => e.stopPropagation()}>
                                 <Tooltip content="Documentos de Cadastro" position="top">
-                                    <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-1.5 text-slate-400 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Documentos enviados do cliente" aria-label="Documentos de cadastro">
+                                    <button type="button" onClick={() => void openRegistrationDocuments(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400" title="Documentos enviados do cliente" aria-label="Documentos de cadastro">
                                         <FileSearch size={13}/>
                                     </button>
                                 </Tooltip>
                                 <Tooltip content="Copiar Link do Portal" position="top">
-                                    <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-1.5 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-md hover:bg-blue-950/40 transition-colors" title="Copiar link do portal do cliente" aria-label="Copiar link do portal">
+                                    <button type="button" onClick={() => void copyClientPortalLink(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-blue-400 transition-colors hover:bg-blue-950/40 hover:text-blue-300 focus-visible:outline-2 focus-visible:outline-blue-400" title="Copiar link do portal do cliente" aria-label="Copiar link do portal">
                                         <Link2 size={13}/>
                                     </button>
                                 </Tooltip>
                                 <Tooltip content="Gerar Contrato / Minuta" position="top">
-                                    <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors" title="Criar pré-contrato / Gerar documento" aria-label="Gerar contrato ou minuta">
+                                    <button onClick={() => openPreContractModal(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-indigo-400 transition-colors hover:bg-indigo-950/40 hover:text-indigo-300 focus-visible:outline-2 focus-visible:outline-blue-400" title="Criar pré-contrato / Gerar documento" aria-label="Gerar contrato ou minuta">
                                         <FileSignature size={13}/>
                                     </button>
                                 </Tooltip>
                                 <Tooltip content="Editar Cadastro" position="top">
-                                    <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors" title="Editar cadastro do cliente" aria-label="Editar cadastro">
+                                    <button onClick={() => openClientModal(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-slate-500 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400" title="Editar cadastro do cliente" aria-label="Editar cadastro">
                                         <Edit size={13}/>
                                     </button>
                                 </Tooltip>
                                 <Tooltip content="Excluir Cliente" position="top">
-                                    <button onClick={() => onDeleteClient(client.id)} className="p-1.5 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-md hover:bg-rose-950/30 transition-colors" title="Excluir cliente" aria-label="Excluir cliente">
+                                    <button onClick={() => onDeleteClient(client.id)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-rose-500/70 transition-colors hover:bg-rose-950/30 hover:text-rose-500 focus-visible:outline-2 focus-visible:outline-rose-400" title="Excluir cliente" aria-label="Excluir cliente">
                                         <Trash2 size={13}/>
                                     </button>
                                 </Tooltip>
@@ -518,8 +527,8 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             </>
                         ) : client.registration_status !== 'APPROVED' && client.registration_status !== 'REJECTED' ? (
                             <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
-                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-slate-700 bg-slate-950 text-[8px] font-bold uppercase text-slate-300" title="Docs"><FileSearch size={10}/> Docs ({client.registration_document_count || 0})</button>
-                                <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex-1 h-6 flex items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 text-[8px] font-bold uppercase text-emerald-300"><Check size={10}/> Aprovar</button>
+                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded border border-slate-700 bg-slate-950 px-2 text-[9px] font-bold uppercase text-slate-300 focus-visible:outline-2 focus-visible:outline-blue-400" title="Docs"><FileSearch size={10}/> Docs ({client.registration_document_count || 0})</button>
+                                <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 text-[9px] font-bold uppercase text-emerald-300 focus-visible:outline-2 focus-visible:outline-emerald-400"><Check size={10}/> Aprovar</button>
                             </div>
                         ) : (() => {
                             const docAlert = getClientDocAlert(client);
@@ -549,7 +558,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                     <button
                                         type="button"
                                         onClick={() => openPreContractModal(client)}
-                                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all ${
+                                        className={`flex min-h-10 items-center gap-1 rounded px-3 py-2 text-[9px] font-black uppercase shadow transition-all focus-visible:outline-2 focus-visible:outline-indigo-400 ${
                                             docAlert?.type === 'RECUSADO' || docAlert?.type === 'AJUSTE_SOLICITADO'
                                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
                                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -589,14 +598,14 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
         {preContractClient && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-lg border border-indigo-500/30 bg-slate-900 p-5 shadow-2xl">
+            <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-indigo-500/30 bg-slate-900 p-4 shadow-2xl sm:p-5">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Minuta jurídica pré-desembolso</p>
                   <h2 className="mt-1 text-base font-black uppercase text-white">{formatShortName(preContractClient.name)}</h2>
                   <p className="mt-1 text-xs text-slate-500">O documento será enviado para o link público do cliente antes de lançar o contrato.</p>
                 </div>
-                <button type="button" onClick={() => setPreContractClient(null)} className="rounded-lg bg-slate-800 p-2 text-slate-400 hover:text-white">
+                <button type="button" onClick={() => setPreContractClient(null)} className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-400" aria-label="Fechar minuta">
                   <X size={16}/>
                 </button>
               </div>
@@ -606,14 +615,15 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                   <label className="block">
                     <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-slate-500">Valor do capital</span>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       value={preContractForm.amount}
-                      onChange={(event) => setPreContractForm((current) => ({ ...current, amount: event.target.value }))}
+                      onChange={(event) => setPreContractForm((current) => ({ ...current, amount: event.target.value.replace(/[^0-9.,]/g, '') }))}
                       className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus:border-indigo-500"
-                      placeholder="Ex: 1200,00"
+                      placeholder="Ex: 1.200,00"
+                      aria-describedby="pre-contract-amount-help"
                     />
+                    <span id="pre-contract-amount-help" className="mt-1 block text-[11px] text-slate-400">Use vírgula para os centavos.</span>
                   </label>
                   <label className="block">
                     <span className="mb-1 block text-[9px] font-black uppercase tracking-widest text-slate-500">Vencimento</span>

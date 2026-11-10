@@ -183,10 +183,18 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
 
   useEffect(() => {
     let mounted = true;
+    let hasCached = false;
+    void walletRepository.peekCachedOverview().then(cached => {
+      if (mounted && cached) {
+        hasCached = true;
+        setSnapshot(current => current ?? cached);
+        setToday(dayKey(new Date()));
+      }
+    });
     walletRepository.loadOverview()
-      .then(result => { if (mounted) { setSnapshot(result); setToday(dayKey(new Date())); } })
+      .then(result => { if (mounted) { setSnapshot(result); setToday(dayKey(new Date())); setError(''); } })
       .catch(reason => {
-        if (mounted) setError(
+        if (mounted && !hasCached) setError(
           reason instanceof Error ? reason.message : 'Não foi possível carregar a carteira.',
         );
       });

@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, CalendarClock, CreditCard, Landmark, LayoutDashboard, LockKeyhole, TrendingUp, WifiOff } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 import { useWalletAccess } from './hooks/useWalletAccess';
@@ -9,6 +9,7 @@ import { WalletExpenseFab } from './components/WalletExpenseFab';
 import { NativeWalletFileInbox } from './NativeWalletFileInbox';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { WalletBalanceDock } from './components/WalletBalanceDock';
+import { walletRepository } from './services/walletRepository';
 
 const StateCard: React.FC<{ kind: 'inactive' | 'error'; message: string; onRetry?: () => void }> = ({ kind, message, onRetry }) => <section className="mx-auto mt-10 max-w-xl rounded-3xl border border-slate-800 bg-slate-900/80 p-8 text-center text-white shadow-2xl">
   {kind === 'inactive' ? <LockKeyhole className="mx-auto mb-4 text-amber-300" size={34}/> : <AlertTriangle className="mx-auto mb-4 text-rose-300" size={34}/>}
@@ -23,11 +24,35 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   const location = useLocation();
   const navigate = useNavigate();
   const access = useWalletAccess();
+  const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
   const invalidate = useCallback(() => window.dispatchEvent(new Event('capitalflow:wallet-updated')), []);
   // Sincronização permanece automática; o status não ocupa espaço no cabeçalho.
   useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
   const route = getWalletRoute(location.pathname);
   const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
+
+  useEffect(() => {
+    const syncNetwork = () => setOffline(typeof navigator !== 'undefined' && navigator.onLine === false);
+    window.addEventListener('online', syncNetwork);
+    window.addEventListener('offline', syncNetwork);
+    return () => {
+      window.removeEventListener('online', syncNetwork);
+      window.removeEventListener('offline', syncNetwork);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (access.status !== 'active') return;
+    // Baixa todos os módulos lazy e dados completos da Carteira uma única vez para navegação instantânea e uso offline.
+    void import('./pages/WalletCardsPage').catch(() => undefined);
+    void import('./pages/WalletAccountsPage').catch(() => undefined);
+    void import('./pages/WalletPayablesPage').catch(() => undefined);
+    void import('./pages/WalletIncomePage').catch(() => undefined);
+    void import('./pages/WalletReportPage').catch(() => undefined);
+    if (!offline) {
+      void walletRepository.prefetchFull();
+    }
+  }, [access.status, offline]);
 
   if (access.status === 'loading') return <div aria-label="Carregando módulo Carteira" className="mx-auto mt-8 h-72 max-w-5xl animate-pulse rounded-3xl bg-slate-900"/>;
   if (access.status === 'inactive') return <StateCard kind="inactive" message="Ative a Carteira no seu plano para acessar contas, cartões, dívidas e cobranças PIX."/>;
@@ -67,6 +92,12 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
       })}
     </nav>
     <WalletBalanceDock />
+    {offline && (
+      <div role="status" className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-950/25 px-3.5 py-2.5 text-xs text-amber-200">
+        <WifiOff size={15} className="shrink-0 text-amber-300" />
+        <span>Modo offline — exibindo dados salvos neste aparelho (somente consulta).</span>
+      </div>
+    )}
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>
 
     <WalletExpenseFab />

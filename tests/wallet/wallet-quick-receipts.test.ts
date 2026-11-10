@@ -114,3 +114,24 @@ test('contract receipts provide an optional destination without changing the def
   assert.match(migration,/Recebimento.*v_client_name/);
   assert.match(statement,/operation\.operation_type === 'RECEIPT' && operation\.contract_id/);
 });
+
+test('quick receipt preview exposes optional account and forwards destination through the financial engine', () => {
+  const quick=readFileSync('components/cards/components/InstallmentGrid.tsx','utf8');
+  const options=readFileSync('components/cards/components/InstallmentReceiptModel.ts','utf8');
+  const dashboard=readFileSync('containers/DashboardContainer.tsx','utf8');
+  const engine=readFileSync('services/payments/paymentEngineV4.ts','utf8');
+  const withdrawal=readFileSync('components/modals/ModalGroups.tsx','utf8');
+  const sourceCtrl=readFileSync('hooks/controllers/useSourceController.ts','utf8');
+  assert.match(quick,/platformAdminService\.isSuperAdmin\(\)/);
+  assert.match(quick,/walletRepository\.loadOverview\(\)/);
+  assert.match(quick,/Conta que receberá o pagamento/);
+  assert.match(quick,/Padrão · retornar às fontes de origem/);
+  assert.match(quick,/receiptDestinationAccountId: isWalletReceiptMaster/);
+  assert.match(quick,/receiptDestinationAccountId\]\)/);
+  assert.match(options,/receiptDestinationAccountId\?: string \| null/);
+  assert.match(dashboard,/receiptDestinationAccountId: options\?\.receiptDestinationAccountId \|\| null/);
+  assert.match(engine,/input\.receiptDestinationAccountId \|\| 'DEFAULT_SOURCES'/);
+  assert.match(withdrawal,/Enviar para conta da Minha Carteira \(opcional\)/);
+  assert.match(withdrawal,/handleWithdrawProfit\(withdrawAccountId \|\| null\)/);
+  assert.match(sourceCtrl,/withdraw_profit_to_wallet_atomic/);
+});

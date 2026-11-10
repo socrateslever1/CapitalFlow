@@ -133,6 +133,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               partialAction,
               paymentMethod: options?.paymentMethod || String(loan.preferredPaymentMethod || 'OTHER').toUpperCase() as any,
               expectedPreview: options?.expectedPreview,
+              receiptDestinationAccountId: options?.receiptDestinationAccountId || null,
               paymentType: 'FULL'
           });
 

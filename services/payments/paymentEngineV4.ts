@@ -103,6 +103,7 @@ function requestSignature(input: FinancialOperationInput) {
     input.forgivenessMode || 'NONE',
     normalizeMoney(input.requestedLateFeeForgiven).toFixed(2),
     input.manualDueDate || '',
+    input.receiptDestinationAccountId || 'DEFAULT_SOURCES',
   ].join(':');
 }
 

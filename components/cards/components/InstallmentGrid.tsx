@@ -18,6 +18,9 @@ import { buildInstallmentReceiptModel, calculatePrincipalReductionForTarget, cal
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../../services/payments/receiptDecision';
 import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewalPlan';
+import { walletRepository } from '../../../features/wallet/services/walletRepository';
+import { platformAdminService } from '../../../services/platformAdmin.service';
+import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -60,6 +63,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [isPreparingReview, setIsPreparingReview] = React.useState(false);
     const [isSubmittingReceipt, setIsSubmittingReceipt] = React.useState(false);
     const [receiptError, setReceiptError] = React.useState<string | null>(null);
+    const [receiptDestinationAccountId, setReceiptDestinationAccountId] = React.useState('');
+    const [walletAccounts, setWalletAccounts] = React.useState<PersonalWalletAccount[]>([]);
+    const [walletAccountsLoaded, setWalletAccountsLoaded] = React.useState(false);
+    const [isWalletReceiptMaster, setIsWalletReceiptMaster] = React.useState(false);
+    const [walletLoadError, setWalletLoadError] = React.useState('');
 
     const {
         loan, orderedInstallments, fixedTermStats, isPaid, isZeroBalance, isFullyFinalized,
@@ -71,7 +79,32 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
         setReviewPreview(null);
         setIsReviewReady(false);
         setReceiptError(null);
-    }, [selectedInst?.id, receiptAmount, paymentDateStr, quickMode, lateFeeForgiven, businessAction]);
+    }, [selectedInst?.id, receiptAmount, paymentDateStr, quickMode, lateFeeForgiven, businessAction, receiptDestinationAccountId]);
+
+    React.useEffect(() => {
+        let active = true;
+        setReceiptDestinationAccountId('');
+        setWalletAccounts([]);
+        setWalletAccountsLoaded(false);
+        setIsWalletReceiptMaster(false);
+        setWalletLoadError('');
+        if (!selectedInst?.id) return () => { active = false; };
+        void platformAdminService.isSuperAdmin().then(async allowed => {
+            if (!active || !allowed) return;
+            setIsWalletReceiptMaster(true);
+            try {
+                const snapshot = await walletRepository.loadOverview();
+                if (active) setWalletAccounts(snapshot.accounts.filter(a => !a.archived_at));
+            } catch {
+                if (active) setWalletLoadError('Contas indisponíveis. O recebimento padrão continua disponível.');
+            } finally {
+                if (active) setWalletAccountsLoaded(true);
+            }
+        }).catch(() => {
+            if (active) setWalletLoadError('Não foi possível verificar a Carteira. O recebimento padrão continua disponível.');
+        });
+        return () => { active = false; };
+    }, [loan.id, selectedInst?.id]);
 
     const context = {
         fixedTermStats,
@@ -180,6 +213,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setReviewPreview(null);
                     setIsReviewReady(false);
                     setReceiptError(null);
+                    setReceiptDestinationAccountId('');
                 };
                 const instNumber = selectedInst.number ?? 1;
                 const dueDateFormatted = formatBRDate(selectedInst.dueDate);
@@ -565,6 +599,37 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 />
                             )}
 
+
+                            {isWalletReceiptMaster && (
+                                <section aria-label="Destino do recebimento" className="rounded-xl border border-blue-500/25 bg-slate-950/70 p-3.5">
+                                    <label htmlFor="quick-receipt-wallet-account" className="mb-2 block text-sm font-semibold text-white">
+                                        Conta que receberá o pagamento <span className="font-normal text-slate-300">(opcional)</span>
+                                    </label>
+                                    <select
+                                        id="quick-receipt-wallet-account"
+                                        value={receiptDestinationAccountId}
+                                        aria-describedby="quick-receipt-wallet-help"
+                                        onChange={event => { setReceiptDestinationAccountId(event.target.value); setReceiptError(null); }}
+                                        disabled={!walletAccountsLoaded || isPreparingReview || isSubmittingReceipt}
+                                        className="min-h-12 w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        <option value="">Padrão · retornar às fontes de origem</option>
+                                        {walletAccounts.map(account => (
+                                            <option key={account.id} value={account.id}>{account.nickname}</option>
+                                        ))}
+                                    </select>
+                                    <p id="quick-receipt-wallet-help" className="mt-2 text-xs leading-relaxed text-slate-300">
+                                        Com uma conta escolhida, o valor integral entra nela. Capital e encargos ficam separados na auditoria. Sem escolha, mantém-se a distribuição padrão.
+                                    </p>
+                                    {walletLoadError && <p role="status" className="mt-2 text-xs text-amber-300">{walletLoadError}</p>}
+                                    {isReviewReady && <p className="mt-2 rounded-lg bg-slate-800/75 px-3 py-2 text-xs font-semibold text-slate-100">
+                                        Destino confirmado: {receiptDestinationAccountId
+                                            ? walletAccounts.find(a => a.id === receiptDestinationAccountId)?.nickname || 'Conta selecionada'
+                                            : 'Fontes de origem (padrão)'}
+                                    </p>}
+                                </section>
+                            )}
+
                              {isReviewReady && (
                                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3.5">
                                     <div className="flex items-center gap-2 text-emerald-300">
@@ -626,6 +691,13 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                             <button
                                 disabled={isPreparingReview || isSubmittingReceipt || displayedAmount <= 0.05 || (needsBusinessChoice && businessAction === 'AUTOMATIC') || (hasActiveOffer && displayedAmount > activeOfferAmount + ZERO_BALANCE_THRESHOLD) || (quickMode === 'PRINCIPAL_REDUCTION' && displayedAmount > principal + ZERO_BALANCE_THRESHOLD)}
                                 onClick={async () => {
+                                    if (receiptDestinationAccountId && (
+                                        !isWalletReceiptMaster || !walletAccountsLoaded ||
+                                        !walletAccounts.some(a => a.id === receiptDestinationAccountId)
+                                    )) {
+                                        setReceiptError('Conta indisponível. Escolha outra conta ou mantenha o destino padrão.');
+                                        return;
+                                    }
                                     const amount = quickMode === 'CUSTOM' || quickMode === 'PRINCIPAL_REDUCTION'
                                         ? Number(receiptAmount)
                                         : displayedAmount;
@@ -706,6 +778,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         paymentDate,
                                         manualDate: suggestedRenewalDate,
                                         expectedPreview: reviewPreview || undefined,
+                                        receiptDestinationAccountId: isWalletReceiptMaster ? (receiptDestinationAccountId || null) : null,
                                     };
                                     setIsSubmittingReceipt(true);
                                     try {

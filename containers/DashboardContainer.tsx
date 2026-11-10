@@ -47,6 +47,7 @@ type InstallmentPaymentOptions = {
   paymentDate?: Date;
   manualDate?: Date | null;
   expectedPreview?: FinancialOperationResult;
+  receiptDestinationAccountId?: string | null;
 };
 
 export const DashboardContainer: React.FC<DashboardContainerProps> = ({
@@ -133,6 +134,7 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
               partialAction,
               paymentMethod: options?.paymentMethod || String(loan.preferredPaymentMethod || 'OTHER').toUpperCase() as any,
               expectedPreview: options?.expectedPreview,
+              receiptDestinationAccountId: options?.receiptDestinationAccountId || null,
               paymentType: 'FULL'
           });
 
@@ -156,6 +158,9 @@ export const DashboardContainer: React.FC<DashboardContainerProps> = ({
           });
           ui.openModal('RECEIPT');
           window.dispatchEvent(new CustomEvent('capitalflow:payment-recorded'));
+          if (options?.receiptDestinationAccountId) {
+              window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+          }
           onRefresh();
           return true;
       } catch (e: any) {

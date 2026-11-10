@@ -15,6 +15,7 @@ export type QuickPaymentOptions = {
     paymentDate?: Date;
     manualDate?: Date | null;
     expectedPreview?: FinancialOperationResult;
+    receiptDestinationAccountId?: string | null;
 };
 export type InstallmentPaymentHandler = (
     loan: Loan,

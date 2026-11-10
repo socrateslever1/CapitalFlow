@@ -1,3 +1,8 @@
+## 10/11/2026 — Quality Gate: correção de compilação e validação completa
+- **Falha reproduzida no Quality Gates remoto:** a execução `42835105184`, no SHA `4f223ec`, falhava em `containers/DashboardContainer.tsx:136` com `TS2339` porque `InstallmentPaymentOptions` não declarava `receiptDestinationAccountId`.
+- **Correção já incorporada em `c1d49ff`:** o campo opcional foi adicionado ao contrato local, encaminhado ao serviço canônico de pagamentos e acompanhado da invalidação da Carteira após um recebimento roteado. Nenhuma RPC, migration, ledger, regra de pagamento, estorno ou RLS foi alterada nesta correção.
+- **Validação:** `npm run test:quality` executado localmente no `HEAD` `3ab57d2` com código de saída `0`; a execução remota `42904607748` para o mesmo SHA também terminou com sucesso. Não houve validação visual em aparelho físico nesta conferência.
+
 ## 10/11/2026 — Flux (economia de Supabase/tokens, varredura + recomendações) e Minha Carteira com cache offline completo
 - **Flux (`services/aiAssistant.service.ts`, `supabase/functions/ai-assistant/core.ts`, `supabase/functions/ai-assistant/index.ts`):**
   - Cache de 5 min em `isMasterAssistantEnabled()` (memória + `sessionStorage`) e na Edge Function (`masterAdminCache` após validação do JWT) para reduzir RPCs `is_platform_super_admin`.

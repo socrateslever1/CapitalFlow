@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
@@ -284,7 +285,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [saving, onClose]);
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -293,7 +294,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
     >
       <form
         onSubmit={handleSubmit}
-        className="flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-slate-900 shadow-2xl sm:rounded-3xl"
+        className="flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none border border-slate-700 bg-slate-900 shadow-2xl sm:h-auto sm:max-h-[94dvh] sm:rounded-3xl"
       >
         {/* Header */}
         <header className="flex shrink-0 items-center justify-between border-b border-slate-800 p-4 sm:px-5">
@@ -414,7 +415,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
               </span>
               <div className="mt-1.5 flex min-h-14 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-3 focus-within:border-blue-500">
                 <span className="shrink-0 text-lg font-bold text-slate-400">R$</span>
-                <FinancialCalculatorInput required autoFocus autoComplete="off" spellCheck={false}
+                <FinancialCalculatorInput required autoComplete="off" spellCheck={false}
                   value={amountFormatted} onCommit={value => { resetIdempotencyKey(); setAmountFormatted(value); setError(''); }}
                   fieldLabel="valor da despesa" placeholder="0,00" aria-label="Valor; aceita cálculos digitados"
                   className="min-w-0 flex-1 border-0 bg-transparent py-2 text-2xl font-bold tracking-tight text-white outline-none placeholder:text-slate-600"
@@ -813,7 +814,8 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
           </div>
         </footer>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

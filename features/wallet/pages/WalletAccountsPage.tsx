@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Plus, QrCode, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Plus, QrCode, ReceiptText, Wallet } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
@@ -11,6 +11,7 @@ import { WalletPageFrame } from '../components/WalletPageFrame';
 import { AccountMovementModal } from '../../../components/wallet/AccountMovementModal';
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
+import QuickExpenseModal from '../components/QuickExpenseModal';
 import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
 import { buildWalletBalanceFacts, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
 
@@ -20,6 +21,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
   const [movementOpen, setMovementOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
 
   const startCreate = (accountType: 'CHECKING' | 'CASH') => {
@@ -98,6 +100,10 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             onOpen={account => setSelectedId(account.id)}
             headerActions={
               <>
+                <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
+                  <ReceiptText size={16}/> Registrar despesa
+                </button>
                 <button type="button" onClick={() => startCreate('CASH')}
                   className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                   <Wallet size={15} className="text-amber-300"/>Adicionar carteira física
@@ -146,6 +152,15 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           onSaved={async () => { await refresh(); }}
         />
       )}
+      {expenseOpen && <QuickExpenseModal
+        accounts={data.accounts}
+        cards={data.cards}
+        initialMode="ACCOUNT"
+        initialAccountId={data.accounts.length === 1 ? data.accounts[0].id : null}
+        requireExplicitDestination={data.accounts.length !== 1}
+        onClose={() => setExpenseOpen(false)}
+        onSaved={async () => { await refresh(); }}
+      />}
       {movementOpen && <AccountMovementModal accounts={data.accounts} cards={data.cards}
         expenses={data.expenses} installments={data.installments}
         onClose={() => setMovementOpen(false)} onSaved={async () => { await refresh(); }}/>}

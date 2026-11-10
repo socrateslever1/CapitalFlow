@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -245,8 +245,8 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
         </button>
         {!editing && <div className="flex max-w-full flex-wrap justify-end gap-2">
           <button type="button" onClick={() => setExpenseOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all hover:bg-rose-500/20">
-            Despesa
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+            <ReceiptText size={16}/> Registrar despesa
           </button>
           <button type="button" onClick={() => {
             setRealBalanceInput(formatWalletMoneyInput(String(Number(account.balance || 0))));

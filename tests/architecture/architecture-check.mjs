@@ -414,10 +414,15 @@ for (const forbidden of [
   }
 }
 
-for (const required of ['process_financial_operation_v4', 'preview_financial_operation_v4', 'reverse_financial_operation_v4']) {
+for (const required of ['process_financial_operation_v4', 'preview_financial_operation_v4', 'reverse_wallet_financial_operation_v4']) {
   if (!`${paymentEngineV4}\n${ledgerReverse}`.includes(required)) {
     failures.push(`Payment Engine V4 -> integração obrigatória ausente: ${required}`);
   }
+}
+
+const receiptRoutingMigration = read('supabase', 'migrations', '20261109235900_wallet_receipt_linked_source_routing.sql');
+for (const required of ['reverse_wallet_financial_operation_v4', 'wallet_guard_receipt_reversal', 'wallet_apply_receipt_destination', 'capital_source_wallet_references', 'personal_wallet_set_receipt_destination']) {
+  if (!receiptRoutingMigration.includes(required)) failures.push(`Carteira -> integração transacional de recebimentos ausente: ${required}`);
 }
 
 if (/\.from\(['"](?:parcelas|contratos|fontes|perfis|transacoes|payment_transactions)['"]\)/.test(paymentEngineV4)) {

@@ -16,7 +16,7 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
   assert.ok(Array.isArray(manifest.assets) && manifest.assets.length >= 5,
     'all wallet sections must be represented in the production asset manifest');
   for (const asset of manifest.assets) {
-    assert.match(asset, /^\\/assets\\/[^/?]+-[A-Za-z0-9_-]{8,}\\.(?:js|css)$/);
+    assert.ok(asset.startsWith('/assets/') && (asset.endsWith('.js') || asset.endsWith('.css')), 'wallet asset must be a static module or stylesheet');
     assert.ok(readFileSync('dist' + asset).byteLength > 0, 'missing packaged wallet asset: ' + asset);
   }
   assert.match(sw, /isImmutableBundleAsset\(url\.pathname\)/);

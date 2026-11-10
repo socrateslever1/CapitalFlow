@@ -48,7 +48,8 @@ export const usePaymentController = (
     lateFeeForgiven?: number,
     paymentMethod?: FinancialPaymentMethod,
     expectedPreview?: FinancialOperationResult,
-    receiptDestinationAccountId?: string | null
+    receiptDestinationAccountId?: string | null,
+    receiptDestinationSourceId?: string | null
   ) => {
     const maybeContext = paymentTypeOverride as any;
     const inferredContext =
@@ -106,9 +107,13 @@ export const usePaymentController = (
         paymentMethod,
         expectedPreview,
         receiptDestinationAccountId,
+        receiptDestinationSourceId,
       });
 
       showToast('Pagamento realizado com sucesso!', 'success');
+      if (receiptDestinationAccountId || receiptDestinationSourceId) {
+        window.dispatchEvent(new Event('capitalflow:wallet-updated'));
+      }
 
       ui.closeModal();
       ui.setAvAmount('');

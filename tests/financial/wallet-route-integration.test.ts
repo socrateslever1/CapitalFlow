@@ -23,10 +23,14 @@ const balances=async()=>(await rows(`select
  (select interest_balance::float8 from perfis where id='${p}') as profile`))[0];
 const movement=async()=>rows('select operation_type,amount::float8 amount from personal_wallet_account_operations order by created_at,id');
 const route=async()=>db.exec(`select personal_wallet_set_receipt_destination('${key}','${l}','${account}')`);
-async function receive(choose:boolean,interestSource:string|null=profit) {
+const routeWith=async(acc:string|null,src:string|null)=>db.exec(`select personal_wallet_set_receipt_destination('${key}','${l}',${acc?`'${acc}'`:'null'},${src?`'${src}'`:'null'})`);
+async function receive(choose:boolean|string,interestSource:string|null=profit) {
  await db.exec('BEGIN');
  try {
-  if(choose) await route();
+  if(choose===true) await route();
+  else if(choose==='SOURCE_ONLY') await routeWith(null,target);
+  else if(choose==='PRINCIPAL_SOURCE') await routeWith(null,principal);
+  else if(choose==='ACCOUNT_AND_SOURCE') await routeWith(account,target);
   await db.exec(`update fontes set balance=balance+500 where id='${principal}'`);
   if(interestSource) await db.exec(`update fontes set balance=balance+100 where id='${interestSource}'`);
   else await db.exec(`update perfis set interest_balance=interest_balance+100 where id='${p}'`);
@@ -85,6 +89,7 @@ before(async()=>{
  end$$;
  `);
  await db.exec(readFileSync('supabase/migrations/20261110210000_optional_wallet_receipt_withdrawal_routing.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261110220000_optional_payment_capital_destination_routing.sql','utf8'));
 });
 after(async()=>db.close());
 beforeEach(async()=>{
@@ -167,6 +172,50 @@ test('conta ligada a propria fonte de lucro nao permite credito duplo',async()=>
 });
 test('usuario sem privilegio nao escolhe conta',async()=>{
  await db.exec("select set_config('test.user','10000000-0000-4000-8000-000000000002',false)");
- await assert.rejects(route(),/administrador master/);
+ await assert.rejects(route(),/administrador master|autorizado/);
  await assert.rejects(db.exec(`select withdraw_profit_to_wallet_atomic('${withdraw}',100,'${p}','${profit}','${account}')`),/nao autorizado/);
+});
+test('usuario comum escolhe fonte de capital para receber capital e lucro com estorno atomico',async()=>{
+ const u2='10000000-0000-4000-8000-000000000002';
+ const p2='20000000-0000-4000-8000-000000000002';
+ await db.exec(`
+  insert into perfis(id,user_id,interest_balance) values('${p2}','${u2}',0);
+  update contratos set profile_id='${p2}',owner_id='${p2}' where id='${l}';
+  update fontes set profile_id='${p2}' where id in ('${principal}','${profit}','${target}');
+  select set_config('test.user','${u2}',false);
+ `);
+ await db.exec('BEGIN');
+ try{
+  await db.exec(`select personal_wallet_set_receipt_destination('${key}','${l}',null,'${target}')`);
+  await db.exec(`update fontes set balance=balance+500 where id='${principal}';
+   update fontes set balance=balance+100 where id='${profit}';
+   insert into financial_operations(
+    operation_id,idempotency_key,profile_id,loan_id,installment_id,
+    source_id,profit_source_id,amount_received,principal_paid,interest_paid,
+    late_fee_paid,operation_type,status,payment_date
+   ) values(gen_random_uuid(),'${key}','${p2}','${l}','${i}','${principal}','${profit}',600,500,100,0,'PAYMENT','COMPLETED','2026-11-10')`);
+  await db.exec('COMMIT');
+ }catch(e){await db.exec('ROLLBACK');throw e;}
+ assert.deepEqual(await balances(),{original:1000,profit:300,target:1000,account:200,profile:0});
+ assert.equal((await movement()).length,0);
+ assert.equal((await rows(`select destination_source_id::text dst from financial_operations where idempotency_key='${key}'`))[0].dst,target);
+ await db.exec(`select reverse_wallet_financial_operation_v4('${key}','${reversal}','Estorno usuario comum')`);
+ assert.deepEqual(await balances(),{original:1000,profit:300,target:400,account:200,profile:0});
+});
+test('fonte escolhida igual a fonte original do contrato recebe capital e lucro juntos e estorna',async()=>{
+ await receive('PRINCIPAL_SOURCE');
+ assert.deepEqual(await balances(),{original:1600,profit:300,target:400,account:200,profile:0});
+ await db.exec(`select reverse_wallet_financial_operation_v4('${key}','${reversal}','Estorno mesma fonte')`);
+ assert.deepEqual(await balances(),{original:1000,profit:300,target:400,account:200,profile:0});
+});
+test('master pode escolher simultaneamente conta da Carteira e fonte de capital nao conflitante',async()=>{
+ await receive('ACCOUNT_AND_SOURCE');
+ assert.deepEqual(await balances(),{original:1000,profit:300,target:1000,account:800,profile:0});
+ await assert.rejects((async()=>{
+  await db.exec(`update personal_wallet_accounts set capital_source_id='${principal}',balance=1000 where id='${account}'`);
+  await db.exec(`select personal_wallet_set_receipt_destination('${withdraw}','${l}','${account}','${target}')`);
+ })(),/outra fonte de capital/);
+ await db.exec(`update personal_wallet_accounts set capital_source_id=null,balance=800 where id='${account}'`);
+ await db.exec(`select reverse_wallet_financial_operation_v4('${key}','${reversal}','Estorno combinado')`);
+ assert.deepEqual(await balances(),{original:1000,profit:300,target:400,account:200,profile:0});
 });

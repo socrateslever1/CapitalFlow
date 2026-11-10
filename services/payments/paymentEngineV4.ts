@@ -34,6 +34,7 @@ export type FinancialOperationInput = {
   reason?: string | null;
   expectedPreview?: FinancialOperationResult | null;
   receiptDestinationAccountId?: string | null;
+  receiptDestinationSourceId?: string | null;
 };
 
 export type FinancialOperationResult = {
@@ -103,6 +104,8 @@ function requestSignature(input: FinancialOperationInput) {
     input.forgivenessMode || 'NONE',
     normalizeMoney(input.requestedLateFeeForgiven).toFixed(2),
     input.manualDueDate || '',
+    input.receiptDestinationAccountId || '',
+    input.receiptDestinationSourceId || '',
   ].join(':');
 }
 
@@ -209,14 +212,15 @@ export async function executeFinancialOperation(
 
   const { idempotencyKey, storageKey } = getStableFinancialRequestKey(signature);
   const request = (async () => {
-    if (input.receiptDestinationAccountId) {
+    if (input.receiptDestinationAccountId || input.receiptDestinationSourceId) {
       const { error: destinationError } = await supabase.rpc('personal_wallet_set_receipt_destination', {
         p_idempotency_key: idempotencyKey,
         p_loan_id: loanId,
         p_account_id: safeUUID(input.receiptDestinationAccountId),
+        p_destination_source_id: safeUUID(input.receiptDestinationSourceId),
       });
       if (destinationError) {
-        throw new Error('Não foi possível confirmar a conta de destino da Carteira: ' + destinationError.message);
+        throw new Error('Não foi possível confirmar o destino do recebimento: ' + destinationError.message);
       }
     }
     const { data, error } = await supabase.rpc(isRecurringReceiptOperation(input.operationType) ? 'process_recurring_receipt_v4' : 'process_financial_operation_v4', {

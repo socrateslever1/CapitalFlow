@@ -9,6 +9,7 @@ import type { PersonalWalletCard, WalletCardInvoiceFacts } from '../../../servic
 import type { CardInvoiceSummary } from '../../../utils/cardInvoiceSummary';
 import { CardInvoiceSummaryPreview } from '../../../components/wallet/CardInvoiceSummaryPreview';
 import { personalWalletService } from '../../../services/personalWallet.service';
+import { walletRepository } from '../services/walletRepository';
 import { CardRegistrationAttempt } from '../domain/cardRegistration';
 import { BankStack } from '../../../components/wallet/BankStack';
 import { CardInvoiceStatement } from '../../../components/wallet/CardInvoiceStatement';
@@ -107,7 +108,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     if (!cardId) { setInvoiceFacts([]); return; }
     let active = true;
     setInvoiceFactsError('');
-    personalWalletService.loadCardInvoiceFacts(cardId).then(items => {
+    walletRepository.loadCardInvoiceFacts(cardId).then(items => {
       if (active) setInvoiceFacts(items);
     }).catch(error => {
       if (active) {setInvoiceFacts([]);setInvoiceFactsError(error instanceof Error ? error.message : 'Não foi possível consultar os dados bancários.');}
@@ -116,7 +117,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   }, [selected?.id]);
   const refreshInvoiceFacts = async () => {
     if (!selected) return;
-    setInvoiceFacts(await personalWalletService.loadCardInvoiceFacts(selected.id));
+    setInvoiceFacts(await walletRepository.loadCardInvoiceFacts(selected.id));
     setInvoiceFactsError('');
   };
   const importedStatementRows = selected

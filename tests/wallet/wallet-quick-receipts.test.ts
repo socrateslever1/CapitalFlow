@@ -98,7 +98,10 @@ test('contract receipts provide an optional destination without changing the def
   assert.match(modal,/Conta que recebeu o pagamento/);
   assert.match(modal,/Padrão · devolver às fontes originais/);
   assert.match(modal,/Conta que recebeu o pagamento \(opcional\)/);
+  assert.match(modal,/Fonte de destino para recebimento \(opcional\)/);
+  assert.match(modal,/Padrão · retorno às fontes originais/);
   assert.doesNotMatch(modal,/select required value=\{receiptDestinationAccountId\}/);
+  assert.doesNotMatch(modal,/select required value=\{receiptDestinationSourceId\}/);
   assert.match(modal,/walletAccounts\.map\(account/);
   assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
   assert.match(modal,/isWalletReceiptAdmin/);
@@ -107,8 +110,10 @@ test('contract receipts provide an optional destination without changing the def
   assert.match(modal,/formatMoney\(payableTotal\)/);
   assert.match(modal,/const \{ activeUser: modalActiveUser, sources: modalSources \} = useModal\(\)/);
   assert.match(controller,/receiptDestinationAccountId/);
+  assert.match(controller,/receiptDestinationSourceId/);
   assert.match(payments,/personal_wallet_set_receipt_destination/);
   assert.match(engine,/p_idempotency_key: idempotencyKey/);
+  assert.match(engine,/p_destination_source_id:/);
   assert.match(migration,/wallet_apply_receipt_destination/);
   const routed=readFileSync('supabase/migrations/20261110210000_optional_wallet_receipt_withdrawal_routing.sql','utf8');
   assert.match(routed,/wallet_route_receipt_internal/);

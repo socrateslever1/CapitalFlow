@@ -413,7 +413,7 @@ export const personalWalletService = {
 
   async load() {
     const walletReset = await getActiveWalletReset();
-    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources] = await Promise.all([
+    const [accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, payables, payablePayments, payablePaymentSources, recurringIncomes, recurringReceipts, recurringObligations, capitalSources, cardInvoiceFacts] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_cards').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_expenses').select('*').order('expense_date', { ascending: false }).order('id').range(from, to)),
@@ -430,6 +430,7 @@ export const personalWalletService = {
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_receipts').select('id,income_id,reference_month,operation_id').order('reference_month', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_recurring_obligations').select('*').order('created_at', { ascending: false }).order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type,logo_url').is('archived_at', null).order('name', { ascending: true }).order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_card_invoice_facts').select('*').order('due_month', { ascending: false }).order('card_id').range(from, to)),
     ]);
     // Paginated reads fail by throwing; no partial snapshot is returned.
     const loadedExpenses = filterCurrentWalletRows((expenses.data || []) as PersonalWalletExpense[], walletReset, 'expenses');
@@ -488,6 +489,8 @@ export const personalWalletService = {
       recurringReceipts: filterCurrentWalletRows((recurringReceipts.data || []) as WalletRecurringReceipt[], walletReset, 'recurringReceipts'),
       recurringObligations: filterCurrentWalletRows((recurringObligations.data || []) as WalletRecurringObligation[], walletReset, 'recurringObligations'),
       capitalSources: (capitalSources.data || []) as CapitalSource[],
+      cardInvoiceFacts: ((cardInvoiceFacts.data || []) as WalletCardInvoiceFacts[])
+        .filter(fact => cardsWithImages.some(card => card.id === fact.card_id)),
     };
   },
 

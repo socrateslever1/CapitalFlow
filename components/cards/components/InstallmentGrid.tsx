@@ -21,6 +21,7 @@ import { suggestRenewalDueDate } from '../../../services/payments/paymentRenewal
 import { platformAdminService } from '../../../services/platformAdmin.service';
 import { walletRepository } from '../../../features/wallet/services/walletRepository';
 import type { PersonalWalletAccount } from '../../../services/personalWallet.service';
+import { filterOperationalSources } from '../../../utils/testSource';
 
 interface InstallmentGridProps {
     loan: Loan;
@@ -64,6 +65,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     const [isSubmittingReceipt, setIsSubmittingReceipt] = React.useState(false);
     const [receiptError, setReceiptError] = React.useState<string | null>(null);
     const [receiptDestinationAccountId, setReceiptDestinationAccountId] = React.useState('');
+    const [receiptDestinationSourceId, setReceiptDestinationSourceId] = React.useState('');
     const [walletReceiptAccounts, setWalletReceiptAccounts] = React.useState<PersonalWalletAccount[]>([]);
     const [walletReceiptAllowed, setWalletReceiptAllowed] = React.useState(false);
     const [walletReceiptLoaded, setWalletReceiptLoaded] = React.useState(false);
@@ -82,8 +84,15 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
     }, [selectedInst?.id, receiptAmount, paymentDateStr, quickMode, lateFeeForgiven, businessAction, receiptDestinationAccountId]);
 
     React.useEffect(() => {
+        setReviewPreview(null);
+        setIsReviewReady(false);
+        setReceiptError(null);
+    }, [receiptDestinationSourceId]);
+
+    React.useEffect(() => {
         let mounted = true;
         setReceiptDestinationAccountId('');
+        setReceiptDestinationSourceId('');
         setWalletReceiptAccounts([]);
         setWalletReceiptAllowed(false);
         setWalletReceiptLoaded(false);
@@ -225,7 +234,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                     setIsReviewReady(false);
                     setReceiptError(null);
                     setReceiptDestinationAccountId('');
+                    setReceiptDestinationSourceId('');
                 };
+                const destinationSources = filterOperationalSources(props.sources || []).filter(
+                    (source: any) => !source.archived_at && !source.archivedAt
+                );
                 const instNumber = selectedInst.number ?? 1;
                 const dueDateFormatted = formatBRDate(selectedInst.dueDate);
 
@@ -601,6 +614,33 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                 <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-[10px] font-bold text-emerald-300">O saldo da condição continuará reservado até a data combinada, sem renovação de juros nem nova negociação.</p>
                             )}
 
+                            {destinationSources.length > 0 && (
+                                <section className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-3.5">
+                                    <label htmlFor="installment-receipt-source-destination" className="mb-2 block text-sm font-semibold text-slate-100">
+                                        Fonte de destino para recebimento (opcional)
+                                    </label>
+                                    <select
+                                        id="installment-receipt-source-destination"
+                                        value={receiptDestinationSourceId}
+                                        onChange={event => setReceiptDestinationSourceId(event.target.value)}
+                                        aria-describedby="installment-receipt-source-help"
+                                        disabled={isSubmittingReceipt || isPreparingReview}
+                                        className="min-h-12 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60"
+                                    >
+                                        <option value="">Padrão · retorno às fontes originais</option>
+                                        {destinationSources.map(source => (
+                                            <option key={source.id} value={source.id}>
+                                                Reinvestir em: {source.name} · {formatMoney(source.balance, isStealthMode)}
+                                                {source.id === loan.sourceId ? ' (fonte do contrato)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p id="installment-receipt-source-help" className="mt-2 text-xs leading-relaxed text-slate-300">
+                                        Sem escolha, mantém o padrão. Ao escolher uma fonte, Capital + Lucro/Encargos entram nela para reinvestimento, com auditoria separada.
+                                    </p>
+                                </section>
+                            )}
+
                             {walletReceiptAllowed && (
                                 <section className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-3.5">
                                     <label htmlFor="installment-receipt-wallet-destination" className="mb-2 block text-sm font-semibold text-slate-100">
@@ -646,13 +686,22 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         <p className="mt-1 text-sm font-semibold text-white">
                                             {receiptDestinationAccountId
                                                 ? walletReceiptAccounts.find(account => account.id === receiptDestinationAccountId)?.nickname || 'Conta indisponível'
-                                                : 'Padrão · fontes originais'}
+                                                : receiptDestinationSourceId
+                                                    ? destinationSources.find(source => source.id === receiptDestinationSourceId)?.name || 'Fonte indisponível'
+                                                    : 'Padrão · fontes originais'}
                                         </p>
                                         <p className="mt-1 text-xs text-slate-300">
                                             {receiptDestinationAccountId
                                                 ? `Valor integral na conta: ${formatMoney(reviewPreview?.amount_received ?? displayedAmount, isStealthMode)}`
-                                                : 'Capital e lucros seguem o destino contábil habitual.'}
+                                                : receiptDestinationSourceId
+                                                    ? `Capital + Lucro para reinvestimento: ${formatMoney(reviewPreview?.amount_received ?? displayedAmount, isStealthMode)}`
+                                                    : 'Capital e lucros seguem o destino contábil habitual.'}
                                         </p>
+                                        {receiptDestinationAccountId && receiptDestinationSourceId && (
+                                            <p className="mt-1 text-xs text-blue-300">
+                                                Fonte de reinvestimento: {destinationSources.find(source => source.id === receiptDestinationSourceId)?.name || 'Fonte selecionada'}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="mt-3 grid grid-cols-2 gap-2">
                                         <div className="rounded-lg bg-slate-950/70 p-2.5">
@@ -728,6 +777,17 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         setReceiptError('A conta selecionada está indisponível. Escolha uma conta ativa ou mantenha o recebimento padrão.');
                                         return;
                                     }
+                                    const chosenWalletAccount = receiptDestinationAccountId
+                                        ? walletReceiptAccounts.find(account => account.id === receiptDestinationAccountId)
+                                        : null;
+                                    if (receiptDestinationSourceId && chosenWalletAccount?.capital_source_id && chosenWalletAccount.capital_source_id !== receiptDestinationSourceId) {
+                                        setReceiptError('A conta da Carteira escolhida está vinculada a outra fonte de capital. Desmarque a conta ou escolha a fonte correspondente.');
+                                        return;
+                                    }
+                                    if (receiptDestinationSourceId && !destinationSources.some(source => source.id === receiptDestinationSourceId)) {
+                                        setReceiptError('A fonte selecionada está indisponível. Escolha outra ou mantenha o recebimento padrão.');
+                                        return;
+                                    }
                                     const finalDecision = quickMode === 'PRINCIPAL_REDUCTION'
                                         ? resolveReceiptDecision({
                                             amountReceived: amount,
@@ -798,6 +858,7 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                         expectedPreview: reviewPreview || undefined,
                                         receiptDestinationAccountId: walletReceiptAllowed
                                             ? receiptDestinationAccountId || null : null,
+                                        receiptDestinationSourceId: receiptDestinationSourceId || null,
                                     };
                                     setIsSubmittingReceipt(true);
                                     try {

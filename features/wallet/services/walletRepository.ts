@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { personalWalletService } from '../../../services/personalWallet.service';
+import { personalWalletService, type WalletCardInvoiceFacts } from '../../../services/personalWallet.service';
 
 import {
   deriveOverviewFromSnapshot,
@@ -178,6 +178,62 @@ export const walletRepository = {
         throw error;
       }
     }, options.force === true);
+  },
+  async loadCardInvoiceFacts(cardId: string): Promise<WalletCardInvoiceFacts[]> {
+    if (!cardId) return [];
+    let userId: string | null = null;
+    try {
+      userId = await resolveSessionUserId();
+    } catch {
+      userId = null;
+    }
+
+    const readCachedCardFacts = async (): Promise<WalletCardInvoiceFacts[] | null> => {
+      if (!userId) return null;
+      const fullSnapshot = snapshotCache.peek(userId) || await loadWalletOfflineFull(userId);
+      if (fullSnapshot?.cardInvoiceFacts) {
+        return fullSnapshot.cardInvoiceFacts
+          .filter(fact => fact.card_id === cardId)
+          .sort((a, b) => String(b.due_month).localeCompare(String(a.due_month)))
+          .slice(0, 24);
+      }
+      return null;
+    };
+
+    if (isBrowserOffline()) {
+      return (await readCachedCardFacts()) || [];
+    }
+
+    try {
+      const facts = await personalWalletService.loadCardInvoiceFacts(cardId);
+      if (userId) {
+        const cachedFull = snapshotCache.peek(userId) || await loadWalletOfflineFull(userId);
+        if (cachedFull) {
+          const otherCardFacts = (cachedFull.cardInvoiceFacts || []).filter(fact => fact.card_id !== cardId);
+          const updatedSnapshot: WalletSnapshot = {
+            ...cachedFull,
+            cardInvoiceFacts: [...facts, ...otherCardFacts],
+          };
+          if (snapshotCache.peek(userId)) snapshotCache.prime(userId, updatedSnapshot);
+          await saveWalletOfflineFull(userId, updatedSnapshot);
+        }
+      }
+      return facts;
+    } catch (error) {
+      if (isNetworkFailure(error)) {
+        const offlineFacts = await readCachedCardFacts();
+        if (offlineFacts) return offlineFacts;
+      }
+      throw error;
+    }
+  },
+  async prefetchAccess(): Promise<void> {
+    try {
+      const userId = await resolveSessionUserId();
+      await this.getAccess(userId);
+    } catch {
+      /* Pré-aquecimento silencioso para habilitar abertura offline no primeiro acesso */
+    }
   },
   async getAccess(userId: string) {
     const cachedMemory = accessCache.get(userId);

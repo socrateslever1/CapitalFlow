@@ -9,6 +9,8 @@ test('quick receipt offers optional destination and confirms actual account befo
   assert.match(grid, /platformAdminService\.isSuperAdmin\(\)/);
   assert.match(grid, /walletRepository\.loadOverview\(\)/);
   assert.match(grid, /Conta que recebeu o pagamento \(opcional\)/);
+  assert.match(grid, /Fonte de destino para recebimento \(opcional\)/);
+  assert.match(grid, /Padrão · retorno às fontes originais/);
   assert.match(grid, /Padrão · devolver às fontes originais/);
   assert.match(grid, /receiptDestinationAccountId: walletReceiptAllowed/);
   assert.match(grid, /walletReceiptAccounts\.some\(account => account\.id === receiptDestinationAccountId\)/);
@@ -24,9 +26,13 @@ test('payment destination propagates unchanged through typed quick-payment contr
   const service = read('services/payments.service.ts');
   const engine = read('services/payments/paymentEngineV4.ts');
   assert.match(model, /receiptDestinationAccountId\?: string \| null/);
+  assert.match(model, /receiptDestinationSourceId\?: string \| null/);
   assert.match(dashboard, /receiptDestinationAccountId: options\?\.receiptDestinationAccountId \|\| null/);
+  assert.match(dashboard, /receiptDestinationSourceId: options\?\.receiptDestinationSourceId \|\| null/);
   assert.match(service, /receiptDestinationAccountId,/);
+  assert.match(service, /receiptDestinationSourceId,/);
   assert.match(engine, /personal_wallet_set_receipt_destination/);
+  assert.match(engine, /p_destination_source_id/);
   assert.match(dashboard, /capitalflow:wallet-updated/);
 });
 

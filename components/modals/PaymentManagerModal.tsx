@@ -16,6 +16,7 @@ import { InstallmentPixCopyBox } from './payment/InstallmentPixCopyBox';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { walletRepository } from '../../features/wallet/services/walletRepository';
 import { platformAdminService } from '../../services/platformAdmin.service';
+import { filterOperationalSources } from '../../utils/testSource';
 
 interface PaymentManagerModalProps {
     data: {loan: Loan, inst: Installment, calculations: any} | null;
@@ -37,7 +38,8 @@ interface PaymentManagerModalProps {
         lateFeeForgiven?: number,
         paymentMethod?: FinancialPaymentMethod,
         expectedPreview?: FinancialOperationResult,
-        receiptDestinationAccountId?: string | null
+        receiptDestinationAccountId?: string | null,
+        receiptDestinationSourceId?: string | null
     ) => void;
     onOpenMessage: (loan: Loan) => void;
 }
@@ -65,6 +67,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const [walletAccountsLoaded, setWalletAccountsLoaded] = useState(false);
     const [isWalletReceiptAdmin, setIsWalletReceiptAdmin] = useState(false);
     const [receiptDestinationAccountId, setReceiptDestinationAccountId] = useState('');
+    const [receiptDestinationSourceId, setReceiptDestinationSourceId] = useState('');
     const [walletAccountLoadError, setWalletAccountLoadError] = useState('');
     const [businessAction, setBusinessAction] = useState<ReceiptBusinessAction>('CAPITALIZE_REMAINDER');
     const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
@@ -81,12 +84,13 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     useEffect(() => {
         setBackendPreview(null);
         setPreviewError('');
-    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, lateFeeForgiven, paymentMethod, businessAction, receiptDestinationAccountId]);
+    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, lateFeeForgiven, paymentMethod, businessAction, receiptDestinationAccountId, receiptDestinationSourceId]);
     useEffect(() => {
         let active = true;
         setWalletAccountsLoaded(false);
         setIsWalletReceiptAdmin(false);
         setReceiptDestinationAccountId('');
+        setReceiptDestinationSourceId('');
         setWalletAccountLoadError('');
         if (!data?.loan?.id) return () => { active = false; };
         void platformAdminService.isSuperAdmin()
@@ -132,6 +136,9 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const { loan, calculations } = data;
     const isCapitalOnlyRecovery = isCapitalOnlyRecoveryLoan(loan);
     const currentSource = modalSources.find((s: any) => s.id === loan.sourceId) || null;
+    const destinationSources = filterOperationalSources(modalSources || []).filter(
+        (source: any) => !source.archived_at && !source.archivedAt
+    );
 
     const safeParse = (val: string) => parseCurrency(val);
 
@@ -175,6 +182,17 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             setPreviewError('Conta indisponível. Escolha outra ou mantenha o recebimento padrão.');
             return;
         }
+        const chosenWalletAccount = receiptDestinationAccountId
+            ? walletAccounts.find(account => account.id === receiptDestinationAccountId)
+            : null;
+        if (receiptDestinationSourceId && chosenWalletAccount?.capital_source_id && chosenWalletAccount.capital_source_id !== receiptDestinationSourceId) {
+            setPreviewError('Esta conta da Carteira está vinculada a outra fonte de capital. Desmarque a conta ou escolha a fonte correspondente.');
+            return;
+        }
+        if (receiptDestinationSourceId && !destinationSources.some(source => source.id === receiptDestinationSourceId)) {
+            setPreviewError('Fonte de destino indisponível. Escolha outra ou mantenha o recebimento padrão.');
+            return;
+        }
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
         if (!backendPreview) {
             setIsPreviewing(true);
@@ -202,7 +220,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             }
             return;
         }
-        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview, isWalletReceiptAdmin ? (receiptDestinationAccountId || null) : null);
+        onConfirm(effectiveForgivenessMode, effectiveManualDate, val, realPaymentDate, effectiveOperation, undefined, undefined, undefined, lateFeeForgiven, paymentMethod, backendPreview, isWalletReceiptAdmin ? (receiptDestinationAccountId || null) : null, receiptDestinationSourceId || null);
     };
 
     const toggleInterestAutoFill = () => {
@@ -284,6 +302,21 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                         <option value="PIX">PIX</option><option value="CASH">Dinheiro</option><option value="BANK_TRANSFER">Transferência</option><option value="CREDIT_CARD">Cartão</option><option value="BOLETO">Boleto</option><option value="OTHER">Outro</option>
                                     </select>
                                 </div>
+
+                                {destinationSources.length > 0 && (
+                                    <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
+                                        <label htmlFor="receipt-destination-source" className="mb-2 block text-sm font-semibold text-slate-100">Fonte de destino para recebimento (opcional)</label>
+                                        <select id="receipt-destination-source" value={receiptDestinationSourceId}
+                                            onChange={event => setReceiptDestinationSourceId(event.target.value)}
+                                            disabled={isProcessing}
+                                            aria-describedby="receipt-source-help"
+                                            className="min-h-12 w-full rounded-xl border border-slate-600 bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-60">
+                                            <option value="">Padrão · retorno às fontes originais</option>
+                                            {destinationSources.map(source => <option key={source.id} value={source.id}>Reinvestir em: {source.name} · {formatMoney(source.balance)}{source.id === loan.sourceId ? ' (fonte do contrato)' : ''}</option>)}
+                                        </select>
+                                        <p id="receipt-source-help" className="mt-2 text-xs leading-relaxed text-slate-300">Sem escolha, mantém o padrão (capital na fonte do contrato e lucro separado). Ao escolher uma fonte, Capital + Lucro/Encargos vão juntos para reinvestimento, preservando a auditoria separada.</p>
+                                    </div>
+                                )}
 
                                 {isWalletReceiptAdmin && (
                                     <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">

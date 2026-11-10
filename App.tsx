@@ -266,7 +266,10 @@ useEffect(() => {
     // becomes usable. The canonical repository keeps it in memory only
     // (25-second TTL, invalidated on updates and realtime notifications).
     void import('./features/wallet/services/walletRepository')
-      .then(({ walletRepository }) => walletRepository.loadOverview())
+      .then(({ walletRepository }) => {
+        void walletRepository.prefetchAccess().catch(() => undefined);
+        return walletRepository.loadOverview();
+      })
       .catch(() => undefined);
   };
   const timer = window.setTimeout(preload, 2500);

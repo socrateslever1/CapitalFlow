@@ -63,8 +63,15 @@ function txComplete(tx: IDBTransaction): Promise<void> {
 
 export function deriveOverviewFromSnapshot(
   full: WalletSnapshot,
-  cardInvoiceDates: WalletOverviewSnapshot['cardInvoiceDates'] = [],
+  cardInvoiceDates?: WalletOverviewSnapshot['cardInvoiceDates'],
 ): WalletOverviewSnapshot {
+  const resolvedDates = cardInvoiceDates && cardInvoiceDates.length > 0
+    ? cardInvoiceDates
+    : (full.cardInvoiceFacts || []).map(fact => ({
+        card_id: fact.card_id,
+        due_month: fact.due_month,
+        due_date: fact.due_date ?? null,
+      }));
   return {
     accounts: full.accounts,
     cards: full.cards,
@@ -74,7 +81,7 @@ export function deriveOverviewFromSnapshot(
     payables: full.payables,
     recurringIncomes: full.recurringIncomes,
     recurringReceipts: full.recurringReceipts,
-    cardInvoiceDates,
+    cardInvoiceDates: resolvedDates,
   };
 }
 
@@ -85,7 +92,7 @@ export async function saveWalletOfflineFull(
   const existing = await readSnapshotRecord(userId);
   const overviewSnapshot = deriveOverviewFromSnapshot(
     fullSnapshot,
-    existing?.overviewSnapshot?.cardInvoiceDates || [],
+    fullSnapshot.cardInvoiceFacts?.length ? undefined : (existing?.overviewSnapshot?.cardInvoiceDates || []),
   );
   if (!hasIndexedDb() || !userId) return overviewSnapshot;
   try {

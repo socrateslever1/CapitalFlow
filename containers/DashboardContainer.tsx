@@ -47,6 +47,7 @@ type InstallmentPaymentOptions = {
   paymentDate?: Date;
   manualDate?: Date | null;
   expectedPreview?: FinancialOperationResult;
+  receiptDestinationAccountId?: string | null;
 };
 
 export const DashboardContainer: React.FC<DashboardContainerProps> = ({

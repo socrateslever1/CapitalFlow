@@ -151,6 +151,12 @@ export const mapFormToLoan = (
       fundingCost = fundingTotalPayable - principal;
     }
   }
+  if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingPaymentMethod === 'CREDIT_CARD' &&
+      fundingCalculationMode === 'TOTAL' && !String(form.fundingTotalPayable ?? '').trim()) {
+    // Sem custo cobrado pela operadora: a obrigação da origem é o principal.
+    fundingTotalPayable = principal;
+    fundingCost = 0;
+  }
   if (form.billingCycle === 'INSTALLMENT_FIXED' && fundingCalculationMode === 'RATE' && fundingInstallmentsCount > 0) {
     fundingTotalPayable = calculateFundingTotalFromRate(principal, fundingMonthlyRate, fundingInstallmentsCount);
     fundingCost = Math.max(0, fundingTotalPayable - principal);
@@ -241,9 +247,9 @@ export const mapFormToLoan = (
 
     // Mapeamento de Funding
     fundingTotalPayable: initialData ? initialData.fundingTotalPayable : fundingTotalPayable || undefined,
-    fundingCost: initialData ? initialData.fundingCost : fundingCost || undefined,
+    fundingCost: initialData ? initialData.fundingCost : fundingTotalPayable > 0 ? fundingCost : undefined,
     fundingProvider: initialData ? initialData.fundingProvider : form.fundingProvider || undefined,
-    fundingFeePercent: initialData ? initialData.fundingFeePercent : parseCurrency(form.fundingFeePercent || '') || undefined,
+    fundingFeePercent: initialData ? initialData.fundingFeePercent : String(form.fundingFeePercent ?? '').trim() !== '' ? parseCurrency(form.fundingFeePercent || '') : undefined,
     fundingCalculationMode,
     fundingInstallmentsCount: initialData ? initialData.fundingInstallmentsCount : fundingInstallmentsCount || undefined,
     fundingMonthlyRate: initialData ? initialData.fundingMonthlyRate : fundingMonthlyRate || undefined,

@@ -432,7 +432,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 </div>
                 <p className="text-[9px] leading-relaxed text-slate-500">
                   {fundingPaymentMethod === 'CREDIT_CARD'
-                    ? 'Registre abaixo o custo e as parcelas cobradas pelo cartão.'
+                    ? 'Se o cartão não cobrar juros, deixe a taxa ou o total em branco. A quantidade de parcelas continua obrigatória.'
                     : 'O capital será debitado da conta selecionada, sem custo de captação adicional.'}
                 </p>
             </div>
@@ -578,7 +578,6 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                       totalPayable={String(formData.fundingTotalPayable ?? '')}
                       feePercent={String(formData.fundingFeePercent ?? '')}
                       customerRate={String(formData.interestRate ?? '')}
-                      required={!isEditing && selectedSource?.type === 'CARD'}
                       disabled={isEditing || principalValue <= 0}
                       onAdjustCustomerRate={(nextRate) => setFormData((current: any) => ({
                         ...current,

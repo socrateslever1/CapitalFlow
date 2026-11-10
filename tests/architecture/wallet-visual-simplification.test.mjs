@@ -23,7 +23,9 @@ test('internal navigation remains functional and visually restrained for five se
   assert(moduleSource.includes("WALLET_ROUTES.filter(item => item.key !== 'cobranca')"));
   assert(moduleSource.includes('aria-current={active'));
   assert(moduleSource.includes('onClick={() => go(item.key)}'));
-  assert(moduleSource.includes('border-b-2'));
+  assert(moduleSource.includes('ring-1 ring-inset ring-blue-500/50'));
+  assert(moduleSource.includes('min-h-14'));
+  assert(moduleSource.includes('whitespace-nowrap'));
   assert(!moduleSource.includes("bg-blue-600 text-white font-semibold"));
   assert(!moduleSource.includes('overflow-x-auto'));
   assert(moduleSource.includes('sm:hidden'));

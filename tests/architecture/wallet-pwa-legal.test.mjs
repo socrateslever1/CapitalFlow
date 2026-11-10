@@ -14,6 +14,10 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
   const all = JSON.parse(read('dist/app-precache.json'));
   const wallet = JSON.parse(read('dist/wallet-precache.json'));
   assert.equal(all.version, wallet.version);
+  assert.ok(all.assets.includes('/brand/capitalflow-app-icon.svg'),
+    'the PWA must download public brand assets on first launch');
+  assert.ok(all.assets.includes('/images/infinitepay.png'),
+    'the PWA must include the static images shipped with the application');
   assert.ok(all.assets.length >= wallet.assets.length, 'the full app must contain every wallet chunk');
   for (const asset of wallet.assets) {
     assert.ok(all.assets.includes(asset), 'wallet file missing from full app: ' + asset);

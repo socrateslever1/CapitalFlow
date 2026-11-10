@@ -35,6 +35,8 @@ const extractAssetUrls = (html) => {
 // para o navegador/PWA. Dados bancários, sessões e APIs nunca são pré-cacheados.
 const isImmutableBundleAsset = (pathname) =>
   /^\/assets\/[^/?]+-[A-Za-z0-9_-]{8,}\.(?:js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(pathname);
+const isAllowedStaticAsset = (pathname) => isImmutableBundleAsset(pathname) ||
+  /^\/(?:brand|brand-assets|images|assets\/aistudio)\/[A-Za-z0-9/_-]+\.(?:png|jpe?g|webp|svg|woff2?)$/i.test(pathname);
 
 // The first render must never wait for the whole frontend download. A single
 // in-flight job handles repeated focus/online messages without duplicate work.
@@ -50,7 +52,7 @@ const cacheAllApplicationAssets = () => {
       throw new Error('Invalid application asset manifest');
     }
     const assets = [...new Set(manifest.assets.filter(path =>
-      typeof path === 'string' && isImmutableBundleAsset(path)
+      typeof path === 'string' && isAllowedStaticAsset(path)
     ))];
     const cache = await caches.open(CACHE_NAME);
     let failed = 0;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'capitalflow-v13-user-approved-updates';
+const CACHE_NAME = 'capitalflow-v14-wallet-immutable-precache';
 const APP_SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png', '/brand/capitalflow-mark-dark.svg', '/brand/capitalflow-loader.svg'];
 
 const isCacheableAsset = (href) => {
@@ -30,6 +30,31 @@ const extractAssetUrls = (html) => {
   return Array.from(urls);
 };
 
+
+// O app instalado em um APK usa seus arquivos locais. Este cache é apenas
+// para o navegador/PWA. Dados bancários, sessões e APIs nunca são pré-cacheados.
+const isImmutableBundleAsset = (pathname) =>
+  /^\/assets\/[^/?]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/i.test(pathname);
+
+const cacheWalletStaticAssets = async () => {
+  const response = await fetch('/wallet-precache.json', { cache: 'no-store' });
+  if (!response.ok) return;
+  const manifest = await response.json();
+  if (!manifest || !Array.isArray(manifest.assets)) return;
+  const assets = manifest.assets.filter(path =>
+    typeof path === 'string' && isImmutableBundleAsset(path)
+  );
+  const cache = await caches.open(CACHE_NAME);
+  // Limitar concorrência: não disputar conexões com o carregamento inicial.
+  for (let offset = 0; offset < assets.length; offset += 4) {
+    await Promise.allSettled(assets.slice(offset, offset + 4).map(async path => {
+      if (await cache.match(path)) return;
+      const assetResponse = await fetch(path);
+      if (assetResponse.ok) await cache.put(path, assetResponse);
+    }));
+  }
+};
+
 const cacheAppShell = async () => {
   const cache = await caches.open(CACHE_NAME);
   await cache.addAll(APP_SHELL);
@@ -41,6 +66,7 @@ const cacheAppShell = async () => {
   const html = await indexResponse.text();
   const assetUrls = extractAssetUrls(html);
   await Promise.allSettled(assetUrls.map((url) => cache.add(url)));
+  await cacheWalletStaticAssets().catch(() => undefined);
 };
 
 self.addEventListener('install', (event) => {
@@ -97,6 +123,23 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (!isSameOrigin) return;
+
+  // Hashes fingerprint each release: cache-first is safe only for immutable
+  // chunks. Unversioned HTML, version.json and financial requests stay fresh.
+  if (isImmutableBundleAsset(url.pathname)) {
+    event.respondWith(
+      caches.match(request).then(async cached => {
+        if (cached) return cached;
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      })
+    );
+    return;
+  }
 
   event.respondWith(
     fetch(request, { cache: 'no-store' })
@@ -167,5 +210,7 @@ self.addEventListener('notificationclick', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (event.data?.type === 'CACHE_WALLET_ASSETS') {
+    event.waitUntil(cacheWalletStaticAssets().catch(() => undefined));
   }
 });

@@ -144,6 +144,10 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
 
       // Keep new service workers waiting until the user chooses "Atualizar página".
       await registration.update().catch(() => undefined);
+      // O SW pode não mudar entre dois builds. Revalidar o manifesto de
+      // chunks da Carteira no worker ativo sem usar dados pessoais ou saldo.
+      const prefetchWalletAssets = () => registration.active?.postMessage({ type: 'CACHE_WALLET_ASSETS' });
+      prefetchWalletAssets();
 
       const checkForUpdate = () => {
         if (document.visibilityState !== 'visible') return;

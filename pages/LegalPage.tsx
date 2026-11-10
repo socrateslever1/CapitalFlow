@@ -1,12 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Scale, CheckCircle2, History, TrendingUp, HandCoins, FileText, Scroll, MessageCircle, ShieldCheck, Printer, User, Edit3, UserX, Clock, PlusCircle, Bell, AlertCircle, Trash2, Download } from 'lucide-react';
+import { Scale, FileText, Scroll, Printer, User, Edit3, Bell, Trash2, MessageCircle, ShieldCheck } from 'lucide-react';
 import { Loan, CapitalSource, UserProfile, Agreement, AgreementInstallment, LedgerEntry } from '../types';
-import { loanEngine } from '../domain/loanEngine';
 import { supabase } from '../lib/supabase';
 import { legalDocumentService } from '../services/legalDocument.service';
-import { LoanCard } from '../components/cards/LoanCard';
-import { StatCard } from '../components/StatCard';
-import { formatMoney } from '../utils/formatters';
 import { PageHeader } from '../components/ui/PageHeader';
 
 // Importação das vistas
@@ -36,14 +32,11 @@ interface LegalPageProps {
 }
 
 type LegalSubView = 'OVERVIEW' | 'CONFISSAO' | 'PROMISSORIA' | 'NOTIFICACAO' | 'QUITACAO' | 'PROFILE' | 'EDITOR';
-type LegalTab = 'ACTIVE' | 'DOCS' | 'WITHOUT_CONTRACT' | 'FINISHED';
 
 export const LegalPage: React.FC<LegalPageProps> = (props) => {
   const [subView, setSubView] = useState<LegalSubView>('OVERVIEW');
-  const [activeTab, setActiveTabState] = useState<LegalTab>('ACTIVE');
   const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
   const [legalDocs, setLegalDocs] = useState<any[]>([]);
-  const [allClients, setAllClients] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDocsAndClients = async () => {
@@ -54,17 +47,22 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
           .order('created_at', { ascending: false });
         if (docs) setLegalDocs(docs);
 
-        const { data: clientsData } = await supabase
-          .from('clientes')
-          .select('*');
-        if (clientsData) setAllClients(clientsData);
       } catch {
         // ignore
       }
     };
-    fetchDocsAndClients();
-    const interval = setInterval(fetchDocsAndClients, 3000);
-    return () => clearInterval(interval);
+    void fetchDocsAndClients();
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') void fetchDocsAndClients();
+    };
+    // Legal document status remains fresh without reloading every client and
+    // every loan every three seconds when a user is reading the legal tools.
+    const interval = window.setInterval(onFocus, 45_000);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, []);
 
   const pendingFeedbacks = useMemo(() => {
@@ -120,66 +118,6 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
     }
   }, [routedLegalLoanId]);
 
-  // Contratos Ativos / Em andamento (Exibe todos os contratos ativos e pré-contratos)
-  const activeLegalLoans = useMemo(() => {
-    return props.loans.filter(l => {
-      const st = String(l.status || '').toUpperCase();
-      const isFinished = st === 'PAID' || st === 'PAGO' || st === 'QUITADO' || st === 'ARQUIVADO' || st === 'ARCHIVED' || (l.activeAgreement as any)?.status === 'COMPLETED' || (l.activeAgreement as any)?.status === 'PAID';
-      return !isFinished;
-    });
-  }, [props.loans]);
-
-  // Clientes / Empréstimos Ativos SEM contrato gerado (Inclui todos os clientes cadastrados sem contrato)
-  const loansWithoutContract = useMemo(() => {
-    const fromLoans = props.loans.filter(l => {
-      const st = String(l.status || '').toUpperCase();
-      const isFinished = st === 'PAID' || st === 'PAGO' || st === 'QUITADO' || st === 'ARQUIVADO' || st === 'ARCHIVED';
-      const hasAgreement = !!l.activeAgreement;
-      return !isFinished && !hasAgreement;
-    });
-
-    const loanClientIds = new Set(props.loans.map(l => String(l.clientId || '')));
-    const loanClientDocs = new Set(props.loans.map(l => String(l.debtorDocument || '').replace(/\D/g, '')));
-
-    const virtualWithoutContract: Loan[] = [];
-    allClients.forEach(c => {
-      const cDoc = String(c.document || c.cpf || c.cpf_cnpj || '').replace(/\D/g, '');
-      if (!loanClientIds.has(String(c.id)) && (!cDoc || !loanClientDocs.has(cDoc))) {
-        virtualWithoutContract.push({
-          id: `virtual-client-${c.id}`,
-          clientId: c.id,
-          debtorName: c.name || c.full_name || c.nome || 'Cliente cadastrado',
-          debtorDocument: c.document || c.cpf || c.cpf_cnpj || '',
-          principal: 0,
-          status: 'PENDING' as any,
-          installments: [],
-          startDate: c.created_at || new Date().toISOString(),
-          notes: 'Cliente cadastrado no sistema (Sem contrato ativo)',
-          sourceId: '',
-        } as any);
-      }
-    });
-
-    return [...fromLoans, ...virtualWithoutContract];
-  }, [props.loans, allClients]);
-
-  // Contratos Finalizados / Arquivados
-  const finishedLegalLoans = useMemo(() => {
-    return props.loans.filter(l => {
-      const st = String(l.status || '').toUpperCase();
-      const isFinished = st === 'PAID' || st === 'PAGO' || st === 'QUITADO' || st === 'ARQUIVADO' || st === 'ARCHIVED' || (l.activeAgreement as any)?.status === 'COMPLETED' || (l.activeAgreement as any)?.status === 'PAID';
-      return isFinished;
-    });
-  }, [props.loans]);
-
-  // Estatísticas Rápidas do Setor
-  const totalAgreements = activeLegalLoans.length;
-  const totalNegotiatedValue = activeLegalLoans.reduce((acc, l) => acc + (l.activeAgreement?.negotiatedTotal || 0), 0);
-  const totalReceivedAgreement = activeLegalLoans.reduce((acc, l) => {
-      if (!l.activeAgreement) return acc;
-      return acc + l.activeAgreement.installments.reduce((sum, i) => sum + i.paidAmount, 0);
-  }, 0);
-
   const handleOpenEditor = (loanId: string) => {
     setEditingLoanId(loanId);
     setSubView('EDITOR');
@@ -220,37 +158,6 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                 </button>
             </div>}
         />
-
-        {/* KPI CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard
-                variant="compact"
-                title="Acordos Ativos"
-                value={totalAgreements.toString()}
-                rawValue={totalAgreements}
-                icon={<History size={20} />}
-                isStealthMode={props.isStealthMode}
-                indicatorColor="bg-indigo-500"
-            />
-            <StatCard
-                variant="compact"
-                title="Volume Negociado"
-                value={formatMoney(totalNegotiatedValue, props.isStealthMode)}
-                rawValue={totalNegotiatedValue}
-                icon={<TrendingUp size={20} />}
-                isStealthMode={props.isStealthMode}
-                indicatorColor="bg-amber-500"
-            />
-            <StatCard
-                variant="compact"
-                title="Recuperado (Acordos)"
-                value={formatMoney(totalReceivedAgreement, props.isStealthMode)}
-                rawValue={totalReceivedAgreement}
-                icon={<HandCoins size={20} />}
-                isStealthMode={props.isStealthMode}
-                indicatorColor="bg-emerald-500"
-            />
-        </div>
 
         {/* PAINEL DE NOTIFICAÇÕES DE SOLICITAÇÕES E RECUSAS DOS CLIENTES */}
         {pendingFeedbacks.length > 0 && (
@@ -378,108 +285,17 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
             </div>
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS DO SETOR JURÍDICO */}
         <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-2">
-                <button
-                    onClick={() => setActiveTabState('ACTIVE')}
-                    className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${
-                        activeTab === 'ACTIVE'
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30'
-                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                >
-                    <Clock size={15} /> Acordos Ativos & Pendentes ({activeLegalLoans.length})
-                </button>
-
-                <button
-                    onClick={() => setActiveTabState('DOCS')}
-                    className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${
-                        activeTab === 'DOCS'
-                            ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/30'
-                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                >
-                    <Scroll size={15} /> Documentos Jurídicos Emitidos ({currentLegalDocs.length})
-                </button>
-
-                <button
-                    onClick={() => setActiveTabState('WITHOUT_CONTRACT')}
-                    className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${
-                        activeTab === 'WITHOUT_CONTRACT'
-                            ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/30'
-                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                >
-                    <UserX size={15} /> Clientes sem Contrato ({loansWithoutContract.length})
-                </button>
-
-                <button
-                    onClick={() => setActiveTabState('FINISHED')}
-                    className={`px-4 py-2.5 rounded-lg text-xs font-black uppercase flex items-center gap-2 transition-all ${
-                        activeTab === 'FINISHED'
-                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
-                            : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                >
-                    <CheckCircle2 size={15} /> Finalizados & Arquivados ({finishedLegalLoans.length})
-                </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <Scroll size={17} className="text-indigo-300"/> Documentos jurídicos emitidos
+                </h3>
+                <span className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs font-medium text-slate-300">
+                    {currentLegalDocs.length} {currentLegalDocs.length === 1 ? 'documento' : 'documentos'}
+                </span>
             </div>
-
-            {/* ABA 1: ACORDOS ATIVOS & PENDENTES */}
-            {activeTab === 'ACTIVE' && (
-                <div>
-                    {activeLegalLoans.length === 0 ? (
-                        <div className="text-center py-16 bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-800">
-                            <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <Scale className="text-slate-500" size={28}/>
-                            </div>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Nenhum acordo ativo em andamento</p>
-                        </div>
-                    ) : (
-                        <div className="columns-1 md:columns-2 xl:columns-3 gap-4">
-                            {activeLegalLoans.map(loan => (
-                                <div key={loan.id} className="break-inside-avoid mb-4">
-                                    <LoanCard
-                                        loan={loan}
-                                        sources={props.sources}
-                                        activeUser={props.activeUser}
-                                        isExpanded={props.ui.selectedLoanId === loan.id}
-                                        onToggleExpand={() => props.ui.setSelectedLoanId(props.ui.selectedLoanId === loan.id ? null : loan.id)}
-                                        onEdit={(loan) => { props.ui.setEditingLoan(loan); props.ui.openModal('LOAN_FORM'); }}
-                                        onMessage={(loan) => { props.ui.setMessageModalLoan(loan); props.ui.openModal('MESSAGE_HUB'); }}
-                                        onArchive={(loan) => { props.loanCtrl.openConfirmation({ type: 'ARCHIVE', target: loan, showRefundOption: true }); }}
-                                        onRestore={(loan) => { props.loanCtrl.openConfirmation({ type: 'RESTORE', target: loan }); }}
-                                        onDelete={(loan) => { props.loanCtrl.openConfirmation({ type: 'DELETE', target: loan, showRefundOption: true }); }}
-                                        onNote={(loan) => { props.ui.setNoteModalLoan(loan); props.ui.setNoteText(loan.notes); props.ui.openModal('NOTE'); }}
-                                        onPortalLink={(loan) => { props.loanCtrl.handleGenerateLink(loan); }}
-                                        onUploadPromissoria={(loan) => { props.ui.setPromissoriaUploadLoanId(String(loan.id)); props.ui.promissoriaFileInputRef.current?.click(); }}
-                                        onUploadDoc={(loan) => { props.ui.setExtraDocUploadLoanId(String(loan.id)); props.ui.setExtraDocKind('CONFISSAO'); props.ui.extraDocFileInputRef.current?.click(); }}
-                                        onViewPromissoria={(url) => { window.open(url, '_blank', 'noreferrer'); }}
-                                        onViewDoc={(url) => { window.open(url, '_blank', 'noreferrer'); }}
-                                        onReviewSignal={props.onReviewSignal}
-                                        onOpenComprovante={props.fileCtrl.handleOpenComprovante}
-                                        onReverseTransaction={props.onReverseTransaction}
-                                        onRenegotiate={(loan) => {
-                                            props.ui.setRenegotiationModalLoans([loan]);
-                                            props.ui.openModal('RENEGOTIATION', loan);
-                                        }}
-                                        onActivate={props.loanCtrl.handleActivateLoan}
-                                        onAgreementPayment={props.onAgreementPayment}
-                                        onRefresh={props.onRefresh}
-                                        onNavigate={(id) => props.onNavigate?.(`/contrato/${id}`)}
-                                        onLegalDocument={props.onNavigate}
-                                        isStealthMode={props.isStealthMode}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* ABA: DOCUMENTOS JURÍDICOS EMITIDOS */}
-            {activeTab === 'DOCS' && (
+            <section aria-label="Documentos jurídicos emitidos">
                 <div>
                     {currentLegalDocs.length === 0 ? (
                         <div className="text-center py-16 bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-800">
@@ -556,102 +372,8 @@ export const LegalPage: React.FC<LegalPageProps> = (props) => {
                         </div>
                     )}
                 </div>
-            )}
+            </section>
 
-            {/* ABA 2: CLIENTES SEM CONTRATO */}
-            {activeTab === 'WITHOUT_CONTRACT' && (
-                <div>
-                    {loansWithoutContract.length === 0 ? (
-                        <div className="text-center py-16 bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-800">
-                            <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
-                            <p className="text-slate-300 text-xs font-bold uppercase tracking-widest">Todos os clientes ativos possuem contrato formalizado!</p>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {loansWithoutContract.map((loan) => (
-                                <div key={loan.id} className="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 hover:border-amber-500/40 transition-all shadow-lg">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                                Sem Contrato Registrado
-                                            </span>
-                                            <h4 className="text-white font-bold text-base mt-2">{loan.debtorName || 'Cliente sem nome'}</h4>
-                                            <p className="text-xs text-slate-400 mt-0.5">CPF/CNPJ: {loan.debtorDocument || 'Não informado'}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 flex items-center justify-between text-xs">
-                                        <span className="text-slate-400 font-medium">Valor Principal:</span>
-                                        <span className="text-white font-black">{formatMoney(loan.principal || (loan as any).amount || 0, props.isStealthMode)}</span>
-                                    </div>
-
-                                    <div className="pt-2 flex gap-2">
-                                        <button
-                                            onClick={() => {
-                                                setEditingLoanId(loan.id);
-                                                setSubView('CONFISSAO');
-                                            }}
-                                            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-amber-950/40 transition-all"
-                                        >
-                                            <PlusCircle size={16} /> Gerar Contrato / Confissão
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* ABA 3: CONTRATOS FINALIZADOS / ARQUIVADOS */}
-            {activeTab === 'FINISHED' && (
-                <div>
-                    {finishedLegalLoans.length === 0 ? (
-                        <div className="text-center py-16 bg-slate-900/50 rounded-xl border-2 border-dashed border-slate-800">
-                            <Clock size={32} className="mx-auto text-slate-600 mb-2" />
-                            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Nenhum contrato finalizado encontrado no histórico</p>
-                        </div>
-                    ) : (
-                        <div className="columns-1 md:columns-2 xl:columns-3 gap-4 opacity-80 hover:opacity-100 transition-opacity">
-                            {finishedLegalLoans.map(loan => (
-                                <div key={loan.id} className="break-inside-avoid mb-4">
-                                    <LoanCard
-                                        loan={loan}
-                                        sources={props.sources}
-                                        activeUser={props.activeUser}
-                                        isExpanded={props.ui.selectedLoanId === loan.id}
-                                        onToggleExpand={() => props.ui.setSelectedLoanId(props.ui.selectedLoanId === loan.id ? null : loan.id)}
-                                        onEdit={(loan) => { props.ui.setEditingLoan(loan); props.ui.openModal('LOAN_FORM'); }}
-                                        onMessage={(loan) => { props.ui.setMessageModalLoan(loan); props.ui.openModal('MESSAGE_HUB'); }}
-                                        onArchive={(loan) => { props.loanCtrl.openConfirmation({ type: 'ARCHIVE', target: loan, showRefundOption: true }); }}
-                                        onRestore={(loan) => { props.loanCtrl.openConfirmation({ type: 'RESTORE', target: loan }); }}
-                                        onDelete={(loan) => { props.loanCtrl.openConfirmation({ type: 'DELETE', target: loan, showRefundOption: true }); }}
-                                        onNote={(loan) => { props.ui.setNoteModalLoan(loan); props.ui.setNoteText(loan.notes); props.ui.openModal('NOTE'); }}
-                                        onPortalLink={(loan) => { props.loanCtrl.handleGenerateLink(loan); }}
-                                        onUploadPromissoria={(loan) => { props.ui.setPromissoriaUploadLoanId(String(loan.id)); props.ui.promissoriaFileInputRef.current?.click(); }}
-                                        onUploadDoc={(loan) => { props.ui.setExtraDocUploadLoanId(String(loan.id)); props.ui.setExtraDocKind('CONFISSAO'); props.ui.extraDocFileInputRef.current?.click(); }}
-                                        onViewPromissoria={(url) => { window.open(url, '_blank', 'noreferrer'); }}
-                                        onViewDoc={(url) => { window.open(url, '_blank', 'noreferrer'); }}
-                                        onReviewSignal={props.onReviewSignal}
-                                        onOpenComprovante={props.fileCtrl.handleOpenComprovante}
-                                        onReverseTransaction={props.onReverseTransaction}
-                                        onRenegotiate={(loan) => {
-                                            props.ui.setRenegotiationModalLoans([loan]);
-                                            props.ui.openModal('RENEGOTIATION', loan);
-                                        }}
-                                        onActivate={props.loanCtrl.handleActivateLoan}
-                                        onAgreementPayment={props.onAgreementPayment}
-                                        onRefresh={props.onRefresh}
-                                        onNavigate={(id) => props.onNavigate?.(`/contrato/${id}`)}
-                                        onLegalDocument={props.onNavigate}
-                                        isStealthMode={props.isStealthMode}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     </div>
   );

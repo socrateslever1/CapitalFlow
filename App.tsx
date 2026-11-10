@@ -252,6 +252,24 @@ useEffect(() => {
     }
   }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin, location.pathname, routerNavigate]);
 
+// O APK já contém todos os arquivos locais; preparar somente os módulos
+// necessários para a primeira abertura. Nenhum saldo, contrato, token ou
+// extrato é persistido nem pré-carregado pelo service worker.
+useEffect(() => {
+  if (!activeUser?.id || !isPlatformAccessChecked || !isPlatformSuperAdmin || isPublicView) return;
+  let cancelled = false;
+  const preload = () => {
+    if (cancelled || document.visibilityState !== 'visible') return;
+    void import('./features/wallet/WalletModule').catch(() => undefined);
+    void import('./features/wallet/pages/WalletOverviewPage').catch(() => undefined);
+  };
+  const timer = window.setTimeout(preload, 2500);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timer);
+  };
+}, [activeUser?.id, isPlatformAccessChecked, isPlatformSuperAdmin, isPublicView]);
+
 const filterRestrictedTabs = useCallback(
   (tabs: AppTab[]) =>
     tabs.filter((tab) => isPlatformSuperAdmin || (tab !== 'MY_WALLET' && tab !== 'PLATFORM_ADMIN')),

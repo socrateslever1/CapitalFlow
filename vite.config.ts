@@ -25,6 +25,47 @@ function publishedVersionPlugin(buildId: string): Plugin {
   };
 }
 
+/**
+ * Assets públicos do módulo Carteira disponibilizados antecipadamente ao PWA.
+ * Nunca inclui dados dos usuários: somente arquivos JS/CSS versionados por hash.
+ */
+function walletAssetsManifestPlugin(buildId: string): Plugin {
+  return {
+    name: 'capitalflow-wallet-asset-manifest',
+    apply: 'build',
+    generateBundle(_outputOptions, bundle) {
+      const files = new Set<string>();
+      const seen = new Set<string>();
+      const visit = (name: string) => {
+        if (seen.has(name)) return;
+        seen.add(name);
+        const entry = bundle[name];
+        if (!entry || entry.type !== 'chunk') return;
+        files.add('/' + entry.fileName);
+        const css = (entry as typeof entry & {
+          viteMetadata?: { importedCss?: Set<string> };
+        }).viteMetadata?.importedCss;
+        for (const stylesheet of css ?? []) files.add('/' + stylesheet);
+        for (const dep of [...entry.imports, ...entry.dynamicImports]) visit(dep);
+      };
+      for (const [name, chunk] of Object.entries(bundle)) {
+        if (chunk.type !== 'chunk') continue;
+        const isWalletCode = Object.keys(chunk.modules).some(modulePath =>
+          /[\\/]features[\\/]wallet[\\/]/.test(modulePath) ||
+          /[\\/]components[\\/]wallet[\\/]/.test(modulePath) ||
+          /[\\/]services[\\/]personalWallet\\.service\\.tsx?$/.test(modulePath)
+        );
+        if (isWalletCode) visit(name);
+      }
+      this.emitFile({
+        type: 'asset',
+        fileName: 'wallet-precache.json',
+        source: JSON.stringify({ version: buildId, assets: [...files].sort() }) + '\n',
+      });
+    },
+  };
+}
+
 function spaFallbackPlugin() {
   return {
     name: 'spa-fallback-404',
@@ -49,7 +90,7 @@ export default defineConfig(({ mode }) => {
     // Explicitly permit public settings only; provider secrets are never exposed.
     envPrefix: ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'VITE_SUPPORT_PHONE', 'VITE_WEB_PUSH_PUBLIC_KEY', 'VITE_PUBLIC_APP_ORIGIN'],
     server: { port: 3005, host: '0.0.0.0', allowedHosts: true },
-    plugins: [react(), tailwindcss(), publishedVersionPlugin(buildId), spaFallbackPlugin()],
+    plugins: [react(), tailwindcss(), publishedVersionPlugin(buildId), walletAssetsManifestPlugin(buildId), spaFallbackPlugin()],
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       '__CAPITALFLOW_BUILD_ID__': JSON.stringify(buildId),

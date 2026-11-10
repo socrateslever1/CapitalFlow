@@ -414,7 +414,14 @@ for (const forbidden of [
   }
 }
 
-for (const required of ['process_financial_operation_v4', 'preview_financial_operation_v4', 'reverse_financial_operation_v4']) {
+const walletRoutingMigration=read('supabase','migrations','20261110210000_optional_wallet_receipt_withdrawal_routing.sql');
+for (const required of ['wallet_route_receipt_internal','wallet_apply_offer_receipt_destination','withdraw_profit_to_wallet_atomic','reverse_wallet_financial_operation_v4','wallet_guard_routed_receipt_reversal']) {
+  if (!walletRoutingMigration.includes(required)) failures.push('Carteira -> roteamento transacional ausente: '+required);
+}
+if (!walletRoutingMigration.includes('public.reverse_financial_operation_v4(')) {
+  failures.push('Carteira -> estorno deve delegar ao Payment Engine V4 sem criar ledger paralelo');
+}
+for (const required of ['process_financial_operation_v4', 'preview_financial_operation_v4', 'reverse_wallet_financial_operation_v4']) {
   if (!`${paymentEngineV4}\n${ledgerReverse}`.includes(required)) {
     failures.push(`Payment Engine V4 -> integração obrigatória ausente: ${required}`);
   }

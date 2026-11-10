@@ -220,8 +220,8 @@ BEGIN
     round(coalesce(sum(principal_delta),0),2),
     round(coalesce(sum(interest_delta),0),2),
     round(coalesce(sum(late_fee_delta),0),2),
-    max(source_id) FILTER(WHERE category='PAGAMENTO'),
-    max(source_id) FILTER(WHERE category='LUCRO'),max(date)::date
+    (max(source_id::text) FILTER(WHERE category='PAGAMENTO'))::uuid,
+    (max(source_id::text) FILTER(WHERE category='LUCRO'))::uuid,max(date)::date
   INTO v_total,v_principal,v_interest,v_late,v_principal_source,v_profit_source,v_payment_date
   FROM public.transacoes
   WHERE profile_id=new.profile_id AND loan_id=new.loan_id

@@ -51,10 +51,10 @@ export const validateLoanForm = (
         return { isValid: false, error: "Erro: informe uma margem valida para o cliente." };
       }
     }
-    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'TOTAL' && (isNaN(totalPayable) || totalPayable < principal)) {
+    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'TOTAL' && String(formData.fundingTotalPayable ?? '').trim() !== '' && (isNaN(totalPayable) || totalPayable < principal)) {
       return { isValid: false, error: "Erro: o valor final do cartão deve ser maior ou igual ao principal." };
     }
-    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'RATE' && (isNaN(monthlyRate) || monthlyRate < 0)) {
+    if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'RATE' && String(formData.fundingMonthlyRate ?? '').trim() !== '' && (isNaN(monthlyRate) || monthlyRate < 0)) {
       return { isValid: false, error: "Erro: informe a taxa mensal do cartão." };
     }
     if (fundingPaymentMethod === 'CREDIT_CARD' && mode === 'INSTALLMENT' && (isNaN(installmentValue) || installmentValue <= 0 || installmentValue * count < principal)) {
@@ -70,12 +70,9 @@ export const validateLoanForm = (
     return { isValid: false, error: "Erro: A Carteira de Origem é obrigatória." };
   }
 
-  const fundingSource = sources.find(source => source.id === formData.sourceId);
-  const isCreditCardSource = fundingSource?.type === 'CARD';
+  // A taxa/custo do cartão é opcional: campo vazio equivale a custo zero.
+  // Quando houver um total informado, ele nunca pode ser inferior ao capital.
   const hasFundingTotal = String(formData.fundingTotalPayable ?? '').trim() !== '';
-  if (!isEditing && isCreditCardSource && formData.billingCycle !== 'INSTALLMENT_FIXED' && !hasFundingTotal) {
-    return { isValid: false, error: 'Informe o custo do cartão. Se a operação não teve taxa, digite zero.' };
-  }
   if (hasFundingTotal && !isEditing) {
     const fundingTotal = parseCurrency(formData.fundingTotalPayable);
     if (!Number.isFinite(fundingTotal) || fundingTotal < principal - 0.005) {

@@ -8,7 +8,6 @@ type Props = {
   totalPayable: string;
   feePercent: string;
   onChange: (totalPayable: string, feePercent: string) => void;
-  required?: boolean;
   disabled?: boolean;
   customerRate?: string;
   onAdjustCustomerRate?: (nextRate: string) => void;
@@ -16,7 +15,7 @@ type Props = {
 
 /** O custo do financiamento nunca integra o principal devido pelo cliente. */
 export const LoanFundingCostFields: React.FC<Props> = ({
-  principal, totalPayable, feePercent, onChange, required = false, disabled = false,
+  principal, totalPayable, feePercent, onChange, disabled = false,
   customerRate, onAdjustCustomerRate,
 }) => {
   const [editing, setEditing] = React.useState<'COST' | 'RATE' | 'TOTAL' | null>(null);
@@ -74,9 +73,9 @@ export const LoanFundingCostFields: React.FC<Props> = ({
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
-        Custo da operação (R$)
+        Custo da operação (R$) · opcional
         <FinancialCalculatorInput
-          required={required} disabled={disabled} aria-label="Custo da operação em reais"
+          disabled={disabled} aria-label="Custo da operação em reais"
           value={editing === 'COST' ? costDraft : hasTotal ? cost.toFixed(2).replace('.', ',') : ''}
           onFocus={() => { setEditing('COST'); setCostDraft(hasTotal ? cost.toFixed(2).replace('.', ',') : ''); }}
           onBlur={() => setEditing(null)}
@@ -108,7 +107,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
       </label>
       <div className="sm:col-span-3 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-xs text-slate-300 space-y-2">
         <div className="flex justify-between gap-3"><span>Principal disponibilizado</span><strong className="text-white tabular-nums">{formatMoney(principal)}</strong></div>
-        <div className="flex justify-between gap-3"><span>Total da compra no cartão</span><strong className="text-white tabular-nums">{hasTotal ? formatMoney(principal + cost) : 'A informar'}</strong></div>
+        <div className="flex justify-between gap-3"><span>Total da compra no cartão</span><strong className="text-white tabular-nums">{formatMoney(principal + cost)}</strong></div>
         {!disabled && onAdjustCustomerRate && effectiveRate > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 pt-2">
             <span className="text-slate-300">
@@ -123,6 +122,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
             </button>
           </div>
         )}
+        <p className="text-slate-300">Sem juros ou tarifa do cartão? Deixe os campos vazios: o custo será R$ 0,00.</p>
         <p className="text-slate-400">O principal entregue ao cliente permanece {formatMoney(principal)}. Quando não repassado aos juros, o custo do cartão reduz apenas a sua margem líquida.</p>
       </div>
     </div>

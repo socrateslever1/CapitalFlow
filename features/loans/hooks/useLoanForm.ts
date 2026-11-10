@@ -8,6 +8,7 @@ import { toStorageReference } from '../../../utils/storageUrl';
 import { isTestSource } from '../../../utils/testSource';
 import { validateLoanForm } from '../domain/loanForm.validators';
 import { mapFormToLoan } from '../domain/loanForm.mapper';
+import { normalizeOptionalCardFunding } from '../domain/optionalCardFunding';
 import { formatContractSaveError } from '../domain/contractSaveError';
 import { addDaysUTC, addMonthsUTC, toISODateOnlyUTC } from '../../../utils/dateHelpers';
 import { calculateAdditionalCapital, isPrincipalReduction } from '../../../domain/finance/capitalAdvance';
@@ -247,8 +248,10 @@ export const useLoanForm = ({ onAdd, initialData, clients, sources, userProfile 
     submissionInFlightRef.current = true;
     setIsSubmitting(true);
     try {
+        const selectedFundingSource = sources.find(source => source.id === formData.sourceId);
+        const normalizedForm = normalizeOptionalCardFunding(formData, selectedFundingSource?.type, !!initialData);
         const loanPayload = mapFormToLoan(
-            formData,
+            normalizedForm,
             fixedDuration,
             initialData || null,
             attachments,

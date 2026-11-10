@@ -17,7 +17,7 @@ export type BankAccountDetailsDraft = Record<keyof typeof bankTextFields | keyof
 export function bankDetailsDraft(value: BankAccountDetails = {}): BankAccountDetailsDraft {
   return Object.fromEntries([
     ...Object.keys(bankTextFields).map(key=>[key,value[key as keyof BankAccountDetails] || '']),
-    ...Object.keys(bankMoneyFields).map(key=>[key,value[key as keyof BankAccountDetails]===undefined?'':String(value[key as keyof BankAccountDetails]).replace('.',',')]),
+    ...Object.keys(bankMoneyFields).map(key=>[key,value[key as keyof BankAccountDetails] == null || Number(value[key as keyof BankAccountDetails]) === 0 ? '' : String(value[key as keyof BankAccountDetails]).replace('.',',')]),
     ...['has_credit_card','has_overdraft','has_loans'].map(key=>[key,value[key as keyof BankAccountDetails]===true]),
   ]) as BankAccountDetailsDraft;
 }

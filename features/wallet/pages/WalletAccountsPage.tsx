@@ -43,11 +43,15 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const balanceFacts = useMemo(() => {
     if (!data?.accounts) return null;
     const effective = data.accounts.reduce((total, account) => total + Number(account.balance || 0), 0);
-    const imported = (data.statementRows || []).reduce((total, row) => total + Number(row.amount || 0), 0);
+    const activeAccountIds = new Set(data.accounts.map(account => account.id));
+    const accountStatementRows = (data.statementRows || []).filter(
+      row => row.target_kind === 'ACCOUNT' && activeAccountIds.has(row.target_id),
+    );
+    const imported = accountStatementRows.reduce((total, row) => total + Number(row.amount || 0), 0);
     return buildWalletBalanceFacts({
       effectiveBalance: effective,
       reconciledBalance: effective,
-      importedBalance: data.statementRows?.length ? imported : null,
+      importedBalance: accountStatementRows.length ? imported : null,
     });
   }, [data]);
 

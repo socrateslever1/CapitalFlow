@@ -5,13 +5,9 @@ import { formatMoney } from '../../../utils/formatters';
 import { walletRepository, type WalletOverviewSnapshot } from '../services/walletRepository';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { deriveOverview } from './WalletOverviewPage';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
-const localDate = (): string => {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return now.getFullYear() + '-' + month + '-' + day;
-};
+const localDate = (): string => businessDateInManaus();
 
 const DateOfCommitment: React.FC<{ value: string }> = ({ value }) => {
   const [year, month, day] = value.split('-').map(Number);

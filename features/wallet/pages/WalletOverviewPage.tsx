@@ -1,4 +1,5 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
+import { businessDateInManaus } from '../../../utils/businessDate';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight, CalendarClock, ChevronDown,
@@ -39,9 +40,13 @@ const money = (value: number) => formatMoney(Number.isFinite(value) ? value : 0)
 const sum = <T,>(items: T[], getter: (item: T) => number) =>
   items.reduce((total, item) => total + (Number(getter(item)) || 0), 0);
 const dayKey = (date: Date) => {
-  const year = date.getFullYear();
-  return year + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' +
-    String(date.getDate()).padStart(2, '0');
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find(part => part.type === 'year')?.value;
+  const month = parts.find(part => part.type === 'month')?.value;
+  const day = parts.find(part => part.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
 };
 const dateLabel = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);
@@ -168,7 +173,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
   const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [today, setToday] = useState(() => dayKey(new Date()));
+  const [today, setToday] = useState(() => businessDateInManaus());
   const [quickModal, setQuickModal] = useState<{
     mode: QuickActionMode;
     cardId?: string | null;
@@ -177,7 +182,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
   const refresh = useCallback(async () => {
     const result = await walletRepository.loadOverview({ force: true });
     setSnapshot(result);
-    setToday(dayKey(new Date()));
+    setToday(businessDateInManaus());
     setError('');
   }, []);
 
@@ -188,11 +193,11 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       if (mounted && cached) {
         hasCached = true;
         setSnapshot(current => current ?? cached);
-        setToday(dayKey(new Date()));
+        setToday(businessDateInManaus());
       }
     });
     walletRepository.loadOverview()
-      .then(result => { if (mounted) { setSnapshot(result); setToday(dayKey(new Date())); setError(''); } })
+      .then(result => { if (mounted) { setSnapshot(result); setToday(businessDateInManaus()); setError(''); } })
       .catch(reason => {
         if (mounted && !hasCached) setError(
           reason instanceof Error ? reason.message : 'Não foi possível carregar a carteira.',

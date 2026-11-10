@@ -7,19 +7,15 @@ import { formatMoney } from '../../../utils/formatters';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { isExternalIncome } from '../domain/walletIncomeHistory';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
 const QuickIncomeModal = React.lazy(() => import('../components/QuickIncomeModal').then(module => ({ default: module.QuickIncomeModal })));
-
-const localMonth = () => {
-  const date = new Date();
-  return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0')].join('-');
-};
 
 export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [quickIncomeOpen, setQuickIncomeOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const month = localMonth();
+  const month = businessDateInManaus().slice(0, 7);
   const receivedIds = useMemo(() => new Set((data?.recurringReceipts || [])
     .filter(receipt => String(receipt.reference_month).slice(0, 7) === month)
     .map(receipt => receipt.income_id)), [data, month]);

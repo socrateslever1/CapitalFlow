@@ -1,3 +1,14 @@
+## 10/11/2026 — Publicação em produção (Bloco 01 + Destino de Recebimento + Flux) e Bloco 02 (Consistência UI, Manaus e Rascunho por Usuário)
+- **Publicação realizada:**
+  - Commit/push na `main`: `6b1f332` (`feat(wallet,payments): offline invoice facts cache and optional capital source receipt routing`).
+  - Edge Function `ai-assistant` publicada no projeto Supabase `hzchchbxkhryextaymkn`.
+  - Migration `20261110220000_optional_payment_capital_destination_routing.sql` aplicada no banco remoto (`account_id` anulável e `destination_source_id` ativo em `wallet_receipt_destinations` e `financial_operations`).
+- **Bloco 02 — Consistência de saldos, fuso de Manaus e rascunhos isolados (somente frontend/UI):**
+  - [`WalletAccountsPage.tsx`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/pages/WalletAccountsPage.tsx): `importedBalance` passa a somar apenas `statementRows` com `row.target_kind === 'ACCOUNT'` de contas ativas, evitando misturar extratos de cartão no resumo de Contas e PIX.
+  - [`WalletIncomePage.tsx`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/pages/WalletIncomePage.tsx), [`WalletPayablesPage.tsx`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/pages/WalletPayablesPage.tsx), [`WalletOverviewPage.tsx`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/pages/WalletOverviewPage.tsx) e [`WalletReportPage.tsx`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/pages/WalletReportPage.tsx) passam a usar `businessDateInManaus()` (`America/Manaus`) em vez do relógio/fuso local do navegador.
+  - [`useWalletDraft.ts`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/hooks/useWalletDraft.ts) passa a isolar a chave de `localStorage` pelo `scopeId` do usuário (`activeUser?.id` em `WalletPayablesPage.tsx`), recarregando o estado ao trocar de sessão.
+- **Pendências:** validar visualmente no celular/navegador; decidir se avançamos para o **Bloco 03** (bloqueio preventivo offline em formulários de mutação da Carteira e renovação de imagens assinadas) e commit do Bloco 02.
+
 ## 10/11/2026 — Bloco 01 (Minha Carteira Offline Hardening) e Destino de Recebimento em Fonte de Capital (Capital + Lucro)
 - **Bloco 01 — Minha Carteira offline (`services/personalWallet.service.ts`, `features/wallet/services/walletOfflineStore.ts`, `features/wallet/services/walletRepository.ts`, `features/wallet/pages/WalletCardsPage.tsx`, `App.tsx`, `tests/wallet/wallet-offline-cache.test.ts`):**
   - `personalWalletService.load()` passou a carregar `personal_wallet_card_invoice_facts` (`cardInvoiceFacts`) no snapshot completo para que a troca de cartões na aba Cartões funcione totalmente offline.
@@ -849,3 +860,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
   - No erro `400` ou `404`, o retry sem `tools`/`thinkingConfig` também faz fallback automático para o modelo descoberto em `listGeminiModels(apiKey)`.
   - Em `MasterMascot.tsx`, respostas de falha (`transport-fallback` / `unavailable` ou diagnósticos antigos salvos no IndexedDB) são marcadas com `:error` e filtradas de `turns`.
   - Se todos os provedores externos estiverem indisponíveis ou sem cota, o Flux responde saudações naturalmente (`conversational-fallback`) e responde consultas com os dados reais autenticados do usuário (`generateDeterministicContextResponse` sobre o contexto `geral` ou específico).
+
+## 10/11/2026 — Correção do resumo financeiro zerado no Flux
+- **Causa:** `supabase/functions/ai-assistant/index.ts` usava `auth.user.id` diretamente nas consultas de `contratos`, `clientes` e demais dados financeiros. Esse UUID é o usuário do Auth, enquanto as tabelas de crédito usam o `perfis.id`/owner; o RLS permitia a consulta, mas o filtro não encontrava registros.
+- **Correção:** a função resolve o perfil por `perfis.user_id`, usa `supervisor_id` quando aplicável e reutiliza esse owner no contexto financeiro, briefing e histórico. Há fallback conservador ao UUID do Auth para compatibilidade com instalações antigas.
+- **Validação:** `npm run test:flux-agent`, `npm run build` e `git diff --check` passaram. O build mantém apenas avisos preexistentes de chunking/importação dinâmica.
+- **Limitação:** não foi executada uma consulta contra o projeto Supabase remoto nem validada a tela em navegador/dispositivo; a Edge Function precisa ser publicada novamente para a correção aparecer em produção.

@@ -14,13 +14,14 @@ import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import { buildWalletTimeline } from '../domain/walletTimeline';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { useWalletDraft } from '../hooks/useWalletDraft';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
 const emptyPayableForm = {
   description: '', creditor_name: '', creditor_type: 'COMPANY' as 'COMPANY' | 'PERSON',
   category: 'Despesas', total_amount: '', due_date: '', origin: '',
 };
 
-export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = () => {
+export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [creating, setCreating] = useState(false);
@@ -28,12 +29,12 @@ export const WalletPayablesPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [recurringCreateRequest, setRecurringCreateRequest] = useState<number | undefined>();
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
-  const [form, setForm, clearFormDraft] = useWalletDraft('payables:new', emptyPayableForm);
+  const [form, setForm, clearFormDraft] = useWalletDraft('payables:new', emptyPayableForm, activeUser?.id);
 
   const timelineEvents = useMemo(() => {
     if (!data) return [];
     return buildWalletTimeline({
-      referenceDate: new Date().toLocaleDateString('en-CA'),
+      referenceDate: businessDateInManaus(),
       operations: data.accountOperations || [],
       expenses: data.expenses || [],
       installments: data.installments || [],

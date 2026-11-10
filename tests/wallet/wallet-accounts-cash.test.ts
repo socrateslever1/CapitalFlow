@@ -10,4 +10,5 @@ test('permite cadastrar carteira física sem instituição ou PIX', () => {
   assert.match(modal, /disabled=\{isPhysicalWallet\}/);
   assert.match(modal, /isPhysicalWallet \? null/);
   assert.match(modal, /Carteira Física \(Espécie\)/);
+  assert.match(page, /row\.target_kind === 'ACCOUNT'/);
 });

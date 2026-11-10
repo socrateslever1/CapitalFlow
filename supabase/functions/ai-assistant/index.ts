@@ -123,14 +123,18 @@ const masterAdminCache = new Map<string, number>();
 const MASTER_CACHE_TTL_MS = 300_000;
 
 async function loadContext(
-  client: ReturnType<typeof createClient>, profileId: string, area: FinancialArea = 'geral', fresh = false,
+  client: ReturnType<typeof createClient>,
+  authUserId: string,
+  area: FinancialArea = 'geral',
+  fresh = false,
+  profileId: string = authUserId,
 ): Promise<AssistantContext> {
-  const key = profileId + ':' + area;
+  const key = authUserId + ':' + profileId + ':' + area;
   const now = Date.now();
   const cached = financialCache.get(key);
   if (!fresh && cached && now < cached.expiresAt) return cached.value;
   if (!fresh && area !== 'geral') {
-    const generalEntry = financialCache.get(profileId + ':geral');
+    const generalEntry = financialCache.get(authUserId + ':' + profileId + ':geral');
     if (generalEntry && now < generalEntry.expiresAt + (GENERAL_REUSE_TTL_MS - CACHE_TTL_MS)) {
       return generalEntry.value;
     }
@@ -143,9 +147,9 @@ async function loadContext(
   const contractsNeeded = general || area === 'contratos';
   const empty = () => Promise.resolve({ data: [] as Array<Record<string, unknown>>, error: null });
   const [accounts, cards, payables, sources, loans, clients] = await Promise.all([
-    accountsNeeded ? client.from('personal_wallet_accounts').select('nickname,bank_name,balance,account_type').eq('owner_user_id', profileId).order('nickname').limit(25) : empty(),
-    cardsNeeded ? client.from('personal_wallet_cards').select('nickname,issuer,current_bill,credit_limit,used_limit,due_day,status').eq('owner_user_id', profileId).order('nickname').limit(20) : empty(),
-    payablesNeeded ? client.from('personal_wallet_payables').select('creditor_name,description,outstanding_balance,due_date,status').eq('owner_user_id', profileId).not('status', 'in', '(PAID,CANCELED)').order('due_date').limit(25) : empty(),
+    accountsNeeded ? client.from('personal_wallet_accounts').select('nickname,bank_name,balance,account_type').eq('owner_user_id', authUserId).order('nickname').limit(25) : empty(),
+    cardsNeeded ? client.from('personal_wallet_cards').select('nickname,issuer,current_bill,credit_limit,used_limit,due_day,status').eq('owner_user_id', authUserId).order('nickname').limit(20) : empty(),
+    payablesNeeded ? client.from('personal_wallet_payables').select('creditor_name,description,outstanding_balance,due_date,status').eq('owner_user_id', authUserId).not('status', 'in', '(PAID,CANCELED)').order('due_date').limit(25) : empty(),
     sourcesNeeded ? client.from('fontes').select('name,balance,type').eq('profile_id', profileId).is('archived_at', null).order('name').limit(25) : empty(),
     contractsNeeded ? client.from('contratos').select('id,debtor_name,principal,total_to_receive,status,is_archived,parcelas(status,amount,paid_total,data_vencimento,due_date,principal_remaining,interest_remaining)').eq('owner_id', profileId).limit(100) : empty(),
     contractsNeeded ? client.from('clientes').select('id', { count: 'exact', head: true }).eq('owner_id', profileId) : Promise.resolve({ count: 0, error: null }),
@@ -167,6 +171,19 @@ async function loadContext(
 
 function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number.isFinite(value) ? value : 0);
+}
+
+async function resolveFinancialProfileId(
+  client: ReturnType<typeof createClient>,
+  authUserId: string,
+): Promise<string> {
+  const { data, error } = await client
+    .from('perfis')
+    .select('id,supervisor_id')
+    .eq('user_id', authUserId)
+    .maybeSingle();
+  if (error) throw new Error('FINANCIAL_PROFILE_UNAVAILABLE');
+  return String(data?.supervisor_id || data?.id || authUserId);
 }
 
 function summarizeCapitalFlowMetrics(context: AssistantContext) {
@@ -633,14 +650,14 @@ async function callProvider(
 async function executeReadOnlyAgent(
   client: ReturnType<typeof createClient>,
   userId: string, prompt: string, turns: Array<{ role: 'user' | 'assistant'; content: string }>,
-  intent: Intent, fresh: boolean,
+  intent: Intent, fresh: boolean, profileId: string = userId,
 ) {
   const dialogue = [...turns, { role: 'user' as const, content: prompt }];
   const inferredArea = inferFinancialArea(prompt, turns);
   let queried: { area: FinancialArea; data: AssistantContext } | null = null;
   // Known financial intents read through the short-lived cache first, then use only ONE LLM request.
   if (inferredArea) {
-    try { queried = { area: inferredArea, data: await loadContext(client, userId, inferredArea, fresh) }; }
+    try { queried = { area: inferredArea, data: await loadContext(client, userId, inferredArea, fresh, profileId) }; }
     catch {
       return { response: 'Não consegui consultar seus dados neste momento. Nenhum valor foi presumido.',
         provider: 'flux-safe', model: 'unavailable', consulted: true };
@@ -663,7 +680,7 @@ async function executeReadOnlyAgent(
         return { response: first.text, provider: provider.id, model: provider.model, consulted: false };
       }
       if (!queried || queried.area !== area) {
-        const data = await loadContext(client, userId, area, fresh);
+        const data = await loadContext(client, userId, area, fresh, profileId);
         queried = { area, data };
       }
       const summary = summarizeCapitalFlowMetrics(queried.data);
@@ -740,7 +757,7 @@ async function executeReadOnlyAgent(
   if (queried || inferredArea) {
     try {
       const area = queried?.area || inferredArea!;
-      const context = queried?.data || await loadContext(client, userId, area, fresh);
+      const context = queried?.data || await loadContext(client, userId, area, fresh, profileId);
       // Prefer the requested financial category when generating a safe, model-free answer.
       const fallbackSubject = area === 'cartoes' ? 'faturas e cartões'
         : area === 'contas' ? 'saldo bancário e contas'
@@ -774,6 +791,12 @@ Deno.serve(async (req) => {
   const client = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const { data: auth, error: authError } = await client.auth.getUser(token);
   if (authError || !auth.user) return respond({ error: 'Sessão inválida.' }, 401);
+  let financialProfileId: string;
+  try {
+    financialProfileId = await resolveFinancialProfileId(client, auth.user.id);
+  } catch {
+    return respond({ error: 'Não foi possível identificar o perfil financeiro.' }, 503);
+  }
   const cachedMasterUntil = masterAdminCache.get(auth.user.id) || 0;
   if (Date.now() >= cachedMasterUntil) {
     const { data: isMaster, error: masterError } = await client.rpc('is_platform_super_admin');
@@ -788,7 +811,7 @@ Deno.serve(async (req) => {
   if (action === 'history') {
     let historyQuery = client.from('ai_assistant_requests')
       .select('id,conversation_id,request_id,request_text,response_text,intent,permission_mode,status,provider,model,created_at')
-      .eq('profile_id', auth.user.id);
+      .eq('profile_id', financialProfileId);
     if (requestedConversationId) historyQuery = historyQuery.eq('conversation_id', requestedConversationId);
     const history = await historyQuery.order('created_at', { ascending: true }).limit(50);
     if (history.error) return respond({ error: 'Não foi possível carregar o histórico.' }, 500);
@@ -796,7 +819,7 @@ Deno.serve(async (req) => {
   }
   if (action === 'briefing') {
     try {
-      const context = await loadContext(client, auth.user.id, 'alertas', body.fresh === true);
+      const context = await loadContext(client, auth.user.id, 'alertas', body.fresh === true, financialProfileId);
       return respond({ alerts: buildBriefing(context), generatedAt: new Date().toISOString() });
     } catch {
       return respond({ error: 'Não foi possível consultar alertas neste momento.' }, 503);
@@ -827,7 +850,7 @@ Deno.serve(async (req) => {
   // Mensagens comuns usam apenas autorização e LLM. Histórico recente via memória do cliente.
   // Não insere/atualiza ai_assistant_requests a cada turno; o histórico persistido antigo é somente leitura.
   const reply = await executeReadOnlyAgent(
-    client, auth.user.id, prompt, turns, classification.intent, body.fresh === true);
+    client, auth.user.id, prompt, turns, classification.intent, body.fresh === true, financialProfileId);
   return respond({
     requestId, conversationId, intent: classification.intent,
     permissionMode: classification.permissionMode,

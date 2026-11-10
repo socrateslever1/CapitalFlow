@@ -255,7 +255,7 @@ export async function reverseFinancialOperation(
   }
 
   const reversalRequest = getStableFinancialRequestKey(`financial-reversal:${originalKey}:${String(reason || '').trim()}`);
-  const { data, error } = await supabase.rpc('reverse_financial_operation_v4', {
+  const { data, error } = await supabase.rpc('reverse_wallet_financial_operation_v4', {
     p_original_idempotency_key: originalKey,
     p_reversal_idempotency_key: reversalRequest.idempotencyKey,
     p_reason: String(reason || '').trim(),

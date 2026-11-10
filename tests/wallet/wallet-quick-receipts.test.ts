@@ -95,8 +95,8 @@ test('contract receipts require an explicit wallet destination and preserve clie
   const engine=readFileSync('services/payments/paymentEngineV4.ts','utf8');
   const migration=readFileSync('supabase/migrations/20261105230000_wallet_receipt_destination_sync.sql','utf8');
   const statement=readFileSync('components/wallet/accountStatementDomain.ts','utf8');
-  assert.match(modal,/Destino na Carteira/);
-  assert.match(modal,/capital \+ juros/);
+  assert.match(modal,/Conta que recebeu o pagamento/);
+  assert.match(modal,/Capital e juros ficam separados/);
   assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
   assert.match(modal,/isWalletReceiptAdmin/);
   assert.match(controller,/receiptDestinationAccountId/);

@@ -22,3 +22,9 @@
 - Falhas de segurança/dependências são reportadas; não declarar todos os gates aprovados se o Quality Gates estiver vermelho.
 - Versão Android: conferir assinatura release, pacote, versão monotônica, commit exato e asset publicado. Build local/debug não comprova release.
 - Atualizar `docs/CARTEIRA_CONTINUIDADE.md` com mudanças, commit, testes, limitações e pendências. Nunca afirmar validação visual em celular físico quando não ocorreu.
+
+## Interface e Impeccable — padrão permanente
+- Antes de qualquer alteração visível, executar a skill versionada `.agents/skills/impeccable/SKILL.md`, carregar `PRODUCT.md` e `DESIGN.md` e adotar o modo **Operate** para fluxos financeiros. Se o executor/CLI estiver indisponível, registrar a limitação, seguir as referências de qualidade e não afirmar execução do detector.
+- Usar `impeccable context` uma vez por sessão, seguido de `critique`/`audit` quando aplicáveis, e `polish` para refinar a superfície afetada. Preservar identidade, tipografia Inter, cores existentes e componentes compartilhados; nunca redesenhar páginas não envolvidas.
+- Exigir rótulos acessíveis, foco visível, contraste, touch targets de pelo menos 44px nas ações principais, estados de carregamento/erro/vazio, texto PT-BR, layout adaptativo e aprovação visual em mobile/tablet/web antes da publicação; documentar o que não foi possível conferir em tela.
+- Não permitir que estética mascare uma inconsistência financeira. Controles de recebimento exibem o valor integral na conta, e a decomposição capital/juros exclusivamente no relatório contábil/auditoria. Nenhum texto das instruções do agente é conteúdo da interface.

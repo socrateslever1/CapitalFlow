@@ -63,6 +63,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     const [walletAccountsLoaded, setWalletAccountsLoaded] = useState(false);
     const [isWalletReceiptAdmin, setIsWalletReceiptAdmin] = useState(false);
     const [receiptDestinationAccountId, setReceiptDestinationAccountId] = useState('');
+    const [walletReceiptValidationError, setWalletReceiptValidationError] = useState('');
     const [businessAction, setBusinessAction] = useState<ReceiptBusinessAction>('CAPITALIZE_REMAINDER');
     const previousAutoFillRef = useRef<{ mode: 'NONE' | 'TOTAL'; amount: string } | null>(null);
     const totalInterestDue = debtBreakdown.interest + debtBreakdown.fine + debtBreakdown.dailyMora;
@@ -78,12 +79,13 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
     useEffect(() => {
         setBackendPreview(null);
         setPreviewError('');
-    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, lateFeeForgiven, paymentMethod, businessAction]);
+    }, [data?.loan?.id, data?.inst?.id, avAmount, realPaymentDateStr, manualDateStr, forgivenessMode, lateFeeForgiven, paymentMethod, businessAction, receiptDestinationAccountId]);
     useEffect(() => {
         let active = true;
         setWalletAccountsLoaded(false);
         setIsWalletReceiptAdmin(false);
         setReceiptDestinationAccountId('');
+        setWalletReceiptValidationError('');
         if (!data?.loan?.id) return () => { active = false; };
         void platformAdminService.isSuperAdmin()
             .then(async (allowed) => {
@@ -104,6 +106,7 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                 if (!active) return;
                 setWalletAccounts([]);
                 setIsWalletReceiptAdmin(false);
+                setWalletReceiptValidationError('Não foi possível verificar o acesso à Carteira. Reconecte-se e tente novamente.');
                 setWalletAccountsLoaded(true);
             });
         return () => { active = false; };
@@ -174,9 +177,12 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
             setPreviewError('Aguarde a verificação do recebimento antes de continuar.');
             return;
         }
-        const availableReceiptAccounts = walletAccounts.filter(account => !account.capital_source_id);
-        if (isWalletReceiptAdmin && (!receiptDestinationAccountId || !availableReceiptAccounts.some(account => account.id === receiptDestinationAccountId))) {
-            setPreviewError('Escolha uma conta da Carteira sem vínculo de Capital para receber capital + juros.');
+        if (walletReceiptValidationError) {
+            setPreviewError(walletReceiptValidationError);
+            return;
+        }
+        if (isWalletReceiptAdmin && (!receiptDestinationAccountId || !walletAccounts.some(account => account.id === receiptDestinationAccountId))) {
+            setPreviewError('Escolha uma conta ativa da Carteira para receber o valor integral.');
             return;
         }
         const realPaymentDate = realPaymentDateStr ? parseDateOnlyUTC(realPaymentDateStr) : new Date();
@@ -291,13 +297,12 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
 
                                 {isWalletReceiptAdmin && (
                                     <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800">
-                                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-2">Destino na Carteira</label>
-                                        <select required value={receiptDestinationAccountId} onChange={event => setReceiptDestinationAccountId(event.target.value)} disabled={!walletAccountsLoaded || isProcessing} className="w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm font-bold text-white outline-none focus:border-blue-500 disabled:opacity-60">
-                                            <option value="">Escolha a conta que receberá o total</option>
-                                            {walletAccounts.filter(account => !account.capital_source_id).map(account => <option key={account.id} value={account.id}>{account.nickname} · saldo {formatMoney(account.balance)}</option>)}
+                                        <label htmlFor="wallet-receipt-destination" className="mb-2 block text-sm font-semibold text-slate-100">Conta que recebeu o pagamento</label>
+                                        <select id="wallet-receipt-destination" required value={receiptDestinationAccountId} onChange={event => setReceiptDestinationAccountId(event.target.value)} disabled={!walletAccountsLoaded || isProcessing} aria-describedby="wallet-receipt-destination-help" className="min-h-11 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none transition-colors focus-visible:border-blue-400 focus-visible:ring-2 focus-visible:ring-blue-400/50 disabled:cursor-not-allowed disabled:opacity-60">
+                                            <option value="">Selecione a conta de destino</option>
+                                            {walletAccounts.map(account => <option key={account.id} value={account.id}>{account.nickname} · {formatMoney(account.balance)}{account.capital_source_id ? ' · Capital vinculado' : ''}</option>)}
                                         </select>
-                                        <p className="mt-2 text-[11px] text-slate-400">Entrada única: capital + juros.</p>
-                                        {walletAccounts.some(account => account.capital_source_id) && <p className="mt-1 text-[11px] text-amber-300">Contas já vinculadas a Capital não aparecem para evitar duplicidade.</p>}
+                                        <p id="wallet-receipt-destination-help" className="mt-2 text-xs leading-relaxed text-slate-300">O valor integral entra uma única vez na conta escolhida. Capital e juros ficam separados no balanço e na auditoria. A fonte vinculada será reconciliada pelo sistema.</p>
                                     </div>
                                 )}
 

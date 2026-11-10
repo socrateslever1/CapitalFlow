@@ -83,3 +83,17 @@ test('calculator UI has one unobtrusive operator control per field and no duplic
   const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
   assert(cards.includes('formatLiveBrazilianMoney(input.value,input.selectionStart'));
 });
+
+test('financial fields start blank and can be cleared without trapping the decimal separator', () => {
+  const input = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
+  const bank = readFileSync('features/wallet/domain/bankAccountDetails.ts', 'utf8');
+  const account = readFileSync('components/wallet/CreateAccountModal.tsx', 'utf8');
+  assert.match(account, /const \[initialBalance, setInitialBalance\] = useState<string>\(''\)/);
+  assert.match(input, /if \(!raw\) \{/);
+  assert.match(input, /onCommit\?\.\(''\)/);
+  assert.match(input, /if \(Number\(raw\.replace\(',', '\.'\)\) === 0\) return ''/);
+  assert.match(input, /focusedInput\.select\(\)/);
+  assert.match(input, /const remaining = integerDigits\.slice\(0, -1\)/);
+  assert.doesNotMatch(input, /input\.setSelectionRange\(separator, separator\)/);
+  assert.match(bank, /Number\(value\[key as keyof BankAccountDetails\]\) === 0 \? ''/);
+});

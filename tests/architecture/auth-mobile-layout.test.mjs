@@ -13,7 +13,7 @@ test('mobile login is centered, scrollable and keeps system safe-area padding', 
   assert(css.includes('justify-content: safe center'), 'oversized login must not clip its top edge');
   assert(css.includes('margin-block: auto'), 'tall viewports center the form');
   assert(auth.includes('max-w-sm flex-col justify-center rounded-2xl'));
-  assert(auth.includes('aria-label="Abrir ajuda"'));
+  assert(auth.includes("aria-label={t('auth.openHelp')}"), 'help button must have a localized accessible label');
   assert(auth.includes('absolute right-3 top-3 z-20'), 'help control stays within the card');
 });
 

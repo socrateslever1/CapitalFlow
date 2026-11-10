@@ -26,6 +26,8 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
   const displayValue = () => {
     const raw = String(value ?? '');
     if (!raw || rate || signed) return raw;
+    // Zero is the empty initial state for optional financial fields.
+    if (Number(raw.replace(',', '.')) === 0) return '';
     try { return parseWalletMoney(raw, fieldLabel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     catch { return raw; }
   };
@@ -98,8 +100,15 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             input.setCustomValidity('');
           }}
           onFocus={e => {
-            setDraft(displayValue());
+            const focusedInput = e.currentTarget;
+            const current = displayValue();
+            setDraft(current);
             setEditing(true);
+            // Android and desktop: replacing an existing amount must not require
+            // deleting separators or navigating through the fixed decimal part.
+            requestAnimationFrame(() => {
+              if (document.activeElement === focusedInput) focusedInput.select();
+            });
             onFocus?.(e);
           }}
           onBlur={commit}
@@ -107,12 +116,28 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
             if (!rate && !signed && (e.key === 'Backspace' || e.key === 'Delete')) {
               const input = e.currentTarget;
+              const start = input.selectionStart ?? 0;
+              const end = input.selectionEnd ?? start;
               const separator = input.value.indexOf(',');
-              if (separator >= 0 && input.selectionStart === input.selectionEnd &&
-                  ((e.key === 'Backspace' && input.selectionStart === separator + 1) ||
-                   (e.key === 'Delete' && input.selectionStart === separator))) {
+              // Never trap the cursor at the decimal separator. Delete the preceding
+              // integer digit and reapply grouping, or allow the entire field to clear.
+              if (start === end && separator >= 0 &&
+                  ((e.key === 'Backspace' && start === separator + 1) ||
+                   (e.key === 'Delete' && start === separator))) {
                 e.preventDefault();
-                input.setSelectionRange(separator, separator);
+                const integerDigits = input.value.slice(0, separator).replace(/\D/g, '');
+                const remaining = integerDigits.slice(0, -1);
+                const next = remaining
+                  ? formatLiveBrazilianMoney(remaining + input.value.slice(separator), remaining.length)
+                  : { value: '', caret: 0 };
+                if (next) {
+                  setDraft(next.value);
+                  setError('');
+                  input.setCustomValidity('');
+                  requestAnimationFrame(() => {
+                    if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                  });
+                }
               }
             }
             onKeyDown?.(e);

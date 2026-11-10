@@ -22,7 +22,7 @@ test('master mascot is gated by platform super admin and never mutates the ledge
   assert.match(functionSource, /action === 'briefing'/);
   assert.match(functionSource, /buildBriefing/);
   assert.match(functionSource, /ai_assistant_requests/);
-  assert.match(componentSource, /activeUser\.accessLevel !== 'ADMIN'/);
+  assert.match(componentSource, /!authorized/);
   assert.match(componentSource, /isMasterAssistantEnabled/);
   assert.match(componentSource, /loadMasterAssistantHistory/);
   assert.match(componentSource, /loadMasterAssistantBriefing/);

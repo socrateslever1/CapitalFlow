@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { WalletSnapshotCache } from '../../features/wallet/services/walletSnapshotCache';
 import { deriveOverviewFromSnapshot } from '../../features/wallet/services/walletOfflineStore';
+import { guardWalletWrites } from '../../features/wallet/services/walletOfflineGuard';
 import type { WalletSnapshot } from '../../features/wallet/services/walletRepository';
 
 test('WalletSnapshotCache peek e prime isolam sessões e respeitam TTL', () => {
@@ -59,8 +60,13 @@ test('Carteira possui hidratação offline por IndexedDB, pré-carregamento comp
   const access = readFileSync('features/wallet/hooks/useWalletAccess.ts', 'utf8');
   const hook = readFileSync('features/wallet/hooks/useWalletSnapshot.ts', 'utf8');
   const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'utf8');
+  const report = readFileSync('features/wallet/pages/WalletReportPage.tsx', 'utf8');
+  const bankLogo = readFileSync('components/wallet/BankLogo.tsx', 'utf8');
+  const cardDetail = readFileSync('components/wallet/CardDetailModal.tsx', 'utf8');
 
   assert.match(service, /async load\(\)[\s\S]*personal_wallet_card_invoice_facts/);
+  assert.match(service, /assertWalletOnlineForWrite/);
+  assert.match(service, /READ_ONLY_WALLET_METHODS/);
   assert.match(repo, /loadWalletOfflineFull/);
   assert.match(repo, /loadWalletOfflineOverview/);
   assert.match(repo, /loadWalletOfflineAccess/);
@@ -75,5 +81,31 @@ test('Carteira possui hidratação offline por IndexedDB, pré-carregamento comp
   assert.match(access, /getSession/);
   assert.match(hook, /peekCachedFull/);
   assert.match(overview, /peekCachedOverview/);
+  assert.match(report, /peekCachedOverview/);
+  assert.match(bankLogo, /setCustomFailed\(true\)/);
+  assert.match(cardDetail, /setPhotoUnavailable\(true\)/);
+});
+
+test('guardWalletWrites bloqueia mutações offline em tempo de execução e libera leitura', () => {
+  let online = false;
+  let calledWrite = 0;
+  let calledRead = 0;
+  const service = guardWalletWrites(
+    {
+      load: () => { calledRead += 1; return 'ok'; },
+      recordAccountOperation: () => { calledWrite += 1; return 'saved'; },
+    },
+    new Set(['load']),
+    () => online,
+  );
+
+  assert.equal(service.load(), 'ok');
+  assert.equal(calledRead, 1);
+  assert.throws(() => service.recordAccountOperation(), /Conecte-se à internet para salvar alterações na Minha Carteira/);
+  assert.equal(calledWrite, 0, 'mutação offline não pode sequer chamar o cliente Supabase');
+
+  online = true;
+  assert.equal(service.recordAccountOperation(), 'saved');
+  assert.equal(calledWrite, 1);
 });
 

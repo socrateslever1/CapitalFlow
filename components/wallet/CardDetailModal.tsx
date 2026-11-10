@@ -41,7 +41,12 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
   const [importOpen, setImportOpen] = useState(false);
   const [activeView, setActiveView] = useState<'CARD' | 'PHOTO'>('CARD');
   const [showFullPhoto, setShowFullPhoto] = useState(false);
+  const [photoUnavailable, setPhotoUnavailable] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    setPhotoUnavailable(false);
+  }, [card.id, card.image_url]);
   const available = Math.max(0, Number(card.credit_limit) - Number(card.used_limit));
   const usedPercentage = Number(card.credit_limit) > 0 ? Math.min(100, (Number(card.used_limit) / Number(card.credit_limit)) * 100) : 0;
   const invoiceAmount = openInvoiceAmount > 0 ? openInvoiceAmount : Number(card.current_bill || 0);
@@ -80,9 +85,15 @@ export const CardDetailModal: React.FC<CardDetailModalProps> = ({
           <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider"><ImageIcon size={13} className="text-blue-400" /> Foto / Comprovante Anexado</span>
           <button type="button" onClick={() => setShowFullPhoto(!showFullPhoto)} className="text-[10px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1"><Maximize2 size={11} /> {showFullPhoto ? 'Reduzir' : 'Ampliar'}</button>
         </div>
-        <button type="button" onClick={() => setShowFullPhoto(!showFullPhoto)} className="w-full cursor-pointer overflow-hidden rounded-lg border border-slate-800 bg-slate-900 group relative text-left">
-          <img src={card.image_url!} alt={`Foto do cartão ${card.nickname}`} className={`w-full object-contain transition-all duration-300 motion-reduce:transition-none ${showFullPhoto ? 'max-h-[60vh]' : 'max-h-56'}`} />
-        </button>
+        {photoUnavailable ? (
+          <div role="status" className="flex min-h-32 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 p-4 text-center text-xs text-slate-300">
+            Foto indisponível no modo offline ou com acesso expirado. Conecte-se à internet para visualizar novamente.
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowFullPhoto(!showFullPhoto)} className="w-full cursor-pointer overflow-hidden rounded-lg border border-slate-800 bg-slate-900 group relative text-left">
+            <img src={card.image_url!} alt={`Foto do cartão ${card.nickname}`} onError={() => setPhotoUnavailable(true)} className={`w-full object-contain transition-all duration-300 motion-reduce:transition-none ${showFullPhoto ? 'max-h-[60vh]' : 'max-h-56'}`} />
+          </button>
+        )}
       </div>
     )}
   </>;

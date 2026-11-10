@@ -24,6 +24,7 @@ import type { AnyCardVaultEnvelope, WrappedWalletMasterKey } from '../features/w
 import { CardRegistrationError, type CompleteCardRegistration } from '../features/wallet/domain/cardRegistration';
 import { signWalletImagePaths } from '../features/wallet/services/walletImageSigning';
 import { loadAllWalletRows } from '../features/wallet/services/walletCompleteRead';
+import { assertWalletOnlineForWrite, guardWalletWrites } from '../features/wallet/services/walletOfflineGuard';
 
 const CARD_IMAGES_BUCKET = 'personal-wallet-cards';
 const ACCOUNT_IMAGES_BUCKET = 'personal-wallet-accounts';
@@ -310,7 +311,7 @@ const getActiveWalletReset = async (): Promise<WalletResetArchive | null> => {
   return (data as WalletResetArchive | null) ?? null;
 };
 
-export const personalWalletService = {
+const personalWalletServiceImpl = {
   /**
    * Vínculo opcional: RPC existente valida proprietário, saldo idêntico,
    * exclusividade da fonte e serialização. Não altera registros históricos.
@@ -1430,3 +1431,23 @@ export const personalWalletService = {
     return Number(data || 0);
   },
 };
+
+const READ_ONLY_WALLET_METHODS = new Set<keyof typeof personalWalletServiceImpl>([
+  'ownerId',
+  'getStatementRowsForReview',
+  'loadOverview',
+  'load',
+  'getWalletResetArchive',
+  'loadCardInvoiceFacts',
+  'getWalletPinProfile',
+  'getCardVault',
+  'getCardLoginVault',
+  'ensureDefaultCashAccount',
+]);
+
+export { assertWalletOnlineForWrite };
+
+export const personalWalletService: typeof personalWalletServiceImpl = guardWalletWrites(
+  personalWalletServiceImpl,
+  READ_ONLY_WALLET_METHODS,
+);

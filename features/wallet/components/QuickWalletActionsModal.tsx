@@ -11,6 +11,7 @@ import { formatMoney } from '../../../utils/formatters';
 import { generateUUID } from '../../../utils/generators';
 import { getCardCreditPosition } from '../../../components/wallet/invoiceStatementDomain';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from './CardOpeningFields';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
 export type QuickActionMode = 'EXPENSE' | 'CASH_WALLET' | 'CARD_OPENING';
 
@@ -45,7 +46,7 @@ const QUICK_CATEGORIES = [
 
 const QUICK_INSTALLMENTS = ['1', '2', '3', '4', '6', '10', '12'];
 
-const todayISO = () => new Date().toLocaleDateString('en-CA');
+const todayISO = () => businessDateInManaus();
 
 export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = ({
   mode: initialMode,

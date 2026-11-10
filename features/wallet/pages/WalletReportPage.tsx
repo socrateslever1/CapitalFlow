@@ -30,14 +30,24 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
 
   useEffect(() => {
     let active = true;
+    let hasCached = false;
     setLoading(true);
+    void walletRepository.peekCachedOverview().then(cached => {
+      if (active && cached) {
+        hasCached = true;
+        setSnapshot(current => current ?? cached);
+        setToday(localDate());
+        setError('');
+        setLoading(false);
+      }
+    });
     void walletRepository.loadOverview()
       .then(result => { if (active) { setSnapshot(result); setToday(localDate()); setError(''); } })
-      .catch(() => { if (active) setError('Não foi possível carregar o relatório.'); })
+      .catch(() => { if (active && !hasCached) setError('Não foi possível carregar o relatório.'); })
       .finally(() => { if (active) setLoading(false); });
     const onUpdated = () => {
       void refresh(true).catch(() => {
-        if (active) setError('Não foi possível atualizar os indicadores. Confira a conexão.');
+        if (active && !hasCached) setError('Não foi possível atualizar os indicadores. Confira a conexão.');
       });
     };
     window.addEventListener('capitalflow:wallet-updated', onUpdated);
@@ -64,7 +74,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
     onRefresh={() => void refresh(true).catch(() => setError('Não foi possível atualizar o relatório.'))}
     actions={<button type="button" onClick={() => onNavigate('visao-geral')}
       className="flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800">
-      <ArrowLeft size={15}/> Voltar
+      <ArrowLeft size={15} /> Voltar
     </button>}>
     {report && privacyHidden && <section aria-label="Relatório financeiro protegido"
       className="rounded-xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-300">
@@ -73,15 +83,15 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
     </section>}
     {report && !privacyHidden && <>
       <section aria-label="Resumo financeiro do mês" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><BarChart3 size={17} className="text-blue-400"/> Visão do mês</h3>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><BarChart3 size={17} className="text-blue-400" /> Visão do mês</h3>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {cards.map(({ label, value, color, Icon }) => <div key={label}
             className="min-w-0 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
             <span className="flex items-start gap-1.5 text-[11px] text-slate-300">
-              <Icon size={14} className="mt-0.5 shrink-0"/>{label}
+              <Icon size={14} className="mt-0.5 shrink-0" />{label}
             </span>
             <strong className={'mt-2 block break-words text-base font-bold tabular-nums ' + color}>
-              <PrivateMoney value={formatMoney(value)}/>
+              <PrivateMoney value={formatMoney(value)} />
             </strong>
           </div>)}
         </div>
@@ -89,7 +99,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
           <p className="text-xs text-slate-300">Projeção após compromissos cadastrados</p>
           <p className={'mt-1 break-words text-xl font-bold tabular-nums ' +
             (report.balance.projectedBalance < 0 ? 'text-rose-300' : 'text-emerald-300')}>
-            <PrivateMoney value={formatMoney(report.balance.projectedBalance)}/>
+            <PrivateMoney value={formatMoney(report.balance.projectedBalance)} />
           </p>
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
@@ -100,7 +110,7 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
       <section aria-label="Despesas por categoria" className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-bold text-white">Despesas por categoria</h3>
-          <strong className="text-base font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(report.spending.total)}/></strong>
+          <strong className="text-base font-bold tabular-nums text-white"><PrivateMoney value={formatMoney(report.spending.total)} /></strong>
         </div>
         <p className="mt-1 text-xs text-slate-400">
           {report.spending.count} {report.spending.count === 1 ? 'lançamento no mês' : 'lançamentos no mês'}
@@ -110,11 +120,11 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
             <div className="mb-1 flex justify-between gap-3 text-xs">
               <span className="min-w-0 truncate text-slate-200">{category.name}</span>
               <span className="shrink-0 tabular-nums text-slate-300">
-                <PrivateMoney value={formatMoney(category.amount)}/> · {category.percentage}%
+                <PrivateMoney value={formatMoney(category.amount)} /> · {category.percentage}%
               </span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
-              <div className="h-full rounded-full bg-blue-500" style={{ width: Math.min(100, category.percentage) + '%' }}/>
+              <div className="h-full rounded-full bg-blue-500" style={{ width: Math.min(100, category.percentage) + '%' }} />
             </div>
           </li>)}
         </ul> : <p className="mt-4 text-sm text-slate-400">Nenhuma despesa registrada neste mês.</p>}
@@ -129,9 +139,9 @@ export const WalletReportPage: React.FC<{ onNavigate: (path: string) => void }> 
           {report.upcoming.map(item => <li key={item.id} className="flex min-w-0 items-center justify-between gap-3 py-3 text-xs">
             <div className="min-w-0">
               <p className="truncate font-semibold text-slate-200">{item.title}</p>
-              <p className="mt-1 text-slate-400"><DateOfCommitment value={item.dueDate}/> · {item.institution}</p>
+              <p className="mt-1 text-slate-400"><DateOfCommitment value={item.dueDate} /> · {item.institution}</p>
             </div>
-            <strong className="shrink-0 tabular-nums text-white"><PrivateMoney value={formatMoney(item.amount)}/></strong>
+            <strong className="shrink-0 tabular-nums text-white"><PrivateMoney value={formatMoney(item.amount)} /></strong>
           </li>)}
         </ul> : <p className="mt-3 text-sm text-slate-400">Nenhum vencimento próximo identificado.</p>}
         <p className="mt-2 text-[11px] text-slate-400">Exibição limitada aos próximos oito registros com vencimento até 45 dias.</p>

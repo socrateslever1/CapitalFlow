@@ -5,6 +5,7 @@ import { formatMoney } from '../../../utils/formatters';
 import QuickExpenseModal from '../components/QuickExpenseModal';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
+import { businessDateInManaus } from '../../../utils/businessDate';
 import {
   bankNotificationsSupported, bindBankNotificationsProfile, clearBankNotices, dismissBankNotice,
   getBankNoticeStatus, listBankNotices, listenBankNotices, openBankNoticeSettings,
@@ -18,12 +19,7 @@ const notificationRequestId = (id: string) => {
     '-a' + hex.slice(17, 20) + '-' + hex.slice(20, 32);
 };
 
-const localIsoDate = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  return year + '-' + String(date.getMonth() + 1).padStart(2, '0') +
-    '-' + String(date.getDate()).padStart(2, '0');
-};
+const localIsoDate = (timestamp: number): string => businessDateInManaus(new Date(timestamp));
 
 const ReviewNotification: React.FC<{
   item: CapturedBankNotice; onClose: () => void; onRecorded: () => Promise<void>;

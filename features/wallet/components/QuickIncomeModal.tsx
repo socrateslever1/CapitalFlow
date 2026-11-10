@@ -9,15 +9,13 @@ import { calculateTotalDue } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
 import { useModal } from '../../../contexts/ModalContext';
 import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
 type ReceiveMode = 'COMMON' | 'CLIENT';
 type Props = { onClose: () => void };
 const inputClass = 'mt-1 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
 const labelClass = 'block min-w-0 text-xs font-semibold text-slate-300';
-const today = () => {
-  const date = new Date();
-  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
-};
+const today = () => businessDateInManaus();
 
 const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { data, loading, error: loadError, refresh } = useWalletSnapshot();

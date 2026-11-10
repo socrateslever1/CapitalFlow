@@ -36,6 +36,8 @@ test('wallet defers auth callback requests, coalesces focus checks and cleans up
   const modules = {
     react: {
       useState(initial) { state = initial; return [state, value => { state = value; }]; },
+      useRef(initial) { return { current: initial }; },
+      useCallback(fn) { return fn; },
       useEffect(fn) { cleanup = fn(); },
     },
     '../../../lib/supabase': { supabase },

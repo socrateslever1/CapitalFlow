@@ -2,6 +2,7 @@ import React from 'react';
 import { formatMoney } from '../../../utils/formatters';
 import { calculateUsedFromAvailable } from '../../../components/wallet/cardOpeningSummary';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
+import { businessDateInManaus } from '../../../utils/businessDate';
 
 export type CardOpeningFormValues = {
   used: string;
@@ -22,17 +23,14 @@ export type CardOpeningPayload = {
   invoice_state?: 'OPEN' | 'CLOSED';
 };
 
-export const freshCardOpening = (): CardOpeningFormValues => {
-  const date = new Date();
-  return {
-    used: '',
-    available: '',
-    invoice: '',
-    future: '',
-    futureCount: '',
-    invoiceMonth: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
-  };
-};
+export const freshCardOpening = (): CardOpeningFormValues => ({
+  used: '',
+  available: '',
+  invoice: '',
+  future: '',
+  futureCount: '',
+  invoiceMonth: businessDateInManaus().slice(0, 7),
+});
 
 const safeMoney = (raw: string): number => {
   try {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Landmark } from 'lucide-react';
 import { resolveBankLogo } from '../../utils/bankLogoRegistry';
 
@@ -12,9 +12,15 @@ type Props = {
 };
 const sizes = { sm: 'h-8 w-8', md: 'h-11 w-11', lg: 'h-14 w-14' };
 export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, size = 'md', className = '', style }) => {
-  const [failed, setFailed] = useState(false);
+  const [customFailed, setCustomFailed] = useState(false);
+  const [localFailed, setLocalFailed] = useState(false);
   const localLogo = resolveBankLogo(name === 'Bradescard' ? 'Bradesco' : name, alternateName);
-  const url = customImage || localLogo;
+
+  useEffect(() => { setCustomFailed(false); }, [customImage]);
+  useEffect(() => { setLocalFailed(false); }, [localLogo]);
+
+  const usingCustom = Boolean(customImage && !customFailed);
+  const url = usingCustom ? customImage! : (!localFailed ? localLogo : null);
   const fallbackName = String(name || alternateName || 'Banco').trim();
   const initials = fallbackName.split(/\s+/).filter(Boolean).slice(0, 2).map(t => t[0]).join('').toUpperCase();
   return (
@@ -22,12 +28,15 @@ export const BankLogo: React.FC<Props> = ({ name, alternateName, customImage, si
       style={style}
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-700/60 bg-slate-800 ${sizes[size]} ${className}`}
     >
-      {url && !failed ? (
+      {url ? (
         <img
           src={url}
           alt={`Logo de ${fallbackName}`}
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={() => {
+            if (usingCustom) setCustomFailed(true);
+            else setLocalFailed(true);
+          }}
           className="h-full w-full object-contain p-0.5"
         />
       ) : initials ? (

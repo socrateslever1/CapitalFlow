@@ -20,7 +20,7 @@ export function resolveQuickDateShortcuts(todayIso?: string): QuickDateShortcuts
   const today =
     todayIso && /^\d{4}-\d{2}-\d{2}$/.test(todayIso)
       ? todayIso
-      : new Date().toLocaleDateString('en-CA');
+      : businessDateInManaus();
   const yesterday = shiftIsoDays(today, -1);
   return { today, yesterday };
 }
@@ -39,9 +39,9 @@ export function stepInvoiceMonth(
 ): { dueMonthIso: string; monthInputValue: string; label: string } {
   const clean = (monthOrDueIso || '').slice(0, 7);
   const [rawY, rawM] = clean.split('-').map(Number);
-  const now = new Date();
-  const year = Number.isInteger(rawY) && rawY > 1900 ? rawY : now.getFullYear();
-  const month = Number.isInteger(rawM) && rawM >= 1 && rawM <= 12 ? rawM : now.getMonth() + 1;
+  const [fallbackY, fallbackM] = businessDateInManaus().slice(0, 7).split('-').map(Number);
+  const year = Number.isInteger(rawY) && rawY > 1900 ? rawY : fallbackY;
+  const month = Number.isInteger(rawM) && rawM >= 1 && rawM <= 12 ? rawM : fallbackM;
   const shifted = new Date(Date.UTC(year, month - 1 + deltaMonths, 1, 12, 0, 0));
   const yyyy = shifted.getUTCFullYear();
   const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');

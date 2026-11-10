@@ -215,7 +215,7 @@ export const useSourceController = (
     }
   };
 
-  const handleWithdrawProfit = async () => {
+  const handleWithdrawProfit = async (destinationAccountId?: string | null) => {
     if (!activeUser || ui.withdrawValue == null) return;
 
     const amount = parseCurrency(ui.withdrawValue);
@@ -234,14 +234,23 @@ export const useSourceController = (
       return;
     }
 
+    const walletDestinationId = destinationAccountId ? safeUUID(destinationAccountId) : null;
+    if (destinationAccountId && !walletDestinationId) {
+      showToast('Conta de destino inválida.', 'error');
+      return;
+    }
     const normalizedWithdrawTarget = String(ui.withdrawSourceId || '').trim();
-    const targetSourceId =
+    const targetSourceId = walletDestinationId ? null :
       !normalizedWithdrawTarget || normalizedWithdrawTarget === 'EXTERNAL_WITHDRAWAL'
-        ? null
-        : normalizedWithdrawTarget;
+        ? null : normalizedWithdrawTarget;
 
     if (targetSourceId && !sources.some((s) => s.id === targetSourceId)) {
       showToast('Selecione uma fonte válida para receber o resgate.', 'error');
+      return;
+    }
+
+    if (walletDestinationId && (activeUser.id === 'DEMO' || (typeof navigator !== 'undefined' && !navigator.onLine))) {
+      showToast('Conecte-se à internet para resgatar diretamente para uma conta.', 'error');
       return;
     }
 
@@ -315,17 +324,26 @@ export const useSourceController = (
 
       const request = getStableFinancialRequestKey([
         'profit-withdrawal-v2', ownerId, caixaLivreSource?.id || 'profile',
-        targetSourceId || 'external', amount.toFixed(2),
+        walletDestinationId || targetSourceId || 'external', amount.toFixed(2),
       ].join(':'));
-      const { error } = await supabase.rpc('withdraw_profit_atomic_v2', {
-        p_idempotency_key: request.idempotencyKey,
-        p_amount: amount,
-        p_profile_id: safeUUID(ownerId),
-        p_source_id: useSourceWithdrawal && caixaLivreSource ? safeUUID(caixaLivreSource.id) : null,
-        p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
-      });
+      const { error } = walletDestinationId
+        ? await supabase.rpc('withdraw_profit_to_wallet_atomic', {
+            p_idempotency_key: request.idempotencyKey,
+            p_amount: amount,
+            p_profile_id: safeUUID(ownerId),
+            p_source_id: useSourceWithdrawal && caixaLivreSource ? safeUUID(caixaLivreSource.id) : null,
+            p_account_id: walletDestinationId,
+          })
+        : await supabase.rpc('withdraw_profit_atomic_v2', {
+            p_idempotency_key: request.idempotencyKey,
+            p_amount: amount,
+            p_profile_id: safeUUID(ownerId),
+            p_source_id: useSourceWithdrawal && caixaLivreSource ? safeUUID(caixaLivreSource.id) : null,
+            p_target_source_id: targetSourceId ? safeUUID(targetSourceId) : null,
+          });
       if (error) throw error;
       clearStableFinancialRequestKey(request.storageKey);
+      if (walletDestinationId && typeof window !== 'undefined') window.dispatchEvent(new Event('capitalflow:wallet-updated'));
 
       showToast('Resgate processado com sucesso!', 'success');
 

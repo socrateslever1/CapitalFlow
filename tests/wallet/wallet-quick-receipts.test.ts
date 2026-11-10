@@ -88,21 +88,29 @@ test('FAB and receipt screen reuse the established payment manager and a single 
   assert(service.includes("supabase.rpc('personal_wallet_record_account_operation'"));
 });
 
-test('contract receipts require an explicit wallet destination and preserve client traceability',()=>{
+test('contract receipts provide an optional destination without changing the default flow',()=>{
   const modal=readFileSync('components/modals/PaymentManagerModal.tsx','utf8');
   const controller=readFileSync('hooks/controllers/usePaymentController.ts','utf8');
   const payments=readFileSync('services/payments.service.ts','utf8');
   const engine=readFileSync('services/payments/paymentEngineV4.ts','utf8');
   const migration=readFileSync('supabase/migrations/20261105230000_wallet_receipt_destination_sync.sql','utf8');
   const statement=readFileSync('components/wallet/accountStatementDomain.ts','utf8');
-  assert.match(modal,/Destino na Carteira/);
-  assert.match(modal,/capital \+ juros/);
+  assert.match(modal,/Conta que recebeu o pagamento/);
+  assert.match(modal,/Padrão · devolver às fontes originais/);
+  assert.match(modal,/Conta que recebeu o pagamento \(opcional\)/);
+  assert.doesNotMatch(modal,/select required value=\{receiptDestinationAccountId\}/);
+  assert.match(modal,/walletAccounts\.map\(account/);
   assert.match(modal,/platformAdminService\.isSuperAdmin\(\)/);
   assert.match(modal,/isWalletReceiptAdmin/);
   assert.match(controller,/receiptDestinationAccountId/);
   assert.match(payments,/personal_wallet_set_receipt_destination/);
   assert.match(engine,/p_idempotency_key: idempotencyKey/);
   assert.match(migration,/wallet_apply_receipt_destination/);
+  const routed=readFileSync('supabase/migrations/20261110210000_optional_wallet_receipt_withdrawal_routing.sql','utf8');
+  assert.match(routed,/wallet_route_receipt_internal/);
+  assert.match(routed,/withdraw_profit_to_wallet_atomic/);
+  assert.match(routed,/wallet_apply_offer_receipt_destination/);
+  assert.match(routed,/reverse_wallet_financial_operation_v4/);
   assert.match(migration,/Recebimento.*v_client_name/);
   assert.match(statement,/operation\.operation_type === 'RECEIPT' && operation\.contract_id/);
 });

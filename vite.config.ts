@@ -62,6 +62,23 @@ function walletAssetsManifestPlugin(buildId: string): Plugin {
         fileName: 'wallet-precache.json',
         source: JSON.stringify({ version: buildId, assets: [...files].sort() }) + '\n',
       });
+      // Every emitted frontend chunk is downloaded once after the app starts.
+      // The wallet-only manifest remains for backwards compatibility; the
+      // full manifest includes lazy-loaded routes, images and fonts.
+      const allStaticAssets = Object.values(bundle)
+        .map(entry => entry.fileName)
+        .filter(name => name.startsWith('assets/') &&
+          /\.(?:js|css|png|jpe?g|webp|svg|woff2?|wasm)$/i.test(name))
+        .map(name => '/' + name)
+        .sort();
+      this.emitFile({
+        type: 'asset',
+        fileName: 'app-precache.json',
+        source: JSON.stringify({
+          version: buildId,
+          assets: [...new Set(allStaticAssets)],
+        }) + '\n',
+      });
     },
   };
 }

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
 
-const menuItemClass = 'flex min-h-12 min-w-0 items-center justify-start gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left text-xs font-semibold text-slate-100 transition-colors hover:border-blue-500/50 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
+const menuItemClass = 'flex min-h-12 min-w-0 items-center justify-start gap-2 rounded-lg border border-slate-700/80 bg-slate-900 px-3 py-2.5 text-left text-xs font-semibold leading-snug text-slate-100 transition-colors hover:border-blue-500/60 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400';
 const QuickIncomeModal = React.lazy(() => import('./QuickIncomeModal').then(module => ({ default: module.QuickIncomeModal })));
 
 /** Financial data is not fetched until the user actually opens the expense form. */
@@ -60,7 +60,7 @@ export const WalletExpenseFab: React.FC = () => {
         {menuOpen ? <X size={21}/> : <Plus size={22} strokeWidth={2.5}/>}
       </button>
       {menuOpen && <div id="wallet-quick-actions" role="menu" aria-label="Ações rápidas da Carteira"
-        className="grid w-[min(21rem,calc(100vw-2rem))] grid-cols-2 gap-2 rounded-xl border border-slate-700 bg-slate-950 p-2 shadow-2xl shadow-black/50 animate-in fade-in duration-150">
+        className="grid w-[min(19rem,calc(100vw-2rem))] max-h-[min(68dvh,26rem)] grid-cols-2 gap-2 overflow-y-auto rounded-xl border border-slate-700 bg-slate-950 p-2.5 shadow-xl shadow-black/40 animate-in fade-in duration-150">
         <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setIncomeOpen(true); }}
           className={menuItemClass + ' col-span-2 border-emerald-700/50 bg-emerald-950/30 text-emerald-100 hover:bg-emerald-950/60'}>
           <ArrowDownToLine size={17} className="shrink-0 text-emerald-300"/>Receber valor

@@ -142,16 +142,22 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
         updateViaCache: 'none',
       });
 
-      // Keep new service workers waiting until the user chooses "Atualizar página".
-      await registration.update().catch(() => undefined);
-      // O SW pode não mudar entre dois builds. Revalidar o manifesto de
-      // chunks da Carteira no worker ativo sem usar dados pessoais ou saldo.
-      const prefetchWalletAssets = () => registration.active?.postMessage({ type: 'CACHE_WALLET_ASSETS' });
-      prefetchWalletAssets();
+      // A instalação do SW guarda apenas o shell. Depois da primeira pintura
+      // preparamos TODAS as páginas JS/CSS e mídias públicas do build.
+      // Isso não interfere no consentimento do usuário para ativar uma versão.
+      const precacheAllAssets = async () => {
+        const ready = await navigator.serviceWorker.ready;
+        ready.active?.postMessage({ type: 'CACHE_ALL_ASSETS' });
+        // Versions opened before this release only understand the old message.
+        ready.active?.postMessage({ type: 'CACHE_WALLET_ASSETS' });
+      };
+      void precacheAllAssets().catch(() => undefined);
+      void registration.update().catch(() => undefined);
 
       const checkForUpdate = () => {
         if (document.visibilityState !== 'visible') return;
-        registration.update().catch(() => undefined);
+        void registration.update().catch(() => undefined);
+        void precacheAllAssets().catch(() => undefined);
       };
 
       document.addEventListener('visibilitychange', checkForUpdate);

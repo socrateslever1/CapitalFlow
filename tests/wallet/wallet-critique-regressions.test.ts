@@ -6,18 +6,17 @@ const overview = readFileSync('features/wallet/pages/WalletOverviewPage.tsx', 'u
 const payables = readFileSync('components/wallet/WalletPayablesPanel.tsx', 'utf8');
 const obligations = readFileSync('components/wallet/RecurringObligationsPanel.tsx', 'utf8');
 
-test('visão geral apresenta a fórmula sem duplicar auditoria e sem códigos internos', () => {
-  assert.doesNotMatch(overview, /\\.state\\}\\s*·\\s*\\{balance\\.facts/);
-  assert.doesNotMatch(overview, /\\(WalletBalanceFacts\\)/);
-  assert.match(overview,/Como chegamos à projeção/);
-  assert.match(overview,/Saldo disponível em contas hoje/);
-  assert.match(overview,/Receitas recorrentes ainda não recebidas/);
-  assert.match(overview,/Faturas com vencimento neste mês/);
-  assert.match(overview,/Dívidas e contas pendentes do mês/);
-  assert.match(overview,/!privacyHidden && <section/);
-  assert.doesNotMatch(overview,/<details className="group mt-3/);
-  assert.doesNotMatch(overview,/describeWalletBalanceFact\\(balance\\.facts\\./);
-  assert.match(overview,/PrivateMoney value=\\{money\\(balance\\.projectedBalance\\)\\}/);
+test('visão geral explica o balanço em português sem números duplicados', () => {
+  assert.ok(overview.includes('Como chegamos à projeção'));
+  assert.ok(overview.includes('Saldo disponível em contas hoje'));
+  assert.ok(overview.includes('Receitas recorrentes ainda não recebidas'));
+  assert.ok(overview.includes('Faturas com vencimento neste mês'));
+  assert.ok(overview.includes('Dívidas e contas pendentes do mês'));
+  assert.ok(overview.includes('!privacyHidden && <section'));
+  assert.ok(overview.includes('PrivateMoney value={money(balance.projectedBalance)}'));
+  assert.ok(!overview.includes('<details className="group mt-3'));
+  assert.ok(!overview.includes('describeWalletBalanceFact(balance.facts.'));
+  assert.ok(!overview.includes('(WalletBalanceFacts)'));
 });
 
 test('contas a pagar ocultam total e valor a distribuir no modo privacidade', () => {

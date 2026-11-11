@@ -80,7 +80,7 @@ test('a proteção é efetiva nas páginas de balanço e relatório, inclusive n
  const assistant=readFileSync('components/ai/MasterMascot.tsx','utf8');
  assert.match(overview,/privacyHidden \? 'Indicador oculto'/);
  assert.match(overview,/!privacyHidden && <section aria-label="Composição explicada do balanço"/);
- assert.match(overview,/PrivateMoney value=\\{money\\(balance\\.accountBalance\\)\\}/);
+ assert.ok(overview.includes('PrivateMoney value={money(balance.accountBalance)}'));
  assert.match(overview,/privacyHidden \? <p className="mt-4/);
  assert.match(report,/report && privacyHidden && <section/);
  assert.match(report,/report && !privacyHidden && <>/);

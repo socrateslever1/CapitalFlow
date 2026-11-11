@@ -4,6 +4,7 @@ import { PersonalWalletCard, PersonalWalletAccount } from '../../services/person
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { stepInvoiceMonth } from '../../features/wallet/utils/minhasFinancasWalletTools';
 
 export type InvoiceRemainderAction =
@@ -155,7 +156,15 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
             <span className="block text-[11px] font-bold uppercase text-slate-300">Quanto foi pago?</span>
             <div className="flex gap-2">
               <input required inputMode="decimal" autoComplete="off" value={paymentText}
-                onChange={(event) => { setPaymentText(event.target.value); setError(''); }}
+                onChange={event => {
+                  const input = event.currentTarget;
+                  const next = resolveLiveBrazilianCentsChange(input.value, paymentText, (event.nativeEvent as InputEvent).inputType);
+                  if (!next) return;
+                  setPaymentText(next.value); setError('');
+                  requestAnimationFrame(() => {
+                    if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                  });
+                }}
                 onBlur={(event) => { try { setPaymentText(formatWalletMoneyInput(event.target.value)); } catch {} }}
                 placeholder="0,00" aria-label="Valor do pagamento parcial"
                 className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-base text-white outline-none focus:border-emerald-500" />
@@ -263,7 +272,15 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
                       type="text"
                       inputMode="decimal"
                       value={planInstallmentValue}
-                      onChange={(e) => setPlanInstallmentValue(e.target.value)}
+                      onChange={event => {
+                         const input = event.currentTarget;
+                         const next = resolveLiveBrazilianCentsChange(input.value, planInstallmentValue, (event.nativeEvent as InputEvent).inputType);
+                         if (!next) return;
+                         setPlanInstallmentValue(next.value);
+                         requestAnimationFrame(() => {
+                           if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                         });
+                       }}
                       onBlur={(e) => {
                         try { setPlanInstallmentValue(formatWalletMoneyInput(e.target.value)); } catch {}
                       }}

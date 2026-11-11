@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.legal_document_archive_state (
 );
 ALTER TABLE public.legal_document_archive_state ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.legal_document_archive_state FROM PUBLIC,anon;
-GRANT SELECT,INSERT,DELETE ON public.legal_document_archive_state TO authenticated;
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.legal_document_archive_state TO authenticated;
 DROP POLICY IF EXISTS legal_document_archive_self_select ON public.legal_document_archive_state;
 CREATE POLICY legal_document_archive_self_select ON public.legal_document_archive_state
   FOR SELECT TO authenticated
@@ -32,6 +32,26 @@ CREATE POLICY legal_document_archive_self_insert ON public.legal_document_archiv
 DROP POLICY IF EXISTS legal_document_archive_self_delete ON public.legal_document_archive_state;
 CREATE POLICY legal_document_archive_self_delete ON public.legal_document_archive_state
   FOR DELETE TO authenticated USING (
+    owner_auth_id = (SELECT auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.documentos_juridicos d
+      JOIN public.perfis p ON p.id=d.profile_id
+      WHERE d.id=document_id AND p.user_id=(SELECT auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS legal_document_archive_self_update ON public.legal_document_archive_state;
+CREATE POLICY legal_document_archive_self_update ON public.legal_document_archive_state
+  FOR UPDATE TO authenticated
+  USING (
+    owner_auth_id = (SELECT auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.documentos_juridicos d
+      JOIN public.perfis p ON p.id=d.profile_id
+      WHERE d.id=document_id AND p.user_id=(SELECT auth.uid())
+    )
+  )
+  WITH CHECK (
     owner_auth_id = (SELECT auth.uid())
     AND EXISTS (
       SELECT 1 FROM public.documentos_juridicos d

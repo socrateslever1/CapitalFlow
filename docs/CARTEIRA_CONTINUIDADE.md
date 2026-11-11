@@ -1,3 +1,12 @@
+## 11/11/2026 — Revisão de recebimentos, histórico jurídico e clareza do balanço
+
+- Diagnóstico do Jurídico: o perfil principal possuía 53 registros gerados, incluindo 14 cancelados, 33 pendentes, 5 em assinatura e 1 assinado. Vários documentos tinham versões/duplicatas por contrato. Esses documentos não foram excluídos automaticamente.
+- O botão Excluir chamava o cliente anônimo do portal, repetia o mesmo DELETE e não verificava o retorno do banco. O fluxo agora exige sessão autenticada, titularidade, ausência de assinaturas e vínculos protegidos, e confirma a linha removida. Documentos assinados, parciais, cancelados ou protegidos podem ser arquivados visualmente pelo titular, nunca destruídos. Os arquivados continuam acessíveis e restauráveis. RLS do arquivo é restrita a auth.uid() e ao perfil proprietário.
+- O balanço da Carteira conserva os mesmos cálculos e passa a mostrar a fórmula de projeção abertamente, distinguindo saldo presente de receitas futuras. O bloco redundante de auditoria foi removido.
+- A regra de centavos está coberta pelo teste sequencial 0,41 → 4,10 → 41,01 → 410,10 → 4.101,00, sem mudar o motor financeiro.
+- Recebimentos examinados: em 11/11/2026 houve registro de acordo de R$ 350,00, sem destino roteado; o motor V4 do perfil não apresentava recebimentos posteriores a 07/11/2026. Nenhum registro financeiro foi modificado por esta auditoria.
+- Limitação: sem teste em dispositivo real. Assinaturas e recibos jurídicos não devem ser apagados sem preservar prova e trilha histórica; os registros legados continuam intactos até decisão explícita do titular.
+
 ## 10/11/2026 — Bloco 03 e Bloco 04 (UX Offline, Fallback de Imagens, Padronização Manaus e Correção de Testes Legados)
 - **Bloqueio preventivo offline em runtime ([`walletOfflineGuard.ts`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/features/wallet/services/walletOfflineGuard.ts), [`services/personalWallet.service.ts`](file:///c:/Users/LeverDell/Documents/GitHub/CapitalFlow1/services/personalWallet.service.ts)):**
   - Todas as mutações de `personalWalletService` fora de `READ_ONLY_WALLET_METHODS` executam `guardWalletWrites` / `assertWalletOnlineForWrite()` antes de tocar o Supabase, bloqueando escritas offline com mensagem clara em português sem impedir leitura.

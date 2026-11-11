@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -10,12 +10,14 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
   onBlur?: () => void;
   rate?: boolean;
   signed?: boolean;
+  /** Desloca os centavos a cada dígito, sem alterar o comportamento dos demais campos. */
+  centsEntry?: boolean;
   fieldLabel?: string;
 };
 
 /** Mantém a expressão local enquanto o usuário digita, sem alimentar fórmulas com texto parcial. */
 export const FinancialCalculatorInput: React.FC<Props> = ({
-  value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, fieldLabel = 'valor', className = '',
+  value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = false, fieldLabel = 'valor', className = '',
   onFocus, onKeyDown, disabled, ...rest
 }) => {
   const [editing, setEditing] = useState(false);
@@ -87,7 +89,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             const input = e.currentTarget;
             const raw = input.value;
             if (!rate && !signed && /^[\d.,]*$/.test(raw)) {
-              const next = formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);
+              const next = centsEntry
+                ? formatLiveBrazilianCents(raw)
+                : formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);
               if (!next) return;
               setDraft(next.value);
               requestAnimationFrame(() => {
@@ -114,7 +118,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
-            if (!rate && !signed && (e.key === 'Backspace' || e.key === 'Delete')) {
+            if (!rate && !signed && !centsEntry && (e.key === 'Backspace' || e.key === 'Delete')) {
               const input = e.currentTarget;
               const start = input.selectionStart ?? 0;
               const end = input.selectionEnd ?? start;

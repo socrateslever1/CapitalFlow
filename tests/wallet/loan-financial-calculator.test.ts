@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { buildSourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
+import { formatLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('principal, custos e juros calculam expressões sem arredondamento prematuro', () => {
   const examples: Array<[string, number]> = [
@@ -57,4 +59,53 @@ test('correção de saldo real é verificada no banco, sem fabricar histórico f
   assert.match(controller, /maybeSingle\(\)/);
   assert.match(controller, /updated\.balance/);
   assert.doesNotMatch(controller, /delete from.*ledger/i);
+});
+
+test('contrato permite digitação centesimal em todos os campos monetários e percentuais', () => {
+  const sources = [
+    'components/forms/LoanFormFinancialSection.tsx',
+    'components/forms/LoanFundingCostFields.tsx',
+    'components/forms/LoanFormFinancialSection.preview.tsx',
+  ];
+  for (const path of sources) {
+    const code = readFileSync(path, 'utf8');
+    const inputs = code.match(/<FinancialCalculatorInput\b[\s\S]*?\/>/g) || [];
+    assert.ok(inputs.length > 0, path);
+    for (const input of inputs) assert.match(input, /\bcentsEntry\b/, path);
+  }
+  for (const [digits, expected] of [
+    ['1', '0,01'], ['8', '0,08'], ['880', '8,80'],
+    ['70025', '700,25'], ['1250', '12,50'],
+    ['499', '4,99'],
+  ]) {
+    assert.equal(formatLiveBrazilianCents(digits)?.value, expected);
+  }
+  assert.equal(parseWalletMoney('700,25'), 700.25);
+  assert.equal(parseWalletRate('8,80'), 8.8);
+  assert.equal(parseWalletRate('4,99'), 4.99);
+});
+
+test('fontes com cartão exibem crédito real sem reclassificar saldo contábil', () => {
+  const section = readFileSync('components/forms/LoanFormFinancialSection.tsx', 'utf8');
+  assert.match(section, /can_manage_capital_source_wallet_origins/);
+  assert.match(section, /capital_source_wallet_references/);
+  assert.match(section, /\.in\('source_id', ids\)/);
+  assert.match(section, /personalWalletService\.loadOverview\(\)/);
+  assert.match(section, /buildSourceReferenceDisplay/);
+  assert.match(section, /Crédito disponível no cartão vinculado/);
+  assert.match(section, /Saldo operacional da fonte/);
+  assert.match(section, /não debita automaticamente o limite bancário/);
+  const source = { balance: 0 };
+  const cards = [{ id: 'card-nu', nickname: 'Nu', status: 'ACTIVE', available_limit: 6982.5 }];
+  const display = buildSourceReferenceDisplay(
+    [{ source_id: 'fonte-nu', target_kind: 'CARD', target_id: 'card-nu', allocated_amount: null }],
+    [], cards,
+  );
+  assert.equal(display?.entries[0]?.available, 6982.5);
+  assert.equal(display?.total, 6982.5);
+  assert.equal(source.balance, 0, 'crédito não modifica o caixa da fonte');
+  assert.equal(buildSourceReferenceDisplay(
+    [{ source_id: 'fonte-nu', target_kind: 'CARD', target_id: 'card-nu', allocated_amount: null }],
+    [], [],
+  )?.total, null, 'cartão ausente não pode ser tratado como crédito zero');
 });

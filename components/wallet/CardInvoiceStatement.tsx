@@ -9,6 +9,7 @@ import { getCardInvoiceEntries, type InvoiceCycleDates, type InvoiceCycleState }
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../ui/Modal';
 import { formatInstallmentBadgeLabel } from '../../features/wallet/utils/cardInstallmentPlan';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { calculateInstallmentAdvancement } from '../../features/wallet/utils/minhasFinancasWalletTools';
 
 export type InstallmentDeleteScope = 'ALL' | 'CURRENT_AND_NEXT' | 'ONLY_CURRENT';
@@ -277,7 +278,7 @@ export const CardInvoiceStatement: React.FC<CardInvoiceStatementProps> = ({
                   type="text"
                   inputMode="decimal"
                   value={advanceDiscount}
-                  onChange={(e) => setAdvanceDiscount(e.target.value)}
+                  onChange={e => {const next=resolveLiveBrazilianCentsChange(e.currentTarget.value,advanceDiscount,(e.nativeEvent as InputEvent).inputType);if(next)setAdvanceDiscount(next.value);}}
                   onBlur={(e) => {
                     try { setAdvanceDiscount(formatWalletMoneyInput(e.target.value)); } catch { }
                   }}

@@ -24,3 +24,12 @@ test('uma única ação de confirmação e atualização da lista',()=>{
   assert.doesNotMatch(editor,/>Salvar origens</);
   assert.match(editor,/capitalflow:source-origins-updated/);
 });
+
+test('origens antigas não são removidas automaticamente e a distinção de cartão é explícita', () => {
+  const editor = readFileSync('components/sources/SourceWalletReferencePanel.tsx', 'utf8');
+  assert.match(editor, /Cartão antigo não localizado na Minha Carteira/);
+  assert.match(editor, /Conta antiga não localizada na Minha Carteira/);
+  assert.match(editor, /Vínculo antigo mantido/);
+  assert.match(editor, /Fontes de capital do tipo cartão/);
+  assert.match(editor, /if \(!availableKeys\.has\(key\)\)/);
+});

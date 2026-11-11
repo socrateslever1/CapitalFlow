@@ -118,6 +118,29 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+            if (centsEntry && !rate && !signed && e.key === 'Backspace') {
+              const input = e.currentTarget;
+              const start = input.selectionStart ?? 0;
+              const end = input.selectionEnd ?? 0;
+              // Apagar no fim remove o último centavo digitado. Ao chegar a zero,
+              // limpa o campo para permitir um novo lançamento sem travar em ,00.
+              if (start === end && end === input.value.length && input.value) {
+                e.preventDefault();
+                const digits = input.value.replace(/\\D/g, '');
+                const remaining = digits ? BigInt(digits) / 10n : 0n;
+                const next = remaining === 0n
+                  ? { value: '', caret: 0 }
+                  : formatLiveBrazilianCents(remaining.toString());
+                if (next) {
+                  setDraft(next.value);
+                  setError('');
+                  input.setCustomValidity('');
+                  requestAnimationFrame(() => {
+                    if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                  });
+                }
+              }
+            }
             if (!rate && !signed && !centsEntry && (e.key === 'Backspace' || e.key === 'Delete')) {
               const input = e.currentTarget;
               const start = input.selectionStart ?? 0;

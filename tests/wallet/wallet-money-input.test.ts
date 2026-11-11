@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -96,4 +96,47 @@ test('financial fields start blank and can be cleared without trapping the decim
   assert.match(input, /const remaining = integerDigits\.slice\(0, -1\)/);
   assert.doesNotMatch(input, /input\.setSelectionRange\(separator, separator\)/);
   assert.match(bank, /Number\(value\[key as keyof BankAccountDetails\]\) === 0 \? ''/);
+});
+
+test('digitacao por centavos desloca a virgula e aceita R$ 8,80', () => {
+  let display = '';
+  for (const [digit, expected] of [
+    ['8', '0,08'],
+    ['8', '0,88'],
+    ['0', '8,80'],
+  ] as const) {
+    const result = formatLiveBrazilianCents(display + digit);
+    assert.ok(result);
+    display = result.value;
+    assert.equal(display, expected);
+    assert.equal(result.caret, display.length);
+  }
+  assert.equal(parseWalletMoney(display), 8.8);
+  assert.deepEqual(formatLiveBrazilianCents('880'), { value: '8,80', caret: 4 });
+  assert.deepEqual(formatLiveBrazilianCents('8,80'), { value: '8,80', caret: 4 });
+  assert.deepEqual(formatLiveBrazilianCents('1.234,56'), { value: '1.234,56', caret: 8 });
+});
+
+test('digitos monetarios podem ser apagados ate limpar o campo', () => {
+  const cents = ['8,80', '0,88', '0,08', ''];
+  for (let i = 0; i < cents.length - 1; i++) {
+    const digits = cents[i].replace(/\\D/g, '');
+    const remaining = BigInt(digits) / 10n;
+    const next = remaining === 0n ? '' : formatLiveBrazilianCents(remaining.toString())?.value;
+    assert.equal(next, cents[i + 1]);
+  }
+  assert.deepEqual(formatLiveBrazilianCents('', 0), { value: '', caret: 0 });
+  assert.equal(formatLiveBrazilianCents('R$ 8,80'), null);
+  assert.equal(formatLiveBrazilianCents('12a3'), null);
+  assert.equal(formatLiveBrazilianCents('9999999999999999'), null);
+});
+
+test('modal de despesa usa centavos sem alterar o modo dos outros campos', () => {
+  const expense = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
+  const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
+  assert.match(expense, /<FinancialCalculatorInput required centsEntry/);
+  assert.match(calculator, /centsEntry \? formatLiveBrazilianCents\(raw\)/);
+  assert.match(calculator, /!centsEntry && \(e.key === 'Backspace'/);
+  assert.match(calculator, /BigInt\(digits\) \/ 10n/);
+  assert.match(calculator, /onCommit\?\.\(normalized\)/);
 });

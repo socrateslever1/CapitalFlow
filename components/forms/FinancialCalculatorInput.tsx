@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -124,15 +124,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onPaste={e => {
             if (!centsEntry || signed) { onPaste?.(e); return; }
             e.preventDefault();
-            const pasted = e.clipboardData.getData('text').trim().replace(/^R\$\s*/i, '').trim();
+            const pasted = e.clipboardData.getData('text');
             try {
-              const normalized = /^\d+$/.test(pasted)
-                ? formatLiveBrazilianCents(pasted)?.value
-                : (rate ? parseWalletRate(pasted, fieldLabel) : parseWalletMoney(pasted, fieldLabel)).toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: rate ? 6 : 2,
-                  });
-              if (normalized == null) throw new Error('Quantia excede o limite permitido.');
+              const normalized = formatPastedBrazilianMoney(pasted, rate);
               setDraft(normalized);
               setError('');
               e.currentTarget.setCustomValidity('');
@@ -141,9 +135,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
                 if (document.activeElement === input) input.setSelectionRange(normalized.length, normalized.length);
               });
             } catch {
-              // Não manter um valor anterior escondido após uma colagem inválida.
-              setDraft('');
-              setError('Valor colado inválido. Informe somente uma quantia em reais.');
+              // Colagem inválida não apaga o valor que já estava preenchido.
+              setError('Valor colado inválido. Confira a quantia antes de continuar.');
+              e.currentTarget.setCustomValidity('Valor colado inválido.');
             }
           }}
           onFocus={e => {

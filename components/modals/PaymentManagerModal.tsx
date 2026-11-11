@@ -8,6 +8,7 @@ import { FlexibleDailyScreen } from './payment/FlexibleDailyScreen';
 import { usePaymentManagerState, ForgivenessMode } from './payment/hooks/usePaymentManagerState';
 import { isCapitalOnlyRecoveryLoan } from '../../utils/capitalOnlyRecovery';
 import { formatMoney, parseCurrency } from '../../utils/formatters';
+import { resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { previewFinancialOperation, type FinancialOperationResult, type FinancialOperationType, type FinancialPaymentMethod } from '../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision, type ReceiptBusinessAction } from '../../services/payments/receiptDecision';
 import { ReceiptRemainderDecision } from './payment/ReceiptRemainderDecision';
@@ -354,7 +355,15 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                         <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 sm:p-8 shadow-2xl relative overflow-hidden group focus-within:border-blue-500 transition-all">
                                             <div className="relative z-10">
                                                 <div className="flex items-center justify-between mb-6"><h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2"><Banknote size={16} className="text-blue-500"/> Registrar Recebimento</h2><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Detecção Automática</span></div>
-                                                <div className="flex items-baseline gap-3 mb-6"><span className="text-3xl sm:text-4xl font-black text-blue-500">R$</span><input type="text" inputMode="decimal" value={avAmount || ''} onChange={e => { setAvAmount(e.target.value.replace(/[^0-9.,]/g, '')); setAutoFillMode('NONE'); previousAutoFillRef.current = null; }} className="w-full bg-transparent text-5xl sm:text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter min-w-0" placeholder="0,00" autoFocus/></div>
+                                                <div className="flex items-baseline gap-3 mb-6"><span className="text-3xl sm:text-4xl font-black text-blue-500">R$</span><input type="text" inputMode="decimal" value={avAmount || ''} onChange={e => {
+                                                    const next=resolveLiveBrazilianCentsChange(e.currentTarget.value,avAmount,(e.nativeEvent as InputEvent).inputType);
+                                                    if(next){setAvAmount(next.value);setAutoFillMode('NONE');previousAutoFillRef.current=null;}
+                                                }}
+                                                onPaste={e=>{
+                                                    e.preventDefault();
+                                                    try {setAvAmount(formatPastedBrazilianMoney(e.clipboardData.getData('text')));setAutoFillMode('NONE');previousAutoFillRef.current=null;}
+                                                    catch {e.currentTarget.setCustomValidity('Valor colado inválido.');}
+                                                }} className="w-full bg-transparent text-5xl sm:text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter min-w-0" placeholder="0,00" autoFocus/></div>
                                                  <button onClick={toggleInterestAutoFill} className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${autoFillMode === 'INTEREST' ? 'bg-orange-600 border-orange-500 text-white' : 'border-orange-900/50 bg-orange-900/20 text-orange-400'}`}>
                                                     {effectiveLateFeeDue > 0.05 ? 'Juros + atraso' : 'Somente juros'}
                                                 </button>

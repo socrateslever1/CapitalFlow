@@ -204,3 +204,27 @@ test('receitas, saldo real, desconto e cobrança PIX aceitam centavos sem arredo
   assert.equal(formatLiveBrazilianCents('123456')?.value, '1.234,56');
   assert.equal(parseWalletMoney('8,80'), 8.8);
 });
+
+test('colagem de numerais preserva reais e centavos sem deslocamento oculto', () => {
+  const { formatPastedBrazilianMoney } = require('../../features/wallet/utils/liveBrazilianMoneyInput');
+  assert.equal(formatPastedBrazilianMoney('700'), '700,00');
+  assert.equal(formatPastedBrazilianMoney('1250'), '1.250,00');
+  assert.equal(formatPastedBrazilianMoney('8,80'), '8,80');
+  assert.equal(formatPastedBrazilianMoney('R$ 1.234,56'), '1.234,56');
+  assert.equal(formatPastedBrazilianMoney('4,99', true), '4,99');
+  assert.throws(() => formatPastedBrazilianMoney('R$ 8,80 lixo'));
+  assert.equal(formatLiveBrazilianCents('880')?.value, '8,80');
+});
+
+test('revisão monetária preserva importação e competências locais', () => {
+  const cards=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  assert.match(cards, /resolveLiveBrazilianCentsChange\(input.value,cardForm.credit_limit/);
+  assert.match(cards, /onPaste=\{e=>/);
+  const recurring=readFileSync('components/wallet/RecurringObligationsPanel.tsx','utf8');
+  const income=readFileSync('components/wallet/RecurringIncomePanel.tsx','utf8');
+  assert.match(recurring, /businessDateInManaus\(\)/);
+  assert.match(recurring, /parseWalletMoney\(form.amount/);
+  assert.match(income, /businessDateInManaus\(\)/);
+  const payment=readFileSync('components/modals/PaymentManagerModal.tsx','utf8');
+  assert.match(payment, /resolveLiveBrazilianCentsChange/);
+});

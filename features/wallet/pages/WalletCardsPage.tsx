@@ -30,7 +30,7 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
-import { formatLiveBrazilianCents } from '../utils/liveBrazilianMoneyInput';
+import { resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney } from '../utils/liveBrazilianMoneyInput';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
 import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection, resolveManualInvoiceMonth } from '../utils/minhasFinancasWalletTools';
 import { businessDateInManaus } from '../../../utils/businessDate';
@@ -869,13 +869,26 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             value={cardForm.credit_limit}
             onChange={e=>{
               const input=e.currentTarget;
-              const next=formatLiveBrazilianCents(input.value);
+              const next=resolveLiveBrazilianCentsChange(input.value,cardForm.credit_limit,(e.nativeEvent as InputEvent).inputType);
               if(!next)return;
               requestId.current=generateUUID();
               setCardForm(v=>({...v,credit_limit:next.value}));
               requestAnimationFrame(()=>{
                 if(document.activeElement===input)input.setSelectionRange(next.caret,next.caret);
               });
+            }}
+            onPaste={e=>{
+              e.preventDefault();
+              try {
+                const next=formatPastedBrazilianMoney(e.clipboardData.getData('text'));
+                requestId.current=generateUUID();
+                setCardForm(v=>({...v,credit_limit:next}));
+                const input=e.currentTarget;
+                requestAnimationFrame(()=>{if(document.activeElement===input)input.setSelectionRange(next.length,next.length);});
+              } catch {
+                // Falha na colagem nunca substitui um valor válido anterior.
+                e.currentTarget.setCustomValidity('Limite colado inválido.');
+              }
             }}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-white"/>
         </label>

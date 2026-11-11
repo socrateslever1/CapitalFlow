@@ -7,9 +7,10 @@ import {generateUUID} from '../../utils/generators';
 import {formatWalletMoneyInput,parseWalletMoney} from '../../features/wallet/utils/parseWalletMoney';
 import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import {WalletMetricStrip} from './WalletMetricStrip';
+import {businessDateInManaus} from '../../utils/businessDate';
 type Props={accounts:PersonalWalletAccount[];incomes:WalletRecurringIncome[];receivedIds:Set<string>;onSaved:()=>Promise<void>};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
-const month=new Date().toISOString().slice(0,7)+'-01';
+const month=()=>businessDateInManaus().slice(0,7)+'-01';
 export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds,onSaved})=>{
  const [open,setOpen]=useState(false);
  const [busy,setBusy]=useState(false);
@@ -37,7 +38,7 @@ export const RecurringIncomePanel:React.FC<Props>=({accounts,incomes,receivedIds
    <div className="min-w-0 flex-1"><strong className="block truncate text-sm font-semibold text-white">{x.description}</strong><p className="mt-0.5 text-xs sm:text-sm text-slate-300">{x.category} · dia {x.receipt_day} · {accounts.find(a=>a.id===x.destination_account_id)?.nickname||'Conta'}</p></div>
    <div className="ml-auto flex shrink-0 items-center gap-3">
     <strong className="text-right text-sm sm:text-base font-bold tabular-nums text-emerald-300"><PrivateMoney value={formatMoney(x.amount)} /></strong>
-    <button type="button" disabled={busy||receivedIds.has(x.id)} onClick={()=>perform(()=>personalWalletService.postRecurringIncome(x.id,month,generateUUID()))}
+    <button type="button" disabled={busy||receivedIds.has(x.id)} onClick={()=>perform(()=>personalWalletService.postRecurringIncome(x.id,month(),generateUUID()))}
       className="flex min-h-10 items-center gap-1.5 rounded-lg border border-emerald-600/50 bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 disabled:opacity-50"><CheckCircle2 size={14}/>{receivedIds.has(x.id)?'Recebido':'Receber'}</button>
     <button type="button" disabled={busy} onClick={()=>perform(()=>personalWalletService.deactivateRecurringIncome(x.id))} aria-label={'Desativar '+x.description} className="rounded-lg p-2 text-slate-400 hover:text-rose-300"><Trash2 size={16}/></button>
    </div>

@@ -237,7 +237,7 @@ export const WalletStatementImport: React.FC<Props> = ({
       const recoverable = kind === 'CARD' && mode !== 'DOCUMENT'
         ? detectRecoverableStatementRows(selected, latestRows, kind, targetId, result.hash)
         : new Set<string>();
-      console.error('IMPORT_DUP_GUARD', JSON.stringify({kind, targetId, mode, allowDuplicates, freshDuplicates:[...freshDuplicates], recoverable:[...recoverable], resultHash: result.hash, latestRows}));
+      console.error('IMPORT_DUP_GUARD', JSON.stringify({kind, targetId, mode, allowDuplicates, freshDuplicates:[...freshDuplicates], recoverable:[...recoverable], resultHash: result.hash, selected, latestRows}));
       if ([...freshDuplicates].some(key => !recoverable.has(key)) && !allowDuplicates) {
         setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
         return;

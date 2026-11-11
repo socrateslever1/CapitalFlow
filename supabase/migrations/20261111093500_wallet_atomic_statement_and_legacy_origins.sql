@@ -90,7 +90,7 @@ end $function$
 CREATE OR REPLACE FUNCTION public.personal_wallet_record_card_purchase_atomic(
   p_card_id uuid, p_document_hash text, p_row_key text, p_entry_date date,
   p_description text, p_amount numeric, p_category text, p_due_month date,
-  p_included_in_opening boolean
+  p_included_in_opening boolean, p_allow_duplicates boolean DEFAULT false
 ) RETURNS uuid
 LANGUAGE plpgsql SECURITY INVOKER
 SET search_path TO 'public', 'pg_temp'
@@ -108,6 +108,17 @@ BEGIN
      OR p_included_in_opening IS NULL THEN
     RAISE EXCEPTION 'Compra, centavos ou mês de vencimento inválido.';
   END IF;
+  -- A conferência visual de duplicatas também é imposta no servidor.
+  IF NOT coalesce(p_allow_duplicates,false) AND EXISTS (
+    SELECT 1 FROM public.personal_wallet_statement_rows s
+    WHERE s.owner_user_id=v_owner AND s.target_kind='CARD'
+      AND s.target_id=p_card_id AND s.entry_date=p_entry_date
+      AND s.amount=p_amount
+      AND lower(btrim(s.description))=lower(btrim(p_description))
+      AND NOT (s.document_hash=p_document_hash AND s.row_key=p_row_key)
+  ) THEN
+    RAISE EXCEPTION 'Compra possivelmente duplicada. Revise o extrato antes de autorizar uma repetição.';
+  END IF;
   v_row_id := public.personal_wallet_record_statement_row(
     'CARD',p_card_id,p_document_hash,p_row_key,p_entry_date,p_description,p_amount,p_category
   );
@@ -124,5 +135,5 @@ BEGIN
   );
 END;
 $atomic$;
-REVOKE ALL ON FUNCTION public.personal_wallet_record_card_purchase_atomic(uuid,text,text,date,text,numeric,text,date,boolean) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.personal_wallet_record_card_purchase_atomic(uuid,text,text,date,text,numeric,text,date,boolean) TO authenticated;
+REVOKE ALL ON FUNCTION public.personal_wallet_record_card_purchase_atomic(uuid,text,text,date,text,numeric,text,date,boolean,boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.personal_wallet_record_card_purchase_atomic(uuid,text,text,date,text,numeric,text,date,boolean,boolean) TO authenticated;

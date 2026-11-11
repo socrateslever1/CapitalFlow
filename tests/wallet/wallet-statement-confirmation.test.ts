@@ -236,7 +236,6 @@ for (const reader of ['FlatSmartStatementReader', 'WalletStatementImport'] as co
     assert.equal(duplicates.size, 1);
     assert.equal(recoverable.size, 0);
     await app.load(); await app.save();
-    console.error('DUPLICATE_DIAG',reader,JSON.stringify({rows:app.calls.rows,reviews:app.calls.reviews,duplicates:[...duplicates],recoverable:[...recoverable]}));
     assert.equal(app.calls.rows.length, 0);
     assert.deepEqual(app.calls.reviews[0], ['CARD', 'card-a', ['2026-10-20']]);
     app.find(node => node.type === 'input' && node.props.type === 'checkbox'

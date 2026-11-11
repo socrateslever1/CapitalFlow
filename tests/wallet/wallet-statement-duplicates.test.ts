@@ -32,3 +32,21 @@ test('somente linha incompleta do mesmo documento pode ser retomada sem duplicar
   assert.equal(detectRecoverableStatementRows([incoming], [previousRow], 'CARD', 'card-A', 'a'.repeat(64)).size, 1);
   assert.equal(detectRecoverableStatementRows([row('p1-l5', '2026-10-10', 'Mercado Central', 149.91)], [previousRow], 'CARD', 'card-A', 'a'.repeat(64)).size, 0);
 });
+
+test('backend mantém idempotência e impede segunda compra sem confirmação', () => {
+  const sql = require('node:fs').readFileSync('supabase/migrations/20261111093500_wallet_atomic_statement_and_legacy_origins.sql','utf8');
+  assert.match(sql, /SECURITY INVOKER/);
+  assert.match(sql, /p_allow_duplicates boolean DEFAULT false/);
+  assert.match(sql, /IF NOT coalesce\(p_allow_duplicates,false\) AND EXISTS/);
+  assert.match(sql, /personal_wallet_record_statement_row/);
+  assert.match(sql, /personal_wallet_import_card_statement_purchase/);
+  assert.match(sql, /v_existing.amount <> p_amount/);
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.personal_wallet_record_card_purchase_atomic/);
+  const modal = require('node:fs').readFileSync('components/wallet/WalletStatementImport.tsx','utf8');
+  const flat = require('node:fs').readFileSync('components/wallet/FlatSmartStatementReader.tsx','utf8');
+  for (const code of [modal,flat]) {
+    assert.match(code, /recordAndImportCardStatementPurchase/);
+    assert.match(code, /const blockedDuplicates = new Set/);
+    assert.match(code, /allowDuplicates,/);
+  }
+});

@@ -639,7 +639,7 @@ const personalWalletServiceImpl = {
   async recordAndImportCardStatementPurchase(input: {
     cardId: string; documentHash: string; rowKey: string; date: string;
     description: string; amount: number; category: string;
-    dueMonth: string; included: boolean;
+    dueMonth: string; included: boolean; allowDuplicates?: boolean;
   }): Promise<string> {
     if (!Number.isFinite(input.amount) || input.amount <= 0 ||
         Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001)
@@ -650,6 +650,7 @@ const personalWalletServiceImpl = {
       p_description: input.description, p_amount: input.amount,
       p_category: input.category, p_due_month: input.dueMonth,
       p_included_in_opening: input.included,
+      p_allow_duplicates: input.allowDuplicates === true,
     });
     if (error) throw new Error(error.code === 'PGRST202'
       ? 'Atualização de segurança da importação ainda não aplicada no banco.' : error.message);

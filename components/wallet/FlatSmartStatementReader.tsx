@@ -252,8 +252,16 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       const recoverable = kind === 'CARD' && mode !== 'DOCUMENT'
         ? detectRecoverableStatementRows(selected, latestRows, kind, targetId, result.hash)
         : new Set<string>();
-      console.error('IMPORT_DUP_GUARD', JSON.stringify({kind, targetId, mode, allowDuplicates, freshDuplicates:[...freshDuplicates], recoverable:[...recoverable], resultHash: result.hash, selected, latestRows}));
-      if ([...freshDuplicates].some(key => !recoverable.has(key)) && !allowDuplicates) {
+      // Defesa independente: mesmo se o detector flexível falhar, data, cartão,
+      // centavos e estabelecimento idênticos exigem confirmação de duplicidade.
+      const directDuplicates = selected.filter(row => latestRows.some(previous =>
+        previous.target_kind === kind && previous.target_id === targetId
+        && previous.entry_date === row.date
+        && Math.round(Number(previous.amount) * 100) === Math.round(row.amount * 100)
+        && String(previous.description).localeCompare(row.description, 'pt-BR', { sensitivity: 'base' }) === 0
+      )).map(row => row.rowKey);
+      const blockedDuplicates = new Set([...freshDuplicates, ...directDuplicates]);
+      if ([...blockedDuplicates].some(key => !recoverable.has(key)) && !allowDuplicates) {
         setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
         return;
       }
@@ -265,7 +273,7 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
             cardId: targetId, documentHash: result.hash, rowKey: row.rowKey,
             date: row.date, description: row.description, amount: row.amount,
             category: row.category, dueMonth: dueMonth + '-01',
-            included: mode === 'INCLUDED',
+            included: mode === 'INCLUDED', allowDuplicates,
           });
         } else {
           await personalWalletService.recordStatementRow({

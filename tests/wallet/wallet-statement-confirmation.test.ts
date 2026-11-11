@@ -67,6 +67,22 @@ function readerHarness(name: 'FlatSmartStatementReader' | 'WalletStatementImport
     async saveCardInvoiceFacts(...args: any[]) { calls.confirmations.push(args); return io.confirm(); },
     async getStatementRowsForReview(...args: any[]) { calls.reviews.push(args); return io.review(); },
     async recordStatementRow(input: any) { calls.rows.push(input); return 'saved-row'; },
+    async recordAndImportCardStatementPurchase(input: any) {
+      // Simula a validação final da nova RPC: tentativas rejeitadas nunca
+      // contabilizam uma gravação, mesmo se o formulário tentou transmiti-las.
+      const previous = await io.review();
+      const equivalent = previous.some(row =>
+        row.target_kind === 'CARD' && row.target_id === input.cardId
+        && row.entry_date === input.date && Number(row.amount) === input.amount
+        && row.description.toLocaleLowerCase('pt-BR') === input.description.toLocaleLowerCase('pt-BR')
+        && (row.document_hash !== input.documentHash || row.row_key !== input.rowKey)
+      );
+      if (equivalent && input.allowDuplicates !== true)
+        throw new Error('Compra possivelmente duplicada. Revise antes de autorizar.');
+      calls.rows.push(input);
+      calls.purchases.push(['saved-row', input.dueMonth, input.included]);
+      return 'saved-row';
+    },
     async importCardStatementPurchase(...args: any[]) { calls.purchases.push(args); },
   };
   const SummaryPreview = () => null;
@@ -224,7 +240,8 @@ for (const reader of ['FlatSmartStatementReader', 'WalletStatementImport'] as co
   test(`${reader}: fresh duplicate review blocks writes and remains explicitly overridable`, async () => {
     const app = readerHarness(reader);
     app.io.review = async () => [{ id: 'older-row', target_kind: 'CARD', target_id: 'card-a',
-      entry_date: '2026-10-20', description: 'MERCADO', amount: 100 }];
+      document_hash: 'b'.repeat(64), row_key: 'old-statement', expense_id: 'linked-expense',
+      entry_date: '2026-10-20', description: 'MERCADO', amount: 100, category: 'Compras' }];
     await app.load(); await app.save();
     assert.equal(app.calls.rows.length, 0);
     assert.deepEqual(app.calls.reviews[0], ['CARD', 'card-a', ['2026-10-20']]);

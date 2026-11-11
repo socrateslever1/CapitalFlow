@@ -4,10 +4,12 @@ import {personalWalletService,PersonalWalletAccount,PersonalWalletCard,WalletRec
 import {formatMoney} from '../../utils/formatters';
 import {FinancialCalculatorInput} from '../forms/FinancialCalculatorInput';
 import {PrivateMoney} from '../../contexts/FinancialPrivacyContext';
+import {businessDateInManaus} from '../../utils/businessDate';
+import {parseWalletMoney} from '../../features/wallet/utils/parseWalletMoney';
 
 type Props={accounts:PersonalWalletAccount[];cards:PersonalWalletCard[];items:WalletRecurringObligation[];onSaved:()=>Promise<void>;showCreateButton?:boolean;createRequest?:number};
 const field='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-sm text-white';
-const month=()=>new Date().toISOString().slice(0,7)+'-01';
+const month=()=>businessDateInManaus().slice(0,7)+'-01';
 export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,onSaved,showCreateButton=true,createRequest})=>{
  const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const initialized=useRef(false);
@@ -19,7 +21,7 @@ export const RecurringObligationsPanel:React.FC<Props>=({accounts,cards,items,on
    await personalWalletService.createRecurringObligation({
     kind:form.kind as 'EXPENSE'|'DEBT',description:form.description,creditor_name:form.creditor_name,
     creditor_type:form.creditor_type as 'PERSON'|'COMPANY',category:form.category,
-    amount:Number(form.amount),due_day:Number(form.due_day),origin_type:origin_type as 'ACCOUNT'|'CARD',
+    amount:parseWalletMoney(form.amount,'valor mensal'),due_day:Number(form.due_day),origin_type:origin_type as 'ACCOUNT'|'CARD',
     origin_id,start_month:month()
    });
    await personalWalletService.generateRecurringObligations(month(),3);

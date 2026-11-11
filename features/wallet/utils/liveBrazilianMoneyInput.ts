@@ -47,6 +47,18 @@ export function formatLiveBrazilianMoney(raw: string, selectionStart: number): L
 }
 
 
+import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from './parseWalletMoney';
+
+/**
+ * A colagem é uma quantia declarada, NÃO uma sequência de teclas.
+ * "700" colado representa R$ 700,00; "880" digitado tecla a tecla dá R$ 8,80.
+ */
+export function formatPastedBrazilianMoney(raw: string, rate = false, signed = false): string {
+  const cleaned = raw.trim().replace(/^R\$\s*/i, '').trim();
+  const amount = rate ? parseWalletRate(cleaned, 'taxa') : signed ? parseWalletSignedMoney(cleaned, 'valor') : parseWalletMoney(cleaned, 'valor');
+  return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: rate ? 6 : 2 });
+}
+
 /**
  * Digitação monetária por centavos: cada algarismo desloca a vírgula.
  * Ex.: 8 -> 0,08; 88 -> 0,88; 880 -> 8,80.
@@ -91,4 +103,21 @@ export function resolveLiveBrazilianCentsChange(
     return backspaceLiveBrazilianCents(previous);
   }
   return formatLiveBrazilianCents(raw);
+}
+
+/** Extratos permitem sinal, sem perder o deslocamento decimal: -880 => -8,80. */
+export function formatLiveBrazilianSignedCents(raw: string): LiveBrazilianMoney | null {
+  if (raw === '-' || raw === '') return { value: raw, caret: raw.length };
+  const negative = raw.startsWith('-');
+  const next = formatLiveBrazilianCents(negative ? raw.slice(1) : raw);
+  if (!next) return null;
+  const value = (negative ? '-' : '') + next.value;
+  return { value, caret: value.length };
+}
+export function backspaceLiveBrazilianSignedCents(raw: string): LiveBrazilianMoney {
+  const negative = raw.startsWith('-');
+  const next = backspaceLiveBrazilianCents(negative ? raw.slice(1) : raw);
+  if (!next.value) return { value: '', caret: 0 };
+  const value = (negative ? '-' : '') + next.value;
+  return { value, caret: value.length };
 }

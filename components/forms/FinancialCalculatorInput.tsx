@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -27,7 +27,12 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
   const ref = useRef<HTMLInputElement>(null);
   const displayValue = () => {
     const raw = String(value ?? '');
-    if (!raw || signed) return raw;
+    if (!raw) return raw;
+    if (signed) {
+      if (!centsEntry) return raw;
+      try { return parseWalletSignedMoney(raw, fieldLabel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+      catch { return raw; }
+    }
     if (rate) {
       if (!centsEntry) return raw;
       try { return parseWalletRate(raw, fieldLabel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }); }
@@ -93,12 +98,13 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onChange={e => {
             const input = e.currentTarget;
             const raw = input.value;
-            if (!signed && (centsEntry || !rate) && /^[\d.,]*$/.test(raw)) {
+            if ((centsEntry || (!signed && !rate)) &&
+                (signed ? /^-?[\d.,]*$/.test(raw) : /^[\d.,]*$/.test(raw))) {
               // Teclados Android podem apagar sem disparar keydown.
               const inputType = (e.nativeEvent as InputEvent).inputType;
               if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
                 && input.selectionStart === raw.length) {
-                const next = raw === '' ? { value: '', caret: 0 } : backspaceLiveBrazilianCents(draft);
+                const next = raw === '' ? { value: '', caret: 0 } : signed ? backspaceLiveBrazilianSignedCents(draft) : backspaceLiveBrazilianCents(draft);
                 setDraft(next.value);
                 setError('');
                 input.setCustomValidity('');
@@ -108,7 +114,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
                 return;
               }
               const next = centsEntry
-                ? formatLiveBrazilianCents(raw)
+                ? signed ? formatLiveBrazilianSignedCents(raw) : formatLiveBrazilianCents(raw)
                 : formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);
               if (!next) return;
               setDraft(next.value);
@@ -122,17 +128,11 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             input.setCustomValidity('');
           }}
           onPaste={e => {
-            if (!centsEntry || signed) { onPaste?.(e); return; }
+            if (!centsEntry) { onPaste?.(e); return; }
             e.preventDefault();
-            const pasted = e.clipboardData.getData('text').trim().replace(/^R\$\s*/i, '').trim();
+            const pasted = e.clipboardData.getData('text');
             try {
-              const normalized = /^\d+$/.test(pasted)
-                ? formatLiveBrazilianCents(pasted)?.value
-                : (rate ? parseWalletRate(pasted, fieldLabel) : parseWalletMoney(pasted, fieldLabel)).toLocaleString('pt-BR', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: rate ? 6 : 2,
-                  });
-              if (normalized == null) throw new Error('Quantia excede o limite permitido.');
+              const normalized = formatPastedBrazilianMoney(pasted, rate, signed);
               setDraft(normalized);
               setError('');
               e.currentTarget.setCustomValidity('');
@@ -141,9 +141,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
                 if (document.activeElement === input) input.setSelectionRange(normalized.length, normalized.length);
               });
             } catch {
-              // Não manter um valor anterior escondido após uma colagem inválida.
-              setDraft('');
-              setError('Valor colado inválido. Informe somente uma quantia em reais.');
+              // Colagem inválida não apaga o valor que já estava preenchido.
+              setError('Valor colado inválido. Confira a quantia antes de continuar.');
+              e.currentTarget.setCustomValidity('Valor colado inválido.');
             }
           }}
           onFocus={e => {
@@ -161,7 +161,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
-            if (centsEntry && !signed && e.key === 'Backspace') {
+            if (centsEntry && e.key === 'Backspace') {
               const input = e.currentTarget;
               const start = input.selectionStart ?? 0;
               const end = input.selectionEnd ?? 0;
@@ -169,7 +169,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               // limpa o campo para permitir um novo lançamento sem travar em ,00.
               if (start === end && end === input.value.length && input.value) {
                 e.preventDefault();
-                const next = backspaceLiveBrazilianCents(input.value);
+                const next = signed ? backspaceLiveBrazilianSignedCents(input.value) : backspaceLiveBrazilianCents(input.value);
                 if (next) {
                   setDraft(next.value);
                   setError('');

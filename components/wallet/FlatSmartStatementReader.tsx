@@ -14,9 +14,11 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
+import { parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
 import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
-import { detectPreviouslyImported } from '../../utils/walletStatementDuplicates';
+import { detectPreviouslyImported, detectRecoverableStatementRows } from '../../utils/walletStatementDuplicates';
 import type { WalletStatementRow } from '../../services/personalWallet.service';
 import { personalWalletService } from '../../services/personalWallet.service';
 import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
@@ -115,7 +117,10 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
   const declaredBank = result?.invoiceSummary?.institution;
   const bankMismatch = kind === 'CARD' && !issuerMatchesBank(targetIssuer, declaredBank || null);
   const duplicateKeys = detectPreviouslyImported(rows, [...existingRows, ...reviewedRows], kind, targetId);
-  const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey));
+  const recoverableKeys = result && kind === 'CARD' && mode !== 'DOCUMENT'
+    ? detectRecoverableStatementRows(rows, [...existingRows, ...reviewedRows], kind, targetId, result.hash)
+    : new Set<string>();
+  const selectedDuplicates = rows.filter(row => row.selected && duplicateKeys.has(row.rowKey) && !recoverableKeys.has(row.rowKey));
   const cardMismatch = Boolean(kind === 'CARD' && targetLastFour
     && result?.invoiceSummary?.cardLastFour
     && result.invoiceSummary.cardLastFour !== targetLastFour);
@@ -187,8 +192,11 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
       setPdfPassword('');
       if (kind === 'CARD' && parsed.invoiceSummary?.dueDate) changeDueMonth(parsed.invoiceSummary.dueDate.slice(0,7));
       setResult(parsed);
-      setRows(parsed.rows.map(row => detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
-        ? { ...row, selected: false } : row));
+      const recoverable = detectRecoverableStatementRows(parsed.rows, existingRows, kind, targetId, parsed.hash);
+      setRows(parsed.rows.map(row => recoverable.has(row.rowKey)
+        ? { ...row, selected: kind === 'CARD' && mode !== 'DOCUMENT' }
+        : detectPreviouslyImported([row], existingRows, kind, targetId).has(row.rowKey)
+          ? { ...row, selected: false } : row));
       setAllowDuplicates(false);
 
       if (!parsed.rows.length) {
@@ -242,35 +250,40 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
         kind, targetId, selected.map(row => row.date),
       );
       setReviewedRows(latestRows);
-      if (detectPreviouslyImported(selected, latestRows, kind, targetId).size && !allowDuplicates) {
+      const freshDuplicates = detectPreviouslyImported(selected, latestRows, kind, targetId);
+      const recoverable = kind === 'CARD' && mode !== 'DOCUMENT'
+        ? detectRecoverableStatementRows(selected, latestRows, kind, targetId, result.hash)
+        : new Set<string>();
+      // Defesa independente: mesmo se o detector flexível falhar, data, cartão,
+      // centavos e estabelecimento idênticos exigem confirmação de duplicidade.
+      const directDuplicates = selected.filter(row => latestRows.some(previous =>
+        previous.target_kind === kind && previous.target_id === targetId
+        && previous.entry_date === row.date
+        && Math.round(Number(previous.amount) * 100) === Math.round(row.amount * 100)
+        && String(previous.description).localeCompare(row.description, 'pt-BR', { sensitivity: 'base' }) === 0
+      )).map(row => row.rowKey);
+      const blockedDuplicates = new Set([...freshDuplicates, ...directDuplicates]);
+      if ([...blockedDuplicates].some(key => !recoverable.has(key)) && !allowDuplicates) {
         setError('Há lançamentos já importados de outro arquivo. Desmarque-os ou autorize explicitamente a repetição após conferir no banco.');
         return;
       }
       for (const row of selected) {
-        const rowId = await personalWalletService.recordStatementRow({
-          targetKind: kind,
-          targetId,
-          documentHash: result.hash,
-          rowKey: row.rowKey,
-          date: row.date,
-          description: row.description,
-          amount: row.amount,
-          category: row.category,
-          installmentNumber: row.installmentNumber,
-          installmentTotal: row.installmentTotal,
-        });
-
         if (kind === 'CARD' && mode !== 'DOCUMENT') {
-          if (row.amount <= 0) {
-            throw new Error(
-              'Desmarque pagamentos e créditos. Registre somente compras positivas como gastos na fatura.'
-            );
-          }
-          await personalWalletService.importCardStatementPurchase(
-            rowId,
-            dueMonth + '-01',
-            mode === 'INCLUDED'
-          );
+          if (row.amount <= 0) throw new Error('Desmarque pagamentos e créditos. Registre somente compras positivas como gastos na fatura.');
+          // Uma única transação no banco: linha e compra são gravadas ou ambas falham.
+          await personalWalletService.recordAndImportCardStatementPurchase({
+            cardId: targetId, documentHash: result.hash, rowKey: row.rowKey,
+            date: row.date, description: row.description, amount: row.amount,
+            category: row.category, dueMonth: dueMonth + '-01',
+            included: mode === 'INCLUDED', allowDuplicates,
+          });
+        } else {
+          await personalWalletService.recordStatementRow({
+            targetKind: kind, targetId, documentHash: result.hash, rowKey: row.rowKey,
+            date: row.date, description: row.description, amount: row.amount,
+            category: row.category, installmentNumber: row.installmentNumber,
+            installmentTotal: row.installmentTotal,
+          });
         }
         recorded++;
       }
@@ -594,15 +607,12 @@ export const FlatSmartStatementReader: React.FC<Props> = ({
                   </div>
 
                   <div className="text-right">
-                    <input
-                      type="number"
-                      step="0.01"
-                      aria-label="Valor"
-                      className="w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-right text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
-                      disabled={busy}
-                      value={row.amount}
-                      onChange={(e) => revise(i, { amount: Number(e.target.value) })}
-                    />
+                    <FinancialCalculatorInput signed centsEntry
+                    aria-label="Valor"
+                    className="w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-right text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                    disabled={busy} value={row.amount}
+                    onCommit={raw => revise(i, { amount: raw ? parseWalletSignedMoney(raw, 'valor do lançamento') : 0 })}
+                  />
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {formatMoney(row.amount)}
                     </p>

@@ -96,8 +96,7 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
   const availableKeys = new Set(resources.map(r => encodeWalletReference(r.kind, r.id)));
   const selectedKeys = Object.keys(draft).filter(key => draft[key].selected);
   const hasChanges = saved.length !== selectedKeys.length ||
-    selectedKeys.some(key => !saved.some(row => encodeWalletReference(row.target_kind, row.target_id) === key)) ||
-    saved.some(row => row.allocated_amount != null);
+    selectedKeys.some(key => !saved.some(row => encodeWalletReference(row.target_kind, row.target_id) === key));
 
   const updateDraft = (key: string, patch: Partial<DraftOrigin>) => {
     setMessage('');
@@ -116,17 +115,19 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
     if (!hasChanges) return true;
     setError('');
     setMessage('');
-    const origins: Array<{ target_kind: WalletReferenceKind; target_id: string; allocated_amount: null }> = [];
+    const origins: Array<{ target_kind: WalletReferenceKind; target_id: string; allocated_amount: number | null }> = [];
     try {
       if (selectedKeys.length > 32) throw new Error('Selecione no máximo 32 origens.');
       for (const key of selectedKeys) {
-        if (!availableKeys.has(key)) throw new Error('Remova o recurso indisponível antes de salvar.');
+        const previous = saved.find(row => encodeWalletReference(row.target_kind, row.target_id) === key);
         const resource = resources.find(item => encodeWalletReference(item.kind, item.id) === key);
-        if (!resource) throw new Error('Recurso indisponível.');
+        if (!resource && !previous) throw new Error('Origem não autorizada ou indisponível.');
+        // A origem antiga só pode ser preservada quando já pertencia a esta fonte.
+        // Sua validade será novamente verificada pela RPC transacional.
         origins.push({
-          target_kind: resource.kind,
-          target_id: resource.id,
-          allocated_amount: null,
+          target_kind: resource?.kind ?? previous!.target_kind,
+          target_id: resource?.id ?? previous!.target_id,
+          allocated_amount: previous?.allocated_amount ?? null,
         });
       }
     } catch (cause) {

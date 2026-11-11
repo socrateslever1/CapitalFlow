@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -81,7 +81,7 @@ test('calculator UI has one unobtrusive operator control per field and no duplic
   assert(!expense.includes('>fx</span>'));
   assert.equal((expense.match(/<FinancialCalculatorInput/g) || []).length, 1);
   const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert(cards.includes('formatLiveBrazilianCents(input.value)'));
+  assert(cards.includes('resolveLiveBrazilianCentsChange(input.value,cardForm.credit_limit'));
 });
 
 test('financial fields start blank and can be cleared without trapping the decimal separator', () => {
@@ -135,7 +135,7 @@ test('modal de despesa usa centavos e componente compartilhado mantém o modo po
   const expense = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
   const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
   assert.match(expense, /<FinancialCalculatorInput required centsEntry/);
-  assert.match(calculator, /centsEntry\s*\?\s*formatLiveBrazilianCents\(raw\)/);
+  assert.match(calculator, /signed \? formatLiveBrazilianSignedCents\(raw\) : formatLiveBrazilianCents\(raw\)/);
   assert.match(calculator, /!centsEntry && \(e.key === 'Backspace'/);
   assert.match(calculator, /backspaceLiveBrazilianCents\(input\.value\)/);
   assert.match(calculator, /onCommit\?\.\(normalized\)/);
@@ -203,4 +203,43 @@ test('receitas, saldo real, desconto e cobrança PIX aceitam centavos sem arredo
   assert.equal(parseWalletMoney('1.234,56'), 1234.56);
   assert.equal(formatLiveBrazilianCents('123456')?.value, '1.234,56');
   assert.equal(parseWalletMoney('8,80'), 8.8);
+});
+
+test('colagem de numerais preserva reais e centavos sem deslocamento oculto', () => {
+  assert.equal(formatPastedBrazilianMoney('700'), '700,00');
+  assert.equal(formatPastedBrazilianMoney('1250'), '1.250,00');
+  assert.equal(formatPastedBrazilianMoney('8,80'), '8,80');
+  assert.equal(formatPastedBrazilianMoney('R$ 1.234,56'), '1.234,56');
+  assert.equal(formatPastedBrazilianMoney('4,99', true), '4,99');
+  assert.throws(() => formatPastedBrazilianMoney('R$ 8,80 lixo'));
+  assert.equal(formatLiveBrazilianCents('880')?.value, '8,80');
+});
+
+test('revisão monetária preserva importação e competências locais', () => {
+  const cards=readFileSync('features/wallet/pages/WalletCardsPage.tsx','utf8');
+  assert.match(cards, /resolveLiveBrazilianCentsChange\(input.value,cardForm.credit_limit/);
+  assert.match(cards, /onPaste=\{e=>/);
+  const recurring=readFileSync('components/wallet/RecurringObligationsPanel.tsx','utf8');
+  const income=readFileSync('components/wallet/RecurringIncomePanel.tsx','utf8');
+  assert.match(recurring, /businessDateInManaus\(\)/);
+  assert.match(recurring, /parseWalletMoney\(form.amount/);
+  assert.match(income, /businessDateInManaus\(\)/);
+  const payment=readFileSync('components/modals/PaymentManagerModal.tsx','utf8');
+  assert.match(payment, /resolveLiveBrazilianCentsChange/);
+});
+
+test('valores de extrato aceitam centavos e sinais sem coerção pelo input number', () => {
+  assert.equal(formatLiveBrazilianSignedCents('-880')?.value, '-8,80');
+  assert.equal(formatLiveBrazilianSignedCents('880')?.value, '8,80');
+  assert.equal(formatLiveBrazilianSignedCents('-1.234,56')?.value, '-1.234,56');
+  assert.equal(backspaceLiveBrazilianSignedCents('-8,80').value, '-0,88');
+  assert.equal(backspaceLiveBrazilianSignedCents('-0,08').value, '');
+  assert.equal(formatPastedBrazilianMoney('-700', false, true), '-700,00');
+  assert.equal(formatPastedBrazilianMoney('-8,80', false, true), '-8,80');
+  for (const name of ['WalletStatementImport.tsx', 'FlatSmartStatementReader.tsx']) {
+    const source = readFileSync('components/wallet/' + name, 'utf8');
+    assert.match(source, /FinancialCalculatorInput signed centsEntry/);
+    assert.match(source, /parseWalletSignedMoney\(raw, 'valor do lançamento'\)/);
+    assert.doesNotMatch(source, /amount: Number\(e\.target\.value\)/);
+  }
 });

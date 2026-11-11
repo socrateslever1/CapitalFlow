@@ -636,6 +636,28 @@ const personalWalletServiceImpl = {
     return String(data);
   },
 
+  async recordAndImportCardStatementPurchase(input: {
+    cardId: string; documentHash: string; rowKey: string; date: string;
+    description: string; amount: number; category: string;
+    dueMonth: string; included: boolean; allowDuplicates?: boolean;
+  }): Promise<string> {
+    if (!Number.isFinite(input.amount) || input.amount <= 0 ||
+        Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001)
+      throw new Error('Valor da compra inválido. Confira os centavos.');
+    const { data, error } = await supabase.rpc('personal_wallet_record_card_purchase_atomic', {
+      p_card_id: input.cardId, p_document_hash: input.documentHash,
+      p_row_key: input.rowKey, p_entry_date: input.date,
+      p_description: input.description, p_amount: input.amount,
+      p_category: input.category, p_due_month: input.dueMonth,
+      p_included_in_opening: input.included,
+      p_allow_duplicates: input.allowDuplicates === true,
+    });
+    if (error) throw new Error(error.code === 'PGRST202'
+      ? 'Atualização de segurança da importação ainda não aplicada no banco.' : error.message);
+    if (!data || typeof data !== 'string') throw new Error('O banco não confirmou a gravação atômica da compra.');
+    return data;
+  },
+
   async importCardStatementPurchase(rowId: string, dueMonth: string, included: boolean) {
     const { error } = await supabase.rpc('personal_wallet_import_card_statement_purchase', {
       p_row_id: rowId, p_due_month: dueMonth, p_included_in_opening: included, p_request_id: rowId,
@@ -765,7 +787,9 @@ const personalWalletServiceImpl = {
   },
 
   async createCompleteCardWithNewAccount(input: CompleteCardRegistration & {
-    account: { nickname: string; bank_name: string; account_type: string };
+    account: { nickname: string; bank_name: string; account_type: string;
+      pix_key?: string | null; pix_key_type?: string | null; notes?: string | null;
+      institution_key?: string | null; bank_details?: BankAccountDetails };
   }) {
     const { data, error } = await supabase.rpc('personal_wallet_create_complete_card_with_new_account', {
       p_account: input.account,
@@ -783,7 +807,9 @@ const personalWalletServiceImpl = {
   },
 
   async createAccountWithExistingCard(input: {
-    account: { nickname: string; bank_name: string; account_type: string; bank_details?: BankAccountDetails };
+    account: { nickname: string; bank_name: string; account_type: string;
+      pix_key?: string | null; pix_key_type?: string | null; notes?: string | null;
+      institution_key?: string | null; bank_details?: BankAccountDetails };
     cardId: string;
   }) {
     const { data, error } = await supabase.rpc('personal_wallet_create_account_with_existing_card', {

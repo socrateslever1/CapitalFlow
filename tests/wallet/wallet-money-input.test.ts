@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -131,12 +131,26 @@ test('digitos monetarios podem ser apagados ate limpar o campo', () => {
   assert.equal(formatLiveBrazilianCents('9999999999999999'), null);
 });
 
-test('modal de despesa usa centavos sem alterar o modo dos outros campos', () => {
+test('modal de despesa usa centavos e componente compartilhado mantém o modo por padrão', () => {
   const expense = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
   const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
   assert.match(expense, /<FinancialCalculatorInput required centsEntry/);
   assert.match(calculator, /centsEntry\s*\?\s*formatLiveBrazilianCents\(raw\)/);
   assert.match(calculator, /!centsEntry && \(e.key === 'Backspace'/);
-  assert.match(calculator, /BigInt\(digits\) \/ 10n/);
+  assert.match(calculator, /backspaceLiveBrazilianCents\(input\.value\)/);
   assert.match(calculator, /onCommit\?\.\(normalized\)/);
+});
+
+test('máscara compartilhada mantém centavos em valores e taxas e limpa com retrocesso', () => {
+  const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
+  assert.match(calculator, /centsEntry = true/);
+  assert.match(calculator, /if \(rate\) \{/);
+  assert.match(calculator, /parseWalletRate\(raw, fieldLabel\)/);
+  assert.match(calculator, /deleteContentBackward/);
+  assert.match(calculator, /backspaceLiveBrazilianCents\(draft\)/);
+  assert.deepEqual(backspaceLiveBrazilianCents('8,80'), { value: '0,88', caret: 4 });
+  assert.deepEqual(backspaceLiveBrazilianCents('0,88'), { value: '0,08', caret: 4 });
+  assert.deepEqual(backspaceLiveBrazilianCents('0,08'), { value: '', caret: 0 });
+  assert.deepEqual(backspaceLiveBrazilianCents(''), { value: '', caret: 0 });
+  assert.equal(parseWalletMoney('8,80'), 8.8);
 });

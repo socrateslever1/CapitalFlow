@@ -9,7 +9,9 @@ const service=readFileSync('services/personalWallet.service.ts','utf8');
 const sql=readFileSync('supabase/migrations/20261030200500_wallet_cancel_invoice_consolidation.sql','utf8');
 test('vencimento exato tem precedência sem mover silenciosamente o ciclo financeiro',()=>{
  assert.match(page,/getInvoiceCycleDates\(statementMonth, selected\.closing_day, selected\.due_day, savedInvoiceFacts\?\.due_date\)/);
- assert.match(page,/dueMonth:statementMonth\.slice\(0,7\)\+'-01'/);
+ assert.match(page,/resolveManualInvoiceMonth\(invoiceFactsModalMonth\)/);
+ assert.match(page,/dueMonth:confirmedDueMonth/);
+ assert.match(service,/input\.dueDate\.slice\(0, 7\) !== input\.dueMonth\.slice\(0, 7\)/);
  assert.match(page,/exactDueDate: savedInvoiceFacts\?\.due_date/);
  assert.match(pay,/Vencimento:/);
 });

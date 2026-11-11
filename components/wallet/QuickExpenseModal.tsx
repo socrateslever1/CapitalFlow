@@ -415,7 +415,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
               </span>
               <div className="mt-1.5 flex min-h-14 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-3 focus-within:border-blue-500">
                 <span className="shrink-0 text-lg font-bold text-slate-400">R$</span>
-                <FinancialCalculatorInput required autoComplete="off" spellCheck={false}
+                <FinancialCalculatorInput required centsEntry autoComplete="off" spellCheck={false}
                   value={amountFormatted} onCommit={value => { resetIdempotencyKey(); setAmountFormatted(value); setError(''); }}
                   fieldLabel="valor da despesa" placeholder="0,00" aria-label="Valor; aceita cálculos digitados"
                   className="min-w-0 flex-1 border-0 bg-transparent py-2 text-2xl font-bold tracking-tight text-white outline-none placeholder:text-slate-600"

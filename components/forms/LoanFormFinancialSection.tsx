@@ -312,12 +312,12 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                 }
                 return { ...current, principal };
               });
-            }} className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
+            }} centsEntry className="w-full border rounded-lg px-5 py-4 font-bold outline-none transition-all bg-slate-950/50 border-slate-800/80 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10" />
             {isEditing && <p className="text-[8px] text-slate-500 font-bold ml-2">Ao aumentar o capital, somente a diferença será registrada como aporte na parcela em aberto. Para corrigir um valor menor, é necessário preservar os recebimentos já registrados.</p>}
           </div>
           {!isInstallmentFixed && <div className="space-y-1">
             <label className="text-[9px] text-slate-500 font-black uppercase ml-2">{periodicRateLabel}</label>
-            <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+            <FinancialCalculatorInput rate required type="text" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white font-bold outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
           </div>}
         </div>
 
@@ -364,11 +364,11 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Multa (%)</label>
-                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.finePercent || ''} onChange={e => setFormData({...formData, finePercent: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
             <div className="space-y-1">
                 <label className="text-[9px] text-slate-500 font-black uppercase ml-2">Mora Diária (%)</label>
-                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                <FinancialCalculatorInput rate type="text" step="0.1" value={formData.dailyInterestPercent || ''} onChange={e => setFormData({...formData, dailyInterestPercent: cleanNumberStr(e.target.value)})} centsEntry className="w-full bg-slate-950/50 border border-slate-800/80 rounded-lg px-5 py-4 text-white text-sm outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all" />
             </div>
         </div>
 
@@ -463,10 +463,10 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                       })} className={`flex-1 rounded-md py-2 text-[9px] font-black ${formData.fundingCalculationMode === mode ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>{mode === 'TOTAL' ? 'Valor final' : mode === 'INSTALLMENT' ? 'Parcela' : 'Taxa mensal'}</button>)}
                     </div>
                     {formData.fundingCalculationMode === 'RATE'
-                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div>
+                      ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} centsEntry className={strongInputClass}/></div>
                       : formData.fundingCalculationMode === 'INSTALLMENT'
-                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div>
-                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>}
+                        ? <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} centsEntry className={strongInputClass}/></div>
+                        : <div><label className="ml-1 text-[9px] font-black uppercase text-slate-500">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" min="0" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} centsEntry className={strongInputClass}/></div>}
                   </div>
                 )}
                 <div className="flex items-center justify-between border-t border-slate-800/70 pt-2 text-[9px]">
@@ -528,8 +528,8 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                               const mode = (current.fundingCalculationMode || 'TOTAL') as FundingCalculationMode;
                               return synchronizeFundingValues(current, mode, getFundingSourceValue(current, mode), { fundingInstallmentsCount: e.target.value });
                             })} className={strongInputClass}/></div>
-                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} className={strongInputClass}/></div>)}
-                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} className={strongInputClass}/></div>
+                            {fundingPaymentMethod === 'CREDIT_CARD' && (formData.fundingCalculationMode === 'RATE' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Taxa do cartão (% a.m.)</label><FinancialCalculatorInput rate type="text" step="0.01" value={formData.fundingMonthlyRate || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'RATE', value)); }} centsEntry className={strongInputClass}/></div> : formData.fundingCalculationMode === 'INSTALLMENT' ? <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Valor da parcela do cartão</label><FinancialCalculatorInput type="text" min="0.01" step="0.01" value={formData.fundingInstallmentValue || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'INSTALLMENT', value)); }} centsEntry className={strongInputClass}/></div> : <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Total cobrado pelo cartão</label><FinancialCalculatorInput type="text" step="0.01" value={formData.fundingTotalPayable || ''} onChange={e => { const value = cleanNumberStr(e.target.value); setFormData((current: any) => synchronizeFundingValues(current, 'TOTAL', value)); }} centsEntry className={strongInputClass}/></div>)}
+                            <div><label className="text-[9px] text-slate-500 font-black uppercase ml-2">Juros do cliente (%)</label><FinancialCalculatorInput rate type="text" min="0" step="0.01" value={formData.customerMarginPercent || ''} onChange={e => setFormData({...formData, customerMarginPercent: cleanNumberStr(e.target.value)})} centsEntry className={strongInputClass}/></div>
                             <div>
                               <label className="text-[9px] text-emerald-400 font-black uppercase ml-2">Definir parcela do cliente (R$)</label>
                               <FinancialCalculatorInput
@@ -553,7 +553,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                                     customerMarginPercent: formatRateInput(nextMargin),
                                   }));
                                 }}
-                                className={`${strongInputClass} border-emerald-500/30 focus:border-emerald-500/60`}
+                                centsEntry className={`${strongInputClass} border-emerald-500/30 focus:border-emerald-500/60`}
                               />
                             </div>
                         </div>

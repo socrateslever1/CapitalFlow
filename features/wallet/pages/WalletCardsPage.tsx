@@ -871,6 +871,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               const input=e.currentTarget;
               const next=resolveLiveBrazilianCentsChange(input.value,cardForm.credit_limit,(e.nativeEvent as InputEvent).inputType);
               if(!next)return;
+              input.setCustomValidity('');
               requestId.current=generateUUID();
               setCardForm(v=>({...v,credit_limit:next.value}));
               requestAnimationFrame(()=>{
@@ -881,6 +882,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               e.preventDefault();
               try {
                 const next=formatPastedBrazilianMoney(e.clipboardData.getData('text'));
+                e.currentTarget.setCustomValidity('');
                 requestId.current=generateUUID();
                 setCardForm(v=>({...v,credit_limit:next}));
                 const input=e.currentTarget;

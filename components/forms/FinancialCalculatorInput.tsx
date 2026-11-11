@@ -18,7 +18,7 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
 /** Mantém a expressão local enquanto o usuário digita, sem alimentar fórmulas com texto parcial. */
 export const FinancialCalculatorInput: React.FC<Props> = ({
   value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = false, fieldLabel = 'valor', className = '',
-  onFocus, onKeyDown, disabled, ...rest
+  onFocus, onKeyDown, onPaste, disabled, ...rest
 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -102,6 +102,31 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             }
             setError('');
             input.setCustomValidity('');
+          }}
+          onPaste={e => {
+            if (!centsEntry || rate || signed) { onPaste?.(e); return; }
+            e.preventDefault();
+            const pasted = e.clipboardData.getData('text').trim().replace(/^R\$\s*/i, '').trim();
+            try {
+              const normalized = /^\d+$/.test(pasted)
+                ? formatLiveBrazilianCents(pasted)?.value
+                : parseWalletMoney(pasted, fieldLabel).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  });
+              if (normalized == null) throw new Error('Quantia excede o limite permitido.');
+              setDraft(normalized);
+              setError('');
+              e.currentTarget.setCustomValidity('');
+              const input = e.currentTarget;
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(normalized.length, normalized.length);
+              });
+            } catch {
+              // Não manter um valor anterior escondido após uma colagem inválida.
+              setDraft('');
+              setError('Valor colado inválido. Informe somente uma quantia em reais.');
+            }
           }}
           onFocus={e => {
             const focusedInput = e.currentTarget;

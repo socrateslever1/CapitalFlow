@@ -81,7 +81,7 @@ test('calculator UI has one unobtrusive operator control per field and no duplic
   assert(!expense.includes('>fx</span>'));
   assert.equal((expense.match(/<FinancialCalculatorInput/g) || []).length, 1);
   const cards = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert(cards.includes('formatLiveBrazilianCents(input.value)'));
+  assert(cards.includes('resolveLiveBrazilianCentsChange(input.value,cardForm.credit_limit'));
 });
 
 test('financial fields start blank and can be cleared without trapping the decimal separator', () => {

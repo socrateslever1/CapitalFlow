@@ -8,6 +8,7 @@ import {
   type PersonalWalletExpenseInstallment,
 } from '../../../services/personalWallet.service';
 import { formatMoney } from '../../../utils/formatters';
+import { FinancialCalculatorInput } from '../../../components/forms/FinancialCalculatorInput';
 import { generateUUID } from '../../../utils/generators';
 import { getCardCreditPosition } from '../../../components/wallet/invoiceStatementDomain';
 import { CardOpeningFields, freshCardOpening, validateCardOpening } from './CardOpeningFields';
@@ -402,15 +403,9 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="text-xs font-semibold text-slate-300">
                   Valor da Despesa (R$)
-                  <input
-                    required
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={expenseForm.amount}
-                    onChange={(e) => setExpenseForm((f) => ({ ...f, amount: e.target.value }))}
+                  <FinancialCalculatorInput required centsEntry
+                    placeholder="0,00" value={expenseForm.amount}
+                    onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))}
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-base font-black text-white outline-none focus:border-blue-500"
                   />
                 </label>
@@ -552,14 +547,9 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
 
               <label className="block text-xs font-semibold text-slate-300">
                 Saldo Atual em Dinheiro (R$)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={walletForm.balance}
-                  onChange={(e) => setWalletForm((f) => ({ ...f, balance: e.target.value }))}
+                <FinancialCalculatorInput centsEntry
+                  placeholder="0,00" value={walletForm.balance}
+                  onChange={e => setWalletForm(f => ({ ...f, balance: e.target.value }))}
                   className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-base font-black text-emerald-300 outline-none focus:border-amber-500"
                 />
                 <span className="mt-1 block text-[11px] font-normal text-slate-400">
@@ -606,15 +596,9 @@ export const QuickWalletActionsModal: React.FC<QuickWalletActionsModalProps> = (
 
                     <label className="text-xs font-semibold text-slate-300">
                       Limite Total do Cartão (R$)
-                      <input
-                        required
-                        type="number"
-                        min="1"
-                        step="0.01"
-                        inputMode="decimal"
-                        placeholder="Ex.: 10000"
-                        value={cardLimitInput}
-                        onChange={(e) => setCardLimitInput(e.target.value)}
+                      <FinancialCalculatorInput required centsEntry
+                        placeholder="Ex.: 10.000,00" value={cardLimitInput}
+                        onChange={e => setCardLimitInput(e.target.value)}
                         className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm font-black text-white outline-none focus:border-emerald-500"
                       />
                     </label>

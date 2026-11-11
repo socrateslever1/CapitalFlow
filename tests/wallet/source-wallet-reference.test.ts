@@ -56,3 +56,14 @@ test('integração é apenas metadado e tem isolamento por proprietário no SQL'
   assert.doesNotMatch(sql, /\bupdate public\.personal_wallet_accounts set balance\b/i);
   assert.doesNotMatch(sql, /\bupdate public\.personal_wallet_cards set\b/i);
 });
+
+test('painel distingue fontes de capital de cartões e mostra motivo da origem antiga', () => {
+  const panel = readFileSync('components/sources/SourceWalletReferencePanel.tsx', 'utf8');
+  assert.match(panel, /Fontes de capital do tipo cartão/);
+  assert.match(panel, /Cartão antigo não localizado na Minha Carteira/);
+  assert.match(panel, /Conta antiga não localizada na Minha Carteira/);
+  assert.match(panel, /Vínculo antigo mantido/);
+  assert.match(panel, /snapshot\.cards\.find/);
+  assert.match(panel, /snapshot\.accounts\.find/);
+  assert.match(panel, /if \(!availableKeys\.has\(key\)\)/);
+});

@@ -45,3 +45,26 @@ export function formatLiveBrazilianMoney(raw: string, selectionStart: number): L
   }
   return { value, caret: comma };
 }
+
+
+/**
+ * Digitação monetária por centavos: cada algarismo desloca a vírgula.
+ * Ex.: 8 -> 0,08; 88 -> 0,88; 880 -> 8,80.
+ *
+ * A entrada pode conter separadores de formatação; somente algarismos
+ * representam a quantia, e o cursor permanece ao final para digitação
+ * contínua no teclado móvel.
+ */
+export function formatLiveBrazilianCents(raw: string): LiveBrazilianMoney | null {
+  if (raw === '') return { value: '', caret: 0 };
+  if (raw.length > 40 || !/^[\\d.,]+$/.test(raw)) return null;
+  const digits = raw.replace(/\\D/g, '');
+  if (!digits) return null;
+  const cents = BigInt(digits);
+  // Mesmo limite monetário do parser financeiro canônico.
+  if (cents > 999_999_999_999n) return null;
+  const integer = (cents / 100n).toLocaleString('pt-BR');
+  const fraction = (cents % 100n).toString().padStart(2, '0');
+  const value = `${integer},${fraction}`;
+  return { value, caret: value.length };
+}

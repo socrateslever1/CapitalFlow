@@ -4,7 +4,7 @@ import { formatMoney } from '../../utils/formatters';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 const input='mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white focus:border-blue-500 focus:outline-none';
-export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;onChange:(value:BankAccountDetailsDraft)=>void}> = ({value,onChange}) => {
+export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;onChange:(value:BankAccountDetailsDraft)=>void;showCreditCard?:boolean}> = ({value,onChange,showCreditCard=true}) => {
   const change=(key:keyof BankAccountDetailsDraft,next:string|boolean)=>onChange({...value,[key]:next});
   return <fieldset className="space-y-4 border-t border-slate-800 pt-4">
     <legend className="px-1 text-sm font-semibold text-slate-200">Dados bancários opcionais</legend>
@@ -18,7 +18,7 @@ export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;o
         ['has_credit_card','Possui cartão de crédito',['credit_card_limit']],
         ['has_overdraft','Possui cheque especial',['overdraft_limit','overdraft_used']],
         ['has_loans','Possui limite de empréstimo',['loan_balance']],
-      ] as const).map(([key,label,amounts])=><div key={key} className="space-y-3">
+      ] as const).filter(([key])=>showCreditCard || key!=='has_credit_card').map(([key,label,amounts])=><div key={key} className="space-y-3">
         <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-slate-200"><input type="checkbox" checked={value[key]} onChange={event=>change(key,event.target.checked)} className="h-4 w-4 accent-blue-500"/>{label}</label>
         {value[key] && <div className="grid gap-3 pl-7 sm:grid-cols-2">{amounts.map(amount=><label key={amount} className="text-xs text-slate-300">{bankMoneyFields[amount]} (R$)
           <FinancialCalculatorInput placeholder="Ex.: 1.500,00" className={input} value={value[amount]} fieldLabel={bankMoneyFields[amount]} onCommit={next=>change(amount,next)}/>
@@ -28,7 +28,7 @@ export const BankAccountDetailsFields: React.FC<{value:BankAccountDetailsDraft;o
     <label className="block text-xs text-slate-300">Outros produtos e observações
       <textarea rows={3} maxLength={2000} className={input} value={value.other_products} onChange={event=>change('other_products',event.target.value)} placeholder="Investimentos, seguros, detalhes de contratos ou outros produtos opcionais"/>
     </label>
-    <p className="text-xs leading-relaxed text-slate-400">Estes detalhes são informativos. Limites de crédito, cheque especial e empréstimos informados aqui não alteram o saldo e não geram lançamentos ou contas a pagar.</p>
+    <p className="text-xs leading-relaxed text-slate-400">Estes detalhes são informativos. {showCreditCard ? 'Limites de crédito, cheque especial e empréstimos informados' : 'Cheque especial e limites de empréstimo informados'} aqui não alteram o saldo e não geram lançamentos ou contas a pagar.</p>
   </fieldset>;
 };
 

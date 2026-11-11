@@ -14,6 +14,7 @@ import {
   getQuickDateTag,
   resolveQuickDateShortcuts,
   resolveInvoiceMonthSelection,
+  resolveManualInvoiceMonth,
   stepInvoiceMonth,
 } from '../../features/wallet/utils/minhasFinancasWalletTools';
 
@@ -199,4 +200,16 @@ test('seletor de faturas escolhe um vencimento válido sem fabricar novos ciclos
   assert.equal(resolveInvoiceMonthSelection(null, [
     { dueMonth: '2026-10-01', amount: 0 }, { dueMonth: '2026-11-01', amount: 0 },
   ], null, '2026-11-04'), '2026-11-01');
+});
+
+
+test('conferência manual aceita mês de primeira fatura sem criar ciclos fictícios', () => {
+  assert.equal(resolveInvoiceMonthSelection(null, [], null, '2026-11-11'), null);
+  assert.equal(resolveManualInvoiceMonth(null, '2026-12-01'), '2026-12-01');
+  assert.equal(resolveManualInvoiceMonth('2026-12', null), '2026-12-01');
+  assert.equal(resolveManualInvoiceMonth('2026-11', '2026-12-01'), '2026-11-01');
+  assert.equal(resolveManualInvoiceMonth('2026-13', null), null);
+  assert.equal(resolveManualInvoiceMonth('2026-12-05', null), null);
+  assert.equal(resolveManualInvoiceMonth('', null), null);
+  assert.equal(resolveManualInvoiceMonth('0000-12', null), null);
 });

@@ -105,17 +105,17 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             headerActions={
               <>
                 <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
+                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
                   <ReceiptText size={16}/> Registrar despesa
                 </button>
                 <button type="button" onClick={() => startCreate('CASH')}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950/70 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                   <Wallet size={15} className="text-amber-300"/>Adicionar carteira física
                 </button>
                 <button
                   type="button"
                   onClick={() => startCreate('CHECKING')}
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
                   <Plus size={16} />
                   <span>Nova conta</span>

@@ -468,7 +468,12 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                           : 'Saldo da fonte: ' + formatMoney(source.balance);
                   return <option key={source.id} value={source.id}>{source.name} · {detail}</option>;
                 })}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
-                {hasMultipleSources && <input type="number" min="0.01" step="0.01" value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], amount: event.target.value }; return { ...current, fundingAllocations: next }; })} placeholder="Valor" className="w-28 rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 text-xs font-bold text-white outline-none focus:border-purple-500/50" />}
+                {hasMultipleSources && <div className="w-28 shrink-0"><FinancialCalculatorInput type="text" centsEntry min="0.01"
+                  value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => {
+                    const next = [...(current.fundingAllocations || fundingAllocations)];
+                    next[index] = { ...next[index], amount: event.target.value };
+                    return { ...current, fundingAllocations: next };
+                  })} placeholder="Valor" className="w-full rounded-lg border border-slate-800/80 bg-slate-950/50 px-2 py-3 text-xs font-bold text-white outline-none focus:border-purple-500/50" /></div>}
                 {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
               </div>)}
             </div>

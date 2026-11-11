@@ -3,6 +3,8 @@ import { CheckCircle2, Copy, Landmark, Link2, Loader2, QrCode, Share2, X } from 
 import { QRCodeSVG } from 'qrcode.react';
 import { PersonalWalletAccount, personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { pixKeyTypeLabel } from './walletPresentation';
 import { generateUUID } from '../../utils/generators';
 import { BankLogo } from './BankLogo';
@@ -50,9 +52,10 @@ export const WalletPixCharge: React.FC<Props> = ({
   const generate = async () => {
     if (generating || settling) return;
     const normalized = amount.trim();
-    const value = Number(normalized.replace(',', '.'));
+    let value = Number.NaN;
+    try { value = parseWalletMoney(normalized); } catch { /* Valor inválido permanece bloqueado. */ }
     if (!account) { setError('Selecione uma conta com chave PIX cadastrada.'); return; }
-    if (!/^\d+(?:[.,]\d{1,2})?$/.test(normalized) || !Number.isFinite(value) || value <= 0) {
+    if (!Number.isFinite(value) || value <= 0) {
       setError('Informe um valor positivo com até duas casas decimais.'); return;
     }
     if (!description.trim()) { setError('Informe a descrição ou o identificador da cobrança.'); return; }
@@ -147,7 +150,7 @@ export const WalletPixCharge: React.FC<Props> = ({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs text-slate-300">Valor (R$)
-          <input inputMode="decimal" value={amount} onChange={event => changeAmount(event.target.value)} className={`${inputClass} text-lg font-bold`} placeholder="0,00"/>
+          <input inputMode="decimal" value={amount} onChange={event => {const next=resolveLiveBrazilianCentsChange(event.currentTarget.value,amount,(event.nativeEvent as InputEvent).inputType);if(next)changeAmount(next.value);}} className={`${inputClass} text-lg font-bold`} placeholder="0,00"/>
         </label>
         <label className="text-xs text-slate-300">Descrição / identificador
           <input value={description} maxLength={240} onChange={event => changeDescription(event.target.value)} className={inputClass} placeholder="Referência da cobrança"/>

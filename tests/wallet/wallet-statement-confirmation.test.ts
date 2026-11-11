@@ -67,6 +67,11 @@ function readerHarness(name: 'FlatSmartStatementReader' | 'WalletStatementImport
     async saveCardInvoiceFacts(...args: any[]) { calls.confirmations.push(args); return io.confirm(); },
     async getStatementRowsForReview(...args: any[]) { calls.reviews.push(args); return io.review(); },
     async recordStatementRow(input: any) { calls.rows.push(input); return 'saved-row'; },
+    async recordAndImportCardStatementPurchase(input: any) {
+      calls.rows.push(input);
+      calls.purchases.push(['saved-row', input.dueMonth, input.included]);
+      return 'saved-row';
+    },
     async importCardStatementPurchase(...args: any[]) { calls.purchases.push(args); },
   };
   const SummaryPreview = () => null;

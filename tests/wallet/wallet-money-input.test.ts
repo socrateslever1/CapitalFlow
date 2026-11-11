@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -206,7 +206,6 @@ test('receitas, saldo real, desconto e cobrança PIX aceitam centavos sem arredo
 });
 
 test('colagem de numerais preserva reais e centavos sem deslocamento oculto', () => {
-  const { formatPastedBrazilianMoney } = require('../../features/wallet/utils/liveBrazilianMoneyInput');
   assert.equal(formatPastedBrazilianMoney('700'), '700,00');
   assert.equal(formatPastedBrazilianMoney('1250'), '1.250,00');
   assert.equal(formatPastedBrazilianMoney('8,80'), '8,80');

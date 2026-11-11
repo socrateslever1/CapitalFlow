@@ -238,7 +238,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       let created: PersonalWalletAccount;
       if (createNewCard) {
         const linked = await personalWalletService.createCompleteCardWithNewAccount({
-          account: { nickname: cleanNickname, bank_name: bankName.trim(), account_type: accountType },
+          account: { ...accountInput, bank_name: bankName.trim() },
           existingAccountId: null,
           card: {
             nickname: newCardNickname.trim(), issuer: bankName.trim(), brand: null,
@@ -251,7 +251,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         });
         created = { ...accountInput, id: linked.account_id, balance: 0 } as PersonalWalletAccount;
       } else if (linkedCard) {
-        const linked = await personalWalletService.createAccountWithExistingCard({ account: accountInput, cardId: linkedCard.id });
+        const linked = await personalWalletService.createAccountWithExistingCard({ account: { ...accountInput, bank_name: bankName.trim() }, cardId: linkedCard.id });
         created = { ...accountInput, id: linked.account_id, balance: 0 } as PersonalWalletAccount;
       } else {
         created = createdAccountRef.current

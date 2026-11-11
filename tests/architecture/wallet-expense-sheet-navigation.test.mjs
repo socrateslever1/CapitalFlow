@@ -12,7 +12,7 @@ test('card expense sheet is detached from clipped wallet panels and keeps its ow
   assert.match(sheet, /h-\[100dvh\]/);
   assert.match(sheet, /sm:max-h-\[94dvh\]/);
   assert.match(sheet, /flex-1 min-h-0 space-y-4 overflow-y-auto/);
-  assert.match(sheet, /<FinancialCalculatorInput required autoComplete="off"/);
+  assert.match(sheet, /<FinancialCalculatorInput required centsEntry autoComplete="off"/);
   assert.doesNotMatch(sheet, /<FinancialCalculatorInput required autoFocus/);
   assert.match(sheet, /onSubmit=\{handleSubmit\}/);
 });

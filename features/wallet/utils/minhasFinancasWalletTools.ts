@@ -63,6 +63,20 @@ export function stepInvoiceMonth(
  * This avoids showing the browser's first option for an invalid controlled
  * value while the header still displays the stale month.
  */
+/** Resolve o mês de vencimento de uma conferência manual mesmo sem ciclo prévio. */
+export function resolveManualInvoiceMonth(
+  requestedMonth: string | null | undefined,
+  fallbackMonth?: string | null,
+): string | null {
+  const normalize = (input: string | null | undefined): string | null => {
+    if (!input || !/^\d{4}-(0[1-9]|1[0-2])(?:-01)?$/.test(input)) return null;
+    const year = Number(input.slice(0, 4));
+    if (year < 1900 || year > 2100) return null;
+    return input.slice(0, 7) + '-01';
+  };
+  return normalize(requestedMonth) || normalize(fallbackMonth);
+}
+
 export function resolveInvoiceMonthSelection(
   requestedMonth: string | null | undefined,
   cycles: readonly { dueMonth: string; amount: number }[],

@@ -228,8 +228,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
         capital_source_id: null,
         bank_details:isPhysicalWallet?{}:normalizeBankDetails({
           ...bankDetails,
-          has_credit_card: Boolean(linkedCardId),
-          credit_card_limit: createNewCard ? String(parseWalletMoney(newCardLimit.trim() || '0', 'limite do cartão')) : (linkedCard?.credit_limit !== undefined ? String(linkedCard.credit_limit) : bankDetails.credit_card_limit),
+          // O limite pertence ao cartão vinculado; não duplicar em bank_details.
+          has_credit_card: false,
+          credit_card_limit: '',
         }),
       };
       const signature=JSON.stringify([accountInput,parsedBalance,capitalSourceId]);
@@ -557,9 +558,9 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                     : 'Nome e documento são sugeridos a partir do perfil CapitalFlow. Confira antes de salvar.'}
                 </p>
               </div>
-              <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails}/>
+              <BankAccountDetailsFields value={bankDetails} onChange={setBankDetails} showCreditCard={false}/>
               <fieldset className="space-y-3 border-t border-slate-800 pt-4">
-                <legend className="px-1 text-sm font-semibold text-slate-200">Cartão de crédito desta conta</legend>
+                <legend className="px-1 text-sm font-semibold text-slate-200">Vincular cartão de crédito (opcional)</legend>
                 <select value={linkedCardId} onChange={event => setLinkedCardId(event.target.value)} className={inputClass} aria-label="Cartão vinculado à conta">
                   <option value="">Conta independente, sem cartão vinculado</option>
                   {existingCards.filter(card => card.status !== 'CANCELED' && !card.account_id).map(card => (
@@ -578,7 +579,7 @@ export const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
                     <input inputMode="numeric" maxLength={4} value={newCardLastFour} onChange={event => setNewCardLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="1234" className={inputClass}/>
                   </label>
                 </div>}
-                <p className="text-[11px] leading-relaxed text-slate-400">Escolha um cartão existente para vincular ou crie o cartão junto com esta conta. Se não selecionar nada, conta e cartão permanecem independentes.</p>
+                <p className="text-[11px] leading-relaxed text-slate-400">Vincule um cartão existente ou cadastre um novo. O limite é informado apenas no cartão. Sem seleção, somente a conta será criada.</p>
               </fieldset>
             </div>
           </details>}

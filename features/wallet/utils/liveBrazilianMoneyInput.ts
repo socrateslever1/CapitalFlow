@@ -77,3 +77,18 @@ export function backspaceLiveBrazilianCents(current: string): LiveBrazilianMoney
   if (remaining === 0n) return { value: '', caret: 0 };
   return formatLiveBrazilianCents(remaining.toString()) ?? { value: '', caret: 0 };
 }
+
+/**
+ * Normaliza mudanças de um input monetário controlado, inclusive Backspace
+ * do teclado virtual Android, sem confundir centavos com reais.
+ */
+export function resolveLiveBrazilianCentsChange(
+  raw: string, previous: string, inputType?: string | null,
+): LiveBrazilianMoney | null {
+  if (raw === '') return { value: '', caret: 0 };
+  if (inputType === 'deleteContentBackward' && previous && raw.length < previous.length
+      && previous.length - raw.length <= 1) {
+    return backspaceLiveBrazilianCents(previous);
+  }
+  return formatLiveBrazilianCents(raw);
+}

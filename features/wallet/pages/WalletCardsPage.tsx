@@ -78,6 +78,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
   const [invoiceFactsModalOpen, setInvoiceFactsModalOpen] = useState(false);
   const [invoiceFactsModalMonth, setInvoiceFactsModalMonth] = useState<string | null>(null);
+  const [invoiceFactsSaving, setInvoiceFactsSaving] = useState(false);
   const [applyingIssuerFacts, setApplyingIssuerFacts] = useState(false);
   const [issuerCommitFeedback, setIssuerCommitFeedback] = useState('');
   const issuerCommitRequest = useRef({ signature: '', id: generateUUID() });
@@ -980,7 +981,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
       </section>}
       {invoiceFactsModalOpen && selected && <Modal title="Valores reais da fatura"
         subtitle={selected.nickname + (invoiceFactsModalMonth ? ` · ${invoiceFactsModalMonth.slice(5, 7)}/${invoiceFactsModalMonth.slice(0, 4)}` : '')}
-        onClose={() => setInvoiceFactsModalOpen(false)}>
+        busy={invoiceFactsSaving}
+        footer={<button type="submit" form="wallet-manual-invoice-form" className={modalPrimaryActionClass}
+          disabled={!invoiceFactsModalMonth || invoiceFactsSaving}>
+          {invoiceFactsSaving ? 'Salvando…' : 'Salvar valores conferidos'}
+        </button>}
+        onClose={() => { if (!invoiceFactsSaving) setInvoiceFactsModalOpen(false); }}>
         <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
           <label className="block text-xs font-semibold text-slate-200" htmlFor="manual-invoice-due-month">
             Mês de vencimento desta fatura
@@ -995,7 +1001,8 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
           <p className="mt-2 text-xs leading-relaxed text-slate-400">Este mês identifica a fatura que será salva, mesmo sem compras anteriores. O vencimento exato pode ser ajustado abaixo.</p>
         </div>
         {invoiceFactsModalMonth && <CardInvoiceSummaryPreview
-          key={selected.id + ':' + invoiceFactsModalMonth + ':' + (editedInvoiceFacts?.updated_at || '')}
+          key={selected.id + ':' + invoiceFactsModalMonth}
+          formId="wallet-manual-invoice-form" inlineSave={false} onSavingChange={setInvoiceFactsSaving}
           summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>}
       </Modal>}
       {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={clearInvoiceConfirm.nickname + ' · ' + clearInvoiceConfirm.month.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}

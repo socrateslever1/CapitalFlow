@@ -76,6 +76,6 @@ test('the banking presentation preserves card/carousel and accounts are independ
   assert(accounts.includes('Saldo consolidado'));
   assert(!accounts.includes('Limite disponível'));
   assert(overview.includes('getWalletSpendingOverview(snapshot.expenses, month)'));
-  assert(overview.includes('Ver composição do balanço'));
+  assert(overview.includes('Como chegamos à projeção'));
   assert(overview.includes('getCreditSummary(cards)'));
 });

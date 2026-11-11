@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Link2, Loader2, RefreshCw } from 'lucide-react';
 import type { CapitalSource } from '../../types';
 import { supabase } from '../../lib/supabase';
@@ -23,6 +24,7 @@ type Snapshot = { accounts: WalletResource[]; cards: WalletResource[] };
 type OriginRow = WalletReference & { allocated_amount?: number | null };
 
 export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUser, onEditManual, saveRef }) => {
+  const navigate = useNavigate();
   const source = sources[0] ?? null;
   const sourceId = source?.id ?? '';
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -188,7 +190,13 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
             Selecione contas e cartões. O sistema utiliza o saldo total ou crédito disponível
             de cada recurso, sem alterar o saldo operacional da fonte.
           </p>
-          <p className="mt-2 text-xs leading-relaxed text-slate-400">Fontes de capital do tipo cartão não são cartões cadastrados na Minha Carteira. Para utilizá-las como origem, cadastre o cartão correspondente em Minha Carteira, informando seu limite verdadeiro.</p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">Fontes de capital do tipo cartão não criam cartões automaticamente. As origens disponíveis pertencem à Minha Carteira.</p>
+          {allowed && <button type="button" onClick={() => {
+            if (hasChanges) { setError('Salve as alterações nas origens antes de cadastrar outro cartão.'); return; }
+            navigate('/carteira/cartoes?acao=novo-cartao');
+          }} className="mt-2 inline-flex min-h-9 items-center rounded-lg border border-blue-500/40 px-3 py-1.5 text-xs font-semibold text-blue-200 hover:bg-blue-500/10">
+            Cadastrar cartão ausente
+          </button>}
         </div>
         <button type="button" aria-label="Atualizar recursos"
           disabled={loading || saving}

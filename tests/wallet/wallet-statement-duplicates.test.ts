@@ -35,7 +35,7 @@ test('somente linha incompleta do mesmo documento pode ser retomada sem duplicar
 });
 
 test('backend mantém idempotência e impede segunda compra sem confirmação', () => {
-  const sql = readFileSync('supabase/migrations/20261111093500_wallet_atomic_statement_and_legacy_origins.sql','utf8');
+  const sql = readFileSync('supabase/migrations/20261111141050_wallet_atomic_statement_and_legacy_origins_20261111.sql','utf8');
   assert.match(sql, /SECURITY INVOKER/);
   assert.match(sql, /p_allow_duplicates boolean DEFAULT false/);
   assert.match(sql, /IF NOT coalesce\(p_allow_duplicates,false\) AND EXISTS/);

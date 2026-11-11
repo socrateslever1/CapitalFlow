@@ -135,7 +135,7 @@ test('modal de despesa usa centavos e componente compartilhado mantém o modo po
   const expense = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
   const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
   assert.match(expense, /<FinancialCalculatorInput required centsEntry/);
-  assert.match(calculator, /centsEntry\s*\?\s*formatLiveBrazilianCents\(raw\)/);
+  assert.match(calculator, /signed \? formatLiveBrazilianSignedCents\(raw\) : formatLiveBrazilianCents\(raw\)/);
   assert.match(calculator, /!centsEntry && \(e.key === 'Backspace'/);
   assert.match(calculator, /backspaceLiveBrazilianCents\(input\.value\)/);
   assert.match(calculator, /onCommit\?\.\(normalized\)/);

@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import React from 'react';
 import ts from 'typescript';
 import { getEffectiveInvoiceCycles } from '../../components/wallet/invoiceStatementDomain';
+import { detectPreviouslyImported, detectRecoverableStatementRows } from '../../utils/walletStatementDuplicates';
 import type { CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
 
@@ -230,7 +231,12 @@ for (const reader of ['FlatSmartStatementReader', 'WalletStatementImport'] as co
     const app = readerHarness(reader);
     app.io.review = async () => [{ id: 'older-row', target_kind: 'CARD', target_id: 'card-a',
       entry_date: '2026-10-20', description: 'MERCADO', amount: 100 }];
+    const duplicates = detectPreviouslyImported(parsed.rows, await app.io.review(), 'CARD', 'card-a');
+    const recoverable = detectRecoverableStatementRows(parsed.rows, await app.io.review(), 'CARD', 'card-a', parsed.hash);
+    assert.equal(duplicates.size, 1);
+    assert.equal(recoverable.size, 0);
     await app.load(); await app.save();
+    console.error('DUPLICATE_DIAG',reader,JSON.stringify({rows:app.calls.rows,reviews:app.calls.reviews,duplicates:[...duplicates],recoverable:[...recoverable]}));
     assert.equal(app.calls.rows.length, 0);
     assert.deepEqual(app.calls.reviews[0], ['CARD', 'card-a', ['2026-10-20']]);
     app.find(node => node.type === 'input' && node.props.type === 'checkbox'

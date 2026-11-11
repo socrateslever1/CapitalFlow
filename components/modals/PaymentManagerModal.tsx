@@ -357,11 +357,20 @@ export const PaymentManagerModal: React.FC<PaymentManagerModalProps> = ({
                                                 <div className="flex items-center justify-between mb-6"><h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2"><Banknote size={16} className="text-blue-500"/> Registrar Recebimento</h2><span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Detecção Automática</span></div>
                                                 <div className="flex items-baseline gap-3 mb-6"><span className="text-3xl sm:text-4xl font-black text-blue-500">R$</span><input type="text" inputMode="decimal" value={avAmount || ''} onChange={e => {
                                                     const next=resolveLiveBrazilianCentsChange(e.currentTarget.value,avAmount,(e.nativeEvent as InputEvent).inputType);
-                                                    if(next){setAvAmount(next.value);setAutoFillMode('NONE');previousAutoFillRef.current=null;}
+                                                    if(next){
+                                                      const input=e.currentTarget;input.setCustomValidity('');
+                                                      setAvAmount(next.value);setAutoFillMode('NONE');previousAutoFillRef.current=null;
+                                                      requestAnimationFrame(()=>{if(document.activeElement===input)input.setSelectionRange(next.caret,next.caret);});
+                                                    }
                                                 }}
                                                 onPaste={e=>{
                                                     e.preventDefault();
-                                                    try {setAvAmount(formatPastedBrazilianMoney(e.clipboardData.getData('text')));setAutoFillMode('NONE');previousAutoFillRef.current=null;}
+                                                    try {
+                                                      const formatted=formatPastedBrazilianMoney(e.clipboardData.getData('text'));
+                                                      const input=e.currentTarget;input.setCustomValidity('');
+                                                      setAvAmount(formatted);setAutoFillMode('NONE');previousAutoFillRef.current=null;
+                                                      requestAnimationFrame(()=>{if(document.activeElement===input)input.setSelectionRange(formatted.length,formatted.length);});
+                                                    }
                                                     catch {e.currentTarget.setCustomValidity('Valor colado inválido.');}
                                                 }} className="w-full bg-transparent text-5xl sm:text-6xl font-black text-white outline-none placeholder:text-slate-800 tracking-tighter min-w-0" placeholder="0,00" autoFocus/></div>
                                                  <button onClick={toggleInterestAutoFill} className={`w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${autoFillMode === 'INTEREST' ? 'bg-orange-600 border-orange-500 text-white' : 'border-orange-900/50 bg-orange-900/20 text-orange-400'}`}>

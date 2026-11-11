@@ -4,6 +4,7 @@ import { personalWalletService } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { calculateCardOpening, calculateUsedFromAvailable } from './cardOpeningSummary';
 
@@ -140,6 +141,16 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
   const field =
     'mt-1 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white';
 
+  const changeCents = (event: React.ChangeEvent<HTMLInputElement>, previous: string, apply: (value: string) => void) => {
+    const input = event.currentTarget;
+    const next = resolveLiveBrazilianCentsChange(input.value, previous, (event.nativeEvent as InputEvent).inputType);
+    if (!next) return;
+    apply(next.value);
+    requestAnimationFrame(() => {
+      if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+    });
+  };
+
   return (
     <Modal
       title="Situação inicial do cartão"
@@ -165,14 +176,14 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
           <label className="text-xs text-slate-300">
             Limite total (R$)
             <input required type="text" inputMode="decimal" placeholder="0,00" value={limit}
-              onChange={(e) => { changed(); setLimit(e.target.value); }}
+              onChange={event => changeCents(event, limit, value => { changed(); setLimit(value); })}
               onBlur={(e) => { try { setLimit(formatWalletMoneyInput(e.target.value)); } catch { } }}
               className={field} />
           </label>
           <label className="text-xs text-slate-300">
             Fatura atual (R$)
             <input required type="text" inputMode="decimal" placeholder="0,00" value={bill}
-              onChange={(e) => handleBillChange(e.target.value)}
+              onChange={event => changeCents(event, bill, handleBillChange)}
               onBlur={(e) => {
                 try {
                   const formatted = formatWalletMoneyInput(e.target.value);
@@ -189,7 +200,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
             Limite disponível no banco (R$)
             <input name="wallet-card-available-limit" type="text" inputMode="decimal"
               placeholder="Informe o valor disponível" value={available}
-              onChange={e => handleAvailableChange(e.target.value)}
+              onChange={event => changeCents(event, available, handleAvailableChange)}
               onBlur={e => {
                 try { setAvailable(formatWalletMoneyInput(e.target.value)); } catch { }
               }}
@@ -201,12 +212,12 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
           <label className="text-xs text-slate-300">
             Limite usado (R$) <span className="text-[10px] text-slate-400">(calculado ou edite)</span>
             <input required type="text" inputMode="decimal" placeholder="0,00" value={displayedUsed}
-              onChange={(e) => {
+              onChange={event => changeCents(event, displayedUsed, value => {
                 changed();
                 setAvailable('');
-                setPositionSource(e.target.value.trim() ? 'USED' : 'INVOICE');
-                setUsed(e.target.value);
-              }}
+                setPositionSource(value.trim() ? 'USED' : 'INVOICE');
+                setUsed(value);
+              })}
               onBlur={(e) => { try { setUsed(formatWalletMoneyInput(e.target.value)); } catch { } }}
               className={field} />
           </label>

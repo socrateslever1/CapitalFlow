@@ -25,6 +25,7 @@ import { bankDetailsDraft, normalizeBankDetails } from '../../features/wallet/do
 import { getCapitalLinkState, getEligibleAccountCapitalSources } from '../../features/wallet/domain/capitalLink';
 import { calculateBalanceAdjustment, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { generateUUID } from '../../utils/generators';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { describeWalletBalanceFact, buildWalletBalanceFacts } from './walletBalanceDomain';
@@ -384,7 +385,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
                 inputMode="decimal"
                 className={inputClass}
                 value={realBalanceInput}
-                onChange={e => setRealBalanceInput(e.target.value)}
+                onChange={e => {const next=resolveLiveBrazilianCentsChange(e.currentTarget.value,realBalanceInput,(e.nativeEvent as InputEvent).inputType);if(next)setRealBalanceInput(next.value);}}
                 onBlur={e => {
                   try {
                     setRealBalanceInput(formatWalletMoneyInput(e.target.value));

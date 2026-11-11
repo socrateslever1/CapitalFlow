@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -10,14 +10,14 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
   onBlur?: () => void;
   rate?: boolean;
   signed?: boolean;
-  /** Desloca os centavos a cada dígito, sem alterar o comportamento dos demais campos. */
+  /** Digitação monetária por centavos, padrão dos campos financeiros. */
   centsEntry?: boolean;
   fieldLabel?: string;
 };
 
 /** Mantém a expressão local enquanto o usuário digita, sem alimentar fórmulas com texto parcial. */
 export const FinancialCalculatorInput: React.FC<Props> = ({
-  value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = false, fieldLabel = 'valor', className = '',
+  value, onCommit, onChange, onBlur, type: _type, rate = false, signed = false, centsEntry = true, fieldLabel = 'valor', className = '',
   onFocus, onKeyDown, onPaste, disabled, ...rest
 }) => {
   const [editing, setEditing] = useState(false);
@@ -94,12 +94,17 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             const input = e.currentTarget;
             const raw = input.value;
             if (!signed && (centsEntry || !rate) && /^[\d.,]*$/.test(raw)) {
-              // Alguns teclados Android emitem apenas input (sem keydown) ao apagar.
-              // Em R$ 0,00, a exclusão deve limpar o campo, não reconstruir ,00.
-              if (centsEntry && draft === '0,00' && raw.length < draft.length) {
-                setDraft('');
+              // Teclados Android podem apagar sem disparar keydown.
+              const inputType = (e.nativeEvent as InputEvent).inputType;
+              if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
+                && input.selectionStart === raw.length) {
+                const next = raw === '' ? { value: '', caret: 0 } : backspaceLiveBrazilianCents(draft);
+                setDraft(next.value);
                 setError('');
                 input.setCustomValidity('');
+                requestAnimationFrame(() => {
+                  if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                });
                 return;
               }
               const next = centsEntry
@@ -164,11 +169,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               // limpa o campo para permitir um novo lançamento sem travar em ,00.
               if (start === end && end === input.value.length && input.value) {
                 e.preventDefault();
-                const digits = input.value.replace(/\D/g, '');
-                const remaining = digits ? BigInt(digits) / 10n : 0n;
-                const next = remaining === 0n
-                  ? { value: '', caret: 0 }
-                  : formatLiveBrazilianCents(remaining.toString());
+                const next = backspaceLiveBrazilianCents(input.value);
                 if (next) {
                   setDraft(next.value);
                   setError('');

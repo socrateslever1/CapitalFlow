@@ -126,7 +126,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               // limpa o campo para permitir um novo lançamento sem travar em ,00.
               if (start === end && end === input.value.length && input.value) {
                 e.preventDefault();
-                const digits = input.value.replace(/\\D/g, '');
+                const digits = input.value.replace(/\D/g, '');
                 const remaining = digits ? BigInt(digits) / 10n : 0n;
                 const next = remaining === 0n
                   ? { value: '', caret: 0 }

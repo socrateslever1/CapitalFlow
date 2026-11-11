@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import type { WalletIssuerInvoiceCommit } from '../../services/personalWallet.service';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type NumericKey = 'invoiceTotal' | 'minimumPayment' | 'creditLimit' |
   'usedLimit' | 'availableLimit' | 'futureInstallments';
@@ -96,7 +97,16 @@ export const CardInvoiceSummaryPreview: React.FC<{
               {label} (R$)
               <input type="text" inputMode="decimal" autoComplete="off" disabled={saving}
                 value={form[key]}
-                onChange={event => { setSaved(null); setForm(v => ({ ...v, [key]: event.target.value })); }}
+                onChange={event => {
+                  const input = event.currentTarget;
+                  const next = resolveLiveBrazilianCentsChange(input.value, form[key], (event.nativeEvent as InputEvent).inputType);
+                  if (!next) return;
+                  setSaved(null);
+                  setForm(v => ({ ...v, [key]: next.value }));
+                  requestAnimationFrame(() => {
+                    if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+                  });
+                }}
                 onBlur={event => { try { setForm(v => ({ ...v, [key]: formatWalletMoneyInput(event.target.value) })); } catch { } }}
                 placeholder="Não informado" aria-label={label}
                 className="mt-1 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs font-semibold text-white" />

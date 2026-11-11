@@ -2,6 +2,7 @@ import React from 'react';
 import { formatMoney } from '../../../utils/formatters';
 import { calculateUsedFromAvailable } from '../../../components/wallet/cardOpeningSummary';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../utils/liveBrazilianMoneyInput';
 import { businessDateInManaus } from '../../../utils/businessDate';
 
 export type CardOpeningFormValues = {
@@ -149,6 +150,15 @@ export const CardOpeningFields: React.FC<Props> = ({
   const overLimit = Math.max(0, -differenceCents) / 100;
   const field =
     'mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white';
+  const readCents = (event: React.ChangeEvent<HTMLInputElement>, previous: string): string | null => {
+    const input = event.currentTarget;
+    const next = resolveLiveBrazilianCentsChange(input.value, previous, (event.nativeEvent as InputEvent).inputType);
+    if (!next) return null;
+    requestAnimationFrame(() => {
+      if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+    });
+    return next.value;
+  };
   const changeUsed = (raw: string) => {
     setUsedManuallyEdited(raw.trim() !== '');
     const nextUsed = safeMoney(raw);
@@ -226,7 +236,8 @@ export const CardOpeningFields: React.FC<Props> = ({
                   } catch { }
                 }}
                 onChange={(e) => {
-                  const rawInvoice = e.target.value;
+                  const rawInvoice = readCents(e, value.invoice);
+                  if (rawInvoice === null) return;
                   const nextInv = safeMoney(rawInvoice);
                   const nextUsedStr = !usedManuallyEdited && !availableEntered
                     ? rawInvoice : value.used;
@@ -252,7 +263,8 @@ export const CardOpeningFields: React.FC<Props> = ({
                 type="text" inputMode="decimal" placeholder="Informe o valor disponível"
                 value={value.available ?? ''}
                 onChange={e => {
-                  const rawAvailable = e.target.value;
+                  const rawAvailable = readCents(e, value.available ?? '');
+                  if (rawAvailable === null) return;
                   setUsedManuallyEdited(false);
                   let nextUsed = rawAvailable.trim() ? '' : value.invoice;
                   if (rawAvailable.trim()) {
@@ -288,7 +300,7 @@ export const CardOpeningFields: React.FC<Props> = ({
                 inputMode="decimal"
                 placeholder="0,00"
                 value={usedInputValue}
-                onChange={(e) => changeUsed(e.target.value)}
+                onChange={e => { const raw = readCents(e, usedInputValue); if (raw !== null) changeUsed(raw); }}
                 onBlur={(e) => { try { onChange({ ...value, used: formatWalletMoneyInput(e.target.value) }); } catch { } }}
                 className={field}
               />

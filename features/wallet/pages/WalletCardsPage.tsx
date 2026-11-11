@@ -30,7 +30,7 @@ import { QuickExpenseModal } from '../components/QuickExpenseModal';
 import { Modal, modalPrimaryActionClass, modalSecondaryActionClass } from '../../../components/ui/Modal';
 import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip';
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
-import { formatLiveBrazilianMoney } from '../utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianCents } from '../utils/liveBrazilianMoneyInput';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
 import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection, resolveManualInvoiceMonth } from '../utils/minhasFinancasWalletTools';
 import { businessDateInManaus } from '../../../utils/businessDate';
@@ -869,7 +869,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             value={cardForm.credit_limit}
             onChange={e=>{
               const input=e.currentTarget;
-              const next=formatLiveBrazilianMoney(input.value,input.selectionStart ?? input.value.length);
+              const next=formatLiveBrazilianCents(input.value);
               if(!next)return;
               requestId.current=generateUUID();
               setCardForm(v=>({...v,credit_limit:next.value}));

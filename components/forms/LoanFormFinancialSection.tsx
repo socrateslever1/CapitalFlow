@@ -1,11 +1,15 @@
 import { addCollectionDaysUTC, addDaysUTC, adjustToCollectionDayUTC, normalizeCollectionDaysMode, parseDateOnlyUTC, toISODateOnlyUTC } from '../../utils/dateHelpers';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Wallet, CalendarX, Clock, CreditCard, Landmark, CalendarDays, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { CapitalSource, LoanBillingModality } from '../../types';
 import { formatMoney, cleanNumberStr } from '../../utils/formatters';
 import { LoanTotalPreview } from './LoanFormFinancialSection.preview';
 import { LoanFundingCostFields } from './LoanFundingCostFields';
 import { FinancialCalculatorInput } from './FinancialCalculatorInput';
+import { supabase } from '../../lib/supabase';
+import { personalWalletService } from '../../services/personalWallet.service';
+import { buildSourceReferenceDisplay } from '../../domain/sources/sourceReferenceDisplay';
+import type { WalletReference } from '../../domain/sources/sourceWalletReference';
 import { deriveFundingValues, FundingCalculationMode } from '../../domain/finance/installmentFunding';
 
 const MULTI_SOURCE_CREATION_ENABLED = false;
@@ -66,6 +70,67 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 }) => {
   const [editingCustomerInstallment, setEditingCustomerInstallment] = useState(false);
   const [customerInstallmentDraft, setCustomerInstallmentDraft] = useState('');
+  // Crédito do cartão é informativo: nunca sobrescrever fontes.balance nem inferir disponibilidade.
+  const [cardCreditBySource, setCardCreditBySource] = useState<Record<string, { amount: number | null; cardCount: number }>>({});
+  const [cardCreditStatus, setCardCreditStatus] = useState<'loading' | 'ready' | 'restricted' | 'error'>('loading');
+  const cardSourceIds = sources.filter(source => source.type === 'CARD' || source.type === 'MISTO').map(source => source.id);
+  const cardSourceIdsKey = [...cardSourceIds].sort().join(',');
+
+  useEffect(() => {
+    let active = true;
+    const ids = cardSourceIdsKey ? cardSourceIdsKey.split(',') : [];
+    if (!ids.length) {
+      setCardCreditBySource({});
+      setCardCreditStatus('ready');
+      return;
+    }
+    const refreshCredit = async () => {
+      setCardCreditStatus('loading');
+      try {
+        const permission = await supabase.rpc('can_manage_capital_source_wallet_origins');
+        if (permission.error) throw permission.error;
+        if (permission.data !== true) {
+          if (active) { setCardCreditBySource({}); setCardCreditStatus('restricted'); }
+          return;
+        }
+        const [wallet, result] = await Promise.all([
+          personalWalletService.loadOverview(),
+          supabase.from('capital_source_wallet_references')
+            .select('source_id,target_kind,target_id,allocated_amount').in('source_id', ids),
+        ]);
+        if (result.error) throw result.error;
+        if (!active) return;
+        const links = (result.data || []) as WalletReference[];
+        const positions: Record<string, { amount: number | null; cardCount: number }> = {};
+        for (const id of ids) {
+          const display = buildSourceReferenceDisplay(
+            links.filter(link => link.source_id === id), wallet.accounts, wallet.cards,
+          );
+          const cardEntries = display?.entries.filter(entry => entry.kind === 'CARD') || [];
+          if (!cardEntries.length) continue;
+          const allAvailable = cardEntries.every(entry => entry.available !== null);
+          positions[id] = {
+            cardCount: cardEntries.length,
+            amount: allAvailable
+              ? Math.round(cardEntries.reduce((total, entry) => total + (entry.available ?? 0), 0) * 100) / 100
+              : null,
+          };
+        }
+        setCardCreditBySource(positions);
+        setCardCreditStatus('ready');
+      } catch {
+        if (active) { setCardCreditBySource({}); setCardCreditStatus('error'); }
+      }
+    };
+    void refreshCredit();
+    window.addEventListener('capitalflow:wallet-updated', refreshCredit);
+    window.addEventListener('capitalflow:source-origins-updated', refreshCredit);
+    return () => {
+      active = false;
+      window.removeEventListener('capitalflow:wallet-updated', refreshCredit);
+      window.removeEventListener('capitalflow:source-origins-updated', refreshCredit);
+    };
+  }, [cardSourceIdsKey]);
 
   const inputClass = "block w-full min-w-0 h-14 bg-slate-950/50 border border-slate-800/80 rounded-lg px-4 sm:px-5 text-white text-sm leading-none outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 transition-all";
   const strongInputClass = `${inputClass} font-bold`;
@@ -73,6 +138,7 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
 
   const selectedSource = sources.find(s => s.id === formData.sourceId);
   const isCardSource = selectedSource?.type === 'CARD' || selectedSource?.type === 'MISTO';
+  const selectedCardCredit = selectedSource ? cardCreditBySource[selectedSource.id] : undefined;
   const isInstallmentFixed = formData.billingCycle === 'INSTALLMENT_FIXED';
   const fundingPaymentMethod = formData.fundingPaymentMethod || 'CREDIT_CARD';
   const interestFreeInstallment = isInstallmentFixed && formData.interestFreeInstallment === true;
@@ -388,12 +454,37 @@ export const LoanFormFinancialSection: React.FC<LoanFormFinancialSectionProps> =
                     ...(index === 0 && !cardOrigin && current.billingCycle !== 'INSTALLMENT_FIXED'
                       ? { fundingTotalPayable: '', fundingFeePercent: '' } : {}),
                   };
-                })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name} · {source.type === 'MISTO' ? 'Misto' : `R$ ${Number(source.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
+                })} className="w-full appearance-none rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 pr-8 text-xs text-white outline-none focus:border-purple-500/50"><option value="">Selecione</option>{sources.map((source) => {
+                  const isCard = source.type === 'CARD' || source.type === 'MISTO';
+                  const linked = cardCreditBySource[source.id];
+                  const detail = isCard && linked?.amount != null
+                    ? 'Crédito disponível: ' + formatMoney(linked.amount)
+                    : isCard && cardCreditStatus === 'loading'
+                      ? 'Consultando crédito…'
+                      : isCard && cardCreditStatus === 'error'
+                        ? 'Crédito temporariamente indisponível'
+                        : isCard && linked?.cardCount
+                          ? 'Crédito vinculado não confirmado'
+                          : 'Saldo da fonte: ' + formatMoney(source.balance);
+                  return <option key={source.id} value={source.id}>{source.name} · {detail}</option>;
+                })}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} /></div>
                 {hasMultipleSources && <input type="number" min="0.01" step="0.01" value={allocation.amount || ''} onChange={(event) => setFormData((current: any) => { const next = [...(current.fundingAllocations || fundingAllocations)]; next[index] = { ...next[index], amount: event.target.value }; return { ...current, fundingAllocations: next }; })} placeholder="Valor" className="w-28 rounded-lg border border-slate-800/80 bg-slate-950/50 px-3 py-4 text-xs font-bold text-white outline-none focus:border-purple-500/50" />}
                 {fundingAllocations.length > 1 && !isEditing && <button type="button" aria-label="Remover fonte" onClick={() => setFormData((current: any) => ({ ...current, fundingAllocations: (current.fundingAllocations || fundingAllocations).filter((_: any, itemIndex: number) => itemIndex !== index) }))} className="rounded-lg border border-rose-500/20 px-2 text-rose-300"><Trash2 size={15} /></button>}
               </div>)}
             </div>
-            {!hasMultipleSources && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
+            {!hasMultipleSources && isCardSource && <div className="rounded-lg border border-blue-500/25 bg-blue-950/20 p-3 text-xs text-blue-100" role="status">
+              <strong className="block">
+                {selectedCardCredit?.amount != null
+                  ? 'Crédito disponível no cartão vinculado: ' + formatMoney(selectedCardCredit.amount)
+                  : cardCreditStatus === 'loading' ? 'Consultando crédito do cartão…'
+                    : cardCreditStatus === 'restricted' ? 'Consulta de crédito não autorizada neste perfil.'
+                    : cardCreditStatus === 'error' ? 'Não foi possível consultar o crédito. Atualize os dados antes de decidir.'
+                    : selectedCardCredit?.cardCount ? 'Crédito vinculado indisponível ou não confirmado.'
+                    : 'Nenhum cartão da Minha Carteira vinculado a esta fonte.'}
+              </strong>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-300">Saldo operacional da fonte: {formatMoney(selectedSource?.balance)}. O crédito exibido é informativo; registrar o empréstimo na fonte não debita automaticamente o limite bancário do cartão.</p>
+            </div>}
+            {!hasMultipleSources && !isCardSource && <p className="ml-2 text-[10px] text-slate-500">O valor do contrato será retirado desta fonte, mesmo que o saldo fique negativo.</p>}
             {hasMultipleSources && <div className={`rounded-lg border p-3 text-[10px] font-black uppercase ${Math.abs(distributedTotal - principalValue) < 0.005 ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-300' : 'border-amber-500/30 bg-amber-950/20 text-amber-300'}`}>Distribuído: R$ {distributedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · Capital: R$ {principalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · {Math.abs(distributedTotal - principalValue) < 0.005 ? 'Fechado' : 'Ajuste os valores'}</div>}
         </div>
 

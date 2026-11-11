@@ -35,7 +35,10 @@ const toForm = (summary: CardInvoiceSummary): Form => ({
 export const CardInvoiceSummaryPreview: React.FC<{
   summary: CardInvoiceSummary;
   onSave?: (summary: CardInvoiceSummary) => Promise<WalletIssuerInvoiceCommit>;
-}> = ({ summary, onSave }) => {
+  formId?: string;
+  inlineSave?: boolean;
+  onSavingChange?: (saving: boolean) => void;
+}> = ({ summary, onSave, formId, inlineSave = true, onSavingChange }) => {
   const [form, setForm] = useState<Form>(() => toForm(summary));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -71,21 +74,22 @@ export const CardInvoiceSummaryPreview: React.FC<{
       if (form.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(form.dueDate))
         throw new Error('Data de vencimento inválida.');
       setSaving(true);
+      onSavingChange?.(true);
       const confirmed = await onSave({ ...summary, ...parsed, dueDate: form.dueDate || null });
       setSaved(confirmed);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível salvar os valores.');
-    } finally { setSaving(false); }
+    } finally { setSaving(false); onSavingChange?.(false); }
   };
   return (
     <section aria-label="Resumo reconhecido da fatura" className="space-y-3 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <strong className="text-xs text-slate-100">Dados reconhecidos — confira e ajuste</strong>
+        <strong className="text-xs text-slate-100">Valores da fatura — confira ou preencha</strong>
         <span className="text-[11px] text-slate-400">{summary.institution || 'Banco não identificado'}
           {summary.cardLastFour ? ' · •••• ' + summary.cardLastFour : ''}
         </span>
       </div>
-      <form onSubmit={event => { void submit(event); }} className="space-y-3">
+      <form id={formId} onSubmit={event => { void submit(event); }} className="space-y-3">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {fields.map(({ key, label }) => (
             <label className="rounded-lg bg-slate-900 px-2.5 py-2 text-[11px] text-slate-400" key={key}>
@@ -116,7 +120,7 @@ export const CardInvoiceSummaryPreview: React.FC<{
           <p className="mt-1">{saved.note}</p>
           <p className="mt-1">Ciclo confirmado: {saved.due_month.slice(5, 7)}/{saved.due_month.slice(0, 4)}</p>
         </div>}
-        {onSave && <button type="submit" disabled={saving}
+        {onSave && inlineSave && <button type="submit" disabled={saving}
           className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">
           {saving ? 'Salvando…' : 'Salvar valores conferidos'}
         </button>}

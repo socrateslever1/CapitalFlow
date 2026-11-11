@@ -1,5 +1,6 @@
 // src/services/legalDocument.service.ts
 import { supabasePortal } from '../lib/supabasePortal';
+import { supabase } from '../lib/supabase';
 
 export type PortalDocListItem = {
   id: string;
@@ -181,22 +182,73 @@ export const legalDocumentService = {
     return Array.isArray(data) ? data[0] : data ?? { ok: true };
   },
 
-  /**
-   * Apaga/exclui um documento jurídico do banco de dados
+  /** Lista apenas os registros arquivados pelo usuário autenticado.
+   * Arquivamento não altera o documento, a assinatura ou o ledger.
+   */
+  async listArchivedDocIds(): Promise<string[]> {
+    const { data, error } = await supabase.from('legal_document_archive_state')
+      .select('document_id');
+    if (error) throw new Error('Não foi possível carregar os documentos arquivados: ' + error.message);
+    return (data || []).map(row => String(row.document_id));
+  },
+
+  async archiveDoc(docId: string): Promise<void> {
+    const { data: session, error: sessionError } = await supabase.auth.getUser();
+    if (sessionError || !session.user) throw new Error('Sua sessão expirou. Entre novamente.');
+    const { data, error } = await supabase.from('legal_document_archive_state')
+      .upsert({ document_id: docId, owner_auth_id: session.user.id },
+        { onConflict: 'document_id,owner_auth_id' })
+      .select('document_id');
+    if (error) throw new Error('Não foi possível arquivar o documento: ' + error.message);
+    if (!data || data.length !== 1) throw new Error('O arquivamento não foi confirmado pelo servidor.');
+  },
+
+  async restoreDoc(docId: string): Promise<void> {
+    const { data: session, error: sessionError } = await supabase.auth.getUser();
+    if (sessionError || !session.user) throw new Error('Sua sessão expirou. Entre novamente.');
+    const { data, error } = await supabase.from('legal_document_archive_state')
+      .delete().eq('document_id',docId).eq('owner_auth_id',session.user.id)
+      .select('document_id');
+    if (error) throw new Error('Não foi possível restaurar o documento: ' + error.message);
+    if (!data || data.length !== 1) throw new Error('O documento não foi encontrado entre os seus arquivados.');
+  },
+
+  /** Exclusão física apenas de minuta própria e sem vestígio de assinatura.
+   * Documento assinado, publicado, usado em acordo ou em assinatura só pode ser arquivado.
    */
   async deleteDoc(docId: string): Promise<void> {
-    const { error } = await supabasePortal
+    const { data: session, error: sessionError } = await supabase.auth.getUser();
+    if (sessionError || !session.user) throw new Error('Sua sessão expirou. Entre novamente.');
+    const { data: doc, error: readError } = await supabase
       .from('documentos_juridicos')
-      .delete()
-      .eq('id', docId);
-
-    if (error) {
-      console.warn('Portal delete error, trying direct fallback:', error.message);
-      const { error: directErr } = await supabasePortal
-        .from('documentos_juridicos')
-        .delete()
-        .eq('id', docId);
-      if (directErr) throw new Error(directErr.message || 'Falha ao excluir documento jurídico.');
+      .select('id,profile_id,status_assinatura,signed_at,locked_at,uploaded_signed_file_path,acordo_id')
+      .eq('id',docId).maybeSingle();
+    if (readError) throw new Error('Falha ao conferir o documento: ' + readError.message);
+    if (!doc) throw new Error('Documento não encontrado ou sem autorização.');
+    const { data: profile, error: ownerError } = await supabase.from('perfis')
+      .select('id').eq('id',doc.profile_id).eq('user_id',session.user.id).maybeSingle();
+    if (ownerError || !profile) throw new Error('Somente o titular autenticado pode excluir suas minutas.');
+    if (doc.status_assinatura !== 'PENDENTE' || doc.signed_at ||
+        doc.locked_at || doc.uploaded_signed_file_path || doc.acordo_id) {
+      throw new Error('Documento com efeito jurídico ou assinatura em andamento: utilize Arquivar.');
+    }
+    const { count, error: signaturesError } = await supabase
+      .from('assinaturas_documento').select('id',{count:'exact',head:true})
+      .eq('document_id',docId);
+    if (signaturesError) throw new Error('Falha ao verificar assinaturas: ' + signaturesError.message);
+    if (count === null) throw new Error('Não foi possível confirmar a inexistência de assinaturas.');
+    if (count > 0) throw new Error('Documento possui assinatura registrada. Arquive-o sem destruir a prova.');
+    const { data: agreement, error: agreementError } = await supabase
+      .from('acordos_inadimplencia').select('id')
+      .eq('legal_document_id',docId).limit(1);
+    if (agreementError) throw new Error('Falha ao verificar vínculos com acordos: ' + agreementError.message);
+    if ((agreement || []).length) throw new Error('Documento vinculado a acordo: utilize Arquivar.');
+    const { data: deleted, error } = await supabase
+      .from('documentos_juridicos').delete().eq('id',docId)
+      .eq('profile_id',doc.profile_id).select('id');
+    if (error) throw new Error('O banco recusou a exclusão: ' + error.message);
+    if (!deleted || deleted.length !== 1) {
+      throw new Error('Nenhum registro foi excluído. Confirme o acesso e tente novamente.');
     }
   },
 };

@@ -53,3 +53,16 @@ test('zero card operator fees are optional in the production contract form', () 
   assert.doesNotMatch(fields, /required=\{required\}/);
   assert.doesNotMatch(validator, /Informe o custo do cartão/);
 });
+
+test('quick receipt uses cents mask in all monetary entries, without changing destination routing', () => {
+  const screen=read('components/cards/components/InstallmentGrid.tsx');
+  const input=read('components/forms/BrazilianCentsInput.tsx');
+  assert.equal((screen.match(/<BrazilianCentsInput/g)||[]).length,3);
+  assert.match(screen,/setReceiptAmount\(nextAmount\)/);
+  assert.match(screen,/calculateReceiptForTargetBalance\(totalAmount, Number\(nextTarget\)\)/);
+  assert.match(screen,/calculatePrincipalReductionForTarget\(principal, Number\(nextTarget\)\)/);
+  assert.match(input,/resolveLiveBrazilianCentsChange/);
+  assert.match(input,/formatPastedBrazilianMoney/);
+  assert.match(screen,/receiptDestinationAccountId: walletReceiptAllowed/);
+  assert.match(screen,/receiptDestinationSourceId: receiptDestinationSourceId \|\| null/);
+});

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { displayBrazilianCents, resolveBrazilianCentsEdit, resolveBrazilianCentsPaste } from '../../components/forms/BrazilianCentsInput';
 import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
@@ -242,4 +243,25 @@ test('valores de extrato aceitam centavos e sinais sem coerção pelo input numb
     assert.match(source, /parseWalletSignedMoney\(raw, 'valor do lançamento'\)/);
     assert.doesNotMatch(source, /amount: Number\(e\.target\.value\)/);
   }
+});
+
+test('recebimento rápido desloca centavos em três campos sem mudar o valor financeiro canônico', () => {
+  assert.equal(resolveBrazilianCentsEdit('8', '')?.value, '0.08');
+  assert.equal(resolveBrazilianCentsEdit('0,088', '0.08')?.value, '0.88');
+  assert.equal(resolveBrazilianCentsEdit('0,880', '0.88')?.value, '8.80');
+  assert.equal(displayBrazilianCents('8.80'), '8,80');
+  assert.equal(resolveBrazilianCentsEdit('8,8', '8.80', 'deleteContentBackward')?.value, '0.88');
+  assert.equal(resolveBrazilianCentsEdit('', '0.08', 'deleteContentBackward')?.value, '');
+  assert.equal(resolveBrazilianCentsPaste('700'), '700.00');
+  assert.equal(resolveBrazilianCentsPaste('R$ 1.234,56'), '1234.56');
+  assert.equal(resolveBrazilianCentsPaste('8,80'), '8.80');
+  assert.throws(() => resolveBrazilianCentsPaste('8,801'));
+  assert.throws(() => resolveBrazilianCentsPaste('-8,80'));
+  assert.equal(resolveBrazilianCentsEdit('1000000000000', '')?.value, undefined);
+  const screen = readFileSync('components/cards/components/InstallmentGrid.tsx','utf8');
+  for (const state of ['receiptAmount', 'targetPrincipalBalance', 'targetBalance']) {
+    assert.match(screen, new RegExp('value=\\{' + state + '\\}'));
+  }
+  assert.equal((screen.match(/<BrazilianCentsInput/g) || []).length, 3);
+  assert.doesNotMatch(screen, /value=\\{receiptAmount\\}[\\s\\S]{0,300}onChange=\\{e =>/);
 });

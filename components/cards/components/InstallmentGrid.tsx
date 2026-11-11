@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrazilianCentsInput } from '../../forms/BrazilianCentsInput';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, CheckCircle2, Loader2, WalletCards, ChevronRight, Check } from 'lucide-react';
 import { Modal } from '../../ui/Modal';
@@ -432,15 +433,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                     </div>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">R$</span>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0.01"
-                                            max={quickMode === 'PRINCIPAL_REDUCTION' ? principal : undefined}
+                                        <BrazilianCentsInput
+                                            aria-label={quickMode === 'PRINCIPAL_REDUCTION' ? 'Valor a abater do capital principal' : 'Valor recebido'}
                                             placeholder={quickMode === 'PRINCIPAL_REDUCTION' ? `Até ${principal.toFixed(2)}` : '0,00'}
                                             value={receiptAmount}
-                                            onChange={e => {
-                                                const nextAmount = e.target.value;
+                                            onValueChange={nextAmount => {
                                                 setReceiptAmount(nextAmount);
                                                 if (quickMode !== 'PRINCIPAL_REDUCTION') {
                                                     setTargetBalance('');
@@ -464,15 +461,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             </div>
                                             <div className="relative mt-1.5">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-purple-200/60">R$</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    max={principal}
+                                                <BrazilianCentsInput
+                                                    aria-label="Capital que deve ficar"
                                                     placeholder="Capital final"
                                                     value={targetPrincipalBalance}
-                                                    onChange={(event) => {
-                                                        const nextTarget = event.target.value;
+                                                    onValueChange={nextTarget => {
                                                         setTargetPrincipalBalance(nextTarget);
                                                         if (!nextTarget.trim()) {
                                                             setReceiptAmount('');
@@ -502,15 +495,11 @@ export const InstallmentGrid: React.FC<InstallmentGridProps> = (props) => {
                                             </div>
                                             <div className="relative mt-1.5">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-500">R$</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    max={totalAmount}
+                                                <BrazilianCentsInput
+                                                    aria-label="Saldo total que deve ficar"
                                                     placeholder="Total final da dívida"
                                                     value={targetBalance}
-                                                    onChange={(e) => {
-                                                        const nextTarget = e.target.value;
+                                                    onValueChange={nextTarget => {
                                                         setTargetBalance(nextTarget);
                                                         setQuickMode('CUSTOM');
                                                         setManualReceiptMode(false);

@@ -188,6 +188,7 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
             Selecione contas e cartões. O sistema utiliza o saldo total ou crédito disponível
             de cada recurso, sem alterar o saldo operacional da fonte.
           </p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">Fontes de capital do tipo cartão não são cartões cadastrados na Minha Carteira. Para utilizá-las como origem, cadastre o cartão correspondente em Minha Carteira, informando seu limite verdadeiro.</p>
         </div>
         <button type="button" aria-label="Atualizar recursos"
           disabled={loading || saving}
@@ -231,11 +232,19 @@ export const SourceWalletReferencePanel: React.FC<Props> = ({ sources, activeUse
             })}
             {saved.filter(row => !availableKeys.has(encodeWalletReference(row.target_kind,row.target_id))).map(row => {
               const key = encodeWalletReference(row.target_kind,row.target_id);
-              return <label key={key} className="flex items-center gap-3 rounded-lg border border-amber-700/40 p-3 text-xs text-amber-300">
+              const original = row.target_kind === 'CARD'
+                ? snapshot.cards.find(card => card.id === row.target_id)
+                : snapshot.accounts.find(account => account.id === row.target_id);
+              const description = row.target_kind === 'CARD'
+                ? original ? `Cartão ${original.nickname} inativo` : 'Cartão antigo não localizado na Minha Carteira'
+                : original ? `Conta ${original.nickname} já vinculada a outra fonte` : 'Conta antiga não localizada na Minha Carteira';
+              return <label key={key} className="flex min-h-11 items-center gap-3 rounded-lg border border-amber-700/40 p-3 text-xs text-amber-300">
                 <input type="checkbox" checked={draft[key]?.selected ?? false}
                   onChange={event => updateDraft(key, { selected: event.target.checked })}
-                  disabled={saving} className="h-5 w-5" />
-                Origem anterior indisponível — desmarque para remover
+                  disabled={saving} className="h-5 w-5 shrink-0" />
+                <span className="min-w-0"><strong className="block font-semibold">{description}</strong>
+                  <span className="mt-1 block text-amber-200/80">Vínculo antigo mantido. Desmarque apenas se desejar removê-lo.</span>
+                </span>
               </label>;
             })}
             {resources.length === 0 && saved.length === 0 &&

@@ -81,7 +81,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           onBlur={() => setEditing(null)}
           onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setCostDraft(event.target.value); changeCost(event.target.value); }}
           placeholder="Ex.: 9,98"
-          className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
+          centsEntry className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Taxa equivalente (%)
@@ -92,7 +92,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           onBlur={() => setEditing(null)}
           onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setRateDraft(event.target.value); changePercent(event.target.value); }}
           placeholder="Ex.: 4,99"
-          className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
+          centsEntry className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
       <label className="block space-y-1 text-xs font-semibold text-slate-200">
         Total cobrado no cartão (R$)
@@ -103,7 +103,7 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           onBlur={() => setEditing(null)}
           onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setTotalDraft(event.target.value); changeTotal(event.target.value); }}
           placeholder={principal > 0 ? `Ex.: ${(principal * 1.05).toFixed(2).replace('.', ',')}` : 'Ex.: 209,98'}
-          className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
+          centsEntry className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
       <div className="sm:col-span-3 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-xs text-slate-300 space-y-2">
         <div className="flex justify-between gap-3"><span>Principal disponibilizado</span><strong className="text-white tabular-nums">{formatMoney(principal)}</strong></div>

@@ -186,3 +186,21 @@ test('a mesma regra cobre abertura, fatura, pagamento, despesas e recorrencias',
   assert.match(quick, /FinancialCalculatorInput centsEntry/);
   assert.match(obligations, /FinancialCalculatorInput className=\{field\} required centsEntry/);
 });
+
+test('receitas, saldo real, desconto e cobrança PIX aceitam centavos sem arredondar reais', () => {
+  for (const path of [
+    'components/wallet/RecurringIncomePanel.tsx',
+    'components/wallet/AccountDetailsPage.tsx',
+    'components/wallet/CardInvoiceStatement.tsx',
+    'components/wallet/WalletPixCharge.tsx',
+  ]) {
+    const file = readFileSync(path, 'utf8');
+    assert.match(file, /resolveLiveBrazilianCentsChange/, path);
+  }
+  const pix = readFileSync('components/wallet/WalletPixCharge.tsx', 'utf8');
+  assert.match(pix, /parseWalletMoney\(normalized\)/);
+  assert.doesNotMatch(pix, /Number\(normalized\.replace\(',', '\.'\)\)/);
+  assert.equal(parseWalletMoney('1.234,56'), 1234.56);
+  assert.equal(formatLiveBrazilianCents('123456')?.value, '1.234,56');
+  assert.equal(parseWalletMoney('8,80'), 8.8);
+});

@@ -13,7 +13,7 @@ export const LoginLanguageSwitcher: React.FC<{ className?: string }> = ({ classN
   const { language, setLanguage, t } = useI18n();
   return (
     <label
-      className={'relative flex h-10 items-center gap-1.5 rounded-full bg-slate-800/60 pl-3 pr-2 text-slate-300 transition-colors hover:text-white focus-within:outline focus-within:outline-2 focus-within:outline-blue-500 ' + className}
+      className={'flex h-10 w-auto max-w-max shrink-0 items-center gap-1.5 self-start rounded-full bg-slate-800/60 pl-3 pr-2 text-slate-300 transition-colors hover:text-white focus-within:outline focus-within:outline-2 focus-within:outline-blue-500 ' + className}
       title={t('language.choose')}
     >
       <Globe size={16} aria-hidden="true" />

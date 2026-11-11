@@ -68,3 +68,12 @@ export function formatLiveBrazilianCents(raw: string): LiveBrazilianMoney | null
   const value = `${integer},${fraction}`;
   return { value, caret: value.length };
 }
+
+/** Remove o último algarismo da quantia por centavos, sem deixar vírgula presa. */
+export function backspaceLiveBrazilianCents(current: string): LiveBrazilianMoney {
+  const digits = current.replace(/\D/g, '');
+  if (!digits) return { value: '', caret: 0 };
+  const remaining = BigInt(digits) / 10n;
+  if (remaining === 0n) return { value: '', caret: 0 };
+  return formatLiveBrazilianCents(remaining.toString()) ?? { value: '', caret: 0 };
+}

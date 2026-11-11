@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/formatters';
 import { generateUUID } from '../../utils/generators';
 import { getInvoiceCycleDates } from './invoiceStatementDomain';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
+import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { calculateBalanceAdjustment } from '../../features/wallet/utils/minhasFinancasWalletTools';
 
 type Props = {
@@ -149,7 +150,15 @@ export const InvoiceOverrideModal: React.FC<Props> = ({
         <label className="text-xs font-semibold text-slate-200 sm:col-span-2">
           {mode === 'DIFFERENCE' ? 'Valor real atual da fatura no banco (R$)' : 'Valor consolidado (R$)'}
           <input name="wallet-invoice-amount" type="text" inputMode="decimal" autoComplete="off"
-            required value={amount} onChange={event=>setAmount(event.target.value)} onBlur={event=>{try{setAmount(formatWalletMoneyInput(event.target.value));}catch{}}}
+            required value={amount} onChange={event => {
+              const input = event.currentTarget;
+              const next = resolveLiveBrazilianCentsChange(input.value, amount, (event.nativeEvent as InputEvent).inputType);
+              if (!next) return;
+              setAmount(next.value);
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+            }} onBlur={event=>{try{setAmount(formatWalletMoneyInput(event.target.value));}catch{}}}
             placeholder="0,00" className={field}/>
         </label>
         {mode === 'DIFFERENCE' && (

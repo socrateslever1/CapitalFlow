@@ -68,6 +68,17 @@ function readerHarness(name: 'FlatSmartStatementReader' | 'WalletStatementImport
     async getStatementRowsForReview(...args: any[]) { calls.reviews.push(args); return io.review(); },
     async recordStatementRow(input: any) { calls.rows.push(input); return 'saved-row'; },
     async recordAndImportCardStatementPurchase(input: any) {
+      // Simula a validação final da nova RPC: tentativas rejeitadas nunca
+      // contabilizam uma gravação, mesmo se o formulário tentou transmiti-las.
+      const previous = await io.review();
+      const equivalent = previous.some(row =>
+        row.target_kind === 'CARD' && row.target_id === input.cardId
+        && row.entry_date === input.date && Number(row.amount) === input.amount
+        && row.description.toLocaleLowerCase('pt-BR') === input.description.toLocaleLowerCase('pt-BR')
+        && (row.document_hash !== input.documentHash || row.row_key !== input.rowKey)
+      );
+      if (equivalent && input.allowDuplicates !== true)
+        throw new Error('Compra possivelmente duplicada. Revise antes de autorizar.');
       calls.rows.push(input);
       calls.purchases.push(['saved-row', input.dueMonth, input.included]);
       return 'saved-row';

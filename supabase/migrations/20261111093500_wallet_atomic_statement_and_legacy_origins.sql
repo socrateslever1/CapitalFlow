@@ -123,7 +123,7 @@ BEGIN
     'CARD',p_card_id,p_document_hash,p_row_key,p_entry_date,p_description,p_amount,p_category
   );
   SELECT * INTO v_existing FROM public.personal_wallet_statement_rows
-    WHERE id=v_row_id AND owner_user_id=v_owner FOR UPDATE;
+    WHERE id=v_row_id AND owner_user_id=v_owner;
   IF NOT FOUND OR v_existing.amount <> p_amount
      OR v_existing.entry_date IS DISTINCT FROM p_entry_date
      OR v_existing.description IS DISTINCT FROM btrim(p_description)

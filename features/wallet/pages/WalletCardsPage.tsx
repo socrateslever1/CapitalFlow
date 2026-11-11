@@ -77,6 +77,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
   const [invoiceFacts, setInvoiceFacts] = useState<WalletCardInvoiceFacts[]>([]);
   const [invoiceFactsError, setInvoiceFactsError] = useState('');
   const [invoiceFactsModalOpen, setInvoiceFactsModalOpen] = useState(false);
+  const [invoiceFactsModalMonth, setInvoiceFactsModalMonth] = useState<string | null>(null);
   const [applyingIssuerFacts, setApplyingIssuerFacts] = useState(false);
   const [issuerCommitFeedback, setIssuerCommitFeedback] = useState('');
   const issuerCommitRequest = useRef({ signature: '', id: generateUUID() });
@@ -220,25 +221,31 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     setStatementMonth(null);
   }, [selected?.id]);
   const savedInvoiceFacts = invoiceFacts.find(item => item.due_month.slice(0,7) === statementMonth?.slice(0,7)) || null;
+  // A conferência manual pode registrar o primeiro mês mesmo sem qualquer ciclo financeiro.
+  const editInvoiceMonth = invoiceFactsModalMonth || statementMonth;
+  const editedInvoiceFacts = invoiceFacts.find(item => item.card_id === selected?.id && item.due_month.slice(0, 7) === editInvoiceMonth?.slice(0, 7)) || null;
+  const isCurrentCreditCycle = Boolean(editInvoiceMonth && creditPosition?.dueMonth && editInvoiceMonth.slice(0, 7) === creditPosition.dueMonth.slice(0, 7));
   const editableInvoiceSummary: CardInvoiceSummary = {
     institution: (['Nubank','Mercado Pago','Itaú','C6 Bank','RecargaPay'] as const).find(
-      name => name === (savedInvoiceFacts?.issuer || selected?.issuer)) || null,
+      name => name === (editedInvoiceFacts?.issuer || selected?.issuer)) || null,
     cardLastFour: selected?.last_four || null,
     multipleCards: false,
-    invoiceTotal: savedInvoiceFacts?.invoice_total ?? (selected?.current_bill ? Number(selected.current_bill) : null),
-    minimumPayment: savedInvoiceFacts?.minimum_payment ?? null,
-    creditLimit: savedInvoiceFacts?.credit_limit ?? (selected?.credit_limit ? Number(selected.credit_limit) : null),
-    usedLimit: savedInvoiceFacts?.used_limit ?? (creditPosition?.committedLimit ? Number(creditPosition.committedLimit) : (selected?.used_limit ? Number(selected.used_limit) : null)),
-    availableLimit: savedInvoiceFacts?.available_limit ?? (creditPosition && Number(selected?.credit_limit || 0) > 0 ? Number(creditPosition.freeLimit) : null),
-    futureInstallments: savedInvoiceFacts?.future_installments ?? (selected?.initial_future_installments_balance ? Number(selected.initial_future_installments_balance) : null),
-    dueDate: savedInvoiceFacts?.due_date ?? (selected && statementMonth ? getInvoiceCycleDates(statementMonth, selected.closing_day, selected.due_day).dueDate : null),
+    invoiceTotal: editedInvoiceFacts?.invoice_total ?? (isCurrentCreditCycle && Number(selected?.current_bill || 0) > 0 ? Number(selected?.current_bill) : null),
+    minimumPayment: editedInvoiceFacts?.minimum_payment ?? null,
+    creditLimit: editedInvoiceFacts?.credit_limit ?? (selected?.credit_limit != null ? Number(selected.credit_limit) : null),
+    usedLimit: editedInvoiceFacts?.used_limit ?? (isCurrentCreditCycle && Number(creditPosition?.committedLimit || 0) > 0 ? Number(creditPosition?.committedLimit) : null),
+    // Não converter limite total em "disponível informado" quando não houver dado confirmado do emissor.
+    availableLimit: editedInvoiceFacts?.available_limit ?? null,
+    futureInstallments: editedInvoiceFacts?.future_installments ?? (isCurrentCreditCycle && Number(selected?.initial_future_installments_balance || 0) > 0 ? Number(selected?.initial_future_installments_balance) : null),
+    dueDate: editedInvoiceFacts?.due_date ?? (selected && editInvoiceMonth ? getInvoiceCycleDates(editInvoiceMonth, selected.closing_day, selected.due_day).dueDate : null),
     warnings: [],
   };
   const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
-    if (!selected || !statementMonth) throw new Error('Selecione o cartão e o mês.');
+    if (!selected || !invoiceFactsModalMonth || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(invoiceFactsModalMonth))
+      throw new Error('Selecione um cartão e um mês de vencimento válido.');
     const confirmed = await personalWalletService.saveCardInvoiceFacts({
       cardId:selected.id,
-      dueMonth:statementMonth.slice(0,7)+'-01',
+      dueMonth:invoiceFactsModalMonth,
       dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
       invoiceTotal:summary.invoiceTotal, minimumPayment:summary.minimumPayment,
       creditLimit:summary.creditLimit, usedLimit:summary.usedLimit,
@@ -247,6 +254,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     });
     await Promise.all([refreshInvoiceFacts(),refresh()]);
     setStatementMonth(confirmed.due_month);
+    setInvoiceFactsModalMonth(confirmed.due_month);
     return confirmed;
   };
   const selectedCycle = selected && data
@@ -640,7 +648,10 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               </p>
               {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
             </div>
-            <button type="button" onClick={()=>setInvoiceFactsModalOpen(true)}
+            <button type="button" onClick={() => {
+              setInvoiceFactsModalMonth(statementMonth || suggestedNewInvoiceMonth);
+              setInvoiceFactsModalOpen(true);
+            }}
               className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
               {savedInvoiceFacts?'Corrigir vencimento e valores':'Definir vencimento e valores'}
             </button>
@@ -967,10 +978,24 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
         </form>}
       </section>}
       {invoiceFactsModalOpen && selected && <Modal title="Valores reais da fatura"
-        subtitle={selected.nickname + ' · ' + (statementMonth || '').slice(0,7)}
-        onClose={()=>setInvoiceFactsModalOpen(false)}>
-        <CardInvoiceSummaryPreview key={selected.id + ':' + statementMonth + ':' + (savedInvoiceFacts?.updated_at || '')}
-          summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>
+        subtitle={selected.nickname + (invoiceFactsModalMonth ? ` · ${invoiceFactsModalMonth.slice(5, 7)}/${invoiceFactsModalMonth.slice(0, 4)}` : '')}
+        onClose={() => setInvoiceFactsModalOpen(false)}>
+        <div className="mb-3 rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+          <label className="block text-xs font-semibold text-slate-200" htmlFor="manual-invoice-due-month">
+            Mês de vencimento desta fatura
+          </label>
+          <input id="manual-invoice-due-month" type="month" required
+            value={invoiceFactsModalMonth?.slice(0, 7) || ''}
+            onChange={event => {
+              const value = event.target.value;
+              setInvoiceFactsModalMonth(/^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? `${value}-01` : null);
+            }}
+            className="mt-2 min-h-11 w-full min-w-0 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" />
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">Este mês identifica a fatura que será salva, mesmo sem compras anteriores. O vencimento exato pode ser ajustado abaixo.</p>
+        </div>
+        {invoiceFactsModalMonth && <CardInvoiceSummaryPreview
+          key={selected.id + ':' + invoiceFactsModalMonth + ':' + (editedInvoiceFacts?.updated_at || '')}
+          summary={editableInvoiceSummary} onSave={saveManualInvoiceFacts}/>}
       </Modal>}
       {clearInvoiceConfirm && <Modal title="Excluir fatura não paga?" subtitle={clearInvoiceConfirm.nickname + ' · ' + clearInvoiceConfirm.month.slice(0, 7)} busy={clearingInvoice} onClose={() => !clearingInvoice && setClearInvoiceConfirm(null)}
         footer={<button type="button" disabled={clearingInvoice} onClick={() => {void clearUnpaidInvoice();}} className={modalPrimaryActionClass}>Confirmar exclusão da fatura</button>}>

@@ -89,6 +89,14 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             const input = e.currentTarget;
             const raw = input.value;
             if (!rate && !signed && /^[\d.,]*$/.test(raw)) {
+              // Alguns teclados Android emitem apenas input (sem keydown) ao apagar.
+              // Em R$ 0,00, a exclusão deve limpar o campo, não reconstruir ,00.
+              if (centsEntry && draft === '0,00' && raw.length < draft.length) {
+                setDraft('');
+                setError('');
+                input.setCustomValidity('');
+                return;
+              }
               const next = centsEntry
                 ? formatLiveBrazilianCents(raw)
                 : formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);

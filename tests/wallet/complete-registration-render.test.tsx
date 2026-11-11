@@ -28,6 +28,11 @@ test('optional bank identity and products retain leading zeros and decimal cents
   assert.equal(normalized.agency,'0012');assert.equal(normalized.account_number,'000123');assert.equal(normalized.credit_card_limit,1500.75);assert.equal(normalized.loan_balance,10000.25);
   const html=renderToStaticMarkup(<BankAccountDetailsFields value={draft} onChange={()=>{}}/>);
   for(const text of ['Nome do titular','Agência','Número da conta','cartão de crédito','cheque especial','empréstimos','não alteram o saldo'])assert.ok(html.includes(text),text);
+  const createAccountDetails=renderToStaticMarkup(<BankAccountDetailsFields value={draft} onChange={()=>{}} showCreditCard={false}/>);
+  assert.ok(!createAccountDetails.includes('Possui cartão de crédito'));
+  assert.ok(!createAccountDetails.includes('Limite de crédito informado'));
+  assert.ok(createAccountDetails.includes('Possui cheque especial'));
+  assert.ok(createAccountDetails.includes('Possui limite de empréstimo'));
   const summary=renderToStaticMarkup(<BankAccountDetailsSummary details={normalized} linkedCards={2}/>);
   assert.ok(summary.includes('000123'));assert.ok(summary.includes('10.000,25'));
   assert.throws(()=>normalizeBankDetails({...draft,loan_balance:'-1'}),/válido/i);

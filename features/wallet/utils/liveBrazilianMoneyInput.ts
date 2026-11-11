@@ -57,8 +57,8 @@ export function formatLiveBrazilianMoney(raw: string, selectionStart: number): L
  */
 export function formatLiveBrazilianCents(raw: string): LiveBrazilianMoney | null {
   if (raw === '') return { value: '', caret: 0 };
-  if (raw.length > 40 || !/^[\\d.,]+$/.test(raw)) return null;
-  const digits = raw.replace(/\\D/g, '');
+  if (raw.length > 40 || !/^[\d.,]+$/.test(raw)) return null;
+  const digits = raw.replace(/\D/g, '');
   if (!digits) return null;
   const cents = BigInt(digits);
   // Mesmo limite monetário do parser financeiro canônico.

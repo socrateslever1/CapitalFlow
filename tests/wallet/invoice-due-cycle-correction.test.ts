@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import {getInvoiceCycleDates,getEffectiveInvoiceCycles} from '../../components/wallet/invoiceStatementDomain';
+import {resolveManualInvoiceMonth} from '../../features/wallet/utils/minhasFinancasWalletTools';
 import type {PersonalWalletExpense,PersonalWalletExpenseInstallment} from '../../services/personalWallet.service';
 
 const mk = (id:string,due:string,opening:boolean,status:'PENDING'|'CANCELED'='PENDING') => ({
@@ -60,4 +61,22 @@ test('overview shows competence by closing date and respects the actual payment 
   assert.match(overview,/getInvoiceCycleDates\(/);
   assert.match(overview,/snapshot\.cardInvoiceDates/);
   assert.match(service,/select\('card_id,due_month,due_date'\)/);
+});
+
+test('primeira fatura permite mês manual sem fatura preexistente nem limite disponível inventado', () => {
+  const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
+  const preview = readFileSync('components/wallet/CardInvoiceSummaryPreview.tsx', 'utf8');
+  assert.equal(resolveManualInvoiceMonth(null, '2026-12-01'), '2026-12-01');
+  assert.equal(resolveManualInvoiceMonth('2026-12', null), '2026-12-01');
+  assert.equal(resolveManualInvoiceMonth('2026-13', null), null);
+  assert.equal(resolveManualInvoiceMonth('2026-12-05', null), null);
+  assert.match(page, /setInvoiceFactsModalMonth\(resolveManualInvoiceMonth\(statementMonth, suggestedNewInvoiceMonth\)\)/);
+  assert.match(page, /dueMonth:confirmedDueMonth/);
+  assert.match(page, /availableLimit: editedInvoiceFacts\?\.available_limit \?\? null/);
+  assert.match(page, /type="month" required/);
+  assert.match(page, /form="wallet-manual-invoice-form"/);
+  assert.match(page, /busy=\{invoiceFactsSaving\}/);
+  assert.match(preview, /inlineSave \&\&/);
+  assert.match(preview, /onSavingChange\?\.\(true\)/);
+  assert.doesNotMatch(page, /if \(!selected \|\| !statementMonth\) throw new Error\('Selecione o cartão e o mês/);
 });

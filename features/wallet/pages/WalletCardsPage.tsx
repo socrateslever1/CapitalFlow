@@ -32,7 +32,7 @@ import { WalletMetricStrip } from '../../../components/wallet/WalletMetricStrip'
 import { formatWalletMoneyInput, parseWalletMoney } from '../utils/parseWalletMoney';
 import { formatLiveBrazilianMoney } from '../utils/liveBrazilianMoneyInput';
 import { buildCardExpenseNotes, parseInstallmentTag, resolveCardInstallmentPlan } from '../utils/cardInstallmentPlan';
-import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection } from '../utils/minhasFinancasWalletTools';
+import { calculateInstallmentAdvancement, resolveInvoiceMonthSelection, resolveManualInvoiceMonth } from '../utils/minhasFinancasWalletTools';
 import { businessDateInManaus } from '../../../utils/businessDate';
 import type { PersonalWalletExpense, PersonalWalletExpenseInstallment } from '../../../services/personalWallet.service';
 import type { InstallmentDeleteScope } from '../../../components/wallet/CardInvoiceStatement';
@@ -241,11 +241,12 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
     warnings: [],
   };
   const saveManualInvoiceFacts = async (summary: CardInvoiceSummary) => {
-    if (!selected || !invoiceFactsModalMonth || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(invoiceFactsModalMonth))
+    const confirmedDueMonth = resolveManualInvoiceMonth(invoiceFactsModalMonth);
+    if (!selected || !confirmedDueMonth)
       throw new Error('Selecione um cartão e um mês de vencimento válido.');
     const confirmed = await personalWalletService.saveCardInvoiceFacts({
       cardId:selected.id,
-      dueMonth:invoiceFactsModalMonth,
+      dueMonth:confirmedDueMonth,
       dueDate:summary.dueDate, issuer:summary.institution || selected.issuer,
       invoiceTotal:summary.invoiceTotal, minimumPayment:summary.minimumPayment,
       creditLimit:summary.creditLimit, usedLimit:summary.usedLimit,
@@ -649,7 +650,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
               {invoiceFactsError && <p className="mt-1 text-[11px] text-amber-300">Dados bancários indisponíveis: {invoiceFactsError}</p>}
             </div>
             <button type="button" onClick={() => {
-              setInvoiceFactsModalMonth(statementMonth || suggestedNewInvoiceMonth);
+              setInvoiceFactsModalMonth(resolveManualInvoiceMonth(statementMonth, suggestedNewInvoiceMonth));
               setInvoiceFactsModalOpen(true);
             }}
               className="shrink-0 rounded-lg border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-200">
@@ -988,7 +989,7 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
             value={invoiceFactsModalMonth?.slice(0, 7) || ''}
             onChange={event => {
               const value = event.target.value;
-              setInvoiceFactsModalMonth(/^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? `${value}-01` : null);
+              setInvoiceFactsModalMonth(resolveManualInvoiceMonth(value));
             }}
             className="mt-2 min-h-11 w-full min-w-0 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" />
           <p className="mt-2 text-xs leading-relaxed text-slate-400">Este mês identifica a fatura que será salva, mesmo sem compras anteriores. O vencimento exato pode ser ajustado abaixo.</p>

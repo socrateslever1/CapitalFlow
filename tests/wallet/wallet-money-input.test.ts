@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -153,4 +153,36 @@ test('máscara compartilhada mantém centavos em valores e taxas e limpa com ret
   assert.deepEqual(backspaceLiveBrazilianCents('0,08'), { value: '', caret: 0 });
   assert.deepEqual(backspaceLiveBrazilianCents(''), { value: '', caret: 0 });
   assert.equal(parseWalletMoney('8,80'), 8.8);
+});
+
+test('campos controlados movem a virgula e respeitam backspace do teclado Android', () => {
+  let text = '';
+  for (const [digit, expected] of [['8', '0,08'], ['8', '0,88'], ['0', '8,80']] as const) {
+    const next = resolveLiveBrazilianCentsChange(text + digit, text, 'insertText');
+    assert.ok(next);
+    text = next.value;
+    assert.equal(text, expected);
+  }
+  assert.deepEqual(resolveLiveBrazilianCentsChange('8,8', text, 'deleteContentBackward'), { value: '0,88', caret: 4 });
+  assert.deepEqual(resolveLiveBrazilianCentsChange('', text, 'deleteContentBackward'), { value: '', caret: 0 });
+  assert.deepEqual(resolveLiveBrazilianCentsChange('1.234,56', '', 'insertFromPaste'), { value: '1.234,56', caret: 8 });
+  assert.equal(resolveLiveBrazilianCentsChange('R$ 8,80', '', 'insertFromPaste'), null);
+});
+
+test('a mesma regra cobre abertura, fatura, pagamento, despesas e recorrencias', () => {
+  for (const path of [
+    'components/wallet/CardInitialBalancesModal.tsx',
+    'features/wallet/components/CardOpeningFields.tsx',
+    'components/wallet/PayInvoiceModal.tsx',
+    'components/wallet/InvoiceOverrideModal.tsx',
+    'components/wallet/CardInvoiceSummaryPreview.tsx',
+  ]) {
+    const code = readFileSync(path, 'utf8');
+    assert.match(code, /resolveLiveBrazilianCentsChange/, path);
+  }
+  const quick = readFileSync('features/wallet/components/QuickWalletActionsModal.tsx', 'utf8');
+  const obligations = readFileSync('components/wallet/RecurringObligationsPanel.tsx', 'utf8');
+  assert.match(quick, /FinancialCalculatorInput required centsEntry/);
+  assert.match(quick, /FinancialCalculatorInput centsEntry/);
+  assert.match(obligations, /FinancialCalculatorInput className=\{field\} required centsEntry/);
 });

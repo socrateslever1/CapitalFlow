@@ -27,7 +27,12 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
   const ref = useRef<HTMLInputElement>(null);
   const displayValue = () => {
     const raw = String(value ?? '');
-    if (!raw || rate || signed) return raw;
+    if (!raw || signed) return raw;
+    if (rate) {
+      if (!centsEntry) return raw;
+      try { return parseWalletRate(raw, fieldLabel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 6 }); }
+      catch { return raw; }
+    }
     // Zero is the empty initial state for optional financial fields.
     if (Number(raw.replace(',', '.')) === 0) return '';
     try { return parseWalletMoney(raw, fieldLabel).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -88,7 +93,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onChange={e => {
             const input = e.currentTarget;
             const raw = input.value;
-            if (!rate && !signed && /^[\d.,]*$/.test(raw)) {
+            if (!signed && (centsEntry || !rate) && /^[\d.,]*$/.test(raw)) {
               // Alguns teclados Android emitem apenas input (sem keydown) ao apagar.
               // Em R$ 0,00, a exclusão deve limpar o campo, não reconstruir ,00.
               if (centsEntry && draft === '0,00' && raw.length < draft.length) {
@@ -112,15 +117,15 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             input.setCustomValidity('');
           }}
           onPaste={e => {
-            if (!centsEntry || rate || signed) { onPaste?.(e); return; }
+            if (!centsEntry || signed) { onPaste?.(e); return; }
             e.preventDefault();
             const pasted = e.clipboardData.getData('text').trim().replace(/^R\$\s*/i, '').trim();
             try {
               const normalized = /^\d+$/.test(pasted)
                 ? formatLiveBrazilianCents(pasted)?.value
-                : parseWalletMoney(pasted, fieldLabel).toLocaleString('pt-BR', {
+                : (rate ? parseWalletRate(pasted, fieldLabel) : parseWalletMoney(pasted, fieldLabel)).toLocaleString('pt-BR', {
                     minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
+                    maximumFractionDigits: rate ? 6 : 2,
                   });
               if (normalized == null) throw new Error('Quantia excede o limite permitido.');
               setDraft(normalized);
@@ -151,7 +156,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onBlur={commit}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
-            if (centsEntry && !rate && !signed && e.key === 'Backspace') {
+            if (centsEntry && !signed && e.key === 'Backspace') {
               const input = e.currentTarget;
               const start = input.selectionStart ?? 0;
               const end = input.selectionEnd ?? 0;

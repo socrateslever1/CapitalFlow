@@ -267,7 +267,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
             <Scale size={18} className="text-blue-400"/> Balanço do mês ({today.slice(5, 7)}/{today.slice(0, 4)})
           </h3>
           <p className="mt-1 text-xs sm:text-sm text-slate-300">
-            Entradas, saídas e saldo previsto conforme os lançamentos cadastrados.
+            Saldo atual e previsão do mês. Não confunda receitas esperadas com dinheiro já recebido.
           </p>
         </div>
         <span className={'rounded-full border px-3.5 py-1 text-xs sm:text-sm font-bold ' +
@@ -281,11 +281,11 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
       {/* Resumo compacto: valores do domínio sem nova lógica financeira. */}
       <dl className="mt-4 grid min-w-0 grid-cols-2 overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 sm:grid-cols-3">
         <div className="min-w-0 border-r border-slate-800 p-3 sm:p-4">
-          <dt className="text-xs font-medium text-slate-300">Recursos</dt>
+          <dt className="text-xs font-medium text-slate-300">Recursos do mês</dt>
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-emerald-300 sm:text-lg"><PrivateMoney value={money(balance.totalResources)} /></dd>
         </div>
         <div className="min-w-0 p-3 sm:border-r sm:border-slate-800 sm:p-4">
-          <dt className="text-xs font-medium text-slate-300">Compromissos</dt>
+          <dt className="text-xs font-medium text-slate-300">Compromissos do mês</dt>
           <dd className="mt-1 break-words text-base font-bold tabular-nums text-rose-300 sm:text-lg"><PrivateMoney value={money(balance.totalLiabilities)} /></dd>
         </div>
         <div className={`col-span-2 min-w-0 border-t border-slate-800 p-3 sm:col-span-1 sm:border-t-0 sm:p-4 ${privacyHidden ? 'bg-slate-950/30' : deficit ? 'bg-rose-950/15' : 'bg-emerald-950/10'}`}>
@@ -293,50 +293,39 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
           <dd className={`mt-1 break-words text-lg font-bold tabular-nums ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.projectedBalance)} /></dd>
         </div>
       </dl>
-      {!privacyHidden && <details className="group mt-3 border-t border-slate-800 pt-3">
-        <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-blue-300 hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-          Ver composição do balanço <ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180"/>
-        </summary>
-        <div className="grid gap-4 pt-3 lg:grid-cols-12">
+      {!privacyHidden && <section aria-label="Composição explicada do balanço"
+        className="mt-4 space-y-3 border-t border-slate-700 pt-4">
+        <h4 className="text-sm font-semibold text-white">Como chegamos à projeção</h4>
+        <p className="text-xs leading-relaxed text-slate-300">
+          Somente o saldo das contas já está disponível. As receitas futuras são previsões;
+          faturas e dívidas entram como compromissos apenas uma vez.
+        </p>
+        <div className="grid gap-4 lg:grid-cols-12">
           <div className="min-w-0 lg:col-span-6">
-            <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><TrendingUp size={15}/> Origem dos recursos</h4>
+            <h5 className="mb-2 text-xs font-semibold text-emerald-300">Saldo e entradas</h5>
             <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Saldos em conta</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.accountBalance)} /></dd></div>
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Receitas a receber no mês</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.pendingRecurringIncome)} /></dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-slate-200">Saldo disponível em contas hoje</dt>
+                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.accountBalance)}/></dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-slate-300">+ Receitas recorrentes ainda não recebidas</dt>
+                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.pendingRecurringIncome)}/></dd></div>
             </dl>
           </div>
-          <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-6 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-            <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold text-rose-300"><TrendingDown size={15}/> Origem dos compromissos</h4>
+          <div className="min-w-0 lg:col-span-6">
+            <h5 className="mb-2 text-xs font-semibold text-rose-300">Saídas previstas</h5>
             <dl className="space-y-2 text-sm tabular-nums">
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Faturas com vencimento no mês</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.openCardInvoices)} /></dd></div>
-              <div className="flex flex-wrap justify-between gap-2"><dt className="text-slate-300">Dívidas e contas do mês</dt><dd className="font-semibold text-white"><PrivateMoney value={money(balance.monthPayables)} /></dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-slate-300">− Faturas com vencimento neste mês</dt>
+                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.openCardInvoices)}/></dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-slate-300">− Dívidas e contas pendentes do mês</dt>
+                <dd className="font-semibold text-white"><PrivateMoney value={money(balance.monthPayables)}/></dd></div>
             </dl>
-          </div>
-          <div className="min-w-0 border-t border-slate-800 pt-3 lg:col-span-12">
-            <p className="text-xs font-semibold text-slate-300">Origem dos valores do balanço</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3 text-xs">
-              <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
-                <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Efetivo</span>
-                <strong className="text-sm font-bold text-emerald-300"><PrivateMoney value={money(balance.facts.effective.amount ?? balance.accountBalance)} /></strong>
-                <span className="mt-0.5 block text-[10px] text-slate-400">{describeWalletBalanceFact(balance.facts.effective)}</span>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
-                <span className="block text-[10px] uppercase tracking-wide text-slate-400">Saldo Projetado</span>
-                <strong className={`text-sm font-bold ${privacyHidden ? 'text-slate-300' : deficit ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={money(balance.facts.projected.amount ?? balance.projectedBalance)} /></strong>
-                <span className="mt-0.5 block text-[10px] text-slate-400">{describeWalletBalanceFact(balance.facts.projected)}</span>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-2.5">
-                <span className="block text-[10px] uppercase tracking-wide text-slate-400">Receitas Pendentes</span>
-                <strong className="text-sm font-bold text-cyan-300"><PrivateMoney value={money(balance.facts.pending.amount ?? balance.pendingRecurringIncome)} /></strong>
-                <span className="mt-0.5 block text-[10px] text-slate-400">{describeWalletBalanceFact(balance.facts.pending)}</span>
-              </div>
-            </div>
-            <p className="mt-2 text-[10px] text-slate-400">
-              Origem canônica auditada. Projeções e limites não substituem nem alteram o saldo contábil efetivo.
-            </p>
           </div>
         </div>
-      </details>}
+        <p className="text-xs leading-relaxed text-slate-300">
+          Resultado: <strong className="text-white"><PrivateMoney value={money(balance.projectedBalance)}/></strong>
+          {' '}de saldo projetado após esses compromissos. Não é lucro de empréstimos, crédito do cartão nem confirmação de recebimento.
+          Compras já incluídas nas faturas não são subtraídas novamente.
+        </p>
+      </section>}
       {privacyHidden && <p className="mt-3 text-xs text-slate-400">
         Composição do balanço oculta pelo controle de privacidade.
       </p>}

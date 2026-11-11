@@ -265,3 +265,21 @@ test('recebimento rápido desloca centavos em três campos sem mudar o valor fin
   assert.equal((screen.match(/<BrazilianCentsInput/g) || []).length, 3);
   assert.doesNotMatch(screen, /value=\\{receiptAmount\\}[\\s\\S]{0,300}onChange=\\{e =>/);
 });
+
+test('teclado por centavos desloca a vírgula à esquerda, conforme regra solicitada',()=>{
+  const input=['41','410','4101','41010','410100'];
+  const expected=['0,41','4,10','41,01','410,10','4.101,00'];
+  for(let i=0;i<input.length;i++){
+    const masked=formatLiveBrazilianCents(input[i]);
+    assert.equal(masked?.value,expected[i]);
+    assert.equal(masked?.caret,expected[i].length);
+  }
+  assert.equal(resolveBrazilianCentsPaste('410100'),'410100.00');
+  let current='';
+  for(const digit of '410100'){
+    const edited=resolveBrazilianCentsEdit(displayBrazilianCents(current)+digit,current,'insertText');
+    assert.ok(edited,'value not lost when entering '+digit);
+    current=edited!.value;
+  }
+  assert.equal(current,'4101.00');
+});

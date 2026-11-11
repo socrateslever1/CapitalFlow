@@ -69,7 +69,7 @@ export const LoanTotalPreview: React.FC<{ formData: any; setFormData: (value: an
                 value={valueInput}
                 placeholder="0,00"
                 onChange={(e) => setInterestByValue(e.target.value.replace(/[^0-9.,]/g, ''))}
-                className="w-full bg-transparent outline-none text-white font-black"
+                centsEntry className="w-full bg-transparent outline-none text-white font-black"
               />
             </div>
           </div>

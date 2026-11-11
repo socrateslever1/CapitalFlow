@@ -120,12 +120,12 @@ test('digitacao por centavos desloca a virgula e aceita R$ 8,80', () => {
 test('digitos monetarios podem ser apagados ate limpar o campo', () => {
   const cents = ['8,80', '0,88', '0,08', ''];
   for (let i = 0; i < cents.length - 1; i++) {
-    const digits = cents[i].replace(/\\D/g, '');
+    const digits = cents[i].replace(/\D/g, '');
     const remaining = BigInt(digits) / 10n;
     const next = remaining === 0n ? '' : formatLiveBrazilianCents(remaining.toString())?.value;
     assert.equal(next, cents[i + 1]);
   }
-  assert.deepEqual(formatLiveBrazilianCents('', 0), { value: '', caret: 0 });
+  assert.deepEqual(formatLiveBrazilianCents(''), { value: '', caret: 0 });
   assert.equal(formatLiveBrazilianCents('R$ 8,80'), null);
   assert.equal(formatLiveBrazilianCents('12a3'), null);
   assert.equal(formatLiveBrazilianCents('9999999999999999'), null);
@@ -135,7 +135,7 @@ test('modal de despesa usa centavos sem alterar o modo dos outros campos', () =>
   const expense = readFileSync('components/wallet/QuickExpenseModal.tsx', 'utf8');
   const calculator = readFileSync('components/forms/FinancialCalculatorInput.tsx', 'utf8');
   assert.match(expense, /<FinancialCalculatorInput required centsEntry/);
-  assert.match(calculator, /centsEntry \? formatLiveBrazilianCents\(raw\)/);
+  assert.match(calculator, /centsEntry\s*\?\s*formatLiveBrazilianCents\(raw\)/);
   assert.match(calculator, /!centsEntry && \(e.key === 'Backspace'/);
   assert.match(calculator, /BigInt\(digits\) \/ 10n/);
   assert.match(calculator, /onCommit\?\.\(normalized\)/);

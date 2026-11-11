@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);
@@ -226,4 +226,20 @@ test('revisão monetária preserva importação e competências locais', () => {
   assert.match(income, /businessDateInManaus\(\)/);
   const payment=readFileSync('components/modals/PaymentManagerModal.tsx','utf8');
   assert.match(payment, /resolveLiveBrazilianCentsChange/);
+});
+
+test('valores de extrato aceitam centavos e sinais sem coerção pelo input number', () => {
+  assert.equal(formatLiveBrazilianSignedCents('-880')?.value, '-8,80');
+  assert.equal(formatLiveBrazilianSignedCents('880')?.value, '8,80');
+  assert.equal(formatLiveBrazilianSignedCents('-1.234,56')?.value, '-1.234,56');
+  assert.equal(backspaceLiveBrazilianSignedCents('-8,80').value, '-0,88');
+  assert.equal(backspaceLiveBrazilianSignedCents('-0,08').value, '');
+  assert.equal(formatPastedBrazilianMoney('-700', false, true), '-700,00');
+  assert.equal(formatPastedBrazilianMoney('-8,80', false, true), '-8,80');
+  for (const name of ['WalletStatementImport.tsx', 'FlatSmartStatementReader.tsx']) {
+    const source = readFileSync('components/wallet/' + name, 'utf8');
+    assert.match(source, /FinancialCalculatorInput signed centsEntry/);
+    assert.match(source, /parseWalletSignedMoney\(raw, 'valor do lançamento'\)/);
+    assert.doesNotMatch(source, /amount: Number\(e\.target\.value\)/);
+  }
 });

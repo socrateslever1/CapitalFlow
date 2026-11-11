@@ -16,6 +16,8 @@ import {
   Building2,
 } from 'lucide-react';
 import { formatMoney } from '../../utils/formatters';
+import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
+import { parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { CardInvoiceSummaryPreview } from './CardInvoiceSummaryPreview';
 import { issuerMatchesBank, type CardInvoiceSummary } from '../../utils/cardInvoiceSummary';
 import { detectPreviouslyImported, detectRecoverableStatementRows } from '../../utils/walletStatementDuplicates';
@@ -620,15 +622,12 @@ export const WalletStatementImport: React.FC<Props> = ({
 
                       {/* Valor */}
                       <div className="text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          aria-label="Valor do lançamento; positivo entrada, negativo saída"
-                          className="w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
-                          disabled={busy}
-                          value={row.amount}
-                          onChange={(e) => revise(i, { amount: Number(e.target.value) })}
-                        />
+                        <FinancialCalculatorInput signed centsEntry
+                    aria-label="Valor do lançamento; positivo entrada, negativo saída"
+                    className="w-full min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-right text-xs font-mono font-bold text-white focus:border-cyan-500 focus:outline-none"
+                    disabled={busy} value={row.amount}
+                    onCommit={raw => revise(i, { amount: raw ? parseWalletSignedMoney(raw, 'valor do lançamento') : 0 })}
+                  />
                         <p className="text-[10px] text-slate-400 mt-0.5">
                           {formatMoney(row.amount)}
                         </p>

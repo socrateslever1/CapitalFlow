@@ -37,6 +37,11 @@ test('never fall back to original installments while active agreement schedule i
   assert.deepEqual(resolveBillingNotificationInstallments(loan), []);
 });
 
+test('EM_ACORDO without loaded agreement does not emit obsolete alerts', () => {
+  const loan = { ...baseLoan, activeAgreement: undefined } as unknown as Loan;
+  assert.deepEqual(resolveBillingNotificationInstallments(loan), []);
+});
+
 test('broken/cancelled agreement restores original schedule', () => {
   const loan = { ...baseLoan, activeAgreement: { ...baseLoan.activeAgreement!, status: 'BROKEN' } } as Loan;
   assert.deepEqual(resolveBillingNotificationInstallments(loan).map((i) => i.id), ['old-2026-11-11', 'old-2026-11-18']);

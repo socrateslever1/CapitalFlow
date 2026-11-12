@@ -1,6 +1,8 @@
 
 // types.ts
 
+import type { ArchiveReason } from './domain/credit/archivePolicy';
+
 /* =====================================================
    LOAN CORE
 ===================================================== */
@@ -137,6 +139,7 @@ export interface Client {
   registration_submitted_at?: string | null;
   registration_document_count?: number;
   cpf_in_identity?: boolean;
+  /** Legacy DB-shaped field; adapters should prefer collectionDaysMode. */
   collection_days_mode?: CollectionDaysMode;
   collectionDaysMode?: CollectionDaysMode;
 }
@@ -340,7 +343,7 @@ export interface Loan {
   capitalOnlyRecovery?: boolean;
   interestFreeInstallment?: boolean;
   isArchived?: boolean;
-  archiveReason?: import('./domain/credit/archivePolicy').ArchiveReason | null;
+  archiveReason?: ArchiveReason | null;
   archiveNote?: string | null;
   archivedAt?: string | null;
   skipWeekends?: boolean;

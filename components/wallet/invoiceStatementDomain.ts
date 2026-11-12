@@ -226,12 +226,14 @@ export const getCardInvoiceEntries = (
       .filter(expense => expense.card_id === cardId && expense.status !== 'CANCELED')
       .map(expense => [expense.id, expense]),
   );
+  const normalizedDueMonth = `${String(dueMonth).slice(0, 7)}-01`;
   return installments
     .filter(installment => {
       const expense = expensesById.get(installment.expense_id);
-      return Boolean(expense)
-        && String(installment.due_month).slice(0, 10) === dueMonth
-        && (installment.status === 'PENDING' || expense?.entry_type === 'INVOICE_OVERRIDE');
+      if (!expense) return false;
+      const effectiveDueMonth = `${String(expense.invoice_due_month || installment.due_month).slice(0, 7)}-01`;
+      return effectiveDueMonth === normalizedDueMonth
+        && (installment.status === 'PENDING' || expense.entry_type === 'INVOICE_OVERRIDE');
     })
     .map(installment => ({ expense: expensesById.get(installment.expense_id)!, installment }))
     .sort((left, right) => right.expense.expense_date.localeCompare(left.expense.expense_date));

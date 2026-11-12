@@ -13,6 +13,7 @@ import { Modal } from '../ui/Modal';
 import { buildOpenInvoiceOptions } from './accountStatementDomain';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { getQuickDateTag, resolveQuickDateShortcuts } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { businessDateInManaus } from '../../utils/businessDate';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
 
 type Tab = 'INTERNAL' | 'EXTERNAL' | 'INVOICE';
@@ -33,7 +34,7 @@ const localDateTime = () => {
   value.setMinutes(value.getMinutes() - value.getTimezoneOffset());
   return value.toISOString().slice(0, 16);
 };
-const today = () => localDateTime().slice(0, 10);
+const today = () => businessDateInManaus();
 const parseAmount = (value: string) => { try { return parseWalletMoney(value); } catch { return Number.NaN; } };
 const validAmount = (value: number) => Number.isFinite(value) && value > 0
   && Math.abs(value * 100 - Math.round(value * 100)) < 0.000001;

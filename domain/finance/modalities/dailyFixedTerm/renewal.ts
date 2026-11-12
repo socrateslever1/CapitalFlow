@@ -29,9 +29,12 @@ export const renewDailyFixedTerm = (
         const principalRatio = currentPrincipal / totalDebt;
         const interestRatio = currentInterest / totalDebt;
 
-        // Distribui o pagamento
-        const principalReduction = round(amountPaid * principalRatio);
-        const interestReduction = round(amountPaid * interestRatio);
+        // Distribui o pagamento em centavos exatos preservando soma === amountPaid
+        const paidCents = Math.round(amountPaid * 100);
+        const principalCents = Math.min(Math.round(currentPrincipal * 100), Math.round(paidCents * principalRatio));
+        const interestCents = Math.min(Math.round(currentInterest * 100), Math.max(0, paidCents - principalCents));
+        const principalReduction = principalCents / 100;
+        const interestReduction = interestCents / 100;
 
         // Aplica redução (com proteção contra negativos)
         newPrincipalRemaining = Math.max(0, round(currentPrincipal - principalReduction));

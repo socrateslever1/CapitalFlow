@@ -383,6 +383,10 @@ useEffect(() => {
     try {
       const { syncService } = await import('./services/sync.service');
       await syncService.processQueue();
+      // The write queue and the read replica must converge in the same
+      // reconnection cycle. The app-state owner performs the authenticated,
+      // paginated Supabase -> local snapshot refresh.
+      window.dispatchEvent(new CustomEvent('capitalflow:sync-requested'));
     } catch (e) {
       console.error('[NETWORK] Falha ao processar fila após volta da rede:', e);
     }

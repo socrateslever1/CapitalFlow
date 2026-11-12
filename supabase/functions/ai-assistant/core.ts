@@ -88,3 +88,54 @@ export function isFinancialWriteRequest(text: string): boolean {
   const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   return /(pague|efetue (um )?pagamento|dar baixa|de baixa|estorne|cancele (o|a) (contrato|fatura|pagamento)|altere meu saldo|crie uma compra|grave o gasto|registre o gasto|apague (a|o) (fatura|contrato|lancamento))/.test(normalized);
 }
+
+export type MemoryEnvelope = {
+  summary: string | null;
+  activeTurns: AssistantTurn[];
+};
+
+const TOPIC_EXTRACTORS: Array<{ label: string; pattern: RegExp }> = [
+  { label: 'contas bancárias', pattern: /\b(conta|saldo|banco|carteira|pix)\b/i },
+  { label: 'cartões e faturas', pattern: /\b(cartao|cartoes|fatura|limite|nubank|c6)\b/i },
+  { label: 'contratos e parcelas', pattern: /\b(contrato|parcela|juros|atraso|inadimplen|cliente)\b/i },
+  { label: 'fontes de capital', pattern: /\b(fonte|capital|caixa livre)\b/i },
+  { label: 'compromissos', pattern: /\b(compromisso|boleto|venciment|pagar)\b/i },
+];
+
+/**
+ * Compacts older turns into a structured episodic summary so long conversations
+ * retain continuity without blowing the provider token budget.
+ */
+export function buildMemoryEnvelope(turns: AssistantTurn[], activeWindow = 6): MemoryEnvelope {
+  if (turns.length <= activeWindow) {
+    return { summary: null, activeTurns: turns };
+  }
+  const older = turns.slice(0, turns.length - activeWindow);
+  const activeTurns = turns.slice(-activeWindow);
+  const topics = new Set<string>();
+  const userQuestions: string[] = [];
+
+  for (const turn of older) {
+    for (const extractor of TOPIC_EXTRACTORS) {
+      if (extractor.pattern.test(turn.content)) topics.add(extractor.label);
+    }
+    if (turn.role === 'user') {
+      const compact = turn.content.replace(/\s+/g, ' ').trim().slice(0, 90);
+      if (compact) userQuestions.push(compact);
+    }
+  }
+
+  const topicText = topics.size ? `Tópicos anteriores: ${Array.from(topics).join(', ')}.` : '';
+  const questionsText = userQuestions.length
+    ? `Perguntas anteriores: ${userQuestions.slice(-3).join(' | ')}.`
+    : '';
+  const summary = [topicText, questionsText].filter(Boolean).join(' ').slice(0, 500) || null;
+  return { summary, activeTurns };
+}
+
+export type CalculationFocus = 'liquidez' | 'inadimplencia' | 'credito' | 'geral';
+
+export function allowedCalculationFocus(value: unknown): CalculationFocus {
+  if (value === 'liquidez' || value === 'inadimplencia' || value === 'credito') return value;
+  return 'geral';
+}

@@ -111,17 +111,21 @@ export const paymentsService = {
       if (isPartialOfferPayment && offerType !== 'SETTLEMENT') throw new Error('Renovação por juros exige o valor completo da condição.');
       const offerRpc = isPartialOfferPayment ? 'process_installment_payment_offer_partial'
         : offerType === 'INTEREST_RENEWAL' ? 'process_interest_renewal_payment_offer' : 'process_installment_payment_offer';
+      const offerStableRequest = getStableFinancialRequestKey(
+        `payment-offer:${loanId}:${instId}:${offerRpc}:${amountToPay.toFixed(2)}:${paymentDateStr}:${receiptDestinationAccountId || ''}:${receiptDestinationSourceId || ''}`,
+      );
       if (receiptDestinationAccountId || receiptDestinationSourceId) {
         const { error: destinationError } = await supabase.rpc('personal_wallet_set_receipt_destination', {
-          p_idempotency_key: idempotencyKey,
+          p_idempotency_key: offerStableRequest.idempotencyKey,
           p_loan_id: loanId,
           p_account_id: safeUUID(receiptDestinationAccountId),
           p_destination_source_id: safeUUID(receiptDestinationSourceId),
         });
         if (destinationError) throw new Error('Não foi possível confirmar o destino do recebimento: ' + destinationError.message);
       }
-      const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, { p_idempotency_key: idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_amount_paid: amountToPay, p_payment_date: paymentDateStr, p_source_id: sourceId, p_caixa_livre_id: safeUUID(offerCaixaLivreId) });
+      const { data: offerResult, error: offerError } = await supabase.rpc(offerRpc, { p_idempotency_key: offerStableRequest.idempotencyKey, p_loan_id: loanId, p_installment_id: instId, p_profile_id: ownerId, p_operator_id: safeUUID(activeUser.id), p_amount_paid: amountToPay, p_payment_date: paymentDateStr, p_source_id: sourceId, p_caixa_livre_id: safeUUID(offerCaixaLivreId) });
       if (offerError) throw new Error('Falha ao aplicar a condição especial: ' + offerError.message);
+      clearStableFinancialRequestKey(offerStableRequest.storageKey);
       return { amountToPay, paymentType: isPartialOfferPayment ? 'SPECIAL_OFFER_PARTIAL' : 'SPECIAL_OFFER', amortization: offerResult };
     }
 

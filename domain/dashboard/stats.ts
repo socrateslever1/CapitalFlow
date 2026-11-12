@@ -5,6 +5,7 @@ import { calculateRiskProfile } from '../finance/riskAnalysis';
 import { rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../finance/calculations';
 import { resolveProfitBalance } from '../../utils/profitBalance';
 import { isTestSource } from '../../utils/testSource';
+import { businessMonthInManaus, shiftBusinessMonth } from '../../utils/businessDate';
 
 const isUnifiedChildLoan = (loan: Loan): boolean => {
   const notes = String(loan.notes || '');
@@ -107,17 +108,14 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
     : [{ name: 'Sem dados', value: 1, color: '#334155' }];
 
   const monthlyDataMap: {[key: string]: {name: string, Entradas: number, Saidas: number}} = {};
-  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const currentMonthKey = businessMonthInManaus();
   let receivedThisMonth = 0;
 
   const monthsBack = 5;
   for (let i = monthsBack; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const key = d.toISOString().slice(0, 7);
-      const month = d.getMonth() + 1;
-      const year = d.getFullYear().toString().slice(-2);
-      monthlyDataMap[key] = { name: `${month.toString().padStart(2, '0')}/${year}`, Entradas: 0, Saidas: 0 };
+      const { key, month, year } = shiftBusinessMonth(currentMonthKey, -i);
+      const shortYear = year.toString().slice(-2);
+      monthlyDataMap[key] = { name: `${month.toString().padStart(2, '0')}/${shortYear}`, Entradas: 0, Saidas: 0 };
   }
 
   filteredLoans.forEach(l => {
@@ -158,7 +156,12 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
     });
   });
 
-  const lineChartData = Object.values(monthlyDataMap).sort((a,b) => {
+  const roundMoney = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+  const lineChartData = Object.values(monthlyDataMap).map(item => ({
+    ...item,
+    Entradas: roundMoney(item.Entradas),
+    Saidas: roundMoney(item.Saidas),
+  })).sort((a,b) => {
     const [m1, y1] = a.name.split('/');
     const [m2, y2] = b.name.split('/');
     if (y1 !== y2) return y1.localeCompare(y2);
@@ -166,16 +169,16 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   });
 
   return {
-      totalLent,
+      totalLent: roundMoney(totalLent),
       activeCount,
-      totalReceived: totalProfitRealized,
-      receivedThisMonth,
-      expectedProfit: totalProjectedProfit,
+      totalReceived: roundMoney(totalProfitRealized),
+      receivedThisMonth: roundMoney(receivedThisMonth),
+      expectedProfit: roundMoney(totalProjectedProfit),
       roi,
-      interestBalance,
+      interestBalance: roundMoney(interestBalance),
       pieData,
       lineChartData,
-      totalAtRisk,
+      totalAtRisk: roundMoney(totalAtRisk),
       potentialDefaulterCount
   };
 };

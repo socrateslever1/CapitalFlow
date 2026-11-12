@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { businessDateInManaus } from '../../utils/businessDate';
 import {
   FileText,
   UploadCloud,
@@ -76,7 +77,7 @@ export const WalletStatementImport: React.FC<Props> = ({
     hasOpening ? 'REVIEW' : 'NEW'
   );
   const [dueMonth, setDueMonth] = useState(
-    (initialDueMonth || new Date().toLocaleDateString('en-CA')).slice(0, 7)
+    (initialDueMonth || businessDateInManaus()).slice(0, 7)
   );
   const [source, setSource] = useState<File | null>(null);
   const [result, setResult] = useState<SmartStatementParseResult | null>(null);

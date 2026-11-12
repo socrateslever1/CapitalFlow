@@ -6,6 +6,7 @@ import { maskPhone, maskDocument } from '../utils/formatters';
 import { asNumber } from '../utils/safe';
 import { filterDeletedLoans, readDeletedContractIds } from './deletedContracts.service';
 import { generateUUID } from '../utils/generators';
+import { fetchAllPages, idsMissingFromRemote } from './offline/hybridSync';
 
 const AUTH_ERROR_PATTERNS = ['jwt expired','invalid jwt','token is expired','auth session missing','refresh token','session not found','failed verification'];
 export const isAuthSyncError = (error: any) => {
@@ -41,14 +42,49 @@ const runQueueMutation = async (item: any) => {
   if (item.operation === 'DELETE') return supabase.from(item.table).delete().eq('id', item.targetId);
   return { error: new Error(`Operacao de sync desconhecida: ${item.operation}`) };
 };
+const asSyncError = (error: any): Error | null => {
+  if (!error) return null;
+  if (error instanceof Error) return error;
+  const normalized = new Error(String(error.message || error.error_description || error));
+  Object.assign(normalized, error);
+  return normalized;
+};
+
 const fetchRemoteSnapshot = async (ownerId: string) => Promise.all([
-  supabase.from('clientes').select('*').eq('owner_id', ownerId),
-  supabase.from('fontes').select('*').eq('profile_id', ownerId).is('archived_at', null),
-  supabase.from('contratos').select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))').eq('owner_id', ownerId),
-  supabase.from('perfis').select('*').eq('owner_profile_id', ownerId),
-  supabase.from('portal_files').select('*').eq('profile_id', ownerId).order('created_at', { ascending: false }),
-  supabase.from('mensagens_suporte').select('id, loan_id, read, sender_type').eq('profile_id', ownerId).eq('sender_type', 'CLIENT').eq('read', false).limit(1000),
-  supabase.from('payment_intents').select('*').eq('profile_id', ownerId)
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('clientes').select('*').eq('owner_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('fontes').select('*').eq('profile_id', ownerId)
+      .is('archived_at', null).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('contratos')
+      .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
+      .eq('owner_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('perfis').select('*').eq('owner_profile_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('portal_files').select('*').eq('profile_id', ownerId)
+      .order('created_at', { ascending: false }).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('mensagens_suporte')
+      .select('id, loan_id, read, sender_type').eq('profile_id', ownerId)
+      .eq('sender_type', 'CLIENT').eq('read', false).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('payment_intents').select('*').eq('profile_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
 ]);
 const mapClientFromDB = (client: any) => ({
   ...client,
@@ -75,6 +111,14 @@ export const syncService = {
       const rejectedClientIds = (clientsRes.data || []).filter((client:any)=>client.registration_status==='REJECTED').map((client:any)=>client.id);
       if (rejectedClientIds.length) await db.clientes.bulkDelete(rejectedClientIds);
       const mappedClients = (clientsRes.data || []).filter((client:any)=>client.registration_status!=='REJECTED').map(mapClientFromDB);
+      const pendingClientWrites = await db.write_queue.where('status').anyOf(['PENDING','FAILED']).toArray();
+      const protectedClientIds = new Set(pendingClientWrites
+        .filter((item:any) => item.table === 'clientes' && item.operation !== 'DELETE')
+        .map((item:any) => item.targetId || item.data?.id).filter(Boolean));
+      const localOwnerClients = await db.clientes.where('owner_id').equals(ownerId).toArray();
+      const staleClientIds = idsMissingFromRemote(localOwnerClients, mappedClients, ownerId)
+        .filter(id => !protectedClientIds.has(id));
+      if (staleClientIds.length) await db.clientes.bulkDelete(staleClientIds);
       await db.clientes.bulkPut(mappedClients);
 
       const mappedSources = (sourcesRes.data || []).map((s:any)=>({ ...s, balance: asNumber(s.balance) }));

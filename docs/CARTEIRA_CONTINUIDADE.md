@@ -907,3 +907,34 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - A Carteira exibe o painel apenas para `SUPER_ADMIN`, com prévia, destino explícito (conta ou fonte), motivo obrigatório e confirmação. O backend continua sendo a autoridade e bloqueia usuário sem autorização, destino inválido, duplicidade ou divergência contábil.
 - Serviço: `listHistoricalReceiptCandidates`, `listHistoricalReceiptDestinations` e `reconcileHistoricalReceipt`. Testes: `tests/financial/historical-receipt-reconciliation.test.mjs` e `tests/architecture/historical-receipt-reconciliation.test.mjs`.
 - Limitação: nenhuma reclassificação real foi executada automaticamente e não houve teste em celular físico. É necessário aplicar a migration no Supabase de produção e revisar a prévia dos recebimentos antes de confirmar cada destino.
+## 12/11/2026 — Replica local híbrida: paginação e convergência na reconexão
+
+- O armazenamento local existente continua sendo o IndexedDB/Dexie `CapitalFlowDB` para o perfil autenticado; não foi introduzido MySQL no aparelho. O Supabase permanece a fonte autoritativa.
+- `services/offline/hybridSync.ts` adiciona paginação explícita de 500 registros por página e reconciliação de IDs ausentes, evitando truncamento silencioso no limite do Data API.
+- `services/sync.service.ts` usa paginação nas coleções sincronizadas e remove clientes locais que desapareceram do escopo remoto, preservando registros com escrita pendente.
+- Ao reconectar, a fila de escrita é processada e o `useAppState` dispara uma nova leitura paginada para convergir a réplica local (`capitalflow:sync-requested`).
+- Teste adicionado em `tests/offline/hybrid-sync.test.ts`. A execução automatizada ficou pendente nesta máquina porque Node/npm não estão instalados no PATH; `git diff --check` encontrou apenas espaços finais em alterações anteriores não relacionadas.
+- Limitação mantida: esta etapa não transforma o sistema em réplica de todas as tabelas do Supabase nem habilita operações financeiras críticas offline. Não houve alteração de RPC, migration, ledger, pagamento, estorno ou RLS.
+
+## 12/11/2026 — Verificacao da replica hibrida
+
+- `npm run test:quality`: passou com exit code 0.
+- `npm run build`: passou com exit code 0; o bundler manteve apenas avisos de chunks grandes e imports mistos.
+- `tsx --test tests/offline/hybrid-sync.test.ts`: 3/3 passou.
+- `git diff --check` dos arquivos desta implementacao: passou.
+- Nao houve commit, deploy web ou alteracao no Supabase nesta etapa.
+
+## 12/11/2026 — Correcao das limitacoes de sincronizacao offline da Carteira
+
+- A reconexao agora faz prefetch forcado da Carteira, exigindo dados frescos da rede antes de marcar a replica como atualizada; cache antigo nao mascara falha de reconexao.
+- O prefetch passou a retornar sucesso/falha e a interface mostra estado de atualizacao, aviso de falha e retry manual, mantendo a consulta offline disponivel.
+- A deduplicacao de prefetch permanece ativa; uma atualizacao forcada aguardando outra execucao inicia nova leitura somente depois que a anterior termina.
+- Validacao: teste especifico da Carteira 4/4, `npm run build` exit 0 e `npm run test:quality` exit 0. Avisos restantes sao somente chunking/imports mistos do Vite.
+- Nao houve commit, deploy, alteracao de Supabase, RPC, migration, ledger, pagamento, estorno ou RLS. Validacao em celular fisico continua pendente.
+
+## 12/11/2026 — Flux AI completo e Consistência Financeira 360°
+
+- **Flux AI (`ai-assistant`):** adicionados RAG/embeddings com fallback local (`supabase/functions/ai-assistant/rag.ts`), guardrails de entrada/saída e grounding (`guardrails.ts`), telemetria/tracing (`telemetry.ts`), loop de agente `READ_ONLY` com tool calling, streaming SSE, cache de prompts e histórico cifrado em `services/aiAssistant.service.ts` + `components/ai/MasterMascot.tsx`. Teste dedicado em `tests/ai/flux-full-architecture.test.ts`.
+- **Consistência Financeira 360°:** padronização de data comercial em `America/Manaus` (`utils/businessDate.ts`, `supabase/functions/_shared/businessDate.ts`, modais da Carteira e Edge Functions de pagamento/webhook), conservação exata em centavos nas renovações e no `rebuildLoanStateFromLedger`, exposição uniforme de `finePart`/`moraPart` nas modalidades, inclusão de estornos/aportes no DRE, consistência de `invoice_due_month` em `invoiceStatementDomain.ts` e correção de sinal em `parseStatementLines` (`utils/walletStatementPdf.ts`). Teste dedicado em `tests/financial/consistency-360.test.ts` (5/5).
+- **Validação executada:** `npx tsx --test tests/financial/consistency-360.test.ts` (5/5), `npx tsx --test tests/offline/hybrid-sync.test.ts` (3/3), `npm run test:quality` (exit code 0) e `npm run build` (`tsc -b && vite build`, exit code 0).
+- **Pendências e limitações:** não houve commit nesta etapa; as 6 Edge Functions alteradas em `supabase/functions/` (`ai-assistant`, `asaas-create-payment`, `asaas-webhook`, `infinitepay-create-checkout`, `infinitepay-webhook`, `mp-webhook`) ainda dependem de `supabase functions deploy` no ambiente remoto; nenhuma RPC SQL foi alterada; não houve validação em celular físico.

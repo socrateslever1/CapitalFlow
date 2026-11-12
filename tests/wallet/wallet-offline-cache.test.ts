@@ -76,7 +76,7 @@ test('Carteira possui hidratação offline por IndexedDB, pré-carregamento comp
   assert.match(app, /walletRepository\.prefetchAccess\(\)/);
   assert.match(app, /walletRepository\.loadOverview\(\)/);
   assert.match(cardsPage, /walletRepository\.loadCardInvoiceFacts/);
-  assert.match(mod, /walletRepository\.prefetchFull\(\)/);
+  assert.match(mod, /prefetchWallet\(false\)/);
   assert.match(mod, /Modo offline/);
   assert.match(access, /getSession/);
   assert.match(hook, /peekCachedFull/);
@@ -84,6 +84,10 @@ test('Carteira possui hidratação offline por IndexedDB, pré-carregamento comp
   assert.match(report, /peekCachedOverview/);
   assert.match(bankLogo, /setCustomFailed\(true\)/);
   assert.match(cardDetail, /setPhotoUnavailable\(true\)/);
+  assert.match(repo, /prefetchFull\(options: \{ force\?: boolean \} = \{\}\)/);
+  assert.match(repo, /load\(\{ force, requireFresh: force \}\)/);
+  assert.match(mod, /prefetchWallet\(true\)/);
+  assert.match(mod, /Atualizando dados da Carteira/);
 });
 
 test('guardWalletWrites bloqueia mutações offline em tempo de execução e libera leitura', () => {

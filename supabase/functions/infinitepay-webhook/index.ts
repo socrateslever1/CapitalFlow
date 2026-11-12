@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { businessDateInManaus } from "../_shared/businessDate.ts";
 
 declare const Deno: any;
 
@@ -248,7 +249,7 @@ serve(async (req) => {
     };
 
     if (String(charge.status || "").toUpperCase() === "PAID") {
-      await updateCharge({ status: "PAID", paid_at: new Date().toISOString(), provider_status: "PAID" });
+      await updateCharge({ status: "PAID", paid_at: charge.paid_at || new Date().toISOString(), provider_status: "PAID" });
       await queuePaymentNotifications(
         supabase,
         charge,
@@ -280,10 +281,12 @@ serve(async (req) => {
       return json({ success: true, message: null });
     }
 
-    const approvedAmount = centsToMoney(checkData?.amount || body?.amount) || Number(charge.amount || 0);
-    if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
+    const expectedChargeAmount = Number(charge.amount || 0);
+    const approvedAmount = centsToMoney(checkData?.amount) || expectedChargeAmount;
+    if (!Number.isFinite(approvedAmount) || approvedAmount <= 0 ||
+        (expectedChargeAmount > 0 && approvedAmount + 0.05 < expectedChargeAmount)) {
       await updateCharge({ status: "PENDING", provider_status: "INVALID_AMOUNT" });
-      return json({ success: false, message: "Valor pago invalido." }, 400);
+      return json({ success: false, message: "Valor pago invalido ou inferior ao esperado." }, 400);
     }
 
     const storedTargets = Array.isArray(payload?.installments) ? payload.installments : [];
@@ -377,7 +380,7 @@ serve(async (req) => {
           p_profile_id: ownerProfileId,
           p_operator_id: ownerProfileId,
           p_amount_paid: Number(target.amount || 0),
-          p_payment_date: new Date().toISOString().split("T")[0],
+          p_payment_date: businessDateInManaus(),
           p_source_id: sourceId,
           p_caixa_livre_id: caixaLivreId,
         });
@@ -403,7 +406,7 @@ serve(async (req) => {
           p_late_fee_paid: allocation.lateFeePaid,
           p_late_fee_forgiven: 0,
           p_interest_forgiven: 0,
-          p_payment_date: new Date().toISOString().split("T")[0],
+          p_payment_date: businessDateInManaus(),
           p_capitalize_remaining: false,
           p_source_id: sourceId,
           p_caixa_livre_id: caixaLivreId,

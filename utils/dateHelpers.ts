@@ -1,15 +1,15 @@
 import type { CollectionDaysMode } from '../types';
+import { businessDateInManaus } from './businessDate';
 // utils/dateHelpers.ts
 const MS_PER_DAY = 86400000;
 export type DateInput = string | Date | null | undefined;
 
 /**
- * Retorna a data de HOJE no fuso do navegador, com hora zerada (00:00:00).
+ * Retorna a data de HOJE no fuso comercial de Manaus (America/Manaus), com hora zerada (00:00:00).
  */
 export const todayDateOnlyUTC = (): Date => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const [year, month, day] = businessDateInManaus().split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
 };
 
 /**

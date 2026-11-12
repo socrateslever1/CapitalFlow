@@ -203,11 +203,16 @@ export function parseStatementLines(lines: {key:string;text:string}[], kind: 'AC
     // trailing "C". Do not confuse it with "Pix no Crédito" (a card charge).
     const invoicePayment = /\b(?:inclusao\s+de\s+pagamento|pagamento\s+(?:da\s+)?fatura|pagamento\s+(?:em\s+\d{1,2}|pix|recebido|efetuado)|pagamentos?\s+efetuados?|credito\s+na\s+fatura|estorno|reembolso|devolucao|cashback)\b/.test(context)
       && !/\b(?:no\s+credito|com\s+cartao)\b/.test(context);
+    const accountCreditPhrase = /\b(?:pagamento\s+recebido|pix\s+recebido|estorno|reembolso|devolu[cç][aã]o|transfer[eê]ncia\s+recebida)\b/.test(context);
     const signed = kind === 'CARD'
       ? (invoicePayment || markedCredit || (incoming && !outgoing) ? -Math.abs(value)
           : recargaPayLayout ? Math.abs(value)
             : markedDebit || outgoing ? Math.abs(value) : value < 0 ? -Math.abs(value) : Math.abs(value))
-      : (markedCredit || (incoming && !outgoing) ? Math.abs(value) : -Math.abs(value));
+      : (markedCredit || accountCreditPhrase || (incoming && !outgoing)
+          ? Math.abs(value)
+          : value < 0 || markedDebit || outgoing
+            ? -Math.abs(value)
+            : Math.abs(value));
     const category = classifyStatementDescriptionEnhanced(description);
     const installment = extractInstallment(raw, matchedDate[0]);
     const confidence: 'HIGH' | 'REVIEW' =

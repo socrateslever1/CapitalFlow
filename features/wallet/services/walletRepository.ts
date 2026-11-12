@@ -21,7 +21,7 @@ const accessCache = new Map<string, { active: boolean; settings: Record<string, 
 let initializedUser: string | null = null;
 let initialization: Promise<void> | null = null;
 let prefetchedUser: string | null = null;
-let prefetchInFlight: Promise<void> | null = null;
+let prefetchInFlight: Promise<boolean> | null = null;
 
 function isBrowserOffline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -102,16 +102,20 @@ export const walletRepository = {
       return null;
     }
   },
-  async prefetchFull(): Promise<void> {
-    if (isBrowserOffline()) return;
-    if (prefetchInFlight) return prefetchInFlight;
-    prefetchInFlight = this.load()
-      .then(() => undefined)
-      .catch(() => undefined)
+  async prefetchFull(options: { force?: boolean } = {}): Promise<boolean> {
+    if (isBrowserOffline()) return false;
+    if (prefetchInFlight) {
+      const currentResult = await prefetchInFlight;
+      if (!options.force || isBrowserOffline()) return currentResult;
+    }
+    const force = options.force === true;
+    prefetchInFlight = this.load({ force, requireFresh: force })
+      .then(() => true)
+      .catch(() => false)
       .finally(() => { prefetchInFlight = null; });
     return prefetchInFlight;
   },
-  async load(options: { force?: boolean } = {}): Promise<WalletSnapshot> {
+  async load(options: { force?: boolean; requireFresh?: boolean } = {}): Promise<WalletSnapshot> {
     // Session identity is read before handing out cached financial data.
     const userId = await resolveSessionUserId();
     if (isBrowserOffline()) {
@@ -131,7 +135,7 @@ export const walletRepository = {
         overviewCache.prime(userId, derivedOverview);
         return fullSnapshot;
       } catch (error) {
-        if (isNetworkFailure(error)) {
+        if (!options.requireFresh && isNetworkFailure(error)) {
           const offlineSnapshot = await loadWalletOfflineFull(userId);
           if (offlineSnapshot) return offlineSnapshot;
         }

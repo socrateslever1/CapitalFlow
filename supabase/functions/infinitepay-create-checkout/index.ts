@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { businessDateInManaus } from "../_shared/businessDate.ts";
 
 declare const Deno: any;
 
@@ -259,7 +260,7 @@ serve(async (req) => {
       }
     }
 
-    const referenceDate = new Date().toISOString().slice(0, 10);
+    const referenceDate = businessDateInManaus();
     const targets: any[] = [];
     for (const group of requestedGroups) {
       for (const targetInstallmentId of group.installment_ids) {

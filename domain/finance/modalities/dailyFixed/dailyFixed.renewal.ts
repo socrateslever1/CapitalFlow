@@ -3,6 +3,8 @@ import { Loan, Installment } from "@/types";
 import { parseDateOnlyUTC, toISODateOnlyUTC, addDaysUTC, getDaysDiff, todayDateOnlyUTC } from "@/utils/dateHelpers";
 import { RenewalResult, PaymentAllocation } from "../types";
 
+const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
 export const renewDailyFixed = (
     loan: Loan, 
     inst: Installment, 
@@ -38,11 +40,11 @@ export const renewDailyFixed = (
     const currentPrincipalRemaining = Number(inst.principalRemaining) || 0;
     const principalPaidNow = (Number(allocation?.paidPrincipal) || 0) + (Number(allocation?.avGenerated) || 0);
 
-    const newPrincipalRemaining = Math.max(0, currentPrincipalRemaining - principalPaidNow);
+    const newPrincipalRemaining = Math.max(0, round(currentPrincipalRemaining - principalPaidNow));
     
     // Recalcula juro proporcional ao prazo
     const dailyRate = (loan.interestRate / 100) / 30;
-    const nextInterest = newPrincipalRemaining * dailyRate * daysToAdd;
+    const nextInterest = round(newPrincipalRemaining * dailyRate * daysToAdd);
 
     return {
         newStartDateISO,
@@ -51,6 +53,6 @@ export const renewDailyFixed = (
         newInterestRemaining: nextInterest,
         newScheduledPrincipal: newPrincipalRemaining,
         newScheduledInterest: nextInterest,
-        newAmount: newPrincipalRemaining + nextInterest
+        newAmount: round(newPrincipalRemaining + nextInterest)
     };
 };

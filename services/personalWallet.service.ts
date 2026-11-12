@@ -198,6 +198,30 @@ export type WalletAccountOperation = {
   voids_operation_id?: string | null;
   created_at: string;
 };
+
+export type HistoricalReceiptCandidate = {
+  operation_id: string;
+  loan_id: string;
+  installment_id: string;
+  payment_date: string;
+  debtor_name: string | null;
+  amount_received: number;
+  principal_paid: number;
+  interest_paid: number;
+  late_fee_paid: number;
+  principal_source_id: string | null;
+  profit_source_id: string | null;
+  principal_source_name: string | null;
+  profit_source_name: string | null;
+};
+
+export type HistoricalReceiptReconciliationResult = {
+  operation_id: string;
+  replayed: boolean;
+  destination_account_id: string | null;
+  destination_source_id: string | null;
+  amount_received?: number;
+};
 export type WalletStatementRow = {
   id: string;
   expense_id?: string | null;
@@ -497,6 +521,43 @@ const personalWalletServiceImpl = {
 
   async getWalletResetArchive(): Promise<WalletResetArchive | null> {
     return getActiveWalletReset();
+  },
+
+  async listHistoricalReceiptCandidates(): Promise<HistoricalReceiptCandidate[]> {
+    const { data, error } = await supabase.rpc('personal_wallet_list_historical_receipts');
+    if (error) throw new Error(error.message);
+    return (data || []) as HistoricalReceiptCandidate[];
+  },
+
+  async listHistoricalReceiptDestinations(): Promise<{ accounts: PersonalWalletAccount[]; capitalSources: CapitalSource[] }> {
+    const [accounts, capitalSources] = await Promise.all([
+      loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').is('archived_at', null).order('nickname').order('id').range(from, to)),
+      loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type,logo_url').is('archived_at', null).order('name').order('id').range(from, to)),
+    ]);
+    return { accounts: accounts.data as PersonalWalletAccount[], capitalSources: capitalSources.data as CapitalSource[] };
+  },
+
+  async reconcileHistoricalReceipt(input: {
+    operationId: string;
+    destinationAccountId?: string | null;
+    destinationSourceId?: string | null;
+    reason: string;
+  }): Promise<HistoricalReceiptReconciliationResult> {
+    if (!input.operationId || (!input.destinationAccountId && !input.destinationSourceId)) {
+      throw new Error('Selecione um recebimento e um destino.');
+    }
+    const reason = input.reason.trim();
+    if (!reason || reason.length > 500) {
+      throw new Error('Informe um motivo com até 500 caracteres.');
+    }
+    const { data, error } = await supabase.rpc('personal_wallet_reconcile_historical_receipt', {
+      p_operation_id: input.operationId,
+      p_destination_account_id: input.destinationAccountId || null,
+      p_destination_source_id: input.destinationSourceId || null,
+      p_reason: reason,
+    });
+    if (error) throw new Error(error.message);
+    return data as HistoricalReceiptReconciliationResult;
   },
 
   async restartMyWallet(): Promise<void> {
@@ -1464,6 +1525,8 @@ const READ_ONLY_WALLET_METHODS = new Set<keyof typeof personalWalletServiceImpl>
   'loadOverview',
   'load',
   'getWalletResetArchive',
+  'listHistoricalReceiptCandidates',
+  'listHistoricalReceiptDestinations',
   'loadCardInvoiceFacts',
   'getWalletPinProfile',
   'getCardVault',

@@ -21,6 +21,7 @@ import { getWalletSpendingOverview } from '../domain/walletSpendingInsights';
 import { buildWalletTimeline, type WalletTimelineEvent } from '../domain/walletTimeline';
 import { QuickWalletActionsModal, type QuickActionMode } from '../components/QuickWalletActionsModal';
 import { CreateAccountModal } from '../components/CreateAccountModal';
+import { HistoricalReceiptReconciliationPanel } from '../components/HistoricalReceiptReconciliationPanel';
 
 type Props = {
   activeUser?: UserProfile | null;
@@ -383,6 +384,10 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
         </p>}
       </div>}
     </article>
+
+    {activeUser?.role === 'SUPER_ADMIN' && (
+      <HistoricalReceiptReconciliationPanel onSaved={refresh} />
+    )}
 
     {quickModal?.mode === 'CASH_WALLET' && (
       <CreateAccountModal

@@ -439,7 +439,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                 return (
                 <div
                     key={client.id}
-                    className={`min-h-[145px] self-start overflow-hidden bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
+                    className={`min-h-[145px] self-start bg-slate-900 border p-3 rounded-lg transition-all group relative flex flex-col justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${clientHasCapitalOnlyRecovery(loans, client) ? 'border-rose-600/70 bg-rose-950/10' : isBulkDeleteMode ? 'cursor-pointer border-slate-700 hover:border-blue-500' : 'border-slate-800 hover:border-blue-500/50 hover:shadow-lg'} ${isBulkDeleteMode && selectedClientsToDelete.includes(client.id) ? 'bg-blue-900/10 border-blue-500' : ''}`}
                     role="button"
                     tabIndex={0}
                     aria-label={isBulkDeleteMode ? `Selecionar ${formatShortName(client.name)}` : `Abrir ficha de ${formatShortName(client.name)}`}
@@ -458,55 +458,60 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                     )}
 
                     {/* CABEÇALHO DO CARD */}
-                    <div className="flex items-center gap-2.5">
-                        {client.fotoUrl ? (
-                            <img src={client.fotoUrl} className="w-9 h-9 rounded-full object-cover border border-slate-700 shrink-0" alt={client.name}/>
-                        ) : (
-                            <div className="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 font-black text-xs group-hover:text-blue-400 transition-colors border border-slate-700 shrink-0">
-                                {client.name.charAt(0)}
+                    <div className="space-y-1.5">
+                        <div className="flex items-center gap-2.5">
+                            {client.fotoUrl ? (
+                                <img src={client.fotoUrl} className="w-9 h-9 rounded-full object-cover border border-slate-700 shrink-0" alt={client.name}/>
+                            ) : (
+                                <div className="w-9 h-9 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 font-black text-xs group-hover:text-blue-400 transition-colors border border-slate-700 shrink-0">
+                                    {client.name.charAt(0)}
+                                </div>
+                            )}
+                            <div className="min-w-0 flex-1 pr-1">
+                                <h3 className="font-bold text-white text-xs uppercase leading-snug break-words">{client.name}</h3>
                             </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-white text-xs truncate uppercase leading-tight">{formatShortName(client.name)}</h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
                                 <p className="text-[10px] text-slate-500 truncate font-mono">{maskDocument((client as any).document, isStealthMode) || 'S/ CPF'}</p>
                                 {clientHasCapitalOnlyRecovery(loans, client) && (
-                                    <span className="inline-flex items-center gap-0.5 text-[8px] text-rose-400 font-black uppercase">
+                                    <span className="inline-flex items-center gap-0.5 text-[8px] text-rose-400 font-black uppercase shrink-0">
                                         <ShieldAlert size={9}/> Capital
                                     </span>
                                 )}
                             </div>
-                        </div>
 
-                        {!isBulkDeleteMode && (
-                            <div className="flex basis-full justify-end gap-1.5 sm:basis-auto sm:shrink-0" onClick={(e) => e.stopPropagation()}>
-                                <Tooltip content="Documentos de Cadastro" position="top">
-                                    <button type="button" onClick={() => void openRegistrationDocuments(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400" title="Documentos enviados do cliente" aria-label="Documentos de cadastro">
-                                        <FileSearch size={13}/>
-                                    </button>
-                                </Tooltip>
-                                <Tooltip content="Copiar Link do Portal" position="top">
-                                    <button type="button" onClick={() => void copyClientPortalLink(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-blue-400 transition-colors hover:bg-blue-950/40 hover:text-blue-300 focus-visible:outline-2 focus-visible:outline-blue-400" title="Copiar link do portal do cliente" aria-label="Copiar link do portal">
-                                        <Link2 size={13}/>
-                                    </button>
-                                </Tooltip>
-                                <Tooltip content="Gerar Contrato / Minuta" position="top">
-                                    <button onClick={() => openPreContractModal(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-indigo-400 transition-colors hover:bg-indigo-950/40 hover:text-indigo-300 focus-visible:outline-2 focus-visible:outline-blue-400" title="Criar pré-contrato / Gerar documento" aria-label="Gerar contrato ou minuta">
-                                        <FileSignature size={13}/>
-                                    </button>
-                                </Tooltip>
-                                <Tooltip content="Editar Cadastro" position="top">
-                                    <button onClick={() => openClientModal(client)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-slate-500 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-blue-400" title="Editar cadastro do cliente" aria-label="Editar cadastro">
-                                        <Edit size={13}/>
-                                    </button>
-                                </Tooltip>
-                                <Tooltip content="Excluir Cliente" position="top">
-                                    <button onClick={() => onDeleteClient(client.id)} className="grid min-h-10 min-w-10 place-items-center rounded-md bg-slate-950 text-rose-500/70 transition-colors hover:bg-rose-950/30 hover:text-rose-500 focus-visible:outline-2 focus-visible:outline-rose-400" title="Excluir cliente" aria-label="Excluir cliente">
-                                        <Trash2 size={13}/>
-                                    </button>
-                                </Tooltip>
-                            </div>
-                        )}
+                            {!isBulkDeleteMode && (
+                                <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <Tooltip content="Documentos de Cadastro" position="top">
+                                        <button type="button" onClick={() => void openRegistrationDocuments(client)} className="p-1.5 text-slate-400 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors focus-visible:outline-2 focus-visible:outline-blue-400" title="Documentos enviados do cliente" aria-label="Documentos de cadastro">
+                                            <FileSearch size={13}/>
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip content="Copiar Link do Portal" position="top">
+                                        <button type="button" onClick={() => void copyClientPortalLink(client)} className="p-1.5 text-blue-400 hover:text-blue-300 bg-slate-950 rounded-md hover:bg-blue-950/40 transition-colors focus-visible:outline-2 focus-visible:outline-blue-400" title="Copiar link do portal do cliente" aria-label="Copiar link do portal">
+                                            <Link2 size={13}/>
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip content="Gerar Contrato / Minuta" position="top">
+                                        <button onClick={() => openPreContractModal(client)} className="p-1.5 text-indigo-400 hover:text-indigo-300 bg-slate-950 rounded-md hover:bg-indigo-950/40 transition-colors focus-visible:outline-2 focus-visible:outline-blue-400" title="Criar pré-contrato / Gerar documento" aria-label="Gerar contrato ou minuta">
+                                            <FileSignature size={13}/>
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip content="Editar Cadastro" position="top">
+                                        <button onClick={() => openClientModal(client)} className="p-1.5 text-slate-500 hover:text-white bg-slate-950 rounded-md hover:bg-slate-800 transition-colors focus-visible:outline-2 focus-visible:outline-blue-400" title="Editar cadastro do cliente" aria-label="Editar cadastro">
+                                            <Edit size={13}/>
+                                        </button>
+                                    </Tooltip>
+                                    <Tooltip content="Excluir Cliente" position="top">
+                                        <button onClick={() => onDeleteClient(client.id)} className="p-1.5 text-rose-500/70 hover:text-rose-500 bg-slate-950 rounded-md hover:bg-rose-950/30 transition-colors focus-visible:outline-2 focus-visible:outline-rose-400" title="Excluir cliente" aria-label="Excluir cliente">
+                                            <Trash2 size={13}/>
+                                        </button>
+                                    </Tooltip>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* INDICADORES DE CONTRATO (MÁXIMO 1 + INDICATIVO +N) */}
@@ -527,8 +532,8 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             </>
                         ) : client.registration_status !== 'APPROVED' && client.registration_status !== 'REJECTED' ? (
                             <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
-                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded border border-slate-700 bg-slate-950 px-2 text-[9px] font-bold uppercase text-slate-300 focus-visible:outline-2 focus-visible:outline-blue-400" title="Docs"><FileSearch size={10}/> Docs ({client.registration_document_count || 0})</button>
-                                <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex min-h-10 flex-1 items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 text-[9px] font-bold uppercase text-emerald-300 focus-visible:outline-2 focus-visible:outline-emerald-400"><Check size={10}/> Aprovar</button>
+                                <button type="button" onClick={() => void openRegistrationDocuments(client)} className="flex-1 py-1 bg-slate-950 border border-slate-700 rounded text-[9px] font-bold uppercase text-slate-300 flex items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-blue-400" title="Docs"><FileSearch size={10}/> Docs ({client.registration_document_count || 0})</button>
+                                <button type="button" disabled={reviewingClientId === client.id} onClick={() => void reviewRegistration(client, 'APPROVED')} className="flex-1 py-1 bg-emerald-500/10 border border-emerald-500/40 rounded text-[9px] font-bold uppercase text-emerald-300 flex items-center justify-center gap-1 focus-visible:outline-2 focus-visible:outline-emerald-400"><Check size={10}/> Aprovar</button>
                             </div>
                         ) : (() => {
                             const docAlert = getClientDocAlert(client);
@@ -558,7 +563,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                                     <button
                                         type="button"
                                         onClick={() => openPreContractModal(client)}
-                                        className={`flex min-h-10 items-center gap-1 rounded px-3 py-2 text-[9px] font-black uppercase shadow transition-all focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+                                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase flex items-center gap-1 shadow transition-all focus-visible:outline-2 focus-visible:outline-indigo-400 ${
                                             docAlert?.type === 'RECUSADO' || docAlert?.type === 'AJUSTE_SOLICITADO'
                                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
                                                 : 'bg-indigo-600 hover:bg-indigo-500 text-white'

@@ -271,7 +271,7 @@ export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) 
             Saldo atual e previsão do mês. Não confunda receitas esperadas com dinheiro já recebido.
           </p>
         </div>
-        <span className={'rounded-full border px-3.5 py-1 text-xs sm:text-sm font-bold ' +
+        <span className={'inline-flex h-7 items-center rounded-md border px-2.5 text-[11px] font-semibold ' +
           (privacyHidden ? 'border-slate-700 bg-slate-950/50 text-slate-300' :
            deficit ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' :
              'border-emerald-500/30 bg-emerald-500/10 text-emerald-300')}>

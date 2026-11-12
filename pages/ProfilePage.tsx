@@ -181,272 +181,136 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         icon={<User size={22} />}
         iconClassName="border-violet-500/30 bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-indigo-950/30"
         title={<>Meu <span className="text-blue-500">Perfil</span></>}
-        subtitle="Configurações e preferências"
-        actions={
-          <div className="flex items-center gap-2 relative">
-            {goBack && (
-              <button
-                onClick={goBack}
-                className="p-2.5 rounded-lg border bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center gap-1.5 text-xs font-bold uppercase"
-                title="Voltar"
-              >
-                <ChevronLeft size={18} />
-                <span className="hidden sm:inline">Voltar</span>
-              </button>
-            )}
-
-            {/* Botão de Exportação Excel/CSV idêntico ao dashboard */}
-            <div className="relative">
-              <button
-                onClick={() => setIsExportOpen(!isExportOpen)}
-                disabled={isExporting}
-                className={`p-2.5 rounded-lg border transition-all ${
-                  isExportOpen
-                    ? 'bg-gradient-to-br from-emerald-600 to-emerald-700 border-emerald-500 text-white shadow-lg shadow-emerald-600/20'
-                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-emerald-400'
-                }`}
-                title="Exportar contratos (Excel / CSV)"
-              >
-                {isExporting ? (
-                  <Loader2 size={18} className="animate-spin text-emerald-400" />
-                ) : (
-                  <Download size={18} className="text-emerald-400" />
-                )}
-              </button>
-
-              {isExportOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-slate-900 border border-slate-800 p-2 rounded-xl flex flex-col gap-1.5 animate-in slide-in-from-top-2 duration-200 z-50 w-72 sm:w-80 shadow-2xl shadow-black/80">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800/80 mb-1">
-                    <div className="flex items-center gap-2">
-                      <Download size={15} className="text-emerald-400" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-200">
-                        Exportar Relatório
-                      </span>
-                    </div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                      {loans.length} {loans.length === 1 ? 'contrato' : 'contratos'}
-                    </span>
-                  </div>
-
-                  <p className="px-3 text-[10px] text-slate-400 mb-1 leading-relaxed">
-                    Exporte todos os contratos e dados financeiros da sua carteira.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => handleExport('EXCEL')}
-                    disabled={isExporting || loans.length === 0}
-                    className="w-full text-left p-3 rounded-lg border border-emerald-500/20 bg-emerald-950/20 hover:bg-emerald-900/40 text-white transition-all flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-600/30 group-hover:scale-105 transition-transform shrink-0">
-                        <FileSpreadsheet size={16} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-300">
-                          Planilha Excel (.xlsx)
-                        </p>
-                        <p className="text-[9px] text-slate-400">Com formatação, moeda R$, cores e totais</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleExport('CSV')}
-                    disabled={isExporting || loans.length === 0}
-                    className="w-full text-left p-3 rounded-lg border border-blue-500/20 bg-blue-950/20 hover:bg-blue-900/40 text-white transition-all flex items-center justify-between group disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 rounded-lg bg-blue-600 text-white shadow-md shadow-blue-600/30 group-hover:scale-105 transition-transform shrink-0">
-                        <FileText size={16} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-black uppercase tracking-wider text-blue-300">
-                          Arquivo CSV (.csv)
-                        </p>
-                        <p className="text-[9px] text-slate-400">Texto com UTF-8 BOM e ponto-e-vírgula</p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        }
+        subtitle="Configurações da conta, financeiro, pagamentos e segurança"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
       {/* SIDEBAR */}
-      <div className="lg:col-span-4 space-y-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg relative overflow-hidden">
-          <div className="flex flex-col items-center mb-6">
-            <div
-              className="relative group cursor-pointer"
-              onClick={() => profilePhotoInputRef.current?.click()}
-            >
-              <div className="w-28 h-28 bg-slate-800 rounded-full flex items-center justify-center border-4 border-slate-900 shadow-2xl overflow-hidden">
-                {profileEditForm.photo ? (
-                  <img
-                    src={profileEditForm.photo}
-                    className="w-full h-full object-cover"
-                    alt="Foto do perfil"
-                  />
-                ) : (
-                  <User size={48} className="text-slate-500" />
-                )}
+      <div className="lg:col-span-3">
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+          <div className="flex items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-800/80">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="relative group cursor-pointer shrink-0"
+                onClick={() => profilePhotoInputRef.current?.click()}
+              >
+                <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700 overflow-hidden">
+                  {profileEditForm.photo ? (
+                    <img
+                      src={profileEditForm.photo}
+                      className="w-full h-full object-cover"
+                      alt="Foto do perfil"
+                    />
+                  ) : (
+                    <User size={22} className="text-slate-500" />
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="text-white" size={14} />
+                </div>
               </div>
-              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="text-white" size={24} />
+
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-bold text-white truncate">
+                  {profileEditForm.name}
+                </h2>
+                <p className="text-xs text-slate-400 truncate">
+                  {profileEditForm.businessName || 'Operador'}
+                </p>
+                <button
+                  onClick={() => profilePhotoInputRef.current?.click()}
+                  className="mt-0.5 text-[11px] font-medium text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1"
+                >
+                  <Camera size={11} /> Alterar foto
+                </button>
               </div>
             </div>
 
             <button
-              onClick={() => profilePhotoInputRef.current?.click()}
-              className="mt-2 text-[10px] font-bold text-blue-500 hover:text-blue-400 uppercase tracking-wider flex items-center gap-1"
+              onClick={handleLogout}
+              className="lg:hidden shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-950/30 hover:border-rose-900/40 transition-colors"
             >
-              <Camera size={12} /> Alterar Foto
+              <LogOut size={14} /> Sair
             </button>
-
-            <h2 className="text-xl font-black text-white mt-4">
-              {profileEditForm.name}
-            </h2>
-            <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">
-              {profileEditForm.businessName || 'Operador'}
-            </p>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="grid grid-cols-2 gap-1.5 lg:flex lg:flex-col lg:gap-1">
             <button
               onClick={() => setActiveSection('GENERAL')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
                 activeSection === 'GENERAL'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <User size={18} />{' '}
-              <span className="font-bold text-xs uppercase">Dados do Perfil</span>
+              <User size={16} />
+              <span>Dados do Perfil</span>
             </button>
 
             <button
               onClick={() => setActiveSection('FINANCE')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
                 activeSection === 'FINANCE'
-                  ? 'bg-emerald-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <DollarSign size={18} />{' '}
-              <span className="font-bold text-xs uppercase">
-                Financeiro & Metas
-              </span>
+              <DollarSign size={16} />
+              <span>Financeiro & Metas</span>
             </button>
 
             <button
               onClick={() => setActiveSection('PAYMENTS')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
                 activeSection === 'PAYMENTS'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <PaymentIcon size={18} />{' '}
-              <span className="font-bold text-xs uppercase">Pagamentos Real</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('EXPORT')}
-              className={`w-full p-4 rounded-lg flex items-center justify-between transition-all ${
-                activeSection === 'EXPORT'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white border border-emerald-500/20'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Download
-                  size={18}
-                  className={activeSection === 'EXPORT' ? 'text-white' : 'text-emerald-400'}
-                />{' '}
-                <span className="font-bold text-xs uppercase">Exportar Relatórios</span>
-              </div>
-              <span
-                className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
-                  activeSection === 'EXPORT'
-                    ? 'bg-white/20 text-white border-white/30'
-                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                }`}
-              >
-                Excel / CSV
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('INTERFACE')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
-                activeSection === 'INTERFACE'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <LayoutGrid size={18} />{' '}
-              <span className="font-bold text-xs uppercase">
-                Interface & Menus
-              </span>
+              <PaymentIcon size={16} />
+              <span>Pagamentos Real</span>
             </button>
 
             <button
               onClick={() => setActiveSection('DATA')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
                 activeSection === 'DATA'
-                  ? 'bg-amber-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <FileSpreadsheet size={18} />{' '}
-              <span className="font-bold text-xs uppercase">Dados & Backup</span>
+              <FileSpreadsheet size={16} />
+              <span>Dados & Exportação</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('INTERFACE')}
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
+                activeSection === 'INTERFACE'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
+              }`}
+            >
+              <LayoutGrid size={16} />
+              <span>Preferências & Menus</span>
             </button>
 
             <button
               onClick={() => setActiveSection('SECURITY')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
+              className={`w-full px-3 py-2.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold transition-colors ${
                 activeSection === 'SECURITY'
-                  ? 'bg-indigo-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-blue-600/15 text-blue-300 border border-blue-500/30'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border border-transparent'
               }`}
             >
-              <Shield size={18} />{' '}
-              <span className="font-bold text-xs uppercase">Segurança</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('SYSTEM')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
-                activeSection === 'SYSTEM'
-                  ? 'bg-slate-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <RefreshCw size={18} />{' '}
-              <span className="font-bold text-xs uppercase">Sistema & Versão</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('DANGER')}
-              className={`w-full p-4 rounded-lg flex items-center gap-3 transition-all ${
-                activeSection === 'DANGER'
-                  ? 'bg-rose-600 text-white shadow-lg'
-                  : 'bg-slate-950 text-rose-500 hover:bg-rose-900/20'
-              }`}
-            >
-              <AlertTriangle size={18} />{' '}
-              <span className="font-bold text-xs uppercase">Zona de Perigo</span>
+              <Shield size={16} />
+              <span>Segurança & Conta</span>
             </button>
           </nav>
 
           <button
             onClick={handleLogout}
-            className="w-full mt-6 py-4 border border-rose-900/30 bg-rose-950/10 text-rose-500 rounded-lg font-bold uppercase text-xs hover:bg-rose-900/30 hover:text-rose-400 transition-all flex items-center justify-center gap-2"
+            className="hidden lg:flex w-full mt-5 py-2.5 border border-slate-800 bg-slate-950/60 text-rose-400 rounded-lg font-semibold text-xs hover:bg-rose-950/30 hover:border-rose-900/40 transition-colors items-center justify-center gap-2"
           >
             <LogOut size={16} /> Sair do Sistema
           </button>
@@ -454,22 +318,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </div>
 
       {/* CONTEÚDO */}
-      <div className="lg:col-span-8 space-y-6">
-        <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-lg">
+      <div className="lg:col-span-9 space-y-6">
+        <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl">
           {/* GENERAL */}
           {activeSection === 'GENERAL' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right">
-              <div className="flex items-center gap-3 text-blue-500 mb-4">
-                <User size={24} />
-                <h3 className="text-lg font-black uppercase">
-                  Informações Gerais
-                </h3>
+            <div className="space-y-6">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
+                <User size={18} className="text-blue-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Informações Gerais
+                  </h3>
+                  <p className="text-xs text-slate-400">Dados cadastrais, contato e identificação do negócio.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1">
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
                       Nome de acesso (usuário)
                     </label>
                     <input
@@ -481,13 +348,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           name: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <Mail size={12} /> E-mail
+                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <Mail size={13} /> E-mail
                     </label>
                     <input
                       type="email"
@@ -498,12 +365,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           email: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1">
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
                       Nome do Negócio
                     </label>
                     <input
@@ -515,13 +382,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           businessName: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <CreditCard size={12} /> Chave PIX Padrão (Manual)
+                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <CreditCard size={13} /> Chave PIX Padrão (Manual)
                     </label>
                     <input
                       type="text"
@@ -532,18 +399,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           pixKey: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-emerald-400 font-bold outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-emerald-400 font-medium outline-none focus:border-emerald-500 transition-colors"
                       placeholder="CPF, Email ou Telefone"
                     />
-                    <p className="text-[9px] text-slate-500 mt-1 ml-1 uppercase font-bold tracking-widest leading-relaxed">
-                      Apenas informativo para o cliente. Para <span className="text-blue-500">baixa automática</span>, configure a aba "Pagamentos Real".
+                    <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                      Apenas informativo para o cliente. Para <span className="text-blue-400 font-medium">baixa automática</span>, configure a aba &quot;Pagamentos Real&quot;.
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1">
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
                       Nome Completo
                     </label>
                     <input
@@ -555,13 +422,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           fullName: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <FileText size={12} /> CPF / CNPJ
+                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <FileText size={13} /> CPF / CNPJ
                     </label>
                     <input
                       type="text"
@@ -572,14 +439,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           document: maskDocument(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                       placeholder="000.000.000-00"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <Phone size={12} /> WhatsApp de Contato
+                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <Phone size={13} /> WhatsApp de Contato
                     </label>
                     <input
                       type="text"
@@ -590,13 +457,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           phone: maskPhone(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-blue-500 uppercase ml-1 flex items-center gap-1">
-                      <MessageCircle size={12} /> WhatsApp de Suporte (Mensagens)
+                    <label className="text-xs font-medium text-blue-400 mb-1.5 flex items-center gap-1.5">
+                      <MessageCircle size={13} /> WhatsApp de Suporte (Mensagens)
                     </label>
                     <input
                       type="text"
@@ -607,17 +474,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           contato_whatsapp: maskPhone(e.target.value),
                         })
                       }
-                      className="w-full bg-slate-950 border border-blue-900/30 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-blue-900/40 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                       placeholder="Número para envio de cobranças"
                     />
-                    <p className="text-[9px] text-slate-500 mt-1 ml-1 uppercase font-bold tracking-widest">
+                    <p className="text-[11px] text-slate-500 mt-1.5">
                       Número utilizado para enviar mensagens aos clientes via WhatsApp.
                     </p>
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <MapPin size={12} /> Endereço Base
+                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <MapPin size={13} /> Endereço Base
                     </label>
                     <input
                       type="text"
@@ -628,14 +495,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           address: e.target.value,
                         })
                       }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                       placeholder="Rua, Número, Bairro"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase ml-1">
+                      <label className="block text-xs font-medium text-slate-400 mb-1.5">
                         Cidade
                       </label>
                       <input
@@ -647,11 +514,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                             city: e.target.value,
                           })
                         }
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase ml-1">
+                      <label className="block text-xs font-medium text-slate-400 mb-1.5">
                         Estado (UF)
                       </label>
                       <input
@@ -664,35 +531,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                           })
                         }
                         maxLength={2}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-blue-500"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-800">
-                <h4 className="text-xs font-black text-white uppercase mb-4 flex items-center gap-2">
-                  <Palette size={14} className="text-purple-500" /> Personalização
+              <div className="pt-5 border-t border-slate-800/80">
+                <h4 className="text-xs font-semibold text-slate-200 mb-3 flex items-center gap-2">
+                  <Palette size={14} className="text-blue-400" /> Personalização
                 </h4>
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">
-                      Logo URL (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.logoUrl || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          logoUrl: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs text-white"
-                      placeholder="https://..."
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                    Logo URL (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.logoUrl || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        logoUrl: e.target.value,
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500 transition-colors"
+                    placeholder="https://..."
+                  />
                 </div>
               </div>
             </div>
@@ -700,17 +565,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           {/* FINANCE */}
           {activeSection === 'FINANCE' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right">
-              <div className="flex items-center gap-3 text-emerald-500 mb-4">
-                <DollarSign size={24} />
-                <h3 className="text-lg font-black uppercase">
-                  Configurações Financeiras
-                </h3>
+            <div className="space-y-6">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
+                <DollarSign size={18} className="text-emerald-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Configurações Financeiras
+                  </h3>
+                  <p className="text-xs text-slate-400">Taxas padrão e metas operacionais do perfil.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
                     Juros Padrão (%)
                   </label>
                   <input
@@ -722,12 +590,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         defaultInterestRate: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-transparent text-2xl font-black text-emerald-400 outline-none"
+                    className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
                   />
                 </div>
 
                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
                     Multa Padrão (%)
                   </label>
                   <input
@@ -739,12 +607,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         defaultFinePercent: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-transparent text-2xl font-black text-emerald-400 outline-none"
+                    className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
                   />
                 </div>
 
                 <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <label className="text-[10px] font-black text-slate-500 uppercase block mb-2">
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
                     Mora Diária (%)
                   </label>
                   <input
@@ -756,14 +624,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         defaultDailyInterestPercent: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-transparent text-2xl font-black text-emerald-400 outline-none"
+                    className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-800">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-800/80">
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
                     Meta de Capital (R$)
                   </label>
                   <input
@@ -775,12 +643,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         targetCapital: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium tabular-nums outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase ml-1 block mb-2">
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
                     Meta de Lucro (R$)
                   </label>
                   <input
@@ -792,7 +660,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         targetProfit: parseFloat(e.target.value),
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-4 text-white font-bold outline-none focus:border-emerald-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium tabular-nums outline-none focus:border-emerald-500 transition-colors"
                   />
                 </div>
               </div>
@@ -908,37 +776,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 accept=".json"
                 onChange={handleRestoreBackup}
               />
+
+              <div className="pt-6 border-t border-slate-800/80">
+                <ProfileExportReports
+                  loans={loans}
+                  sources={sources}
+                  showToast={showToast}
+                  onExportBackup={handleExportBackup}
+                />
+              </div>
             </div>
           )}
 
           {/* PAYMENTS */}
           {activeSection === 'PAYMENTS' && (
-             <div className="animate-in fade-in slide-in-from-right space-y-12">
+             <div className="space-y-10">
                 <InfinitePayConfig profileId={profileEditForm.id} showToast={showToast} />
                 <div className="border-t border-slate-800 my-8"></div>
                 <WhatsAppConfig profileId={profileEditForm.id} showToast={showToast} />
              </div>
           )}
 
-          {/* EXPORT / DOWNLOADS */}
-          {activeSection === 'EXPORT' && (
-            <ProfileExportReports
-              loans={loans}
-              sources={sources}
-              showToast={showToast}
-              onExportBackup={handleExportBackup}
-            />
-          )}
-
           {/* INTERFACE */}
           {activeSection === 'INTERFACE' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right">
+            <div className="space-y-6">
               <LanguageSelector onChanged={message => showToast(message, 'success')} />
-              <div className="flex items-center gap-3 text-purple-500 mb-4">
-                <LayoutGrid size={24} />
-                <h3 className="text-lg font-black uppercase">
-                  Personalizar Menus
-                </h3>
+              <div className="flex items-center gap-2.5 pt-2 pb-3 border-b border-slate-800/80">
+                <LayoutGrid size={18} className="text-blue-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Personalizar Menus
+                  </h3>
+                  <p className="text-xs text-slate-400">Organize quais abas aparecem na barra principal ou no menu lateral.</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1025,99 +895,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           )}
 
-          {/* SECURITY */}
+          {/* SECURITY & DANGER */}
           {activeSection === 'SECURITY' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right">
-              <div className="flex items-center gap-3 text-indigo-500 mb-4">
-                <Shield size={24} />
-                <h3 className="text-lg font-black uppercase">
-                  Segurança e Auditoria
-                </h3>
+            <div className="space-y-8">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
+                <Shield size={18} className="text-blue-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Segurança e Conta
+                  </h3>
+                  <p className="text-xs text-slate-400">Histórico de auditoria e ações críticas da conta.</p>
+                </div>
               </div>
               <ProfileAuditLog logs={auditLogs} />
-            </div>
-          )}
-
-          {/* SYSTEM */}
-          {activeSection === 'SYSTEM' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right">
-              <div className="flex items-center gap-3 text-slate-400 mb-4">
-                <RefreshCw size={24} />
-                <h3 className="text-lg font-black uppercase">
-                  Informações de Build e Versão
-                </h3>
+              <div className="pt-6 border-t border-slate-800/80">
+                <ProfileDangerZone
+                  onResetData={() => setResetDataModal(true)}
+                  onDeleteAccount={handleDeleteAccount}
+                />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Controle de Versão</h4>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center py-2 border-b border-slate-900">
-                            <span className="text-xs font-bold text-slate-400">Revisão</span>
-                            <span className="text-xs font-black text-white px-2 py-1 bg-blue-600/20 text-blue-400 rounded-lg">{SYSTEM_VERSION.version}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-slate-900">
-                            <span className="text-xs font-bold text-slate-400">Build ID</span>
-                            <span className="text-xs font-black text-white font-mono">{SYSTEM_VERSION.build}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2">
-                            <span className="text-xs font-bold text-slate-400">Ambiente</span>
-                            <span className="text-xs font-black text-emerald-500 uppercase">{SYSTEM_VERSION.environment}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-slate-950 p-6 rounded-lg border border-slate-800 space-y-4">
-                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Motor Lógico</h4>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center py-2 border-b border-slate-900">
-                            <span className="text-xs font-bold text-slate-400">Versão do Motor</span>
-                            <span className="text-xs font-black text-purple-400">{SYSTEM_VERSION.logicalMotor}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2">
-                            <span className="text-xs font-bold text-slate-400">Último Deploy Cloud</span>
-                            <span className="text-xs font-black text-slate-300">
-                                {new Date(SYSTEM_VERSION.lastDeploy).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-600/10 border border-blue-500/20 p-6 rounded-lg">
-                 <div className="flex gap-4">
-                    <div className="p-3 bg-blue-600/20 text-blue-400 rounded-lg h-fit">
-                        <Shield size={20} />
-                    </div>
-                    <div>
-                        <h4 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-1">Status de Sincronização</h4>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
-                            Se as informações acima não baterem com as mudanças que você solicitou, tente fazer um <span className="text-blue-500 font-bold">Hard Refresh (Ctrl + F5)</span>. Isso garante que o navegador descarte o cache antigo e puxe a versão mais recente do Cloud Run.
-                        </p>
-                    </div>
-                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* DANGER */}
-          {activeSection === 'DANGER' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right">
-              <ProfileDangerZone
-                onResetData={() => setResetDataModal(true)}
-                onDeleteAccount={handleDeleteAccount}
-              />
             </div>
           )}
 
           {/* SALVAR */}
-          {activeSection !== 'PAYMENTS' && activeSection !== 'DANGER' && activeSection !== 'EXPORT' && (
-            <div className="pt-8 mt-8 border-t border-slate-800 sticky bottom-0 bg-slate-900 pb-2">
+          {(activeSection === 'GENERAL' || activeSection === 'FINANCE') && (
+            <div className="pt-6 mt-6 border-t border-slate-800 flex justify-end">
               <button
                 onClick={handleSaveProfile}
-                className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-black uppercase text-sm shadow-2xl shadow-blue-900/20 transition-all flex items-center justify-center gap-3"
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold uppercase text-xs tracking-wider shadow-lg shadow-blue-900/20 transition-colors flex items-center justify-center gap-2"
               >
-                <Save size={20} /> Salvar Alterações
+                <Save size={16} /> Salvar Alterações
               </button>
             </div>
           )}

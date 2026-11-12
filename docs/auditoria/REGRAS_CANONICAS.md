@@ -32,7 +32,7 @@ nas validações SQL".
 
 | # | Arquivo | Uso | Consequência | Status |
 |---|---|---|---|---|
-| 1 | `features/agreements/services/agreementService.ts:108` (e `.legacy.ts`) | `p_payment_date` enviado para a RPC `process_agreement_payment_atomic` | A RPC calcula `v_days_late = p_payment_date - due_date` e grava `p_payment_date` no ledger (`20260916013905_harden_agreement_payments_and_ledger_links.sql:268,428,449`). **Pagamento de acordo feito após 20h no dia do vencimento conta 1 dia de atraso (pode gerar multa) e entra no ledger com a data de amanhã.** | Confirmado (código) + inventário (teste) |
+| 1 | ~~`features/agreements/services/agreementService.ts:108` (e `.legacy.ts`)~~ **Corrigido em 12/11/2026** (`agreementDates.ts`) | `p_payment_date` enviado para a RPC `process_agreement_payment_atomic` | A RPC calcula `v_days_late = p_payment_date - due_date` e grava `p_payment_date` no ledger (`20260916013905_harden_agreement_payments_and_ledger_links.sql:268,428,449`). **Pagamento de acordo feito após 20h no dia do vencimento conta 1 dia de atraso (pode gerar multa) e entra no ledger com a data de amanhã.** | Confirmado (código) + inventário (teste) |
 | 2 | `components/wallet/payablesDomain.ts:10,20` | Padrão de "hoje" para status OVERDUE e total vencido | Conta que vence hoje aparece **atrasada** após 20h | **Confirmado (teste)** |
 | 3 | `utils/dateHelpers.ts:173 getDaysDiff` | Base de "dias de atraso" de todas as modalidades | Resultado depende do fuso do aparelho/servidor | **Confirmado (teste)** em São Paulo e em UTC |
 | 4 | `domain/finance/riskAnalysis.ts:24`, `utils/loanFilterResolver.ts:17`, `features/portal/mappers/portalDebtRules.ts:62`, `components/cards/components/InstallmentGrid.tsx:172` | Validade da oferta de pagamento (`paymentOfferValidUntil >= hoje`) | Oferta válida até hoje **expira às 20h** no app e no portal do cliente | Confirmado (código) |
@@ -75,7 +75,7 @@ limite/fatura de cartão. Próximas etapas deste documento.
 
 ## Próximos passos (cada um precisa de aprovação)
 
-1. Corrigir R1 nos consumidores **sem RPC**, um arquivo por vez, usando `businessDateInManaus()`.
+1. ✅ Acordos corrigidos (`features/agreements/services/agreementDates.ts`). Próximos: corrigir R1 nos demais consumidores **sem RPC**, um arquivo por vez, usando `businessDateInManaus()`.
    O item 1 (pagamento de acordo) é o de maior impacto financeiro.
 2. Conferir no banco real, só leitura, o fuso da sessão (`show timezone`) e quantos pagamentos
    de acordo têm `p_payment_date` maior que a data em Manaus do `created_at`.

@@ -67,8 +67,6 @@ test('Servidor (Edge Functions em UTC): dias de atraso às 21h30 em Manaus',
 // Inventário estático: pontos que calculam "hoje" em UTC em regras de vencimento, oferta ou pagamento.
 const UTC_TODAY = /new Date\(\)\.toISOString\(\)\.slice\(0,\s?10\)/;
 const KNOWN_UTC_TODAY_SITES = [
-  'features/agreements/services/agreementService.ts',      // p_payment_date do pagamento de acordo (grava no banco)
-  'features/agreements/services/agreementService.legacy.ts',
   'components/wallet/payablesDomain.ts',                   // status OVERDUE da Carteira
   'domain/finance/riskAnalysis.ts',                        // validade de oferta de pagamento
   'utils/loanFilterResolver.ts',                           // validade de oferta de pagamento
@@ -79,6 +77,18 @@ const KNOWN_UTC_TODAY_SITES = [
   'supabase/functions/ai-assistant/index.ts',              // atraso nas respostas do Flux
   'supabase/functions/capitalflow-n8n-tools/index.ts',     // p_reference_date da cobrança automática
 ];
+
+// Corrigidos: agora são bloqueio de regressão (sem `todo`).
+const FIXED_SITES = [
+  'features/agreements/services/agreementService.ts',      // p_payment_date do pagamento de acordo (grava no banco)
+  'features/agreements/services/agreementService.legacy.ts',
+  'features/agreements/services/agreementDates.ts',
+];
+for (const file of FIXED_SITES) {
+  test(`regressão: ${file} obtém "hoje" de America/Manaus`, () => {
+    assert.doesNotMatch(readFileSync(file, 'utf8'), UTC_TODAY);
+  });
+}
 
 for (const file of KNOWN_UTC_TODAY_SITES) {
   test(`inventário: ${file} deve obter "hoje" de America/Manaus`,

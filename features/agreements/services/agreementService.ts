@@ -2,6 +2,7 @@ import { supabase } from "../../../lib/supabase";
 import { generateUUID } from "../../../utils/generators";
 import { safeUUID } from "../../../utils/uuid";
 import { agreementService as legacyAgreementService } from "./agreementService.legacy";
+import { agreementPaymentDate } from "./agreementDates";
 
 const agreementPaymentInFlight = new Map<string, Promise<void>>();
 const STORAGE_PREFIX = "capitalflow:agreement-payment:";
@@ -105,7 +106,7 @@ async function processPaymentAtomic(
       p_amount: paymentAmount,
       p_operator_id: operatorId,
       p_forgive_late_fee: !!forgiveLateFee,
-      p_payment_date: new Date().toISOString().slice(0, 10),
+      p_payment_date: agreementPaymentDate(),
     });
 
     if (error) {

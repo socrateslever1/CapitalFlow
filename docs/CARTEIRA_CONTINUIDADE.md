@@ -893,3 +893,10 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Confirmado por teste:** `payablesDomain.derivePayableStatus` marca como OVERDUE uma conta que vence hoje após 20h em Manaus; `utils/dateHelpers.getDaysDiff` depende do fuso do aparelho/servidor. Os testes estão marcados `todo` e não quebram o CI.
 - **Confirmado por leitura:** `agreementService.ts:108` envia `p_payment_date` em UTC; a RPC `process_agreement_payment_atomic` usa essa data para dias de atraso e para a data do ledger. Pagamento de acordo após 20h conta 1 dia de atraso.
 - **Pendências:** correções exigem aprovação, uma por vez; conferir `show timezone` e os pagamentos afetados no banco real, só leitura; inventariar quitação, estorno, saldo da Carteira e faturas.
+
+## 12/11/2026 — Acordos: data civil de Manaus (autorizado pelo usuário)
+- **Novo:** `features/agreements/services/agreementDates.ts`, com a data do pagamento, o primeiro vencimento padrão, a normalização de datas e a regra de atraso, todas por `businessDateInManaus()`.
+- **`agreementService.ts`:** `p_payment_date` da RPC `process_agreement_payment_atomic` passa a usar o dia civil de Manaus. Antes, depois das 20h ia a data do dia seguinte, gerando 1 dia de atraso e data errada no ledger. RPC e banco não foram alterados.
+- **`agreementService.legacy.ts`:** o atraso ao restaurar parcelas usa Manaus; o primeiro vencimento padrão passa a ser amanhã em Manaus (antes, "agora + 24h" em UTC pulava 2 dias à noite); data em texto `YYYY-MM-DD` é mantida literalmente. Objetos `Date` mantêm a conversão anterior. Instantes (`paid_at`, `date`, `updated_at`) não mudaram.
+- **Testes:** `tests/financial/agreement-dates.test.ts` (em `test:financial`); os `todo` dos acordos em `test:audit` viraram bloqueio de regressão; `test:audit` foi incluído no `test:quality`. `npm run test:quality` aprovado localmente.
+- **Pendências:** conferir no banco real, só leitura, os pagamentos de acordo já gravados com data do dia seguinte. Não foi validado em aparelho nem em produção.

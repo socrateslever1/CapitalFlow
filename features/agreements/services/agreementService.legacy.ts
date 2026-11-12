@@ -4,6 +4,7 @@ import { Agreement, AgreementInstallment, UserProfile } from "../../../types";
 import { allocatePaymentFromBuckets, isAgreementInstallmentPaid, calculateAgreementInstallmentLateFee } from "../../../domain/finance/calculations";
 import { generateUUID } from "../../../utils/generators";
 import { safeUUID } from "../../../utils/uuid";
+import { defaultAgreementFirstDueDate, isAgreementDueDateOverdue, toAgreementDateOnly } from "./agreementDates";
 
 type JurosModoDB = "PRO_RATA" | "FIXO" | "ZERO";
 type PeriodicidadeDB = "SEMANAL" | "QUINZENAL" | "MENSAL";
@@ -15,13 +16,7 @@ function safeNumber(v: any, fallback = 0): number {
 }
 
 function toISODateOnly(d: any): string {
-  const dt = d instanceof Date ? d : new Date(d);
-  if (Number.isNaN(dt.getTime())) {
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    return t.toISOString().slice(0, 10);
-  }
-  return dt.toISOString().slice(0, 10);
+  return toAgreementDateOnly(d);
 }
 
 function normalizePeriodicidade(v: any): PeriodicidadeDB {
@@ -136,11 +131,7 @@ function getInstallmentBalance(inst: any): number {
 }
 
 function isInstallmentOverdue(inst: any): boolean {
-  const rawDueDate = inst?.data_vencimento ?? inst?.due_date ?? inst?.dueDate;
-  if (!rawDueDate) return false;
-  const dueDate = String(rawDueDate).slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
-  return dueDate < today;
+  return isAgreementDueDateOverdue(inst?.data_vencimento ?? inst?.due_date ?? inst?.dueDate);
 }
 
 function getRestoredInstallmentStatus(inst: any, principal: number, interest: number, lateFee: number): string {
@@ -222,7 +213,7 @@ export const agreementService = {
     const firstDueDate =
       installments?.[0]?.dueDate
         ? toISODateOnly(installments[0].dueDate)
-        : toISODateOnly(new Date(Date.now() + 86400000));
+        : defaultAgreementFirstDueDate();
 
     const totalAmount =
       negotiatedTotal > 0

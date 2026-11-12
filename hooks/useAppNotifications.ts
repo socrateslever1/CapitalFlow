@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loan, LoanStatus, CapitalSource } from '../types';
+import { Loan, CapitalSource } from '../types';
 import { loanEngine, isLegallyActionable } from '../domain/loanEngine';
-import { getDaysDiff, isValidDate } from '../utils/dateHelpers';
+import { getDaysDiff } from '../utils/dateHelpers';
 import { notificationService } from '../services/notification.service';
 import { notificationCenterService } from '../services/notificationCenter.service';
-import { getInstallmentStatusLogic } from '../domain/finance/calculations';
+import { resolveBillingNotificationInstallments, currentManausDateISO } from '../domain/finance/billingNotificationSchedule';
 import { playNotificationSound } from '../utils/notificationSound';
 import { formatMoney } from '../utils/formatters';
 import { formatBRDate } from '../utils/dateHelpers';
@@ -134,7 +134,7 @@ export const useAppNotifications = ({
   }, [notifications]);
   const notificationProfileId = activeUser ? activeUser.id : null;
 
-  const todayISO = () => new Date().toISOString().split('T')[0];
+  const todayISO = () => currentManausDateISO();
 
   const isStaleLoadedNotification = (item: InAppNotification) => {
     if (
@@ -146,7 +146,12 @@ export const useAppNotifications = ({
     }
     const metadata = item.metadata || {};
     if (metadata.notification_rule === BILLING_NOTIFICATION_RULE) {
-      return metadata.milestone_date !== todayISO();
+      if (metadata.milestone_date !== todayISO()) return true;
+      const loan = loansRef.current.find((candidate) => candidate.id === metadata.loan_id);
+      if (!loan) return false; // Dados do contrato ainda podem estar carregando.
+      return !resolveBillingNotificationInstallments(loan).some((inst) =>
+        inst.id === metadata.installment_id && inst.dueDate === metadata.due_date
+      );
     }
 
     if (!LEGACY_RECURRING_TITLES.has(item.title)) return false;
@@ -375,6 +380,23 @@ export const useAppNotifications = ({
     };
   }, [notificationProfileId, disabled, flushQueue, mapDbNotification, dismissedMap, showToast, onDataChanged]);
 
+  // Revoga alertas locais de parcelas originais quando o contrato passa a seguir acordo.
+  useEffect(() => {
+    if (!loans.length) return;
+    const activeLoans = new Map(loans.map((loan) => [loan.id, loan]));
+    setNotifications((previous) => {
+      const valid = previous.filter((item) => {
+        if (item.metadata?.notification_rule !== BILLING_NOTIFICATION_RULE) return true;
+        const loan = activeLoans.get(item.metadata?.loan_id);
+        if (!loan) return true;
+        return resolveBillingNotificationInstallments(loan).some((inst) =>
+          inst.id === item.metadata?.installment_id && inst.dueDate === item.metadata?.due_date
+        );
+      });
+      return valid.length === previous.length ? previous : valid;
+    });
+  }, [loans]);
+
   // 1. Monitoramento em Tempo Real (Eventos Críticos de Negócio)
   useEffect(() => {
     if (!activeUser || !notificationProfileId || disabled) return;
@@ -534,18 +556,16 @@ export const useAppNotifications = ({
     }
 
     // A) Regua de cobranca: D-2, D0, D+1 e D+15.
-    if (loans?.length) {
-      loans.forEach((loan) => {
+    // Consultar a referência atual evita usar cronograma obsoleto após renegociação.
+    const scannedLoans = loansRef.current;
+    if (scannedLoans?.length) {
+      scannedLoans.forEach((loan) => {
         if (!loan || (loan as any).isArchived) return;
 
-        const installments = (loan as any).installments || [];
-        installments.forEach((inst: any) => {
-          if (!inst?.id || !inst?.dueDate || !isValidDate(inst.dueDate)) return;
-
-          const status = getInstallmentStatusLogic(inst);
-          if (status === LoanStatus.PAID) return;
-
-          const diff = getDaysDiff(inst.dueDate);
+        // Um acordo ativo substitui a régua das parcelas originais.
+        const installments = resolveBillingNotificationInstallments(loan);
+        installments.forEach((inst) => {
+          const diff = getDaysDiff(inst.dueDate, todayISO());
 
           // Notifica apenas no dia exato e uma única vez por sessão
           const milestone = BILLING_MILESTONES[diff];
@@ -561,10 +581,7 @@ export const useAppNotifications = ({
                 setActiveTab('CONTRACT_DETAILS');
                 setSelectedLoanId(loan.id);
             };
-            const openAmount =
-              Number(inst.principalRemaining || 0) +
-              Number(inst.interestRemaining || 0) +
-              Number(inst.lateFeeAccrued || 0);
+            const openAmount = inst.openAmount;
             const amountText = openAmount > 0 ? ` Valor em aberto: ${formatMoney(openAmount)}.` : '';
             const message = milestone.buildMessage(loan.debtorName || 'Cliente', inst.dueDate, amountText);
             notificationService.notify(
@@ -581,6 +598,8 @@ export const useAppNotifications = ({
                 metadata: {
                   loan_id: loan.id,
                   installment_id: inst.id,
+                  agreement_id: inst.agreementId || null,
+                  schedule_source: inst.source,
                   due_date: inst.dueDate,
                   milestone: milestone.key,
                   milestone_date: milestoneDate,
@@ -593,8 +612,8 @@ export const useAppNotifications = ({
     }
 
     // B) Jurídico: Vencidos sem assinatura (Notificação de Cobrança)
-    if (loans?.length) {
-      loans.forEach((loan) => {
+    if (scannedLoans?.length) {
+      scannedLoans.forEach((loan) => {
         // HARDENING: usa função isolada para evitar erro de HMR
         // Desativado: a regra de cobrança agora roda apenas nos marcos D-2, D0, D+1 e D+15.
         if (

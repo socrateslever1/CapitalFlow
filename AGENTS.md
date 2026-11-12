@@ -1,5 +1,12 @@
 # CapitalFlow — instruções de continuidade para agentes (Codex, Claude, ChatGPT)
 
+## Contrato operacional obrigatório
+- Para qualquer tarefa, usar a skill `.agents/skills/capitalflow-execution-safety/SKILL.md` e seguir `docs/AGENT_EXECUTION_CONTRACT.md`.
+- Antes da implementação: preservar o pedido original, delimitar escopo/finalidade e transformar o resultado desejado em critérios de aceite testáveis.
+- Depois: revisar diffs por agente/revisor independente, registrar evidências de testes reais e riscos de rollback no PR. Não inventar aprovação.
+- Todo PR deve passar pelo gate `agent-execution-contract`; este gate não substitui branch protection e revisão externa.
+- Alterações contábeis e históricas só mediante autorização expressa, com isolamento por perfil e idempotência.
+
 ## Antes de modificar
 1. Consulte `PRODUCT.md`, `DESIGN.md`, `docs/CARTEIRA_CONTINUIDADE.md` e o código atual na `main`. Não trabalhe a partir da memória do chat.
 2. Determine o escopo exato, os testes relacionados e os contratos afetados. Reutilize componentes compartilhados; preserve recursos existentes.

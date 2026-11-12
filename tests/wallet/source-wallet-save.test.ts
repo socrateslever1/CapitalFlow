@@ -14,7 +14,11 @@ test('Salvar alterações inclui vínculo e só fecha após confirmação da RPC
   assert.match(editor,/setSaved\(persistedRows\)/);
   assert.doesNotMatch(editor,/Informar valor/);
   assert.doesNotMatch(editor,/type="text" inputMode="decimal"/);
-  assert.match(editor,/allocated_amount: null/);
+  // Desde 729d627 o valor alocado não é mais zerado: só é preservado a partir do vínculo já persistido
+  // (nunca digitado na interface). Novos vínculos continuam sem valor alocado.
+  const payload=editor.slice(editor.indexOf('origins.push({'),editor.indexOf('});',editor.indexOf('origins.push({')));
+  assert.match(payload,/allocated_amount: previous\?\.allocated_amount \?\? null/);
+  assert.equal((payload.match(/allocated_amount:/g)||[]).length,1);
 });
 
 test('uma única ação de confirmação e atualização da lista',()=>{

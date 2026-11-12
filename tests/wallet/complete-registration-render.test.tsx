@@ -13,9 +13,14 @@ test('wallet header uses the existing page title, round icon and subtitle patter
   const html=renderToStaticMarkup(<PageHeader icon={<CreditCard/>} title={<>Minha <span>Carteira</span></>} subtitle="Contas, cartões e compromissos"/>);
   for(const value of ['page-header-icon','rounded-full','page-header-title','page-header-subtitle','uppercase'])assert.ok(html.includes(value));
 });
-test('full card fields are available and hidden by default without disabled CVC placeholders',()=>{
+test('full card number is available and hidden by default, and no CVC field is ever rendered',()=>{
   const html=renderToStaticMarkup(<CardProtectedFields value={emptyProtectedCard()} onChange={()=>{}}/>);
-  for(const value of ['Número completo','CVC/CVV','Senha para proteger','Confirmar senha','Mostrar número e CVC'])assert.ok(html.includes(value));
+  // 711bcef removeu o campo CVC/CVV (AGENTS.md: não armazenar CVC/CVV nem criptografado);
+  // o botão passou de "Mostrar número e CVC" para "Mostrar número".
+  for(const value of ['Número completo','Senha para proteger','Confirmar senha','Mostrar número','CVC/CVV não é solicitado nem armazenado'])assert.ok(html.includes(value),value);
+  assert.ok(!html.includes('Mostrar número e CVC'));
+  assert.ok(!/Código de segurança|name="cvc"|autoComplete="cc-csc"|autocomplete="cc-csc"/i.test(html));
+  assert.equal((html.match(/<input/g)||[]).length,3);
   assert.ok(html.includes('type="password"'));assert.ok(!html.includes('readOnly'));
 });
 test('shared modal renders one cancel control alongside its save action',()=>{

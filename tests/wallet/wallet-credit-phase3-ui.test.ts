@@ -4,11 +4,13 @@ import test from 'node:test';
 
 test('cards page exposes the three credit magnitudes and the manual override action', () => {
   const page = readFileSync('features/wallet/pages/WalletCardsPage.tsx', 'utf8');
-  assert.match(page, /Fatura selecionada/);
-  assert.match(page, /Faturas posteriores/);
-  assert.match(page, /Limite disponível/);
-  assert.match(page, /Definir Valor da Fatura/);
-  assert.match(page, /InvoiceOverrideModal/);
+  // Rótulos renomeados em fad8e7c para não confundir saldo registrado, estimativa e valor informado pelo banco;
+  // a ação manual passou a ser "Ajustar fatura" em dff0781 (antes "Definir Valor da Fatura").
+  assert.match(page, /'Saldo de fatura registrado'/);
+  assert.match(page, /'Faturas posteriores'/);
+  assert.match(page, /'Disponível estimado' : 'Disponível informado pelo banco'/);
+  assert.match(page, /onClick=\{\(\) => setOverriding\(true\)\}[\s\S]{0,200}>Ajustar fatura</);
+  assert.match(page, /\{\(overriding \|\| creatingInvoice\) && selected && <InvoiceOverrideModal/);
 });
 
 test('wallet service dispatches all phase 3 financial writes through RPCs with request ids', () => {

@@ -14,7 +14,7 @@
     "build:skip-check": "vite build",
     "lint": "tsc -b",
     "preview": "vite preview",
-    "test:financial": "tsx tests/financial/financial-invariants.ts && tsx --test tests/financial/agreement-inputs.test.ts tests/financial/contract-creation-errors.test.ts tests/financial/archive-credit-policy.test.ts tests/financial/funding-cost.test.ts && tsx --test tests/financial/optional-card-funding.test.ts",
+    "test:financial": "tsx tests/financial/financial-invariants.ts && tsx --test tests/financial/agreement-inputs.test.ts tests/financial/contract-creation-errors.test.ts tests/financial/archive-credit-policy.test.ts tests/financial/funding-cost.test.ts && tsx --test tests/financial/optional-card-funding.test.ts && tsx --test tests/financial/billing-notification-schedule.test.ts",
     "test:financial-forgiveness": "node tests/financial/payment-forgiveness-order.test.mjs",
     "test:skills": "tsx tests/skills/skills.test.ts",
     "test:flux-agent": "tsx --test tests/ai/flux-agent-core.test.ts tests/ai/flux-transport.test.ts tests/ai/flux-privacy.test.tsx tests/ai/flux-cue-memory.test.ts tests/ai/assistant-contract.test.ts && node --test tests/architecture/flux-agent-integration.test.mjs tests/architecture/flux-privacy-integration.test.mjs tests/architecture/flux-memory-integration.test.mjs tests/architecture/flux-response-contract.test.mjs",

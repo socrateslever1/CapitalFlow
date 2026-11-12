@@ -887,3 +887,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Correção:** a função resolve o perfil por `perfis.user_id`, usa `supervisor_id` quando aplicável e reutiliza esse owner no contexto financeiro, briefing e histórico. Há fallback conservador ao UUID do Auth para compatibilidade com instalações antigas.
 - **Validação:** `npm run test:flux-agent`, `npm run build` e `git diff --check` passaram. O build mantém apenas avisos preexistentes de chunking/importação dinâmica.
 - **Limitação:** não foi executada uma consulta contra o projeto Supabase remoto nem validada a tela em navegador/dispositivo; a Edge Function precisa ser publicada novamente para a correção aparecer em produção.
+
+## 12/11/2026 — Auditoria de integridade: regra "hoje" (somente diagnóstico)
+- **Sem alteração de produção.** Novos arquivos: `docs/auditoria/REGRAS_CANONICAS.md` (inventário) e `tests/audit/business-date-consistency.test.ts` (`npm run test:audit`).
+- **Confirmado por teste:** `payablesDomain.derivePayableStatus` marca como OVERDUE uma conta que vence hoje após 20h em Manaus; `utils/dateHelpers.getDaysDiff` depende do fuso do aparelho/servidor. Os testes estão marcados `todo` e não quebram o CI.
+- **Confirmado por leitura:** `agreementService.ts:108` envia `p_payment_date` em UTC; a RPC `process_agreement_payment_atomic` usa essa data para dias de atraso e para a data do ledger. Pagamento de acordo após 20h conta 1 dia de atraso.
+- **Pendências:** correções exigem aprovação, uma por vez; conferir `show timezone` e os pagamentos afetados no banco real, só leitura; inventariar quitação, estorno, saldo da Carteira e faturas.

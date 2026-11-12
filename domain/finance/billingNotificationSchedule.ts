@@ -33,6 +33,10 @@ export function resolveBillingNotificationInstallments(
 ): BillingNotificationInstallment[] {
   if (!loan || loan.isArchived) return [];
 
+  // O registro pode carregar antes das parcelas do acordo. Nunca reativar
+  // avisos do contrato antigo durante esse intervalo.
+  if (String(loan.status).toUpperCase() === 'EM_ACORDO' && !loan.activeAgreement) return [];
+
   if (hasActiveAgreement(loan)) {
     const agreement = loan.activeAgreement;
     if (!agreement || !Array.isArray(agreement.installments)) return [];

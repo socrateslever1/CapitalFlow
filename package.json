@@ -21,7 +21,7 @@
     "test:tools": "tsx tests/tools/tools.test.ts",
     "test:mcp": "tsx tests/mcp/mcp.test.ts",
     "test:evals": "tsx ai/evals/run.ts",
-    "test:audit": "tsx --test tests/audit/business-date-consistency.test.ts",
+    "test:audit": "tsx --test tests/audit/business-date-consistency.test.ts tests/wallet/payables-domain.test.ts",
     "test:architecture": "node tests/architecture/architecture-check.mjs",
     "test:ai-security": "node --test tests/architecture/no-browser-ai-secrets.test.mjs && node --test tests/architecture/legacy-document-rpc-exposure.test.mjs && node --test tests/architecture/portal-document-preflight.test.mjs && node --test tests/architecture/individual-signature-link-hardening.test.mjs",
     "test:automation": "node --test automation/n8n/*.test.cjs",

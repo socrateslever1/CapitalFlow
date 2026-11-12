@@ -39,6 +39,7 @@ import { RecurringIncomePanel } from '../components/wallet/RecurringIncomePanel'
 import { RecurringObligationsPanel } from '../components/wallet/RecurringObligationsPanel';
 import { UserProfile, CapitalSource } from '../types';
 import { WalletPayablesPanel } from '../components/wallet/WalletPayablesPanel';
+import { businessDateInManaus } from '../utils/businessDate';
 import { getBankVisual } from '../components/wallet/walletPresentation';
 import { WalletBalanceOverview } from '../components/wallet/WalletBalanceOverview';
 import { CardInvoiceStatement } from '../components/wallet/CardInvoiceStatement';
@@ -77,7 +78,7 @@ export type InvoiceSummary = {
 const emptyWallet: WalletData = { accounts: [], cards: [], expenses: [], installments: [], invoicePayments: [], accountOperations: [], statementRows: [], payables: [], payablePayments: [], recurringIncomes: [], recurringReceipts: [], recurringObligations: [], capitalSources: [] };
 const fieldClass = 'w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-blue-500';
 const labelClass = 'mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-400';
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInManaus();
 const currentMonth = () => today().slice(0, 7);
 
 const DRAFT_PREFIX = 'capitalflow_wallet_draft_';

@@ -40,8 +40,7 @@ test('prova: a data UTC usada em 16 arquivos já virou o dia seguinte às 21h30 
   assert.equal(new Date(NIGHT_IN_MANAUS).toISOString().slice(0, 10), '2026-11-13');
 });
 
-test('Carteira: conta a pagar que vence hoje não pode aparecer como atrasada às 21h30 em Manaus',
-  { todo: 'payablesDomain.derivePayableStatus usa a data UTC como padrão de "hoje"' }, (t) => {
+test('Carteira: conta a pagar que vence hoje não pode aparecer como atrasada às 21h30 em Manaus', (t) => {
     t.mock.timers.enable({ apis: ['Date'], now: NIGHT_IN_MANAUS });
     const status = derivePayableStatus({ total_amount: 100, outstanding_balance: 100, due_date: DUE_TODAY });
     assert.equal(status, 'PENDING');
@@ -67,7 +66,6 @@ test('Servidor (Edge Functions em UTC): dias de atraso às 21h30 em Manaus',
 // Inventário estático: pontos que calculam "hoje" em UTC em regras de vencimento, oferta ou pagamento.
 const UTC_TODAY = /new Date\(\)\.toISOString\(\)\.slice\(0,\s?10\)/;
 const KNOWN_UTC_TODAY_SITES = [
-  'components/wallet/payablesDomain.ts',                   // status OVERDUE da Carteira
   'domain/finance/riskAnalysis.ts',                        // validade de oferta de pagamento
   'utils/loanFilterResolver.ts',                           // validade de oferta de pagamento
   'features/portal/mappers/portalDebtRules.ts',            // validade de oferta no portal do cliente
@@ -83,6 +81,8 @@ const FIXED_SITES = [
   'features/agreements/services/agreementService.ts',      // p_payment_date do pagamento de acordo (grava no banco)
   'features/agreements/services/agreementService.legacy.ts',
   'features/agreements/services/agreementDates.ts',
+  'components/wallet/payablesDomain.ts',                   // status OVERDUE da Carteira
+  'pages/PersonalWalletPage.tsx',                          // data padrão de despesa e de conta a pagar
 ];
 for (const file of FIXED_SITES) {
   test(`regressão: ${file} obtém "hoje" de America/Manaus`, () => {

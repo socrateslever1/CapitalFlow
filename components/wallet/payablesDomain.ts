@@ -1,3 +1,5 @@
+import { businessDateInManaus } from '../../utils/businessDate';
+
 export type PayableStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE' | 'CANCELED';
 
 type PayableLike = {
@@ -7,7 +9,7 @@ type PayableLike = {
   status?: PayableStatus;
 };
 
-export function derivePayableStatus(payable: PayableLike, today = new Date().toISOString().slice(0, 10)): PayableStatus {
+export function derivePayableStatus(payable: PayableLike, today = businessDateInManaus()): PayableStatus {
   if (payable.status === 'CANCELED') return 'CANCELED';
   const outstanding = Math.max(0, Number(payable.outstanding_balance) || 0);
   const total = Math.max(outstanding, Number(payable.total_amount ?? outstanding) || 0);
@@ -17,7 +19,7 @@ export function derivePayableStatus(payable: PayableLike, today = new Date().toI
   return 'PENDING';
 }
 
-export function summarizePayables(payables: PayableLike[], today = new Date().toISOString().slice(0, 10)) {
+export function summarizePayables(payables: PayableLike[], today = businessDateInManaus()) {
   const end = new Date(`${today}T12:00:00Z`);
   end.setUTCDate(end.getUTCDate() + 30);
   const limit = end.toISOString().slice(0, 10);

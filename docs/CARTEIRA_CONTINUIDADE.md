@@ -900,3 +900,10 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **`agreementService.legacy.ts`:** o atraso ao restaurar parcelas usa Manaus; o primeiro vencimento padrão passa a ser amanhã em Manaus (antes, "agora + 24h" em UTC pulava 2 dias à noite); data em texto `YYYY-MM-DD` é mantida literalmente. Objetos `Date` mantêm a conversão anterior. Instantes (`paid_at`, `date`, `updated_at`) não mudaram.
 - **Testes:** `tests/financial/agreement-dates.test.ts` (em `test:financial`); os `todo` dos acordos em `test:audit` viraram bloqueio de regressão; `test:audit` foi incluído no `test:quality`. `npm run test:quality` aprovado localmente.
 - **Pendências:** conferir no banco real, só leitura, os pagamentos de acordo já gravados com data do dia seguinte. Não foi validado em aparelho nem em produção.
+
+## 12/11/2026 — Carteira: contas a pagar e datas padrão no dia de Manaus (autorizado)
+- **`components/wallet/payablesDomain.ts`:** o padrão de "hoje" em `derivePayableStatus` e `summarizePayables` passa a ser `businessDateInManaus()`. Antes, uma conta que vence hoje aparecia OVERDUE e somava no "vencido" após 20h. Regra mantida: parcial vencido continua PARTIAL, como o teste existente exige.
+- **`pages/PersonalWalletPage.tsx`:** `today()` (data padrão de nova despesa e do vencimento de nova conta a pagar, e `currentMonth`) passa a usar Manaus. Antes, uma despesa lançada à noite recebia a data de amanhã e podia cair no ciclo de fatura seguinte.
+- **Testes:** novo caso em `tests/wallet/payables-domain.test.ts` (agora executado por `test:audit`, que está no `test:quality`); `todo` da Carteira removido em `test:audit`. `npm run test:quality` aprovado.
+- **Pré-existente, não alterado:** `tests/wallet/*.test.ts` tem 3 falhas também sem esta mudança (#108 salvar alterações/vínculo RPC, #146 três magnitudes de crédito, #213 FAB com quatro ações); esse conjunto não está no `test:quality`.
+- **Não validado** no navegador nem em aparelho.

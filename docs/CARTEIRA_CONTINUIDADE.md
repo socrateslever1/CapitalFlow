@@ -887,3 +887,16 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Correção:** a função resolve o perfil por `perfis.user_id`, usa `supervisor_id` quando aplicável e reutiliza esse owner no contexto financeiro, briefing e histórico. Há fallback conservador ao UUID do Auth para compatibilidade com instalações antigas.
 - **Validação:** `npm run test:flux-agent`, `npm run build` e `git diff --check` passaram. O build mantém apenas avisos preexistentes de chunking/importação dinâmica.
 - **Limitação:** não foi executada uma consulta contra o projeto Supabase remoto nem validada a tela em navegador/dispositivo; a Edge Function precisa ser publicada novamente para a correção aparecer em produção.
+## 11/11/2026 — Consistência dos caminhos de IA (em andamento)
+
+- Criado `services/ai/assistantContract.ts` como contrato comum para a resposta estruturada da IA: parsing tolerante a JSON cercado por Markdown, campos obrigatórios, limites de tamanho e normalização de sugestões/score.
+- `services/geminiService.ts` passou a usar prompt estruturado e `responseSchema`, mantendo o proxy autenticado e o fallback interno existentes.
+- Alinhados os módulos que chamavam o modelo legado `gemini-3.8-flash` para `gemini-2.5-flash`; o proxy continua aceitando os identificadores antigos para compatibilidade.
+- `normalizeAssistantTurns` agora filtra turnos inválidos antes de limitar a memória, preservando contexto válido em payloads multi-turno com entradas malformadas.
+- O Flux agora exige resposta financeira com resposta direta, evidências e próximos passos; respostas financeiras genéricas ou curtas são descartadas antes da entrega.
+- Consultas que combinam áreas passam a usar contexto geral; a data de referência usa `America/Manaus`; o lucro previsto em aberto usa juros remanescentes das parcelas, sem subtrair principal original de saldo remanescente.
+- O contrato legado preserva `data` em respostas remotas de cadastro/recebimento, mantendo a revisão manual antes de qualquer gravação.
+- O leitor de documentos com IA agora falha fechado quando `rows` não existe, descarta datas impossíveis/valores inválidos, informa linhas ignoradas e alinha o limite de arquivo ao proxy (5 MB); linhas válidas continuam sempre desmarcadas para revisão.
+- Teste arquitetural `no-browser-ai-secrets.test.mjs` passou (4/4) e `git diff --check` passou. Os testes TypeScript ainda não foram executados porque o checkout não possui `node_modules`/`tsx`; nenhuma conexão, RPC, migration, ledger, pagamento ou RLS foi alterada.
+- Pendências: executar uma validação autenticada do proxy/Edge Function no ambiente remoto e validação visual em navegador/aparelho físico antes de publicar. Não houve validação visual em celular físico.
+- Nesta rodada, `test:flux-agent` passou (21/21 + arquitetura Flux 15/15), `test:wallet-statement-import` passou (55/55), `test:ai-security` passou (19/19), `build` passou e a sequência completa equivalente a `test:quality` passou. O comando literal do quality gate não foi usado porque o runtime disponível não expõe `npm` como subprocesso recursivo; nenhum gate individual ficou vermelho.

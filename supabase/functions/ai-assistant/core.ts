@@ -1,5 +1,41 @@
 export type AssistantTurn = { role: 'user' | 'assistant'; content: string };
 export type FinancialArea = 'geral' | 'contas' | 'cartoes' | 'compromissos' | 'fontes' | 'contratos' | 'alertas';
+export type AssistantResponseQuality = 'USEFUL' | 'TOO_SHORT' | 'GENERIC';
+
+export function businessDateInManaus(date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Manaus', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function calculateOpenInterest(loans: Array<Record<string, unknown>>): number {
+  let total = 0;
+  for (const loan of loans) {
+    if (loan.is_archived || String(loan.status || '').toUpperCase() === 'PAID') continue;
+    const installments = Array.isArray(loan.parcelas) ? loan.parcelas as Array<Record<string, unknown>> : [];
+    if (!installments.length) {
+      total += Math.max(0, Number(loan.total_to_receive || 0) - Number(loan.principal || 0));
+      continue;
+    }
+    for (const installment of installments) {
+      if (String(installment.status || '').toUpperCase() === 'PAID') continue;
+      const interest = Number(installment.interest_remaining ?? 0);
+      if (Number.isFinite(interest) && interest > 0) total += interest;
+    }
+  }
+  return Math.round(total * 100) / 100;
+}
+
+export function assessAssistantResponse(text: string, consultedFinancialData: boolean): AssistantResponseQuality {
+  const normalized = text.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (!normalized) return 'TOO_SHORT';
+  if (!consultedFinancialData) return 'USEFUL';
+  if (normalized.length < 24) return 'TOO_SHORT';
+  if (/^(nao sei|nao consigo|nao foi possivel|tente novamente|ok|sim|nao)[.! ]*$/.test(normalized)) return 'GENERIC';
+  return 'USEFUL';
+}
 
 const AREAS: readonly FinancialArea[] = ['geral', 'contas', 'cartoes', 'compromissos', 'fontes', 'contratos', 'alertas'];
 
@@ -10,13 +46,14 @@ export function allowedFinancialArea(value: unknown): FinancialArea | null {
 /** Untrusted client turns are context only; never identity, permissions or financial truth. */
 export function normalizeAssistantTurns(raw: unknown): AssistantTurn[] {
   if (!Array.isArray(raw)) return [];
-  return raw.slice(-12).flatMap((value): AssistantTurn[] => {
+  const validTurns = raw.flatMap((value): AssistantTurn[] => {
     if (!value || typeof value !== 'object') return [];
     const item = value as Record<string, unknown>;
     if ((item.role !== 'user' && item.role !== 'assistant') || typeof item.content !== 'string') return [];
     const content = item.content.trim().slice(0, 1500);
     return content ? [{ role: item.role, content }] : [];
   });
+  return validTurns.slice(-12);
 }
 
 export function inferFinancialArea(text: string, previous: AssistantTurn[] = []): FinancialArea | null {
@@ -29,6 +66,14 @@ export function inferFinancialArea(text: string, previous: AssistantTurn[] = [])
   if (/sem consultar (?:meus |minhas |os meus |as minhas )?dados/.test(normalized)) return null;
   if (/(o que (e|sao)|explique|conceito|diferenca|sem consultar|teoria)/.test(normalized) &&
       !/(meu|minha|meus|minhas|me|do capitalflow|da carteira)/.test(normalized)) return null;
+  const mixedSignals = [
+    /(minha carteira|saldo bancario|meu saldo|quanto tenho|saldo (das? )?(minhas? )?contas?|contas bancarias|conta corrente|conta poupanca|recarregapay)/.test(normalized),
+    /(cartao|cartoes|fatura|limite de credito|nubank|c6|mercado pago|picpay)/.test(normalized),
+    /(contrat|emprestim|parcela|inadimplen|atrasad|recebive|devedor|client)/.test(normalized),
+    /(compromiss|contas a pagar|boleto|venciment|divida pessoal|pagamento pendente)/.test(normalized),
+    /(fonte de capital|fontes de capital|capital disponivel|capital alocado|saldo das fontes|caixa livre)/.test(normalized),
+  ].filter(Boolean).length;
+  if (mixedSignals > 1) return 'geral';
   if (/(diagnostico|panorama|resumo|situacao|saude|relatorio|visao geral|como esta (o |meu )?(capitalflow|capital flow|caixa|sistema)|balanco|melhorar|otimizar|gargalo|pontos? de atencao|o que temos)/.test(normalized)) return 'geral';
   if (/(contrat|emprestim|parcela|inadimplen|atrasad|rentabilidad|juros|recebive|receber|devendo|devedor|client|credito concedido|lucro|quem deve)/.test(normalized)) return 'contratos';
   if (/(fonte de capital|fontes de capital|minhas fontes|capital disponivel|capital alocado|saldo das fontes|caixa livre)/.test(normalized)) return 'fontes';

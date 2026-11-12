@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
   const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY');
   if (!apiKey) return json({ error: 'O provedor de IA ainda não está configurado no servidor.' }, 503);
   try {
-    const model = typeof body.model === 'string' && MODEL_IDS.has(body.model) ? body.model : 'gemini-3.8-flash';
+    const model = typeof body.model === 'string' && MODEL_IDS.has(body.model) ? body.model : 'gemini-2.5-flash';
     const contents = validateContents(body.contents);
     const conf = body.config && typeof body.config === 'object' && !Array.isArray(body.config)
       ? body.config as Record<string, unknown> : {};

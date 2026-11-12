@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.7';
-import { allowedFinancialArea, inferFinancialArea, isFinancialWriteRequest, normalizeAssistantTurns, type FinancialArea } from './core.ts';
+import { allowedFinancialArea, assessAssistantResponse, businessDateInManaus, calculateOpenInterest, inferFinancialArea, isFinancialWriteRequest, normalizeAssistantTurns, type FinancialArea } from './core.ts';
 
 const defaultOrigin = (Deno.env.get('APP_ORIGIN') || 'https://capflow.pages.dev').replace(/\/$/, '');
 const allowedOrigins = new Set([
@@ -187,7 +187,7 @@ async function resolveFinancialProfileId(
 }
 
 function summarizeCapitalFlowMetrics(context: AssistantContext) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = businessDateInManaus();
   const weekLimitDate = new Date(`${today}T00:00:00Z`);
   weekLimitDate.setUTCDate(weekLimitDate.getUTCDate() + 7);
   const weekLimit = weekLimitDate.toISOString().slice(0, 10);
@@ -266,7 +266,7 @@ function summarizeCapitalFlowMetrics(context: AssistantContext) {
     totalLoansCount: context.loans.length,
     principalTotal,
     totalReceivable,
-    estimatedInterestOpen: Math.max(0, Math.round((totalReceivable - principalTotal) * 100) / 100),
+    estimatedInterestOpen: calculateOpenInterest(activeLoans),
     overdueInstallments,
     overdueAmount,
     overdueRatioPct,
@@ -440,6 +440,9 @@ function generateDeterministicContextResponse(prompt: string, context: Assistant
 function buildSystemInstruction(intent: Intent, context: unknown) {
   const contextText = context === null ? '' : JSON.stringify(context).slice(0, MAX_CONTEXT_CHARS);
   return [
+    'Para perguntas financeiras, entregue uma resposta completa com três blocos: "Resposta direta", "Evidências usadas" e "Próximos passos".',
+    'Responda primeiro ao que foi perguntado; não esconda a conclusão atrás de uma introdução genérica nem repita o diagnóstico inteiro sem necessidade.',
+    'Se os dados não forem suficientes, diga exatamente o que falta e faça uma pergunta objetiva; não invente números, nomes, datas ou estados.',
     'Você é Flux, assistente master do CapitalFlow. Responda em português brasileiro, de forma direta, analítica e prática.',
     'Converse normalmente sem acessar o banco. Use o histórico fornecido para continuidade; não repita apresentações.',
     'Para consultar valores e registros REAIS, peça a ferramenta consultar_dados_financeiros. Nunca invente números, nomes ou datas.',
@@ -705,6 +708,7 @@ async function executeReadOnlyAgent(
       const result = await callProvider(
         provider, dialogue, buildSystemInstruction(intent, compactContext), false);
       if (!result.text) throw new Error('EMPTY_PROVIDER_RESPONSE');
+      if (assessAssistantResponse(result.text, true) !== 'USEFUL') throw new Error('WEAK_PROVIDER_RESPONSE');
       return { response: result.text, provider: provider.id, model: provider.model, consulted: true };
     } catch (error) {
       const code = error instanceof Error ? error.message : 'PROVIDER_ERROR';

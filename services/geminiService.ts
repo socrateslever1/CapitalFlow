@@ -1,16 +1,14 @@
 import { requestGemini } from './secureGemini.service';
 import { buildInternalAIText, processInternalAICommand } from './internalAI.service';
+import {
+  buildStructuredAssistantPrompt,
+  parseStructuredAIResponse,
+  STRUCTURED_AI_RESPONSE_SCHEMA,
+  type StructuredAIResponse,
+} from './ai/assistantContract';
 
 export type AIPersona = 'OPERATOR_CRO' | 'CLIENT_MENTOR';
-export interface AIResponse {
-  ok?: boolean;
-  intent: string;
-  feedback: string;
-  analysis?: string;
-  data?: unknown;
-  suggestions?: string[];
-  riskScore?: number;
-}
+export type AIResponse = StructuredAIResponse & { ok?: boolean };
 const SYSTEM_INSTRUCTION = `Você é um assistente de gestão financeira do CapitalFlow.
 Responda em português do Brasil. Não invente fatos, valores, pagamentos ou saldos.
 Não decida crédito nem realize mutações financeiras.
@@ -22,11 +20,15 @@ export async function processNaturalLanguageCommand(text: string, context: unkno
     const persona: AIPersona = (context as {type?: string})?.type === 'PORTAL_CLIENT'
       ? 'CLIENT_MENTOR' : 'OPERATOR_CRO';
     const response = await requestGemini({
-      model: 'gemini-3.8-flash',
-      contents: `Perfil: ${persona}\nComando: ${text}\nDados informados: ${JSON.stringify(context)}`,
-      config: { systemInstruction: SYSTEM_INSTRUCTION, responseMimeType: 'application/json' },
+      model: 'gemini-2.5-flash',
+      contents: buildStructuredAssistantPrompt(persona, text, context),
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        responseMimeType: 'application/json',
+        responseSchema: STRUCTURED_AI_RESPONSE_SCHEMA,
+      },
     });
-    const parsed: unknown = JSON.parse(response.text);
+    const parsed: unknown = parseStructuredAIResponse(response.text);
     if (!parsed || typeof parsed !== 'object') throw new Error('Resposta inválida.');
     const data = parsed as Record<string, unknown>;
     if (typeof data.feedback !== 'string' || typeof data.intent !== 'string') {
@@ -36,6 +38,7 @@ export async function processNaturalLanguageCommand(text: string, context: unkno
       ok: true,
       intent: data.intent,
       feedback: data.feedback,
+      data: data.data,
       analysis: typeof data.analysis === 'string' ? data.analysis : undefined,
       suggestions: Array.isArray(data.suggestions)
         ? data.suggestions.filter((value): value is string => typeof value === 'string') : undefined,
@@ -50,7 +53,7 @@ export async function askGemini(prompt: string): Promise<string> {
   if (!prompt.trim()) return '';
   try {
     const response = await requestGemini({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: { systemInstruction: SYSTEM_INSTRUCTION },
     });

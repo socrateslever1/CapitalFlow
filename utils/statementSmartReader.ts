@@ -18,6 +18,8 @@ export interface SmartStatementParseResult extends StatementParseResult {
   };
 }
 
+const MAX_AI_INLINE_BYTES = 5 * 1024 * 1024;
+
 /**
  * Normaliza datas provenientes de formatos OFX (ex: 20261025120000 ou 20261025)
  */
@@ -30,6 +32,41 @@ function normalizeOfxDate(raw: string): string | null {
   const candidate = new Date(Date.UTC(year, month - 1, day));
   return candidate.getUTCFullYear() === year && candidate.getUTCMonth() === month - 1 && candidate.getUTCDate() === day
     ? digits.slice(0, 4) + '-' + digits.slice(4, 6) + '-' + digits.slice(6, 8) : null;
+}
+
+function isValidIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+export function normalizeAiStatementRows(rawRows: unknown, hash: string): { rows: ParsedStatementRow[]; skipped: number } {
+  if (!Array.isArray(rawRows)) throw new Error('Resposta da IA sem transações estruturadas.');
+  let skipped = 0;
+  const rows: ParsedStatementRow[] = [];
+  rawRows.forEach((item: any, idx: number) => {
+    const amount = Number(item?.amount);
+    const description = String(item?.description || '').trim().slice(0, 240);
+    if (!isValidIsoDate(item?.date) || !Number.isFinite(amount) || amount === 0 || !description) {
+      skipped += 1;
+      return;
+    }
+    const installmentNumber = Number.isInteger(Number(item?.installmentNumber)) ? Number(item.installmentNumber) : null;
+    const installmentTotal = Number.isInteger(Number(item?.installmentTotal)) ? Number(item.installmentTotal) : null;
+    rows.push({
+      rowKey: `ai-img-${idx}-${hash.slice(0, 16)}`,
+      date: item.date,
+      description,
+      amount: Math.round(amount * 100) / 100,
+      category: item.category || classifyStatementDescription(description),
+      confidence: 'REVIEW',
+      selected: false, // Always require manual review
+      installmentNumber,
+      installmentTotal,
+    });
+  });
+  return { rows, skipped };
 }
 
 /**
@@ -158,6 +195,7 @@ export async function parseStatementImageWithAi(
   file: File,
   kind: 'ACCOUNT' | 'CARD'
 ): Promise<SmartStatementParseResult> {
+  if (file.size > MAX_AI_INLINE_BYTES) throw new Error('Limite de arquivo para leitura com IA: 5 MB.');
   const buffer = await file.arrayBuffer();
   const hashBytes = await crypto.subtle.digest('SHA-256', buffer.slice(0));
   const hash = [...new Uint8Array(hashBytes)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -198,9 +236,13 @@ Regras Cruciais:
 6. Não invente transações não visíveis. Retorne apenas JSON válido sem markdown adicional.`;
 
   try {
-    const mimeType = file.type || 'image/jpeg';
+    const mimeType = file.type || (
+      /\.png$/i.test(file.name) ? 'image/png' :
+      /\.webp$/i.test(file.name) ? 'image/webp' :
+      /\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/jpeg'
+    );
     const response = await requestGemini({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           role: 'user',
@@ -236,7 +278,7 @@ Regras Cruciais:
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  date: { type: Type.STRING },
+                  date: { type: Type.STRING, nullable: true },
                   description: { type: Type.STRING },
                   amount: { type: Type.NUMBER },
                   category: { type: Type.STRING },
@@ -254,27 +296,13 @@ Regras Cruciais:
     });
 
     const parsedJson = JSON.parse(response.text || '{}');
-    const rawRows = Array.isArray(parsedJson.rows) ? parsedJson.rows : [];
-
-    const rows: ParsedStatementRow[] = rawRows.map((item: any, idx: number) => {
-      const amt = Number(item.amount) || 0;
-      return {
-        rowKey: `ai-img-${idx}-${hash.slice(0, 16)}`,
-        date: /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')) ? item.date : '',
-        description: String(item.description || '').slice(0, 240),
-        amount: Math.round(amt * 100) / 100,
-        category: item.category || classifyStatementDescription(item.description || ''),
-        confidence: 'REVIEW',
-        selected: false, // Always require manual review of AI-inferred transactions
-        installmentNumber: item.installmentNumber ? Number(item.installmentNumber) : null,
-        installmentTotal: item.installmentTotal ? Number(item.installmentTotal) : null,
-      };
-    });
+    const normalized = normalizeAiStatementRows(parsedJson.rows, hash);
+    const rows = normalized.rows;
 
     return {
       hash,
       rows,
-      skipped: 0,
+      skipped: normalized.skipped,
       pages: 1,
       sourceType: 'IMAGE_AI',
       costLabel: 'IA Gemini (consulte os custos da API)',
@@ -331,7 +359,7 @@ export async function parseSmartFinancialDocument(
   if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
     if (options?.forceAi) {
       if (!options.cloudConsent) throw new Error('Confirme o envio do PDF financeiro para leitura com IA.');
-      if (file.size > 10 * 1024 * 1024) throw new Error('Limite de PDF para leitura com IA: 10 MB.');
+      if (file.size > MAX_AI_INLINE_BYTES) throw new Error('Limite de PDF para leitura com IA: 5 MB.');
       // PDF cloud processing requires explicit confirmation in the importer UI.
       const cloud = await parseStatementImageWithAi(
         file.type === 'application/pdf' ? file : new File([file], file.name, {type: 'application/pdf'}),

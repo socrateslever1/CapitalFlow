@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStatementOfx, parseSmartFinancialDocument } from '../../utils/statementSmartReader';
+import { normalizeAiStatementRows, parseStatementOfx, parseSmartFinancialDocument } from '../../utils/statementSmartReader';
 import { formatCardSummaryForClipboard, copyCardDataToClipboard, copyCardFieldToClipboard, copyCardLastFourToClipboard } from '../../utils/cardClipboard';
 import type { PersonalWalletCard } from '../../services/personalWallet.service';
 
@@ -122,6 +122,20 @@ test('Smart Financial Document Dispatcher - despacha OFX automaticamente', async
   assert.equal(res.rows[0].description, 'FARMACIA RAIA');
   assert.equal(res.rows[0].category, 'Saúde');
   assert.equal(res.rows[0].amount, 89.90);
+});
+
+test('AI statement rows reject missing structure, impossible dates and invalid amounts', () => {
+  assert.throws(() => normalizeAiStatementRows(undefined, 'hash'), /sem transações estruturadas/);
+  const normalized = normalizeAiStatementRows([
+    { date: '2026-02-30', description: 'Data impossível', amount: 10 },
+    { date: '2026-10-20', description: 'Valor inválido', amount: 'não é valor' },
+    { date: '2026-10-21', description: 'Compra válida', amount: 12.345 },
+  ], 'hash');
+  assert.equal(normalized.skipped, 2);
+  assert.equal(normalized.rows.length, 1);
+  assert.equal(normalized.rows[0].date, '2026-10-21');
+  assert.equal(normalized.rows[0].amount, 12.35);
+  assert.equal(normalized.rows[0].selected, false);
 });
 
 test('Card Clipboard Utility - formata e permite copiar dados do cartão para uso na carteira', async () => {

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { AssistantTurn } from '../supabase/functions/ai-assistant/core';
+import { normalizeAssistantTurns, type AssistantTurn } from '../supabase/functions/ai-assistant/core';
 import { describeFluxTransportFailure, readFunctionsError } from './ai/fluxTransport';
 
 export type AssistantIntent = 'READ' | 'DRAFT' | 'CONFIRM' | 'FORBIDDEN' | 'UNKNOWN';
@@ -95,7 +95,7 @@ export async function askMasterAssistant(input: {
 }): Promise<AssistantReply> {
   let failure = describeFluxTransportFailure(null);
   try {
-    const cleanTurns = (input.turns || []).slice(-10);
+    const cleanTurns = normalizeAssistantTurns(input.turns).slice(-10);
     const { data, error } = await supabase.functions.invoke<AssistantReply>('ai-assistant', {
       body: {
         message: input.message,

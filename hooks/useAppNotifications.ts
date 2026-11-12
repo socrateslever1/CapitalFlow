@@ -146,7 +146,12 @@ export const useAppNotifications = ({
     }
     const metadata = item.metadata || {};
     if (metadata.notification_rule === BILLING_NOTIFICATION_RULE) {
-      return metadata.milestone_date !== todayISO();
+      if (metadata.milestone_date !== todayISO()) return true;
+      const loan = loansRef.current.find((candidate) => candidate.id === metadata.loan_id);
+      if (!loan) return false; // Dados do contrato ainda podem estar carregando.
+      return !resolveBillingNotificationInstallments(loan).some((inst) =>
+        inst.id === metadata.installment_id && inst.dueDate === metadata.due_date
+      );
     }
 
     if (!LEGACY_RECURRING_TITLES.has(item.title)) return false;
@@ -551,8 +556,10 @@ export const useAppNotifications = ({
     }
 
     // A) Regua de cobranca: D-2, D0, D+1 e D+15.
-    if (loans?.length) {
-      loans.forEach((loan) => {
+    // Consultar a referência atual evita usar cronograma obsoleto após renegociação.
+    const scannedLoans = loansRef.current;
+    if (scannedLoans?.length) {
+      scannedLoans.forEach((loan) => {
         if (!loan || (loan as any).isArchived) return;
 
         // Um acordo ativo substitui a régua das parcelas originais.
@@ -605,8 +612,8 @@ export const useAppNotifications = ({
     }
 
     // B) Jurídico: Vencidos sem assinatura (Notificação de Cobrança)
-    if (loans?.length) {
-      loans.forEach((loan) => {
+    if (scannedLoans?.length) {
+      scannedLoans.forEach((loan) => {
         // HARDENING: usa função isolada para evitar erro de HMR
         // Desativado: a regra de cobrança agora roda apenas nos marcos D-2, D0, D+1 e D+15.
         if (

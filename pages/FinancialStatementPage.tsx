@@ -161,7 +161,7 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
     let cancelled = false;
     void supabase
       .from('transacoes')
-      .select('id, loan_id, source_id, installment_id, agreement_id, date, type, amount, principal_delta, interest_delta, late_fee_delta, notes, category, meta, idempotency_key, operator_id, created_at, reversed_of_transaction_id')
+      .select('id, loan_id, source_id, installment_id, date, type, amount, principal_delta, interest_delta, late_fee_delta, notes, category, meta, idempotency_key, operator_id, created_at, reversed_of_transaction_id')
       .eq('profile_id', safeProfileId)
       .order('date', { ascending: false })
       .limit(5000)

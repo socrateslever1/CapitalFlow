@@ -1,4 +1,5 @@
 import { CapitalSource } from '../types';
+import { isTestSource } from './testSource';
 
 export const normalizeSourceName = (value: any) =>
   String(value || '')
@@ -8,7 +9,7 @@ export const normalizeSourceName = (value: any) =>
     .trim();
 
 export const isProfitSource = (source: Partial<CapitalSource> | any) => {
-  if (!source) return false;
+  if (!source || isTestSource(source)) return false;
   if (source.is_caixa_livre === true || source.isCaixaLivre === true || source.is_profit_box === true) return true;
   const name = normalizeSourceName(source.name || source.nome);
   return name.includes('caixa livre') ||

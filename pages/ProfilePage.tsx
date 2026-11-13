@@ -318,13 +318,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       </div>
 
       {/* CONTEÚDO */}
-      <div className="lg:col-span-9 space-y-6">
+      <div className="lg:col-span-9 space-y-6 lg:pr-14">
         <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl">
           {/* GENERAL */}
           {activeSection === 'GENERAL' && (
             <div className="space-y-6">
               <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
-                <User size={18} className="text-blue-400" />
+                <User size={18} className="text-blue-400 shrink-0" />
                 <div>
                   <h3 className="text-base font-bold text-white">
                     Informações Gerais
@@ -333,218 +333,101 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                      Nome de acesso (usuário)
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.name || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          name: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <Mail size={13} /> E-mail
-                    </label>
-                    <input
-                      type="email"
-                      value={profileEditForm.email || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          email: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                      Nome do Negócio
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.businessName || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          businessName: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <CreditCard size={13} /> Chave PIX Padrão (Manual)
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.pixKey || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          pixKey: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-emerald-400 font-medium outline-none focus:border-emerald-500 transition-colors"
-                      placeholder="CPF, Email ou Telefone"
-                    />
-                    <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-                      Apenas informativo para o cliente. Para <span className="text-blue-400 font-medium">baixa automática</span>, configure a aba &quot;Pagamentos Real&quot;.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                      Nome Completo
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.fullName || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          fullName: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <FileText size={13} /> CPF / CNPJ
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.document || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          document: maskDocument(e.target.value),
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                      placeholder="000.000.000-00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <Phone size={13} /> WhatsApp de Contato
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.phone || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          phone: maskPhone(e.target.value),
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-blue-400 mb-1.5 flex items-center gap-1.5">
-                      <MessageCircle size={13} /> WhatsApp de Suporte (Mensagens)
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.contato_whatsapp || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          contato_whatsapp: maskPhone(e.target.value),
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-blue-900/40 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                      placeholder="Número para envio de cobranças"
-                    />
-                    <p className="text-[11px] text-slate-500 mt-1.5">
-                      Número utilizado para enviar mensagens aos clientes via WhatsApp.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
-                      <MapPin size={13} /> Endereço Base
-                    </label>
-                    <input
-                      type="text"
-                      value={profileEditForm.address || ''}
-                      onChange={(e) =>
-                        setProfileEditForm({
-                          ...profileEditForm,
-                          address: e.target.value,
-                        })
-                      }
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                      placeholder="Rua, Número, Bairro"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                        Cidade
-                      </label>
-                      <input
-                        type="text"
-                        value={profileEditForm.city || ''}
-                        onChange={(e) =>
-                          setProfileEditForm({
-                            ...profileEditForm,
-                            city: e.target.value,
-                          })
-                        }
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                        Estado (UF)
-                      </label>
-                      <input
-                        type="text"
-                        value={profileEditForm.state || ''}
-                        onChange={(e) =>
-                          setProfileEditForm({
-                            ...profileEditForm,
-                            state: e.target.value.toUpperCase(),
-                          })
-                        }
-                        maxLength={2}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium outline-none focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-5 border-t border-slate-800/80">
-                <h4 className="text-xs font-semibold text-slate-200 mb-3 flex items-center gap-2">
-                  <Palette size={14} className="text-blue-400" /> Personalização
+              {/* Identificação & Acesso */}
+              <div className="space-y-3">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Identificação &amp; Acesso
                 </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                    Logo URL (Opcional)
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome de acesso (usuário)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.name || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        name: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome Completo
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.fullName || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        fullName: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Mail size={13} className="text-slate-400" /> E-mail
+                  </label>
+                  <input
+                    type="email"
+                    value={profileEditForm.email || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        email: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <FileText size={13} className="text-slate-400" /> CPF / CNPJ
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.document || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        document: maskDocument(e.target.value),
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium tabular-nums outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                    placeholder="000.000.000-00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Nome do Negócio
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.businessName || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        businessName: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Palette size={13} className="text-slate-400" /> Logo URL (Opcional)
                   </label>
                   <input
                     type="text"
@@ -555,9 +438,138 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         logoUrl: e.target.value,
                       })
                     }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-xs text-white outline-none focus:border-blue-500 transition-colors"
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
                     placeholder="https://..."
                   />
+                </div>
+                </div>
+              </div>
+
+              {/* Contato & Pagamento Manual */}
+              <div className="pt-5 border-t border-slate-800/80 space-y-3">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Contato &amp; Pagamento Manual
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Phone size={13} className="text-slate-400" /> WhatsApp de Contato
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.phone || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        phone: maskPhone(e.target.value),
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium tabular-nums outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-blue-400 mb-1.5 flex items-center gap-1.5">
+                    <MessageCircle size={13} /> WhatsApp de Suporte (Mensagens)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.contato_whatsapp || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        contato_whatsapp: maskPhone(e.target.value),
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-blue-900/50 rounded-lg px-3 text-sm text-white font-medium tabular-nums outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                    placeholder="Número para envio de cobranças"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    Número utilizado para enviar mensagens aos clientes via WhatsApp.
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <CreditCard size={13} className="text-emerald-400" /> Chave PIX Padrão (Manual)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.pixKey || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        pixKey: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-emerald-400 font-medium outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-colors"
+                    placeholder="CPF, Email ou Telefone"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    Apenas informativo para o cliente. Para <span className="text-blue-400 font-medium">baixa automática</span>, configure a aba &quot;Pagamentos Real&quot;.
+                  </p>
+                </div>
+                </div>
+              </div>
+
+              {/* Localização */}
+              <div className="pt-5 border-t border-slate-800/80 space-y-3">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Localização
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                <div className="sm:col-span-6">
+                  <label className="text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-slate-400" /> Endereço Base
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.address || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        address: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                    placeholder="Rua, Número, Bairro"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Cidade
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.city || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        city: e.target.value,
+                      })
+                    }
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Estado (UF)
+                  </label>
+                  <input
+                    type="text"
+                    value={profileEditForm.state || ''}
+                    onChange={(e) =>
+                      setProfileEditForm({
+                        ...profileEditForm,
+                        state: e.target.value.toUpperCase(),
+                      })
+                    }
+                    maxLength={2}
+                    className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg px-3 text-sm text-white font-medium text-center uppercase outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-colors"
+                  />
+                </div>
                 </div>
               </div>
             </div>
@@ -567,7 +579,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {activeSection === 'FINANCE' && (
             <div className="space-y-6">
               <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
-                <DollarSign size={18} className="text-emerald-400" />
+                <DollarSign size={18} className="text-emerald-400 shrink-0" />
                 <div>
                   <h3 className="text-base font-bold text-white">
                     Configurações Financeiras
@@ -576,92 +588,114 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">
                     Juros Padrão (%)
                   </label>
-                  <input
-                    type="number"
-                    value={profileEditForm.defaultInterestRate || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        defaultInterestRate: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
-                  />
+                  <div className="flex items-baseline gap-1.5">
+                    <input
+                      type="number"
+                      value={profileEditForm.defaultInterestRate || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          defaultInterestRate: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
+                    />
+                    <span className="text-sm font-semibold text-slate-500 shrink-0">%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">Aplicado por padrão em novos contratos.</p>
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">
                     Multa Padrão (%)
                   </label>
-                  <input
-                    type="number"
-                    value={profileEditForm.defaultFinePercent || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        defaultFinePercent: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
-                  />
+                  <div className="flex items-baseline gap-1.5">
+                    <input
+                      type="number"
+                      value={profileEditForm.defaultFinePercent || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          defaultFinePercent: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
+                    />
+                    <span className="text-sm font-semibold text-slate-500 shrink-0">%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">Cobrada após o vencimento.</p>
                 </div>
 
-                <div className="bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 focus-within:border-emerald-500/60 transition-colors">
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">
                     Mora Diária (%)
                   </label>
-                  <input
-                    type="number"
-                    value={profileEditForm.defaultDailyInterestPercent || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        defaultDailyInterestPercent: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
-                  />
+                  <div className="flex items-baseline gap-1.5">
+                    <input
+                      type="number"
+                      value={profileEditForm.defaultDailyInterestPercent || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          defaultDailyInterestPercent: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full bg-transparent text-xl font-bold tabular-nums text-emerald-400 outline-none"
+                    />
+                    <span className="text-sm font-semibold text-slate-500 shrink-0">%</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">Encargo por dia de atraso.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-800/80">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 border-t border-slate-800/80">
                 <div>
-                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
                     Meta de Capital (R$)
                   </label>
-                  <input
-                    type="number"
-                    value={profileEditForm.targetCapital || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        targetCapital: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium tabular-nums outline-none focus:border-emerald-500 transition-colors"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      value={profileEditForm.targetCapital || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          targetCapital: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 text-sm text-white font-semibold tabular-nums outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
                     Meta de Lucro (R$)
                   </label>
-                  <input
-                    type="number"
-                    value={profileEditForm.targetProfit || ''}
-                    onChange={(e) =>
-                      setProfileEditForm({
-                        ...profileEditForm,
-                        targetProfit: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3.5 py-2.5 text-sm text-white font-medium tabular-nums outline-none focus:border-emerald-500 transition-colors"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      value={profileEditForm.targetProfit || ''}
+                      onChange={(e) =>
+                        setProfileEditForm({
+                          ...profileEditForm,
+                          targetProfit: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full h-10 bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 text-sm text-white font-semibold tabular-nums outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -669,22 +703,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           {/* DATA */}
           {activeSection === 'DATA' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right">
-              <div className="flex items-center gap-3 text-amber-500 mb-4">
-                <FileSpreadsheet size={24} />
-                <h3 className="text-lg font-black uppercase">Dados e Backup</h3>
+            <div className="space-y-6">
+              <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
+                <FileSpreadsheet size={18} className="text-amber-400 shrink-0" />
+                <div>
+                  <h3 className="text-base font-bold text-white">Dados e Backup</h3>
+                  <p className="text-xs text-slate-400">Exportação rápida, cópia de segurança e importação em massa.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <div className="bg-slate-950 border border-emerald-500/30 p-5 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-emerald-500 transition-all bg-emerald-950/10">
+              <div className="space-y-3">
+                <div className="bg-emerald-950/15 border border-emerald-500/30 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-emerald-500/60 transition-colors">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400" />
-                      <h4 className="text-white font-bold text-sm uppercase">
+                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                      <h4 className="text-white font-semibold text-sm">
                         Exportar Relatório Geral (Excel / CSV)
                       </h4>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 mt-1">
                       Gera uma planilha detalhada com todos os {loans.length} contratos, status, parcelas e totais formatados.
                     </p>
                   </div>
@@ -692,73 +729,78 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     <button
                       onClick={() => handleExport('EXCEL')}
                       disabled={isExporting || loans.length === 0}
-                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 text-xs font-black uppercase flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                       title="Baixar planilha Excel (.xlsx)"
                     >
-                      {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+                      {isExporting ? <Loader2 size={15} className="animate-spin" /> : <FileSpreadsheet size={15} />}
                       <span>Excel (.xlsx)</span>
                     </button>
                     <button
                       onClick={() => handleExport('CSV')}
                       disabled={isExporting || loans.length === 0}
-                      className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-lg shadow-blue-600/20 text-xs font-black uppercase flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                       title="Baixar arquivo de dados (.csv)"
                     >
-                      {isExporting ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                      {isExporting ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
                       <span>CSV</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-blue-500 transition-all">
-                  <div>
-                    <h4 className="text-white font-bold text-sm uppercase">
-                      Exportar Backup Completo
-                    </h4>
-                    <p className="text-[10px] text-slate-500">
-                      Baixe um arquivo JSON com todos seus clientes e contratos.
-                    </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col justify-between gap-3 hover:border-blue-500/50 transition-colors">
+                    <div>
+                      <h4 className="text-white font-semibold text-sm">
+                        Exportar Backup Completo
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Baixe um arquivo JSON com todos seus clientes e contratos.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleExportBackup}
+                      className="w-full py-2 px-3 bg-blue-600/15 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Download size={15} />
+                      <span>Exportar JSON</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={handleExportBackup}
-                    className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-500 shadow-lg transition-all"
-                  >
-                    <Download size={20} />
-                  </button>
-                </div>
 
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-emerald-500 transition-all">
-                  <div>
-                    <h4 className="text-white font-bold text-sm uppercase">
-                      Importar Planilha (Excel)
-                    </h4>
-                    <p className="text-[10px] text-slate-500">
-                      Carregue clientes em massa via arquivo .xlsx ou .csv.
-                    </p>
+                  <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col justify-between gap-3 hover:border-emerald-500/50 transition-colors">
+                    <div>
+                      <h4 className="text-white font-semibold text-sm">
+                        Importar Planilha (Excel)
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Carregue clientes em massa via arquivo .xlsx ou .csv.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => fileInputExcelRef.current?.click()}
+                      className="w-full py-2 px-3 bg-emerald-600/15 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <FileSpreadsheet size={15} />
+                      <span>Selecionar Planilha</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => fileInputExcelRef.current?.click()}
-                    className="p-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 shadow-lg transition-all"
-                  >
-                    <FileSpreadsheet size={20} />
-                  </button>
-                </div>
 
-                <div className="bg-slate-950 border border-slate-800 p-5 rounded-lg flex items-center justify-between group hover:border-amber-500 transition-all">
-                  <div>
-                    <h4 className="text-white font-bold text-sm uppercase">
-                      Restaurar do Backup
-                    </h4>
-                    <p className="text-[10px] text-slate-500">
-                      Recupere seus dados a partir de um arquivo JSON anterior.
-                    </p>
+                  <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col justify-between gap-3 hover:border-amber-500/50 transition-colors">
+                    <div>
+                      <h4 className="text-white font-semibold text-sm">
+                        Restaurar do Backup
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Recupere seus dados a partir de um arquivo JSON anterior.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => backupRestoreRef.current?.click()}
+                      className="w-full py-2 px-3 bg-amber-600/15 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw size={15} />
+                      <span>Restaurar JSON</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => backupRestoreRef.current?.click()}
-                    className="p-3 bg-amber-600 text-white rounded-lg hover:bg-amber-500 shadow-lg transition-all"
-                  >
-                    <RefreshCw size={20} />
-                  </button>
                 </div>
               </div>
 
@@ -801,8 +843,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           {activeSection === 'INTERFACE' && (
             <div className="space-y-6">
               <LanguageSelector onChanged={message => showToast(message, 'success')} />
-              <div className="flex items-center gap-2.5 pt-2 pb-3 border-b border-slate-800/80">
-                <LayoutGrid size={18} className="text-blue-400" />
+              <div className="flex items-center gap-2.5 pt-2 pb-4 border-b border-slate-800/80">
+                <LayoutGrid size={18} className="text-blue-400 shrink-0" />
                 <div>
                   <h3 className="text-base font-bold text-white">
                     Personalizar Menus
@@ -811,37 +853,47 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-emerald-500 tracking-widest flex items-center gap-2">
-                    <ArrowDown size={14} /> Barra Superior (Fixo)
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase text-emerald-400 tracking-wider flex items-center gap-2">
+                    <ArrowDown size={13} /> Barra Superior (Fixo)
                   </h4>
 
                   <div className="space-y-2">
-                    {navOrder.map((tab) => (
+                    {navOrder.map((tab, idx) => (
                       <div
                         key={tab}
-                        className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between group"
+                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
                       >
-                        <span className="text-xs font-bold text-white uppercase">
-                          {getTabLabel(tab)}
-                        </span>
-                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 tabular-nums w-4 shrink-0">
+                            {idx + 1}.
+                          </span>
+                          <span className="text-xs font-semibold text-white truncate">
+                            {getTabLabel(tab)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => void moveTab(tab, 'NAV', 'UP')} disabled={menuSaving}
-                            className="p-1.5 hover:bg-slate-800 rounded"
+                            onClick={() => void moveTab(tab, 'NAV', 'UP')}
+                            disabled={menuSaving || idx === 0}
+                            aria-label={`Mover ${getTabLabel(tab)} para cima`}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                           >
-                            <ArrowUp size={12} />
+                            <ArrowUp size={13} />
                           </button>
                           <button
-                            onClick={() => void moveTab(tab, 'NAV', 'DOWN')} disabled={menuSaving}
-                            className="p-1.5 hover:bg-slate-800 rounded"
+                            onClick={() => void moveTab(tab, 'NAV', 'DOWN')}
+                            disabled={menuSaving || idx === navOrder.length - 1}
+                            aria-label={`Mover ${getTabLabel(tab)} para baixo`}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                           >
-                            <ArrowDown size={12} />
+                            <ArrowDown size={13} />
                           </button>
                           <button
-                            onClick={() => void moveTab(tab, 'NAV', 'SWAP')} disabled={menuSaving}
-                            className="p-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600 hover:text-white rounded"
+                            onClick={() => void moveTab(tab, 'NAV', 'SWAP')}
+                            disabled={menuSaving || navOrder.length <= 1}
+                            className="px-2.5 py-1 bg-blue-600/15 text-blue-300 hover:bg-blue-600 hover:text-white border border-blue-500/20 rounded text-[11px] font-semibold transition-colors disabled:opacity-30 disabled:pointer-events-none"
                             title="Mover para o Menu Lateral"
                           >
                             Menu
@@ -852,37 +904,47 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-blue-500 tracking-widest flex items-center gap-2">
-                    <LayoutGrid size={14} /> Menu Lateral
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase text-blue-400 tracking-wider flex items-center gap-2">
+                    <LayoutGrid size={13} /> Menu Lateral
                   </h4>
 
                   <div className="space-y-2">
-                    {hubOrder.map((tab) => (
+                    {hubOrder.map((tab, idx) => (
                       <div
                         key={tab}
-                        className="bg-slate-950 border border-slate-800 p-3 rounded-lg flex items-center justify-between group"
+                        className="bg-slate-950 border border-slate-800 hover:border-slate-700 px-3 py-2 rounded-lg flex items-center justify-between gap-2 transition-colors"
                       >
-                        <span className="text-xs font-bold text-white uppercase">
-                          {getTabLabel(tab)}
-                        </span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-[11px] font-semibold text-slate-500 tabular-nums w-4 shrink-0">
+                            {idx + 1}.
+                          </span>
+                          <span className="text-xs font-semibold text-white truncate">
+                            {getTabLabel(tab)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => void moveTab(tab, 'HUB', 'UP')} disabled={menuSaving}
-                            className="p-1.5 hover:bg-slate-800 rounded"
+                            onClick={() => void moveTab(tab, 'HUB', 'UP')}
+                            disabled={menuSaving || idx === 0}
+                            aria-label={`Mover ${getTabLabel(tab)} para cima`}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                           >
-                            <ArrowUp size={12} />
+                            <ArrowUp size={13} />
                           </button>
                           <button
-                            onClick={() => void moveTab(tab, 'HUB', 'DOWN')} disabled={menuSaving}
-                            className="p-1.5 hover:bg-slate-800 rounded"
+                            onClick={() => void moveTab(tab, 'HUB', 'DOWN')}
+                            disabled={menuSaving || idx === hubOrder.length - 1}
+                            aria-label={`Mover ${getTabLabel(tab)} para baixo`}
+                            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
                           >
-                            <ArrowDown size={12} />
+                            <ArrowDown size={13} />
                           </button>
                           <button
-                            onClick={() => void moveTab(tab, 'HUB', 'SWAP')} disabled={menuSaving}
-                            className="p-1.5 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded"
-                            title="Mover para a Barra"
+                            onClick={() => void moveTab(tab, 'HUB', 'SWAP')}
+                            disabled={menuSaving}
+                            className="px-2.5 py-1 bg-emerald-600/15 text-emerald-300 hover:bg-emerald-600 hover:text-white border border-emerald-500/20 rounded text-[11px] font-semibold transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                            title="Mover para a Barra Superior"
                           >
                             Barra
                           </button>
@@ -897,9 +959,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           {/* SECURITY & DANGER */}
           {activeSection === 'SECURITY' && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div className="flex items-center gap-2.5 pb-4 border-b border-slate-800/80">
-                <Shield size={18} className="text-blue-400" />
+                <Shield size={18} className="text-blue-400 shrink-0" />
                 <div>
                   <h3 className="text-base font-bold text-white">
                     Segurança e Conta
@@ -908,7 +970,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               </div>
               <ProfileAuditLog logs={auditLogs} />
-              <div className="pt-6 border-t border-slate-800/80">
+              <div className="pt-5 border-t border-slate-800/80">
                 <ProfileDangerZone
                   onResetData={() => setResetDataModal(true)}
                   onDeleteAccount={handleDeleteAccount}
@@ -919,12 +981,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
           {/* SALVAR */}
           {(activeSection === 'GENERAL' || activeSection === 'FINANCE') && (
-            <div className="pt-6 mt-6 border-t border-slate-800 flex justify-end">
+            <div className="pt-5 mt-5 border-t border-slate-800 flex justify-end">
               <button
                 onClick={handleSaveProfile}
-                className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold uppercase text-xs tracking-wider shadow-lg shadow-blue-900/20 transition-colors flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-xs tracking-wide shadow-lg shadow-blue-900/20 transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Save size={16} /> Salvar Alterações
+                <Save size={15} /> Salvar Alterações
               </button>
             </div>
           )}

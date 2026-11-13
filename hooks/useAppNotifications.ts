@@ -572,8 +572,8 @@ export const useAppNotifications = ({
 
           if (milestone) {
             const milestoneDate = todayISO();
-            const notificationItemId = `${inst.id}:${milestone.key}`;
-            const runtimeKey = `${notificationItemId}:${milestoneDate}`;
+            const notificationItemId = inst.id;
+            const runtimeKey = `${inst.id}:${milestone.key}:${milestoneDate}`;
             if (notifiedDueLoans.current.has(runtimeKey)) return;
             if (isDismissed('parcela', notificationItemId)) return;
             notifiedDueLoans.current.add(runtimeKey);

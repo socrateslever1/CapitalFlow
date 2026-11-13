@@ -50,6 +50,8 @@ const asSyncError = (error: any): Error | null => {
   return normalized;
 };
 
+let queueProcessing: Promise<void> | null = null;
+
 const fetchRemoteSnapshot = async (ownerId: string) => Promise.all([
   fetchAllPages(async (from, to) => {
     const result = await supabase.from('clientes').select('*').eq('owner_id', ownerId).range(from, to);
@@ -99,7 +101,9 @@ export const syncService = {
     console.log('[SYNC] Iniciando sincronização completa...', { profileId, ownerId });
     try {
       await ensureFreshAuth();
-      await this.processQueue();
+      // A stuck offline write must never block the authoritative read path.
+      // The queue is processed in the background and is serialized below.
+      void this.processQueue().catch((error) => console.warn('[SYNC] Fila em segundo plano:', error));
       let [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes, paymentIntentsRes] = await fetchRemoteSnapshot(ownerId);
       const firstError = clientsRes.error || sourcesRes.error || loansRes.error || staffRes.error;
       if (firstError && isAuthSyncError(firstError)) { await ensureFreshAuth(true); [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes, paymentIntentsRes] = await fetchRemoteSnapshot(ownerId); }
@@ -159,8 +163,16 @@ export const syncService = {
     const queueItem={id:generateUUID(),table,operation,data,targetId:id,baseUpdatedAt,conflictTable:params.conflictTable||null,conflictId:params.conflictId||null,status:'PENDING',attempts:0,maxAttempts:7,nextRetryAt:new Date().toISOString(),timestamp:new Date().toISOString()}; await db.write_queue.put(queueItem); this.processQueue().catch(err=>console.warn('[SYNC] Queue processing failed:',err)); return true;
   },
   async processQueue(){
-    if(typeof navigator!=='undefined'&&!navigator.onLine)return; const session=await ensureFreshAuth().catch(err=>{console.warn('[SYNC] Sessao indisponivel para processar fila:',err?.message||err);return null;}); if(!session)return;
-    const now=new Date().toISOString(); const items=await db.write_queue.where('status').anyOf(['PENDING','FAILED']).and(item=>item.nextRetryAt<=now).toArray(); if(!items.length)return; console.log(`[SYNC] Processando fila de escrita (${items.length} itens)...`);
-    for(const item of items){try{let {error}=await runQueueMutation(item);if(error&&isAuthSyncError(error)){await ensureFreshAuth(true);const retry=await runQueueMutation(item);error=retry.error;}if(error)throw error;await db.write_queue.delete(item.id);console.log(`[SYNC] Item ${item.id} sincronizado com sucesso.`);}catch(err:any){const attempts=(item.attempts||0)+1,maxAttempts=item.maxAttempts||7;console.error(`[SYNC] Falha na tentativa ${attempts}/${maxAttempts} para item ${item.id}:`,err);const isConflict=String(err?.message||'').includes('CONFLITO_OFFLINE');if(isConflict){await db.write_queue.update(item.id,{status:'CONFLICT',attempts,lastError:err?.message||String(err)});continue;}if(attempts>=maxAttempts){await db.write_queue.update(item.id,{status:'DEAD',attempts,lastError:err?.message||String(err)});continue;}const delayMs=Math.min(60000,1000*Math.pow(2,attempts));await db.write_queue.update(item.id,{status:'FAILED',attempts,lastError:err?.message||String(err),nextRetryAt:new Date(Date.now()+delayMs).toISOString()});}}
+    if (queueProcessing) return queueProcessing;
+    queueProcessing = (async () => {
+      if(typeof navigator!=='undefined'&&!navigator.onLine)return;
+      const session=await ensureFreshAuth().catch(err=>{console.warn('[SYNC] Sessao indisponivel para processar fila:',err?.message||err);return null;});
+      if(!session)return;
+      const now=new Date().toISOString(); const items=await db.write_queue.where('status').anyOf(['PENDING','FAILED']).and(item=>item.nextRetryAt<=now).toArray();
+      if(!items.length)return;
+      console.log(`[SYNC] Processando fila de escrita (${items.length} itens)...`);
+      for(const item of items){try{let {error}=await runQueueMutation(item);if(error&&isAuthSyncError(error)){await ensureFreshAuth(true);const retry=await runQueueMutation(item);error=retry.error;}if(error)throw error;await db.write_queue.delete(item.id);console.log(`[SYNC] Item ${item.id} sincronizado com sucesso.`);}catch(err:any){const attempts=(item.attempts||0)+1,maxAttempts=item.maxAttempts||7;console.error(`[SYNC] Falha na tentativa ${attempts}/${maxAttempts} para item ${item.id}:`,err);const isConflict=String(err?.message||'').includes('CONFLITO_OFFLINE');if(isConflict){await db.write_queue.update(item.id,{status:'CONFLICT',attempts,lastError:err?.message||String(err)});continue;}if(attempts>=maxAttempts){await db.write_queue.update(item.id,{status:'DEAD',attempts,lastError:err?.message||String(err)});continue;}const delayMs=Math.min(60000,1000*Math.pow(2,attempts));await db.write_queue.update(item.id,{status:'FAILED',attempts,lastError:err?.message||String(err),nextRetryAt:new Date(Date.now()+delayMs).toISOString()});}}
+    })().finally(() => { queueProcessing = null; });
+    return queueProcessing;
   }
 };

@@ -945,3 +945,26 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Clientes e Cadastro Público (`ClientsPage`, `ClientRegistrationPage`):** botões de ação compactos e exibição completa de nomes sem truncamento indevido; correção de overflow nos campos de upload com `min-w-0 overflow-hidden` e `truncate`.
 - **Perfil (`ProfilePage`):** remoção de ações redundantes no topo, reorganização das 6 seções essenciais de configuração em layout responsivo com cabeçalho horizontal compacto e botão `Sair` alinhado à direita em telas `< lg` (`hidden lg:flex` no rodapé desktop).
 - **Limitações:** alterações exclusivamente de interface (sem alteração de RPCs, migrations, ledger, pagamento, estorno ou RLS); não houve validação visual em celular físico nesta etapa.
+
+## 13/11/2026 - Fila offline fora do caminho crítico
+
+- **Causa corrigida:** a leitura autoritativa esperava a fila de operações offline terminar. Uma operação antiga, sem rede ou aguardando autenticação podia fazer o sistema parecer travado e impedir novos pedidos.
+- **Comportamento atual:** `syncFullData` atualiza a leitura sem esperar a fila; a fila continua em segundo plano, com autenticação, conflitos, tentativas e estado `DEAD` preservados. Um mutex impede processamentos concorrentes.
+- **Reconexão:** o evento online solicita a nova leitura e dispara o processamento da fila em segundo plano, sem bloquear a interface.
+- **Escopo de segurança:** não houve alteração de Supabase, RPC, migration, ledger, pagamento, estorno ou RLS; nenhuma operação pendente foi apagada.
+- **Validação:** `npm run build` passou; `git diff --check` passou. O teste isolado de sincronização não iniciou nesta máquina por `uv_os_get_passwd ENOMEM` (memória insuficiente do sistema).
+
+## 13/11/2026 - Unificação do destino dos recebimentos
+
+- A conciliação de recebimentos anteriores agora usa o mesmo `personal_wallet_set_receipt_destination` e o mesmo `wallet_route_receipt_internal` do recebimento atual.
+- O valor integral continua entrando na conta/fonte escolhida; capital, juros e encargos permanecem separados na operação financeira e na auditoria.
+- O recebimento original, contrato, parcela e idempotência continuam preservados. Não foi criado crédito duplicado nem um segundo lançamento financeiro.
+- A interface e seus campos/botões não foram redesenhados nesta etapa.
+
+## 13/11/2026 - Refinamento visual do Perfil e exclusão de transações de teste na contabilidade do painel
+
+- **Perfil (`ProfilePage`, `LanguageSelector`, `ProfileExportReports`, `ProfileAuditLog`, `ProfileDangerZone`):** reorganização dos campos em blocos equilibrados, padronização de altura (`h-10`), prefixos/sufixos numéricos (`%`, `R$`), rótulos nos botões de dados/backup e controles de ordenação de menus sempre visíveis.
+- **Exclusão de fontes de teste (`domain/dashboard/stats.ts`, `utils/profitBalance.ts`):** transações individuais (`ledger.sourceId`) vinculadas a fontes de teste (`isTestSource`) agora também são ignoradas no cálculo de `Lucro Realizado`, no acumulado mensal e no gráfico de evolução, mesmo quando pertencem a um contrato de fonte operacional; `isProfitSource` também ignora fontes de teste.
+- **Escopo:** sem alteração de RPCs, migrations, `App.tsx`, `sync.service.ts` ou RLS.
+- **Aplicação remota verificada:** a migration foi aplicada no projeto Supabase `hzchchbxkhryextaymkn` como `20261113193409_unify_receipt_destination_flow`; a RPC remota agora usa o preparador de destino e o roteador canônicos, sem inserir diretamente na tabela de destinos nem apagar operações financeiras.
+- **Prévia remota:** existem 107 recebimentos concluídos, 106 elegíveis para revisão histórica e 0 já roteados; nenhum recebimento foi movido automaticamente. A conciliação individual continua pendente de escolha explícita de destino.

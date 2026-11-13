@@ -97,47 +97,47 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right">
+    <div className="space-y-6">
       {/* CABEÇALHO DA SEÇÃO */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
-            <Download size={24} className="text-emerald-400" />
+          <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-emerald-400 shrink-0">
+            <Download size={20} className="text-emerald-400" />
           </div>
           <div>
-            <h3 className="text-lg font-black uppercase text-white flex items-center gap-2">
-              Exportar Relatórios & Downloads
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <h3 className="text-base font-bold text-white flex flex-wrap items-center gap-2">
+              Exportar Relatórios &amp; Downloads
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                 Excel • CSV
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Gere planilhas detalhadas, arquivos de dados ou baixe o aplicativo no seu dispositivo.
+              Gere planilhas filtradas, arquivos de dados ou baixe o aplicativo no seu dispositivo.
             </p>
           </div>
         </div>
 
         {/* Resumo do Banco */}
-        <div className="flex items-center gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-          <div className="text-right">
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Base Ativa</p>
-            <p className="text-sm font-black text-white">{loans.length} {loans.length === 1 ? 'Contrato' : 'Contratos'}</p>
+        <div className="flex items-center gap-3 bg-slate-950 px-3.5 py-2.5 rounded-xl border border-slate-800/80 shrink-0">
+          <div className="sm:text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Base Ativa</p>
+            <p className="text-sm font-bold text-white tabular-nums">{loans.length} {loans.length === 1 ? 'Contrato' : 'Contratos'}</p>
           </div>
         </div>
       </div>
 
       {/* SELETOR DE ESCOPO / FILTRO */}
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <div className="flex items-center justify-between">
-          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-            <Filter size={12} className="text-emerald-400" /> Filtrar contratos para o relatório:
+          <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <Filter size={13} className="text-emerald-400" /> Filtrar contratos para o relatório
           </label>
-          <span className="text-[10px] font-black text-slate-400">
+          <span className="text-xs font-semibold text-slate-400 tabular-nums">
             {filteredLoans.length} selecionado(s)
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
           {[
             { id: 'TODOS', label: 'Todos', count: loans.length, color: 'border-slate-700 text-slate-200' },
             {
@@ -174,14 +174,14 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
                 key={scope.id}
                 type="button"
                 onClick={() => setSelectedScope(scope.id as FilterScope)}
-                className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                className={`p-3 rounded-xl border text-left transition-colors flex flex-col justify-between cursor-pointer ${
                   isSelected
-                    ? 'bg-gradient-to-br from-emerald-600/20 to-emerald-950/40 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
-                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
+                    ? 'bg-gradient-to-br from-emerald-600/20 to-emerald-950/40 border-emerald-500 text-white'
+                    : 'bg-slate-950/70 border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase tracking-wider">{scope.label}</span>
-                <span className="text-lg font-black mt-1 text-white">{scope.count}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide">{scope.label}</span>
+                <span className="text-lg font-bold tabular-nums mt-0.5 text-white">{scope.count}</span>
               </button>
             );
           })}
@@ -189,24 +189,24 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
       </div>
 
       {/* CARDS DE RESUMO DO LOTE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-950/80 border border-slate-800/80">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-950/80 border border-slate-800/80">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-            <DollarSign size={20} />
+          <div className="w-9 h-9 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+            <DollarSign size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Capital Concedido no Lote</p>
-            <p className="text-base font-black text-white">{formatMoney(totalPrincipal)}</p>
+            <p className="text-[11px] font-semibold text-slate-400">Capital Concedido no Lote</p>
+            <p className="text-base font-bold tabular-nums text-white">{formatMoney(totalPrincipal)}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-            <ShieldCheck size={20} />
+          <div className="w-9 h-9 rounded-lg bg-emerald-600/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <ShieldCheck size={18} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Previsão Bruta a Receber</p>
-            <p className="text-base font-black text-emerald-400">{formatMoney(totalToReceive)}</p>
+            <p className="text-[11px] font-semibold text-slate-400">Previsão Bruta a Receber</p>
+            <p className="text-base font-bold tabular-nums text-emerald-400">{formatMoney(totalToReceive)}</p>
           </div>
         </div>
       </div>
@@ -214,21 +214,21 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
       {/* PRINCIPAIS BOTÕES DE EXPORTAÇÃO */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* BOTÃO EXCEL */}
-        <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-950/30 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col justify-between gap-5 group hover:border-emerald-500 transition-all shadow-xl shadow-emerald-950/20">
+        <div className="p-5 rounded-xl bg-gradient-to-br from-emerald-950/25 via-slate-900 to-slate-950 border border-emerald-500/30 flex flex-col justify-between gap-4 hover:border-emerald-500/60 transition-colors">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 group-hover:scale-105 transition-transform">
-                <FileSpreadsheet size={24} />
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                <FileSpreadsheet size={20} />
               </div>
-              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                 Mais Recomendado
               </span>
             </div>
-            <h4 className="text-base font-black uppercase text-white tracking-wide">
+            <h4 className="text-sm font-bold text-white">
               Planilha Excel Formatada (.xlsx)
             </h4>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              Exporta todos os contratos com formatação de moeda R$, cabeçalhos coloridos, colunas de status, datas de vencimento, dias de atraso e fórmulas de soma automática.
+              Exporta todos os contratos com formatação de moeda R$, cabeçalhos coloridos, status, datas de vencimento, dias de atraso e fórmulas de soma.
             </p>
           </div>
 
@@ -236,16 +236,16 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
             type="button"
             onClick={() => handleExport('EXCEL')}
             disabled={isExportingExcel || filteredLoans.length === 0}
-            className="w-full py-4 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-600/20 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             {isExportingExcel ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
                 <span>Gerando Planilha...</span>
               </>
             ) : (
               <>
-                <Download size={18} />
+                <Download size={16} />
                 <span>Baixar Planilha Excel ({filteredLoans.length})</span>
               </>
             )}
@@ -253,21 +253,21 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
         </div>
 
         {/* BOTÃO CSV */}
-        <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-950/30 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col justify-between gap-5 group hover:border-blue-500 transition-all shadow-xl shadow-blue-950/20">
+        <div className="p-5 rounded-xl bg-gradient-to-br from-blue-950/25 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col justify-between gap-4 hover:border-blue-500/60 transition-colors">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform">
-                <FileText size={24} />
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+                <FileText size={20} />
               </div>
-              <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
                 Padrão Universal
               </span>
             </div>
-            <h4 className="text-base font-black uppercase text-white tracking-wide">
+            <h4 className="text-sm font-bold text-white">
               Arquivo de Dados CSV (.csv)
             </h4>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              Arquivo texto com codificação UTF-8 BOM e separador ponto-e-vírgula (;), ideal para importação no Google Sheets, Power BI, Python, ERPs ou sistemas legados.
+              Arquivo texto com codificação UTF-8 BOM e separador ponto-e-vírgula (;), ideal para Google Sheets, Power BI, Python ou ERPs.
             </p>
           </div>
 
@@ -275,16 +275,16 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
             type="button"
             onClick={() => handleExport('CSV')}
             disabled={isExportingCSV || filteredLoans.length === 0}
-            className="w-full py-4 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2.5 shadow-xl shadow-blue-600/20 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full py-3 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             {isExportingCSV ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
                 <span>Gerando Arquivo...</span>
               </>
             ) : (
               <>
-                <Download size={18} />
+                <Download size={16} />
                 <span>Baixar Arquivo CSV ({filteredLoans.length})</span>
               </>
             )}
@@ -293,27 +293,27 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
       </div>
 
       {/* OUTRAS OPÇÕES DE DOWNLOAD / INSTALAÇÃO */}
-      <div className="pt-6 border-t border-slate-800 space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+      <div className="pt-5 border-t border-slate-800/80 space-y-3">
+        <h4 className="text-xs font-semibold text-slate-300 flex items-center gap-2">
           <HardDriveDownload size={14} className="text-blue-400" /> Outras Opções de Download e Backup
         </h4>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* BACKUP DO SISTEMA */}
           {onExportBackup && (
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-bold text-white uppercase">Snapshot do Banco (JSON)</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Exporta uma cópia integral com todos os cadastros e contratos em JSON para restauração.
+                <p className="text-xs font-semibold text-white">Snapshot do Banco (JSON)</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Cópia integral com todos os cadastros e contratos para restauração.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onExportBackup}
-                className="px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-bold uppercase flex items-center gap-2 shrink-0 transition-colors"
+                className="px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
               >
-                <Download size={15} className="text-blue-400" /> Backup JSON
+                <Download size={14} className="text-blue-400" /> Backup JSON
               </button>
             </div>
           )}
@@ -321,37 +321,37 @@ export const ProfileExportReports: React.FC<ProfileExportReportsProps> = ({
           {/* INSTALAÇÃO DO APP / PWA */}
           <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-bold text-white uppercase flex items-center gap-1.5">
+              <p className="text-xs font-semibold text-white flex items-center gap-1.5">
                 <Smartphone size={14} className="text-emerald-400" />
                 Baixar Aplicativo no Celular / PC
               </p>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Instale o CapitalFlow como aplicativo com tela cheia, ícone próprio e inicialização rápida.
+              <p className="text-xs text-slate-400 mt-0.5">
+                Instale o CapitalFlow como aplicativo com tela cheia e acesso rápido.
               </p>
             </div>
 
             {isInstalled ? (
-              <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1.5">
-                <CheckCircle2 size={13} /> Instalado
+              <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold shrink-0 flex items-center gap-1.5">
+                <CheckCircle2 size={14} /> Instalado
               </span>
             ) : isInstallable ? (
               <button
                 type="button"
                 onClick={install}
-                className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase flex items-center gap-2 shrink-0 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
               >
-                <Download size={15} /> Instalar
+                <Download size={14} /> Instalar
               </button>
             ) : isIOS ? (
               <button
                 type="button"
                 onClick={() => setShowIOSGuide(true)}
-                className="px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-bold uppercase flex items-center gap-2 shrink-0 transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
               >
-                <Share2 size={15} className="text-blue-400" /> Como Instalar (iOS)
+                <Share2 size={14} className="text-blue-400" /> Como Instalar (iOS)
               </button>
             ) : (
-              <span className="text-[10px] font-bold text-slate-500 shrink-0">
+              <span className="text-xs font-medium text-slate-400 shrink-0">
                 Navegador Pronto
               </span>
             )}

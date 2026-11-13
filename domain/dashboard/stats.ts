@@ -20,13 +20,22 @@ const isUnifiedChildLoan = (loan: Loan): boolean => {
 
 export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activeUser: any = null) => {
   // Reconstroi todos os contratos do ledger para garantir precisão total nos contadores
-  const loans = loansRaw.map(l => rebuildLoanStateFromLedger(l));
   const testSourceIds = new Set(
     sources
       .filter((source) => isTestSource(source))
       .map((source) => String(source.id))
       .filter(Boolean)
   );
+  const isTestLedgerEntry = (entry: any) =>
+    testSourceIds.has(String(entry?.sourceId || entry?.source_id || ''));
+
+  // Remove entradas de teste antes de reconstruir o contrato. Filtrar somente
+  // depois da reconstrução esconderia o lucro, mas ainda reduziria saldo,
+  // parcelas e lucro projetado por meio do ledger sintético.
+  const loans = loansRaw.map((loan) => ({
+    ...loan,
+    ledger: (loan.ledger || []).filter((entry: any) => !isTestLedgerEntry(entry)),
+  })).map(l => rebuildLoanStateFromLedger(l));
 
   const filteredLoans = loans.filter((loan) => !testSourceIds.has(String((loan as any).sourceId || (loan as any).source_id || '')));
 
@@ -63,6 +72,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   // 2. TOTAIS GERAIS (Lucro Realizado)
   const totalProfitRealized = filteredLoans.reduce((acc, l) => {
       const profitFromLedger = (l.ledger || []).reduce((sum, t) => {
+          if (isTestLedgerEntry(t)) return sum;
           if (!String(t.type || '').includes('PAYMENT') && t.type !== 'ESTORNO' && t.type !== 'AGREEMENT_PAYMENT_REVERSED') return sum;
           // Soma juros e multas pagos (Estorno já vem negativo, então ele subtrai naturalmente)
           return sum + (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
@@ -120,6 +130,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
 
   filteredLoans.forEach(l => {
     (l.ledger || []).forEach(t => {
+      if (isTestLedgerEntry(t)) return;
       if (!t.date || t.date.length < 7) return;
       const key = t.date.slice(0, 7);
 

@@ -39,6 +39,14 @@ export const HistoricalReceiptReconciliationPanel: React.FC<Props> = ({ onSaved 
   useEffect(() => { void load(); }, []);
 
   const selected = items.find(item => item.operation_id === selectedId);
+  const eligibleTotal = items.reduce((sum, item) => sum + Number(item.amount_received || 0), 0);
+  const accountLabel = (account: PersonalWalletAccount): string => {
+    const created = typeof account.created_at === 'string'
+      ? account.created_at.slice(0, 10).split('-').reverse().join('/')
+      : '';
+    return [account.nickname, created ? `criada ${created}` : null, formatMoney(Number(account.balance))]
+      .filter(Boolean).join(' · ');
+  };
   const submit = async () => {
     if (!selected || !destination || !reason.trim()) return;
     const [kind, id] = destination.split(':');
@@ -61,7 +69,7 @@ export const HistoricalReceiptReconciliationPanel: React.FC<Props> = ({ onSaved 
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="flex items-center gap-2 text-base font-bold text-white"><History size={18} className="text-amber-300"/> Recebimentos anteriores ao destino da Carteira</h2>
-        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-300">Reclassificação manual e auditada. O valor recebido, o contrato e a parcela não são apagados nem recalculados.</p>
+        <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-300">Reclassificação contábil de recebimentos do motor V4, sem registrar novamente o pagamento no contrato. Não é uma transferência bancária/PIX. Pagamentos de acordos, como o da Solange, ainda não são contemplados por este mecanismo.</p>
       </div>
       <button type="button" onClick={() => void load()} disabled={loading || busy} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50">
         <RefreshCw size={14} className={loading ? 'animate-spin' : ''}/> Atualizar
@@ -70,6 +78,7 @@ export const HistoricalReceiptReconciliationPanel: React.FC<Props> = ({ onSaved 
     {error && <p role="alert" className="mt-3 rounded-lg border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</p>}
     {message && <p role="status" className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs text-emerald-200"><CheckCircle2 size={15} className="mt-0.5 shrink-0"/>{message}</p>}
     {!loading && !items.length && !error && <p className="mt-4 rounded-lg border border-dashed border-slate-700 p-4 text-sm text-slate-300">Nenhum recebimento antigo elegível foi encontrado.</p>}
+    {!!items.length && <p className="mt-3 text-sm font-semibold text-white">{items.length} recebimento(s) elegível(is) · total histórico: {formatMoney(eligibleTotal)}. A confirmação é individual e exige conferir o destino e os saldos de origem.</p>}
     {!!items.length && <div className="mt-4 grid gap-3 lg:grid-cols-2">
       <label className="text-xs font-semibold text-slate-200">Recebimento
         <select value={selectedId} onChange={event => setSelectedId(event.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
@@ -80,7 +89,7 @@ export const HistoricalReceiptReconciliationPanel: React.FC<Props> = ({ onSaved 
       <label className="text-xs font-semibold text-slate-200">Destino
         <select value={destination} onChange={event => setDestination(event.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white">
           <option value="">Escolha conta ou fonte</option>
-          {accounts.filter(account => !account.archived_at).map(account => <option key={account.id} value={`account:${account.id}`}>Conta · {account.nickname}</option>)}
+          {accounts.filter(account => !account.archived_at).map(account => <option key={account.id} value={`account:${account.id}`}>Conta · {accountLabel(account)}</option>)}
           {capitalSources.map(source => <option key={source.id} value={`source:${source.id}`}>Capital · {source.name}</option>)}
         </select>
       </label>

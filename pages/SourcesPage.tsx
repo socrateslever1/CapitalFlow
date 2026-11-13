@@ -13,7 +13,11 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { SourceWalletReferencePanel } from '../components/sources/SourceWalletReferencePanel';
 import { FinancialCalculatorInput } from '../components/forms/FinancialCalculatorInput';
 import { supabase } from '../lib/supabase';
-import { personalWalletService } from '../services/personalWallet.service';
+import { personalWalletService, type PersonalWalletAccount } from '../services/personalWallet.service';
+import { platformAdminService } from '../services/platformAdmin.service';
+import { CapitalSourceTransferModal } from '../features/wallet/components/CapitalSourceTransferModal';
+import { canMoveCapitalSource, getMovableCapitalTotal } from '../features/wallet/domain/capitalSourceTransfer';
+import { formatMoney } from '../utils/formatters';
 import { buildSourceReferenceDisplay, type SourceReferenceDisplay } from '../domain/sources/sourceReferenceDisplay';
 import type { WalletReference } from '../domain/sources/sourceWalletReference';
 
@@ -48,6 +52,46 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   const saveOriginsRef = useRef<(() => Promise<boolean>) | null>(null);
   const [sourceReferences, setSourceReferences] = useState<Record<string, SourceReferenceDisplay>>({});
   const [sourceReferenceError, setSourceReferenceError] = useState(false);
+  const [canTransferCapital, setCanTransferCapital] = useState(false);
+  const [transferAccounts, setTransferAccounts] = useState<PersonalWalletAccount[] | null>(null);
+  const [transferSource, setTransferSource] = useState<CapitalSource | null>(null);
+  const [balanceOverrides, setBalanceOverrides] = useState<Record<string, number>>({});
+  const displayedSources = sources.map(source => ({
+    ...source, balance: balanceOverrides[source.id] ?? source.balance,
+  }));
+  const transferableCapital = transferAccounts
+    ? getMovableCapitalTotal(displayedSources, transferAccounts) : null;
+
+  useEffect(() => {
+    let active = true;
+    setCanTransferCapital(false);
+    setTransferAccounts(null);
+    if (activeUser?.id && activeUser.id !== 'DEMO' && !activeUser?.supervisor_id) {
+      void platformAdminService.isSuperAdmin().then(async allowed => {
+        if (!allowed || !active) return;
+        const snapshot = await personalWalletService.loadOverview();
+        if (!active) return;
+        setCanTransferCapital(true);
+        setTransferAccounts(snapshot.accounts);
+      }).catch(() => {
+        if (active) { setCanTransferCapital(false); setTransferAccounts(null); }
+      });
+    }
+    return () => { active = false; };
+  }, [activeUser?.id, activeUser?.supervisor_id]);
+
+  useEffect(() => { setBalanceOverrides({}); }, [sources]);
+
+  const refreshTransferBalances = async () => {
+    const visibleIds = sources.map(source => source.id);
+    if (visibleIds.length) {
+      const result = await supabase.from('fontes').select('id,balance').in('id', visibleIds);
+      if (result.error) throw result.error;
+      setBalanceOverrides(Object.fromEntries((result.data || []).map(row => [row.id, Number(row.balance)])));
+    }
+    const snapshot = await personalWalletService.loadOverview();
+    setTransferAccounts(snapshot.accounts);
+  };
   const walletOwnerId: string = activeUser?.id || '';
   const isPrimaryOwner = walletOwnerId !== '' && walletOwnerId !== 'DEMO' && !activeUser?.supervisor_id;
 
@@ -226,6 +270,23 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         </button>}
       />
 
+      {canTransferCapital && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/20 bg-slate-900 p-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-100">Capital disponível para movimentação contábil</p>
+            <p className="text-xs text-slate-400">Fontes com saldo positivo, exceto cartões e saldos espelhados em contas.</p>
+          </div>
+          <strong className="text-xl font-bold tabular-nums text-emerald-300">
+            {transferableCapital === null ? 'Verificando...' : formatMoney(transferableCapital, isStealthMode)}
+          </strong>
+          <button type="button" disabled={!transferAccounts || !transferableCapital}
+            onClick={() => setTransferSource(displayedSources.find(source =>
+              canMoveCapitalSource(source, transferAccounts || [])) || null)}
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-blue-500/40 bg-blue-950/30 px-4 text-xs font-semibold text-blue-200 hover:bg-blue-900/40 disabled:opacity-40">
+            Transferir capital para conta
+          </button>
+        </div>
+      )}
       {sourceReferenceError && isPrimaryOwner && (
         <p role="alert" className="text-xs text-amber-300">
           Não foi possível atualizar os valores associados da Minha Carteira.
@@ -233,7 +294,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       )}
 
       <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-        {sources.map(source => (
+        {displayedSources.map(source => (
           <SourceCard
             key={source.id}
             source={source}
@@ -243,9 +304,22 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
             onDelete={(id) => openConfirmation({ type: 'DELETE_SOURCE', target: id })}
             isStealthMode={isStealthMode}
             referenceDisplay={sourceReferences[source.id] ?? null}
+            onTransferToAccount={canTransferCapital && transferAccounts
+              && canMoveCapitalSource(source, transferAccounts) ? setTransferSource : undefined}
           />
         ))}
       </div>
+
+      {transferSource && activeUser && (
+        <CapitalSourceTransferModal
+          profileId={activeUser.profile_id || activeUser.id}
+          sources={displayedSources}
+          accounts={transferAccounts || undefined}
+          initialSourceId={transferSource.id}
+          onClose={() => setTransferSource(null)}
+          onSaved={refreshTransferBalances}
+        />
+      )}
 
       {ui.editingSource && (
         <Modal

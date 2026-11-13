@@ -14,6 +14,7 @@ interface SourceCardProps {
     loans: Loan[];
     onEdit: (source: CapitalSource) => void;
     onAddFunds: (source: CapitalSource) => void;
+    onTransferToAccount?: (source: CapitalSource) => void;
     onDelete: (id: string) => void;
     isStealthMode?: boolean;
     referenceDisplay?: SourceReferenceDisplay | null;
@@ -49,7 +50,7 @@ const getBankLogoUrl = (name: string): string | null => {
     return null;
 };
 
-export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onDelete, isStealthMode, referenceDisplay }) => {
+export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, onAddFunds, onTransferToAccount, onDelete, isStealthMode, referenceDisplay }) => {
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [imgError, setImgError] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
@@ -168,9 +169,18 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         ) : (
                             <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
                         )}
-                        <button onClick={(e) => { e.stopPropagation(); onAddFunds(source); }} className="w-full py-1.5 bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-500 rounded-lg text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                            <PlusCircle size={10}/> Adicionar Saldo
-                        </button>
+                        <div className="grid min-w-0 gap-1.5">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); onAddFunds(source); }}
+                            className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 px-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
+                            <PlusCircle size={13}/> Adicionar saldo
+                          </button>
+                          {onTransferToAccount && (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); onTransferToAccount(source); }}
+                              className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-950/30 px-2 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                              Transferir para conta
+                            </button>
+                          )}
+                        </div>
                     </div>
                 </div>
             </div>

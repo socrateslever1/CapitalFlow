@@ -54,7 +54,10 @@ export function buildAccountStatementEntries(input: {
       const other = input.accounts.find(account => account.id === otherId);
       let tag: AccountStatementEntry['tag'] = 'Movimentação';
       let category = operation.category;
-      if (operation.operation_type === 'TRANSFER') {
+      if (operation.operation_type === 'CAPITAL_TRANSFER') {
+        tag = 'Transferência do Capital';
+        category = 'Movimentação contábil entre fonte e conta';
+      } else if (operation.operation_type === 'TRANSFER') {
         tag = 'Transferência interna';
         category = `${incoming ? 'Recebida de' : 'Enviada para'} ${other?.nickname || 'outra conta'}`;
       } else if (operation.operation_type === 'EXTERNAL_TRANSFER') {

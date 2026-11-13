@@ -45,6 +45,7 @@ export type WalletRecurringReceipt = { id: string; income_id: string; reference_
 
 export type PersonalWalletAccount = {
   id: string;
+  created_at?: string | null;
   nickname: string;
   bank_name: string | null;
   account_type: string;

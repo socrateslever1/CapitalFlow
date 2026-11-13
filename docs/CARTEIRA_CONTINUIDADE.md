@@ -1,3 +1,12 @@
+## 13/11/2026 — transferência contábil Capital → Minha Carteira e legibilidade
+
+- **Layout:** `LoanFundingCostFields.tsx` reflow responsivo por largura real, rótulos com altura coerente e inputs financeiros inteiros; sem alteração em juros, fórmula de custo nem principal.
+- **Saldo disponível:** Fontes e Contas exibem o total operacional elegível (saldo positivo, excluindo cartão e conta espelho); não confundir com dinheiro bancário nem com lucro realizado/Caixa Livre.
+- **Movimentação:** RPC `capital_source_transfer_to_wallet` cria débito na fonte e crédito na conta com auditoria e chave idempotente; novo tipo `CAPITAL_TRANSFER` aparece no extrato, mas não como receita nova. Usuário precisa escolher origem/conta/valor e confirmar. **Não é PIX/TED**.
+- **Autorizações:** usa `is_platform_super_admin` no Supabase, valida vínculo ao perfil, conta própria e marco de reinício; fonte de crédito ou espelho bloqueada. Conta com fonte espelhada diferente sincroniza pelo trigger existente após validar igualdade prévia. Nenhuma movimentação histórica executada.
+- **UX:** ação disponível nos cartões das Fontes e na tela Contas, sem duplicação do botão Criar carteira física, cuja opção continua em Nova conta.
+- **Testes:** `tests/wallet/capital-source-transfer.test.ts` e `tests/architecture/capital-source-wallet-transfer.test.mjs`; a execução do CI e a aplicação da migration devem ser verificadas separadamente. Não há teste real em celular ou transação bancária.
+
 ## 11/11/2026 — Revisão de recebimentos, histórico jurídico e clareza do balanço
 
 - Diagnóstico do Jurídico: o perfil principal possuía 53 registros gerados, incluindo 14 cancelados, 33 pendentes, 5 em assinatura e 1 assinado. Vários documentos tinham versões/duplicatas por contrato. Esses documentos não foram excluídos automaticamente.

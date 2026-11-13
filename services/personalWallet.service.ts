@@ -45,6 +45,7 @@ export type WalletRecurringReceipt = { id: string; income_id: string; reference_
 
 export type PersonalWalletAccount = {
   id: string;
+  created_at?: string | null;
   nickname: string;
   bank_name: string | null;
   account_type: string;
@@ -340,6 +341,35 @@ const personalWalletServiceImpl = {
    * Vínculo opcional: RPC existente valida proprietário, saldo idêntico,
    * exclusividade da fonte e serialização. Não altera registros históricos.
    */
+  async transferCapitalSourceToAccount(input: {
+    profileId: string; sourceId: string; accountId: string;
+    amount: number; requestId: string;
+  }): Promise<{ operation_id: string; amount: number; idempotent_replay: boolean }> {
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuid.test(input.profileId) || !uuid.test(input.sourceId)
+      || !uuid.test(input.accountId) || !uuid.test(input.requestId)) {
+      throw new Error('Perfil, origem ou destino inválidos.');
+    }
+    if (!Number.isFinite(input.amount) || input.amount <= 0
+      || input.amount > 999999999.99
+      || Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 0.000001) {
+      throw new Error('Informe uma quantia válida em reais e centavos.');
+    }
+    assertWalletOnlineForWrite();
+    const { data, error } = await supabase.rpc('capital_source_transfer_to_wallet', {
+      p_profile_id: input.profileId,
+      p_source_id: input.sourceId,
+      p_account_id: input.accountId,
+      p_amount: input.amount,
+      p_request_id: input.requestId,
+    });
+    if (error) throw new Error(error.message);
+    if (!data || typeof data !== 'object' || typeof (data as any).operation_id !== 'string') {
+      throw new Error('Movimentação não confirmada pelo banco de dados.');
+    }
+    return data as { operation_id: string; amount: number; idempotent_replay: boolean };
+  },
+
   async linkAccountCapitalSource(accountId: string, sourceId: string | null): Promise<void> {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(accountId)) {
       throw new Error('Selecione uma conta válida.');
@@ -530,11 +560,15 @@ const personalWalletServiceImpl = {
   },
 
   async listHistoricalReceiptDestinations(): Promise<{ accounts: PersonalWalletAccount[]; capitalSources: CapitalSource[] }> {
-    const [accounts, capitalSources] = await Promise.all([
+    const [accounts, capitalSources, walletReset] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').is('archived_at', null).order('nickname').order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type,logo_url').is('archived_at', null).order('name').order('id').range(from, to)),
+      getActiveWalletReset(),
     ]);
-    return { accounts: accounts.data as PersonalWalletAccount[], capitalSources: capitalSources.data as CapitalSource[] };
+    return {
+      accounts: filterCurrentWalletRows(accounts.data as PersonalWalletAccount[], walletReset, 'accounts'),
+      capitalSources: capitalSources.data as CapitalSource[],
+    };
   },
 
   async reconcileHistoricalReceipt(input: {

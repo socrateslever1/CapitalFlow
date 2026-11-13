@@ -24,3 +24,24 @@ test('transferência comprovada pelo mesmo valor e data não é receita nova', (
   assert.equal(isExternalIncome(entry('external', 'Serviço prestado', 'Outras receitas', 400), operations), true);
   assert.equal(isExternalIncome(entry('different', 'Transferência externa', 'Outras receitas', 180), operations), true);
 });
+
+test('lançamento anulado e operação compensatória não entram no histórico de receitas', () => {
+  const original = {
+    ...entry('income-arilson', 'Arilson', 'Outras receitas', 2000, 'INCOME', '2026-11-13'),
+    voided_at: '2026-11-13T04:31:48Z',
+    voids_operation_id: null,
+  };
+  const compensation = {
+    ...entry('refund-arilson', 'Estorno: Arilson', 'Estorno de lançamento', 2000, 'INCOME', '2026-11-13'),
+    voided_at: '2026-11-13T04:31:48Z',
+    voids_operation_id: 'income-arilson',
+  };
+  const active = entry('new-arilson', 'Arilson', 'Outras receitas', 2000, 'INCOME', '2026-11-06');
+  const operations = [original, compensation, active];
+  const total = operations
+    .filter(operation => isExternalIncome(operation, operations))
+    .reduce((sum, operation) => sum + operation.amount, 0);
+  assert.equal(total, 2000);
+  assert.equal(isExternalIncome(original, operations), false);
+  assert.equal(isExternalIncome(compensation, operations), false);
+});

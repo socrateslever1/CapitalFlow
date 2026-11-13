@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Plus, QrCode, ReceiptText, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Plus, QrCode, ReceiptText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
@@ -14,6 +14,9 @@ import { CreateAccountModal } from '../../../components/wallet/CreateAccountModa
 import QuickExpenseModal from '../components/QuickExpenseModal';
 import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
 import { buildWalletBalanceFacts, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
+import { platformAdminService } from '../../../services/platformAdmin.service';
+import { CapitalSourceTransferModal } from '../components/CapitalSourceTransferModal';
+import { getMovableCapitalTotal } from '../domain/capitalSourceTransfer';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,6 +26,18 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const [movementOpen, setMovementOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [capitalTransferOpen, setCapitalTransferOpen] = useState(false);
+  const [canTransferCapital, setCanTransferCapital] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    setCanTransferCapital(false);
+    if (activeUser?.id) {
+      void platformAdminService.isSuperAdmin()
+        .then(allowed => { if (mounted) setCanTransferCapital(allowed); })
+        .catch(() => { if (mounted) setCanTransferCapital(false); });
+    }
+    return () => { mounted = false; };
+  }, [activeUser?.id]);
 
   const startCreate = (accountType: 'CHECKING' | 'CASH') => {
     setCreateModalType(accountType);
@@ -39,6 +54,9 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
   const selected = data?.accounts.find(account => account.id === selectedId);
   const totalBalance = data?.accounts.reduce((total, account) => total + Number(account.balance || 0), 0) || 0;
   const hasPixAccount = Boolean(data?.accounts.some(account => account.pix_key?.trim()));
+  const capitalMovable = useMemo(() =>
+    getMovableCapitalTotal(data?.capitalSources || [], data?.accounts || []),
+    [data?.capitalSources, data?.accounts]);
 
   const balanceFacts = useMemo(() => {
     if (!data?.accounts) return null;
@@ -84,12 +102,25 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             {data.accounts.length} {data.accounts.length === 1 ? 'conta registrada' : 'contas registradas'}
           </p>
 
+          {canTransferCapital && (
+            <div className="mt-4 rounded-lg border border-blue-500/20 bg-blue-950/20 p-3">
+              <p className="text-xs font-medium text-slate-300">Capital transferível das fontes</p>
+              <strong className="mt-1 block text-xl font-bold tabular-nums text-emerald-300">
+                <PrivateMoney value={formatMoney(capitalMovable)} />
+              </strong>
+              <p className="mt-1 text-xs text-slate-400">Saldo contábil, sem limite de cartões nem contas espelho. Não é saldo bancário.</p>
+            </div>
+          )}
           {/* No desktop, as ações ficam integradas ao card lateral de resumo para evitar botões soltos e espaço vazio */}
           <div className="mt-5 hidden space-y-2.5 border-t border-slate-800 pt-4 lg:block">
             <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <ArrowLeftRight size={17}/> Transferir / Movimentar
             </button>
+            {canTransferCapital && <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/40 px-4 py-2.5 text-sm font-semibold text-blue-200 transition-colors hover:bg-blue-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <ArrowLeftRight size={17}/> Transferir do Capital
+            </button>}
             <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <QrCode size={16} className="text-blue-300"/> Gerar cobrança PIX
@@ -107,10 +138,6 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
                 <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
                   className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
                   <ReceiptText size={16}/> Registrar despesa
-                </button>
-                <button type="button" onClick={() => startCreate('CASH')}
-                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                  <Wallet size={15} className="text-amber-300"/>Adicionar carteira física
                 </button>
                 <button
                   type="button"
@@ -132,6 +159,10 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <ArrowLeftRight size={18}/> Transferir / Movimentar
             </button>
+            {canTransferCapital && <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-3 text-sm font-semibold text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <ArrowLeftRight size={18}/> Transferir do Capital
+            </button>}
             <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <QrCode size={17} className="text-blue-300"/> Gerar cobrança PIX
@@ -164,6 +195,12 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         requireExplicitDestination={data.accounts.length !== 1}
         onClose={() => setExpenseOpen(false)}
         onSaved={async () => { await refresh(); }}
+      />}
+      {capitalTransferOpen && activeUser && <CapitalSourceTransferModal
+        profileId={activeUser.profile_id || activeUser.id}
+        sources={data.capitalSources || []} accounts={data.accounts}
+        onClose={() => setCapitalTransferOpen(false)}
+        onSaved={refresh}
       />}
       {movementOpen && <AccountMovementModal accounts={data.accounts} cards={data.cards}
         expenses={data.expenses} installments={data.installments}

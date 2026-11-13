@@ -59,7 +59,7 @@
     "test:wallet-fast-path": "tsx --test tests/wallet/wallet-overview-fast-path.test.ts tests/wallet/wallet-overview-account-identity.test.ts",
     "test:wallet-onboarding-schema": "tsx --test tests/wallet/wallet-onboarding-schema.test.ts",
     "test:wallet-native-inbox": "tsx --test tests/wallet/wallet-native-file-inbox.test.ts",
-    "test:wallet-receipts": "tsx --test tests/wallet/wallet-quick-receipts.test.ts tests/financial/wallet-route-integration.test.ts && node --test tests/architecture/quick-receipt-destination-ui.test.mjs",
+    "test:wallet-receipts": "tsx --test tests/wallet/wallet-quick-receipts.test.ts tests/financial/wallet-route-integration.test.ts && node --test tests/architecture/quick-receipt-destination-ui.test.mjs && node --test tests/architecture/historical-receipt-reconciliation.test.mjs tests/financial/historical-receipt-reconciliation.test.mjs",
     "test:android-release-resilience": "node --test tests/architecture/android-release-resilience.test.mjs",
     "test:public-app-links": "tsx --test tests/portal/public-app-url.test.ts",
     "test:monthly-balance": "tsx --test tests/financial/monthly-balance.test.ts",

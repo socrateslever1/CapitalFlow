@@ -530,11 +530,15 @@ const personalWalletServiceImpl = {
   },
 
   async listHistoricalReceiptDestinations(): Promise<{ accounts: PersonalWalletAccount[]; capitalSources: CapitalSource[] }> {
-    const [accounts, capitalSources] = await Promise.all([
+    const [accounts, capitalSources, walletReset] = await Promise.all([
       loadAllWalletRows((from, to) => supabase.from('personal_wallet_accounts').select('*').is('archived_at', null).order('nickname').order('id').range(from, to)),
       loadAllWalletRows((from, to) => supabase.from('fontes').select('id,profile_id,name,balance,type,logo_url').is('archived_at', null).order('name').order('id').range(from, to)),
+      getActiveWalletReset(),
     ]);
-    return { accounts: accounts.data as PersonalWalletAccount[], capitalSources: capitalSources.data as CapitalSource[] };
+    return {
+      accounts: filterCurrentWalletRows(accounts.data as PersonalWalletAccount[], walletReset, 'accounts'),
+      capitalSources: capitalSources.data as CapitalSource[],
+    };
   },
 
   async reconcileHistoricalReceipt(input: {

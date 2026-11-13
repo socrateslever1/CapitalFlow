@@ -8,9 +8,14 @@ export type IncomeOperation = {
   amount: number;
   description: string;
   category?: string | null;
+  voided_at?: string | null;
+  voids_operation_id?: string | null;
 };
 const normalized = (value: string): string => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 export function isExternalIncome(op: IncomeOperation, operations: readonly IncomeOperation[]): boolean {
+  // Estorno e registro anulado permanecem no livro de auditoria,
+  // mas nunca são receita válida no histórico operacional.
+  if (op.voided_at || op.voids_operation_id) return false;
   if (op.operation_type !== 'INCOME') return false;
   const category = normalized(op.category || '');
   const description = normalized(op.description || '');

@@ -977,3 +977,10 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Escopo:** sem alteração de RPCs, migrations, `App.tsx`, `sync.service.ts` ou RLS.
 - **Aplicação remota verificada:** a migration foi aplicada no projeto Supabase `hzchchbxkhryextaymkn` como `20261113193409_unify_receipt_destination_flow`; a RPC remota agora usa o preparador de destino e o roteador canônicos, sem inserir diretamente na tabela de destinos nem apagar operações financeiras.
 - **Prévia remota:** existem 107 recebimentos concluídos, 106 elegíveis para revisão histórica e 0 já roteados; nenhum recebimento foi movido automaticamente. A conciliação individual continua pendente de escolha explícita de destino.
+
+## 13/11/2026 - Visibilidade interna do custo de captação
+
+- O Extrato passou a mostrar o **Custo de captação previsto** do período, derivado de `funding_cost`/`funding_total_payable` dos contratos, separado da dívida e dos documentos do cliente.
+- O resumo é somente leitura: não altera principal, juros do cliente, saldos, faturas, limites, ledger ou recebimentos, e não cria uma segunda despesa no cartão.
+- Testes adicionados em `tests/financial/funding-cost-report.test.ts`; `npm run test:financial`, `npm run test:wallet-visual-next`, `npm run test:architecture` e `npm run build` passaram.
+- Limitação explícita: esta etapa ainda não concilia automaticamente o custo previsto com uma compra já existente na fatura. A integração de lançamento/conciliação exige uma etapa própria com cartão, contrato, ciclo da fatura e idempotência confirmados.

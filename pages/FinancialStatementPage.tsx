@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase';
 import { safeUUID } from '../utils/uuid';
 import { getPaymentGroupKey, groupPaymentReceipts } from '../utils/paymentGroups';
 import { PageHeader } from '../components/ui/PageHeader';
+import { buildFundingCostReport } from '../domain/finance/fundingCostReport';
 
 interface FinancialStatementPageProps {
   profileId: string;
@@ -302,6 +303,11 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
       return dateKey >= selectedPeriod.startKey && dateKey <= selectedPeriod.endKey;
     });
   }, [movements, selectedPeriod]);
+
+  const fundingCostReport = useMemo(
+    () => buildFundingCostReport(operationalLoans, selectedPeriod, operationalSources),
+    [operationalLoans, operationalSources, selectedPeriod],
+  );
 
   const reversedPaymentGroups = useMemo(() => {
     const groups = new Set<string>();
@@ -675,6 +681,32 @@ export const FinancialStatementPage: React.FC<FinancialStatementPageProps> = ({
             <p className="mt-2 text-[10px] leading-4 text-slate-500">
               Recebe juros, mora e multa. O capital volta para a fonte do contrato; as duas partes aparecem detalhadas em um único recebimento.
             </p>
+          </div>
+
+          <div className="rounded-md border border-amber-500/20 bg-slate-900/70 p-4">
+            <div className="text-[10px] font-bold uppercase text-amber-300">Custo de captação previsto</div>
+            <div className="mt-2 text-xl font-black text-amber-200">{formatMoney(fundingCostReport.totalCost, isStealthMode)}</div>
+            <p className="mt-2 text-[10px] leading-4 text-slate-500">
+              Custo interno do cartão/financiador no período. Não altera a dívida do cliente nem representa pagamento de fatura.
+            </p>
+            {fundingCostReport.rows.some((row) => row.needsCardReconciliation) && (
+              <p className="mt-2 rounded-md border border-amber-500/20 bg-amber-950/20 px-2 py-1.5 text-[10px] leading-4 text-amber-200">
+                Há custo de cartão que precisa ser conferido na fatura. Nenhuma despesa foi criada automaticamente.
+              </p>
+            )}
+            {fundingCostReport.rows.length > 0 && (
+              <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
+                {fundingCostReport.rows.slice(0, 5).map((row) => (
+                  <div key={row.loanId} className="flex items-center justify-between gap-3 text-[10px]">
+                    <span className="min-w-0 truncate text-slate-400">{row.debtorName}</span>
+                    <span className="shrink-0 font-bold text-amber-200">{formatMoney(row.fundingCost, isStealthMode)}</span>
+                  </div>
+                ))}
+                {fundingCostReport.rows.length > 5 && (
+                  <p className="text-[9px] text-slate-600">+ {fundingCostReport.rows.length - 5} contratos no período</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="rounded-md border border-slate-800 bg-slate-900/70">

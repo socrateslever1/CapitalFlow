@@ -89,6 +89,7 @@ const typeByItem: Record<string, InAppNotification['type']> = {
   parcela: 'info',
   acordo: 'warning',
   cliente: 'info',
+  admin_signup: 'info',
 };
 
 export const useAppNotifications = ({
@@ -369,6 +370,10 @@ export const useAppNotifications = ({
           if (mapped.item_type === 'cliente' && mapped.metadata?.registration_status === 'PENDING_REVIEW') {
             showToast('Novo cadastro aguardando análise.', 'info');
             onDataChanged?.();
+          }
+          if (mapped.item_type === 'admin_signup') {
+            showToast(mapped.message || 'Novo usuário acabou de se cadastrar no sistema.', 'info');
+            notificationService.notify(mapped.title, mapped.message);
           }
         }
       )

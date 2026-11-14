@@ -107,7 +107,11 @@ export const AppShell: React.FC<AppShellProps> = ({
 
     fetchUnread();
 
-    const channel = supabase.channel('support-notifications-main')
+    // Cada montagem precisa de um tópico próprio: em React Strict Mode o cleanup
+    // do canal anterior é assíncrono e o Supabase rejeita callbacks adicionados
+    // a um tópico que ainda está inscrito.
+    const channelName = `support-notifications-main-${activeUser.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const channel = supabase.channel(channelName)
         .on('postgres_changes', {
             event: 'INSERT',
             schema: 'public',

@@ -1026,3 +1026,11 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Auth (`features/auth/AuthScreen.tsx`, `features/auth/AuthCommercialSection.tsx`, `i18n/locales/*.ts`):** adicionada seção comercial rolável abaixo da dobra (`100dvh`) com apresentação em 3 passos, vantagens reais da operação (incluindo Fontes e Carteira integradas, sem prometer gestão de equipe ainda incompleta), comparativo Free/Pro e retorno suave ao topo.
 - **Merge da branch de auditoria (`claude/jolly-heisenberg-s9ob7a` / `f330607`):** incorporadas na `main` as correções de data civil em `America/Manaus` para acordos (`agreementDates.ts`), contas a pagar (`payablesDomain.ts`, `PersonalWalletPage.tsx`), `services/paymentOffers.service.test.ts` e a suíte `test:audit` no `package.json`.
 - **Limitações:** alterações de interface, datas de negócio e testes; sem alteração de RPCs, migrations, ledger ou RLS neste commit. Sem validação em aparelho físico.
+
+## 14/11/2026 - Lançamentos fixos embutidos no detalhe da conta
+
+- Receitas fixas (salário, pensão, aluguel recebido e similares) agora aparecem dentro do detalhe da conta de destino, com cadastro, confirmação mensal idempotente e desativação.
+- Despesas/pagamentos fixos agora aparecem dentro do detalhe da conta de origem, com cadastro, geração idempotente dos próximos vencimentos e pausa/reativação.
+- A página separada `Receitas` deixou de aparecer na navegação; links antigos para `/carteira/receitas` são direcionados para `Contas`, sem apagar os serviços, registros ou histórico existentes.
+- O extrato, o FAB, os lançamentos avulsos e os fluxos de pagamentos de contratos permanecem inalterados. Nenhuma migration, RPC, ledger, pagamento, estorno ou RLS foi alterado.
+- Validação executada após a implementação: TypeScript, arquitetura da Carteira, visão geral, páginas, testes visuais da Carteira e recebimentos. Sem validação em aparelho físico.

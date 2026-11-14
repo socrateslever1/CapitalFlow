@@ -1,5 +1,12 @@
 import { supabase } from '../lib/supabase';
 
+function isNetworkFailure(error: unknown): boolean {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  if (error instanceof TypeError) return true;
+  const text = String((error as { message?: unknown } | null)?.message || error || '');
+  return /failed to fetch|networkerror|network request failed|load failed|fetch failed|internet|offline|connection/i.test(text);
+}
+
 export type PlatformProfileSummary = {
   id: string;
   user_id: string | null;
@@ -18,9 +25,17 @@ export type PlatformFeatureConfiguration = {
 
 export const platformAdminService = {
   async isSuperAdmin() {
-    const { data, error } = await supabase.rpc('is_platform_super_admin');
-    if (error) throw new Error(error.message);
-    return data === true;
+    // O acesso offline da Carteira não prova privilégio administrativo.
+    // Sem confirmação do RPC, ações de SUPER_ADMIN permanecem bloqueadas.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+    try {
+      const { data, error } = await supabase.rpc('is_platform_super_admin');
+      if (error) throw new Error(error.message);
+      return data === true;
+    } catch (error) {
+      if (isNetworkFailure(error)) return false;
+      throw error;
+    }
   },
 
   async listProfiles(): Promise<PlatformProfileSummary[]> {

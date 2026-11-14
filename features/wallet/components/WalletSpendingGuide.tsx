@@ -144,7 +144,7 @@ export const WalletSpendingGuide: React.FC<{
               <p className="text-xs leading-relaxed text-slate-200">
                 {formatMoney(pendingIncome)} em receitas recorrentes previstas ainda não recebidas.
               </p>
-              <button type="button" onClick={() => onNavigate('receitas')}
+              <button type="button" onClick={() => onNavigate('contas')}
                 className="mt-1 text-xs font-semibold text-blue-300 hover:text-blue-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
                 Conferir receitas <ArrowRight size={13} className="inline"/>
               </button>

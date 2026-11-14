@@ -60,9 +60,19 @@ test('only authorized master preloads wallet view code; no preloading private re
   assert.match(app, /!isPlatformSuperAdmin \|\| isPublicView/);
   assert.match(app, /import\('\.\/features\/wallet\/WalletModule'\)/);
   assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletOverviewPage'\)/);
+  assert.match(app, /import\('\.\/features\/wallet\/services\/walletRepository'\)/);
   assert.match(app, /walletRepository\.loadOverview\(\)/);
+  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletCardsPage'\)/);
+  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletAccountsPage'\)/);
+  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletPayablesPage'\)/);
+  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletIncomePage'\)/);
+  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletReportPage'\)/);
   assert.doesNotMatch(app, /localStorage\.setItem.*wallet|indexedDB\.open.*wallet/);
 
+  const platformAdmin = read('services/platformAdmin.service.ts');
+  assert.match(platformAdmin, /isNetworkFailure/);
+  assert.match(platformAdmin, /SUPER_ADMIN.*bloqueadas/);
+  assert.doesNotMatch(platformAdmin, /loadWalletOfflineAccess/);
 });
 
 test('legal hub displays documents and legal tools but no second contract dashboard', () => {

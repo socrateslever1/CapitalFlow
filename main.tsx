@@ -168,7 +168,11 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
     }
   };
 
-  window.addEventListener('load', () => {
+  if (document.readyState === 'complete') {
     void registerServiceWorker();
-  });
+  } else {
+    window.addEventListener('load', () => {
+      void registerServiceWorker();
+    }, { once: true });
+  }
 }

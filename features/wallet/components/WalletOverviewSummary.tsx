@@ -41,8 +41,13 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
           </span>
         </header>
         {multipleAccounts && (
-          <div className="mt-2.5 flex items-baseline justify-between gap-2 rounded-lg bg-slate-950/60 px-2.5 py-2">
-            <span className="text-xs text-slate-300">Saldo consolidado</span>
+          <div className="mt-2.5 flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400">
+              <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                Total
+              </span>
+              <span>Saldo consolidado</span>
+            </span>
             <strong className={'text-base font-bold tabular-nums ' +
               (privacyHidden ? 'text-slate-300' : accountBalance < 0 ? 'text-rose-300' : 'text-emerald-300')}>
               <PrivateMoney value={formatMoney(accountBalance)}/>

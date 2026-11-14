@@ -37,7 +37,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
           Nenhuma conta cadastrada.
         </div>
       ) : (
-        <div className={compact ? 'divide-y divide-slate-800' : 'grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-3'}>
+        <div className={compact ? 'divide-y divide-slate-800' : 'grid min-w-0 gap-2.5 sm:grid-cols-2 2xl:grid-cols-3'}>
           {accounts.map(account => {
             const isCash = account.account_type === 'CASH';
             const visual = getBankVisual(account.institution_key || account.bank_name || account.nickname);
@@ -47,7 +47,7 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
               : walletAccountTypeLabel(account.account_type);
             return (
               <button key={account.id} type="button" onClick={() => onOpen(account)}
-                className={`group flex w-full min-w-0 gap-2.5 px-2.5 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${compact ? 'min-h-12 items-center justify-between rounded-lg hover:bg-slate-800/60' : 'min-h-[132px] flex-col items-stretch justify-between rounded-xl border border-slate-700/80 bg-slate-950/70 p-4 hover:border-slate-600 hover:bg-slate-950'}`}>
+                className={`group flex w-full min-w-0 gap-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${compact ? 'min-h-12 items-center justify-between rounded-lg px-2.5 py-2.5 hover:bg-slate-800/60' : 'min-h-[68px] items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2.5 hover:border-slate-700 hover:bg-slate-900/90'}`}>
                 <span className="flex min-w-0 flex-1 items-center gap-3">
                   <span
                     aria-hidden="true"
@@ -59,28 +59,28 @@ export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = 
                   </span>
                   <span className="min-w-0 flex-1">
                     <strong className="block truncate text-sm sm:text-base font-semibold text-white">{account.nickname}</strong>
-                    <span className="mt-0.5 block truncate text-xs sm:text-sm text-slate-300">
+                    <span className="mt-0.5 block truncate text-xs text-slate-400">
                       {bankSubtitle}
                     </span>
                   </span>
                 </span>
-                <span className={`${compact ? 'ml-auto shrink-0' : 'w-full border-t border-slate-800 pt-3'} flex min-w-0 items-center justify-between gap-2.5 text-right`}>
-                  <span className={compact ? '' : 'min-w-0 text-left'}>
-                    {!compact && <span className="block text-xs text-slate-300">Saldo disponível</span>}
-                    <strong className={`mt-0.5 block break-words font-bold tabular-nums ${compact ? 'text-sm sm:text-base' : 'text-base sm:text-lg'} ${privacyHidden ? 'text-slate-300' : balanceValue < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                <span className="ml-auto flex shrink-0 items-center gap-2.5 text-right">
+                  <span className="min-w-0 text-right">
+                    {!compact && <span className="block text-[11px] font-medium text-slate-400">Saldo disponível</span>}
+                    <strong className={`block break-words font-bold tabular-nums ${compact ? 'text-sm sm:text-base' : 'text-sm sm:text-base'} ${privacyHidden ? 'text-slate-300' : balanceValue < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
                       <PrivateMoney value={formatMoney(balanceValue)} />
                     </strong>
                   </span>
-                  <ArrowUpRight size={17} aria-hidden="true" className="shrink-0 text-slate-400 transition-colors group-hover:text-blue-300" />
+                  <ArrowUpRight size={16} aria-hidden="true" className="shrink-0 text-slate-500 transition-colors group-hover:text-blue-300" />
                 </span>
               </button>
             );
           })}
         </div>
       )}
-      {!compact && accounts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 px-3 pt-4">
-        <span className="text-sm font-semibold text-slate-200">Saldo consolidado</span>
-        <strong className={`text-right text-lg sm:text-xl font-extrabold tabular-nums ${privacyHidden ? 'text-slate-300' : total < 0 ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={formatMoney(total)} /></strong>
+      {!compact && accounts.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">Saldo consolidado</span>
+        <strong className={`text-right text-base sm:text-lg font-extrabold tabular-nums ${privacyHidden ? 'text-slate-300' : total < 0 ? 'text-rose-300' : 'text-emerald-300'}`}><PrivateMoney value={formatMoney(total)} /></strong>
       </div>}
     </section>
   );

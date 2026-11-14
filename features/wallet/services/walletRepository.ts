@@ -22,6 +22,8 @@ let initializedUser: string | null = null;
 let initialization: Promise<void> | null = null;
 let prefetchedUser: string | null = null;
 let prefetchInFlight: Promise<boolean> | null = null;
+let lastResolvedUserId: string | null = null;
+let lastVerifiedAccess: { userId: string; active: boolean; settings: Record<string, unknown> } | null = null;
 
 function isBrowserOffline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -76,12 +78,30 @@ async function resolveSessionUserId(): Promise<string> {
     initializedUser = null;
     initialization = null;
     prefetchedUser = null;
+    lastResolvedUserId = null;
+    lastVerifiedAccess = null;
     throw new Error('Sessão não encontrada. Entre novamente para abrir a Carteira.');
   }
+  lastResolvedUserId = userId;
   return userId;
 }
 
 export const walletRepository = {
+  peekSyncAccess(): { userId: string; active: boolean; settings: Record<string, unknown> } | null {
+    if (!lastResolvedUserId || !lastVerifiedAccess || lastVerifiedAccess.userId !== lastResolvedUserId) return null;
+    return lastVerifiedAccess.active ? lastVerifiedAccess : null;
+  },
+  peekSyncFull(): WalletSnapshot | null {
+    if (!lastResolvedUserId) return null;
+    return snapshotCache.peekLast(lastResolvedUserId);
+  },
+  peekSyncOverview(): WalletOverviewSnapshot | null {
+    if (!lastResolvedUserId) return null;
+    const overview = overviewCache.peekLast(lastResolvedUserId);
+    if (overview) return overview;
+    const full = snapshotCache.peekLast(lastResolvedUserId);
+    return full ? deriveOverviewFromSnapshot(full) : null;
+  },
   async peekCachedFull(): Promise<WalletSnapshot | null> {
     try {
       const userId = await resolveSessionUserId();
@@ -264,13 +284,19 @@ export const walletRepository = {
         .maybeSingle();
       if (error) throw new Error(error.message);
       const result = data ? { active: Boolean(data.ativo), settings: data.configuracoes ?? {} } : { active: false, settings: {} };
-      accessCache.set(userId, { ...result, expiresAt: Date.now() + 60_000 });
-      if (result.active) await saveWalletOfflineAccess(userId, result);
+      accessCache.set(userId, { ...result, expiresAt: Date.now() + 300_000 });
+      if (result.active) {
+        lastVerifiedAccess = { userId, ...result };
+        await saveWalletOfflineAccess(userId, result);
+      }
       return result;
     } catch (error) {
       if (isNetworkFailure(error)) {
         const offlineAccess = await loadWalletOfflineAccess(userId);
-        if (offlineAccess) return offlineAccess;
+        if (offlineAccess) {
+          if (offlineAccess.active) lastVerifiedAccess = { userId, ...offlineAccess };
+          return offlineAccess;
+        }
       }
       throw error;
     }

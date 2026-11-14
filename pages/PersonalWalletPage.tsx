@@ -446,6 +446,9 @@ export const PersonalWalletPage: React.FC<PersonalWalletPageProps> = ({ activeUs
       accounts={data.accounts}
       accountOperations={data.accountOperations}
       statementRows={data.statementRows}
+      recurringIncomes={data.recurringIncomes}
+      recurringReceipts={data.recurringReceipts}
+      recurringObligations={data.recurringObligations}
       ownerName={activeUser?.fullName || activeUser?.name}
       ownerCity={activeUser?.city}
       onBack={() => setSelectedAccountId(null)}

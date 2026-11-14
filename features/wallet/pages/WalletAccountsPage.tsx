@@ -76,7 +76,8 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
-      statementRows={data.statementRows} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
+      statementRows={data.statementRows} recurringIncomes={data.recurringIncomes} recurringReceipts={data.recurringReceipts}
+      recurringObligations={data.recurringObligations} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
       {/* Composição mobile-first (1: Resumo no topo, 2: Contas em lista, 3: Ações abaixo) e desktop 8/4 equilibrado */}
       <div className="grid min-w-0 items-start gap-4 lg:grid-cols-12">

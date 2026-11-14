@@ -348,7 +348,7 @@ export const useAppNotifications = ({
     });
 
     const channel = supabase
-      .channel(`notification-center-${notificationProfileId}`)
+      .channel(`notification-center-${notificationProfileId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         {
@@ -407,7 +407,7 @@ export const useAppNotifications = ({
     if (!activeUser || !notificationProfileId || disabled) return;
 
     const channel = supabase
-      .channel(`global-urgent-alerts-${notificationProfileId}`)
+      .channel(`global-urgent-alerts-${notificationProfileId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         'postgres_changes',
         {

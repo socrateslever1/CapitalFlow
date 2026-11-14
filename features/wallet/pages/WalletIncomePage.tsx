@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownToLine, Plus, ReceiptText, ArrowLeftRight } from 'lucide-react';
+import { ArrowDownToLine, ArrowLeftRight, ReceiptText } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import { RecurringIncomePanel } from '../../../components/wallet/RecurringIncomePanel';
 import { formatMoney } from '../../../utils/formatters';
@@ -10,7 +10,6 @@ import { isExternalIncome } from '../domain/walletIncomeHistory';
 import { businessDateInManaus } from '../../../utils/businessDate';
 import { platformAdminService } from '../../../services/platformAdmin.service';
 
-const QuickIncomeModal = React.lazy(() => import('../components/QuickIncomeModal').then(module => ({ default: module.QuickIncomeModal })));
 const HistoricalReceiptReconciliationPanel = React.lazy(() =>
   import('../components/HistoricalReceiptReconciliationPanel')
     .then(module => ({ default: module.HistoricalReceiptReconciliationPanel })),
@@ -18,8 +17,7 @@ const HistoricalReceiptReconciliationPanel = React.lazy(() =>
 
 export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const { data, loading, error, refresh } = useWalletSnapshot();
-  const [quickIncomeOpen, setQuickIncomeOpen] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [canReconcile, setCanReconcile] = useState(false);
   useEffect(() => {
@@ -51,36 +49,49 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
   const accountNames = useMemo(() => new Map((data?.accounts || []).map(account => [account.id,account.nickname])),[data]);
 
   return <WalletPageFrame title="Receitas" description="Consulte entradas realizadas e organize recebimentos recorrentes."
-    actions={<div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={() => setQuickIncomeOpen(true)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
-        <Plus size={17}/> Receber valor
-      </button>
-      {canReconcile && <button type="button" aria-expanded={showReconciliation}
+    actions={canReconcile ? <div className="flex flex-wrap items-center gap-2">
+      <button type="button" aria-expanded={showReconciliation}
         onClick={() => setShowReconciliation(previous => !previous)}
         className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-blue-500/50 bg-blue-950/40 px-4 py-2.5 text-sm font-semibold text-blue-100 hover:bg-blue-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
         <ArrowLeftRight size={17}/> {showReconciliation ? 'Fechar conciliação' : 'Conciliar recebimentos de contratos'}
-      </button>}
-    </div>}
+      </button>
+    </div> : undefined}
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
-        <div>
-          <p className="text-sm font-semibold text-white">Recebimentos</p>
-          <p className="text-xs text-slate-400">Somente os saldos das contas representam dinheiro disponível.</p>
-        </div>
-        <button type="button" aria-pressed={showHistory} onClick={()=>setShowHistory(value=>!value)}
-          className={'min-h-10 rounded-lg border px-3 text-xs font-semibold '+
-          (showHistory?'border-emerald-500 text-emerald-200':'border-slate-700 text-blue-300')}>
-          {showHistory?'Ocultar histórico':'Histórico de entradas'}
-        </button>
-      </div>
-      <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
-        receivedIds={receivedIds} onSaved={async () => { await refresh(); }}/>
       {canReconcile && showReconciliation &&
         <React.Suspense fallback={<p role="status" className="rounded-xl border border-slate-700 p-4 text-sm text-slate-300">Carregando conciliação de recebimentos...</p>}>
           <HistoricalReceiptReconciliationPanel onSaved={async () => { await refresh(); }} />
         </React.Suspense>}
+      <div className="inline-flex w-full rounded-xl border border-slate-800 bg-slate-900/80 p-1 sm:w-auto" role="tablist" aria-label="Seções de receitas">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={showHistory}
+          onClick={() => setShowHistory(true)}
+          className={`flex-1 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors sm:flex-none ${
+            showHistory
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          }`}
+        >
+          Entradas do mês ({manualReceipts.length})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!showHistory}
+          onClick={() => setShowHistory(false)}
+          className={`flex-1 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors sm:flex-none ${
+            !showHistory
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          }`}
+        >
+          Receitas fixas ({data.recurringIncomes.filter(item => item.active).length})
+        </button>
+      </div>
+      {!showHistory && <RecurringIncomePanel accounts={data.accounts} incomes={data.recurringIncomes}
+        receivedIds={receivedIds} onSaved={async () => { await refresh(); }}/>}
       {showHistory && <section className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5" aria-label="Entradas avulsas já realizadas">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -109,12 +120,9 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
           Exibindo os oito recebimentos mais recentes. Consulte o extrato da conta para o histórico completo.
         </p>}
         <p className="mt-3 border-t border-slate-800 pt-3 text-xs text-slate-400">
-          Histórico de receitas já realizadas: não representa saldo a receber nem dinheiro ainda disponível. Saldos iniciais, ajustes, estornos e transferências internas são exibidos somente no extrato para evitar contagem duplicada.
+          Somente os saldos das contas representam dinheiro disponível. Saldos iniciais, ajustes, estornos e transferências internas são exibidos somente no extrato para evitar contagem duplicada.
         </p>
       </section>}
-      {quickIncomeOpen && <React.Suspense fallback={<div role="status" className="fixed inset-0 z-[2000] grid place-items-center bg-slate-950/80 text-sm text-slate-100">Preparando recebimento...</div>}>
-        <QuickIncomeModal onClose={() => { setQuickIncomeOpen(false); void refresh().catch(() => {}); }}/>
-      </React.Suspense>}
     </div>}
   </WalletPageFrame>;
 };

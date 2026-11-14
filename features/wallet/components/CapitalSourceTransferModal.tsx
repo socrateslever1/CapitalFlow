@@ -56,11 +56,29 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
 
   const eligible = useMemo(() => sources.filter(source =>
     canMoveCapitalSource(source, destinationAccounts)), [sources, destinationAccounts]);
+  useEffect(() => {
+    if (!ready) return;
+    if (!sourceId && eligible.length === 1) setSourceId(eligible[0].id);
+    if (!accountId && destinationAccounts.length === 1) setAccountId(destinationAccounts[0].id);
+  }, [ready, sourceId, accountId, eligible, destinationAccounts]);
   const source = sources.find(item => item.id === sourceId);
   const account = destinationAccounts.find(item => item.id === accountId);
   const linkedSource = account?.capital_source_id
     ? sources.find(item => item.id === account.capital_source_id) : null;
   const clearRequest = () => { requestId.current = generateUUID(); setError(''); };
+  const formatCentsInput = (value: number) =>
+    Math.max(0, Math.round(value * 100) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const applyQuickRatio = (ratio: number) => {
+    const balance = Number(source?.balance || 0);
+    if (balance <= 0) return;
+    const target = ratio >= 1 ? balance : Math.round(balance * ratio * 100) / 100;
+    setAmountText(formatCentsInput(target));
+    clearRequest();
+  };
+  const previewAmount = useMemo(() => {
+    if (!amountText.trim()) return 0;
+    try { return parseWalletMoney(amountText, 'valor da transferência'); } catch { return 0; }
+  }, [amountText]);
   const confirm = async () => {
     if (busyRef.current || !ready) return;
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -120,13 +138,51 @@ export const CapitalSourceTransferModal: React.FC<Props> = ({
           </select>
         </label>
         {linkedSource && <p className="text-xs text-blue-200">Esta conta espelha a fonte {linkedSource.name}; o saldo vinculado será sincronizado. Não conte as duas posições como dinheiro diferente.</p>}
-        <label className="block space-y-1.5 text-sm font-medium text-slate-200">
-          Valor em reais
-          <FinancialCalculatorInput value={amountText}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="capital-transfer-amount" className="text-sm font-medium text-slate-200">
+              Valor em reais
+            </label>
+            {source && Number(source.balance) > 0 && (
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: '25%', ratio: 0.25 },
+                  { label: '50%', ratio: 0.5 },
+                  { label: 'Tudo', ratio: 1 },
+                ].map(preset => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => applyQuickRatio(preset.ratio)}
+                    className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-slate-300 transition-colors hover:border-blue-500/60 hover:text-white"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <FinancialCalculatorInput id="capital-transfer-amount" value={amountText}
             onChange={event => { setAmountText(event.target.value); clearRequest(); }}
             placeholder="0,00" centsEntry
             className="min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-base text-white focus:border-blue-400" />
-        </label>
+        </div>
+        {source && account && previewAmount > 0 && (
+          <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3 text-xs space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 truncate">Fonte {source.name}</span>
+              <span className="font-bold tabular-nums text-slate-200">
+                {formatMoney(Number(source.balance))} → {formatMoney(Number(source.balance) - previewAmount)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-slate-400 truncate">Conta {account.nickname}</span>
+              <span className="font-bold tabular-nums text-emerald-300">
+                {formatMoney(Number(account.balance))} → {formatMoney(Number(account.balance) + previewAmount)}
+              </span>
+            </div>
+          </div>
+        )}
         <p className="text-xs leading-relaxed text-slate-400">A fonte será debitada e a conta creditada, com registro no extrato e auditoria. Não altera contratos, faturas nem movimenta dinheiro na instituição bancária.</p>
       </>}
     </div>

@@ -176,7 +176,21 @@ export const BANK_CATALOG: BankBrand[] = [
     "ispb": "18189547",
     "aliases": [
       "infinitepay",
+      "infinite pay",
+      "infity pay",
+      "infitypay",
       "cloudwalk"
+    ]
+  },
+  {
+    "id": "jota",
+    "name": "Jota",
+    "ispb": "00000001",
+    "aliases": [
+      "jota",
+      "jojta",
+      "banco jota",
+      "jota pagamentos"
     ]
   },
   {

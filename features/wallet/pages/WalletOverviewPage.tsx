@@ -170,7 +170,9 @@ const deriveOverview = (snapshot: WalletOverviewSnapshot, today: string) => {
 
 export const WalletOverviewPage: React.FC<Props> = ({ activeUser, onNavigate }) => {
   const privacyHidden = useFinancialPrivacy();
-  const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<WalletOverviewSnapshot | null>(() =>
+    typeof walletRepository.peekSyncOverview === 'function' ? walletRepository.peekSyncOverview() : null
+  );
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState(() => businessDateInManaus());

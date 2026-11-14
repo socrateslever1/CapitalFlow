@@ -258,24 +258,43 @@ useEffect(() => {
 useEffect(() => {
   if (!activeUser?.id || !isPlatformAccessChecked || !isPlatformSuperAdmin || isPublicView) return;
   let cancelled = false;
+  let completed = false;
   const preload = () => {
-    if (cancelled || document.visibilityState !== 'visible') return;
+    if (cancelled || completed || document.visibilityState !== 'visible') return;
+    completed = true;
     void import('./features/wallet/WalletModule').catch(() => undefined);
     void import('./features/wallet/pages/WalletOverviewPage').catch(() => undefined);
     // Preload one user-scoped overview snapshot after the main dashboard
     // becomes usable. The canonical repository keeps it in memory only
     // (25-second TTL, invalidated on updates and realtime notifications).
     void import('./features/wallet/services/walletRepository')
-      .then(({ walletRepository }) => {
+      .then(async ({ walletRepository }) => {
         void walletRepository.prefetchAccess().catch(() => undefined);
-        return walletRepository.loadOverview();
+        await walletRepository.loadOverview();
+        if (cancelled) return;
+        void import('./features/wallet/pages/WalletCardsPage').catch(() => undefined);
+        void import('./features/wallet/pages/WalletAccountsPage').catch(() => undefined);
+        void import('./features/wallet/pages/WalletPayablesPage').catch(() => undefined);
+        void import('./features/wallet/pages/WalletIncomePage').catch(() => undefined);
+        void import('./features/wallet/pages/WalletReportPage').catch(() => undefined);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        completed = false;
+      });
   };
   const timer = window.setTimeout(preload, 2500);
+  const onVisibleOrOnline = () => {
+    if (!completed && document.visibilityState === 'visible') {
+      preload();
+    }
+  };
+  document.addEventListener('visibilitychange', onVisibleOrOnline);
+  window.addEventListener('online', onVisibleOrOnline);
   return () => {
     cancelled = true;
     window.clearTimeout(timer);
+    document.removeEventListener('visibilitychange', onVisibleOrOnline);
+    window.removeEventListener('online', onVisibleOrOnline);
   };
 }, [activeUser?.id, isPlatformAccessChecked, isPlatformSuperAdmin, isPublicView]);
 

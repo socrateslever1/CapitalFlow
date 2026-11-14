@@ -279,43 +279,55 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         iconClassName="border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-emerald-950/30"
         title={<>Fontes de <span className="text-blue-500">Capital</span></>}
         subtitle="Gestão de fundos e liquidez"
-        actions={<button
-          onClick={() => ui.openModal('SOURCE_FORM')}
-          className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 shrink-0"
-        >
-          <Plus size={16} /> Nova Fonte
-        </button>}
-      />
-
-      {canTransferCapital && (
-        <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-800/80 pb-2 text-[10px]">
-          <p className="text-slate-500">Composição dos recursos — caixa e crédito não são somados.</p>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 tabular-nums">
-            <span className="text-emerald-300">
-              <span className="mr-1 text-slate-500">Transferível</span>
-              <strong>{transferableCapital === null ? 'Verificando...' : formatMoney(transferableCapital, isStealthMode)}</strong>
-            </span>
-            {associatedTotals.hasAccounts && (
-              <span className="text-blue-300">
-                <span className="mr-1 text-slate-500">Contas associadas</span>
-                <strong>{associatedTotals.incomplete ? 'Indisponível' : formatMoney(associatedTotals.accountCents / 100, isStealthMode)}</strong>
-              </span>
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {canTransferCapital && (
+              <>
+                <div className="inline-flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 text-[11px] tabular-nums">
+                  <span className="text-slate-400">
+                    Transferível{' '}
+                    <strong className="ml-1 text-emerald-400">
+                      {transferableCapital === null ? '...' : formatMoney(transferableCapital, isStealthMode)}
+                    </strong>
+                  </span>
+                  {associatedTotals.hasAccounts && (
+                    <span className="hidden sm:inline border-l border-slate-800 pl-3 text-slate-400">
+                      Contas{' '}
+                      <strong className="ml-1 text-blue-300">
+                        {associatedTotals.incomplete ? 'Indisponível' : formatMoney(associatedTotals.accountCents / 100, isStealthMode)}
+                      </strong>
+                    </span>
+                  )}
+                  {associatedTotals.hasCards && (
+                    <span className="hidden sm:inline border-l border-slate-800 pl-3 text-slate-400">
+                      Limites{' '}
+                      <strong className="ml-1 text-violet-300">
+                        {associatedTotals.incomplete ? 'Indisponível' : formatMoney(associatedTotals.cardCents / 100, isStealthMode)}
+                      </strong>
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={!transferAccounts || !transferableCapital}
+                  onClick={() => setTransferSource(displayedSources.find(source =>
+                    canMoveCapitalSource(source, transferAccounts || [])) || null)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-500/40 bg-blue-600/15 px-3.5 text-[10px] font-black uppercase text-blue-200 transition-colors hover:bg-blue-600 hover:text-white disabled:opacity-40"
+                >
+                  Transferir
+                </button>
+              </>
             )}
-            {associatedTotals.hasCards && (
-              <span className="text-violet-300">
-                <span className="mr-1 text-slate-500">Limites associados</span>
-                <strong>{associatedTotals.incomplete ? 'Indisponível' : formatMoney(associatedTotals.cardCents / 100, isStealthMode)}</strong>
-              </span>
-            )}
-            <button type="button" disabled={!transferAccounts || !transferableCapital}
-              onClick={() => setTransferSource(displayedSources.find(source =>
-                canMoveCapitalSource(source, transferAccounts || [])) || null)}
-              className="inline-flex min-h-8 items-center justify-center rounded-md border border-blue-500/40 bg-blue-950/30 px-3 text-[10px] font-semibold text-blue-200 hover:bg-blue-900/40 disabled:opacity-40">
-              Transferir
+            <button
+              onClick={() => ui.openModal('SOURCE_FORM')}
+              className="w-full md:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 shrink-0"
+            >
+              <Plus size={16} /> Nova Fonte
             </button>
           </div>
-        </div>
-      )}
+        }
+      />
+
       {sourceReferenceError && isPrimaryOwner && (
         <p role="alert" className="text-xs text-amber-300">
           Não foi possível atualizar os valores associados da Minha Carteira.

@@ -30,6 +30,11 @@ export class WalletSnapshotCache<T> {
     return this.cached.value;
   }
 
+  peekLast(ownerId: string): T | null {
+    if (this.ownerId !== ownerId || !this.cached) return null;
+    return this.cached.value;
+  }
+
   prime(ownerId: string, value: T): void {
     this.switchOwner(ownerId);
     this.cached = { value, expiresAt: Date.now() + this.ttlMs };

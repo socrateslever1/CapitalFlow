@@ -10,6 +10,8 @@ import {
   WalletAccountOperation,
   WalletStatementRow,
   personalWalletService,
+  WalletRecurringIncome,
+  WalletRecurringObligation,
 } from '../../services/personalWallet.service';
 import type { CapitalSource } from '../../types';
 import { formatMoney } from '../../utils/formatters';
@@ -29,6 +31,9 @@ import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liv
 import { generateUUID } from '../../utils/generators';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { describeWalletBalanceFact, buildWalletBalanceFacts } from './walletBalanceDomain';
+import { RecurringIncomePanel } from './RecurringIncomePanel';
+import { RecurringObligationsPanel } from './RecurringObligationsPanel';
+import { businessDateInManaus } from '../../utils/businessDate';
 
 type Props = {
   account: PersonalWalletAccount;
@@ -39,6 +44,9 @@ type Props = {
   accounts: PersonalWalletAccount[];
   accountOperations: WalletAccountOperation[];
   statementRows: WalletStatementRow[];
+  recurringIncomes: WalletRecurringIncome[];
+  recurringReceipts: { income_id: string; reference_month: string }[];
+  recurringObligations: WalletRecurringObligation[];
   onBack: () => void;
   onSaved: () => Promise<void>;
   ownerName?: string;
@@ -56,7 +64,7 @@ const typeLabels: Record<string, string> = {
 const inputClass = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500';
 const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
-export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
+export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
   const [editing, setEditing] = useState(false);
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft(account.bank_details));
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
@@ -514,6 +522,24 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
       <AccountActivityPanel account={account} accounts={accounts}
         operations={accountOperations} statementRows={statementRows}
         expenses={expenses} invoicePayments={invoicePayments} onSaved={onSaved} />
+
+      <section className="grid gap-4 lg:grid-cols-2" aria-label="Lançamentos fixos desta conta">
+        <RecurringIncomePanel
+          accounts={[account]}
+          incomes={recurringIncomes.filter(item => item.destination_account_id === account.id)}
+          receivedIds={new Set(recurringReceipts
+            .filter(receipt => String(receipt.reference_month).slice(0, 7) === businessDateInManaus().slice(0, 7))
+            .map(receipt => receipt.income_id))}
+          onSaved={onSaved}
+        />
+        <RecurringObligationsPanel
+          accounts={[account]}
+          cards={[]}
+          items={recurringObligations.filter(item => item.origin_type === 'ACCOUNT' && item.origin_account_id === account.id)}
+          showCreateButton
+          onSaved={onSaved}
+        />
+      </section>
     </section>
   );
 };

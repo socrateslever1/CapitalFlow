@@ -81,7 +81,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     </div>
     <nav aria-label="Navegação da Carteira"
       className="mb-4 grid w-full min-w-0 grid-cols-5 gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5">
-      {WALLET_ROUTES.filter(item => item.key !== 'cobranca').map(item => {
+      {WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
         const mobileLabel = item.key === 'visao-geral' ? 'Geral'

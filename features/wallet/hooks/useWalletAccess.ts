@@ -9,7 +9,14 @@ export type WalletAccessState =
   | { status: 'error'; settings: Record<string, unknown>; message: string; retry: () => void };
 
 export const useWalletAccess = (): WalletAccessState => {
-  const [state, setState] = useState<WalletAccessState>({ status: 'loading', settings: {} });
+  const [state, setState] = useState<WalletAccessState>(() => {
+    const syncAccess = typeof walletRepository.peekSyncAccess === 'function'
+      ? walletRepository.peekSyncAccess()
+      : null;
+    return syncAccess?.active
+      ? { status: 'active', settings: syncAccess.settings, userId: syncAccess.userId }
+      : { status: 'loading', settings: {} };
+  });
   const checkRef = useRef<() => Promise<void>>(async () => { });
   const retry = useCallback(() => { void checkRef.current(); }, []);
   useEffect(() => {

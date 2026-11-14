@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowDownToLine, BellRing, ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
 
@@ -26,8 +26,6 @@ const ExpenseModalOnDemand: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
 export const WalletExpenseFab: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const onCards = location.pathname.startsWith('/carteira/cartoes');
   const [menuOpen, setMenuOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [incomeOpen, setIncomeOpen] = useState(false);
@@ -48,14 +46,14 @@ export const WalletExpenseFab: React.FC = () => {
 
   return <>
     {menuOpen && <button type="button" aria-label="Fechar ações rápidas" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 cursor-default bg-slate-950/20 backdrop-blur-[1px]"/>}
-    <div className={`fixed right-4 z-40 flex flex-col-reverse items-end gap-2 pb-[env(safe-area-inset-bottom)] sm:right-6 sm:bottom-6 ${onCards ? 'bottom-28' : 'bottom-20'}`}>
+    <div className="fixed bottom-22 md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col-reverse items-end gap-2 mb-safe">
       <button
         type="button"
         aria-label={menuOpen ? 'Fechar ações rápidas' : 'Abrir ações rápidas'}
         aria-expanded={menuOpen}
         aria-controls="wallet-quick-actions"
         onClick={() => setMenuOpen(value => !value)}
-        className={`flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white shadow-xl transition-all hover:scale-105 active:scale-95 sm:h-14 sm:w-14 ${menuOpen ? 'rotate-90 bg-slate-700 shadow-black/40' : 'bg-gradient-to-r from-blue-600 to-blue-500 shadow-blue-900/40'}`}
+        className={`flex h-12 w-12 items-center justify-center rounded-full border border-white/20 text-white shadow-xl transition-all hover:scale-105 active:scale-95 ${menuOpen ? 'rotate-90 bg-slate-700 shadow-black/40' : 'bg-gradient-to-r from-emerald-600 to-teal-500 shadow-emerald-950/40'}`}
       >
         {menuOpen ? <X size={21}/> : <Plus size={22} strokeWidth={2.5}/>}
       </button>

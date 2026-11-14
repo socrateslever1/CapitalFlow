@@ -61,6 +61,23 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
   }));
   const transferableCapital = transferAccounts
     ? getMovableCapitalTotal(displayedSources, transferAccounts) : null;
+  const associatedTotals = Object.values(sourceReferences).reduce((totals, reference) => {
+    reference.entries.forEach((entry) => {
+      if (entry.amount === null) {
+        totals.incomplete = true;
+        return;
+      }
+      const cents = Math.round(entry.amount * 100);
+      if (entry.kind === 'CARD') {
+        totals.cardCents += cents;
+        totals.hasCards = true;
+      } else {
+        totals.accountCents += cents;
+        totals.hasAccounts = true;
+      }
+    });
+    return totals;
+  }, { accountCents: 0, cardCents: 0, hasAccounts: false, hasCards: false, incomplete: false });
 
   useEffect(() => {
     let active = true;
@@ -271,12 +288,25 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       />
 
       {canTransferCapital && (
-        <div className="flex min-h-9 flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2 text-[10px]">
-          <p className="text-slate-500">Disponível para transferência interna — não é o total consolidado das fontes.</p>
-          <div className="flex items-center gap-3">
-            <strong className="tabular-nums text-emerald-300">
-              {transferableCapital === null ? 'Verificando...' : formatMoney(transferableCapital, isStealthMode)}
-            </strong>
+        <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-800/80 pb-2 text-[10px]">
+          <p className="text-slate-500">Composição dos recursos — caixa e crédito não são somados.</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 tabular-nums">
+            <span className="text-emerald-300">
+              <span className="mr-1 text-slate-500">Transferível</span>
+              <strong>{transferableCapital === null ? 'Verificando...' : formatMoney(transferableCapital, isStealthMode)}</strong>
+            </span>
+            {associatedTotals.hasAccounts && (
+              <span className="text-blue-300">
+                <span className="mr-1 text-slate-500">Contas associadas</span>
+                <strong>{associatedTotals.incomplete ? 'Indisponível' : formatMoney(associatedTotals.accountCents / 100, isStealthMode)}</strong>
+              </span>
+            )}
+            {associatedTotals.hasCards && (
+              <span className="text-violet-300">
+                <span className="mr-1 text-slate-500">Limites associados</span>
+                <strong>{associatedTotals.incomplete ? 'Indisponível' : formatMoney(associatedTotals.cardCents / 100, isStealthMode)}</strong>
+              </span>
+            )}
             <button type="button" disabled={!transferAccounts || !transferableCapital}
               onClick={() => setTransferSource(displayedSources.find(source =>
                 canMoveCapitalSource(source, transferAccounts || [])) || null)}

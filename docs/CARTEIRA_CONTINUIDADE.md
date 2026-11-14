@@ -1008,7 +1008,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 
 ## 13/11/2026 - Ajuste da tela Fontes e score no card do cliente
 
-- A tela `SourcesPage` deixou de apresentar o valor de transferência interna como se fosse o total consolidado das fontes; agora usa uma linha compacta com rótulo explícito e mantém o botão de transferência.
+- A tela `SourcesPage` deixou de apresentar o valor de transferência interna como se fosse o total consolidado das fontes; agora usa uma linha compacta com a composição de recursos transferíveis, saldos de contas associados e limites de cartões associados, sem somar caixa com crédito.
 - Os cards de fontes passaram a ocupar altura uniforme por linha e exibem separadamente o saldo operacional da fonte e o valor associado à Minha Carteira, sem substituir um pelo outro.
 - `ClientsPage` passou a mostrar o score de risco no card do cliente, consolidando o pior score entre contratos ativos ou históricos vinculados exclusivamente por `client_id`. O score não foi colocado no card de contrato.
 - Validação: TypeScript, arquitetura, `test:wallet-visual-next`, `test:wallet-pages`, build de produção e `git diff --check` passaram. Não houve alteração em Supabase, RPC, migration, ledger, pagamento, estorno ou RLS.

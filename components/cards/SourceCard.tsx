@@ -82,6 +82,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
     const extraReferenceCount = Math.max(0, (referenceDisplay?.entries.length || 0) - 1);
     const DefaultIcon = source.type === 'PROPRIO' ? Landmark : source.type === 'TERCEIROS' ? Banknote : ['MISTO', 'CARD'].includes(source.type) ? CreditCard : Wallet;
     const colorClass = source.type === 'PROPRIO' ? 'text-blue-500' : source.type === 'TERCEIROS' ? 'text-emerald-500' : ['MISTO', 'CARD'].includes(source.type) ? 'text-rose-500' : 'text-purple-500';
+    const isCardSource = ['CARD', 'MISTO'].includes(source.type);
 
     const handleUpdateLogo = () => {
         onEdit(source);
@@ -148,14 +149,14 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
                     <div className="mb-2 space-y-1" aria-label="Resumo financeiro da fonte">
                         <div className="flex items-center justify-between gap-2">
-                            <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">Saldo da fonte</p>
+                            <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">{isCardSource ? 'Crédito informado da fonte' : 'Saldo da fonte'}</p>
                             <p className={`shrink-0 text-base font-black tabular-nums ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>
                                 {formatMoney(source.balance, isStealthMode)}
                             </p>
                         </div>
                         {referenceDisplay && (
                             <div className="flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
-                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-500">Valor associado à Minha Carteira</p>
+                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-500">{isCardSource ? 'Limite associado à Carteira' : 'Saldo associado à Carteira'}</p>
                                 <div className="flex shrink-0 items-center gap-1.5">
                                     <p className="text-xs font-black tabular-nums text-blue-300">
                                         {referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}

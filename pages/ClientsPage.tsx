@@ -385,7 +385,7 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
 
   const getClientRiskProfile = (client: Client) => {
     const clientLoans = loans.filter((loan) =>
-      !loan.isArchived && Boolean(loan.clientId) && loan.clientId === client.id,
+      Boolean(loan.clientId) && loan.clientId === client.id,
     );
     if (clientLoans.length === 0) return null;
     return clientLoans
@@ -490,10 +490,12 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             )}
                             <div className="min-w-0 flex-1 pr-1">
                                 <h3 className="font-bold text-white text-xs uppercase leading-snug break-words">{client.name}</h3>
-                                <span className={`mt-1 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide ${riskTone}`} title="Score de risco consolidado do cliente, considerando o pior contrato ativo ou histórico">
-                                    {clientRiskProfile ? <ShieldCheck size={9} /> : <ShieldAlert size={9} />}
-                                    {clientRiskProfile ? `Score ${clientRiskProfile.score}/100 · ${clientRiskProfile.level}` : 'Score sem histórico'}
-                                </span>
+                                <div className={`mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-black uppercase tracking-wide ${riskTone}`} title="Score de risco consolidado do cliente, considerando os contratos vinculados">
+                                    {clientRiskProfile ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
+                                    <span className="text-slate-300">Risco</span>
+                                    <strong className="tabular-nums text-white">{clientRiskProfile ? `${clientRiskProfile.score}/100` : '—'}</strong>
+                                    <span className="text-current">{clientRiskProfile ? clientRiskProfile.level : 'Sem histórico'}</span>
+                                </div>
                             </div>
                         </div>
 

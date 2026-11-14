@@ -1012,6 +1012,7 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Os cards de fontes passaram a ocupar altura uniforme por linha e exibem separadamente o saldo operacional da fonte e o valor associado à Minha Carteira, sem substituir um pelo outro.
 - `ClientsPage` passou a mostrar o score de risco no card do cliente, consolidando o pior score entre contratos ativos ou históricos vinculados exclusivamente por `client_id`. O score não foi colocado no card de contrato.
 - Validação: TypeScript, arquitetura, `test:wallet-visual-next`, `test:wallet-pages`, build de produção e `git diff --check` passaram. Não houve alteração em Supabase, RPC, migration, ledger, pagamento, estorno ou RLS.
+- O score foi remodelado como uma faixa visível no card do cliente (`Risco X/100 · nível`) e passou a considerar também contratos históricos vinculados por `client_id`; nenhum vínculo por nome/documento foi criado.
 
 ## 13/11/2026 - Vitrine comercial rolável na tela de login e merge da auditoria de datas (`main`)
 

@@ -90,15 +90,15 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     return (
         <>
-            <div id={source.id} className="h-full bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
+            <div id={source.id} className="h-full rounded-2xl border border-slate-800/90 bg-slate-900/95 p-3.5 sm:p-4 relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
                 <div className={`absolute -top-1 -right-1 p-2 opacity-5 transition-opacity group-hover:opacity-10 ${colorClass}`}>
                     <DefaultIcon size={32} />
                 </div>
                 <div className="relative z-10 flex flex-col h-full">
-                    <div className="flex items-start gap-3 mb-3">
+                    <div className="flex items-start gap-3 mb-3.5">
                         <button
                             onClick={handleUpdateLogo}
-                            className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-slate-950 border border-slate-800 shrink-0 hover:border-slate-600 transition-all"
+                            className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden bg-slate-950 border border-slate-800 shrink-0 hover:border-slate-600 transition-all"
                             title="Alterar imagem da carteira"
                         >
                             {logoUrl && !imgError ? (
@@ -115,48 +115,35 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         </button>
 
                         <div className="min-w-0 flex-1 pt-0.5">
-                            <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
+                            <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-1" title={source.name}>{source.name}</h3>
                             <div className="flex items-center gap-1.5 mt-1 min-w-0">
-                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">
                                     {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
                                 </p>
                                 <span className="w-0.5 h-0.5 bg-slate-700 rounded-full shrink-0"></span>
-                                <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline whitespace-nowrap">
-                                    <FileText size={8}/>{activeContractsCount} {activeContractsCount === 1 ? 'Contrato' : 'Contratos'}
+                                <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[9px] font-black text-blue-400 uppercase hover:underline whitespace-nowrap">
+                                    <FileText size={9}/>{activeContractsCount} {activeContractsCount === 1 ? 'Contrato' : 'Contratos'}
                                 </button>
                             </div>
                         </div>
 
                         <div className="flex gap-1 shrink-0">
-                            <button onClick={(e) => { e.stopPropagation(); setShowDetails(true); }} className="p-1 bg-slate-800 rounded-md text-slate-400 hover:text-blue-400 transition-colors" title="Ver Detalhes"><Info size={12}/></button>
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(source); }} className="p-1 bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors" title="Editar Saldo Manualmente"><Edit2 size={12}/></button>
-                            <button onClick={(e) => { e.stopPropagation(); onDelete(source.id); }} className="p-1 bg-slate-800 hover:bg-rose-600/20 hover:text-rose-500 text-slate-500 rounded-md transition-all" title="Excluir Fonte"><Trash2 size={12}/></button>
+                            <button onClick={(e) => { e.stopPropagation(); setShowDetails(true); }} className="p-1.5 bg-slate-800/80 rounded-lg text-slate-400 hover:text-blue-400 transition-colors" title="Ver Detalhes"><Info size={12}/></button>
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(source); }} className="p-1.5 bg-slate-800/80 rounded-lg text-slate-400 hover:text-white transition-colors" title="Editar Saldo Manualmente"><Edit2 size={12}/></button>
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(source.id); }} className="p-1.5 bg-slate-800/80 hover:bg-rose-600/20 hover:text-rose-500 text-slate-500 rounded-lg transition-all" title="Excluir Fonte"><Trash2 size={12}/></button>
                         </div>
                     </div>
 
-                    <div className="hidden">
-                        <h3 className="text-xs font-black text-white uppercase tracking-tight truncate pr-2" title={source.name}>{source.name}</h3>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                                {source.type === 'PROPRIO' ? 'Próprio' : source.type === 'TERCEIROS' ? 'Terceiros' : source.type === 'MISTO' ? 'Misto' : source.type === 'CARD' ? 'Cartão' : source.type === 'BANK' ? 'Banco' : source.type === 'CASH' ? 'Espécie' : source.type === 'WALLET' ? 'Carteira' : 'Outro'}
-                            </p>
-                            <span className="w-0.5 h-0.5 bg-slate-700 rounded-full"></span>
-                            <button onClick={() => setShowDetails(true)} className="flex items-center gap-0.5 text-[8px] font-black text-blue-400 uppercase hover:underline">
-                                <FileText size={8}/>{activeContractsCount} {activeContractsCount === 1 ? 'Contrato' : 'Contratos'}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="mb-2 space-y-1" aria-label="Resumo financeiro da fonte">
+                    <div className="mb-3 space-y-1.5 flex-1" aria-label="Resumo financeiro da fonte">
                         <div className="flex items-center justify-between gap-2">
-                            <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">{isCardSource ? 'Crédito informado da fonte' : 'Saldo da fonte'}</p>
-                            <p className={`shrink-0 text-base font-black tabular-nums ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>
+                            <p className="min-w-0 truncate text-[11px] font-medium text-slate-400">{isCardSource ? 'Crédito informado da fonte' : 'Saldo da fonte'}</p>
+                            <p className={`shrink-0 text-base font-black tabular-nums ${source.balance < 0 ? 'text-rose-400' : source.balance === 0 && isCardSource ? 'text-slate-100' : 'text-emerald-400'}`}>
                                 {formatMoney(source.balance, isStealthMode)}
                             </p>
                         </div>
                         {referenceDisplay && (
                             <div className="flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
-                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-500">{isCardSource ? 'Limite associado à Carteira' : 'Saldo associado à Carteira'}</p>
+                                <p className="min-w-0 truncate text-[11px] font-medium text-slate-400">{isCardSource ? 'Limite associado à Carteira' : 'Saldo associado à Carteira'}</p>
                                 <div className="flex shrink-0 items-center gap-1.5">
                                     <p className="text-xs font-black tabular-nums text-blue-300">
                                         {referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
@@ -174,18 +161,29 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                                 </div>
                             </div>
                         )}
-                        <div className="grid min-w-0 gap-1.5">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); onAddFunds(source); }}
-                            className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 px-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
-                            <PlusCircle size={13}/> Adicionar saldo
-                          </button>
-                          {onTransferToAccount && (
-                            <button type="button" onClick={(e) => { e.stopPropagation(); onTransferToAccount(source); }}
-                              className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-950/30 px-2 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-900/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                              Transferir para conta
+                    </div>
+
+                    <div className={`mt-auto pt-3 border-t border-slate-800/80 grid min-w-0 gap-2 ${onTransferToAccount ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onAddFunds(source); }}
+                            aria-label="Adicionar saldo"
+                            title="Adicionar saldo"
+                            className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/90 px-2.5 text-xs font-bold text-emerald-300 transition-colors hover:border-emerald-600/60 hover:bg-emerald-700 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                        >
+                            <PlusCircle size={13}/> {onTransferToAccount ? 'Saldo' : 'Adicionar saldo'}
+                        </button>
+                        {onTransferToAccount && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onTransferToAccount(source); }}
+                                aria-label="Transferir para conta"
+                                title="Transferir para conta"
+                                className="flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-blue-500/40 bg-blue-600/15 px-2.5 text-xs font-bold text-blue-200 transition-colors hover:bg-blue-600 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                            >
+                                Transferir
                             </button>
-                          )}
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>

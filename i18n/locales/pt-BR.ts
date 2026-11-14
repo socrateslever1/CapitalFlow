@@ -44,6 +44,7 @@ export const ptBR = {
   'language.choose': 'Escolher idioma',
 
   'auth.restrictedAccess': 'Acesso Restrito',
+  'auth.seeHowItWorks': 'Conheça como funciona',
   'auth.emailPlaceholder': 'Seu E-mail',
   'auth.emailLabel': 'Seu e-mail',
   'auth.password': 'Senha',

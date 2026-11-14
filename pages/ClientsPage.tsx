@@ -1,10 +1,11 @@
 import React from 'react';
-import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, CheckSquare, Square, XCircle, MapPin, Phone, Users, ShieldAlert, ShieldCheck, Link2, Copy, Check, X, FileSearch, FileSignature, Send, ExternalLink, Loader2, Clock, AlertCircle, MessageCircle } from 'lucide-react';
 import { Client, Loan, UserProfile } from '../types';
 import { formatMoney, formatShortName, maskPhone, maskDocument, parseCurrency } from '../utils/formatters';
 import { parseDateOnlyUTC, todayDateOnlyUTC } from '../utils/dateHelpers';
 import { clientHasCapitalOnlyRecovery } from '../utils/capitalOnlyRecovery';
 import { loanEngine } from '../domain/loanEngine';
+import { calculateRiskProfile } from '../domain/finance/riskAnalysis';
 import { clientRegistrationService } from '../services/clientRegistration.service';
 import { clientPreContractService } from '../services/clientPreContract.service';
 import { witnessService } from '../features/legal/services/witness.service';
@@ -382,6 +383,16 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
     });
   };
 
+  const getClientRiskProfile = (client: Client) => {
+    const clientLoans = loans.filter((loan) =>
+      !loan.isArchived && Boolean(loan.clientId) && loan.clientId === client.id,
+    );
+    if (clientLoans.length === 0) return null;
+    return clientLoans
+      .map((loan) => calculateRiskProfile(loan))
+      .reduce((worst, current) => current.score > worst.score ? current : worst);
+  };
+
   return (
     <div className="space-y-4 animate-in fade-in">
         <PageHeader
@@ -435,6 +446,16 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
         <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredClients.filter((client) => client.registration_status !== 'REJECTED').sort((a, b) => a.name.localeCompare(b.name)).map(client => {
                 const contractIndicators = getClientContractIndicators(client);
+                const clientRiskProfile = getClientRiskProfile(client);
+                const riskTone = !clientRiskProfile
+                    ? 'border-slate-700 bg-slate-950/70 text-slate-500'
+                    : clientRiskProfile.score >= 80
+                        ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                        : clientRiskProfile.score >= 50
+                            ? 'border-orange-500/40 bg-orange-500/10 text-orange-300'
+                            : clientRiskProfile.score >= 20
+                                ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                                : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300';
 
                 return (
                 <div
@@ -469,6 +490,10 @@ export const ClientsPage: React.FC<ClientsPageProps & { isStealthMode?: boolean 
                             )}
                             <div className="min-w-0 flex-1 pr-1">
                                 <h3 className="font-bold text-white text-xs uppercase leading-snug break-words">{client.name}</h3>
+                                <span className={`mt-1 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide ${riskTone}`} title="Score de risco consolidado do cliente, considerando o pior contrato ativo ou histórico">
+                                    {clientRiskProfile ? <ShieldCheck size={9} /> : <ShieldAlert size={9} />}
+                                    {clientRiskProfile ? `Score ${clientRiskProfile.score}/100 · ${clientRiskProfile.level}` : 'Score sem histórico'}
+                                </span>
                             </div>
                         </div>
 

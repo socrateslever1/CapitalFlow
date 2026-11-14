@@ -42,6 +42,7 @@ export const es: Record<MessageKey, string> = {
   'language.choose': 'Elegir idioma',
 
   'auth.restrictedAccess': 'Acceso Restringido',
+  'auth.seeHowItWorks': 'Conoce cómo funciona',
   'auth.emailPlaceholder': 'Su Correo',
   'auth.emailLabel': 'Su correo',
   'auth.password': 'Contraseña',

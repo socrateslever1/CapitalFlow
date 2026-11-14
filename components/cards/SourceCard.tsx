@@ -89,7 +89,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
 
     return (
         <>
-            <div id={source.id} className="bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
+            <div id={source.id} className="h-full bg-slate-900 border border-slate-800 p-2.5 sm:p-3 rounded-lg relative overflow-hidden group hover:border-slate-700 transition-all shadow-sm flex flex-col">
                 <div className={`absolute -top-1 -right-1 p-2 opacity-5 transition-opacity group-hover:opacity-10 ${colorClass}`}>
                     <DefaultIcon size={32} />
                 </div>
@@ -146,12 +146,18 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                         </div>
                     </div>
 
-                    <div>
-                        {referenceDisplay ? (
-                            <div className="mb-2 flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
-                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">Valor associado</p>
+                    <div className="mb-2 space-y-1" aria-label="Resumo financeiro da fonte">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="min-w-0 truncate text-[9px] font-medium text-slate-400">Saldo da fonte</p>
+                            <p className={`shrink-0 text-base font-black tabular-nums ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>
+                                {formatMoney(source.balance, isStealthMode)}
+                            </p>
+                        </div>
+                        {referenceDisplay && (
+                            <div className="flex items-center justify-between gap-2" aria-label="Resumo dos recursos associados">
+                                <p className="min-w-0 truncate text-[9px] font-medium text-slate-500">Valor associado à Minha Carteira</p>
                                 <div className="flex shrink-0 items-center gap-1.5">
-                                    <p className="text-sm font-black tabular-nums text-blue-300">
+                                    <p className="text-xs font-black tabular-nums text-blue-300">
                                         {referenceDisplay.total === null ? 'Indisponível' : formatMoney(referenceDisplay.total, isStealthMode)}
                                     </p>
                                     {extraReferenceCount > 0 && (
@@ -166,8 +172,6 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                                     )}
                                 </div>
                             </div>
-                        ) : (
-                            <p className={`text-base font-black mb-2 ${source.balance < 0 ? 'text-rose-500' : 'text-emerald-400'}`}>{formatMoney(source.balance, isStealthMode)}</p>
                         )}
                         <div className="grid min-w-0 gap-1.5">
                           <button type="button" onClick={(e) => { e.stopPropagation(); onAddFunds(source); }}

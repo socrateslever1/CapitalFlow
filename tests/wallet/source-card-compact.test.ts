@@ -10,7 +10,7 @@ test('mantém o card compacto e sinaliza referências adicionais com +', () => {
   assert.match(sourceCard, /\+\{extraReferenceCount\}/);
   assert.doesNotMatch(sourceCard, /referenceDisplay\.entries\.map/);
   assert.match(sourceCard, /items-center justify-between gap-2/);
-  assert.match(sourceCard, /text-\[9px\].*Valor associado/);
+  assert.match(sourceCard, /Valor associado/);
 });
 
 test('mantém o acesso ao detalhe completo pelo resumo do card', () => {
@@ -19,6 +19,7 @@ test('mantém o acesso ao detalhe completo pelo resumo do card', () => {
   assert.match(sourceCard, /activeLoans\.map/);
 });
 
-test('a grade não estica um card pela altura do vizinho', () => {
-  assert.match(sourcesPage, /grid-cols-1[^\n]*items-start/);
+test('a grade mantém os cards alinhados por linha', () => {
+  assert.match(sourcesPage, /auto-rows-fr/);
+  assert.match(sourcesPage, /items-stretch/);
 });

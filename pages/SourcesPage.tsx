@@ -271,20 +271,19 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       />
 
       {canTransferCapital && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-500/20 bg-slate-900 p-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-100">Capital disponível para movimentação contábil</p>
-            <p className="text-xs text-slate-400">Fontes com saldo positivo, exceto cartões e saldos espelhados em contas.</p>
+        <div className="flex min-h-9 flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2 text-[10px]">
+          <p className="text-slate-500">Disponível para transferência interna — não é o total consolidado das fontes.</p>
+          <div className="flex items-center gap-3">
+            <strong className="tabular-nums text-emerald-300">
+              {transferableCapital === null ? 'Verificando...' : formatMoney(transferableCapital, isStealthMode)}
+            </strong>
+            <button type="button" disabled={!transferAccounts || !transferableCapital}
+              onClick={() => setTransferSource(displayedSources.find(source =>
+                canMoveCapitalSource(source, transferAccounts || [])) || null)}
+              className="inline-flex min-h-8 items-center justify-center rounded-md border border-blue-500/40 bg-blue-950/30 px-3 text-[10px] font-semibold text-blue-200 hover:bg-blue-900/40 disabled:opacity-40">
+              Transferir
+            </button>
           </div>
-          <strong className="text-xl font-bold tabular-nums text-emerald-300">
-            {transferableCapital === null ? 'Verificando...' : formatMoney(transferableCapital, isStealthMode)}
-          </strong>
-          <button type="button" disabled={!transferAccounts || !transferableCapital}
-            onClick={() => setTransferSource(displayedSources.find(source =>
-              canMoveCapitalSource(source, transferAccounts || [])) || null)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-blue-500/40 bg-blue-950/30 px-4 text-xs font-semibold text-blue-200 hover:bg-blue-900/40 disabled:opacity-40">
-            Transferir capital para conta
-          </button>
         </div>
       )}
       {sourceReferenceError && isPrimaryOwner && (
@@ -293,7 +292,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
         </p>
       )}
 
-      <div className="grid grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid auto-rows-fr grid-cols-1 items-stretch gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
         {displayedSources.map(source => (
           <SourceCard
             key={source.id}

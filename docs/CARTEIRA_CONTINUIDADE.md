@@ -1006,8 +1006,15 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Testes adicionados em `tests/financial/funding-cost-report.test.ts`; `npm run test:financial`, `npm run test:wallet-visual-next`, `npm run test:architecture` e `npm run build` passaram.
 - Limitação explícita: esta etapa ainda não concilia automaticamente o custo previsto com uma compra já existente na fatura. A integração de lançamento/conciliação exige uma etapa própria com cartão, contrato, ciclo da fatura e idempotência confirmados.
 
-## 14/11/2026 — Revisão das mudanças da `main` (90db022) e junção com as correções de data
-- Branch `claude/jolly-heisenberg-s9ob7a` recebeu a `main`; conflitos só em `package.json` e neste documento (ambos os lados preservados; `test:audit` e `agreement-dates` mantidos no gate).
-- **Teste instável corrigido:** `services/paymentOffers.service.test.ts` montava o vencimento pelo relógio local e o motor conta atraso pelo dia de Manaus; em máquina UTC a suíte falhava entre 20h e 24h de Manaus (8 falhas, 352 ≠ 365). Agora usa `businessDateInManaus()`. Regra de produção não alterada.
-- `npm run test:quality` aprovado após a junção. Nada validado em aparelho nem em produção.
-- **Ainda fora da `main`:** correções de data de acordos (`agreementDates.ts`) e de contas a pagar da Carteira deste branch.
+## 13/11/2026 - Ajuste da tela Fontes e score no card do cliente
+
+- A tela `SourcesPage` deixou de apresentar o valor de transferência interna como se fosse o total consolidado das fontes; agora usa uma linha compacta com rótulo explícito e mantém o botão de transferência.
+- Os cards de fontes passaram a ocupar altura uniforme por linha e exibem separadamente o saldo operacional da fonte e o valor associado à Minha Carteira, sem substituir um pelo outro.
+- `ClientsPage` passou a mostrar o score de risco no card do cliente, consolidando o pior score entre contratos ativos ou históricos vinculados exclusivamente por `client_id`. O score não foi colocado no card de contrato.
+- Validação: TypeScript, arquitetura, `test:wallet-visual-next`, `test:wallet-pages`, build de produção e `git diff --check` passaram. Não houve alteração em Supabase, RPC, migration, ledger, pagamento, estorno ou RLS.
+
+## 13/11/2026 - Vitrine comercial rolável na tela de login e merge da auditoria de datas (`main`)
+
+- **Auth (`features/auth/AuthScreen.tsx`, `features/auth/AuthCommercialSection.tsx`, `i18n/locales/*.ts`):** adicionada seção comercial rolável abaixo da dobra (`100dvh`) com apresentação em 3 passos, vantagens reais da operação (incluindo Fontes e Carteira integradas, sem prometer gestão de equipe ainda incompleta), comparativo Free/Pro e retorno suave ao topo.
+- **Merge da branch de auditoria (`claude/jolly-heisenberg-s9ob7a` / `f330607`):** incorporadas na `main` as correções de data civil em `America/Manaus` para acordos (`agreementDates.ts`), contas a pagar (`payablesDomain.ts`, `PersonalWalletPage.tsx`), `services/paymentOffers.service.test.ts` e a suíte `test:audit` no `package.json`.
+- **Limitações:** alterações de interface, datas de negócio e testes; sem alteração de RPCs, migrations, ledger ou RLS neste commit. Sem validação em aparelho físico.

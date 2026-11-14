@@ -13,7 +13,8 @@ import {
   UserPlus,
   AlertCircle,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { supabase } from '../../lib/supabase';
@@ -22,6 +23,7 @@ import { translate } from '../../i18n';
 import { useI18n } from '../../i18n/useI18n';
 import { LoginLanguageSwitcher } from '../../components/settings/LoginLanguageSwitcher';
 import { TermsAcceptanceModal } from './TermsAcceptanceModal';
+import { AuthCommercialSection } from './AuthCommercialSection';
 import {
   CURRENT_TERMS_HASH,
   CURRENT_TERMS_VERSION,
@@ -733,11 +735,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
-  return (
-    <div className="cf-auth-viewport relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-slate-950">
-      {/* Toasts are now handled by sonner in App.tsx */}
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-      <div className="cf-auth-panel relative my-auto flex w-full min-w-0 max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">
+  const scrollToCommercial = () => {
+    document.getElementById('capitalflow-commercial')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleOpenCreateFromCommercial = () => {
+    setIsRecoveringPassword(false);
+    setIsCreatingProfile(true);
+    scrollToTop();
+  };
+
+  return (
+    <div className="min-h-[100dvh] w-full bg-slate-950">
+      <section className="cf-auth-viewport relative flex min-h-[100dvh] w-full flex-col items-center justify-center bg-slate-950">
+        {/* Toasts are now handled by sonner in App.tsx */}
+
+        <div className="cf-auth-panel relative my-auto flex w-full min-w-0 max-w-sm flex-col justify-center rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl animate-in zoom-in-95 duration-300 sm:p-8">
         <div className="pointer-events-none absolute inset-0 rounded-2xl bg-blue-600/5 blur-3xl"></div>
         <LoginLanguageSwitcher className="cf-auth-language absolute left-3 top-3 z-20 sm:left-4 sm:top-4" />
         <button
@@ -855,7 +872,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             )}
           </>
         )}
-      </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={scrollToCommercial}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-slate-800/80 bg-slate-900/70 px-3.5 py-1.5 text-[11px] font-bold text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200"
+        >
+          {t('auth.seeHowItWorks')} <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </section>
+
+      <AuthCommercialSection
+        onCreateAccount={handleOpenCreateFromCommercial}
+        onScrollToLogin={scrollToTop}
+      />
 
       {showHelpModal && (
         <Modal onClose={() => setShowHelpModal(false)} title={t('auth.support')}>

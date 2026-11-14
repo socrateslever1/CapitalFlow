@@ -353,7 +353,7 @@ export const SourcesPage: React.FC<SourcesPageProps> = ({
       {ui.editingSource && (
         <Modal
           onClose={() => ui.setEditingSource(null)}
-          title="Editar carteira"
+          title="Editar fonte de capital"
           subtitle={ui.editingSource.name}
           icon={<Wallet size={18} />}
           compact

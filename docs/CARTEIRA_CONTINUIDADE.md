@@ -1014,6 +1014,13 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Validação: TypeScript, arquitetura, `test:wallet-visual-next`, `test:wallet-pages`, build de produção e `git diff --check` passaram. Não houve alteração em Supabase, RPC, migration, ledger, pagamento, estorno ou RLS.
 - O score foi remodelado como uma faixa visível no card do cliente (`Risco X/100 · nível`) e passou a considerar também contratos históricos vinculados por `client_id`; nenhum vínculo por nome/documento foi criado.
 
+## 14/11/2026 - Separação entre fontes, contas e documentos jurídicos
+
+- O vínculo de integração com o Capital deixou de aparecer na página geral de Contas; a configuração permanece na edição da Fonte de Capital, onde a relação fonte → conta/cartão é definida.
+- Os rótulos da edição foram corrigidos de “Editar carteira” para “Editar fonte de capital”.
+- O Jurídico agora separa documentos válidos (assinados ou arquivo assinado enviado), minutas/pendências e arquivados; registros pendentes não são apresentados como documentos existentes e nenhum histórico foi apagado.
+- Validação: testes do Jurídico, referências da Carteira, TypeScript e `git diff --check` passaram. Não houve alteração em RPC, migration, ledger, pagamento, estorno ou RLS.
+
 ## 13/11/2026 - Vitrine comercial rolável na tela de login e merge da auditoria de datas (`main`)
 
 - **Auth (`features/auth/AuthScreen.tsx`, `features/auth/AuthCommercialSection.tsx`, `i18n/locales/*.ts`):** adicionada seção comercial rolável abaixo da dobra (`100dvh`) com apresentação em 3 passos, vantagens reais da operação (incluindo Fontes e Carteira integradas, sem prometer gestão de equipe ainda incompleta), comparativo Free/Pro e retorno suave ao topo.

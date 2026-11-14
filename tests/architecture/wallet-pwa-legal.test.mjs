@@ -68,7 +68,9 @@ test('only authorized master preloads wallet view code; no preloading private re
 test('legal hub displays documents and legal tools but no second contract dashboard', () => {
   const legal=read('pages/LegalPage.tsx');
   const dashboard=read('App.tsx');
-  assert.match(legal, /Documentos jurídicos registrados/);
+  assert.match(legal, /Documentos jurídicos/);
+  assert.match(legal, /Válidos/);
+  assert.match(legal, /Minutas e pendências/);
   assert.match(legal, /currentLegalDocs\.map/);
   assert.match(legal, /Confissão de Dívida/);
   assert.match(legal, /Nota Promissória/);

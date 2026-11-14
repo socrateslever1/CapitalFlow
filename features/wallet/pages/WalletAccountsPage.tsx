@@ -12,7 +12,6 @@ import { AccountMovementModal } from '../../../components/wallet/AccountMovement
 import { WalletPixCharge } from '../../../components/wallet/WalletPixCharge';
 import { CreateAccountModal } from '../../../components/wallet/CreateAccountModal';
 import QuickExpenseModal from '../components/QuickExpenseModal';
-import { WalletCapitalLinks } from '../components/WalletCapitalLinks';
 import { buildWalletBalanceFacts, describeWalletBalanceFact } from '../../../components/wallet/walletBalanceDomain';
 import { platformAdminService } from '../../../services/platformAdmin.service';
 import { CapitalSourceTransferModal } from '../components/CapitalSourceTransferModal';
@@ -152,7 +151,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
           />
         </div>
 
-        {/* 3. Ações abaixo da lista no celular + Integração com Capital na coluna lateral */}
+        {/* 3. Ações abaixo da lista no celular */}
         <div className="order-3 min-w-0 space-y-4 lg:order-3 lg:col-span-4">
           <div className="grid gap-2.5 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:hidden">
             <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
@@ -168,12 +167,6 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
               <QrCode size={17} className="text-blue-300"/> Gerar cobrança PIX
             </button>
           </div>
-          <WalletCapitalLinks
-            accounts={data.accounts}
-            sources={data.capitalSources}
-            canManage={!!activeUser && !activeUser.supervisor_id && activeUser.id !== 'DEMO'}
-            onSaved={refresh}
-          />
         </div>
       </div>
       {createModalType && (

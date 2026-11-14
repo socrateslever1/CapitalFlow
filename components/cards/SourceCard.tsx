@@ -197,7 +197,7 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, loans, onEdit, o
                     compact
                     footer={(
                         <button onClick={() => { setShowDetails(false); handleUpdateLogo(); }} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white shadow-lg shadow-blue-950/30 transition-all hover:bg-blue-500 sm:flex-1">
-                            <ImageIcon size={15}/> Editar carteira
+                            <ImageIcon size={15}/> Editar fonte de capital
                         </button>
                     )}
                 >

@@ -37,6 +37,8 @@ const invalidateProfileCache = (profileId?: string | null) => {
   recentReadCache.delete(profileId);
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const notificationCenterService = {
   async listUnread(profileId: string) {
     if (!profileId || profileId === 'DEMO') return [];
@@ -112,6 +114,8 @@ export const notificationCenterService = {
   async create(input: PersistedNotificationInput) {
     if (!input.profileId || input.profileId === 'DEMO') return null;
 
+    const safeItemId = input.itemId && UUID_REGEX.test(input.itemId) ? input.itemId : null;
+
     const { data, error } = await supabase
       .from('notificacoes')
       .insert({
@@ -120,7 +124,7 @@ export const notificationCenterService = {
         mensagem: repairMojibake(input.message),
         action_url: input.actionUrl || null,
         item_type: input.itemType || null,
-        item_id: input.itemId || null,
+        item_id: safeItemId,
         metadata: input.metadata || null,
       })
       .select('id')
@@ -137,7 +141,7 @@ export const notificationCenterService = {
 
   async markAsRead(notificationId: string) {
     if (!notificationId) return;
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(notificationId)) {
+    if (!UUID_REGEX.test(notificationId)) {
       return;
     }
 

@@ -7,6 +7,7 @@ import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/
 import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { Modal, modalPrimaryActionClass } from '../ui/Modal';
 import { calculateCardOpening, calculateUsedFromAvailable } from './cardOpeningSummary';
+import { businessDateInManaus } from '../../utils/businessDate';
 
 export interface CardInitialBalancesModalProps {
   card: PersonalWalletCard;
@@ -52,7 +53,7 @@ export const CardInitialBalancesModal: React.FC<CardInitialBalancesModalProps> =
       ? 'USED' : 'INVOICE',
   );
   const [month, setMonth] = useState(
-    (initialDueMonth || new Date().toLocaleDateString('en-CA')).slice(0, 7),
+    (initialDueMonth || businessDateInManaus()).slice(0, 7),
   );
   const [state, setState] = useState<'OPEN' | 'CLOSED'>(
     card.opening_invoice_state || 'OPEN',

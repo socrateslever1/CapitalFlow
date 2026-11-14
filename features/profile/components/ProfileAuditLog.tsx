@@ -17,31 +17,31 @@ export const ProfileAuditLog: React.FC<ProfileAuditLogProps> = ({ logs }) => {
         const lines = isAudit ? humanizeAuditLog(log.notes || '') : [log.notes || 'Operação realizada'];
 
         return (
-          <div key={log.id} className="bg-slate-950 p-4 rounded-lg border border-slate-800 hover:border-blue-500/50 transition-colors flex flex-col gap-3">
-              <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${log.type === 'ADJUSTMENT' ? 'bg-indigo-500/10 text-indigo-400' : isCapitalOutflow ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                          <Activity size={18}/>
+          <div key={log.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors flex flex-col gap-2.5">
+              <div className="flex justify-between items-start gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`p-2 rounded-lg shrink-0 ${log.type === 'ADJUSTMENT' ? 'bg-indigo-500/10 text-indigo-400' : isCapitalOutflow ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                          <Activity size={16}/>
                       </div>
-                      <div>
-                          <p className="text-xs font-black text-white uppercase">{log.clientName}</p>
-                          <p className="text-[10px] text-slate-500">{new Date(log.date).toLocaleString('pt-BR')}</p>
+                      <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{log.clientName}</p>
+                          <p className="text-[11px] text-slate-400 tabular-nums">{new Date(log.date).toLocaleString('pt-BR')}</p>
                       </div>
                   </div>
                   {!isAudit ? (
-                      <p className={`text-sm font-black ${isCapitalOutflow ? 'text-rose-500' : 'text-emerald-500'}`}>
+                      <p className={`text-sm font-bold tabular-nums shrink-0 ${isCapitalOutflow ? 'text-rose-400' : 'text-emerald-400'}`}>
                           {isCapitalOutflow ? '-' : '+'} {formatMoney(log.amount, false)}
                       </p>
                   ) : (
-                      <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[8px] font-black rounded uppercase">Edição de Auditoria</span>
+                      <span className="px-2 py-0.5 bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 text-[10px] font-semibold rounded shrink-0">Edição de Auditoria</span>
                   )}
               </div>
 
-              <div className={`p-3 rounded-lg ${isAudit ? 'bg-indigo-950/20 border border-indigo-500/20' : 'bg-slate-900/50'}`}>
+              <div className={`px-3 py-2 rounded-lg ${isAudit ? 'bg-indigo-950/20 border border-indigo-500/20' : 'bg-slate-900/60 border border-slate-800/60'}`}>
                   {lines.map((line, idx) => (
-                      <p key={idx} className="text-[10px] text-slate-300 leading-relaxed italic flex items-start gap-2">
-                          {isAudit && <AlertCircle size={10} className="mt-0.5 flex-shrink-0"/>}
-                          {line}
+                      <p key={idx} className="text-xs text-slate-300 leading-snug flex items-start gap-2">
+                          {isAudit && <AlertCircle size={12} className="mt-0.5 shrink-0 text-indigo-400"/>}
+                          <span>{line}</span>
                       </p>
                   ))}
               </div>
@@ -50,14 +50,14 @@ export const ProfileAuditLog: React.FC<ProfileAuditLogProps> = ({ logs }) => {
     };
 
     return (
-        <div className="animate-in slide-in-from-right space-y-6">
-            <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-lg text-xs text-blue-300 font-bold mb-4 flex items-center gap-2">
-                <div className="p-1.5 bg-blue-500/20 rounded-lg"><Activity size={16}/></div>
-                Registro detalhado de alterações e transações (Compliance)
+        <div className="space-y-4">
+            <div className="bg-blue-900/15 border border-blue-500/25 px-3.5 py-2.5 rounded-lg text-xs text-blue-300 font-semibold flex items-center gap-2.5">
+                <div className="p-1.5 bg-blue-500/20 rounded-md shrink-0"><Activity size={15}/></div>
+                <span>Registro detalhado de alterações e transações (Compliance)</span>
             </div>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1 custom-scrollbar">
                 {logs.length === 0 ? (
-                    <div className="text-center text-slate-500 py-20 uppercase text-xs font-black tracking-widest border-2 border-dashed border-slate-800 rounded-lg">Nenhum registro de auditoria.</div>
+                    <div className="text-center text-slate-400 py-14 text-xs font-semibold border border-dashed border-slate-800 rounded-xl">Nenhum registro de auditoria.</div>
                 ) : (
                     logs.map((log) => renderAuditEntry(log))
                 )}

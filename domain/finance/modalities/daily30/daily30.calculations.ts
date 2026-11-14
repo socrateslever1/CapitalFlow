@@ -34,6 +34,8 @@ export const calculateDaily30 = (loan: Loan, inst: Installment, policy: LoanPoli
     principal,
     interest: interestRemaining,
     lateFee: round(lateFee + lateInterest),
+    finePart: lateFee,
+    moraPart: lateInterest,
     baseForFine,
     daysLate
   };
@@ -60,6 +62,8 @@ export const calculateDaily30Capital = (loan: Loan, inst: Installment, policy: L
     principal,
     interest: interestRemaining,
     lateFee: round(lateFee + lateInterest),
+    finePart: lateFee,
+    moraPart: lateInterest,
     baseForFine: principal,
     daysLate
   };

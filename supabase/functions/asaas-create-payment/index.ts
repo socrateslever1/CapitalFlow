@@ -3,6 +3,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 // @ts-ignore Runtime Deno: import remoto resolvido no deploy/execucao da Edge Function.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { businessDateInManaus } from "../_shared/businessDate.ts";
 
 declare const Deno: any;
 
@@ -105,7 +106,7 @@ serve(async (req: Request) => {
     const paymentPayload: any = {
         customer: asaasCustomerId,
         billingType: payment_method, // 'CREDIT_CARD', 'PIX', 'BOLETO'
-        dueDate: new Date().toISOString().split("T")[0],
+        dueDate: businessDateInManaus(),
         externalReference: installment_id || loan_id,
         description: `Pagamento CapitalFlow - Contrato ${loan_id.slice(0,8)}`
     };

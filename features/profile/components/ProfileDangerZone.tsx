@@ -9,60 +9,60 @@ interface ProfileDangerZoneProps {
 
 export const ProfileDangerZone: React.FC<ProfileDangerZoneProps> = ({ onResetData, onDeleteAccount }) => {
     return (
-        <div className="animate-in slide-in-from-right space-y-6">
-            <div className="bg-rose-950/20 border border-rose-500/30 p-6 rounded-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-10">
-                    <ShieldAlert size={120} className="text-rose-500"/>
+        <div className="space-y-4">
+            <div className="bg-rose-950/20 border border-rose-500/30 p-5 rounded-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-5 opacity-10 pointer-events-none">
+                    <ShieldAlert size={100} className="text-rose-500"/>
                 </div>
 
-                <h3 className="text-rose-500 font-black uppercase text-sm mb-4 flex items-center gap-2 relative z-10">
-                    <AlertTriangle size={18} /> Área de Risco e Controle de Dados
+                <h3 className="text-rose-400 font-bold text-sm mb-3 flex items-center gap-2 relative z-10">
+                    <AlertTriangle size={17} /> Área de Risco e Controle de Dados
                 </h3>
 
-                <div className="bg-rose-950/40 p-4 rounded-lg border border-rose-500/20 mb-6 relative z-10">
-                    <p className="text-xs text-rose-200/90 font-medium leading-relaxed">
-                        <strong className="uppercase">Atenção Crítica:</strong> As ações abaixo são irreversíveis. Elas manipulam permanentemente seu banco de dados na nuvem.
+                <div className="bg-rose-950/40 px-3.5 py-2.5 rounded-lg border border-rose-500/20 mb-4 relative z-10">
+                    <p className="text-xs text-rose-200/90 leading-relaxed">
+                        <strong className="font-semibold">Atenção Crítica:</strong> As ações abaixo são irreversíveis e manipulam permanentemente seu banco de dados na nuvem.
                     </p>
                 </div>
 
-                <div className="space-y-4 relative z-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
                     {/* Reset Data */}
                     <button
                         onClick={onResetData}
-                        className="w-full flex items-center justify-between bg-slate-900/50 p-5 rounded-lg border border-rose-500/10 hover:border-rose-500/40 transition-all group text-left"
+                        className="w-full flex items-center justify-between bg-slate-900/70 p-4 rounded-xl border border-rose-500/15 hover:border-rose-500/50 transition-colors group text-left cursor-pointer"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-rose-500/10 rounded-lg text-rose-500 group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                                <RotateCcw size={20}/>
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2.5 bg-rose-500/10 rounded-lg text-rose-400 group-hover:bg-rose-600 group-hover:text-white transition-colors shrink-0">
+                                <RotateCcw size={18}/>
                             </div>
-                            <div>
-                                <p className="font-bold text-white text-sm uppercase">Começar do Zero</p>
-                                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">Apagar Clientes e Contratos</p>
+                            <div className="min-w-0">
+                                <p className="font-semibold text-white text-sm">Começar do Zero</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Apagar clientes e contratos</p>
                             </div>
                         </div>
-                        <ArrowRight size={18} className="text-slate-700 group-hover:text-rose-500 transform group-hover:translate-x-1 transition-all"/>
+                        <ArrowRight size={16} className="text-slate-600 group-hover:text-rose-400 transform group-hover:translate-x-0.5 transition-all shrink-0"/>
                     </button>
 
                     {/* Delete Account */}
                     <button
                         onClick={onDeleteAccount}
-                        className="w-full flex items-center justify-between bg-slate-900/50 p-5 rounded-lg border border-rose-500/10 hover:border-rose-500/60 transition-all group text-left"
+                        className="w-full flex items-center justify-between bg-slate-900/70 p-4 rounded-xl border border-rose-500/15 hover:border-rose-500/60 transition-colors group text-left cursor-pointer"
                     >
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-slate-800 rounded-lg text-slate-500 group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                                <Trash2 size={20}/>
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2.5 bg-slate-800 rounded-lg text-slate-400 group-hover:bg-rose-600 group-hover:text-white transition-colors shrink-0">
+                                <Trash2 size={18}/>
                             </div>
-                            <div>
-                                <p className="font-bold text-white text-sm uppercase">Excluir Conta</p>
-                                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mt-0.5">Remover Perfil e Tudo Vinculado</p>
+                            <div className="min-w-0">
+                                <p className="font-semibold text-white text-sm">Excluir Conta</p>
+                                <p className="text-xs text-slate-400 mt-0.5">Remover perfil e tudo vinculado</p>
                             </div>
                         </div>
-                        <ArrowRight size={18} className="text-slate-700 group-hover:text-rose-500 transform group-hover:translate-x-1 transition-all"/>
+                        <ArrowRight size={16} className="text-slate-600 group-hover:text-rose-400 transform group-hover:translate-x-0.5 transition-all shrink-0"/>
                     </button>
                 </div>
             </div>
 
-            <p className="text-center text-[9px] text-slate-600 uppercase font-black tracking-[0.2em]">
+            <p className="text-center text-[11px] text-slate-500">
                 Segurança CapitalFlow • Autenticação exigida para ações destrutivas.
             </p>
         </div>

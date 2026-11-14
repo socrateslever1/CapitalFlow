@@ -74,8 +74,8 @@ export function UnifiedChat<TContext>({
       {/* Header Interno do Chat */}
       <div className={`min-h-16 sm:min-h-20 border-b flex items-center justify-between gap-2 px-3 py-2 sm:px-6 shrink-0 relative z-20 backdrop-blur-md ${
         chatTheme === 'blue'
-          ? 'bg-slate-900/60 border-blue-500/20'
-          : 'bg-slate-950/40 border-slate-800/50'
+          ? 'bg-slate-900 border-blue-500/20'
+          : 'bg-slate-950 border-slate-800/70'
       }`}>
         <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
           {onClose && (
@@ -87,7 +87,7 @@ export function UnifiedChat<TContext>({
             </button>
           )}
           <div className="relative group">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black shrink-0 shadow-xl shadow-blue-500/20 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black shrink-0 border border-blue-400/30">
               {initials}
             </div>
             {features.hasPresence && (
@@ -166,7 +166,7 @@ export function UnifiedChat<TContext>({
 
       {ticketStatus === 'CLOSED' && role !== 'OPERATOR' && (
           <div className="absolute inset-x-0 bottom-32 flex justify-center px-4 pointer-events-none z-30">
-              <div className="bg-amber-500/90 text-black text-[9px] font-black uppercase px-5 py-2.5 rounded-lg shadow-2xl backdrop-blur-md border border-amber-400/50 flex items-center gap-2 animate-bounce">
+              <div className="bg-amber-500 text-black text-[9px] font-black uppercase px-5 py-2.5 rounded-lg shadow-xl border border-amber-300 flex items-center gap-2">
                   <Lock size={14} /> Atendimento Encerrado para Novas Mensagens
               </div>
           </div>

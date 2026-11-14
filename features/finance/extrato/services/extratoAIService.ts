@@ -6,7 +6,7 @@ export const getExtratoAIResponse = async (action: ActionType, context: unknown,
   const prompt = getExtratoPromptByAction(action, userQuestion);
   try {
     const response = await requestGemini({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
       contents: `${prompt}\n\n${JSON.stringify(context)}`,
       config: { systemInstruction: baseSystemPrompt },
     });

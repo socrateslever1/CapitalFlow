@@ -5,6 +5,7 @@ import { calculateRiskProfile } from '../finance/riskAnalysis';
 import { rebuildLoanStateFromLedger, ZERO_BALANCE_THRESHOLD } from '../finance/calculations';
 import { resolveProfitBalance } from '../../utils/profitBalance';
 import { isTestSource } from '../../utils/testSource';
+import { businessMonthInManaus, shiftBusinessMonth } from '../../utils/businessDate';
 
 const isUnifiedChildLoan = (loan: Loan): boolean => {
   const notes = String(loan.notes || '');
@@ -19,13 +20,22 @@ const isUnifiedChildLoan = (loan: Loan): boolean => {
 
 export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activeUser: any = null) => {
   // Reconstroi todos os contratos do ledger para garantir precisão total nos contadores
-  const loans = loansRaw.map(l => rebuildLoanStateFromLedger(l));
   const testSourceIds = new Set(
     sources
       .filter((source) => isTestSource(source))
       .map((source) => String(source.id))
       .filter(Boolean)
   );
+  const isTestLedgerEntry = (entry: any) =>
+    testSourceIds.has(String(entry?.sourceId || entry?.source_id || ''));
+
+  // Remove entradas de teste antes de reconstruir o contrato. Filtrar somente
+  // depois da reconstrução esconderia o lucro, mas ainda reduziria saldo,
+  // parcelas e lucro projetado por meio do ledger sintético.
+  const loans = loansRaw.map((loan) => ({
+    ...loan,
+    ledger: (loan.ledger || []).filter((entry: any) => !isTestLedgerEntry(entry)),
+  })).map(l => rebuildLoanStateFromLedger(l));
 
   const filteredLoans = loans.filter((loan) => !testSourceIds.has(String((loan as any).sourceId || (loan as any).source_id || '')));
 
@@ -62,6 +72,7 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   // 2. TOTAIS GERAIS (Lucro Realizado)
   const totalProfitRealized = filteredLoans.reduce((acc, l) => {
       const profitFromLedger = (l.ledger || []).reduce((sum, t) => {
+          if (isTestLedgerEntry(t)) return sum;
           if (!String(t.type || '').includes('PAYMENT') && t.type !== 'ESTORNO' && t.type !== 'AGREEMENT_PAYMENT_REVERSED') return sum;
           // Soma juros e multas pagos (Estorno já vem negativo, então ele subtrai naturalmente)
           return sum + (Number(t.interestDelta || 0) + Number(t.lateFeeDelta || 0));
@@ -107,21 +118,19 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
     : [{ name: 'Sem dados', value: 1, color: '#334155' }];
 
   const monthlyDataMap: {[key: string]: {name: string, Entradas: number, Saidas: number}} = {};
-  const currentMonthKey = new Date().toISOString().slice(0, 7);
+  const currentMonthKey = businessMonthInManaus();
   let receivedThisMonth = 0;
 
   const monthsBack = 5;
   for (let i = monthsBack; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const key = d.toISOString().slice(0, 7);
-      const month = d.getMonth() + 1;
-      const year = d.getFullYear().toString().slice(-2);
-      monthlyDataMap[key] = { name: `${month.toString().padStart(2, '0')}/${year}`, Entradas: 0, Saidas: 0 };
+      const { key, month, year } = shiftBusinessMonth(currentMonthKey, -i);
+      const shortYear = year.toString().slice(-2);
+      monthlyDataMap[key] = { name: `${month.toString().padStart(2, '0')}/${shortYear}`, Entradas: 0, Saidas: 0 };
   }
 
   filteredLoans.forEach(l => {
     (l.ledger || []).forEach(t => {
+      if (isTestLedgerEntry(t)) return;
       if (!t.date || t.date.length < 7) return;
       const key = t.date.slice(0, 7);
 
@@ -158,7 +167,12 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
     });
   });
 
-  const lineChartData = Object.values(monthlyDataMap).sort((a,b) => {
+  const roundMoney = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+  const lineChartData = Object.values(monthlyDataMap).map(item => ({
+    ...item,
+    Entradas: roundMoney(item.Entradas),
+    Saidas: roundMoney(item.Saidas),
+  })).sort((a,b) => {
     const [m1, y1] = a.name.split('/');
     const [m2, y2] = b.name.split('/');
     if (y1 !== y2) return y1.localeCompare(y2);
@@ -166,16 +180,16 @@ export const buildDashboardStats = (loansRaw: Loan[], sources: any[] = [], activ
   });
 
   return {
-      totalLent,
+      totalLent: roundMoney(totalLent),
       activeCount,
-      totalReceived: totalProfitRealized,
-      receivedThisMonth,
-      expectedProfit: totalProjectedProfit,
+      totalReceived: roundMoney(totalProfitRealized),
+      receivedThisMonth: roundMoney(receivedThisMonth),
+      expectedProfit: roundMoney(totalProjectedProfit),
       roi,
-      interestBalance,
+      interestBalance: roundMoney(interestBalance),
       pieData,
       lineChartData,
-      totalAtRisk,
+      totalAtRisk: roundMoney(totalAtRisk),
       potentialDefaulterCount
   };
 };

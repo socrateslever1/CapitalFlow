@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { CapitalSource, Loan, Client, Installment, AgreementInstallment } from '../types';
 import type { ModalType, ModalState } from '../contexts/ModalContext';
+import type { ArchiveReason } from '../domain/credit/archivePolicy';
 
 // Estado agrupado para pagamento (suporta parcela normal ou parcela de acordo)
 interface PaymentState {
@@ -100,7 +101,7 @@ export const useUiState = () => {
     title?: string;
     message?: string;
     showRefundOption?: boolean;
-    archiveReason?: import('../domain/credit/archivePolicy').ArchiveReason | '';
+    archiveReason?: ArchiveReason | '';
     archiveNote?: string;
     extraData?: any;
   } | null>(null);

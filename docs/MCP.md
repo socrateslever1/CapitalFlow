@@ -17,6 +17,7 @@ O servidor é criado por `createCapitalFlowMcpServer`. Ele exige um `resolveAuth
 - `get_contract`
 - `list_due_dates`
 - `get_agreement`
+- `get_profitability`
 
 As respostas usam `structuredContent` e o formato `{ "ok": true, "data": ... }` ou `{ "ok": false, "error": "...", "message": "..." }`.
 

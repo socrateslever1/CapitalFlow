@@ -6,6 +6,7 @@ import { maskPhone, maskDocument } from '../utils/formatters';
 import { asNumber } from '../utils/safe';
 import { filterDeletedLoans, readDeletedContractIds } from './deletedContracts.service';
 import { generateUUID } from '../utils/generators';
+import { fetchAllPages, idsMissingFromRemote } from './offline/hybridSync';
 
 const AUTH_ERROR_PATTERNS = ['jwt expired','invalid jwt','token is expired','auth session missing','refresh token','session not found','failed verification'];
 export const isAuthSyncError = (error: any) => {
@@ -41,14 +42,51 @@ const runQueueMutation = async (item: any) => {
   if (item.operation === 'DELETE') return supabase.from(item.table).delete().eq('id', item.targetId);
   return { error: new Error(`Operacao de sync desconhecida: ${item.operation}`) };
 };
+const asSyncError = (error: any): Error | null => {
+  if (!error) return null;
+  if (error instanceof Error) return error;
+  const normalized = new Error(String(error.message || error.error_description || error));
+  Object.assign(normalized, error);
+  return normalized;
+};
+
+let queueProcessing: Promise<void> | null = null;
+
 const fetchRemoteSnapshot = async (ownerId: string) => Promise.all([
-  supabase.from('clientes').select('*').eq('owner_id', ownerId),
-  supabase.from('fontes').select('*').eq('profile_id', ownerId).is('archived_at', null),
-  supabase.from('contratos').select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))').eq('owner_id', ownerId),
-  supabase.from('perfis').select('*').eq('owner_profile_id', ownerId),
-  supabase.from('portal_files').select('*').eq('profile_id', ownerId).order('created_at', { ascending: false }),
-  supabase.from('mensagens_suporte').select('id, loan_id, read, sender_type').eq('profile_id', ownerId).eq('sender_type', 'CLIENT').eq('read', false).limit(1000),
-  supabase.from('payment_intents').select('*').eq('profile_id', ownerId)
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('clientes').select('*').eq('owner_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('fontes').select('*').eq('profile_id', ownerId)
+      .is('archived_at', null).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('contratos')
+      .select('*, parcelas(*), transacoes(*), acordos_inadimplencia!loan_id(*, acordo_parcelas(*))')
+      .eq('owner_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('perfis').select('*').eq('owner_profile_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('portal_files').select('*').eq('profile_id', ownerId)
+      .order('created_at', { ascending: false }).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('mensagens_suporte')
+      .select('id, loan_id, read, sender_type').eq('profile_id', ownerId)
+      .eq('sender_type', 'CLIENT').eq('read', false).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
+  fetchAllPages(async (from, to) => {
+    const result = await supabase.from('payment_intents').select('*').eq('profile_id', ownerId).range(from, to);
+    return { data: result.data, error: asSyncError(result.error) };
+  }),
 ]);
 const mapClientFromDB = (client: any) => ({
   ...client,
@@ -63,7 +101,9 @@ export const syncService = {
     console.log('[SYNC] Iniciando sincronização completa...', { profileId, ownerId });
     try {
       await ensureFreshAuth();
-      await this.processQueue();
+      // A stuck offline write must never block the authoritative read path.
+      // The queue is processed in the background and is serialized below.
+      void this.processQueue().catch((error) => console.warn('[SYNC] Fila em segundo plano:', error));
       let [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes, paymentIntentsRes] = await fetchRemoteSnapshot(ownerId);
       const firstError = clientsRes.error || sourcesRes.error || loansRes.error || staffRes.error;
       if (firstError && isAuthSyncError(firstError)) { await ensureFreshAuth(true); [clientsRes, sourcesRes, loansRes, staffRes, portalFilesRes, supportUnreadRes, paymentIntentsRes] = await fetchRemoteSnapshot(ownerId); }
@@ -75,6 +115,14 @@ export const syncService = {
       const rejectedClientIds = (clientsRes.data || []).filter((client:any)=>client.registration_status==='REJECTED').map((client:any)=>client.id);
       if (rejectedClientIds.length) await db.clientes.bulkDelete(rejectedClientIds);
       const mappedClients = (clientsRes.data || []).filter((client:any)=>client.registration_status!=='REJECTED').map(mapClientFromDB);
+      const pendingClientWrites = await db.write_queue.where('status').anyOf(['PENDING','FAILED']).toArray();
+      const protectedClientIds = new Set(pendingClientWrites
+        .filter((item:any) => item.table === 'clientes' && item.operation !== 'DELETE')
+        .map((item:any) => item.targetId || item.data?.id).filter(Boolean));
+      const localOwnerClients = await db.clientes.where('owner_id').equals(ownerId).toArray();
+      const staleClientIds = idsMissingFromRemote(localOwnerClients, mappedClients, ownerId)
+        .filter(id => !protectedClientIds.has(id));
+      if (staleClientIds.length) await db.clientes.bulkDelete(staleClientIds);
       await db.clientes.bulkPut(mappedClients);
 
       const mappedSources = (sourcesRes.data || []).map((s:any)=>({ ...s, balance: asNumber(s.balance) }));
@@ -115,8 +163,16 @@ export const syncService = {
     const queueItem={id:generateUUID(),table,operation,data,targetId:id,baseUpdatedAt,conflictTable:params.conflictTable||null,conflictId:params.conflictId||null,status:'PENDING',attempts:0,maxAttempts:7,nextRetryAt:new Date().toISOString(),timestamp:new Date().toISOString()}; await db.write_queue.put(queueItem); this.processQueue().catch(err=>console.warn('[SYNC] Queue processing failed:',err)); return true;
   },
   async processQueue(){
-    if(typeof navigator!=='undefined'&&!navigator.onLine)return; const session=await ensureFreshAuth().catch(err=>{console.warn('[SYNC] Sessao indisponivel para processar fila:',err?.message||err);return null;}); if(!session)return;
-    const now=new Date().toISOString(); const items=await db.write_queue.where('status').anyOf(['PENDING','FAILED']).and(item=>item.nextRetryAt<=now).toArray(); if(!items.length)return; console.log(`[SYNC] Processando fila de escrita (${items.length} itens)...`);
-    for(const item of items){try{let {error}=await runQueueMutation(item);if(error&&isAuthSyncError(error)){await ensureFreshAuth(true);const retry=await runQueueMutation(item);error=retry.error;}if(error)throw error;await db.write_queue.delete(item.id);console.log(`[SYNC] Item ${item.id} sincronizado com sucesso.`);}catch(err:any){const attempts=(item.attempts||0)+1,maxAttempts=item.maxAttempts||7;console.error(`[SYNC] Falha na tentativa ${attempts}/${maxAttempts} para item ${item.id}:`,err);const isConflict=String(err?.message||'').includes('CONFLITO_OFFLINE');if(isConflict){await db.write_queue.update(item.id,{status:'CONFLICT',attempts,lastError:err?.message||String(err)});continue;}if(attempts>=maxAttempts){await db.write_queue.update(item.id,{status:'DEAD',attempts,lastError:err?.message||String(err)});continue;}const delayMs=Math.min(60000,1000*Math.pow(2,attempts));await db.write_queue.update(item.id,{status:'FAILED',attempts,lastError:err?.message||String(err),nextRetryAt:new Date(Date.now()+delayMs).toISOString()});}}
+    if (queueProcessing) return queueProcessing;
+    queueProcessing = (async () => {
+      if(typeof navigator!=='undefined'&&!navigator.onLine)return;
+      const session=await ensureFreshAuth().catch(err=>{console.warn('[SYNC] Sessao indisponivel para processar fila:',err?.message||err);return null;});
+      if(!session)return;
+      const now=new Date().toISOString(); const items=await db.write_queue.where('status').anyOf(['PENDING','FAILED']).and(item=>item.nextRetryAt<=now).toArray();
+      if(!items.length)return;
+      console.log(`[SYNC] Processando fila de escrita (${items.length} itens)...`);
+      for(const item of items){try{let {error}=await runQueueMutation(item);if(error&&isAuthSyncError(error)){await ensureFreshAuth(true);const retry=await runQueueMutation(item);error=retry.error;}if(error)throw error;await db.write_queue.delete(item.id);console.log(`[SYNC] Item ${item.id} sincronizado com sucesso.`);}catch(err:any){const attempts=(item.attempts||0)+1,maxAttempts=item.maxAttempts||7;console.error(`[SYNC] Falha na tentativa ${attempts}/${maxAttempts} para item ${item.id}:`,err);const isConflict=String(err?.message||'').includes('CONFLITO_OFFLINE');if(isConflict){await db.write_queue.update(item.id,{status:'CONFLICT',attempts,lastError:err?.message||String(err)});continue;}if(attempts>=maxAttempts){await db.write_queue.update(item.id,{status:'DEAD',attempts,lastError:err?.message||String(err)});continue;}const delayMs=Math.min(60000,1000*Math.pow(2,attempts));await db.write_queue.update(item.id,{status:'FAILED',attempts,lastError:err?.message||String(err),nextRetryAt:new Date(Date.now()+delayMs).toISOString()});}}
+    })().finally(() => { queueProcessing = null; });
+    return queueProcessing;
   }
 };

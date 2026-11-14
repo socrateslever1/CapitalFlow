@@ -4,7 +4,7 @@ import { useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
 import { loadFluxMemory, saveFluxMemory, clearFluxMemory, type FluxMemoryMessage } from '../../services/ai/fluxLocalMemory';
 import { cueForNotification, mayShowFluxCue, type FinancialNotificationCue, type FluxCue } from './fluxCuePolicy';
 import type { UserProfile } from '../../types';
-import { askMasterAssistant, isMasterAssistantEnabled, loadMasterAssistantBriefing, loadMasterAssistantHistory, type AssistantTurn } from '../../services/aiAssistant.service';
+import { askMasterAssistantStream, isMasterAssistantEnabled, loadMasterAssistantBriefing, loadMasterAssistantHistory, type AssistantTurn } from '../../services/aiAssistant.service';
 import { generateUUID } from '../../utils/generators';
 import { registerDialogBack } from '../../utils/dialogNavigation';
 import { Capacitor } from '@capacitor/core';
@@ -300,20 +300,54 @@ export const MasterMascot: React.FC<MasterMascotProps> = ({ activeUser, notifica
     setMessages(current => [...current, { id: requestId + ':user', role: 'user' as const, text: value }].slice(-50));
     setBusy(true);
     setNotice('');
+    const streamMsgId = requestId + ':assistant';
+    let streamStarted = false;
     try {
-      const reply = await askMasterAssistant({
-        message: value, conversationId, requestId, turns: turnsAtRequest,
-        fresh: mustRefreshFinancialData,
-      });
+      const reply = await askMasterAssistantStream(
+        {
+          message: value, conversationId, requestId, turns: turnsAtRequest,
+          fresh: mustRefreshFinancialData,
+        },
+        {
+          onStatus: (statusText) => {
+            if (profileRef.current === userAtStart) setNotice(statusText);
+          },
+          onDelta: (_delta, accumulated) => {
+            if (profileRef.current !== userAtStart || conversationId !== localStorage.getItem(conversationKey(userAtStart))) return;
+            streamStarted = true;
+            setMessages(current => {
+              const idx = current.findIndex(item => item.id === streamMsgId);
+              if (idx >= 0) {
+                const updated = [...current];
+                updated[idx] = { id: streamMsgId, role: 'assistant', text: accumulated };
+                return updated;
+              }
+              return [...current, { id: streamMsgId, role: 'assistant' as const, text: accumulated }].slice(-50);
+            });
+          },
+        },
+      );
       if (reply.consultedFinancialData && financialGeneration.current === requestedGeneration) {
         lastFinancialReadGeneration.current = requestedGeneration;
       }
       if (profileRef.current !== userAtStart || conversationId !== localStorage.getItem(conversationKey(userAtStart))) return;
       const isFailureReply = reply.model === 'transport-fallback' || reply.model === 'unavailable';
-      setMessages(current => [...current, { id: requestId + (isFailureReply ? ':error' : ':assistant'), role: 'assistant' as const, text: reply.response }].slice(-50));
+      const finalId = requestId + (isFailureReply ? ':error' : ':assistant');
+      setMessages(current => {
+        const filtered = streamStarted ? current.filter(item => item.id !== streamMsgId) : current;
+        return [...filtered, { id: finalId, role: 'assistant' as const, text: reply.response }].slice(-50);
+      });
+      if (reply.grounding?.sources?.length) {
+        setNotice(`Fontes: ${reply.grounding.sources.map(s => s.label).slice(0, 3).join(' • ')}`);
+      } else {
+        setNotice('');
+      }
     } catch {
       if (profileRef.current === userAtStart) {
-        setMessages(current => [...current, { id: requestId + ':error', role: 'assistant' as const, text: 'Não foi possível responder agora.' }].slice(-50));
+        setMessages(current => {
+          const filtered = streamStarted ? current.filter(item => item.id !== streamMsgId) : current;
+          return [...filtered, { id: requestId + ':error', role: 'assistant' as const, text: 'Não foi possível responder agora.' }].slice(-50);
+        });
       }
     } finally {
       if (profileRef.current === userAtStart) setBusy(false);

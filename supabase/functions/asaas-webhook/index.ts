@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { businessDateInManaus } from "../_shared/businessDate.ts";
 
 declare const Deno: any;
 
@@ -161,7 +162,7 @@ serve(async (req) => {
     // 1. Localizar a cobrança no nosso banco
     const { data: charge } = await supabase
       .from("payment_charges")
-      .select("id, loan_id, installment_id, metadata")
+      .select("id, loan_id, installment_id, amount, metadata")
       .eq("provider_payment_id", String(payment.id))
       .maybeSingle();
 
@@ -206,8 +207,15 @@ serve(async (req) => {
 
     // 3. Alocar valores
     const approvedAmount = Number(payment.value || 0);
+    const expectedChargeAmount = Number(charge.amount || 0);
     const debtAmount = Number(charge.metadata?.debt_amount || approvedAmount);
-    const paymentDate = new Date().toISOString().split("T")[0];
+    if (!Number.isFinite(approvedAmount) || approvedAmount <= 0 ||
+        (expectedChargeAmount > 0 && approvedAmount + 0.05 < expectedChargeAmount) ||
+        approvedAmount + 0.05 < debtAmount) {
+      await updateCharge({ status: "PENDING" });
+      return json({ ok: false, error: "Paid amount is lower than expected charge amount" }, 409);
+    }
+    const paymentDate = businessDateInManaus();
     const offerIsActive = String(installment.payment_offer_status || "").toUpperCase() === "ACTIVE"
       && String(installment.payment_offer_valid_until || "").slice(0, 10) >= paymentDate;
     const activeOffer = offerIsActive

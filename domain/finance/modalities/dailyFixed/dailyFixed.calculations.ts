@@ -22,15 +22,17 @@ export const calculateDailyFixed = (loan: Loan, inst: Installment, policy: LoanP
     lateFee = calculateRecurringMonthlyFine(principal, policy.finePercent, daysLate);
   }
 
-  const totalInterest = round(interestRemaining + lateInterest);
+  const totalLateFee = round(lateFee + lateInterest);
 
-  const total = round(principal + totalInterest + lateFee);
+  const total = round(principal + interestRemaining + totalLateFee);
 
   return {
     total,
     principal,
-    interest: totalInterest,
-    lateFee,
+    interest: interestRemaining,
+    lateFee: totalLateFee,
+    finePart: lateFee,
+    moraPart: lateInterest,
     baseForFine: principal,
     daysLate
   };

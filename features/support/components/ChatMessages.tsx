@@ -222,7 +222,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
             <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSequence ? 'mt-1' : 'mt-4'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}>
               <div
-                className={`max-w-[88%] sm:max-w-[85%] px-3.5 py-2.5 shadow-xl transition-all hover:scale-[1.01] ${
+                className={`max-w-[88%] sm:max-w-[85%] px-3.5 py-2.5 shadow-xl ${
                   isMe
                     ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-lg rounded-tr-sm'
                     : `${chatTheme === 'blue' ? 'bg-slate-800/80 border border-slate-700/50' : 'bg-slate-800/90 border border-slate-700/30'} text-slate-100 rounded-lg rounded-tl-sm backdrop-blur-sm`

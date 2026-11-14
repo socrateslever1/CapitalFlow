@@ -2,6 +2,7 @@
 import { Loan, UserProfile, CapitalSource, LedgerEntry } from '../../types';
 import { executeLedgerAction } from './ledgerActions';
 import { reverseTransaction } from './ledgerReverse';
+import type { ArchiveReason } from '../../domain/credit/archivePolicy';
 
 export type LedgerActionType = 'DELETE' | 'ARCHIVE' | 'RECLASSIFY_ARCHIVE' | 'RESTORE' | 'DELETE_CLIENT' | 'DELETE_SOURCE' | 'ACTIVATE';
 
@@ -13,7 +14,7 @@ export const ledgerService = {
     activeUser: UserProfile;
     sources: CapitalSource[];
     refundChecked: boolean;
-    archiveReason?: import('../../domain/credit/archivePolicy').ArchiveReason | '';
+    archiveReason?: ArchiveReason | '';
     archiveNote?: string;
   }) {
     return executeLedgerAction(params);

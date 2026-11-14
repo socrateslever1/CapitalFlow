@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { AssistantTurn } from '../supabase/functions/ai-assistant/core';
+import { normalizeAssistantTurns, type AssistantTurn } from '../supabase/functions/ai-assistant/core';
 import { describeFluxTransportFailure, readFunctionsError } from './ai/fluxTransport';
 
 export type AssistantIntent = 'READ' | 'DRAFT' | 'CONFIRM' | 'FORBIDDEN' | 'UNKNOWN';
@@ -11,9 +11,31 @@ export interface AssistantReply {
   intent: AssistantIntent;
   permissionMode: AssistantIntent;
   response: string;
+  structured?: {
+    intent: string;
+    feedback: string;
+    analysis?: string;
+    suggestions?: string[];
+    riskScore?: number;
+  };
   provider?: string;
   model?: string;
   consultedFinancialData?: boolean;
+  cacheHit?: 'none' | 'query' | 'prompt';
+  grounding?: {
+    sources: Array<{ kind: 'database' | 'rag' | 'calculator'; id: string; label: string; score?: number }>;
+    verified: boolean;
+    warnings: string[];
+  };
+  telemetry?: {
+    traceId: string;
+    latencyMs: number;
+    steps: number;
+    toolsCalled: string[];
+    cacheHit: 'none' | 'query' | 'prompt';
+    costEstimateUsd: number;
+    tokens: { promptTokens: number; completionTokens: number; cachedTokens: number; totalTokens: number };
+  };
   /** Present only on transport failures: HTTP status (null = server unreachable) and diagnostic code. */
   transportStatus?: number | null;
   transportCode?: string;
@@ -95,7 +117,7 @@ export async function askMasterAssistant(input: {
 }): Promise<AssistantReply> {
   let failure = describeFluxTransportFailure(null);
   try {
-    const cleanTurns = (input.turns || []).slice(-10);
+    const cleanTurns = normalizeAssistantTurns(input.turns).slice(-10);
     const { data, error } = await supabase.functions.invoke<AssistantReply>('ai-assistant', {
       body: {
         message: input.message,
@@ -137,6 +159,127 @@ export async function askMasterAssistant(input: {
     transportStatus: failure.status,
     transportCode: failure.code,
   };
+}
+
+/**
+ * Streams Flux responses over Server-Sent Events (SSE) when supported,
+ * falling back transparently to `askMasterAssistant` otherwise.
+ */
+export async function askMasterAssistantStream(
+  input: {
+    message: string;
+    conversationId: string;
+    requestId: string;
+    turns?: AssistantTurn[];
+    fresh?: boolean;
+    structured?: boolean;
+  },
+  callbacks: {
+    onStatus?: (status: string) => void;
+    onDelta?: (delta: string, accumulated: string) => void;
+  } = {},
+): Promise<AssistantReply> {
+  try {
+    const env = (import.meta as { env?: Record<string, string | undefined> }).env;
+    const supabaseUrl = env?.VITE_SUPABASE_URL;
+    const supabaseAnonKey = env?.VITE_SUPABASE_ANON_KEY;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!supabaseUrl || !supabaseAnonKey || !accessToken || typeof fetch === 'undefined') {
+      return askMasterAssistant(input);
+    }
+
+    const cleanTurns = normalizeAssistantTurns(input.turns).slice(-10);
+    const res = await fetch(`${supabaseUrl.replace(/\/$/, '')}/functions/v1/ai-assistant`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'apikey': supabaseAnonKey,
+        'authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        message: input.message,
+        conversationId: input.conversationId,
+        requestId: input.requestId,
+        turns: cleanTurns,
+        fresh: input.fresh === true,
+        structured: input.structured === true,
+        stream: true,
+      }),
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok) {
+      let serverError: unknown = null;
+      try {
+        const body = await res.json();
+        serverError = body?.error;
+      } catch { /* ignore */ }
+      const failure = describeFluxTransportFailure(res.status, serverError);
+      return {
+        requestId: input.requestId,
+        conversationId: input.conversationId,
+        intent: 'UNKNOWN',
+        permissionMode: 'READ',
+        response: failure.message,
+        provider: 'flux-safe',
+        model: 'transport-fallback',
+        transportStatus: failure.status,
+        transportCode: failure.code,
+      };
+    }
+
+    if (!contentType.includes('text/event-stream') || !res.body) {
+      const jsonReply = (await res.json()) as AssistantReply;
+      return jsonReply;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let accumulated = '';
+    let donePayload: AssistantReply | null = null;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let boundary = buffer.indexOf('\n\n');
+      while (boundary !== -1) {
+        const rawEvent = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        boundary = buffer.indexOf('\n\n');
+
+        let eventName = 'message';
+        let dataLine = '';
+        for (const line of rawEvent.split('\n')) {
+          if (line.startsWith('event:')) eventName = line.slice(6).trim();
+          else if (line.startsWith('data:')) dataLine += line.slice(5).trim();
+        }
+        if (!dataLine) continue;
+        try {
+          const parsed = JSON.parse(dataLine) as Record<string, unknown>;
+          if (eventName === 'status' && typeof parsed.text === 'string') {
+            callbacks.onStatus?.(parsed.text);
+          } else if (eventName === 'delta' && typeof parsed.text === 'string') {
+            accumulated += parsed.text;
+            callbacks.onDelta?.(parsed.text, accumulated);
+          } else if (eventName === 'done') {
+            donePayload = parsed as unknown as AssistantReply;
+          }
+        } catch { /* ignore malformed SSE event */ }
+      }
+    }
+
+    if (donePayload && typeof donePayload.response === 'string') {
+      return donePayload;
+    }
+  } catch {
+    /* Fallback transparently to standard invoke */
+  }
+  return askMasterAssistant(input);
 }
 
 /** Historical database reads happen only when the user explicitly asks for them. */

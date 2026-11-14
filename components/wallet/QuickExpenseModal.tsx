@@ -7,6 +7,7 @@ import {
   personalWalletService,
 } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
+import { businessDateInManaus } from '../../utils/businessDate';
 import { generateUUID } from '../../utils/generators';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { FinancialCalculatorInput } from '../forms/FinancialCalculatorInput';
@@ -55,7 +56,7 @@ const EXPENSE_CATEGORIES = [
   'Outros',
 ] as const;
 
-const todayIso = () => new Date().toLocaleDateString('en-CA');
+const todayIso = () => businessDateInManaus();
 
 const parseSafeMoney = (raw: string): number => {
   if (!raw.trim()) return 0;

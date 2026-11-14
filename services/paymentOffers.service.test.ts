@@ -5,10 +5,12 @@ import { LoanStatus, type Installment, type Loan } from '../types';
 import { calculatePaymentOfferPreview, isPaymentOfferActive } from './paymentOffers.service';
 import { businessDateInManaus } from '../utils/businessDate';
 
+// O motor conta o atraso pelo dia civil de Manaus; a referência do teste usa a mesma regra.
+// (Com o relógio local, a suíte falhava entre 20h e 24h de Manaus em máquinas UTC.)
 const localDueDate = (() => {
-  const today = new Date();
-  const due = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3);
-  return `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+  const [year, month, day] = businessDateInManaus().split('-').map(Number);
+  const due = new Date(Date.UTC(year, month - 1, day - 3));
+  return due.toISOString().slice(0, 10);
 })();
 
 const installment = {

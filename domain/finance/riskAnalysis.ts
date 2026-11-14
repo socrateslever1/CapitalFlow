@@ -1,6 +1,7 @@
 import { AgreementInstallment, Installment, Loan } from '../../types';
 import { hasActiveAgreement, isInstallmentPaid } from './calculations';
 import { getDaysDiff, parseDateOnlyUTC } from '../../utils/dateHelpers';
+import { businessDateInManaus } from '../../utils/businessDate';
 
 export type RiskLevel = 'BAIXO' | 'MODERADO' | 'ALTO' | 'CRITICO';
 export type RiskCategory = 'REGULAR' | 'PAGAMENTO' | 'COBRANCA' | 'HISTORICO' | 'DOCUMENTAL';
@@ -21,7 +22,7 @@ type RiskInstallment = Installment | AgreementInstallment;
 
 const hasValidPaymentOffer = (installment: RiskInstallment | any) =>
   String(installment?.paymentOfferStatus || '').toUpperCase() === 'ACTIVE'
-  && String(installment?.paymentOfferValidUntil || '').slice(0, 10) >= new Date().toISOString().slice(0, 10)
+  && String(installment?.paymentOfferValidUntil || '').slice(0, 10) >= businessDateInManaus()
   && Number(installment?.paymentOfferAmount || 0) > 0.05;
 
 const getCurrentSchedule = (loan: Loan): RiskInstallment[] => {

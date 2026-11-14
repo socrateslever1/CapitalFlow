@@ -252,21 +252,21 @@ export const ClientRegistrationPage: React.FC<{ token: string }> = ({ token }) =
             Meu CPF consta na imagem do novo RG
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-center hover:border-blue-500 transition-all">
+            <label className="flex min-w-0 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-center hover:border-blue-500 transition-all">
               <FileUp size={20} className={documents.rg ? 'text-emerald-400' : 'text-slate-400'}/>
-              <span className="text-[10px] font-bold uppercase">{documents.rg ? documents.rg.name : (cpfInIdentity ? 'RG com CPF *' : 'RG *')}</span>
+              <span className="w-full truncate text-[10px] font-bold uppercase" title={documents.rg?.name}>{documents.rg ? documents.rg.name : (cpfInIdentity ? 'RG com CPF *' : 'RG *')}</span>
               <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setDocuments({ ...documents, rg: e.target.files?.[0] || null })}/>
             </label>
             {!cpfInIdentity && (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-center hover:border-blue-500 transition-all">
+              <label className="flex min-w-0 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-center hover:border-blue-500 transition-all">
                 <FileUp size={20} className={documents.cpf ? 'text-emerald-400' : 'text-slate-400'}/>
-                <span className="text-[10px] font-bold uppercase">{documents.cpf ? documents.cpf.name : 'CPF *'}</span>
+                <span className="w-full truncate text-[10px] font-bold uppercase" title={documents.cpf?.name}>{documents.cpf ? documents.cpf.name : 'CPF *'}</span>
                 <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setDocuments({ ...documents, cpf: e.target.files?.[0] || null })}/>
               </label>
             )}
-            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-center hover:border-blue-500 transition-all">
+            <label className="flex min-w-0 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-slate-700 bg-slate-950/40 p-4 text-center hover:border-blue-500 transition-all">
               <FileUp size={20} className={documents.residence ? 'text-emerald-400' : 'text-slate-400'}/>
-              <span className="text-[10px] font-bold uppercase">{documents.residence ? documents.residence.name : 'Comprovante *'}</span>
+              <span className="w-full truncate text-[10px] font-bold uppercase" title={documents.residence?.name}>{documents.residence ? documents.residence.name : 'Comprovante *'}</span>
               <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setDocuments({ ...documents, residence: e.target.files?.[0] || null })}/>
             </label>
           </div>

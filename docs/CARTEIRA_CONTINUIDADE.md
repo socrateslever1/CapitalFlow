@@ -1,3 +1,12 @@
+## 13/11/2026 — transferência contábil Capital → Minha Carteira e legibilidade
+
+- **Layout:** `LoanFundingCostFields.tsx` reflow responsivo por largura real, rótulos com altura coerente e inputs financeiros inteiros; sem alteração em juros, fórmula de custo nem principal.
+- **Saldo disponível:** Fontes e Contas exibem o total operacional elegível (saldo positivo, excluindo cartão e conta espelho); não confundir com dinheiro bancário nem com lucro realizado/Caixa Livre.
+- **Movimentação:** RPC `capital_source_transfer_to_wallet` cria débito na fonte e crédito na conta com auditoria e chave idempotente; novo tipo `CAPITAL_TRANSFER` aparece no extrato, mas não como receita nova. Usuário precisa escolher origem/conta/valor e confirmar. **Não é PIX/TED**.
+- **Autorizações:** usa `is_platform_super_admin` no Supabase, valida vínculo ao perfil, conta própria e marco de reinício; fonte de crédito ou espelho bloqueada. Conta com fonte espelhada diferente sincroniza pelo trigger existente após validar igualdade prévia. Nenhuma movimentação histórica executada.
+- **UX:** ação disponível nos cartões das Fontes e na tela Contas, sem duplicação do botão Criar carteira física, cuja opção continua em Nova conta.
+- **Testes:** `tests/wallet/capital-source-transfer.test.ts` e `tests/architecture/capital-source-wallet-transfer.test.mjs`; a execução do CI e a aplicação da migration devem ser verificadas separadamente. Não há teste real em celular ou transação bancária.
+
 ## 11/11/2026 — Revisão de recebimentos, histórico jurídico e clareza do balanço
 
 - Diagnóstico do Jurídico: o perfil principal possuía 53 registros gerados, incluindo 14 cancelados, 33 pendentes, 5 em assinatura e 1 assinado. Vários documentos tinham versões/duplicatas por contrato. Esses documentos não foram excluídos automaticamente.
@@ -907,3 +916,98 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - **Testes:** novo caso em `tests/wallet/payables-domain.test.ts` (agora executado por `test:audit`, que está no `test:quality`); `todo` da Carteira removido em `test:audit`. `npm run test:quality` aprovado.
 - **Pré-existente, não alterado:** `tests/wallet/*.test.ts` tem 3 falhas também sem esta mudança (#108 salvar alterações/vínculo RPC, #146 três magnitudes de crédito, #213 FAB com quatro ações); esse conjunto não está no `test:quality`.
 - **Não validado** no navegador nem em aparelho.
+
+## 11/11/2026 — Consistência dos caminhos de IA (em andamento)
+
+- Criado `services/ai/assistantContract.ts` como contrato comum para a resposta estruturada da IA: parsing tolerante a JSON cercado por Markdown, campos obrigatórios, limites de tamanho e normalização de sugestões/score.
+- `services/geminiService.ts` passou a usar prompt estruturado e `responseSchema`, mantendo o proxy autenticado e o fallback interno existentes.
+- Alinhados os módulos que chamavam o modelo legado `gemini-3.8-flash` para `gemini-2.5-flash`; o proxy continua aceitando os identificadores antigos para compatibilidade.
+- `normalizeAssistantTurns` agora filtra turnos inválidos antes de limitar a memória, preservando contexto válido em payloads multi-turno com entradas malformadas.
+- O Flux agora exige resposta financeira com resposta direta, evidências e próximos passos; respostas financeiras genéricas ou curtas são descartadas antes da entrega.
+- Consultas que combinam áreas passam a usar contexto geral; a data de referência usa `America/Manaus`; o lucro previsto em aberto usa juros remanescentes das parcelas, sem subtrair principal original de saldo remanescente.
+- O contrato legado preserva `data` em respostas remotas de cadastro/recebimento, mantendo a revisão manual antes de qualquer gravação.
+- O leitor de documentos com IA agora falha fechado quando `rows` não existe, descarta datas impossíveis/valores inválidos, informa linhas ignoradas e alinha o limite de arquivo ao proxy (5 MB); linhas válidas continuam sempre desmarcadas para revisão.
+- Teste arquitetural `no-browser-ai-secrets.test.mjs` passou (4/4) e `git diff --check` passou. Os testes TypeScript ainda não foram executados porque o checkout não possui `node_modules`/`tsx`; nenhuma conexão, RPC, migration, ledger, pagamento ou RLS foi alterada.
+- Pendências: executar uma validação autenticada do proxy/Edge Function no ambiente remoto e validação visual em navegador/aparelho físico antes de publicar. Não houve validação visual em celular físico.
+- Nesta rodada, `test:flux-agent` passou (21/21 + arquitetura Flux 15/15), `test:wallet-statement-import` passou (55/55), `test:ai-security` passou (19/19), `build` passou e a sequência completa equivalente a `test:quality` passou. O comando literal do quality gate não foi usado porque o runtime disponível não expõe `npm` como subprocesso recursivo; nenhum gate individual ficou vermelho.
+## 12/11/2026 — reconciliação de recebimentos anteriores ao destino da Carteira
+
+- Lacuna identificada: o roteamento por conta/fonte existente só era executado no momento do `INSERT` do recebimento; pagamentos anteriores permaneciam nas fontes originais e não tinham fluxo para reclassificação.
+- Implementada a migração `20261112120000_historical_wallet_receipt_reconciliation.sql`: consulta somente recebimentos concluídos, não estornados, originais e sem destino; a RPC administrativa trava a operação, valida perfil/destino, preserva centavos e composição capital + lucro/encargos, chama o motor canônico de roteamento e grava auditoria idempotente. Não há `DELETE` nem alteração do valor, parcela ou contrato.
+- A Carteira exibe o painel apenas para `SUPER_ADMIN`, com prévia, destino explícito (conta ou fonte), motivo obrigatório e confirmação. O backend continua sendo a autoridade e bloqueia usuário sem autorização, destino inválido, duplicidade ou divergência contábil.
+- Serviço: `listHistoricalReceiptCandidates`, `listHistoricalReceiptDestinations` e `reconcileHistoricalReceipt`. Testes: `tests/financial/historical-receipt-reconciliation.test.mjs` e `tests/architecture/historical-receipt-reconciliation.test.mjs`.
+- Limitação: nenhuma reclassificação real foi executada automaticamente e não houve teste em celular físico. É necessário aplicar a migration no Supabase de produção e revisar a prévia dos recebimentos antes de confirmar cada destino.
+## 12/11/2026 — Replica local híbrida: paginação e convergência na reconexão
+
+- O armazenamento local existente continua sendo o IndexedDB/Dexie `CapitalFlowDB` para o perfil autenticado; não foi introduzido MySQL no aparelho. O Supabase permanece a fonte autoritativa.
+- `services/offline/hybridSync.ts` adiciona paginação explícita de 500 registros por página e reconciliação de IDs ausentes, evitando truncamento silencioso no limite do Data API.
+- `services/sync.service.ts` usa paginação nas coleções sincronizadas e remove clientes locais que desapareceram do escopo remoto, preservando registros com escrita pendente.
+- Ao reconectar, a fila de escrita é processada e o `useAppState` dispara uma nova leitura paginada para convergir a réplica local (`capitalflow:sync-requested`).
+- Teste adicionado em `tests/offline/hybrid-sync.test.ts`. A execução automatizada ficou pendente nesta máquina porque Node/npm não estão instalados no PATH; `git diff --check` encontrou apenas espaços finais em alterações anteriores não relacionadas.
+- Limitação mantida: esta etapa não transforma o sistema em réplica de todas as tabelas do Supabase nem habilita operações financeiras críticas offline. Não houve alteração de RPC, migration, ledger, pagamento, estorno ou RLS.
+
+## 12/11/2026 — Verificacao da replica hibrida
+
+- `npm run test:quality`: passou com exit code 0.
+- `npm run build`: passou com exit code 0; o bundler manteve apenas avisos de chunks grandes e imports mistos.
+- `tsx --test tests/offline/hybrid-sync.test.ts`: 3/3 passou.
+- `git diff --check` dos arquivos desta implementacao: passou.
+- Nao houve commit, deploy web ou alteracao no Supabase nesta etapa.
+
+## 12/11/2026 — Correcao das limitacoes de sincronizacao offline da Carteira
+
+- A reconexao agora faz prefetch forcado da Carteira, exigindo dados frescos da rede antes de marcar a replica como atualizada; cache antigo nao mascara falha de reconexao.
+- O prefetch passou a retornar sucesso/falha e a interface mostra estado de atualizacao, aviso de falha e retry manual, mantendo a consulta offline disponivel.
+- A deduplicacao de prefetch permanece ativa; uma atualizacao forcada aguardando outra execucao inicia nova leitura somente depois que a anterior termina.
+- Validacao: teste especifico da Carteira 4/4, `npm run build` exit 0 e `npm run test:quality` exit 0. Avisos restantes sao somente chunking/imports mistos do Vite.
+- Nao houve commit, deploy, alteracao de Supabase, RPC, migration, ledger, pagamento, estorno ou RLS. Validacao em celular fisico continua pendente.
+
+## 12/11/2026 — Flux AI completo e Consistência Financeira 360°
+
+- **Flux AI (`ai-assistant`):** adicionados RAG/embeddings com fallback local (`supabase/functions/ai-assistant/rag.ts`), guardrails de entrada/saída e grounding (`guardrails.ts`), telemetria/tracing (`telemetry.ts`), loop de agente `READ_ONLY` com tool calling, streaming SSE, cache de prompts e histórico cifrado em `services/aiAssistant.service.ts` + `components/ai/MasterMascot.tsx`. Teste dedicado em `tests/ai/flux-full-architecture.test.ts`.
+- **Consistência Financeira 360°:** padronização de data comercial em `America/Manaus` (`utils/businessDate.ts`, `supabase/functions/_shared/businessDate.ts`, modais da Carteira e Edge Functions de pagamento/webhook), conservação exata em centavos nas renovações e no `rebuildLoanStateFromLedger`, exposição uniforme de `finePart`/`moraPart` nas modalidades, inclusão de estornos/aportes no DRE, consistência de `invoice_due_month` em `invoiceStatementDomain.ts` e correção de sinal em `parseStatementLines` (`utils/walletStatementPdf.ts`). Teste dedicado em `tests/financial/consistency-360.test.ts` (5/5).
+- **Validação executada:** `npx tsx --test tests/financial/consistency-360.test.ts` (5/5), `npx tsx --test tests/offline/hybrid-sync.test.ts` (3/3), `npm run test:quality` (exit code 0) e `npm run build` (`tsc -b && vite build`, exit code 0).
+- **Pendências e limitações:** não houve commit nesta etapa; as 6 Edge Functions alteradas em `supabase/functions/` (`ai-assistant`, `asaas-create-payment`, `asaas-webhook`, `infinitepay-create-checkout`, `infinitepay-webhook`, `mp-webhook`) ainda dependem de `supabase functions deploy` no ambiente remoto; nenhuma RPC SQL foi alterada; não houve validação em celular físico.
+
+## 12/11/2026 — Polimento de UX na Carteira, Clientes, Cadastro Público e Perfil
+
+- **Carteira (`WalletSpendingGuide`, `WalletOverviewPage`, `WalletBalanceDock`, `WalletExpenseFab`):** limpeza de cópia duplicada no guia financeiro, alinhamento do selo de status e botão de relatório (`h-7`), remoção de sobreposição do `sticky` na barra de saldo e ajuste de posicionamento do FAB no desktop (`sm:right-6 sm:bottom-6`).
+- **Clientes e Cadastro Público (`ClientsPage`, `ClientRegistrationPage`):** botões de ação compactos e exibição completa de nomes sem truncamento indevido; correção de overflow nos campos de upload com `min-w-0 overflow-hidden` e `truncate`.
+- **Perfil (`ProfilePage`):** remoção de ações redundantes no topo, reorganização das 6 seções essenciais de configuração em layout responsivo com cabeçalho horizontal compacto e botão `Sair` alinhado à direita em telas `< lg` (`hidden lg:flex` no rodapé desktop).
+- **Limitações:** alterações exclusivamente de interface (sem alteração de RPCs, migrations, ledger, pagamento, estorno ou RLS); não houve validação visual em celular físico nesta etapa.
+
+## 13/11/2026 - Fila offline fora do caminho crítico
+
+- **Causa corrigida:** a leitura autoritativa esperava a fila de operações offline terminar. Uma operação antiga, sem rede ou aguardando autenticação podia fazer o sistema parecer travado e impedir novos pedidos.
+- **Comportamento atual:** `syncFullData` atualiza a leitura sem esperar a fila; a fila continua em segundo plano, com autenticação, conflitos, tentativas e estado `DEAD` preservados. Um mutex impede processamentos concorrentes.
+- **Reconexão:** o evento online solicita a nova leitura e dispara o processamento da fila em segundo plano, sem bloquear a interface.
+- **Escopo de segurança:** não houve alteração de Supabase, RPC, migration, ledger, pagamento, estorno ou RLS; nenhuma operação pendente foi apagada.
+- **Validação:** `npm run build` passou; `git diff --check` passou. O teste isolado de sincronização não iniciou nesta máquina por `uv_os_get_passwd ENOMEM` (memória insuficiente do sistema).
+
+## 13/11/2026 - Unificação do destino dos recebimentos
+
+- A conciliação de recebimentos anteriores agora usa o mesmo `personal_wallet_set_receipt_destination` e o mesmo `wallet_route_receipt_internal` do recebimento atual.
+- O valor integral continua entrando na conta/fonte escolhida; capital, juros e encargos permanecem separados na operação financeira e na auditoria.
+- O recebimento original, contrato, parcela e idempotência continuam preservados. Não foi criado crédito duplicado nem um segundo lançamento financeiro.
+- A interface e seus campos/botões não foram redesenhados nesta etapa.
+
+## 13/11/2026 - Refinamento visual do Perfil e exclusão de transações de teste na contabilidade do painel
+
+- **Perfil (`ProfilePage`, `LanguageSelector`, `ProfileExportReports`, `ProfileAuditLog`, `ProfileDangerZone`):** reorganização dos campos em blocos equilibrados, padronização de altura (`h-10`), prefixos/sufixos numéricos (`%`, `R$`), rótulos nos botões de dados/backup e controles de ordenação de menus sempre visíveis.
+- **Exclusão de fontes de teste (`domain/dashboard/stats.ts`, `utils/profitBalance.ts`):** transações individuais (`ledger.sourceId`) vinculadas a fontes de teste (`isTestSource`) agora também são ignoradas no cálculo de `Lucro Realizado`, no acumulado mensal e no gráfico de evolução, mesmo quando pertencem a um contrato de fonte operacional; `isProfitSource` também ignora fontes de teste.
+- **Escopo:** sem alteração de RPCs, migrations, `App.tsx`, `sync.service.ts` ou RLS.
+- **Aplicação remota verificada:** a migration foi aplicada no projeto Supabase `hzchchbxkhryextaymkn` como `20261113193409_unify_receipt_destination_flow`; a RPC remota agora usa o preparador de destino e o roteador canônicos, sem inserir diretamente na tabela de destinos nem apagar operações financeiras.
+- **Prévia remota:** existem 107 recebimentos concluídos, 106 elegíveis para revisão histórica e 0 já roteados; nenhum recebimento foi movido automaticamente. A conciliação individual continua pendente de escolha explícita de destino.
+
+## 13/11/2026 - Visibilidade interna do custo de captação
+
+- O Extrato passou a mostrar o **Custo de captação previsto** do período, derivado de `funding_cost`/`funding_total_payable` dos contratos, separado da dívida e dos documentos do cliente.
+- O resumo é somente leitura: não altera principal, juros do cliente, saldos, faturas, limites, ledger ou recebimentos, e não cria uma segunda despesa no cartão.
+- Testes adicionados em `tests/financial/funding-cost-report.test.ts`; `npm run test:financial`, `npm run test:wallet-visual-next`, `npm run test:architecture` e `npm run build` passaram.
+- Limitação explícita: esta etapa ainda não concilia automaticamente o custo previsto com uma compra já existente na fatura. A integração de lançamento/conciliação exige uma etapa própria com cartão, contrato, ciclo da fatura e idempotência confirmados.
+
+## 14/11/2026 — Revisão das mudanças da `main` (90db022) e junção com as correções de data
+- Branch `claude/jolly-heisenberg-s9ob7a` recebeu a `main`; conflitos só em `package.json` e neste documento (ambos os lados preservados; `test:audit` e `agreement-dates` mantidos no gate).
+- **Teste instável corrigido:** `services/paymentOffers.service.test.ts` montava o vencimento pelo relógio local e o motor conta atraso pelo dia de Manaus; em máquina UTC a suíte falhava entre 20h e 24h de Manaus (8 falhas, 352 ≠ 365). Agora usa `businessDateInManaus()`. Regra de produção não alterada.
+- `npm run test:quality` aprovado após a junção. Nada validado em aparelho nem em produção.
+- **Ainda fora da `main`:** correções de data de acordos (`agreementDates.ts`) e de contas a pagar da Carteira deste branch.

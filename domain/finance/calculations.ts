@@ -645,7 +645,7 @@ export const rebuildLoanStateFromLedger = (loan: Loan): Loan => {
         const iDelta = Number(entry.interestDelta) || 0;
 
         inst.principalRemaining = Math.max(0, round(inst.principalRemaining - pDelta));
-        inst.interestRemaining = round(inst.interestRemaining - iDelta);
+        inst.interestRemaining = Math.max(0, round(inst.interestRemaining - iDelta));
         
         if (['PAYMENT_PARTIAL', 'PAYMENT_INTEREST_ONLY', 'PAYMENT_FULL'].includes(entry.type || '')) {
             if (iDelta > 0 && pDelta === 0) {

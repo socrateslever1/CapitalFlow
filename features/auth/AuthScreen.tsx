@@ -21,6 +21,12 @@ import { maskDocument, onlyDigits } from '../../utils/formatters';
 import { translate } from '../../i18n';
 import { useI18n } from '../../i18n/useI18n';
 import { LoginLanguageSwitcher } from '../../components/settings/LoginLanguageSwitcher';
+import { TermsAcceptanceModal } from './TermsAcceptanceModal';
+import {
+  CURRENT_TERMS_HASH,
+  CURRENT_TERMS_VERSION,
+  recordTermsAcceptance,
+} from '../../services/terms.service';
 
 const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('run.app');
 
@@ -310,25 +316,42 @@ const useMemberActivation = (
 const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToast: any, setIsProcessing: any) => {
   const [form, setForm] = useState({ name: '', email: '', businessName: '', password: '', recoveryPhrase: '' });
 
-  const handleCreate = async () => {
+  const validateCreateForm = (): boolean => {
     if (!form.name.trim() || !form.email.trim() || !form.password) {
       showToast(translate('auth.fillRequired'), 'error');
-      return;
+      return false;
     }
+
+    const email = normalizeEmailAddress(form.email);
+    if (!isEmailAddressValid(email)) {
+      showToast(translate('auth.invalidEmailCreate'), 'error');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleCreate = async (acceptedTerms = false) => {
+    if (!validateCreateForm()) return;
+    if (!acceptedTerms) return;
 
     setIsProcessing(true);
 
     try {
       const email = normalizeEmailAddress(form.email);
-
-      if (!isEmailAddressValid(email)) {
-        throw new Error(translate('auth.invalidEmailCreate'));
-      }
+      const acceptedAt = new Date().toISOString();
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password: form.password.trim(),
-        options: { data: { full_name: form.name } }
+        options: {
+          data: {
+            full_name: form.name,
+            terms_version: CURRENT_TERMS_VERSION,
+            terms_hash: CURRENT_TERMS_HASH,
+            terms_accepted_at: acceptedAt,
+          },
+        },
       });
 
       if (authError) throw authError;
@@ -345,13 +368,21 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
           nome_empresa: form.businessName.trim(),
           senha_acesso: form.password.trim(),
           recovery_phrase: form.recoveryPhrase.trim(),
-          access_level: 1
+          access_level: 1,
+          terms_accepted_at: acceptedAt,
+          terms_version: CURRENT_TERMS_VERSION,
         });
 
         if (!profileUpdated) {
           throw new Error(translate('auth.profileNotProvisioned'));
         }
       }
+
+      await recordTermsAcceptance({
+        profileId: authData.user.id,
+        email,
+        origin: 'SIGNUP',
+      });
 
       showToast(translate('auth.accountCreated'), 'success');
       setIsCreatingProfile(false);
@@ -362,7 +393,7 @@ const useCreateProfile = (setLoginUser: any, setIsCreatingProfile: any, showToas
     }
   };
 
-  return { form, setForm, handleCreate };
+  return { form, setForm, validateCreateForm, handleCreate };
 };
 
 const useRecoveryAndSupport = (setIsRecoveringPassword: any, showToast: any, supportNumber?: string) => {
@@ -648,6 +679,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [isRecoveringPassword, setIsRecoveringPassword] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [isSubmittingSignup, setIsSubmittingSignup] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const { inviteToken, inviteData, isProcessing: isProcessingInvite, cancelInvite } = useInviteFlow(showToast);
@@ -656,11 +689,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     submitTeamLogin,
     showToast
   );
-  const { form: createForm, setForm: setCreateForm, handleCreate: handleCreateProfile } = useCreateProfile(
+  const { form: createForm, setForm: setCreateForm, validateCreateForm, handleCreate: handleCreateProfile } = useCreateProfile(
     setLoginUser,
     setIsCreatingProfile,
     showToast,
-    (_l: any) => {}
+    setIsSubmittingSignup
   );
   const { form: recoveryForm, setForm: setRecoveryForm, handleHelpSupport, handleRecovery } = useRecoveryAndSupport(
     setIsRecoveringPassword,
@@ -782,7 +815,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   value={createForm.password || ''}
                   onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                 />
-                <button onClick={handleCreateProfile} className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs">
+                <button
+                  onClick={() => {
+                    if (validateCreateForm()) setShowTermsModal(true);
+                  }}
+                  className="w-full py-4 bg-blue-600 text-white rounded-lg font-black uppercase text-xs"
+                >
                   {t('auth.createProfile')}
                 </button>
                 <button
@@ -839,6 +877,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
         </Modal>
       )}
+
+      <TermsAcceptanceModal
+        isOpen={showTermsModal}
+        mode="SIGNUP"
+        isSubmitting={isSubmittingSignup}
+        onCancel={() => setShowTermsModal(false)}
+        onAccept={async () => {
+          setShowTermsModal(false);
+          await handleCreateProfile(true);
+        }}
+      />
     </div>
   );
 };

@@ -15,6 +15,8 @@ import { supabase } from '../lib/supabase';
 import { notificationService } from '../services/notification.service';
 import { InAppNotification } from '../hooks/useAppNotifications';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TermsAcceptanceModal } from '../features/auth/TermsAcceptanceModal';
+import { hasUserAcceptedCurrentTerms, recordTermsAcceptance } from '../services/terms.service';
 import {
   useReminders,
   ReminderFAB,
@@ -58,6 +60,22 @@ export const AppShell: React.FC<AppShellProps> = ({
   children, toast, clearToast, activeTab, setActiveTab, activeUser, isLoadingData, onOpenNav, onNewLoan, isStealthMode, toggleStealthMode, onOpenSupport, navOrder, desktopNavOrder, mobileNavOrder, saveMobileNavOrder, onGoBack, isInHub, title, subtitle, notifications, removeNotification, clearAllNotifications, onNavigate, activeModal, addNotification, onCloseSupport, clients
 }) => {
   const remindersState = useReminders(activeUser?.id);
+  const [termsPending, setTermsPending] = useState(false);
+  const [termsSubmitting, setTermsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeUser || activeUser.id === 'DEMO') {
+      setTermsPending(false);
+      return;
+    }
+    void hasUserAcceptedCurrentTerms(activeUser).then((accepted) => {
+      if (!cancelled) setTermsPending(!accepted);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUser?.id, activeUser?.email]);
   const [unreadSupport, setUnreadSupport] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
   const [fabCollapsed, setFabCollapsed] = useState(false);
@@ -341,6 +359,26 @@ export const AppShell: React.FC<AppShellProps> = ({
           isStaff={!!activeUser?.supervisor_id}
           onGoBack={isInHub ? onGoBack : undefined}
         />
+
+      <TermsAcceptanceModal
+        isOpen={termsPending}
+        mode="LOGIN_GATE"
+        isSubmitting={termsSubmitting}
+        onAccept={async () => {
+          if (!activeUser || termsSubmitting) return;
+          setTermsSubmitting(true);
+          try {
+            await recordTermsAcceptance({
+              profileId: activeUser.id,
+              email: activeUser.email,
+              origin: 'LOGIN_GATE',
+            });
+            setTermsPending(false);
+          } finally {
+            setTermsSubmitting(false);
+          }
+        }}
+      />
     </div>
     </PageBackProvider>
     </FinancialPrivacyProvider>

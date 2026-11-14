@@ -39,7 +39,7 @@ test('IA não cadastra lançamentos financeiros sem revisão explícita', () => 
 
 test('gateway usa modelo compatível e diagnostica erro externo sem divulgar segredos', () => {
   const proxy = read('supabase/functions/capitalflow-gemini-proxy/index.ts');
-  assert.ok(proxy.includes("body.model : 'gemini-3.8-flash'"));
+  assert.ok(proxy.includes("body.model : 'gemini-2.5-flash'"));
   assert.ok(proxy.includes("event: 'upstream_rejected'"));
   assert.ok(proxy.includes('upstream.status'));
   assert.ok(!proxy.includes('console.error(upstream'));
@@ -48,7 +48,6 @@ test('gateway usa modelo compatível e diagnostica erro externo sem divulgar seg
     'features/finance/extrato/services/extratoAIService.ts',
     'utils/statementSmartReader.ts',
   ]) {
-    assert.ok(read(file).includes("'gemini-3.8-flash'"), file);
-    assert.ok(!read(file).includes("'gemini-2.5-flash'"), file);
+    assert.ok(read(file).includes("'gemini-2.5-flash'"), file);
   }
 });

@@ -25,21 +25,35 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
   const navigate = useNavigate();
   const access = useWalletAccess();
   const [offline, setOffline] = useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(false);
   const invalidate = useCallback(() => window.dispatchEvent(new Event('capitalflow:wallet-updated')), []);
   // Sincronização permanece automática; o status não ocupa espaço no cabeçalho.
   useWalletRealtime(access.status === 'active' ? access.userId : null, invalidate);
   const route = getWalletRoute(location.pathname);
   const go = useCallback((path: string) => navigate(`/carteira/${path}`), [navigate]);
+  const prefetchWallet = useCallback(async (force: boolean) => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    setSyncing(true);
+    setSyncError(false);
+    const complete = await walletRepository.prefetchFull({ force });
+    setSyncing(false);
+    setSyncError(!complete);
+  }, []);
 
   useEffect(() => {
-    const syncNetwork = () => setOffline(typeof navigator !== 'undefined' && navigator.onLine === false);
+    const syncNetwork = () => {
+      const nowOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      setOffline(nowOffline);
+      if (!nowOffline && access.status === 'active') void prefetchWallet(true);
+    };
     window.addEventListener('online', syncNetwork);
     window.addEventListener('offline', syncNetwork);
     return () => {
       window.removeEventListener('online', syncNetwork);
       window.removeEventListener('offline', syncNetwork);
     };
-  }, []);
+  }, [access.status, prefetchWallet]);
 
   useEffect(() => {
     if (access.status !== 'active') return;
@@ -50,9 +64,9 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
     void import('./pages/WalletIncomePage').catch(() => undefined);
     void import('./pages/WalletReportPage').catch(() => undefined);
     if (!offline) {
-      void walletRepository.prefetchFull();
+      void prefetchWallet(false);
     }
-  }, [access.status, offline]);
+  }, [access.status, offline, prefetchWallet]);
 
   if (access.status === 'loading') return <div aria-label="Carregando módulo Carteira" className="mx-auto mt-8 h-72 max-w-5xl animate-pulse rounded-3xl bg-slate-900"/>;
   if (access.status === 'inactive') return <StateCard kind="inactive" message="Ative a Carteira no seu plano para acessar contas, cartões, dívidas e cobranças PIX."/>;
@@ -96,6 +110,17 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
       <div role="status" className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-950/25 px-3.5 py-2.5 text-xs text-amber-200">
         <WifiOff size={15} className="shrink-0 text-amber-300" />
         <span>Modo offline — exibindo dados salvos neste aparelho (somente consulta).</span>
+      </div>
+    )}
+    {!offline && syncing && (
+      <div role="status" className="mb-3 rounded-xl border border-blue-500/30 bg-blue-950/25 px-3.5 py-2.5 text-xs text-blue-200">
+        Atualizando dados da Carteira para uso offline...
+      </div>
+    )}
+    {!offline && syncError && !syncing && (
+      <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-950/25 px-3.5 py-2.5 text-xs text-amber-200">
+        <span>Não foi possível atualizar a Carteira. Os dados salvos continuam disponíveis.</span>
+        <button type="button" className="shrink-0 font-semibold underline" onClick={() => void prefetchWallet(true)}>Tentar novamente</button>
       </div>
     )}
     <WalletRouteView route={route} activeUser={activeUser} onNavigate={go}/>

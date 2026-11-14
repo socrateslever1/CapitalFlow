@@ -374,8 +374,10 @@ export const useAppState = (activeProfileId: string | null, onProfileNotFound?: 
       if (navigator.onLine) void fetchFullData(activeProfileId);
     };
     window.addEventListener('online', refreshFromNetwork);
+    window.addEventListener('capitalflow:sync-requested', refreshFromNetwork);
     return () => {
       window.removeEventListener('online', refreshFromNetwork);
+      window.removeEventListener('capitalflow:sync-requested', refreshFromNetwork);
     };
   }, [activeProfileId, fetchFullData]);
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { businessDateInManaus } from "../_shared/businessDate.ts";
 
 function round(val: number) {
   return Math.round(val * 100) / 100;
@@ -109,6 +110,15 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const GLOBAL_MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN");
+    const MP_WEBHOOK_SECRET = Deno.env.get("MP_WEBHOOK_SECRET");
+
+    if (MP_WEBHOOK_SECRET) {
+      const tokenHeader = req.headers.get("x-webhook-secret") || "";
+      const sigHeader = req.headers.get("x-signature") || "";
+      if (tokenHeader !== MP_WEBHOOK_SECRET && !sigHeader) {
+        return json({ ok: false, error: "Unauthorized" }, 401);
+      }
+    }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return json({ ok: false, error: "Missing env vars" }, 500);
@@ -126,7 +136,7 @@ serve(async (req) => {
 
     const { data: charge } = await supabase
       .from("payment_charges")
-      .select("id, loan_id, installment_id")
+      .select("id, loan_id, installment_id, amount")
       .eq("provider_payment_id", String(paymentId))
       .maybeSingle();
 
@@ -233,12 +243,14 @@ serve(async (req) => {
     }
 
     const approvedAmount = Number(payment.transaction_amount || 0);
-    if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
+    const expectedChargeAmount = Number(charge?.amount || 0);
+    if (!Number.isFinite(approvedAmount) || approvedAmount <= 0 ||
+        (expectedChargeAmount > 0 && approvedAmount + 0.05 < expectedChargeAmount)) {
       await updateCharge({ status: "PENDING", paid_at: null });
-      return json({ ok: false, error: "Invalid approved amount" }, 400);
+      return json({ ok: false, error: "Invalid or underpaid approved amount" }, 400);
     }
 
-    const paymentDate = new Date().toISOString().split("T")[0];
+    const paymentDate = businessDateInManaus();
     const offerIsActive = String(installment.payment_offer_status || "").toUpperCase() === "ACTIVE"
       && String(installment.payment_offer_valid_until || "").slice(0, 10) >= paymentDate;
     const activeOffer = offerIsActive

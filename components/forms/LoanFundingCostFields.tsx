@@ -71,9 +71,9 @@ export const LoanFundingCostFields: React.FC<Props> = ({
   };
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <label className="block space-y-1 text-xs font-semibold text-slate-200">
-        Custo da operação (R$) · opcional
+    <div className="grid min-w-0 gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 13rem), 1fr))" }}>
+      <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold text-slate-200">
+        <span className="flex min-h-11 items-end leading-snug">Custo da operação (R$) · opcional</span>
         <FinancialCalculatorInput
           disabled={disabled} aria-label="Custo da operação em reais"
           value={editing === 'COST' ? costDraft : hasTotal ? cost.toFixed(2).replace('.', ',') : ''}
@@ -81,10 +81,10 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           onBlur={() => setEditing(null)}
           onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setCostDraft(event.target.value); changeCost(event.target.value); }}
           placeholder="Ex.: 9,98"
-          centsEntry className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
+          centsEntry className="min-h-12 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-base font-semibold tabular-nums text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
-      <label className="block space-y-1 text-xs font-semibold text-slate-200">
-        Taxa equivalente (%)
+      <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold text-slate-200">
+        <span className="flex min-h-11 items-end leading-snug">Taxa equivalente (%)</span>
         <FinancialCalculatorInput rate
           disabled={disabled} aria-label="Taxa da operação em porcentagem"
           value={editing === 'RATE' ? rateDraft : hasTotal ? (feePercent || String(Number((cost / Math.max(principal,1) * 100).toFixed(6)))).replace('.', ',') : ''}
@@ -92,10 +92,10 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           onBlur={() => setEditing(null)}
           onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setRateDraft(event.target.value); changePercent(event.target.value); }}
           placeholder="Ex.: 4,99"
-          centsEntry className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
+          centsEntry className="min-h-12 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-base font-semibold tabular-nums text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
-      <label className="block space-y-1 text-xs font-semibold text-slate-200">
-        Total cobrado no cartão (R$)
+      <label className="flex min-w-0 flex-col gap-2 text-xs font-semibold text-slate-200">
+        <span className="flex min-h-11 items-end leading-snug">Total cobrado no cartão (R$)</span>
         <FinancialCalculatorInput
           disabled={disabled} aria-label="Total cobrado no cartão em reais"
           value={editing === 'TOTAL' ? totalDraft : hasTotal ? (principal + cost).toFixed(2).replace('.', ',') : ''}
@@ -103,9 +103,9 @@ export const LoanFundingCostFields: React.FC<Props> = ({
           onBlur={() => setEditing(null)}
           onChange={event => { if (!/^[0-9.,]*$/.test(event.target.value)) return; setTotalDraft(event.target.value); changeTotal(event.target.value); }}
           placeholder={principal > 0 ? `Ex.: ${(principal * 1.05).toFixed(2).replace('.', ',')}` : 'Ex.: 209,98'}
-          centsEntry className="mt-1 min-h-12 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-blue-400 disabled:opacity-50" />
+          centsEntry className="min-h-12 w-full min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-base font-semibold tabular-nums text-white outline-none focus:border-blue-400 disabled:opacity-50" />
       </label>
-      <div className="sm:col-span-3 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-xs text-slate-300 space-y-2">
+      <div className="min-w-0 rounded-lg border border-slate-700/70 bg-slate-900/70 p-4 text-xs text-slate-300 space-y-2 col-span-full">
         <div className="flex justify-between gap-3"><span>Principal disponibilizado</span><strong className="text-white tabular-nums">{formatMoney(principal)}</strong></div>
         <div className="flex justify-between gap-3"><span>Total da compra no cartão</span><strong className="text-white tabular-nums">{formatMoney(principal + cost)}</strong></div>
         {!disabled && onAdjustCustomerRate && effectiveRate > 0 && (

@@ -1,7 +1,7 @@
 import type { Loan, Installment } from '../../../types';
 import { ZERO_BALANCE_THRESHOLD } from '../../../domain/finance/calculations';
 import { formatMoney } from '../../../utils/formatters';
-import type { FinancialOperationResult, FinancialPaymentMethod } from '../../../services/payments/paymentEngineV4';
+import type { FinancialOperationResult, FinancialPaymentMethod, FinancialOperationType } from '../../../services/payments/paymentEngineV4';
 import { resolveReceiptDecision } from '../../../services/payments/receiptDecision';
 
 export type PartialBalanceAction = 'KEEP_PENDING' | 'CAPITALIZE' | 'RENEW_KEEP_PENDING' | 'SETTLE' | 'PRINCIPAL_REDUCTION';
@@ -10,7 +10,7 @@ export type QuickPaymentOptions = {
     forgivenessMode?: 'NONE' | 'FINE_ONLY' | 'MORA_ONLY' | 'FINE_AND_MORA' | 'TOTAL_CHARGES' | 'CAPITAL_ONLY' | 'INTEREST_ONLY' | 'BOTH';
     lateFeeForgiven?: number;
     partialBalanceAction?: PartialBalanceAction;
-    operationType?: import('../../../services/payments/paymentEngineV4').FinancialOperationType;
+    operationType?: FinancialOperationType;
     paymentMethod?: FinancialPaymentMethod;
     paymentDate?: Date;
     manualDate?: Date | null;

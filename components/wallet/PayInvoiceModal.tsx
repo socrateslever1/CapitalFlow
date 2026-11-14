@@ -6,6 +6,7 @@ import { generateUUID } from '../../utils/generators';
 import { formatWalletMoneyInput, parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { resolveLiveBrazilianCentsChange } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 import { stepInvoiceMonth } from '../../features/wallet/utils/minhasFinancasWalletTools';
+import { businessMonthInManaus } from '../../utils/businessDate';
 
 export type InvoiceRemainderAction =
   | { mode: 'KEEP_IN_CURRENT' }
@@ -59,7 +60,7 @@ export const PayInvoiceModal: React.FC<PayInvoiceModalProps> = ({
 
   const remainderAmount = isValid ? Math.max(0, Math.round((remaining - amount) * 100) / 100) : 0;
   const isPartialPayment = isValid && remainderAmount > 0;
-  const activeMonth = dueMonth || `${new Date().toISOString().slice(0, 7)}-01`;
+  const activeMonth = dueMonth || `${businessMonthInManaus()}-01`;
   const nextCycle = useMemo(() => stepInvoiceMonth(activeMonth, 1), [activeMonth]);
 
   const parsedPlanCount = Math.min(24, Math.max(2, Math.trunc(Number(planInstallments) || 2)));

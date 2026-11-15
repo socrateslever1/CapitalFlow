@@ -3,12 +3,33 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { displayBrazilianCents, resolveBrazilianCentsEdit, resolveBrazilianCentsPaste } from '../../components/forms/BrazilianCentsInput';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 test('cada operando da conta recebe milhar e centavos, inclusive terceiro valor', () => {
-  assert.deepEqual(formatMoneyExpressionOperand('547,36+1199', 11), {value:'547,36+1.199,00', caret:12});
-  assert.deepEqual(formatMoneyExpressionOperand('547,36+1.199,00+2500', 20), {value:'547,36+1.199,00+2.500,00', caret:21});
-  assert.equal(parseWalletMoney('547,36+1.199,00+2.500,00'), 4246.36);
+  let value = '15,00+';
+  for (const [digit, expected] of [['1','15,00+0,01'],['0','15,00+0,10'],['1','15,00+1,01'],['5','15,00+10,15']] as const) {
+    const next = formatMoneyExpressionOperand(value + digit, value.length + 1);
+    assert.ok(next);
+    value = next.value;
+    assert.equal(value, expected);
+  }
+  assert.deepEqual(formatMoneyExpressionOperand(value + '+25', value.length + 3), { value: value + '+0,25', caret: value.length + 5 });
+  assert.equal(parseWalletMoney(value + '+0,25'), 25.4);
+  assert.deepEqual(backspaceMoneyExpressionOperand(value), {value:'15,00+1,01',caret:10});
+  assert.deepEqual(backspaceMoneyExpressionOperand('15,00+'), {value:'15,00',caret:5});
+});
+
+test('todos os operadores mantêm a digitação por centavos e o modo de reais permanece distinto', () => {
+  for (const operator of ['+', '-', '×', '÷', '*', '/']) {
+    const prefix = `15,00${operator}`;
+    const first = formatMoneyExpressionOperand(prefix + '1', prefix.length + 1);
+    assert.equal(first?.value, prefix + '0,01');
+    const second = formatMoneyExpressionOperand(first!.value + '0', first!.value.length + 1);
+    assert.equal(second?.value, prefix + '0,10');
+    assert.deepEqual(backspaceMoneyExpressionOperand(second!.value), { value: prefix + '0,01', caret: prefix.length + 4 });
+  }
+  assert.equal(formatMoneyExpressionOperand('15,00+(25', 9)?.value, '15,00+(0,25');
+  assert.equal(formatMoneyExpressionOperand('15,00+10', 8, false)?.value, '15,00+10,00');
 });
 
 test('colagem com R$ preserva expressão financeira sem aceitar texto arbitrário', () => {

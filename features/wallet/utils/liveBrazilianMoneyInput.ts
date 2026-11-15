@@ -60,7 +60,7 @@ export function formatPastedBrazilianMoney(raw: string, rate = false, signed = f
 }
 
 /** Formata o operando corrente de uma expressão, preservando os anteriores. */
-export function formatMoneyExpressionOperand(raw: string, caret: number): LiveBrazilianMoney | null {
+export function formatMoneyExpressionOperand(raw: string, caret: number, centsEntry = true): LiveBrazilianMoney | null {
   if (!/^[\d.,+\-×÷*/%()\s]*$/.test(raw)) return null;
   const before = raw.slice(0, caret);
   const start = Math.max(0, ...[...before.matchAll(/[+\-×÷*/%()]/g)].map(match => (match.index ?? 0) + 1));
@@ -68,9 +68,22 @@ export function formatMoneyExpressionOperand(raw: string, caret: number): LiveBr
   const stop = end < 0 ? raw.length : caret + end;
   const operand = raw.slice(start, stop);
   if (!operand || !/[\d]/.test(operand)) return { value: raw, caret };
-  const formatted = formatLiveBrazilianMoney(operand, caret - start);
+  const formatted = centsEntry ? formatLiveBrazilianCents(operand) : formatLiveBrazilianMoney(operand, caret - start);
   if (!formatted) return null;
   return { value: raw.slice(0, start) + formatted.value + raw.slice(stop), caret: start + formatted.caret };
+}
+
+/** Backspace atua apenas no último operando, sem consumir a expressão anterior. */
+export function backspaceMoneyExpressionOperand(raw: string): LiveBrazilianMoney {
+  if (/[+\-×÷*/%()]$/.test(raw)) {
+    const value = raw.slice(0, -1);
+    return { value, caret: value.length };
+  }
+  const match = raw.match(/^(.*[+\-×÷*/(])([\d.,]+)$/);
+  if (!match) return backspaceLiveBrazilianCents(raw);
+  const next = backspaceLiveBrazilianCents(match[2]);
+  const value = match[1] + next.value;
+  return { value, caret: value.length };
 }
 
 export function normalizePastedMoneyExpression(raw: string): string {

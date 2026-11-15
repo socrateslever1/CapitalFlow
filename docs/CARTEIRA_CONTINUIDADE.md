@@ -1082,3 +1082,9 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Incluída a categoria **Educação** no seletor de despesas rápidas. O campo opcional “Observações” passou a “Detalhe da despesa” com exemplo concreto; continua usando o campo `notes` existente, sem migração ou alteração financeira.
 - O input da calculadora agora formata cada operando da expressão em pt-BR, mantendo milhar e centavos no segundo, terceiro e demais valores. Colagem de `R$` funciona em quantia simples e expressão. O parser financeiro canônico permanece responsável pelo resultado e pelas rejeições de valores inválidos.
 - Testes direcionados: `tests/wallet/wallet-money-input.test.ts` (22/22), incluindo expressão com três valores e colagem de reais. `test:wallet-visual-next` (39/39). Quality completo executado no estado final. Sem validação visual em aparelho físico.
+
+## 15/11/2026 — Correção da digitação por centavos em expressões
+
+- Cada operando digitado no `FinancialCalculatorInput` com `centsEntry` agora desloca os algarismos da direita para a esquerda: `15,00 + 1 → 15,00 + 0,01`, `+10 → +0,10`, `+1015 → +10,15`. O mesmo vale para operadores seguintes e parênteses; a colagem de `R$` continua representando o valor declarado.
+- Backspace no final da expressão remove um algarismo do último operando, inclusive pelo teclado Android sem `keydown`. Campos configurados para digitação em reais preservam o modo anterior. O parser financeiro, saldos, faturas, RPCs e dados persistidos não foram alterados.
+- Testes: `npm run test:wallet-money-apk` (29/29), `npm run test:wallet-visual-next` (39/39) e `npm run test:quality` concluídos sem falhas. Commit: correção registrada neste commit da `main`. Não houve validação em celular físico nem build release do APK.

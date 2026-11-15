@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, backspaceMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -98,21 +98,23 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
           onChange={e => {
             const input = e.currentTarget;
             const raw = input.value;
+            // O Android dispara input sem keydown. Trate Backspace antes de
+            // distinguir número simples de expressão para preservar centavos.
+            const inputType = (e.nativeEvent as InputEvent).inputType;
+            if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
+              && input.selectionStart === raw.length && input.selectionEnd === raw.length) {
+              const next = raw === '' ? { value: '', caret: 0 } : signed ? backspaceLiveBrazilianSignedCents(draft)
+                : /[+\-×÷*/()%]/.test(draft) ? backspaceMoneyExpressionOperand(draft) : backspaceLiveBrazilianCents(draft);
+              setDraft(next.value);
+              setError('');
+              input.setCustomValidity('');
+              requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
+              return;
+            }
             if ((centsEntry || (!signed && !rate)) &&
                 (signed ? /^-?[\d.,]*$/.test(raw) : /^[\d.,]*$/.test(raw))) {
-              // Teclados Android podem apagar sem disparar keydown.
-              const inputType = (e.nativeEvent as InputEvent).inputType;
-              if (centsEntry && inputType === 'deleteContentBackward' && raw.length < draft.length
-                && input.selectionStart === raw.length) {
-                const next = raw === '' ? { value: '', caret: 0 } : signed ? backspaceLiveBrazilianSignedCents(draft) : backspaceLiveBrazilianCents(draft);
-                setDraft(next.value);
-                setError('');
-                input.setCustomValidity('');
-                requestAnimationFrame(() => {
-                  if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
-                });
-                return;
-              }
               const next = centsEntry
                 ? signed ? formatLiveBrazilianSignedCents(raw) : formatLiveBrazilianCents(raw)
                 : formatLiveBrazilianMoney(raw, input.selectionStart ?? raw.length);
@@ -122,7 +124,7 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
                 if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
               });
             } else {
-              const next = !signed && !rate ? formatMoneyExpressionOperand(raw, input.selectionStart ?? raw.length) : null;
+              const next = !signed && !rate ? formatMoneyExpressionOperand(raw, input.selectionStart ?? raw.length, centsEntry) : null;
               setDraft(next?.value ?? raw);
               if (next) requestAnimationFrame(() => {
                 if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
@@ -175,7 +177,8 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
               // limpa o campo para permitir um novo lançamento sem travar em ,00.
               if (start === end && end === input.value.length && input.value) {
                 e.preventDefault();
-                const next = signed ? backspaceLiveBrazilianSignedCents(input.value) : backspaceLiveBrazilianCents(input.value);
+                const next = signed ? backspaceLiveBrazilianSignedCents(input.value)
+                  : /[+\-×÷*/()%]/.test(input.value) ? backspaceMoneyExpressionOperand(input.value) : backspaceLiveBrazilianCents(input.value);
                 if (next) {
                   setDraft(next.value);
                   setError('');

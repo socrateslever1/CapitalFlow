@@ -3,7 +3,20 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { parseWalletMoney } from '../../features/wallet/utils/parseWalletMoney';
 import { displayBrazilianCents, resolveBrazilianCentsEdit, resolveBrazilianCentsPaste } from '../../components/forms/BrazilianCentsInput';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, resolveLiveBrazilianCentsChange, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+
+test('cada operando da conta recebe milhar e centavos, inclusive terceiro valor', () => {
+  assert.deepEqual(formatMoneyExpressionOperand('547,36+1199', 11), {value:'547,36+1.199,00', caret:12});
+  assert.deepEqual(formatMoneyExpressionOperand('547,36+1.199,00+2500', 20), {value:'547,36+1.199,00+2.500,00', caret:21});
+  assert.equal(parseWalletMoney('547,36+1.199,00+2.500,00'), 4246.36);
+});
+
+test('colagem com R$ preserva expressão financeira sem aceitar texto arbitrário', () => {
+  assert.equal(formatPastedBrazilianMoney('R$ 1.199,00'), '1.199,00');
+  assert.equal(normalizePastedMoneyExpression('R$ 547,36 + R$ 1.199,00'), '547,36 + 1.199,00');
+  assert.equal(parseWalletMoney(normalizePastedMoneyExpression('R$ 547,36 + R$ 1.199,00')), 1746.36);
+  assert.throws(() => normalizePastedMoneyExpression('R$ 10 cliente'));
+});
 
 test('wallet amounts accept Brazilian decimal comma, dot and grouped thousands', () => {
   assert.equal(parseWalletMoney('495,61'), 495.61);

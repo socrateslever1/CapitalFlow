@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { localDiagnostics } from '../../services/localDiagnostics';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Calendar, CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Landmark, Loader2, Receipt, Tag, X } from 'lucide-react';
 import {
@@ -52,6 +53,7 @@ const EXPENSE_CATEGORIES = [
   'Serviços',
   'Compras',
   'Saúde',
+  'Educação',
   'Lazer',
   'Outros',
 ] as const;
@@ -263,6 +265,7 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
         onClose();
       }
     } catch (cause) {
+      localDiagnostics.record('interface', cause);
       setError(cause instanceof Error ? cause.message : 'Não foi possível registrar a despesa.');
     } finally {
       setSaving(false);
@@ -753,13 +756,13 @@ export const QuickExpenseModal: React.FC<QuickExpenseModalProps> = ({
             )}
 
             <label className="sm:col-span-2">
-              <span className={labelClass}>Observações (opcional)</span>
+              <span className={labelClass}>Detalhe da despesa (opcional)</span>
               <input
                 type="text"
                 maxLength={240}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Detalhes adicionais do lançamento"
+                placeholder="Ex.: material escolar ou motivo da compra"
                 className={fieldClass}
               />
             </label>

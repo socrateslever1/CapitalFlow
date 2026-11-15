@@ -56,7 +56,7 @@ export const WalletOverviewSummary: React.FC<WalletOverviewSummaryProps> = ({
         )}
         <div className="mt-2">
           <AccountCardStack compact accounts={accounts.slice(0,4)}
-            onOpen={() => onNavigate('contas')}/>
+            onOpen={account => onNavigate(`contas?conta=${encodeURIComponent(account.id)}`)}/>
         </div>
         {accounts.length > 4 && (
           <button type="button" onClick={() => onNavigate('contas')}

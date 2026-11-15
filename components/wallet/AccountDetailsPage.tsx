@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeft, ArrowLeftRight, CheckCircle2, Copy, QrCode, ReceiptText, ImagePlus, Landmark, Link2, Pencil, Save, Trash2, X, MoreHorizontal } from 'lucide-react';
 import {
   PersonalWalletAccount,
   PersonalWalletExpense,
@@ -66,6 +66,7 @@ const labelClass = 'block space-y-1 text-xs font-semibold text-slate-300';
 
 export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, expenses, installments, invoicePayments, accountOperations, statementRows, recurringIncomes, recurringReceipts, recurringObligations, onBack, onSaved, ownerName, ownerCity, capitalSources }) => {
   const [editing, setEditing] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
   const [bankDetails,setBankDetails]=useState(()=>bankDetailsDraft(account.bank_details));
   const [pixChargeOpen, setPixChargeOpen] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
@@ -247,16 +248,25 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="space-y-2.5">
         <button type="button" onClick={onBack} disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
-          <ArrowLeft size={16} /> Voltar às contas
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:border sm:border-slate-700 sm:bg-slate-900 sm:px-3">
+          <ArrowLeft size={18} /> <span className="sm:hidden">Voltar</span><span className="hidden sm:inline">Voltar às contas</span>
         </button>
-        {!editing && <div className="flex max-w-full flex-wrap justify-end gap-2">
+        {!editing && <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button type="button" onClick={() => setExpenseOpen(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
             <ReceiptText size={16}/> Registrar despesa
           </button>
+          <button type="button" onClick={() => setMovementOpen(true)}
+            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500">
+            <ArrowLeftRight size={15}/> Movimentar
+          </button>
+          <button type="button" aria-expanded={showMoreActions} onClick={() => setShowMoreActions(value => !value)}
+            className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 sm:hidden">
+            <MoreHorizontal size={16}/> {showMoreActions ? 'Ocultar opções' : 'Mais opções'}
+          </button>
+          <div className={`${showMoreActions ? 'col-span-2 grid' : 'hidden'} grid-cols-2 gap-2 sm:flex sm:flex-wrap`}>
           <button type="button" onClick={() => {
             setRealBalanceInput(formatWalletMoneyInput(String(Number(account.balance || 0))));
             setAdjustDescription('Reajuste de saldo bancário');
@@ -264,10 +274,6 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
           }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35">
             Reajustar saldo
-          </button>
-          <button type="button" onClick={() => setMovementOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white hover:bg-emerald-500">
-            <ArrowLeftRight size={15}/> Movimentar
           </button>
           <button type="button" onClick={() => { setEditing(true); setError(''); setSuccess(''); }}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
@@ -281,6 +287,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
             <Trash2 size={15} /> Excluir conta
           </button>
+          </div>
         </div>}
       </div>
 

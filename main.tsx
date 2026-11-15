@@ -1,4 +1,5 @@
 import React from 'react';
+import { installDiagnosticCapture } from './services/localDiagnostics';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { BrowserRouter, useNavigate } from 'react-router-dom';
@@ -38,6 +39,9 @@ if (typeof document !== 'undefined' && Capacitor.isNativePlatform() && Capacitor
   document.body.dataset.capacitorAndroid = 'true';
 }
 
+installDiagnosticCapture();
+// Previous builds stored unrestricted error messages/stacks in this legacy key.
+try { localStorage.removeItem('cm_last_boot_error'); } catch { /* Storage may be disabled. */ }
 console.log('CapitalFlow: Booting main.tsx...');
 if (typeof window !== 'undefined') {
   (window as any).__BOOT_LOG = (msg: string) => console.log(`[BOOT_TRACE] ${msg}`);

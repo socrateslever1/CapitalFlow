@@ -1,7 +1,7 @@
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight, Plus, QrCode, ReceiptText } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
 import { AccountDetailsPage } from '../../../components/wallet/AccountDetailsPage';
@@ -19,8 +19,28 @@ import { getMovableCapitalTotal } from '../domain/capitalSourceTransfer';
 
 export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { data, loading, error, refresh } = useWalletSnapshot();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedId = searchParams.get('conta');
+  const openAccount = (id: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('conta', id);
+    setSearchParams(next);
+  };
+  const closeAccount = () => {
+    if (Number(window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else {
+      const next = new URLSearchParams(searchParams);
+      next.delete('conta');
+      setSearchParams(next, { replace: true });
+    }
+  };
+  useEffect(() => {
+    if (!selectedId) return;
+    const onBack = (event: Event) => { event.preventDefault(); closeAccount(); };
+    window.addEventListener('capitalflow:back', onBack);
+    return () => window.removeEventListener('capitalflow:back', onBack);
+  }, [selectedId, searchParams, setSearchParams, navigate]);
   const [createModalType, setCreateModalType] = useState<'CHECKING' | 'CASH' | null>(null);
   const [movementOpen, setMovementOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
@@ -77,7 +97,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
     {data && (selected ? <AccountDetailsPage account={selected} accounts={data.accounts} cards={data.cards} capitalSources={data.capitalSources}
       expenses={data.expenses} installments={data.installments} invoicePayments={data.invoicePayments} accountOperations={data.accountOperations}
       statementRows={data.statementRows} recurringIncomes={data.recurringIncomes} recurringReceipts={data.recurringReceipts}
-      recurringObligations={data.recurringObligations} onBack={() => setSelectedId(null)} onSaved={async () => { await refresh(); }}
+      recurringObligations={data.recurringObligations} onBack={closeAccount} onSaved={async () => { await refresh(); }}
       ownerName={activeUser?.fullName || activeUser?.name} ownerCity={activeUser?.city}/> : <>
       {/* Composição mobile-first (1: Resumo no topo, 2: Contas em lista, 3: Ações abaixo) e desktop 8/4 equilibrado */}
       <div className="grid min-w-0 items-start gap-4 lg:grid-cols-12">
@@ -132,7 +152,7 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
         <div className="order-2 min-w-0 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5 lg:order-1 lg:col-span-8 lg:row-span-2">
           <AccountCardStack
             accounts={data.accounts}
-            onOpen={account => setSelectedId(account.id)}
+            onOpen={account => openAccount(account.id)}
             headerActions={
               <>
                 <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}

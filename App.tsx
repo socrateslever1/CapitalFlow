@@ -31,6 +31,7 @@ import { filesService } from './services/files.service';
 import { contractsService } from './services/contracts.service';
 import { useWalletPreload } from './hooks/useWalletPreload';
 import { usePlatformAccess } from './hooks/usePlatformAccess';
+import { useMasterTools } from './hooks/useMasterTools';
 import { useNetworkSync } from './hooks/useNetworkSync';
 
 const DashboardContainer = lazy(() => import('./containers/DashboardContainer').then(({ DashboardContainer }) => ({ default: DashboardContainer })));
@@ -168,6 +169,8 @@ export const App: React.FC = () => {
   const isPublicView = hasPortalAccessParams || !!portalToken || !!legalSignToken || !!clientRegistrationToken;
 
   const { isPlatformSuperAdmin, isPlatformAccessChecked } = usePlatformAccess(activeUser);
+  useMasterTools(!isPublicView && isPlatformSuperAdmin ? activeUser?.id || null : null,
+    isPlatformAccessChecked && !isPublicView, activeTab);
 
   useEffect(() => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)

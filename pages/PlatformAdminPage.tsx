@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AdminDiagnostics } from '../components/system/AdminDiagnostics';
 import { ShieldCheck, Search, KeyRound, Ban, CheckCircle, Users, X, Lock } from 'lucide-react';
 import { platformAdminService, PlatformProfileSummary } from '../services/platformAdmin.service';
 
@@ -159,6 +160,7 @@ export const PlatformAdminPage: React.FC = () => {
         </div>
       </header>
 
+      <AdminDiagnostics />
       {/* Avisos */}
       {error && (
         <div className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-950/20 p-4 text-sm text-rose-200">

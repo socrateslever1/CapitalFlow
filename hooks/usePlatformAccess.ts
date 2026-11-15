@@ -3,11 +3,12 @@ import { platformAdminService } from '../services/platformAdmin.service';
 import type { UserProfile } from '../types';
 
 /**
- * Resolves real super-admin access from Supabase (with offline fallback).
+ * Resolves real super-admin access from Supabase. Never reuse another profile's result.
  */
 export function usePlatformAccess(activeUser: UserProfile | null) {
   const [isPlatformSuperAdmin, setIsPlatformSuperAdmin] = useState(false);
   const [isPlatformAccessChecked, setIsPlatformAccessChecked] = useState(false);
+  const [checkedProfile, setCheckedProfile] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -15,6 +16,7 @@ export function usePlatformAccess(activeUser: UserProfile | null) {
     if (!activeUser || activeUser.id === 'DEMO') {
       setIsPlatformSuperAdmin(false);
       setIsPlatformAccessChecked(true);
+      setCheckedProfile(activeUser?.id || null);
       return () => {
         active = false;
       };
@@ -26,12 +28,14 @@ export function usePlatformAccess(activeUser: UserProfile | null) {
         if (active) {
           setIsPlatformSuperAdmin(allowed);
           setIsPlatformAccessChecked(true);
+          setCheckedProfile(activeUser.id);
         }
       })
       .catch(() => {
         if (active) {
           setIsPlatformSuperAdmin(false);
           setIsPlatformAccessChecked(true);
+          setCheckedProfile(activeUser.id);
         }
       });
 
@@ -40,5 +44,7 @@ export function usePlatformAccess(activeUser: UserProfile | null) {
     };
   }, [activeUser]);
 
-  return { isPlatformSuperAdmin, isPlatformAccessChecked };
+  const currentProfileChecked = checkedProfile === (activeUser?.id || null);
+  return { isPlatformSuperAdmin: currentProfileChecked && isPlatformSuperAdmin,
+    isPlatformAccessChecked: currentProfileChecked && isPlatformAccessChecked };
 }

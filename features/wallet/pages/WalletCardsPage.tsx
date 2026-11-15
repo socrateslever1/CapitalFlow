@@ -1,7 +1,7 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../../contexts/FinancialPrivacyContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Camera, CreditCard } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, ArrowLeft, Camera, CreditCard } from 'lucide-react';
 import { useWalletOwnerDefaults } from '../hooks/useWalletOwnerDefaults';
 import { CardCameraScannerModal } from '../../../components/wallet/CardCameraScannerModal';
 import type { UserProfile } from '../../../types';
@@ -41,6 +41,7 @@ import { CardVaultModal } from '../../../components/wallet/CardVaultModal';
 import { WalletBankCombobox } from '../../../components/wallet/WalletBankCombobox';
 
 export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedCardId = searchParams.get('card');
   const requestedAction = searchParams.get('acao');
@@ -626,6 +627,17 @@ export const WalletCardsPage: React.FC<{ activeUser?: UserProfile | null; onNavi
 
   return <WalletPageFrame title="Cartões e faturas" description="Acompanhe o limite, confira cada ciclo e organize seus pagamentos."
     error={error} notice={notice} noticeTone={notice.includes('reconhecido com sucesso') ? 'info' : 'error'} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
+    {requestedCardId && <button type="button" onClick={() => {
+      if (Number(window.history.state?.idx ?? 0) > 0) navigate(-1);
+      else {
+        const next = new URLSearchParams(searchParams);
+        next.delete('card');
+        setSearchParams(next, { replace: true });
+      }
+    }}
+      className="mb-3 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+      <ArrowLeft size={18} className="mr-2"/> Voltar
+    </button>}
     {data && <>
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="min-w-0 self-start rounded-xl border border-slate-800 bg-slate-900 p-3 sm:p-4 lg:sticky lg:top-6 lg:col-span-5">

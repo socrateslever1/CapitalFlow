@@ -1,4 +1,5 @@
 import React, { ReactNode } from 'react';
+import { localDiagnostics } from '../../services/localDiagnostics';
 
 interface Props {
   children?: ReactNode;
@@ -25,25 +26,13 @@ export class AppErrorBoundary extends React.Component<Props, State> {
   }
 
   static getDerivedStateFromError(err: any): State {
+    localDiagnostics.record('react', err);
     console.error('AppErrorBoundary: Caught error', err);
     return {
       hasError: true,
       message: String(err?.message || err || 'Erro desconhecido'),
       stack: String(err?.stack || '')
     };
-  }
-
-  componentDidCatch(err: any) {
-    try {
-      localStorage.setItem(
-        'cm_last_boot_error',
-        JSON.stringify({
-          message: String(err?.message || err),
-          stack: String(err?.stack || ''),
-          timestamp: new Date().toISOString()
-        })
-      );
-    } catch {}
   }
 
   private async clearBrowserStateAndReload() {
@@ -173,9 +162,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
                 color: '#64748b',
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
               }}>
-                {this.state.message}
-                {"\n\n"}
-                {this.state.stack || ''}
+                {'Anote o horário da falha. O master pode consultar o diagnóstico local no Admin após reabrir o sistema.'}
               </pre>
             </div>
 

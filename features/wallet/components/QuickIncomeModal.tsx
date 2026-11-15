@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { localDiagnostics } from '../../../services/localDiagnostics';
 import { ArrowDownToLine, Building2, HandCoins, Landmark, ShieldCheck } from 'lucide-react';
 import { Modal, modalPrimaryActionClass } from '../../../components/ui/Modal';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
@@ -46,6 +47,7 @@ const OrdinaryReceipt: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       try { await refresh(); } catch { /* The operation already committed; avoid retrying it. */ }
       onClose();
     } catch (cause) {
+      localDiagnostics.record('interface', cause);
       setError(cause instanceof Error ? cause.message : 'Não foi possível registrar o recebimento.');
       // Preserve request ID on failure; retries must be idempotent.
     } finally { setSaving(false); }

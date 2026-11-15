@@ -33,6 +33,18 @@ export const WalletExpenseFab: React.FC = () => {
   const [incomeOpen, setIncomeOpen] = useState(false);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const action = searchParams.get('lancamento');
+    if (action !== 'expense' && action !== 'income') return;
+    setMenuOpen(false);
+    setExpenseOpen(action === 'expense');
+    setIncomeOpen(action === 'income');
+    searchParams.delete('lancamento');
+    const search = searchParams.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : '' }, { replace: true });
+  }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
     if (!menuOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMenuOpen(false);

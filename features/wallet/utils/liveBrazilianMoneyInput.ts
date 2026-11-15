@@ -59,6 +59,26 @@ export function formatPastedBrazilianMoney(raw: string, rate = false, signed = f
   return amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: rate ? 6 : 2 });
 }
 
+/** Formata o operando corrente de uma expressão, preservando os anteriores. */
+export function formatMoneyExpressionOperand(raw: string, caret: number): LiveBrazilianMoney | null {
+  if (!/^[\d.,+\-×÷*/%()\s]*$/.test(raw)) return null;
+  const before = raw.slice(0, caret);
+  const start = Math.max(0, ...[...before.matchAll(/[+\-×÷*/%()]/g)].map(match => (match.index ?? 0) + 1));
+  const end = raw.slice(caret).search(/[+\-×÷*/%()]/);
+  const stop = end < 0 ? raw.length : caret + end;
+  const operand = raw.slice(start, stop);
+  if (!operand || !/[\d]/.test(operand)) return { value: raw, caret };
+  const formatted = formatLiveBrazilianMoney(operand, caret - start);
+  if (!formatted) return null;
+  return { value: raw.slice(0, start) + formatted.value + raw.slice(stop), caret: start + formatted.caret };
+}
+
+export function normalizePastedMoneyExpression(raw: string): string {
+  const cleaned = raw.replace(/R\$\s*/gi, '').trim();
+  if (!cleaned || /[^\d.,+\-×÷*/%()\s]/.test(cleaned)) throw new Error('Valor colado inválido.');
+  return cleaned;
+}
+
 /**
  * Digitação monetária por centavos: cada algarismo desloca a vírgula.
  * Ex.: 8 -> 0,08; 88 -> 0,88; 880 -> 8,80.

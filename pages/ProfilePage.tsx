@@ -40,6 +40,7 @@ import { InfinitePayConfig } from '../features/profile/components/InfinitePayCon
 import { WhatsAppConfig } from '../features/profile/components/WhatsAppConfig';
 import { ProfileExportReports } from '../features/profile/components/ProfileExportReports';
 import { LanguageSelector } from '../components/settings/LanguageSelector';
+import { AndroidQuickAccessSettings } from '../components/settings/AndroidQuickAccessSettings';
 import { useI18n } from '../i18n/useI18n';
 
 interface ProfilePageProps {
@@ -184,6 +185,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         subtitle="Configurações da conta, financeiro, pagamentos e segurança"
       />
 
+      <AndroidQuickAccessSettings />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
       {/* SIDEBAR */}
       <div className="lg:col-span-3">

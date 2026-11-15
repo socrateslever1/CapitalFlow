@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { parseWalletMoney, parseWalletRate, parseWalletSignedMoney } from '../../features/wallet/utils/parseWalletMoney';
-import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents } from '../../features/wallet/utils/liveBrazilianMoneyInput';
+import { formatLiveBrazilianMoney, formatLiveBrazilianCents, backspaceLiveBrazilianCents, formatPastedBrazilianMoney, formatLiveBrazilianSignedCents, backspaceLiveBrazilianSignedCents, formatMoneyExpressionOperand, normalizePastedMoneyExpression } from '../../features/wallet/utils/liveBrazilianMoneyInput';
 
 type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur' | 'type'> & {
   value: string | number | null | undefined;
@@ -122,7 +122,11 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
                 if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
               });
             } else {
-              setDraft(raw);
+              const next = !signed && !rate ? formatMoneyExpressionOperand(raw, input.selectionStart ?? raw.length) : null;
+              setDraft(next?.value ?? raw);
+              if (next) requestAnimationFrame(() => {
+                if (document.activeElement === input) input.setSelectionRange(next.caret, next.caret);
+              });
             }
             setError('');
             input.setCustomValidity('');
@@ -132,7 +136,9 @@ export const FinancialCalculatorInput: React.FC<Props> = ({
             e.preventDefault();
             const pasted = e.clipboardData.getData('text');
             try {
-              const normalized = formatPastedBrazilianMoney(pasted, rate, signed);
+              const normalized = !rate && !signed && /[+×÷*/()%]/.test(pasted)
+                ? normalizePastedMoneyExpression(pasted)
+                : formatPastedBrazilianMoney(pasted, rate, signed);
               setDraft(normalized);
               setError('');
               e.currentTarget.setCustomValidity('');

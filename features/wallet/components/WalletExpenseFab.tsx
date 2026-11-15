@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowDownToLine, BellRing, ClipboardList, CreditCard, Landmark, Plus, ReceiptText, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import QuickExpenseModal from './QuickExpenseModal';
 
@@ -26,6 +26,8 @@ const ExpenseModalOnDemand: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
 export const WalletExpenseFab: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const onCards = location.pathname.startsWith('/carteira/cartoes');
   const [menuOpen, setMenuOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [incomeOpen, setIncomeOpen] = useState(false);
@@ -46,7 +48,7 @@ export const WalletExpenseFab: React.FC = () => {
 
   return <>
     {menuOpen && <button type="button" aria-label="Fechar ações rápidas" onClick={() => setMenuOpen(false)} className="fixed inset-0 z-30 cursor-default bg-slate-950/20 backdrop-blur-[1px]"/>}
-    <div className="fixed bottom-22 md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col-reverse items-end gap-2 mb-safe">
+    <div className={`fixed md:bottom-8 right-6 z-[var(--z-fab)] flex flex-col-reverse items-end gap-2 mb-safe ${onCards ? 'bottom-28' : 'bottom-20'}`}>
       <button
         type="button"
         aria-label={menuOpen ? 'Fechar ações rápidas' : 'Abrir ações rápidas'}

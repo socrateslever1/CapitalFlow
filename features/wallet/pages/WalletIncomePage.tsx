@@ -1,6 +1,6 @@
 import { PrivateMoney } from '../../../contexts/FinancialPrivacyContext';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownToLine, ArrowLeftRight, ReceiptText } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowDownToLine, ReceiptText } from 'lucide-react';
 import type { UserProfile } from '../../../types';
 import { RecurringIncomePanel } from '../../../components/wallet/RecurringIncomePanel';
 import { formatMoney } from '../../../utils/formatters';
@@ -8,30 +8,10 @@ import { useWalletSnapshot } from '../hooks/useWalletSnapshot';
 import { WalletPageFrame } from '../components/WalletPageFrame';
 import { isExternalIncome } from '../domain/walletIncomeHistory';
 import { businessDateInManaus } from '../../../utils/businessDate';
-import { platformAdminService } from '../../../services/platformAdmin.service';
-
-const HistoricalReceiptReconciliationPanel = React.lazy(() =>
-  import('../components/HistoricalReceiptReconciliationPanel')
-    .then(module => ({ default: module.HistoricalReceiptReconciliationPanel })),
-);
 
 export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNavigate: (path: string) => void }> = ({ activeUser }) => {
   const { data, loading, error, refresh } = useWalletSnapshot();
   const [showHistory, setShowHistory] = useState(true);
-  const [showReconciliation, setShowReconciliation] = useState(false);
-  const [canReconcile, setCanReconcile] = useState(false);
-  useEffect(() => {
-    let active = true;
-    setCanReconcile(false);
-    setShowReconciliation(false);
-    if (activeUser?.id) {
-      // Verificação de privilégio real do Supabase. accessLevel não é SUPER_ADMIN.
-      void platformAdminService.isSuperAdmin()
-        .then(allowed => { if (active) setCanReconcile(allowed); })
-        .catch(() => { if (active) setCanReconcile(false); });
-    }
-    return () => { active = false; };
-  }, [activeUser?.id]);
   const month = businessDateInManaus().slice(0, 7);
   const receivedIds = useMemo(() => new Set((data?.recurringReceipts || [])
     .filter(receipt => String(receipt.reference_month).slice(0, 7) === month)
@@ -49,19 +29,9 @@ export const WalletIncomePage: React.FC<{ activeUser?: UserProfile | null; onNav
   const accountNames = useMemo(() => new Map((data?.accounts || []).map(account => [account.id,account.nickname])),[data]);
 
   return <WalletPageFrame title="Receitas" description="Consulte entradas realizadas e organize recebimentos recorrentes."
-    actions={canReconcile ? <div className="flex flex-wrap items-center gap-2">
-      <button type="button" aria-expanded={showReconciliation}
-        onClick={() => setShowReconciliation(previous => !previous)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-blue-500/50 bg-blue-950/40 px-4 py-2.5 text-sm font-semibold text-blue-100 hover:bg-blue-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-        <ArrowLeftRight size={17}/> {showReconciliation ? 'Fechar conciliação' : 'Conciliar recebimentos de contratos'}
-      </button>
-    </div> : undefined}
+
     error={error} loading={loading} onRefresh={() => { void refresh().catch(() => {}); }}>
     {data && <div className="space-y-4">
-      {canReconcile && showReconciliation &&
-        <React.Suspense fallback={<p role="status" className="rounded-xl border border-slate-700 p-4 text-sm text-slate-300">Carregando conciliação de recebimentos...</p>}>
-          <HistoricalReceiptReconciliationPanel onSaved={async () => { await refresh(); }} />
-        </React.Suspense>}
       <div className="inline-flex w-full rounded-xl border border-slate-800 bg-slate-900/80 p-1 sm:w-auto" role="tablist" aria-label="Seções de receitas">
         <button
           type="button"

@@ -1034,3 +1034,15 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - A página separada `Receitas` deixou de aparecer na navegação; links antigos para `/carteira/receitas` são direcionados para `Contas`, sem apagar os serviços, registros ou histórico existentes.
 - O extrato, o FAB, os lançamentos avulsos e os fluxos de pagamentos de contratos permanecem inalterados. Nenhuma migration, RPC, ledger, pagamento, estorno ou RLS foi alterado.
 - Validação executada após a implementação: TypeScript, arquitetura da Carteira, visão geral, páginas, testes visuais da Carteira e recebimentos. Sem validação em aparelho físico.
+
+## 15/11/2026 — Foco da Carteira: linha de base atual e acompanhamento futuro
+
+- Prioridade de produto: acompanhar saldos existentes, gastos atuais e contratos ainda vigentes, registrando movimentos daqui em diante para medir sua evolução.
+- O fluxo de conciliação de recebimentos históricos foi retirado da interface da Carteira e do serviço frontend. Valores passados que não representam recursos disponíveis não serão reclassificados como saldo atual.
+- As migrations e tabelas históricas permanecem preservadas no banco/código para não apagar auditoria nem alterar dados existentes; nenhuma migração reversa ou operação remota foi executada.
+- Próximos passos recomendados: validar a linha de base atual de contas/fontes/cartões, despesas correntes e contratos ativos; melhorar estados vazios e relatórios futuros sobre essa base.
+- Correções de testes após a remoção do fluxo histórico:
+  - Restaurado UTF-8 e removido `useEffect` não utilizado em `features/wallet/pages/WalletIncomePage.tsx` (a quebra de encoding fazia `tests/wallet/wallet-quick-receipts.test.ts` falhar na verificação de `'Histórico de entradas avulsas'`).
+  - Atualizado `tests/architecture/historical-receipt-reconciliation.test.mjs` para garantir que `HistoricalReceiptReconciliationPanel.tsx`, os métodos de reconciliação histórica em `services/personalWallet.service.ts` e o gatilho na tela de Receitas permaneçam ausentes, preservando os fluxos de receitas atuais e recorrentes e mantendo intacto `tests/financial/historical-receipt-reconciliation.test.mjs` sobre a migration histórica preservada.
+  - Restaurada a codificação UTF-8 preservada de `docs/CARTEIRA_CONTINUIDADE.md` sem perder o histórico anterior.
+- Validação executada nesta etapa: `npm run lint` (passou), `npm run build` (passou), `npm run test:wallet-visual-next` (39/39), `npm run test:wallet-receipts` (21 + 5 + 5 = 31/31), `npm run test:wallet-pages` (9/9), `npm run test:i18n` (9/9) e `npm run test:quality` (exit code 0). Sem alteração em RPCs, migrations, ledger, regras de pagamento/estorno ou RLS. Sem validação em aparelho físico.

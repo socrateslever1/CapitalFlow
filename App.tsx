@@ -21,8 +21,6 @@ import { isAppleMobile } from './utils/appleMobile';
 import { Toaster } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
-import { notificationService } from './services/notification.service';
-import { pushSubscriptionService } from './services/pushSubscription.service';
 import { LoadingScreen } from './components/ui/LoadingScreen';
 import { isDev } from './utils/isDev';
 import { Agreement, AgreementInstallment, AppTab, LedgerEntry, Loan } from './types';
@@ -31,7 +29,9 @@ import { ModalProvider } from './contexts/ModalContext';
 import { ModalHost } from './components/modals/ModalHost';
 import { filesService } from './services/files.service';
 import { contractsService } from './services/contracts.service';
-import { platformAdminService } from './services/platformAdmin.service';
+import { useWalletPreload } from './hooks/useWalletPreload';
+import { usePlatformAccess } from './hooks/usePlatformAccess';
+import { useNetworkSync } from './hooks/useNetworkSync';
 
 const DashboardContainer = lazy(() => import('./containers/DashboardContainer').then(({ DashboardContainer }) => ({ default: DashboardContainer })));
 const ClientsContainer = lazy(() => import('./containers/ClientsContainer').then(({ ClientsContainer }) => ({ default: ClientsContainer })));
@@ -167,21 +167,7 @@ export const App: React.FC = () => {
   // ✅ view pública: portalToken OU rota pública de campanha OU assinatura pública
   const isPublicView = hasPortalAccessParams || !!portalToken || !!legalSignToken || !!clientRegistrationToken;
 
-  const [isPlatformSuperAdmin, setIsPlatformSuperAdmin] = useState(false);
-  const [isPlatformAccessChecked, setIsPlatformAccessChecked] = useState(false);
-  useEffect(() => {
-    let active = true;
-    setIsPlatformAccessChecked(false);
-    if (!activeUser || activeUser.id === 'DEMO') {
-      setIsPlatformSuperAdmin(false);
-      setIsPlatformAccessChecked(true);
-      return () => { active = false; };
-    }
-    platformAdminService.isSuperAdmin()
-      .then((allowed) => { if (active) { setIsPlatformSuperAdmin(allowed); setIsPlatformAccessChecked(true); } })
-      .catch(() => { if (active) { setIsPlatformSuperAdmin(false); setIsPlatformAccessChecked(true); } });
-    return () => { active = false; };
-  }, [activeUser]);
+  const { isPlatformSuperAdmin, isPlatformAccessChecked } = usePlatformAccess(activeUser);
 
   useEffect(() => {
     // Se o path já foi processado ou é o mesmo, ignora (evita loop ao fechar)
@@ -244,59 +230,23 @@ const { loanCtrl, clientCtrl, sourceCtrl, profileCtrl, paymentCtrl, fileCtrl, ai
   controllers;
 
 useEffect(() => {
-    if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
-      if (location.pathname === '/carteira' || location.pathname.startsWith('/carteira/')) {
-        routerNavigate('/', { replace: true });
-      }
-      handleSetActiveTab('DASHBOARD');
+  if (isPlatformAccessChecked && !isPlatformSuperAdmin && ['MY_WALLET', 'PLATFORM_ADMIN'].includes(activeTab)) {
+    if (location.pathname === '/carteira' || location.pathname.startsWith('/carteira/')) {
+      routerNavigate('/', { replace: true });
     }
-  }, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin, location.pathname, routerNavigate]);
+    handleSetActiveTab('DASHBOARD');
+  }
+}, [activeTab, handleSetActiveTab, isPlatformAccessChecked, isPlatformSuperAdmin, location.pathname, routerNavigate]);
 
 // O APK já contém todos os arquivos locais; preparar somente os módulos
 // necessários para a primeira abertura. Nenhum saldo, contrato, token ou
 // extrato é persistido nem pré-carregado pelo service worker.
-useEffect(() => {
-  if (!activeUser?.id || !isPlatformAccessChecked || !isPlatformSuperAdmin || isPublicView) return;
-  let cancelled = false;
-  let completed = false;
-  const preload = () => {
-    if (cancelled || completed || document.visibilityState !== 'visible') return;
-    completed = true;
-    void import('./features/wallet/WalletModule').catch(() => undefined);
-    void import('./features/wallet/pages/WalletOverviewPage').catch(() => undefined);
-    // Preload one user-scoped overview snapshot after the main dashboard
-    // becomes usable. The canonical repository keeps it in memory only
-    // (25-second TTL, invalidated on updates and realtime notifications).
-    void import('./features/wallet/services/walletRepository')
-      .then(async ({ walletRepository }) => {
-        void walletRepository.prefetchAccess().catch(() => undefined);
-        await walletRepository.loadOverview();
-        if (cancelled) return;
-        void import('./features/wallet/pages/WalletCardsPage').catch(() => undefined);
-        void import('./features/wallet/pages/WalletAccountsPage').catch(() => undefined);
-        void import('./features/wallet/pages/WalletPayablesPage').catch(() => undefined);
-        void import('./features/wallet/pages/WalletIncomePage').catch(() => undefined);
-        void import('./features/wallet/pages/WalletReportPage').catch(() => undefined);
-      })
-      .catch(() => {
-        completed = false;
-      });
-  };
-  const timer = window.setTimeout(preload, 2500);
-  const onVisibleOrOnline = () => {
-    if (!completed && document.visibilityState === 'visible') {
-      preload();
-    }
-  };
-  document.addEventListener('visibilitychange', onVisibleOrOnline);
-  window.addEventListener('online', onVisibleOrOnline);
-  return () => {
-    cancelled = true;
-    window.clearTimeout(timer);
-    document.removeEventListener('visibilitychange', onVisibleOrOnline);
-    window.removeEventListener('online', onVisibleOrOnline);
-  };
-}, [activeUser?.id, isPlatformAccessChecked, isPlatformSuperAdmin, isPublicView]);
+useWalletPreload({
+  userId: activeUser?.id,
+  accessChecked: isPlatformAccessChecked,
+  isPlatformSuperAdmin,
+  isPublicView,
+});
 
 const filterRestrictedTabs = useCallback(
   (tabs: AppTab[]) =>
@@ -385,36 +335,7 @@ useEffect(() => {
   }
 }, [location.pathname, activeTab, goBackPage]);
 
-useEffect(() => {
-  if (activeUser && !isPublicView) {
-    notificationService.requestPermission().then((granted) => {
-      if (granted) {
-        void pushSubscriptionService.register(activeUser.id);
-      }
-    });
-  }
-}, [activeUser, isPublicView]);
-
-// ✅ MONITOR DE CONEXÃO: Tenta processar fila de escrita quando a rede volta
-useEffect(() => {
-  const handleOnline = async () => {
-    console.log('[NETWORK] Conexão restabelecida. Processando fila de sincronização...');
-    try {
-      const { syncService } = await import('./services/sync.service');
-      // Refresh the authoritative snapshot immediately; pending writes are
-      // serialized and continue in the background without blocking reads.
-      window.dispatchEvent(new CustomEvent('capitalflow:sync-requested'));
-      void syncService.processQueue().catch((error) => {
-        console.error('[NETWORK] Falha ao processar fila em segundo plano:', error);
-      });
-    } catch (e) {
-      console.error('[NETWORK] Falha ao processar fila após volta da rede:', e);
-    }
-  };
-
-  window.addEventListener('online', handleOnline);
-  return () => window.removeEventListener('online', handleOnline);
-}, []);
+useNetworkSync(activeUser, isPublicView);
 
 const effectiveSelectedStaffId =
   activeUser && (activeUser.accessLevel === 'OPERATOR' || (activeUser as any).accessLevel === 2) ? activeUser.id : selectedStaffId;

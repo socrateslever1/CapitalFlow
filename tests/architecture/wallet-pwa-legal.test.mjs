@@ -57,17 +57,23 @@ test('PWA caches versioned wallet JS/CSS, not session or financial data', () => 
 
 test('only authorized master preloads wallet view code; no preloading private records', () => {
   const app=read('App.tsx');
-  assert.match(app, /!isPlatformSuperAdmin \|\| isPublicView/);
-  assert.match(app, /import\('\.\/features\/wallet\/WalletModule'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletOverviewPage'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/services\/walletRepository'\)/);
-  assert.match(app, /walletRepository\.loadOverview\(\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletCardsPage'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletAccountsPage'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletPayablesPage'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletIncomePage'\)/);
-  assert.match(app, /import\('\.\/features\/wallet\/pages\/WalletReportPage'\)/);
+  const preload=read('hooks/useWalletPreload.ts');
+  assert.match(app, /useWalletPreload\(\{/);
+  assert.match(app, /isPlatformSuperAdmin/);
+  assert.match(app, /isPublicView/);
   assert.doesNotMatch(app, /localStorage\.setItem.*wallet|indexedDB\.open.*wallet/);
+
+  assert.match(preload, /!isPlatformSuperAdmin \|\| isPublicView/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/WalletModule'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletOverviewPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/services\/walletRepository'\)/);
+  assert.match(preload, /walletRepository\.loadOverview\(\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletCardsPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletAccountsPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletPayablesPage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletIncomePage'\)/);
+  assert.match(preload, /import\('\.\.\/features\/wallet\/pages\/WalletReportPage'\)/);
+  assert.doesNotMatch(preload, /localStorage\.setItem.*wallet|indexedDB\.open.*wallet/);
 
   const platformAdmin = read('services/platformAdmin.service.ts');
   assert.match(platformAdmin, /isNetworkFailure/);

@@ -19,7 +19,7 @@ test('wallet header does not expose realtime banner but retains live invalidatio
 });
 
 test('internal navigation remains functional and visually restrained for four sections', () => {
-  assert(moduleSource.includes('grid-cols-6'));
+  assert(moduleSource.includes('grid-cols-4'));
   assert(moduleSource.includes("WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas')"));
   assert(moduleSource.includes('aria-current={active'));
   assert(moduleSource.includes('onClick={() => go(item.key)}'));

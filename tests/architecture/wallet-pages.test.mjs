@@ -69,7 +69,7 @@ test('card clipboard copies each field separately without exposing a synthetic f
 
 test('wallet mobile navigation renders four tabs and compact balance without horizontal scrolling', () => {
  const module=read('features/wallet/WalletModule.tsx');
- assert.match(module,/grid-cols-6/);
+ assert.match(module,/grid-cols-4/);
  assert.match(module,/<WalletBalanceDock \/>/);
  assert.match(module,/sm:hidden/);
  assert.doesNotMatch(module,/overflow-x-auto/);

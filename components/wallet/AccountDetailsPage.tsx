@@ -248,40 +248,40 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
 
   return (
     <section className="mx-auto max-w-4xl space-y-4 pb-32 sm:pb-16 animate-in fade-in">
-      <div className="space-y-2.5">
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button type="button" onClick={() => setExpenseOpen(true)}
-            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
-            <ReceiptText size={16}/> Registrar despesa
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300">
+            <ReceiptText size={14}/> Registrar despesa
           </button>
           <button type="button" onClick={() => setMovementOpen(true)}
-            className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500">
-            <ArrowLeftRight size={15}/> Movimentar
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-500">
+            <ArrowLeftRight size={14}/> Movimentar
           </button>
           <button type="button" aria-expanded={showMoreActions} onClick={() => setShowMoreActions(value => !value)}
-            className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 sm:hidden">
-            <MoreHorizontal size={16}/> {showMoreActions ? 'Ocultar opções' : 'Mais opções'}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 sm:hidden">
+            <MoreHorizontal size={14}/> {showMoreActions ? 'Ocultar' : 'Mais opções'}
           </button>
-          <div className={`${showMoreActions ? 'col-span-2 grid' : 'hidden'} grid-cols-2 gap-2 sm:flex sm:flex-wrap`}>
+          <div className={`${showMoreActions ? 'flex w-full flex-wrap' : 'hidden'} gap-1.5 sm:flex sm:w-auto sm:flex-wrap`}>
           <button type="button" onClick={() => {
             setRealBalanceInput(formatWalletMoneyInput(String(Number(account.balance || 0))));
             setAdjustDescription('Reajuste de saldo bancário');
             setAdjustBalanceOpen(true);
           }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35">
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-2.5 py-1.5 text-xs font-bold text-cyan-200 hover:bg-cyan-900/35">
             Reajustar saldo
           </button>
           <button type="button" onClick={() => { setEditing(true); setError(''); setSuccess(''); }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
-            <Pencil size={15} /> Editar conta
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800">
+            <Pencil size={14} /> Editar conta
           </button>
           <button type="button" onClick={() => { setArchiveConfirm(true); setDeleteConfirm(false); setError(''); }}
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2.5 text-xs font-bold text-amber-200 hover:bg-amber-900/30">
-            <Archive size={15} /> Arquivar conta
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-900/30">
+            <Archive size={14} /> Arquivar conta
           </button>
           <button type="button" onClick={() => { setDeleteConfirm(true); setArchiveConfirm(false); setError(''); }}
-            className="inline-flex items-center gap-2 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
-            <Trash2 size={15} /> Excluir conta
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 px-2.5 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-900/30">
+            <Trash2 size={14} /> Excluir conta
           </button>
           </div>
         </div>
@@ -295,7 +295,7 @@ export const AccountDetailsPage: React.FC<Props> = ({ account, accounts, cards, 
             <h1 className="truncate text-lg font-bold text-white">{account.nickname}</h1>
             <p className="truncate text-xs text-slate-400">{account.bank_name || (account.account_type === 'CASH' ? 'Dinheiro em espécie' : 'Banco não informado')} · {typeLabels[account.account_type] || account.account_type}</p>
           </div>
-          <div className="text-right">
+          <div className="shrink-0 text-right">
             <p className="text-[10px] uppercase tracking-wide text-slate-400">Saldo</p>
             <p className="whitespace-nowrap text-lg font-extrabold tabular-nums text-emerald-400"><PrivateMoney value={formatMoney(Number(account.balance))} /></p>
           </div>

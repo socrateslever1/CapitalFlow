@@ -1,5 +1,5 @@
 import { PrivateMoney, useFinancialPrivacy } from '../../contexts/FinancialPrivacyContext';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowUpRight, Wallet } from 'lucide-react';
 import type { PersonalWalletAccount } from '../../services/personalWallet.service';
 import { formatMoney } from '../../utils/formatters';
@@ -17,19 +17,27 @@ type Props = {
 /** Uma superfície consistente por instituição, sem simular cartões de crédito. */
 export const AccountCardStack: React.FC<Props> = ({ accounts, onOpen, compact = false, showTotal = true, headerActions }) => {
   const privacyHidden = useFinancialPrivacy();
+  const [showHint, setShowHint] = useState(false);
   const total = useMemo(() => accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0), [accounts]);
 
   return (
     <section aria-label="Contas e saldos" className="space-y-4">
-      {!compact && <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+      {!compact && <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h2 className="text-base sm:text-lg font-bold text-white">Suas contas</h2>
+            <button
+              type="button"
+              aria-expanded={showHint}
+              onClick={() => setShowHint(current => !current)}
+              className="text-left text-base sm:text-lg font-bold text-white transition-colors hover:text-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
+            >
+              Suas contas
+            </button>
             <span className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-xs font-medium text-slate-300">
               {privacyHidden ? '••••' : `${accounts.length} ${accounts.length === 1 ? 'conta' : 'contas'}`}
             </span>
           </div>
-          <p className="mt-1 text-xs sm:text-sm text-slate-300">Toque em uma conta para consultar o extrato, movimentar ou editar.</p>
+          {showHint && <p className="mt-1 text-xs sm:text-sm text-slate-300">Toque em uma conta para consultar o extrato, movimentar ou editar.</p>}
         </div>
         {headerActions && <div className="flex flex-wrap items-center gap-2">{headerActions}</div>}
       </header>}

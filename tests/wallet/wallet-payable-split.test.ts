@@ -20,12 +20,13 @@ test('pagamento dividido preserva conta, cartão e juros como fatos separados', 
   assert.match(panel, /splitSources.length<4/);
 });
 
-test('saldo rápido acompanha todas as rotas da Carteira', () => {
+test('saldo rápido acompanha todas as rotas da Carteira abaixo da navegação', () => {
   const module = readFileSync('features/wallet/WalletModule.tsx', 'utf8');
   const dock = readFileSync('features/wallet/components/WalletBalanceDock.tsx', 'utf8');
   assert.match(module, /<WalletBalanceDock \/>/);
   assert.match(dock, /Saldo em contas/);
   assert.match(dock, /Cartões disponíveis/);
-  assert.match(module, /<WalletBalanceDock \/>[\s\S]*<\/nav>/);
-  assert.match(dock, /col-span-2/);
+  assert.match(module, /<\/nav>\s*<WalletBalanceDock \/>/);
+  assert.doesNotMatch(module, /grid-cols-6/);
+  assert.doesNotMatch(dock, /col-span-2/);
 });

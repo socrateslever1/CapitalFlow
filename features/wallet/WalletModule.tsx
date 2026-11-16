@@ -80,7 +80,7 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
         subtitle="Contas, cartões e compromissos"/>
     </div>
     <nav aria-label="Navegação da Carteira"
-      className={`mb-2 grid w-full min-w-0 ${route === 'visao-geral' ? 'grid-cols-4' : 'grid-cols-6'} items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5`}>
+      className="mb-2 grid w-full min-w-0 grid-cols-4 items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/70 p-1 sm:flex sm:flex-wrap sm:gap-1.5">
       {WALLET_ROUTES.filter(item => item.key !== 'cobranca' && item.key !== 'receitas').map(item => {
         const Icon = navigationIcons[item.key];
         const active = route === item.key;
@@ -104,8 +104,8 @@ const WalletModule: React.FC<{ activeUser?: UserProfile | null }> = ({ activeUse
           </button>
         );
       })}
-      <WalletBalanceDock />
     </nav>
+    <WalletBalanceDock />
     {offline && (
       <div role="status" className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-950/25 px-3.5 py-2.5 text-xs text-amber-200">
         <WifiOff size={15} className="shrink-0 text-amber-300" />

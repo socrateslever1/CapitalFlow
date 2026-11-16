@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Plus, QrCode, ReceiptText, RefreshCw } from 'lucide-react';
+import { ArrowLeftRight, Plus, QrCode, ReceiptText } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { UserProfile } from '../../../types';
 import { AccountCardStack } from '../../../components/wallet/AccountCardStack';
@@ -86,41 +86,33 @@ export const WalletAccountsPage: React.FC<{ activeUser?: UserProfile | null; onN
             accounts={data.accounts}
             showTotal={false}
             onOpen={account => openAccount(account.id)}
-            headerActions={
-              <>
-                <button type="button" aria-label="Atualizar contas" onClick={() => { void refresh().catch(() => {}); }}
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                  <RefreshCw size={16}/>
-                </button>
-                <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
-                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
-                  <ReceiptText size={16}/> Registrar despesa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => startCreate('CHECKING')}
-                  className="inline-flex min-h-9 max-w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                >
-                  <Plus size={16} />
-                  <span>Nova conta</span>
-                </button>
-              </>
-            }
           />
         </div>
 
         <div className="min-w-0">
           <div className="grid gap-2.5 rounded-xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            <button type="button" onClick={() => setExpenseOpen(true)} disabled={!data.accounts.length}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
+              <ReceiptText size={17}/> Registrar despesa
+            </button>
+            <button
+              type="button"
+              onClick={() => startCreate('CHECKING')}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-2.5 text-sm font-semibold text-blue-100 transition-colors hover:bg-blue-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            >
+              <Plus size={17} />
+              <span>Nova conta</span>
+            </button>
             <button type="button" onClick={() => setMovementOpen(true)} disabled={!data.accounts.length}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <ArrowLeftRight size={18}/> Transferir / Movimentar
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <ArrowLeftRight size={17}/> Transferir / Movimentar
             </button>
             {canTransferCapital && <button type="button" onClick={() => setCapitalTransferOpen(true)} disabled={capitalMovable <= 0}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-3 text-sm font-semibold text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
-              <ArrowLeftRight size={18}/> Transferir do Capital
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-2.5 text-sm font-semibold text-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              <ArrowLeftRight size={17}/> Transferir do Capital
             </button>}
             <button type="button" onClick={() => setChargeOpen(true)} disabled={!hasPixAccount}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-40">
               <QrCode size={17} className="text-blue-300"/> Gerar cobrança PIX
             </button>
           </div>

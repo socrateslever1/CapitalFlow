@@ -85,12 +85,12 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
   return <section aria-label="Carteira de cartões" className="w-full min-w-0">
     <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-sm font-semibold text-white sm:text-base">Cartões de crédito</h2>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         {onImportStatement && <button onClick={onImportStatement} type="button" disabled={!selected}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
-          <FileUp size={15}/> Importar fatura
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 disabled:opacity-40">
+          <FileUp size={14}/> Importar fatura
         </button>}
-        {onCreateCard && <button onClick={onCreateCard} type="button" className="min-h-10 rounded-lg border border-blue-500/50 px-3 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-950/30">+ Cartão</button>}
+        {onCreateCard && <button onClick={onCreateCard} type="button" className="min-h-9 rounded-lg border border-blue-500/50 px-2.5 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-950/30">+ Cartão</button>}
       </div>
     </header>
     {!selected ? <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-400">Nenhum cartão cadastrado.</div> : <>
@@ -100,7 +100,7 @@ export const BankStack: React.FC<Props> = ({ accounts, cards, onCard, onEditCard
           <div className="relative w-full" style={{ paddingTop: rear.length * 14 }}>
             {rear.map((card, rearIndex) => {
               const cardIdentity = identity(card);
-              return <button type="button" key={card.id} onClick={() => setSelectedId(card.id)} aria-label={`Selecionar ${card.nickname}`} className="absolute inset-x-0 top-0 mx-auto h-14 rounded-t-2xl border border-white/20 shadow-xl transition-all duration-300 ease-out" style={{ zIndex: rearIndex + 1, width: `${92 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 14}px)`, background: cardIdentity.accent }}><span className="absolute left-3 top-1.5 text-[10px] font-bold text-white">{card.nickname}</span></button>;
+              return <button type="button" key={card.id} onClick={() => setSelectedId(card.id)} aria-label={`Selecionar ${card.nickname}`} className="absolute inset-x-0 top-0 mx-auto h-14 rounded-t-2xl border border-white/20 shadow-xl transition-all duration-300 ease-out" style={{ zIndex: rearIndex + 1, width: `${92 + rearIndex * 3}%`, transform: `translateY(${rearIndex * 14}px)`, background: cardIdentity.accent }} />;
             })}
             <div
               className="relative z-30 aspect-[1.586/1] w-full touch-pan-y select-none transition-transform duration-200 motion-reduce:transition-none"

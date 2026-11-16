@@ -36,7 +36,7 @@ test('Detalhe da conta usa janelas suspensas para Editar, Arquivar, Excluir e Re
   assert.match(detailsSource, /<Modal[\s\S]*variant="wallet"[\s\S]*title=\{`Arquivar \$\{account\.nickname\}\?`\}/);
   assert.match(detailsSource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Excluir esta conta\?"/);
   assert.match(detailsSource, /<Modal[\s\S]*variant="wallet"[\s\S]*title="Editar dados da conta"/);
-  assert.match(detailsSource, /Voltar/);
+  assert.match(detailsSource, /onBack/);
   assert.match(detailsSource, /Copiar PIX/);
   assert.match(detailsSource, /Gerar cobrança/);
 });

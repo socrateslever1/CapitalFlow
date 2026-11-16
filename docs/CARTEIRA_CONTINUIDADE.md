@@ -1117,3 +1117,12 @@ O ícone do olho já acionava o `FinancialPrivacyProvider`, mas os elementos aba
 - Em Cartões, removidos o título “Cartões e faturas” e a descrição introdutória. O botão Atualizar permanece disponível.
 - Escopo restrito à apresentação: sem alteração de RPCs, migrations, ledger, regras de fatura, pagamento, estorno ou RLS. Base local: `8e219a9`; mudanças ainda sem commit ou merge. Sem validação em aparelho físico ou publicação de APK nesta etapa.
 - Validação: TypeScript, `test:wallet-pages` (9/9), `test:wallet-visual-next` (39/39), `test:architecture`, `test:quality` completo e detector de layout Impeccable sem achados. As duas primeiras tentativas do quality apontaram contratos de teste que ainda exigiam o painel removido; as verificações foram atualizadas e a execução final terminou sem falhas.
+
+## 16/11/2026 — Correção de corte horizontal, barra de saldo abaixo da navegação e compactação de ações
+
+- Corrigido o estouro horizontal na barra da Carteira: `WalletModule.tsx` voltou a usar `grid-cols-4` exclusivamente para as 4 abas e moveu `<WalletBalanceDock />` para logo abaixo do `<nav>` (fora da Visão geral), evitando o corte do valor e dos botões à direita no celular.
+- Removido o botão de atualizar (`RefreshCw`) do cabeçalho das páginas em `WalletPageFrame.tsx` e do cabeçalho da lista em `WalletAccountsPage.tsx`, eliminando a faixa vazia acima dos cartões e contas.
+- Em `AccountCardStack.tsx` ("Suas contas"): o subtítulo agora inicia recolhido e abre/fecha ao tocar no título `Suas contas`. Os botões **Registrar despesa** e **Nova conta** saíram do cabeçalho de `Suas contas` e foram para o painel de ações abaixo da lista em `WalletAccountsPage.tsx`.
+- Em `AccountDetailsPage.tsx`: compactados os botões superiores (**Registrar despesa**, **Movimentar**, **Mais opções** e ações secundárias) e protegido o bloco **SALDO** contra corte horizontal (`shrink-0`).
+- Em `BankStack.tsx`: compactados os botões **Importar fatura** e **+ Cartão** para não estourarem no celular e removido o rótulo recortado do cartão de trás na pilha.
+- Testes executados: `npm run test:wallet-pages` (9/9), `npm run test:wallet-visual-simplification` (11/11), `tests/wallet/wallet-floating-dialogs.test.ts` + `tests/wallet/wallet-payable-split.test.ts` (6/6) e `npm run test:quality` completo (`exit code 0`). Sem alteração de RPCs, migrations, ledger ou RLS. Sem validação em aparelho físico ou publicação de APK nesta etapa.
